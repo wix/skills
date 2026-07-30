@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  GATE_COMMENT_MARKER, RE_EVAL_COMMENT_MARKER, formatYamlErrors, formatNoGatedChanges,
-  formatGuardFailure, formatForeignDraftConflicts, formatGateResult, formatGatePollFailure,
-  formatGateTimeout, formatGateServiceError, formatGateSkipped, formatReEvalRefusal,
+  GATE_COMMENT_MARKER, formatYamlErrors, formatNoGatedChanges, formatGuardFailure,
+  formatForeignDraftConflicts, formatGateResult, formatGatePollFailure, formatGateTimeout,
+  formatGateServiceError, formatGateSkipped,
 } from '../src/format-gate-comment';
 import type { EvalRunStatus } from '../src/evalforge';
 
@@ -410,27 +410,6 @@ describe('retry guidance', () => {
   });
 });
 
-describe('formatReEvalRefusal', () => {
-  const REASON = 'this PR is a draft — mark it ready for review and the gate runs automatically';
-
-  it('renders under its own marker, never the gate marker', () => {
-    const body = formatReEvalRefusal(REASON);
-
-    expect(body).toContain(RE_EVAL_COMMENT_MARKER);
-    // The gate commenter upserts on GATE_COMMENT_MARKER. Refusing through it would overwrite the
-    // last real verdict, so a stranger's rejected comment would destroy the evidence of the run
-    // that mattered.
-    expect(body).not.toContain(GATE_COMMENT_MARKER);
-  });
-
-  it('names the reason it declined', () => {
-    expect(formatReEvalRefusal(REASON)).toContain(REASON);
-  });
-
-  it('reads as one sentence, whatever the reason', () => {
-    expect(formatReEvalRefusal('this PR is closed')).toContain('Cannot re-run the gate: this PR is closed.');
-  });
-});
 
 describe('the retry note', () => {
   it('offers /re-eval in every outcome where nothing was verified', () => {

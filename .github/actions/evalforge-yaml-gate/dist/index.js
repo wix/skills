@@ -34060,13 +34060,13 @@ function safeGetSecret(io, name) {
     return value;
 }
 function getPrNumber(payload) {
-    const number = payload.pull_request?.number
-        ?? (payload.issue?.pull_request ? payload.issue.number : undefined);
-    if (!number) {
-        throw new Error('No pull request in the event payload — this action must be triggered by a pull_request '
-            + 'event, or by an issue_comment on a pull request');
-    }
-    return number;
+    const pr = payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const n = pr.number;
+    if (!n)
+        throw new Error('PR payload missing number');
+    return n;
 }
 
 
@@ -34228,49 +34228,6 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
             `is not a @wix.com address. This gate is restricted to Wix authors.`);
     }
     log?.(`Author gate passed — first-commit author email: ${email}`);
-}
-
-
-/***/ }),
-
-/***/ 6151:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.checkReEvalRequester = checkReEvalRequester;
-/**
- * Allow-list rather than a deny-list: `triage` and anything GitHub adds later must not be read as
- * approval just because it is not `read`.
- */
-const ALLOWED_PERMISSIONS = ['admin', 'write'];
-async function checkReEvalRequester(octokit, target) {
-    // First, so the common case — "my run flaked, run it again" — costs no API call and cannot be
-    // denied by a permissions problem on an endpoint that itself wants push access.
-    if (target.requester === target.prAuthor)
-        return { allowed: true, via: 'author' };
-    try {
-        const { data } = await octokit.rest.repos.getCollaboratorPermissionLevel({
-            owner: target.owner,
-            repo: target.repo,
-            username: target.requester,
-        });
-        if (data.permission && ALLOWED_PERMISSIONS.includes(data.permission)) {
-            return { allowed: true, via: 'collaborator' };
-        }
-        return {
-            allowed: false,
-            reason: 'only the PR author or a collaborator with write access can trigger `/re-eval`',
-        };
-    }
-    catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        return {
-            allowed: false,
-            reason: `the collaborator permission lookup failed (${detail}), so the request could not be authorised`,
-        };
-    }
 }
 
 
@@ -34936,67 +34893,13 @@ function evaluateRunResult(status) {
 
 /***/ }),
 
-/***/ 202:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RERUN_WINDOW_DAYS = exports.GateRunLookup = void 0;
-exports.findGateRun = findGateRun;
-/**
- * Locates the gate workflow run that `/re-eval` should re-run.
- *
- * `/re-eval` re-runs the PR's own `pull_request` run rather than evaluating in a second workflow,
- * because an `issue_comment` run is associated with the default branch's commit while required
- * checks are evaluated on the PR head. A second workflow would therefore pass somewhere the PR
- * cannot see, leaving the original failed check in place and the PR unmergeable.
- */
-exports.GateRunLookup = {
-    FOUND: 'FOUND',
-    NONE: 'NONE',
-    ACTIVE: 'ACTIVE',
-    TOO_OLD: 'TOO_OLD',
-};
-/** GitHub allows re-running a workflow run for 30 days after it completes. */
-exports.RERUN_WINDOW_DAYS = 30;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-async function findGateRun(octokit, target) {
-    const { data } = await octokit.rest.actions.listWorkflowRuns({
-        owner: target.owner,
-        repo: target.repo,
-        workflow_id: target.workflowFile,
-        // The gate's own trigger, so a differently-triggered run of the same file cannot be picked up.
-        // The API returns newest first, so a single item is the latest attempt.
-        event: 'pull_request',
-        head_sha: target.headSha,
-        per_page: 1,
-    });
-    const [latest] = data.workflow_runs;
-    if (!latest)
-        return { kind: exports.GateRunLookup.NONE };
-    // Anything other than `completed` — queued, in_progress, waiting, pending, requested — is a run
-    // we must not race. Tested against the whole set rather than the two obvious values.
-    if (latest.status !== 'completed') {
-        return { kind: exports.GateRunLookup.ACTIVE, runUrl: latest.html_url };
-    }
-    const ageDays = (target.now.getTime() - new Date(latest.updated_at).getTime()) / MS_PER_DAY;
-    if (ageDays > exports.RERUN_WINDOW_DAYS) {
-        return { kind: exports.GateRunLookup.TOO_OLD, completedAt: latest.updated_at };
-    }
-    return { kind: exports.GateRunLookup.FOUND, runId: latest.id, runUrl: latest.html_url };
-}
-
-
-/***/ }),
-
 /***/ 5970:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RE_EVAL_COMMENT_MARKER = exports.GATE_COMMENT_MARKER = void 0;
+exports.GATE_COMMENT_MARKER = void 0;
 exports.formatYamlErrors = formatYamlErrors;
 exports.formatGateSkipped = formatGateSkipped;
 exports.formatNoGatedChanges = formatNoGatedChanges;
@@ -35006,18 +34909,8 @@ exports.formatGateResult = formatGateResult;
 exports.formatGateTimeout = formatGateTimeout;
 exports.formatGatePollFailure = formatGatePollFailure;
 exports.formatGateServiceError = formatGateServiceError;
-exports.formatReEvalRefusal = formatReEvalRefusal;
 const evalforge_1 = __nccwpck_require__(7230);
 exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
-/**
- * A second marker, so a `/re-eval` refusal cannot clobber a verdict.
- *
- * The gate commenter upserts on `GATE_COMMENT_MARKER`. Since anyone who can comment on a public
- * repo can trigger a refusal, sharing the marker would let a stranger's rejected request overwrite
- * the evidence of the run that mattered. Refusals also upsert over each other, so ten attempts
- * leave one comment.
- */
-exports.RE_EVAL_COMMENT_MARKER = '<!-- evalforge-skill-gate-re-eval -->';
 const HEADING = 'EvalForge Skill Gate';
 function render(icon, label, body) {
     return [exports.GATE_COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
@@ -35196,21 +35089,6 @@ function formatGateServiceError(message, blocking, label = 'Service Error') {
     const { icon } = failIcon(blocking);
     return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }
-/**
- * Declining a `/re-eval` request.
- *
- * Rendered under `RE_EVAL_COMMENT_MARKER`, not the gate marker — see that constant. A refusal is an
- * ordinary outcome, not a failed check: the dispatcher declining to spend money is the system
- * working.
- */
-function formatReEvalRefusal(reason) {
-    return [
-        exports.RE_EVAL_COMMENT_MARKER,
-        `## 🚫 ${HEADING}: Re-eval Declined`,
-        '',
-        `Cannot re-run the gate: ${reason}.`,
-    ].join('\n');
-}
 
 
 /***/ }),
@@ -35351,9 +35229,6 @@ __exportStar(__nccwpck_require__(3308), exports);
 __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
-__exportStar(__nccwpck_require__(9587), exports);
-__exportStar(__nccwpck_require__(6151), exports);
-__exportStar(__nccwpck_require__(202), exports);
 
 
 /***/ }),
@@ -35410,23 +35285,6 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
-}
-
-
-/***/ }),
-
-/***/ 9587:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseReEvalCommand = parseReEvalCommand;
-const COMMAND = '/re-eval';
-function parseReEvalCommand(body) {
-    const [firstLine = ''] = body.trim().split('\n');
-    const [firstToken = ''] = firstLine.trim().split(/\s+/);
-    return { isCommand: firstToken.toLowerCase() === COMMAND };
 }
 
 

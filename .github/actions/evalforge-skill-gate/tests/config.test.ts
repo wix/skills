@@ -188,35 +188,6 @@ describe('getCleanupConfig', () => {
   });
 });
 
-describe('getReEvalConfig', () => {
-  it('reads only what the dispatcher needs', async () => {
-    setInputs({ 'github-token': 'gh-token', 'gate-workflow-file': 'evalforge-wix-app-gate.yml' });
-    const { getReEvalConfig } = await import('../src/utils/config');
-
-    expect(getReEvalConfig()).toEqual({
-      githubToken: 'gh-token',
-      owner: 'wix',
-      repo: 'skills',
-      gateWorkflowFile: 'evalforge-wix-app-gate.yml',
-    });
-  });
-
-  // It makes no EvalForge call, so it must not demand credentials the workflow has no reason to
-  // pass. Asking for them would put secrets in a workflow that never uses them.
-  it('does not require any EvalForge input', async () => {
-    setInputs({ 'github-token': 'gh-token', 'gate-workflow-file': 'gate.yml' });
-    const { getReEvalConfig } = await import('../src/utils/config');
-
-    expect(() => getReEvalConfig()).not.toThrow();
-  });
-
-  it('fails loudly when the gate workflow file is missing', async () => {
-    setInputs({ 'github-token': 'gh-token' });
-    const { getReEvalConfig } = await import('../src/utils/config');
-
-    expect(() => getReEvalConfig()).toThrow(/gate-workflow-file/);
-  });
-});
 
 describe('getGateConfig — the evaluated SHA', () => {
   // A re-run replays the original event, so GITHUB_SHA is the merge commit as it was then, while

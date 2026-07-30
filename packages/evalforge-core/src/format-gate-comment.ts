@@ -6,16 +6,6 @@ import type { RunVerdict } from './evaluate-run-result';
 import { parseDraftTag, type EvalRunStatus } from './evalforge';
 
 export const GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
-
-/**
- * A second marker, so a `/re-eval` refusal cannot clobber a verdict.
- *
- * The gate commenter upserts on `GATE_COMMENT_MARKER`. Since anyone who can comment on a public
- * repo can trigger a refusal, sharing the marker would let a stranger's rejected request overwrite
- * the evidence of the run that mattered. Refusals also upsert over each other, so ten attempts
- * leave one comment.
- */
-export const RE_EVAL_COMMENT_MARKER = '<!-- evalforge-skill-gate-re-eval -->';
 const HEADING = 'EvalForge Skill Gate';
 
 function render(icon: string, label: string, body: string[]): string {
@@ -253,20 +243,4 @@ export function formatGatePollFailure(input: {
 export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
   const { icon } = failIcon(blocking);
   return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
-}
-
-/**
- * Declining a `/re-eval` request.
- *
- * Rendered under `RE_EVAL_COMMENT_MARKER`, not the gate marker — see that constant. A refusal is an
- * ordinary outcome, not a failed check: the dispatcher declining to spend money is the system
- * working.
- */
-export function formatReEvalRefusal(reason: string): string {
-  return [
-    RE_EVAL_COMMENT_MARKER,
-    `## 🚫 ${HEADING}: Re-eval Declined`,
-    '',
-    `Cannot re-run the gate: ${reason}.`,
-  ].join('\n');
 }

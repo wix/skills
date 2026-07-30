@@ -8,24 +8,12 @@ describe('getPrNumber', () => {
     expect(getPrNumber({ pull_request: { number: 42 } })).toBe(42);
   });
 
-  it('reads an issue_comment payload on a PR', () => {
-    expect(getPrNumber({
-      issue: { number: 42, pull_request: { url: 'https://api.github.com/repos/wix/skills/pulls/42' } },
-    })).toBe(42);
-  });
-
-  // `issue_comment` fires for plain issues too. Treating one as a PR would send the dispatcher
-  // looking for a gate run on an issue number.
-  it('rejects an issue_comment on a non-PR issue', () => {
-    expect(() => getPrNumber({ issue: { number: 42 } })).toThrow(/pull request/i);
-  });
-
-  it('rejects a payload that is neither', () => {
+  it('rejects a payload with no pull_request', () => {
     expect(() => getPrNumber({})).toThrow(/pull_request/);
   });
 
   it('rejects a pull_request payload with no number', () => {
-    expect(() => getPrNumber({ pull_request: {} })).toThrow(/pull_request/);
+    expect(() => getPrNumber({ pull_request: {} })).toThrow(/missing number/);
   });
 });
 

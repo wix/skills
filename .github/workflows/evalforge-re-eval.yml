@@ -1,0 +1,154 @@
+name: EvalForge Re-eval
+
+# Re-runs a PR's existing eval gate run on demand, for both the wix-app and wix-manage gates
+# (CODEAI-895). Evals depend on live systems, so a gate can report an unverified result for reasons
+# that have nothing to do with the PR; without this the only remedy is an empty commit.
+#
+# It re-runs the PR's own `pull_request` run rather than evaluating here, because an issue_comment
+# run is associated with the default branch's commit while required checks are evaluated on the PR
+# head. Evaluating here would pass somewhere the PR cannot see, leaving the original failed check in
+# place. Modelled on wix-private/clay's `#rerun`.
+
+on:
+  issue_comment:
+    # `created` only. Editing an old comment to add the command is a confusing way to start a run
+    # that costs a live agent build per scenario.
+    types: [created]
+
+# Not the gate's concurrency group: sharing it would let this job cancel the very run it re-runs.
+concurrency:
+  group: evalforge-re-eval-pr-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  re-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # `contains` is loose on purpose — it only decides whether to start a runner, and the script
+    # below decides whether anything is spent. Bots are excluded because this job's own comments
+    # name the command, and a bot-authored body containing it would re-fire this webhook for
+    # nothing. (See wix-private/velocity-infra's automations, where that pattern caused a loop.)
+    if: >-
+      ${{ github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && contains(github.event.comment.body, '/re-eval') }}
+    permissions:
+      # To POST actions/runs/{run_id}/rerun.
+      actions: write
+      # To post the acknowledgement or refusal.
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const requester = context.payload.comment.user.login;
+
+            // Strict: the command must be the first token of the first line. Anything looser turns
+            // discussing the feature — or quoting someone who used it — into a paid eval run.
+            const firstLine = (context.payload.comment.body ?? '').trim().split('\n')[0];
+            if (firstLine.trim().split(/\s+/)[0].toLowerCase() !== '/re-eval') {
+              core.info('Comment is not a /re-eval command — nothing to do.');
+              return;
+            }
+
+            const comment = (body) =>
+              github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+
+            // A refusal is an ordinary outcome, not a failed check: declining to spend money is the
+            // system working. So `core.info`, never `core.setFailed`.
+            const decline = async (reason) => {
+              core.info(`Declining /re-eval from ${requester}: ${reason}`);
+              await comment(`@${requester} cannot re-run the eval gate: ${reason}.`);
+            };
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: issue.number,
+            });
+
+            // The three states the gates exclude in their own workflow `if:`, which a comment
+            // trigger has to check for itself.
+            if (pr.state !== 'open') {
+              return decline(
+                'this PR is closed — the gates only evaluate open PRs, and the capability version '
+                + 'and draft tags were already swept on close'
+              );
+            }
+            if (pr.draft) {
+              return decline('this PR is a draft — mark it ready for review and the gate runs automatically');
+            }
+            if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
+              return decline('the branch lives in a fork — the gates only evaluate branches in this repository');
+            }
+
+            // Authorisation is a spend gate, not a security boundary: this job checks out nothing
+            // and the run it triggers replays an event that already happened. But the repo is
+            // public, and each scenario is a live agent build, so a stranger must not be able to
+            // spend. The author check is first because it needs no API call and cannot 403.
+            let allowed = requester === pr.user.login;
+            if (!allowed) {
+              try {
+                const { data: level } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner, repo, username: requester,
+                });
+                allowed = ['admin', 'maintain', 'write'].includes(level.permission);
+              } catch (error) {
+                return decline(
+                  `the collaborator permission lookup failed (${error.message}), so the request `
+                  + 'could not be authorised'
+                );
+              }
+            }
+            if (!allowed) {
+              return decline('only the PR author or a collaborator with write access can trigger this');
+            }
+
+            // Both gates, because a PR can touch wix-app and wix-manage paths in one change and
+            // should then re-run both. A gate with no run for this commit is simply skipped.
+            const GATES = ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'];
+            const notes = [];
+
+            for (const workflowId of GATES) {
+              const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: workflowId,
+                // The gates' own trigger, so a differently-triggered run of the same file is not
+                // picked up. The API returns newest first.
+                event: 'pull_request', head_sha: pr.head.sha, per_page: 1,
+              });
+              const run = runs.workflow_runs[0];
+              if (!run) continue;
+
+              if (run.status !== 'completed') {
+                notes.push(`- \`${workflowId}\`: a run is already in progress, skipped ([view run](${run.html_url}))`);
+                continue;
+              }
+
+              // Every job, and regardless of conclusion. Deliberately unlike clay, which skips
+              // passing runs and re-runs only failed jobs: in soak mode (`blocking: false`) an
+              // unverified run still reports success, so the run worth re-running is green and has
+              // no failed job to re-run.
+              try {
+                await github.rest.actions.reRunWorkflow({ owner, repo, run_id: run.id });
+                notes.push(`- \`${workflowId}\`: re-running ([view run](${run.html_url}))`);
+              } catch (error) {
+                // Most likely past GitHub's 30-day re-run window.
+                notes.push(
+                  `- \`${workflowId}\`: could not be re-run (${error.message}) — push a commit to `
+                  + 'run the gate again'
+                );
+              }
+            }
+
+            if (notes.length === 0) {
+              return decline(
+                'no gate run exists for this commit — push a commit touching a gated path and the '
+                + 'gate runs automatically'
+              );
+            }
+
+            await comment(
+              `Re-running the eval gate for \`${pr.head.sha.substring(0, 7)}\`, `
+              + `requested by @${requester}:\n\n${notes.join('\n')}`
+            );

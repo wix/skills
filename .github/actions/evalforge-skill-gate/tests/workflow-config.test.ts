@@ -132,24 +132,33 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
   });
 });
 
-describe('EvalForge wix-app re-eval workflow', () => {
-  const workflow = loadWorkflow('evalforge-wix-app-re-eval.yml');
+
+/**
+ * The logic now lives in an inline `github-script` step, so it has no unit tests. What is still
+ * assertable is the wiring and the guards — the parts that would be silently wrong rather than
+ * loudly broken.
+ */
+describe('EvalForge re-eval workflow', () => {
+  const workflow = loadWorkflow('evalforge-re-eval.yml');
   const job = workflow.jobs['re-eval'];
   const step = job.steps[job.steps.length - 1];
+  const script = step.with?.script ?? '';
 
-  it('runs the action in re-eval mode on a created comment', () => {
-    expect(step.with?.mode).toBe('re-eval');
+  it('runs on created comments only', () => {
     expect(workflow.on.issue_comment?.types).toEqual(['created']);
   });
 
-  it('fires only for PR comments mentioning the command', () => {
+  it('fires only for PR comments, from non-bots, mentioning the command', () => {
     expect(job.if).toContain('github.event.issue.pull_request');
     expect(job.if).toContain('/re-eval');
+    // Its own comments name the command; without this they re-fire the webhook.
+    expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
   });
 
-  // Sharing the gate's group would let the dispatcher cancel the run it is about to re-run.
-  it('does not share the gate concurrency group', () => {
+  // Sharing the gate's group would let this job cancel the very run it re-runs.
+  it('does not share a gate concurrency group', () => {
     expect(workflow.concurrency.group).not.toContain('evalforge-wix-app-gate-pr');
+    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
   });
 
   it('grants exactly what it needs and no more', () => {
@@ -160,30 +169,35 @@ describe('EvalForge wix-app re-eval workflow', () => {
     });
   });
 
-  it('names the gate workflow whose run it re-runs', () => {
-    expect(step.with?.['gate-workflow-file']).toBe('evalforge-wix-app-gate.yml');
+  it('pins github-script by commit sha', () => {
+    expect(step.uses).toMatch(/^actions\/github-script@[0-9a-f]{40}$/);
   });
 
-  // It calls EvalForge zero times, so passing credentials would be exposure with no purpose.
-  // Asserted on input names rather than the serialised block, because `gate-workflow-file`
-  // legitimately holds a filename that starts with `evalforge-`.
-  it('passes no EvalForge credentials', () => {
-    expect(Object.keys(step.with ?? {})).toEqual(['mode', 'github-token', 'gate-workflow-file']);
-    expect(JSON.stringify(step.with)).not.toContain('secrets.AUTO_SKILLS_PIPELINE');
+  it('covers both gates, so a PR touching wix-app and wix-manage re-runs both', () => {
+    expect(script).toContain('evalforge-wix-app-gate.yml');
+    expect(script).toContain('evalforge-yaml-gate.yml');
   });
 
-  // Checking out PR content here would be a pwn-request: issue_comment runs from the default
-  // branch with secrets available.
-  it('checks out no PR ref', () => {
-    for (const checkout of job.steps.filter(step => step.uses?.includes('actions/checkout'))) {
-      expect(checkout.with?.ref).toBeUndefined();
-    }
+  it('parses the command strictly, from the first token of the first line', () => {
+    expect(script).toContain("toLowerCase() !== '/re-eval'");
   });
 
-  it('pins every action by commit sha rather than a tag', () => {
-    for (const s of job.steps) {
-      if (!s.uses || s.uses.startsWith('./')) continue;
-      expect(s.uses, s.uses).toMatch(/@[0-9a-f]{40}$/);
-    }
+  it('accepts maintain alongside admin and write', () => {
+    expect(script).toContain("['admin', 'maintain', 'write']");
+  });
+
+  /**
+   * Deliberately unlike clay's `#rerun`, which re-runs only failed jobs and skips passing runs. In
+   * soak mode an unverified run still reports success, so the run worth re-running is green and has
+   * no failed job in it.
+   */
+  it('re-runs every job regardless of conclusion', () => {
+    expect(script).toContain('reRunWorkflow(');
+    expect(script).not.toContain('reRunWorkflowFailedJobs');
+    expect(script).not.toContain("conclusion === 'success'");
+  });
+
+  it('authorises the PR author without an API call', () => {
+    expect(script).toContain('requester === pr.user.login');
   });
 });

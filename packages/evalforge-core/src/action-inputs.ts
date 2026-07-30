@@ -11,15 +11,7 @@ export type ActionsIo = {
   warning(message: string): void;
 };
 
-export type PullRequestPayload = {
-  pull_request?: { number?: number } | null;
-  /**
-   * `issue_comment` carries the PR as `issue`, with no `pull_request` key of its own. The nested
-   * `pull_request` field is what distinguishes a comment on a PR from one on a plain issue — the
-   * event fires for both.
-   */
-  issue?: { number?: number; pull_request?: unknown } | null;
-};
+export type PullRequestPayload = { pull_request?: { number?: number } | null };
 
 /** Upgrades a non-HTTPS base URL, warning through the caller's logger. */
 export function ensureHttps(io: ActionsIo, url: string): string {
@@ -37,13 +29,9 @@ export function safeGetSecret(io: ActionsIo, name: string): string {
 }
 
 export function getPrNumber(payload: PullRequestPayload): number {
-  const number = payload.pull_request?.number
-    ?? (payload.issue?.pull_request ? payload.issue.number : undefined);
-  if (!number) {
-    throw new Error(
-      'No pull request in the event payload — this action must be triggered by a pull_request '
-      + 'event, or by an issue_comment on a pull request',
-    );
-  }
-  return number;
+  const pr = payload.pull_request;
+  if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+  const n = pr.number;
+  if (!n) throw new Error('PR payload missing number');
+  return n;
 }
