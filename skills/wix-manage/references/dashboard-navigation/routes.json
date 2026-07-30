@@ -1,6 +1,181 @@
 {
- "$comment": "Live dashboard page routes per Wix app. Full URL = https://manage.wix.com/dashboard/{metaSiteId}/{path}. legacyAliases redirect to path. Where a page shows a single entity, deepLink gives the path with the entity-ID placeholder appended ({serviceId}, {productId}, ...); pages without deepLink take no ID segment or the pattern is undocumented. Generated from the app registrations, enriched from the per-solution recipes.",
+ "$comment": "Live dashboard page routes per Wix app. Site pages: https://manage.wix.com/dashboard/{metaSiteId}/{path}. Pages with accountLevel=true instead live at https://manage.wix.com/account/{path} (no metaSiteId). legacyAliases redirect to path. Where a page shows a single entity, deepLink gives the path with the entity-ID placeholder appended; pages without deepLink take no ID segment or the pattern is undocumented. Generated from the app registrations, enriched from the per-solution recipes.",
  "apps": [
+  {
+   "app": "Analytics",
+   "appDefinitionId": "3459e2b7-9739-4833-acdd-66e32fc0ab11",
+   "slug": "analytics",
+   "pages": [
+    {
+     "path": "analytics/custom-reports",
+     "inSidebar": false,
+     "title": "Analytics Custom Reports",
+     "legacyAliases": [
+      "analytics/custom-reports"
+     ]
+    },
+    {
+     "path": "analytics/highlights",
+     "inSidebar": true,
+     "title": "Highlights",
+     "legacyAliases": []
+    },
+    {
+     "path": "analytics/legacy-reports",
+     "inSidebar": false,
+     "title": "menu.analytics-ng.reports",
+     "legacyAliases": []
+    },
+    {
+     "path": "analytics/overviews",
+     "inSidebar": false,
+     "title": "Analytics Overviews",
+     "legacyAliases": [
+      "analytics/overviews"
+     ]
+    },
+    {
+     "path": "analytics/overviews/ai-visibility",
+     "inSidebar": false,
+     "title": "AI Visibility Overview",
+     "legacyAliases": [
+      "seo-home/ai-visibility"
+     ]
+    },
+    {
+     "path": "analytics/overviews/behavior",
+     "inSidebar": true,
+     "title": "Behavior",
+     "legacyAliases": [
+      "analytics/overviews/behavior"
+     ]
+    },
+    {
+     "path": "analytics/overviews/blog",
+     "inSidebar": true,
+     "title": "Blog",
+     "legacyAliases": [
+      "analytics/overviews/blog"
+     ]
+    },
+    {
+     "path": "analytics/overviews/bookings",
+     "inSidebar": true,
+     "title": "Bookings",
+     "legacyAliases": []
+    },
+    {
+     "path": "analytics/overviews/marketing",
+     "inSidebar": true,
+     "title": "Marketing",
+     "legacyAliases": [
+      "analytics/overviews/marketing"
+     ]
+    },
+    {
+     "path": "analytics/overviews/sales",
+     "inSidebar": true,
+     "title": "Sales Overview",
+     "legacyAliases": [
+      "analytics/overviews/sales"
+     ]
+    },
+    {
+     "path": "analytics/overviews/subscriptions",
+     "inSidebar": true,
+     "title": "Subscriptions",
+     "legacyAliases": [
+      "subscriptions/analytics"
+     ]
+    },
+    {
+     "path": "analytics/overviews/traffic",
+     "inSidebar": true,
+     "title": "Traffic",
+     "legacyAliases": [
+      "analytics/overviews/traffic"
+     ]
+    },
+    {
+     "path": "analytics/performance",
+     "inSidebar": false,
+     "title": "Analytics Performance",
+     "legacyAliases": [
+      "analytics/performance"
+     ]
+    },
+    {
+     "path": "analytics/performance/benchmarks",
+     "inSidebar": true,
+     "title": "menu.analytics-ng.benchmarks",
+     "legacyAliases": [
+      "analytics/performance/benchmarks"
+     ]
+    },
+    {
+     "path": "analytics/performance/insights",
+     "inSidebar": true,
+     "title": "menu.analytics-ng.insights",
+     "legacyAliases": [
+      "analytics/performance/insights"
+     ]
+    },
+    {
+     "path": "analytics/performance/reliability",
+     "inSidebar": true,
+     "title": "menu.analytics-ng.reliability",
+     "legacyAliases": [
+      "analytics/performance/reliability"
+     ]
+    },
+    {
+     "path": "analytics/report",
+     "inSidebar": false,
+     "title": "Report",
+     "legacyAliases": []
+    },
+    {
+     "path": "analytics/reports",
+     "inSidebar": true,
+     "title": "menu.analytics-ng.reports",
+     "legacyAliases": [
+      "analytics/reports"
+     ]
+    },
+    {
+     "path": "analytics/tools",
+     "inSidebar": false,
+     "title": "Analytics Tools",
+     "legacyAliases": [
+      "analytics/tools"
+     ]
+    },
+    {
+     "path": "analytics/tools/alerts-and-emails",
+     "inSidebar": false,
+     "title": "Alerts and Emails",
+     "legacyAliases": [
+      "analytics/tools/alerts"
+     ]
+    }
+   ]
+  },
+  {
+   "app": "App Market",
+   "appDefinitionId": "622d9922-6e71-4ad9-adfa-08032ba69302",
+   "slug": "app-market",
+   "pages": [
+    {
+     "path": "app-market",
+     "inSidebar": true,
+     "title": "menu.apps.appMarket",
+     "legacyAliases": [
+      "app-market",
+      "app/622d9922-6e71-4ad9-adfa-08032ba69302"
+     ]
+    }
+   ]
+  },
   {
    "app": "Checkout & Orders",
    "appDefinitionId": "1380b703-ce81-ff05-f115-39571d94dfcd",
@@ -193,6 +368,22 @@
    ]
   },
   {
+   "app": "Domain Settings",
+   "appDefinitionId": "22549697-66d7-40c7-961d-b7b31dd4b49b",
+   "slug": "domain-settings",
+   "pages": [
+    {
+     "path": "domain-settings",
+     "inSidebar": false,
+     "title": "Manage Site Domains",
+     "legacyAliases": [
+      "settings/domains",
+      "manage-website/domains"
+     ]
+    }
+   ]
+  },
+  {
    "app": "Email Marketing",
    "appDefinitionId": "135c3d92-0fea-1f9d-2ba5-2a1dfb04297e",
    "slug": "email-marketing",
@@ -312,6 +503,56 @@
    ]
   },
   {
+   "app": "Google Ads",
+   "appDefinitionId": "e4b5f1bc-c77a-4319-a60d-a46acb17f6fc",
+   "slug": "google-ads",
+   "pages": [
+    {
+     "path": "google-ads",
+     "inSidebar": true,
+     "title": "Google Ads",
+     "legacyAliases": [],
+     "note": "sourced from the dashboard page inventory; not present in the live registry snapshot"
+    }
+   ]
+  },
+  {
+   "app": "Manage Installed Apps",
+   "appDefinitionId": "8f47d63b-56dc-43a3-a7d3-0890b1703049",
+   "slug": "manage-installed-apps",
+   "pages": [
+    {
+     "path": "manage-installed-apps",
+     "inSidebar": true,
+     "title": "menu.apps.manageApps",
+     "legacyAliases": [
+      "manage-apps",
+      "app/8f47d63b-56dc-43a3-a7d3-0890b1703049"
+     ]
+    }
+   ]
+  },
+  {
+   "app": "My Sites",
+   "appDefinitionId": "dd8c4cf2-0808-411a-ad38-a05e9b2f378a",
+   "slug": "websites",
+   "pages": [
+    {
+     "path": "websites",
+     "inSidebar": false,
+     "title": "My Sites",
+     "legacyAliases": [],
+     "accountLevel": true
+    },
+    {
+     "path": "websites//products",
+     "inSidebar": true,
+     "title": "Stores Products",
+     "legacyAliases": []
+    }
+   ]
+  },
+  {
    "app": "Pay Links",
    "appDefinitionId": "324cf725-53d9-4bb2-b8f6-0c8ec9a77f45",
    "slug": "pay-links",
@@ -324,12 +565,6 @@
       "payment-links",
       "apps/324cf725-53d9-4bb2-b8f6-0c8ec9a77f45"
      ]
-    },
-    {
-     "path": "pay-links/paylinks",
-     "inSidebar": false,
-     "title": "Pay Links",
-     "legacyAliases": []
     }
    ]
   },
@@ -338,14 +573,6 @@
    "appDefinitionId": "14bca956-e09f-f4d6-14d7-466cb3f09103",
    "slug": "wix-cashier",
    "pages": [
-    {
-     "path": "wix-cashier",
-     "inSidebar": false,
-     "title": "Payment Service Provider Configuration",
-     "legacyAliases": [
-      "/psp-configuration"
-     ]
-    },
     {
      "path": "wix-cashier/payments",
      "inSidebar": true,
@@ -390,15 +617,37 @@
    ]
   },
   {
-   "app": "Social Media Marketing",
-   "appDefinitionId": "ee070097-0850-4f23-ad8c-3cdd4efd5244",
-   "slug": "segments",
+   "app": "Site Settings",
+   "appDefinitionId": "3cfd35f9-4087-4192-ada5-d10938150d26",
+   "slug": "settings",
    "pages": [
     {
-     "path": "segments",
+     "path": "settings",
+     "inSidebar": true,
+     "title": "menu.business-manager-settings",
+     "legacyAliases": [
+      "app/3cfd35f9-4087-4192-ada5-d10938150d26",
+      "settings",
+      "manage-website"
+     ]
+    },
+    {
+     "path": "settings/language-and-region",
      "inSidebar": false,
-     "title": "menu.store.contactsCrm.segments",
-     "legacyAliases": []
+     "title": "menu.business-manager-settings",
+     "legacyAliases": [
+      "settings/language-and-region"
+     ]
+    },
+    {
+     "path": "settings/website-settings",
+     "inSidebar": false,
+     "title": "menu.business-manager-settings",
+     "legacyAliases": [
+      "manage-website/social",
+      "settings/social",
+      "settings/website-settings"
+     ]
     }
    ]
   },
@@ -431,6 +680,19 @@
      "legacyAliases": [
       "social-marketing/my-designs"
      ]
+    }
+   ]
+  },
+  {
+   "app": "Social Media Marketing",
+   "appDefinitionId": "ee070097-0850-4f23-ad8c-3cdd4efd5244",
+   "slug": "segments",
+   "pages": [
+    {
+     "path": "segments",
+     "inSidebar": false,
+     "title": "menu.store.contactsCrm.segments",
+     "legacyAliases": []
     }
    ]
   },
@@ -878,12 +1140,6 @@
      ]
     },
     {
-     "path": "wix-forms-and-payments/dev",
-     "inSidebar": true,
-     "title": "dev-page",
-     "legacyAliases": []
-    },
-    {
      "path": "wix-forms-and-payments/edit",
      "inSidebar": false,
      "title": "edit",
@@ -947,12 +1203,6 @@
       "wix-invoices/invoices/create",
       "wix-invoices/invoice/new"
      ]
-    },
-    {
-     "path": "wix-invoices/invoices",
-     "inSidebar": true,
-     "title": "Invoices",
-     "legacyAliases": []
     },
     {
      "path": "wix-invoices/products/list",
@@ -1387,14 +1637,6 @@
      ]
     },
     {
-     "path": "wix-stores/products/new-product",
-     "inSidebar": false,
-     "title": "menu.store.storeProducts.products",
-     "legacyAliases": [
-      "app/215238eb-22a5-4c36-9e7b-e7c08025e04e/products/new-product"
-     ]
-    },
-    {
      "path": "wix-stores/products/product",
      "inSidebar": false,
      "title": "menu.store.storeProducts.products",
@@ -1407,14 +1649,6 @@
      "title": "menu.business-manager-settings",
      "legacyAliases": [
       "store/settings"
-     ]
-    },
-    {
-     "path": "wix-stores/settings",
-     "inSidebar": true,
-     "title": "wixstores-dashboard-settings-pages-index",
-     "legacyAliases": [
-      "settings"
      ]
     }
    ]

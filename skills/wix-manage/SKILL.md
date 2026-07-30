@@ -29,12 +29,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [List Installed Apps](references/app-installation/list-installed-apps.md)
 **Technical:** Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors.
 
+### [App Management Dashboard Navigation](references/app-installation/app-installation-dashboard-navigation.md)
+**Technical:** Direct links to the App Market and installed-apps management dashboard pages on manage.wix.com, paired with the List Installed Apps read API.
+
 ---
 
 ## Analytics
 
 ### [Query Site Analytics](references/analytics/query-site-analytics.md)
 **Technical:** Reads a site's analytics through the Semantic Model API. Covers listing semantic models, inspecting a model's schema (measures, dimensions, parameters), and querying data with a required time interval, filters, sorting, paging, and human-readable formatting. Key endpoints: /analytics/semantic-model/v3/semantic-models, /semantic-models/{id}, /semantic-models/query-data.
+
+### [Analytics Dashboard Navigation](references/analytics/analytics-dashboard-navigation.md)
+**Technical:** Direct links to Wix Analytics dashboard pages on manage.wix.com (highlights, reports, custom reports, traffic/behavior/sales/marketing overviews, performance insights, benchmarks), paired with the Semantic Model read API for "see it in your dashboard" links.
 
 ---
 
@@ -96,6 +102,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Configure Default Business Hours](references/calendar/configure-default-business-hours.md)
 **Technical:** Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
 
+> Dashboard links for calendar surfaces (availability, default business hours) are in [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md).
+
 ---
 
 ## CMS
@@ -148,6 +156,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
 **Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
 
+### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
+**Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
+
 ---
 
 ## eCommerce
@@ -194,6 +205,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 </details>
 
+> Dashboard links for eCommerce surfaces (orders, abandoned checkouts, gift cards, shipping, tax, checkout settings) are in [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md).
+
 ---
 
 ## Forms
@@ -237,6 +250,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Create and Launch a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md)
 **Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping. Generates AI text/image assets and search themes, gets a Google budget recommendation, assembles an asset group meeting Google's minimum asset counts (headlines/descriptions/images), creates in `PAUSED`, then launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
+
+### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
+**Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
 
 ---
 
@@ -298,6 +314,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Change Payment Currency](references/site-properties/change-payment-currency-site-properties.md)
 **Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask.
 
+### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
+**Technical:** Direct links to the site-settings dashboard pages on manage.wix.com (settings hub, website settings, language & region), paired with the Site Properties read API.
+
 ---
 
 ## Sites
@@ -313,6 +332,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Site Import](references/sites/site-import.md)
 **Technical:** Drives the autonomous Wix Site Import agent over REST (`/site-import/v1/imports`) to migrate a store/site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Covers Start/Poll/Reply/Cancel, relaying agent questions and progress in plain language, handling `DEPLOYED`/`FAILED`/`AUTH_EXPIRED`/`SESSION_EXPIRED` states, and post-deploy follow-up changes. Use when the user wants to import, migrate, or clone an existing store/site into Wix.
+
+### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
+**Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
 ---
 
