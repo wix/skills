@@ -91,6 +91,10 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
+## Serving (`www.wix.com/skills`)
+
+Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`), directly from this repo's `main` branch with no build step. Responses are cached, so a merge to `main` reflects there within a few minutes.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills.

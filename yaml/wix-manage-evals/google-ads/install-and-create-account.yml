@@ -1,0 +1,34 @@
+name: google-ads/install-and-create-account
+description: >-
+  Verifies the agent uses the Google Ads setup recipe when asked to start
+  advertising on Google, following the strict install-app-then-create-account
+  order and confirming currency before creating the billable account.
+triggerPrompt: >-
+  I want to start running Google Ads for my Wix site. How do I set that up from
+  scratch using the Wix Google Ads REST API? Reference the specific endpoints.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/install-google-ads-and-create-an-account
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to set up Google Ads on their Wix site for the first time.
+
+      Pass if the response:
+      - uses the Google Ads setup recipe, AND
+      - explains the two-step prerequisite in order: install the app
+        (POST /v1/install-if-not-installed) BEFORE creating the account
+        (POST /v1/accounts), AND
+      - says Create Account requires a `currency` (ISO-4217), AND
+      - mentions checking for an existing account first via
+        GET /v1/accounts/current-site (empty when none), AND
+      - treats account creation as billable / advises confirming intent.
+
+      Fail if the response:
+      - creates the account before installing the app, OR
+      - invents endpoints not in the Google Ads API, OR
+      - omits the currency requirement, OR
+      - falls back to generic Google Ads (Google's own API) instead of the Wix REST API.
