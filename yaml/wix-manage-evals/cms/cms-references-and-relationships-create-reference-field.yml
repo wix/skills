@@ -1,13 +1,12 @@
 name: cms/cms-references-and-relationships-create-reference-field
 description: >-
-  Verifies that a request to add a reference field between two CMS collections routes to the
-  cms-references-and-relationships skill, and that the returned create-field body carries the
-  target collection at field.typeMetadata.reference.referencedCollectionId rather than on the
-  field object itself.
+  Seeds two CMS collections and asks for a reference field linking them. Verifies the agent reads
+  the cms-references-and-relationships skill and creates the REFERENCE field on the first attempt,
+  with the target collection at field.typeMetadata.reference.referencedCollectionId — rather than
+  guessing a flat referencedCollection, being rejected with WDE0075, and correcting afterwards.
 triggerPrompt: >-
-  I want to add a reference field called Author to my Books CMS collection so each book links to
-  one item in my Authors collection. Give me the exact REST call — endpoint, method and the full
-  JSON request body.
+  In my EvalGateBooks collection, add a reference field called Author that links to my
+  EvalGateAuthors collection.
 tags: [cms]
 assertions:
   - tool: ReadFullDocsArticle
@@ -17,25 +16,64 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked for the exact REST call that adds a single-reference field ("Author") to a
-      CMS collection ("Books") pointing at another collection ("Authors").
-      Intent: a create-field request body the Wix Data Collections API accepts on the first attempt.
+      The user's request (verbatim): "In my EvalGateBooks collection, add a reference field called
+      Author that links to my EvalGateAuthors collection."
+      Intent: add a REFERENCE field "Author" on collection "EvalGateBooks" that references
+      collection "EvalGateAuthors" — and get it right the first time.
 
-      Pass if the response:
-      - names the endpoint `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
-        (the path `/wix-data/v2/collections/create-field` is enough), AND
-      - shows a request body with `dataCollectionId` and a `field` object whose `type` is
-        `REFERENCE`, AND
-      - places the referenced collection inside the field's metadata as
-        `field.typeMetadata.reference.referencedCollectionId` — nested under `typeMetadata`, then
-        `reference`, using exactly the key name `referencedCollectionId`.
+      Examine the tool-call trace, not only the final message.
 
-      Fail if the response:
-      - puts the referenced collection directly on the `field` object (for example
-        `field.referencedCollection` or `field.referencedCollectionId`) instead of inside
-        `typeMetadata.reference`, OR
-      - uses `typeMetadata.reference.referencedCollection` (missing the `Id` suffix), OR
-      - nests the metadata under a different key such as `metadata` or `referenceMetadata`, OR
-      - uses `MULTI_REFERENCE` / `typeMetadata.multiReference` for this single-reference request,
-        OR
-      - omits the request body, or gives only prose with no endpoint and no JSON.
+      Pass only if BOTH hold:
+      - the agent successfully (2xx) added a field named "Author" of type `REFERENCE` to
+        "EvalGateBooks" whose referenced collection is "EvalGateAuthors", AND
+      - it did so without a rejected attempt: no create-field or update-field call in the trace
+        returned a non-2xx, in particular none was rejected with `WDE0075` / "Metadata for
+        Reference type field not provided", and no follow-up call was needed to repair the
+        reference target after a first attempt put it in the wrong place.
+
+      Fail if any of these appear in the trace:
+      - a create-field or update-field attempt that passed the referenced collection anywhere other
+        than `field.typeMetadata.reference.referencedCollectionId` — for example flat on the field
+        as `referencedCollection` / `referencedCollectionId`, or under a differently named metadata
+        key — regardless of whether a later call recovered, OR
+      - a corrective `update-field` (or repeated `create-field`) issued to fix the reference target
+        or the metadata shape, OR
+      - a plain (non-reference) field was added instead, OR
+      - the referenced collection is wrong or missing, OR
+      - the agent only explained how to do it without performing the call.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP let the agent fulfil the request.
+      Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST any of: a call that returned a non-2xx even if later recovered (for example
+      `WDE0075` from a mis-shaped reference field, or `WDE0110` app-not-installed); searches or
+      schema reads spent discovering the reference-field request shape; a corrective follow-up call.
+      For each issue, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gaps, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+  bootstrap:
+    steps:
+      - label: Create the EvalGateAuthors collection (Name text)
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: EvalGateAuthors
+            displayName: Eval Gate Authors
+            fields:
+              - { key: name, displayName: Name, type: TEXT }
+      - label: Create the EvalGateBooks collection (Title text)
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: EvalGateBooks
+            displayName: Eval Gate Books
+            fields:
+              - { key: title, displayName: Title, type: TEXT }
