@@ -1,6 +1,6 @@
 ---
 name: "CMS References And Relationships"
-description: "Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references."
+description: "Link CMS collections together. Defines REFERENCE and MULTI_REFERENCE fields on an existing collection with create-field: the target collection goes in typeMetadata.reference.referencedCollectionId (or typeMetadata.multiReference.referencedCollectionId), never on the field object itself, or the call fails with WDE0075. Then add, replace, or remove items from MULTI_REFERENCE fields using insert-references, replace-references, remove-references endpoints - these CANNOT be set via regular insert/update/patch operations. Also covers querying with expanded references."
 ---
 # CMS References & Relationships
 
@@ -25,6 +25,22 @@ This recipe covers linking CMS collections together using reference fields.
 |------|------------|--------------|---------|
 | Single Reference | `REFERENCE` | One-to-one, Many-to-one | Product → Category |
 | Multi-Reference | `MULTI_REFERENCE` | One-to-many, Many-to-many | Product → Tags |
+
+## Defining a Reference Field: `typeMetadata` Is Required
+
+Use this recipe whenever a request is to link one collection to another — "add a reference field",
+"make each book point at an author", "let a product have many tags". Defining the field comes
+first; the item-level reference operations further down only work once the field exists.
+
+Both reference types are declared with `POST /wix-data/v2/collections/create-field`, and both carry
+the target collection **inside `field.typeMetadata`**. There is no top-level
+`field.referencedCollection` or `field.referencedCollectionId`; a request that puts the target
+collection on `field` directly is rejected with
+`WDE0075: Metadata for Reference type field not provided.`
+
+`referencedCollectionId` is the referenced *collection's* id (for example `Categories`), not an
+item id. The same `field` object shape applies to `update-field` and to entries in the
+`collection.fields` array of a create-collection call.
 
 ## Add a Single Reference Field
 
@@ -154,6 +170,13 @@ curl -X POST \
 | `$eq` | Exact match (single reference) | `{ "category": "id" }` |
 | `$hasSome` | Has at least one of | `{ "tags": { "$hasSome": ["id1", "id2"] } }` |
 | `$hasAll` | Has all of | `{ "tags": { "$hasAll": ["id1", "id2"] } }` |
+
+## Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `WDE0075: Metadata for Reference type field not provided.` | A `REFERENCE` or `MULTI_REFERENCE` field was sent without `typeMetadata`, or with the target collection on `field` instead of inside `typeMetadata` | Move the target collection to `field.typeMetadata.reference.referencedCollectionId` (or `field.typeMetadata.multiReference.referencedCollectionId`) and resend. |
+| `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it, then retry — see the [CMS Schema Management recipe](cms-schema-management.md). |
 
 ## Related Documentation
 

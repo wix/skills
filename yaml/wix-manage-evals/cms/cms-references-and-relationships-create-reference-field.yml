@@ -1,26 +1,25 @@
-name: cms/cms-schema-management-reference-field
+name: cms/cms-references-and-relationships-create-reference-field
 description: >-
-  Verifies the agent reads the cms-schema-management skill and returns the create-field request
-  body for a REFERENCE field with the target collection inside
-  field.typeMetadata.reference.referencedCollectionId, not on field itself.
+  Verifies that a request to add a reference field between two CMS collections routes to the
+  cms-references-and-relationships skill, and that the returned create-field body carries the
+  target collection at field.typeMetadata.reference.referencedCollectionId rather than on the
+  field object itself.
 triggerPrompt: >-
   I want to add a reference field called Author to my Books CMS collection so each book links to
   one item in my Authors collection. Give me the exact REST call — endpoint, method and the full
   JSON request body.
 tags: [cms]
-maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-references-and-relationships
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       The user asked for the exact REST call that adds a single-reference field ("Author") to a
       CMS collection ("Books") pointing at another collection ("Authors").
-      Intent: get a create-field request body that the Wix Data Collections API accepts on the
-      first attempt.
+      Intent: a create-field request body the Wix Data Collections API accepts on the first attempt.
 
       Pass if the response:
       - names the endpoint `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
