@@ -1,0 +1,59 @@
+name: site-properties/set-primary-site-language
+description: >-
+  Verifies the agent changes a site's language with a single Site Properties PATCH that carries
+  both `language` and `locale` under a top-level `["language","locale"]` field mask, instead of
+  discovering the payload through rejected calls or falling back to the Multilingual
+  change-primary token-polling flow.
+triggerPrompt: >-
+  Change my site's primary language to Spanish.
+tags: [site-properties]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Change my site's primary language to Spanish."
+      Intent: make Spanish the site's language, and confirm it took effect.
+
+      Pass only if ALL of these are true:
+        1. A single PATCH to `https://www.wixapis.com/site-properties/v4/properties` succeeded
+           (2xx) whose body set BOTH `properties.language` to `"es"` AND
+           `properties.locale.languageCode` to `"es"`, with a `fields.paths` mask containing both
+           `language` and `locale`.
+        2. No call to `wixapis.com` returned a non-2xx status at any point in the run — not even
+           one the agent recovered from.
+        3. The agent read the result back (Query Locales, Get Locale Settings, or Site Properties)
+           and saw Spanish.
+        4. The final answer states that Spanish is now the site's language.
+
+      Fail if ANY of these are true:
+        - The field mask used a nested path such as `locale.languageCode` — that is rejected with
+          `400 Illegal request - Unknown field in field mask`.
+        - Only `language` or only `locale` was sent — that leaves the site's primary locale
+          unchanged, so the request was not actually fulfilled.
+        - The agent used `POST https://www.wixapis.com/locales/v2/locale/change-primary` and its
+          token-polling flow instead of the single Site Properties PATCH.
+        - Any Wix API call was rejected and retried with a different shape (probing for the
+          payload rather than knowing it).
+        - The agent only described the steps without performing them.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP let the agent fulfil "Change my
+      site's primary language to Spanish". Examine the tool-call trace. Score 0-10 (10 = direct:
+      no wasted calls, no errors).
+
+      Penalize and LIST any of: a call that returned a non-2xx error even if recovered
+      (especially a rejected field mask); the same request retried with a guessed different shape;
+      redundant schema-probing calls that a clearer recipe would avoid; reaching for a second API
+      to do what one call already did; a wrong endpoint or API area tried first.
+      For each issue, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
