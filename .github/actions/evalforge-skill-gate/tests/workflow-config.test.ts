@@ -173,9 +173,11 @@ describe('EvalForge re-eval workflow', () => {
     expect(step.uses).toMatch(/^actions\/github-script@[0-9a-f]{40}$/);
   });
 
-  it('covers both gates, so a PR touching wix-app and wix-manage re-runs both', () => {
-    expect(script).toContain('evalforge-wix-app-gate.yml');
-    expect(script).toContain('evalforge-yaml-gate.yml');
+  // Scoped to wix-app for now. The loop is over an array so the wix-manage gate is one entry away,
+  // and the "no run" refusal says so rather than claiming no run exists.
+  it('covers the wix-app gate, and not yet the wix-manage one', () => {
+    expect(script).toContain("const GATES = ['evalforge-wix-app-gate.yml']");
+    expect(script).toContain('does not cover the wix-manage gate yet');
   });
 
   it('parses the command strictly, from the first token of the first line', () => {

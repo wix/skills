@@ -1,8 +1,10 @@
 name: EvalForge Re-eval
 
-# Re-runs a PR's existing eval gate run on demand, for both the wix-app and wix-manage gates
-# (CODEAI-895). Evals depend on live systems, so a gate can report an unverified result for reasons
-# that have nothing to do with the PR; without this the only remedy is an empty commit.
+# Re-runs a PR's existing eval gate run on demand (CODEAI-895). Evals depend on live systems, so a
+# gate can report an unverified result for reasons that have nothing to do with the PR; without this
+# the only remedy is an empty commit.
+#
+# Scoped to the wix-app skill gate for now. See GATES below to extend it.
 #
 # It re-runs the PR's own `pull_request` run rather than evaluating here, because an issue_comment
 # run is associated with the default branch's commit while required checks are evaluated on the PR
@@ -105,9 +107,14 @@ jobs:
               return decline('only the PR author or a collaborator with write access can trigger this');
             }
 
-            // Both gates, because a PR can touch wix-app and wix-manage paths in one change and
-            // should then re-run both. A gate with no run for this commit is simply skipped.
-            const GATES = ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'];
+            // The wix-app skill gate only, for now.
+            //
+            // The wix-manage YAML gate (`evalforge-yaml-gate.yml`) works exactly the same way and
+            // wants this more, since `EVAL_BLOCK_MERGE` is already true there while wix-app is
+            // still soaking. Adding it is one entry in this array — the loop below re-runs every
+            // gate that has a run for the commit, so a PR touching both skills would re-run both.
+            // Left out deliberately until the wix-app flow has been exercised in anger.
+            const GATES = ['evalforge-wix-app-gate.yml'];
             const notes = [];
 
             for (const workflowId of GATES) {
@@ -142,9 +149,12 @@ jobs:
             }
 
             if (notes.length === 0) {
+              // Named precisely: on a wix-manage PR a gate run does exist, it is just not one this
+              // command covers yet, and "no gate run exists" would read as a bug.
               return decline(
-                'no gate run exists for this commit — push a commit touching a gated path and the '
-                + 'gate runs automatically'
+                'no wix-app gate run exists for this commit — push a commit touching '
+                + '`skills/wix-app` or `yaml/wix-app-evals` and the gate runs automatically. '
+                + 'This command does not cover the wix-manage gate yet'
               );
             }
 
