@@ -1,6 +1,6 @@
 ---
 name: "Recommend: eCommerce Strategy"
-description: Unified eCommerce recommendation skill — analyzes site data across ALL domains it covers (discounts, shipping, and future domains) and generates up to 5 actionable recommendations for a "help my business" / improve-sales request. Converts existing store traffic; it has no recommendations for traffic acquisition (SEO, ads, social), so do NOT load it for those. Tracking is built-in.
+description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
 layer: R
 references:
   - name: "API: Recommendation Tracking"
@@ -167,7 +167,6 @@ Check if the merchant's request includes anything unsupported. **Reject** these:
 |---|---|
 | Buy one get one (BOGO) | Explain: not supported by Discount Rules API |
 | Fixed-price bundles ("3 for $100") | Explain: requires custom pricing logic |
-| Traffic/acquisition ("grow my traffic", SEO, ads, social, content) | Explain: this recipe converts existing traffic via discounts and shipping — it has no acquisition recommendations. Do not report it as a missing-site-data failure |
 | Unrelated to eCommerce | Decline politely |
 
 If valid, continue.
