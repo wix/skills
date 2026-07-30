@@ -6,6 +6,16 @@ import type { RunVerdict } from './evaluate-run-result';
 import { parseDraftTag, type EvalRunStatus } from './evalforge';
 
 export const GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
+
+/**
+ * A second marker, so a `/re-eval` refusal cannot clobber a verdict.
+ *
+ * The gate commenter upserts on `GATE_COMMENT_MARKER`. Since anyone who can comment on a public
+ * repo can trigger a refusal, sharing the marker would let a stranger's rejected request overwrite
+ * the evidence of the run that mattered. Refusals also upsert over each other, so ten attempts
+ * leave one comment.
+ */
+export const RE_EVAL_COMMENT_MARKER = '<!-- evalforge-skill-gate-re-eval -->';
 const HEADING = 'EvalForge Skill Gate';
 
 function render(icon: string, label: string, body: string[]): string {
@@ -31,11 +41,12 @@ function runLine(runId: string, runUrl: string): string {
 }
 
 /**
- * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
- * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ * The three outcomes where nothing was verified and retrying is the answer. These are live-system
+ * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
+ * without asking for a commit the PR does not need.
  */
 function retryNote(): string[] {
-  return ['', '_Push any commit to run the gate again._'];
+  return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
 }
 
 function soakNote(blocking: boolean): string[] {
@@ -242,4 +253,20 @@ export function formatGatePollFailure(input: {
 export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
   const { icon } = failIcon(blocking);
   return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
+}
+
+/**
+ * Declining a `/re-eval` request.
+ *
+ * Rendered under `RE_EVAL_COMMENT_MARKER`, not the gate marker — see that constant. A refusal is an
+ * ordinary outcome, not a failed check: the dispatcher declining to spend money is the system
+ * working.
+ */
+export function formatReEvalRefusal(reason: string): string {
+  return [
+    RE_EVAL_COMMENT_MARKER,
+    `## 🚫 ${HEADING}: Re-eval Declined`,
+    '',
+    `Cannot re-run the gate: ${reason}.`,
+  ].join('\n');
 }
