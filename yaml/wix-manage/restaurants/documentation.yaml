@@ -6,3 +6,8 @@ apiDoc:
       title: Wix Restaurants Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-dashboard-navigation.md
+      title: Restaurants Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
