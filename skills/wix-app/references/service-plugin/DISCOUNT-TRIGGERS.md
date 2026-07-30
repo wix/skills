@@ -69,6 +69,10 @@ customTriggers.provideHandlers({
 });
 ```
 
+## Singular Constraint
+
+`ECOM_DISCOUNTS_TRIGGER` is **singular** — only one component of this type is allowed per app. Do not scaffold or include two Discount Triggers service plugins in the same app.
+
 ## Key Implementation Notes
 
 1. **Trigger IDs must match** - The `customTriggerId` in `getEligibleTriggers` must match an `_id` from `listTriggers`

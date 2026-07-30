@@ -42,3 +42,7 @@ apiDoc:
       title: Create Product from Image
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
+    - file: ../../../skills/wix-manage/references/stores/stores-dashboard-navigation.md
+      title: Stores Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]

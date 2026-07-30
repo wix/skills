@@ -96,7 +96,7 @@ export class EvalForgeClient {
     return new Set(tags);
   }
 
-  async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
+  async createAndRunEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
     return this.request<EvalRunCreated>('POST', `/projects/${projectId}/eval-runs`, input);
   }
 

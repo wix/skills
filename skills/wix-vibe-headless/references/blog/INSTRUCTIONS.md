@@ -98,10 +98,22 @@ body in the **official Wix API reference** first; never guess:
   https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 - Rendering `richContent` (Ricos document format):
   https://dev.wix.com/docs/ricos/api-reference/ricos-document
+- **Members-only posts** → the **members** vertical (`references/members/INSTRUCTIONS.md`): once a
+  member is logged in (custom login on your own UI), the existing read helpers return the content
+  gated to members — no extra code. Note this blog helper is **read-only**: member *writes* (posting
+  a comment, liking a post) aren't included — add them as a beyond-the-snippets `wixApiRequest` call,
+  authenticated as the logged-in member.
 - Each helper in `wix-blog.js` links its exact reference page inline.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the blog content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For blog data those pages are:
+- **Posts** — `https://manage.wix.com/dashboard/{metaSiteId}/blog/posts` (`Dashboard → Blog → Posts`; write, edit, and publish posts; only published posts appear in the app)
+- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/blog/categories` (`Dashboard → Blog → Categories`)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -113,3 +125,4 @@ reference only for the gap.
 - [ ] Category and tag pages list the right posts via `queryPostsByCategory` / `queryPostsByTag`
 - [ ] Empty state shown when `getTotalPosts()` is 0
 - [ ] No mock posts, authors, comments, likes, or view counts anywhere
+- [ ] Told the user at least once that they can continue setting up their blog in the dashboard and provided deep links.

@@ -1,0 +1,33 @@
+name: cms/cms-publishing-flow-publish-changed-item
+description: >-
+  Verifies the agent reads the cms-publishing-flow skill and correctly explains the
+  Publishing Flow CHANGED state and how to publish a changed item's edits to the live site.
+triggerPrompt: >-
+  My Wix CMS collection uses the publishing workflow (review edits before publishing). One of my
+  items now shows a "Changed" status. What does that mean, and how do I get my edits to appear on
+  the live site?
+tags: [cms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-publishing-flow-visible-hidden
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has a Publishing-Flow (draft/publish) CMS collection; an item shows the "Changed"
+      status and they want their edits to go live.
+      Intent: recognize CHANGED = a published (live) item that has a newer draft with unpublished
+      edits, and that publishing the item's draft is what pushes those edits live.
+
+      Pass if the response:
+      - explains CHANGED means the item is published/live but has draft edits that are not yet published, AND
+      - tells the user to publish the item (publish its draft) to push the edits to the live site, AND
+      - reflects the draft/published model (edits live on a draft until published; optionally mentions
+        unpublish or revert-to-live as related transitions).
+
+      Fail if the response:
+      - misidentifies CHANGED (e.g. treats it as an error, a merge conflict, or merely "unsaved" needing
+        only a re-save), OR
+      - claims editing the item directly makes it live with no publish step, OR
+      - invents statuses/actions that are not part of the draft/publish model.

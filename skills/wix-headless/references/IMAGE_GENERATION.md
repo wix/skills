@@ -3,8 +3,8 @@
 A single reusable capability: generate an image with **Wix AI (Runware)** via the `wixapis.com` proxy, import it into Wix Media, and attach it where it's needed. **Opt-in** — only runs when `imagery` is on (resolved in `DISCOVERY.md`; default off → text-only). It's **agnostic to the project type**: it uses `$TOKEN`/`$SITE_ID` from the provided authentication mechanism, exactly like every other call.
 
 Use it **intelligently, by need** — there's no fixed slot list:
-- **Entity images** — during Seed, attach images to seeded image-bearing entities (stores products, blog covers, CMS items, **bookings services**, restaurant items, **portfolio projects + collection covers**). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
-- **Contextual / decorative images** — when the skill is building a frontend (the create/connect conductors) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
+- **Entity images** — during Seed, attach images to seeded image-bearing entities (e.g. stores products, blog covers, CMS items, bookings services, restaurant items, portfolio projects + collection covers, event heroes — illustrative, not a write-shape index; each capability's recipe pins its own attach shape, see §3). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
+- **Contextual / decorative images** — when the skill is building a frontend (the create/connect flows) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
 
 ## 1 · Generate
 
@@ -34,17 +34,23 @@ POST https://www.wixapis.com/site-media/v1/files/import
 body: { "url": "<imageURL from generate>", "mimeType": "image/png", "displayName": "<name>.png" }
 ```
 
-Keep two values from the `file` object: **`file.url`** (full permanent `wixstatic.com` URL — for `<img>`/CSS/product/CMS image fields) and **`file.fileUrl`** (the file id — for blog cover `media.wixMedia.image.id`).
+Keep two values from the `file` object: **`file.url`** (the full permanent `wixstatic.com` URL) and **`file.id`** (the WixMedia file id, e.g. `<hash>~mv2.jpg`). Some entities bind by url, others by id — **which one a given entity uses is the recipe's concern** (§3), not this common section's. (The import response has **no `fileUrl` field** — the id is `file.id`.)
 
 ## 3 · Attach (by entity type)
 
-The pass-2 **write shape belongs in each capability's seed recipe** — right next to the create shape the seeder already reads (`inline-recipes/setup-<capability>.md`), because the correct patch shape is per-entity earned knowledge, not central mechanism. So when a recipe carries its own "attach the image" step, **that recipe is authoritative** — read the shape there. This section keeps only the cross-entity essentials as a fallback for entities whose recipe doesn't yet pin one; read the exact write-shape off the live REST docs (`SEED.md` §1 navigation) if neither covers it:
+The pass-2 **write shape is per-entity earned knowledge and lives in each capability's seed recipe** — right next to the create shape the seeder already reads (`inline-recipes/setup-<capability>.md`). **That recipe is authoritative** — read the exact shape there (field paths, any required companion fields, silent-drop warnings, confirm-by-requery), not here. This section is navigation only and carries no shapes:
 
-- **Product** — PATCH `media.itemsInfo.items[{ url, altText }]`. **428 prevention**: first `GET /stores/v3/products/{id}` for `options` + `variantsInfo` + `revision`, and echo them back in the PATCH (don't send a field mask — the validator runs before masking). Use `file.url`.
-- **Blog post** — PATCH the cover via `media.wixMedia.image.id = "<file.fileUrl>"`, then **re-publish** the post (the PATCH unpublishes it).
-- **CMS item** — **read-merge-PUT** (the shape now lives in `setup-cms.md` STEP 5, next to the create/insert calls): `POST /wix-data/v2/items/query` for the item, merge the image URL into its `data`, then PUT the whole record (PATCH needs JsonPatch; PUT is stable). Use `file.url`.
-- **Bookings service** — `PATCH /bookings/v2/services/{id}` with `media.image` as an **object** `{ id, url, width, height, altText }` (a plain-string image → `400`); fetch the service's `revision` first. Full shape in `setup-bookings.md` STEP 5.
-- **Portfolio project / collection** — `PATCH /portfolio/v1/projects/{id}` (or `…/collections/{id}`) with `coverImage.imageInfo` as `{ id, height, width }` (the WixMedia image id + its dimensions; `url` is read-only); echo the entity's current `revision`, no field mask. Full shape in `setup-portfolio.md` STEP 3.
+| Entity | Recipe | Section |
+|---|---|---|
+| Store product | `setup-online-store.md` | **Attach images** |
+| Blog post cover | `setup-blog.md` | **Attach images** |
+| CMS item | `setup-cms.md` | **Attach images** |
+| Bookings service | `setup-bookings.md` | **Attach images** |
+| Portfolio project / collection | `setup-portfolio.md` | **Attach images** (cover + gallery) |
+| Restaurant menu item | `setup-restaurants.md` | **Attach images** |
+| Event hero (`mainImage`) | `setup-events.md` | **Attach images** |
+| *(any entity whose recipe doesn't pin one)* | — | discover live via `DOC_DISCOVERY.md` |
+
 - **Frontend** (when building a site) — drop `file.url` into the `<img src>` / CSS `background-image` of the page being built.
 
 ## Prompts
@@ -58,6 +64,6 @@ Each generated image costs **1 Wix AI credit**, billed at the account level rega
 - **Cost is surfaced** — the pre-work line states the plan in credits (*"~N images ≈ N credits"*). Keep the running count honest with that estimate.
 - **Honor the per-run `imageCap`** (default ~12, from Discovery). Generate up to the cap by priority (hero/most-visible surfaces first); **beyond the cap, don't generate — render the themed-block fallback** and log what was capped. Never silently exceed the cap on a "throughout"-style phrase.
 
-**Themed-block fallback (the not-generating path).** Whenever a **frontend** image isn't generated — imagery off, over the cap, declined, or a generation failure — render a **styled `div` that follows the site's design tokens** (palette, radius, spacing, an optional label/gradient) in the slot, never an empty gap or a broken `<img>`. It's deterministic, needs no input, never hangs — so it's the safe default for any non-interactive run and keeps the layout on-brand at zero credits. (A *seeded backend entity* with no image just stays text-only — there's no div to render server-side; `SEED.md` §5.)
+**Themed-block fallback (the not-generating path).** Whenever a **frontend** image isn't generated — imagery off, over the cap, declined, or a generation failure — render a **styled `div` that follows the site's design tokens** (palette, radius, spacing, an optional label/gradient) in the slot, never an empty gap or a broken `<img>`. It's deterministic, needs no input, never hangs — so it's the safe default for any non-interactive run and keeps the layout on-brand at zero credits. (A *seeded backend entity* with no image just stays text-only — there's no div to render server-side; `SEED.md` § "Entity images".)
 
 **Never block the run on image failure**: on `unsupportedParameter`/`unsupportedDimensions` fix and retry once; on model/5xx/credit-exhaustion, **skip that image and continue** — a frontend slot falls back to a themed block, a seeded entity stays text-only (the user can add their own later).

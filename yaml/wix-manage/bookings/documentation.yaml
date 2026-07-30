@@ -50,3 +50,7 @@ apiDoc:
       title: Diagnose Bookings Availability Issues
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
+    - file: ../../../skills/wix-manage/references/bookings/bookings-dashboard-navigation.md
+      title: Bookings Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings]
