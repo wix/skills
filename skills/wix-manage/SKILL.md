@@ -142,6 +142,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 **Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
 
+### [Find and Update Contact](references/contacts/find-and-update-contact.md)
+**Technical:** Finds a contact the user identified by name and updates a field on it. Covers the exact filterable field list of Query Contacts, why `name.first`/`name.last` return 400 "not declared as filterable", using Search Contacts instead, and the `revision` Update Contact requires.
+
 ---
 
 ## Dashboard Navigation
