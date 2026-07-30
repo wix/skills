@@ -1,0 +1,65 @@
+name: stores/assign-product-ribbon
+description: >-
+  Verifies a "put a sale ribbon on this product" request is handled as a catalog
+  badge on the product, not as a discount rule, and that the product's price is
+  left unchanged.
+triggerPrompt: >-
+  Put a "Sale" ribbon on the Ribbon Test Mug in my store so it stands out on the
+  product list. I just want the badge — don't change the price.
+tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: Seed one product to badge
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Ribbon Test Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price:
+                    actualPrice:
+                      amount: "24.00"
+                  physicalProperties: {}
+                  visible: true
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/assign-product-ribbon-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked for a "Sale" ribbon on the product "Ribbon Test Mug", and explicitly said
+      not to change the price.
+
+      A ribbon is a catalog badge set through the product's `ribbon` field on the Catalog V3
+      Products API. It is NOT a discount rule and NOT a coupon, and assigning one does not change
+      any price. Routing this request to Discount Rules is the specific failure this scenario
+      exists to catch.
+
+      Pass if ALL of these are true:
+        1. The agent set a ribbon on the product "Ribbon Test Mug" via the Products API
+           (`stores/v3/products`), and reports it as done.
+        2. The ribbon is "Sale".
+        3. No discount rule and no coupon was created.
+        4. The product's price was not changed.
+
+      Fail if ANY of these are true:
+        - The agent created a discount rule or a coupon, or reports that a ribbon is configured
+          through Discount Rules.
+        - It changed, or claims to have changed, the product's price.
+        - It only explained how to add a ribbon, or handed back a request body, without doing it.
+        - It reports success while also reporting that its update call failed or was rejected, or
+          claims success without a successful update.
+        - It says the site has no such product even though a products read returned
+          "Ribbon Test Mug".
+
+      Judge only the points above. Do not require the agent to have pre-created the ribbon entity
+      separately — passing a ribbon name on the product is the documented one-call path, and
+      creating the ribbon first via the Ribbons API is equally acceptable.
