@@ -1,4 +1,4 @@
-name: dashboard-navigation/bookings-dashboard-navigation
+name: bookings/bookings-dashboard-navigation
 description: >-
   Verifies the agent reads the bookings-dashboard-navigation recipe when asked
   for direct links to Wix Bookings dashboard pages, and returns correct

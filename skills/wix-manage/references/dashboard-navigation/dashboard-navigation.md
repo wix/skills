@@ -30,8 +30,8 @@ Useful properties of these URLs:
 
 | Business solution | Recipe | Covers |
 |---|---|---|
-| Wix Bookings | [Bookings Dashboard Navigation](bookings-dashboard-navigation.md) | Services, calendar, booking list, staff, availability, resources, settings |
-| Wix Stores / eCommerce | [Stores Dashboard Navigation](stores-dashboard-navigation.md) | Products, categories, inventory, orders, abandoned checkouts, gift cards, shipping, tax |
+| Wix Bookings | [Bookings Dashboard Navigation](../bookings/bookings-dashboard-navigation.md) | Services, calendar, booking list, staff, availability, resources, settings |
+| Wix Stores / eCommerce | [Stores Dashboard Navigation](../stores/stores-dashboard-navigation.md) | Products, categories, inventory, orders, abandoned checkouts, gift cards, shipping, tax |
 
 For a business solution not listed yet, use the app-ID fallback URL with the solution's app definition ID, or link the dashboard home: `https://manage.wix.com/dashboard/{metaSiteId}/home`.
 

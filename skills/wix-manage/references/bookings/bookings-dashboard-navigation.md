@@ -5,7 +5,7 @@ description: "Builds direct links to Wix Bookings dashboard pages on manage.wix.
 
 # Bookings Dashboard Navigation
 
-Build direct links into the Wix Bookings pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](dashboard-navigation.md).
+Build direct links into the Wix Bookings pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
 
 All Wix Bookings (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`) pages live under:
 

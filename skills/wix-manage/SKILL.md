@@ -83,6 +83,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Multi-Resource Service Creation](references/bookings/multi-resource-service-creation.md)
 **Technical:** Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation.
 
+### [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md)
+**Technical:** Direct links to Wix Bookings dashboard pages on manage.wix.com (services list, edit service, calendar, booking list, staff, availability, resources, settings), pairing each main Bookings entity with its read API for "view it in your dashboard" links.
+
 ---
 
 ## Calendar
@@ -126,16 +129,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Dashboard Navigation
 
-**Routing — start at the index:** for any "where do I manage X in the dashboard" / "give me a dashboard link" request, load [Dashboard Navigation](references/dashboard-navigation/dashboard-navigation.md) (the shared manage.wix.com URL contract), then the per-business-solution recipe.
-
 ### [Dashboard Navigation](references/dashboard-navigation/dashboard-navigation.md)
-**Index** — the shared URL structure for all dashboard pages (`https://manage.wix.com/dashboard/{metaSiteId}/{route}`, app-ID fallback, legacy redirects, entity deep links) and routing to the per-business-solution recipes.
-
-### [Bookings Dashboard Navigation](references/dashboard-navigation/bookings-dashboard-navigation.md)
-**Technical:** Direct links to Wix Bookings dashboard pages (services list, edit service, calendar, booking list, staff, availability, resources, settings), pairing each main Bookings entity with its read API for "view it in your dashboard" links.
-
-### [Stores Dashboard Navigation](references/dashboard-navigation/stores-dashboard-navigation.md)
-**Technical:** Direct links to Wix Stores and eCommerce dashboard pages (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.
+**Index** — for any "where do I manage X in the dashboard" / "give me a dashboard link" request: the shared URL structure for all dashboard pages (`https://manage.wix.com/dashboard/{metaSiteId}/{route}`, app-ID fallback, legacy redirects, entity deep links), routing to the per-business-solution recipes (e.g. [Bookings](references/bookings/bookings-dashboard-navigation.md), [Stores](references/stores/stores-dashboard-navigation.md)) which live in their solution's section below.
 
 ---
 
@@ -329,3 +324,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
 **Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+
+### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
+**Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.

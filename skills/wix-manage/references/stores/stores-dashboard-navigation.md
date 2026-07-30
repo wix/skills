@@ -5,7 +5,7 @@ description: "Builds direct links to Wix Stores and eCommerce dashboard pages on
 
 # Stores Dashboard Navigation
 
-Build direct links into the store pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](dashboard-navigation.md).
+Build direct links into the store pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
 
 Store pages are split across **two apps** with two URL namespaces:
 

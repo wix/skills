@@ -1,4 +1,4 @@
-name: dashboard-navigation/stores-dashboard-navigation
+name: stores/stores-dashboard-navigation
 description: >-
   Verifies the agent reads the stores-dashboard-navigation recipe when asked
   for direct links to Wix Stores dashboard pages, and returns correct
