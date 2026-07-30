@@ -42,7 +42,3 @@ Useful properties of these URLs:
 | Wix Marketing | [Marketing Dashboard Navigation](../marketing/marketing-dashboard-navigation.md) | Social posts hub, design templates, email campaigns, campaign analytics |
 
 For a business solution not listed yet, use the app-ID fallback URL with the solution's app definition ID, or link the dashboard home: `https://manage.wix.com/dashboard/{metaSiteId}/home`.
-
-## Related
-
-- For dashboard **extensions** navigating programmatically, the `dashboard.navigate({ pageId })` SDK method uses page IDs (GUIDs), not URL routes — see the [dashboard page IDs table](https://dev.wix.com/docs/sdk/host-modules/dashboard/page-ids). These recipes are for building shareable URLs.
