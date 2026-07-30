@@ -16,6 +16,16 @@ This recipe guides you through installing Wix apps on a site using the Apps Inst
 - **Apps Installer API**: [REST](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app)
 
 ---
+## Wix-built vs third-party apps
+
+This recipe treats the two differently, so decide which one you have before you install:
+
+- **Wix-built app** — the app appears in [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix) or in the [Common App Definition IDs](#common-app-definition-ids) table below (Wix Stores, Bookings, Blog, Events, Multilingual, Pricing Plans, CMS, and similar). Wix owns the app, its dashboard, and its support.
+- **Third-party app** — any other App Market listing. An external vendor built and operates it, so its `appDefId` is not in the Wix-built list and has to be resolved through Step 0 (Search Market Listings). Wix can install and enable it, but the app's internal setup wizard, settings screens, and support are owned by the vendor.
+
+**If you can't tell which one it is, treat it as third-party.** That is the conservative path: it stops you from claiming in-app configuration you have no API to verify.
+
+---
 ## Step 0: Find the App ID (skip if you already have it)
 
 If you already know the `appDefId` (e.g. from the table of Wix-built apps below), skip to Step 1.
