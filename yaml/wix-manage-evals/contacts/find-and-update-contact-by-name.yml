@@ -2,9 +2,10 @@
 name: contacts/find-and-update-contact-by-name
 description: >-
   Verifies the agent reads the find-and-update-contact recipe and actually completes an
-  update to a contact it can only identify by name — routing to Search Contacts instead
-  of the name filter Query Contacts rejects as "not declared as filterable", and passing
-  the revision Update Contact requires.
+  update to a contact it can only identify by name, on a site holding 61 contacts —
+  routing to Search Contacts instead of the name filter Query Contacts rejects as "not
+  declared as filterable" or a full scan filtered in memory, and passing the revision
+  Update Contact requires. Two other contacts named Jordan make the surname load-bearing.
 triggerPrompt: >-
   Update my contact Jordan Lee — set their phone number to +1-212-555-0100.
 tags: [contacts]
@@ -13,7 +14,195 @@ siteSetup:
   templateId: blank-editor
   bootstrap:
     steps:
-      - label: seed the contact Jordan Lee
+      # A realistic address book, so locating one person by name is a real lookup rather
+      # than a one-item list. Two other Jordans make the surname load-bearing; no other
+      # contact shares the surname Lee, so "Jordan Lee" still resolves to exactly one.
+      - label: seed 60 unrelated contacts
+        method: post
+        url: https://www.wixapis.com/contacts/v5/bulk/contacts/create
+        body:
+          contacts:
+            - name: { first: Avery, last: Alvarez }
+              email: { email: avery.alvarez.0@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Blake, last: Bennett }
+              email: { email: blake.bennett.1@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Cameron, last: Castillo }
+              email: { email: cameron.castillo.2@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Dana, last: Dubois }
+              email: { email: dana.dubois.3@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Elliot, last: Espinosa }
+              email: { email: elliot.espinosa.4@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Finley, last: Fairbanks }
+              email: { email: finley.fairbanks.5@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Gray, last: Goldberg }
+              email: { email: gray.goldberg.6@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Harper, last: Hartley }
+              email: { email: harper.hartley.7@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Iris, last: Ibrahim }
+              email: { email: iris.ibrahim.8@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Jesse, last: Jensen }
+              email: { email: jesse.jensen.9@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Kai, last: Kowalski }
+              email: { email: kai.kowalski.10@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Logan, last: Lindqvist }
+              email: { email: logan.lindqvist.11@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Mara, last: Moreau }
+              email: { email: mara.moreau.12@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Noor, last: Nakamura }
+              email: { email: noor.nakamura.13@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Owen, last: Okafor }
+              email: { email: owen.okafor.14@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Paige, last: Pereira }
+              email: { email: paige.pereira.15@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Quinn, last: Quintero }
+              email: { email: quinn.quintero.16@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Riley, last: Rasmussen }
+              email: { email: riley.rasmussen.17@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Sasha, last: Silva }
+              email: { email: sasha.silva.18@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Tessa, last: Tanaka }
+              email: { email: tessa.tanaka.19@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Uma, last: Ueda }
+              email: { email: uma.ueda.20@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Vaughn, last: Vasquez }
+              email: { email: vaughn.vasquez.21@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Wren, last: Whitfield }
+              email: { email: wren.whitfield.22@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Xander, last: Xiong }
+              email: { email: xander.xiong.23@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Yara, last: Yilmaz }
+              email: { email: yara.yilmaz.24@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Zane, last: Zielinski }
+              email: { email: zane.zielinski.25@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Adele, last: Ashford }
+              email: { email: adele.ashford.26@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Bruno, last: Braun }
+              email: { email: bruno.braun.27@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Celia, last: Cavanagh }
+              email: { email: celia.cavanagh.28@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Dorian, last: Delgado }
+              email: { email: dorian.delgado.29@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Esme, last: Eriksen }
+              email: { email: esme.eriksen.30@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Felix, last: Fontaine }
+              email: { email: felix.fontaine.31@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Greta, last: Grimaldi }
+              email: { email: greta.grimaldi.32@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Hugo, last: Halvorsen }
+              email: { email: hugo.halvorsen.33@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Imani, last: Ivanov }
+              email: { email: imani.ivanov.34@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Jonas, last: Jamison }
+              email: { email: jonas.jamison.35@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Kira, last: Kaplan }
+              email: { email: kira.kaplan.36@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Lucian, last: Lemieux }
+              email: { email: lucian.lemieux.37@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Miriam, last: Mansour }
+              email: { email: miriam.mansour.38@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Nadia, last: Novak }
+              email: { email: nadia.novak.39@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Otto, last: Ortega }
+              email: { email: otto.ortega.40@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Priya, last: Petrov }
+              email: { email: priya.petrov.41@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Rafael, last: Rowntree }
+              email: { email: rafael.rowntree.42@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Sonia, last: Stavros }
+              email: { email: sonia.stavros.43@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Theo, last: Thibault }
+              email: { email: theo.thibault.44@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Ursula, last: Ulrich }
+              email: { email: ursula.ulrich.45@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Viktor, last: Vidal }
+              email: { email: viktor.vidal.46@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Wanda, last: Wexler }
+              email: { email: wanda.wexler.47@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Yusuf, last: Yamamoto }
+              email: { email: yusuf.yamamoto.48@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Zora, last: Zamora }
+              email: { email: zora.zamora.49@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Amara, last: Aguilar }
+              email: { email: amara.aguilar.50@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Designer" }
+            - name: { first: Bodhi, last: Bergstrom }
+              email: { email: bodhi.bergstrom.51@example.com }
+              company: { name: "Cedar & Co", jobTitle: "Bookkeeper" }
+            - name: { first: Clara, last: Cortez }
+              email: { email: clara.cortez.52@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Studio Manager" }
+            - name: { first: Desmond, last: Dvorak }
+              email: { email: desmond.dvorak.53@example.com }
+              company: { name: "Kestrel Labs", jobTitle: "Buyer" }
+            - name: { first: Eva, last: Engstrom }
+              email: { email: eva.engstrom.54@example.com }
+              company: { name: "Ferro Supply", jobTitle: "Consultant" }
+            - name: { first: Franco, last: Farrow }
+              email: { email: franco.farrow.55@example.com }
+              company: { name: "Verdant Goods", jobTitle: "Coordinator" }
+            - name: { first: Giulia, last: Gallagher }
+              email: { email: giulia.gallagher.56@example.com }
+              company: { name: "Northwind Traders", jobTitle: "Operations Manager" }
+            - name: { first: Hector, last: Haddad }
+              email: { email: hector.haddad.57@example.com }
+              company: { name: "Bright Ideas Co.", jobTitle: "Account Executive" }
+            - name: { first: Jordan, last: Alvarez }
+              email: { email: jordan.alvarez@example.com }
+              company: { name: "Harbor Analytics", jobTitle: "Buyer" }
+            - name: { first: Jordan, last: Whitfield }
+              email: { email: jordan.whitfield@example.com }
+              company: { name: "Lumen Studio", jobTitle: "Consultant" }
+      - label: seed the target contact Jordan Lee
         method: post
         url: https://www.wixapis.com/contacts/v5/contacts
         body:
