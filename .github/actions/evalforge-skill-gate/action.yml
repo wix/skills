@@ -2,9 +2,12 @@ name: 'EvalForge Skill Gate'
 description: 'EvalForge flows for file-based skills: per-PR eval gate, PR-close cleanup, and merge-time scenario sync'
 inputs:
   mode:
-    description: 'Action mode: "gate" (per-PR eval run), "cleanup" (PR close), or "sync" (merge-time reconcile, the default)'
+    description: 'Action mode: "gate" (per-PR eval run), "cleanup" (PR close), "re-eval" (/re-eval comment re-runs the PR gate run), or "sync" (merge-time reconcile, the default)'
     required: false
     default: 'sync'
+  gate-workflow-file:
+    description: 'Filename of the gate workflow whose run is re-run, e.g. evalforge-wix-app-gate.yml (re-eval mode)'
+    required: false
   github-token:
     description: 'GitHub token — resolves the PR author for the Wix-author gate, reads the changed-file list, and upserts the PR comment'
     required: true
