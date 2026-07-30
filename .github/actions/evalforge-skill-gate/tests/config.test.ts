@@ -217,3 +217,34 @@ describe('getReEvalConfig', () => {
     expect(() => getReEvalConfig()).toThrow(/gate-workflow-file/);
   });
 });
+
+describe('getGateConfig — the evaluated SHA', () => {
+  // A re-run replays the original event, so GITHUB_SHA is the merge commit as it was then, while
+  // actions/checkout resolves refs/pull/N/merge fresh. Labelling from the stale one would have
+  // createOrReuseSkillVersion reuse a version whose content no longer matches its label.
+  it('prefers the evaluated-sha input over GITHUB_SHA', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'evaluated-sha': 'fresh1234567' });
+    process.env.GITHUB_SHA = 'staleaaa0000';
+    const { getGateConfig } = await import('../src/utils/config');
+    const config = getGateConfig();
+
+    expect(config.evaluatedSha).toBe('fresh1234567');
+    expect(config.versionLabel).toBe('pr-42-fresh12');
+  });
+
+  it('falls back to GITHUB_SHA when the input is absent', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    process.env.GITHUB_SHA = 'abcdef1234567';
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(getGateConfig().versionLabel).toBe('pr-42-abcdef1');
+  });
+
+  it('throws when neither is available', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    delete process.env.GITHUB_SHA;
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(() => getGateConfig()).toThrow(/evaluated-sha|GITHUB_SHA/);
+  });
+});

@@ -8,6 +8,9 @@ inputs:
   gate-workflow-file:
     description: 'Filename of the gate workflow whose run is re-run, e.g. evalforge-wix-app-gate.yml (re-eval mode)'
     required: false
+  evaluated-sha:
+    description: 'Commit the skill version is labelled for, normally `git rev-parse HEAD` after checkout. Falls back to GITHUB_SHA, which is the original merge commit on a re-run and so can be stale (gate mode)'
+    required: false
   github-token:
     description: 'GitHub token — resolves the PR author for the Wix-author gate, reads the changed-file list, and upserts the PR comment'
     required: true

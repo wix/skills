@@ -79,9 +79,18 @@ describe('EvalForge wix-app gate workflow', () => {
 
   it('pins every action by commit sha rather than a tag', () => {
     for (const step of workflow.jobs.gate.steps) {
-      if (step.uses.startsWith('./')) continue;
+      // `run:` steps have nothing to pin, and local `./` actions are this repo's own.
+      if (!step.uses || step.uses.startsWith('./')) continue;
       expect(step.uses, step.uses).toMatch(/@[0-9a-f]{40}$/);
     }
+  });
+
+  // A re-run replays the original event's GITHUB_SHA while checkout resolves the merge ref fresh,
+  // so the label must come from the commit on disk.
+  it('labels the version from the commit actually checked out', () => {
+    expect(gateStep.with?.['evaluated-sha']).toContain('steps.merge.outputs.sha');
+    const mergeStep = workflow.jobs.gate.steps.find((step: { id?: string }) => step.id === 'merge');
+    expect(mergeStep.run).toContain('git rev-parse HEAD');
   });
 });
 

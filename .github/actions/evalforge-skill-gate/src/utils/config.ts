@@ -130,16 +130,21 @@ function getHeadSha(): string {
 }
 
 /**
- * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
- * come from this, not `head.sha`: the same head yields different merge content as base
- * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
+ * The commit the version label is content-addressed to. It must be the commit actually checked out,
+ * not `head.sha`: the same head yields different merge content as base advances, so
+ * `createOrReuseSkillVersion` would reuse a version built from stale content.
+ *
+ * `GITHUB_SHA` names the merge commit on `pull_request` — but on a **re-run** it names the merge
+ * commit from the *original* event, while `actions/checkout` resolves `refs/pull/<n>/merge` fresh.
+ * If base advanced in between, those differ. So the workflow passes `git rev-parse HEAD` and this
+ * prefers it; `GITHUB_SHA` remains the fallback for a caller that does not.
  */
 function getEvaluatedSha(): string {
-  const sha = process.env.GITHUB_SHA;
+  const sha = core.getInput('evaluated-sha') || process.env.GITHUB_SHA;
   if (!sha) {
     throw new Error(
-      'GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
-      + 'evaluated. This action expects to run in GitHub Actions.',
+      'Neither the evaluated-sha input nor GITHUB_SHA is set, so the skill version cannot be '
+      + 'labelled for the commit actually evaluated. This action expects to run in GitHub Actions.',
     );
   }
   return sha;
