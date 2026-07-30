@@ -104,21 +104,45 @@ Max 3 categoryIds per discount rule.
   "discountRule": {
     "name": "Spend $195+, Get 15% Off",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CUSTOM_FILTER",
+                "customFilter": {
+                  "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "params": {
+                    "collectionIds": ["category-guid-here"]
+                  }
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 15
-        },
-        "scope": {
-          "id": "category-guid-here",
-          "type": "COLLECTION"
         }
-      }
-    ],
-    "conditions": {
+      ]
+    },
+    "trigger": {
+      "triggerType": "SUBTOTAL_RANGE",
       "subtotalRange": {
-        "from": "195.00"
+        "from": "195.00",
+        "scopes": [
+          {
+            "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+            "type": "CUSTOM_FILTER",
+            "customFilter": {
+              "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "params": {
+                "collectionIds": ["category-guid-here"]
+              }
+            }
+          }
+        ]
       }
     }
   }
@@ -160,21 +184,39 @@ Max 3 categoryIds per discount rule.
   "discountRule": {
     "name": "Spend $175+, Get 10% Off Everything",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CATALOG_ITEM",
+                "catalogItemFilter": {
+                  "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 10
-        },
-        "scope": {
-          "id": "catalog",
-          "type": "CATALOG"
         }
-      }
-    ],
-    "conditions": {
+      ]
+    },
+    "trigger": {
+      "triggerType": "SUBTOTAL_RANGE",
       "subtotalRange": {
-        "from": "175.00"
+        "from": "175.00",
+        "scopes": [
+          {
+            "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+            "type": "CATALOG_ITEM",
+            "catalogItemFilter": {
+              "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+            }
+          }
+        ]
       }
     }
   }

@@ -113,21 +113,45 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
   "discountRule": {
     "name": "Buy 2+, Save 15% on Accessories",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CUSTOM_FILTER",
+                "customFilter": {
+                  "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "params": {
+                    "collectionIds": ["accessories-category-guid"]
+                  }
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 15
-        },
-        "scope": {
-          "id": "accessories-category-guid",
-          "type": "COLLECTION"
         }
-      }
-    ],
-    "conditions": {
+      ]
+    },
+    "trigger": {
+      "triggerType": "ITEM_QUANTITY_RANGE",
       "itemQuantityRange": {
-        "from": 2
+        "from": 2,
+        "scopes": [
+          {
+            "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+            "type": "CUSTOM_FILTER",
+            "customFilter": {
+              "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "params": {
+                "collectionIds": ["accessories-category-guid"]
+              }
+            }
+          }
+        ]
       }
     }
   }
@@ -169,41 +193,49 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
   "discountRule": {
     "name": "Bundle 3 Best Sellers, Save 10%",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "specific_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CATALOG_ITEM",
+                "catalogItemFilter": {
+                  "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "catalogItemIds": [
+                        "product-uuid-1",
+                        "product-uuid-2",
+                        "product-uuid-3"
+                  ]
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 10
-        },
-        "scope": {
-          "id": "product-uuid-1",
-          "type": "SPECIFIC_PRODUCTS"
         }
-      },
-      {
-        "discount": {
-          "discountType": "PERCENTAGE",
-          "percentage": 10
-        },
-        "scope": {
-          "id": "product-uuid-2",
-          "type": "SPECIFIC_PRODUCTS"
-        }
-      },
-      {
-        "discount": {
-          "discountType": "PERCENTAGE",
-          "percentage": 10
-        },
-        "scope": {
-          "id": "product-uuid-3",
-          "type": "SPECIFIC_PRODUCTS"
-        }
-      }
-    ],
-    "conditions": {
+      ]
+    },
+    "trigger": {
+      "triggerType": "ITEM_QUANTITY_RANGE",
       "itemQuantityRange": {
-        "from": 3
+        "from": 3,
+        "scopes": [
+          {
+            "id": "specific_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+            "type": "CATALOG_ITEM",
+            "catalogItemFilter": {
+              "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "catalogItemIds": [
+                    "product-uuid-1",
+                    "product-uuid-2",
+                    "product-uuid-3"
+              ]
+            }
+          }
+        ]
       }
     }
   }
