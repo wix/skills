@@ -1,10 +1,9 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, withManagedTags, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, deletePrCapabilityVersions, draftTagFor, toScenarioBody, withManagedTags, type RemoteScenario } from '@wix/evalforge-core';
 import { loadEvals, type LoadedScenario } from './evals';
-import { toScenarioBody } from './sync';
-import { deletePrMcpVersions } from './pr-cleanup';
+
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import { workspaceRoot } from './workspace';
 
@@ -16,7 +15,10 @@ export async function runPromote(): Promise<void> {
   const workspace = workspaceRoot();
 
   // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
-  await deletePrMcpVersions(evalforge, config.mcpId, config.projectId, config.prNumber);
+  await deletePrCapabilityVersions(evalforge, config.mcpId, config.projectId, config.prNumber, {
+    log: core.info,
+    warn: core.warning,
+  });
 
   const headScenarios = loadEvalsWithWarnings(workspace);
 

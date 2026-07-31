@@ -28,6 +28,39 @@ Live site:  <published-url>
 Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
 ```
 
+## Suggest a custom domain (proactive, after release)
+
+After delivering the links above, **proactively offer a custom domain** — don't wait for the user to ask. The published URL is a generic Wix subdomain; a custom domain is the obvious next step, and the CLI handles the whole flow.
+
+1. **Suggest options.** Build a search query from what you know about the site — its business name, topic, or purpose from this run (not a generic placeholder):
+
+   ```bash
+   npx @wix/cli@latest account domain suggest "<business name or site topic>" --limit 5 --json
+   ```
+
+   All returned suggestions are already available for purchase. Show the user a few of the best fits, and mention they can explore more options — re-run `suggest` with different keywords, a higher `--limit`, or `--tld com net ...` to filter extensions.
+
+2. **Offer to buy, with a direct purchase link.** For the domain(s) the user likes, generate a site-scoped deep link so the purchase is tied to this site and can be connected after payment:
+
+   ```bash
+   npx @wix/cli@latest account --site-id <SITE_ID> domain buy <domain> --json
+   ```
+
+   Use the `siteId` from `wix.config.json`. `buy` does **not** charge anything — it returns a checkout URL (`https://manage.wix.com/get-domain?...`); the user completes payment in the browser.
+
+   > Your site is live at <published-url>, and you can manage it from your [dashboard](https://manage.wix.com/dashboard/<SITE_ID>).
+   > To build a professional online presence, [connect a custom domain](<checkout-url>) — **mybusiness.com** is available.
+
+If the user isn't interested, drop it — one offer, no upselling.
+
+## Before you sign off — feedback checkpoint
+
+This is the last step of the run — the natural point to check `../FEEDBACK.md`. Don't wait for the
+user to complain: run a quick self-check over the whole session (not just this final step) — a
+confusing API response, a doc that was wrong/missing, an extra retry, a workaround you had to invent,
+anything that cost more turns than it should have. If anything qualifies, **offer** to relay it to Wix
+as you deliver the links above; send only after an explicit yes.
+
 ## Member login on a **non-Astro** frontend — register the callback URI (post-release)
 
 **Only when the run has member login on a non-Astro SPA/static frontend using the Wix login page** (`inline-recipes/how-to-code-members-non-astro.md` — the `getAuthUrl` → `/callback` handshake). Astro's built-in `/api/auth/*` callback shapes are auto-registered; a **non-Astro SPA's own callback path is not** — and **login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you.

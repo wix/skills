@@ -14,7 +14,7 @@ Run these in order:
 
 **If a `wix.config.json` (or `.wix/`) is already present, the project is already connected to Wix — this is the *iterate* case.** Do **not** run `init` again (it's for attaching a *new* Wix project). Read `./wix.config.json` → hold `SITE_ID` in scratch, and skip to §2.
 
-> **Iterate is incremental.** An already-connected project may already be set up and/or seeded from a prior run. In §3–§4, **check current state before acting** — query installed apps before installing, check for already-seeded content before seeding (re-seeding duplicates it), and inspect existing wiring before adding. Do only the delta the new intent requires; leave the rest untouched.
+> **Iterate is incremental.** An already-connected project may already be set up and/or seeded from a prior run. In §3–§4, **check current state before acting** — query installed apps before installing (the Dynamic Context call in `DISCOVERY.md` §1 reports them in one call), check for already-seeded content before seeding (re-seeding duplicates it), and inspect existing wiring before adding. Do only the delta the new intent requires; leave the rest untouched.
 
 Otherwise, attach Wix in place:
 
@@ -71,4 +71,4 @@ static-hosting fixes in **`references/managed/DEPLOYMENT.md`** — the entry fil
 `index.html`, and `outputDirectory` must point at the directory holding it (init's `./dist` default is
 wrong for static). Then finalize per **`references/managed/DEPLOYMENT.md`** (`npx @wix/cli@latest release` — Wix
 publishes + registers the origin OOTB). Close with a short summary (apps installed, content seeded, what
-was wired) and **both links — the live site URL and the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`** (see `managed/DEPLOYMENT.md` § "Give the user both links"; `<SITE_ID>` is the `siteId` in scratch).
+was wired) and **both links — the live site URL and the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`** (see `managed/DEPLOYMENT.md` § "Give the user both links"; `<SITE_ID>` is the `siteId` in scratch), then run the feedback checkpoint (`managed/DEPLOYMENT.md` § "Before you sign off").

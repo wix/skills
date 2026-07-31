@@ -26,7 +26,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Portfolio a
 
 ### STEP 0: Clean the portfolio — remove the default sample data
 
-A freshly installed Wix Portfolio app comes pre-seeded with **one sample collection ("My Portfolio") and several sample projects** ("Editorial Portraits", "Seasonal Lookbook", …), all assigned to that collection. Remove them **before** creating yours, so the site shows only your content. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own.
+A freshly installed Wix Portfolio app comes pre-seeded with **one sample collection ("My Portfolio") and several sample projects** ("Editorial Portraits", "Seasonal Lookbook", …), all assigned to that collection. **Only remove data that is obviously the install's own sample content on a fresh install** (that "My Portfolio" collection and its sample projects). Do **not** assume existing collections/projects are samples: the site may already hold the owner's **real content** (a connect/iterate run, or an owner-populated portfolio). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When it clearly is the install's samples, remove it **before** creating yours so the site shows only the intended content.
 
 **Delete children before the parent — projects first, then collections.** (Deleting a collection does not clean up the projects that reference it.)
 
