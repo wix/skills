@@ -1,0 +1,35 @@
+name: bookings/bookings-dashboard-navigation
+description: >-
+  Verifies the agent reads the bookings-dashboard-navigation recipe when asked
+  for direct links to Wix Bookings dashboard pages, and returns correct
+  manage.wix.com URLs including an entity-specific edit link.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to: my booking services list, the page where I'd edit
+  one specific service, my bookings calendar, and my staff list.
+tags: [bookings]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/bookings-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the booking services list, the
+      edit page for a specific service, the bookings calendar, and the staff list.
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses bookings/services for the services list, bookings/calendar for the
+        calendar, and bookings/staff for the staff list, AND
+      - explains the edit-service link is bookings/services/form/{serviceId}
+        (a placeholder or an explanation that the service id goes in the path is fine).
+
+      Fail if the response:
+      - invents dashboard routes that are not in the recipe (e.g. bookings/manage,
+        dashboard/bookings-services), OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

@@ -369,7 +369,7 @@ curl -X DELETE \
 | `IMAGE` | Image reference (HTTP url or wix:image://v1/{mediaId}/{friendlyName}) | `"wix:image://v1/3f72369f2219e2ee853e9e3df0217ce1.jpg/Colorful%20Business%20Cards.jpg"` |
 | `VIDEO` | Video reference (HTTP url or wix:video://v1/{mediaId}/{friendlyName}) | `"wix:video://v1/11062b_484182533ede4b9a81329daf20238867/Sketching%20Design%20Concepts#posterUri=11062b_484182533ede4b9a81329daf20238867f000.jpg&posterWidth=1920&posterHeight=1080"` |
 | `DOCUMENT` | Document reference  (HTTP url or wix:document://v1/{mediaId}) | `"wix:document://v1/..."` |
-| `MEDIA_IMAGE` | Wix Media Image | `{ "url": "http://...", "height": 640, "width": 480, "alt": "Picture" }` |
+| `MEDIA_IMAGE` | Wix Media Image | `{ "id": "<mediaId>", "url": "http://...", "height": 640, "width": 480, "altText": "Picture" }` |
 | `MEDIA_VECTOR_ART` | Wix Media Vector Art | `{ "uri": "wix:vector://v1/...", "viewBox": "0 0 100 100", "contentType": "shape", "svgContent": "<svg>...</svg>" }` |
 | `URL` | Web URL | `"https://example.com"` |
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
@@ -430,6 +430,31 @@ curl -X DELETE \
 ---
 
 ## Error Handling
+
+### Recovering from WDE0110
+
+`WDE0110` means the Wix CMS (Wix Data) app is not installed on the site. If the user has
+explicitly asked to install it, install the app before retrying the data-item request:
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+```
+
+```json
+{
+  "tenant": {
+    "tenantType": "SITE",
+    "id": "<SITE_ID>"
+  },
+  "appInstance": {
+    "appDefId": "e593b0bd-b783-45b8-97c2-873d42aacaf4"
+  }
+}
+```
+
+After the installation succeeds, retry the original `POST /wix-data/v2/items` request. If the
+user only asks what the error means or how to fix it, explain this installation step and ask for
+confirmation before performing the install.
 
 | Error | Cause | Solution |
 |-------|-------|----------|
