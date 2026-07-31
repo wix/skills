@@ -54,7 +54,24 @@ for (const skill of skills) {
   }
 }
 
-return { results, installed: readdirSync('/app/.agents/skills') };
+// Deterministically pin the skill location for future sessions: append (never rewrite)
+// a note to AGENTS.md so any later turn knows where the skills live without guessing.
+const fs = require('fs');
+const NOTE = `
+
+## Wix skills (installed)
+
+Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path; ignore stray copies (e.g. \`agent/skills/\`).
+
+- \`wix-vibe-headless\` — how the CLIENT is built: the REST-only frontend against Wix APIs (start at \`SKILL.md\`; per-vertical \`references/\`).
+- \`wix-headless\` — seeding/admin of the Wix site over the connector (\`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content).
+- \`wix-docs\` — search/read the Wix API docs when the recipes don't cover something.
+`;
+const amd = '/app/AGENTS.md';
+const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
+if (!cur.includes('## Wix skills')) fs.appendFileSync(amd, NOTE);
+
+return { results, installed: readdirSync('/app/.agents/skills'), agentsMdNoted: true };
 ```
 
 **Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
@@ -65,6 +82,21 @@ const { execSync } = require('child_process');
 for (const s of ['headless', 'vibe-headless', 'docs']) {
   execSync(`mkdir -p /app/.agents/skills/wix-${s} && curl -s "https://www.wix.com/skills/${s}.tgz" | tar xz -C /app/.agents/skills/wix-${s} --strip-components=1`);
 }
+// Same AGENTS.md note as Option A (append-only, idempotent) — pins the skill path for later turns.
+const fs = require('fs');
+const NOTE = `
+
+## Wix skills (installed)
+
+Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path; ignore stray copies (e.g. \`agent/skills/\`).
+
+- \`wix-vibe-headless\` — how the CLIENT is built: the REST-only frontend against Wix APIs (start at \`SKILL.md\`; per-vertical \`references/\`).
+- \`wix-headless\` — seeding/admin of the Wix site over the connector (\`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content).
+- \`wix-docs\` — search/read the Wix API docs when the recipes don't cover something.
+`;
+const amd = '/app/AGENTS.md';
+const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
+if (!cur.includes('## Wix skills')) fs.appendFileSync(amd, NOTE);
 return 'done';
 ```
 
