@@ -10,11 +10,11 @@ the Wix client setup.
 
 Follow the steps below exactly:
 
-1. **Install the Wix skills locally**
+1. **Install the Wix skills locally** (and pin their location in AGENTS.md)
 2. **(optional) Brief doesn't say what to build? Read the site**
 3. **Build the client**
 4. **Manage and seed the business** (run in parallel with 3)
-5. **Wrap up**
+5. **Wrap up** (required: mount the dev-only manage banner + point the user to the Wix dashboard)
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -137,6 +137,12 @@ source of truth for how the client app is built. To save time, prefer copying re
 the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
 re-generating them from scratch.
 
+**`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
+scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
+full-file rewrite drops them and the platform validator rejects the write, costing you a redo.
+Wire your routes/imports in with targeted `find_replace` edits and leave the rest of the file
+as-is.
+
 ## STEP 4 — Manage and seed the business
 
 Seed the site with real content by following the **`wix-headless` skill**'s
@@ -182,7 +188,7 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Add the dev-only manage banner** (links the app to its Wix back office): copy the
+1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): copy the
    `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
    `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
    `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
@@ -191,8 +197,11 @@ Once the site is built and seeded:
    shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
    down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
    banner — offset such a header by the banner's height.
-2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
-   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+2. **Ask the user to open** this URL to complete the setup in Wix (required; substitute the
+   metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}` — and, since
+   the banner from step 1 is mounted, also tell them: *in dev builds the site shows a slim
+   banner at the top linking straight to this Wix dashboard (dismissible; never shown in
+   production).*
 
 ## Later admin requests
 
