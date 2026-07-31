@@ -78,6 +78,12 @@ on the tool:
 - **exec_tool / shell** (only if you must): use the absolute path
   `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
 
+**The canonical skill location is `.agents/skills/` — for the whole session, not just now.** The
+installer may also leave stray copies (e.g. `agent/skills/` without the leading dot); **ignore
+them.** On any **later turn** (a follow-up request, after the initial build), do **not** guess or
+recall the path — read from **`.agents/skills/…` exactly**. Guessing variants like `agent/skills/`
+or `.agent/skills/` wastes turns on `File not found` and can read a stale duplicate.
+
 ## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
 Only needed when the business description in your prompt is vague or missing — otherwise skip
