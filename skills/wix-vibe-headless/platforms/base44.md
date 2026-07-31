@@ -137,6 +137,12 @@ source of truth for how the client app is built. To save time, prefer copying re
 the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
 re-generating them from scratch.
 
+**`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
+scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
+full-file rewrite drops them and the platform validator rejects the write, costing you a redo.
+Wire your routes/imports in with targeted `find_replace` edits and leave the rest of the file
+as-is.
+
 ## STEP 4 — Manage and seed the business
 
 Seed the site with real content by following the **`wix-headless` skill**'s
@@ -182,7 +188,9 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Add the dev-only manage banner** (links the app to its Wix back office): copy the
+1. **Add the dev-only manage banner** (links the app to its Wix back office) — this is a
+   required wrap-up step, not optional polish; do NOT skip it because the build "feels done"
+   (hand-rolled dashboard links in the UI are not a substitute). Copy the
    `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
    `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
    `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
@@ -192,7 +200,9 @@ Once the site is built and seeded:
    down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
    banner — offset such a header by the banner's height.
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
-   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+   you were given): `https://manage.wix.com/dashboard/{metaSiteId}` — and, since the banner
+   from step 1 is mounted, also tell them: *in dev builds the site shows a slim banner at the
+   top linking straight to this Wix dashboard (dismissible; never shown in production).*
 
 ## Later admin requests
 
