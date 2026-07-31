@@ -68,6 +68,28 @@ for (const s of ['headless', 'vibe-headless', 'docs']) {
 return 'done';
 ```
 
+**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds (either option),
+run this via exec_tool exactly as written. It appends (never rewrites) a note so any later
+turn knows where the skills live without guessing, and is idempotent (re-running is a no-op):
+
+```js
+const fs = require('fs');
+const NOTE = `
+
+## Wix skills (installed)
+
+Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path; ignore stray copies (e.g. \`agent/skills/\`).
+
+- \`wix-vibe-headless\` — how the CLIENT is built: the REST-only frontend against Wix APIs (start at \`SKILL.md\`; per-vertical \`references/\`).
+- \`wix-headless\` — seeding/admin of the Wix site over the connector (\`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content).
+- \`wix-docs\` — search/read the Wix API docs when the recipes don't cover something.
+`;
+const amd = '/app/AGENTS.md';
+const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
+if (!cur.includes('## Wix skills')) fs.appendFileSync(amd, NOTE);
+return 'noted';
+```
+
 Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
 with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
 whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
@@ -77,6 +99,12 @@ on the tool:
   `.agents/skills/wix-vibe-headless/SKILL.md` — an absolute `/app/...` double-prefixes and fails.
 - **exec_tool / shell** (only if you must): use the absolute path
   `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
+
+**The canonical skill location is `.agents/skills/` — for the whole session, not just now.** The
+installer may also leave stray copies (e.g. `agent/skills/` without the leading dot); **ignore
+them.** On any **later turn** (a follow-up request, after the initial build), do **not** guess or
+recall the path — read from **`.agents/skills/…` exactly**. Guessing variants like `agent/skills/`
+or `.agent/skills/` wastes turns on `File not found` and can read a stale duplicate.
 
 ## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
