@@ -429,6 +429,31 @@ curl -X DELETE \
 
 ## Error Handling
 
+### Recovering from WDE0110
+
+`WDE0110` means the Wix CMS (Wix Data) app is not installed on the site. If the user has
+explicitly asked to install it, install the app before retrying the data-item request:
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+```
+
+```json
+{
+  "tenant": {
+    "tenantType": "SITE",
+    "id": "<SITE_ID>"
+  },
+  "appInstance": {
+    "appDefId": "e593b0bd-b783-45b8-97c2-873d42aacaf4"
+  }
+}
+```
+
+After the installation succeeds, retry the original `POST /wix-data/v2/items` request. If the
+user only asks what the error means or how to fix it, explain this installation step and ask for
+confirmation before performing the install.
+
 | Error | Cause | Solution |
 |-------|-------|----------|
 | `COLLECTION_NOT_FOUND` | Invalid collection ID | Check collection exists |
