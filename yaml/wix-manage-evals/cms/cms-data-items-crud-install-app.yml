@@ -5,6 +5,8 @@ description: >-
 triggerPrompt: >-
   I'm inserting a data item into my Wix CMS collection through the REST API, but the call
   fails with error code WDE0110. What does this mean and how do I get the insert to succeed?
+  I only need written REST instructions for now; do not make a live API call or ask me to select
+  a site.
 tags: [cms]
 assertions:
   - tool: ReadFullDocsArticle
