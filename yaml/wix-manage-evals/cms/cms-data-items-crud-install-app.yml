@@ -10,6 +10,9 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
