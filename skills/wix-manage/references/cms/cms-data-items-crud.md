@@ -25,10 +25,12 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 Before inserting or updating items, you need to know the collection's field names and types. If you don't already know the schema:
 
 1. **Query existing items** - Fetch a few items to infer field names from the data
-2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions
-3. **List collections** - Use `GET /collections?fields=displayName` to see what collections exist (see [Schema Management](cms-schema-management.md))
+2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions, **including `plugins`** — don't omit the `plugins` field when fetching or listing schemas
+3. **List collections** - Use `GET /collections?fields=displayName,plugins` to see what collections exist (see [Schema Management](cms-schema-management.md))
 
 It may be, that user refers to schema by its `displayName` rather than `id`, if collection is not found list all collections to find the right `id` (`dataCollectionId`) to use.
+
+**Check for the Draft Items plugin.** If the collection's `plugins` include the Draft Items plugin, this collection gates items behind a draft/publish workflow. **Stop and load [CMS Draft & Publish Workflow](cms-publishing-flow.md)** before making any data changes, and follow its instructions instead of the plain CRUD flow below for that collection.
 
 ---
 
@@ -474,3 +476,4 @@ confirmation before performing the install.
 - [CMS Schema Management](cms-schema-management.md) - Creating and modifying collections
 - [CMS References & Relationships](cms-references-and-relationships.md) - Linking collections
 - [CMS Data Operations Extended](cms-data-operations-extended.md) - Count, upsert, aggregate
+- [CMS Draft & Publish Workflow](cms-publishing-flow.md) - Collections gated behind a draft/publish (Draft Items plugin) workflow
