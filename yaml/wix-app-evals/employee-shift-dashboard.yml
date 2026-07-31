@@ -4,7 +4,7 @@ triggerPrompt: |-
   Build a dashboard page that lets store owners manage employee shifts. The page should have a table where each row is a shift with these fields: employee name, date, and hours. The store owner must be able to add new shifts to the table.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
-templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
 tags: [dashboard-page, data-collection, auto-patterns-dashboard]
 assertions:
   - type: skill_was_called
