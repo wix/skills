@@ -1,0 +1,81 @@
+# Covers a plain "discount above a spend threshold" request — the shape that exercises
+# `discounts` and the subtotal-range trigger together.
+#
+# The sibling scenario (create-discount-rule.yml) checks that a recommendation object is
+# mapped onto the right fields, but passes without the create call succeeding. This one
+# requires a 2xx create, so it fails when the documented request structure is wrong.
+name: ecommerce/pricing-promotions/create-discount-rule-subtotal-threshold
+description: >
+  Verifies that an agent asked for an automatic discount above a spend threshold creates a
+  working discount rule. Success is a 2xx Create Discount Rule call and a final answer
+  reporting the rule as live. Anti-patterns: sending `discounts` as an array, nesting
+  `discountType`/`percentage` in a `discount` sub-object, or wrapping scalar fields as
+  `{ "value": ... }` — each is rejected with a 400.
+triggerPrompt: |
+  In my Wix store, set up an automatic discount: 10% off whenever a customer's order
+  subtotal is over $50. It should apply to everything in the catalog and be active now.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed a catalog product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Tee
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for an automatic discount rule: 10% off when the order subtotal exceeds
+      $50, applying to the whole catalog, active immediately.
+
+      Pass only if BOTH are true:
+        1. The trace shows a successful (2xx) create against `ecom/v1/discount-rules`.
+        2. The final answer reports the rule as created and active, describing the 10% /
+           $50-subtotal terms it actually set.
+
+      Fail if any of these are true:
+        - No successful create call appears in the trace.
+        - The agent returned curl commands or instructions instead of creating the rule.
+        - It created a coupon (a code the shopper types) instead of an automatic rule.
+        - It claimed success while every create attempt returned an error.
+        - It stopped to ask which discount mechanism to use, when the request is
+          unambiguously an automatic discount.
+
+      Recovering after an initial error still passes — this assertion scores the outcome,
+      not the route.
+
+  # Non-gating diagnostic (minScore 0 → never fails the gate): records how much the
+  # documented request shape cost. This is where a corrected structure shows up.
+  - type: llm_judge
+    minScore: 0
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the docs let the agent create this rule.
+      Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST any of: a 400 `Expected an object`; a 400
+      `Discount value type does not match discount value`; a 400
+      `Unexpected value for StringValue`; repeated create attempts differing only in
+      request-body shape; probing spec/schema lookups hunting for the request structure;
+      a schema lookup that errored or returned nothing usable.
+
+      For each issue, name the likely docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected docs gap,
+      or 'clean path' if none>"}.
