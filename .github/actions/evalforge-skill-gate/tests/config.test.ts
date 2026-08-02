@@ -187,3 +187,31 @@ describe('getCleanupConfig', () => {
     });
   });
 });
+
+describe('getGateConfig — the evaluated SHA', () => {
+  // A re-run replays the original event, so GITHUB_SHA is the merge commit as it was then, while
+  // actions/checkout resolves refs/pull/N/merge fresh. Labelling from the stale one would have
+  // createOrReuseSkillVersion reuse a version whose content no longer matches its label.
+  it('prefers the evaluated-sha input over GITHUB_SHA', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'evaluated-sha': 'fresh1234567' });
+    process.env.GITHUB_SHA = 'staleaaa0000';
+    const { getGateConfig } = await import('../src/utils/config');
+    const config = getGateConfig();
+
+    expect(config.evaluatedSha).toBe('fresh1234567');
+    expect(config.versionLabel).toBe('pr-42-fresh12');
+  });
+
+  // The fallback stays for a caller that does not pass the input, but it is the pre-existing bug, so
+  // it says so in the log rather than quietly mislabelling a re-run's version.
+  it('falls back to GITHUB_SHA, warning that a re-run can mislabel', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    process.env.GITHUB_SHA = 'abcdef1234567';
+    const actionsCore = await import('@actions/core');
+    const warning = vi.spyOn(actionsCore, 'warning').mockImplementation(() => {});
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(getGateConfig().versionLabel).toBe('pr-42-abcdef1');
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('evaluated-sha'));
+  });
+});

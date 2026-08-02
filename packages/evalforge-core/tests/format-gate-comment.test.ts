@@ -409,3 +409,17 @@ describe('retry guidance', () => {
     expect(guard).not.toMatch(/run the gate again/i);
   });
 });
+
+describe('the retry note', () => {
+  it('offers /re-eval in every outcome where nothing was verified', () => {
+    const bodies = [
+      formatGateTimeout('run-1', 'https://example.com/run-1', false),
+      formatGatePollFailure({ runId: 'run-1', runUrl: 'https://example.com/run-1', detail: '403', blocking: false }),
+      formatGateServiceError('Could not start the eval run', false, 'Run Not Started'),
+    ];
+
+    for (const body of bodies) {
+      expect(body).toContain('/re-eval');
+    }
+  });
+});
