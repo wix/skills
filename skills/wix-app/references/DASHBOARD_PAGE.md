@@ -75,12 +75,6 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - All parameters must be saved as strings (convert booleans/numbers to strings)
 - Use `withProviders` wrapper when dynamic parameters are present
 
-## Builder fields
-
-`extensions.dashboardPage()` accepts exactly six fields — `id`, `component`, `routePath`,
-`title` (all required) plus optional `fullPage` and `createdBy`. Any other key is a compile
-error (`TS2353 ... does not exist in type 'Options$1'`).
-
 ## Examples
 
 ### Data Management Table
