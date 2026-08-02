@@ -1,6 +1,6 @@
 ---
 name: "Get Paid Dashboard Navigation"
-description: "Builds direct links to Wix payments and invoicing dashboard pages on manage.wix.com — payment links, invoices (list, create, settings), recurring invoices, and the accept-payments settings page. Pairs each main get-paid entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage payment links, invoices, or payment methods in the Wix dashboard, wants a link to one of those pages, or after creating a payment link or invoice via API."
+description: "Builds direct links to Wix payments and invoicing dashboard pages on manage.wix.com — payment links, invoices (list, create, settings), recurring invoices, and the accept-payments settings page. Pairs each main get-paid entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Get Paid Dashboard Navigation

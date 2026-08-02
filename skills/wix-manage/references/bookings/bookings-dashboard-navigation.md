@@ -1,6 +1,6 @@
 ---
 name: "Bookings Dashboard Navigation"
-description: "Builds direct links to Wix Bookings dashboard pages on manage.wix.com — services list, edit a specific service, calendar, booking list, staff, availability, resources, and settings pages. Pairs each main Bookings entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage bookings things in the Wix dashboard, wants a link to a bookings dashboard page, or after creating/updating a bookings entity via API."
+description: "Builds direct links to Wix Bookings dashboard pages on manage.wix.com — services list, edit a specific service, calendar, booking list, staff, availability, resources, and settings pages. Pairs each main Bookings entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Bookings Dashboard Navigation

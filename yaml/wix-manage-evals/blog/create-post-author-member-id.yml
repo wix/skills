@@ -1,0 +1,79 @@
+name: blog/create-post-author-member-id
+description: >-
+  Creating a blog post needs a site-member id for draftPost.memberId. On a site
+  with Blog installed and no members yet, List Members comes back empty, and the
+  recipe must send the agent straight to Create Member instead of leaving it to
+  hunt for an author id in the contributors, contacts, or identity APIs.
+triggerPrompt: >-
+  Write a blog post titled "Welcome to Our Blog" and save it as a draft.
+tags: [blog]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install the Wix Blog app so the site has a blog to post to
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 14bcded7-0066-7c35-14d7-466cb3f09103
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Write a blog post titled \"Welcome to Our Blog\" and save it as a draft."
+
+      The site is freshly provisioned with only the Wix Blog app installed, so it
+      has NO site members. Creating a draft post requires `draftPost.memberId`,
+      which is the id of a Wix site member — so the agent must notice the site has
+      no members and create one with Create Member
+      (POST https://www.wixapis.com/members/v1/members), then use the returned
+      `member.id` as `draftPost.memberId`.
+
+      Judge the tool-call trace and the final answer together. Score:
+
+      - 9-10: the draft post titled "Welcome to Our Blog" was created successfully
+        (2xx), and the author id was resolved using the Members API only — a List
+        Members call (GET /members/v1/members) that came back empty, followed
+        directly by Create Member (POST /members/v1/members). No other API was
+        consulted to look for an author id.
+      - 7-8: the post was created and the author id came from the Members API, but
+        there was one extra exploratory call along the way.
+      - 3-4: the post was created, but the agent probed non-Members surfaces for an
+        author id before getting there — for example a contributors or
+        collaborators API, a Contacts query used to hunt for an author, a docs/spec
+        search for "collaborator"/"contributor", or
+        GET https://www.wixapis.com/identity/v1/users (which returns 404). Two or
+        more such probes score 3.
+      - 0-2: the draft post was not created, or the create call failed (non-2xx,
+        including "Missing post owner information", "memberIds ... do not exist",
+        app-not-installed / no blog instanceId), or the title is wrong, or the
+        agent only explained how instead of doing it, or it stopped to ask the user
+        a question instead of acting.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence naming the calls used to
+      resolve the author id>"}.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the
+      agent fulfill the request. Examine the tool-call trace. Score 0-10 (10 =
+      direct: no wasted calls, no errors).
+
+      Penalize and LIST any of: a call that returned a non-2xx error even if the
+      agent recovered from it; a probing call for an author/member id outside the
+      Members API; a docs or spec search that produced nothing usable; a request
+      body shape guessed wrong then corrected. For each issue, name the likely
+      MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected
+      MCP/docs gap, or 'clean path' if none>"}.

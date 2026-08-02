@@ -47,7 +47,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Blog
 
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
-**Technical:** Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
+**Technical:** Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
 ### [Blog Dashboard Navigation](references/blog/blog-dashboard-navigation.md)
 **Technical:** Direct links to Wix Blog dashboard pages on manage.wix.com (posts list with published/draft tabs, categories, tags, writers, comments, analytics, monetization, settings), pairing each main Blog entity with its read API for "view it in your dashboard" links.
@@ -165,6 +165,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 **Routing — pick the right entry point:**
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Traffic acquisition is NOT an eCommerce-strategy request** ("grow my traffic", SEO, ads, social, content) → do NOT use Recommend: eCommerce Strategy; it only converts visitors a store already has. Route these to marketing.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
 
@@ -172,7 +173,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
 
 ### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
-**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
+**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for business improvement requests about earning more from existing visitors. **Traffic acquisition (SEO, ads, social, content) is out of scope** — route "grow my traffic" to marketing.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
 **Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
@@ -292,7 +293,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Restaurants
 
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
-**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), modifiers, pricing, availability schedules, and ordering settings.
+**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
 
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 **Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.

@@ -1,6 +1,6 @@
 ---
 name: "How to Create Blog Posts"
-description: Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
+description: Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 ---
 
 **Article: Create and Publish Blog Posts with Rich Content and Images**
@@ -17,16 +17,40 @@ This article demonstrates how to create and immediately publish blog posts using
 
 **IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.
 
-1. Query site members to get a valid member ID using [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members):
+A `memberId` is the `id` of a **site member** (Wix Members). Only the Members API produces one. Run the two steps below in order and stop as soon as you have an id — do not go looking for an author id anywhere else (see [What is not a memberId](#what-is-not-a-memberid)).
+
+1. Query site members using [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members):
 
    ```bash
    curl -X GET "https://www.wixapis.com/members/v1/members?fieldsets=PUBLIC&paging.limit=1" \
      -H "Authorization: <AUTH>"
    ```
 
-2. Use the `id` field from the response as `draftPost.memberId` when creating the blog post. This member will be the post author.
+   If the response contains a member, use `members[0].id` as `draftPost.memberId` and skip step 2. That member becomes the post author.
 
-   > **Note**: The member ID must belong to an existing site member or collaborator. If the members query returns no results, you may need to create a member first or use the site owner's member ID.
+2. **If the site has no members yet** — the response is `{"members": [], "metadata": {"count": 0, "total": 0, ...}}` — create the author member yourself with [Create Member](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/create-member). This is the normal case on a new site or a site that only has Blog installed: nobody has signed up, so there is no member to reuse. Creating the author is a prerequisite of the post the user asked for, not a separate decision — create it, then say so in your summary.
+
+   ```bash
+   curl -X POST "https://www.wixapis.com/members/v1/members" \
+     -H "Authorization: <AUTH>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "member": {
+         "loginEmail": "blogauthor@example.com",
+         "contact": { "firstName": "Blog", "lastName": "Author" }
+       }
+     }'
+   ```
+
+   Use `member.id` from the response as `draftPost.memberId`. The new member comes back with `status: "APPROVED"`, and its `profile.nickname` is derived from the contact name. That nickname is the author name the blog displays, so pass the name the user wants shown (or set `member.profile.nickname` explicitly). If the user named an author, use their name; otherwise a generic author like the example above is fine.
+
+#### What is not a memberId
+
+These are the wrong places to look, and probing them costs a round trip each:
+
+- **Site collaborators / contributors are Wix *users*, not site members.** The [Contributors API](https://dev.wix.com/docs/api-reference/account-level/user-management/sites/contributors/introduction) returns account and user ids, which the Blog API will not accept as a `memberId`.
+- **A contact is not a member.** Querying [Contacts](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/introduction) returns contact ids; only members have a `memberId`. On a site with no members the contacts query is usually empty too.
+- **`GET https://www.wixapis.com/identity/v1/users` returns 404.** There is no site-scoped identity endpoint to read the site owner from. Do not try it.
 
 ### Part 1: Import External Images to Wix Media Manager
 
@@ -264,7 +288,7 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 - Never mock blog posts or media IDs - always use the APIs to import images and create posts
 - Always read the full documentation of methods before implementation
 - External images MUST be imported via Import File API before use in blog posts - direct external URLs will not work
-- For 3rd-party app integrations, `memberId` is mandatory - use the [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members) API if needed to get member ID
+- For 3rd-party app integrations, `memberId` is mandatory - get it from [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members), and if the site has no members yet, create one with [Create Member](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/create-member) (see Part 0). Never substitute a contact id, a collaborator/contributor id, or a Wix user id for a `memberId`
 - Use ONLY the file ID (without `wix:image://v1/` prefix) for both cover images and embedded images
 - Rich content IMAGE nodes require both `width` and `height` properties in the `image` object
 - Images with `"operationStatus": "PENDING"` from import can be used immediately in blog posts
@@ -290,6 +314,7 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 | Error                                      | Cause                       | Solution                                                            |
 | ------------------------------------------ | --------------------------- | ------------------------------------------------------------------- |
 | "Missing post owner information"           | `memberId` not provided     | Add `draftPost.memberId` - see Part 0 for how to get one            |
-| "memberIds ... do not exist"               | Invalid member ID           | Query members first using List Members API to get valid IDs         |
+| "memberIds ... do not exist"               | Invalid member ID           | The id is not a site member's id (e.g. a contact, contributor, or Wix user id). Re-resolve it with Part 0 |
+| List Members returns `"total": 0`          | Site has no members yet     | Create the author member with Create Member - Part 0, step 2. Do not query contacts, contributors, or identity endpoints instead |
 | "Expected a paragraph node but found TEXT" | Invalid Ricos structure     | Wrap TEXT nodes in PARAGRAPH nodes (see structure rules above)      |
 | Image not displaying                       | Using external URL directly | Import image via Media Manager first, then use the returned file ID |

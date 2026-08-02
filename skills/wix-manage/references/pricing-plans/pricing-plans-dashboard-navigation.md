@@ -1,6 +1,6 @@
 ---
 name: "Pricing Plans Dashboard Navigation"
-description: "Builds direct links to Wix Pricing Plans dashboard pages on manage.wix.com — plans list, create a plan, edit a plan, record a manual order, and settings. Pairs each main Pricing Plans entity (plan, order) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage pricing plans, memberships, or subscriptions in the Wix dashboard, wants a link to a pricing plans dashboard page, or after creating/updating a plan or order via API."
+description: "Builds direct links to Wix Pricing Plans dashboard pages on manage.wix.com — plans list, create a plan, edit a plan, record a manual order, and settings. Pairs each main Pricing Plans entity (plan, order) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Pricing Plans Dashboard Navigation

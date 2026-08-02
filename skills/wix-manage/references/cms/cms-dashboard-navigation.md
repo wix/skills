@@ -1,6 +1,6 @@
 ---
 name: "CMS Dashboard Navigation"
-description: "Builds direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com — the collections list and a specific collection's items view. Pairs collections and data items with their read APIs so you can fetch data and hand back a 'view it in your dashboard' link. Use when the user asks where to manage CMS collections or content in the Wix dashboard, wants a link to the CMS, or after creating/updating collections or items via API."
+description: "Builds direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com — the collections list and a specific collection's items view. Pairs collections and data items with their read APIs so you can fetch data and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # CMS Dashboard Navigation

@@ -1,6 +1,6 @@
 ---
 name: "Marketing Dashboard Navigation"
-description: "Builds direct links to Wix marketing dashboard pages on manage.wix.com — the social posts hub (drafts, scheduled and published posts across connected channels), post design templates, saved designs, and the email marketing pages (campaigns list, campaign templates, campaign analytics). Pairs each main marketing entity (social post item, connected social account, marketing-plan post, email campaign) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage social posts or email campaigns in the Wix dashboard, wants a link to a marketing dashboard page, or after creating/scheduling a social post or campaign via API."
+description: "Builds direct links to Wix marketing dashboard pages on manage.wix.com — the social posts hub (drafts, scheduled and published posts across connected channels), post design templates, saved designs, and the email marketing pages (campaigns list, campaign templates, campaign analytics). Pairs each main marketing entity (social post item, connected social account, marketing-plan post, email campaign) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Marketing Dashboard Navigation

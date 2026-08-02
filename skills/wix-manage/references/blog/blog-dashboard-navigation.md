@@ -1,6 +1,6 @@
 ---
 name: "Blog Dashboard Navigation"
-description: "Builds direct links to Wix Blog dashboard pages on manage.wix.com — posts list (published and draft tabs), categories, tags, writers, comment moderation, blog analytics, monetization, and settings. Pairs each main Blog entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage blog things in the Wix dashboard, wants a link to a blog dashboard page, or after creating/updating a blog entity via API."
+description: "Builds direct links to Wix Blog dashboard pages on manage.wix.com — posts list (published and draft tabs), categories, tags, writers, comment moderation, blog analytics, monetization, and settings. Pairs each main Blog entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Blog Dashboard Navigation
