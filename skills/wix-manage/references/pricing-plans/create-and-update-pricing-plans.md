@@ -161,16 +161,9 @@ the user actually wants:
 | Archive it — no longer purchasable at all | `POST /pricing-plans/v2/plans/{id}/archive` (empty body) | Sets the plan's `public` to `false`. Archived plans can't be purchased or reactivated. Existing orders keep their perks and payment schedule. |
 | Remove it entirely | `DELETE /pricing-plans/v3/plans/{planId}` | Deletion, not archiving. Do not use this when the user says "archive". |
 
-Two traps that cost several failed calls each:
-
-- **A plan you `GET` shows `archived`, `status` and `primary`, none of which are in the V3 Plan
-  schema and none of which are settable through Update Plan.** Reading them back and trying to
-  `PATCH` `archived: true` or `status: "ARCHIVED"` does not archive the plan. `visibility` is the
-  only state field on the V3 plan, and its only values are `PUBLIC` and `PRIVATE`.
-- **The archive endpoint is on the V2 resource, which is labelled deprecated.** It is still the
-  only call that archives, and its documented replacement (`UpdatePlan`) does not expose the
-  field. Use it, and treat the V3 `visibility` route as the alternative when "stop selling"
-  rather than "archive" is what was meant.
+A plan returned by `GET` carries `archived`, `status` and `primary`. None of them is settable —
+`PATCH`ing `archived: true` or `status: "ARCHIVED"` does not archive a plan. `visibility` is the
+only state field you can write, and it does not archive.
 
 ## Pricing plans REST API Documentation Reference
 - [Create plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan)
