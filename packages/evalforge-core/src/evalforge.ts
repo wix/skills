@@ -1,4 +1,5 @@
 import { TokenProvider } from './auth';
+import type { EvalForgeBody } from './evalforge-mapper';
 
 export type HttpError = Error & { status: number };
 
@@ -27,7 +28,20 @@ export type CapabilityContent =
   | { kind: 'skill'; files: SkillFileContent[] }
   | { kind: 'mcp'; url: string };
 
-function contentBody(content: CapabilityContent): Record<string, unknown> {
+/** One entry of an MCP capability version's remote config, keyed by `MCP_CONFIG_KEY`. */
+type McpRemoteConfigEntry = {
+  url: string;
+  type: 'http';
+  headers: {
+    Authorization: string;
+    'wix-account-id': string;
+  };
+};
+
+type SkillContentBody = { skillContent: { files: SkillFileContent[] } };
+type McpContentBody = { mcpContent: { config: Record<string, McpRemoteConfigEntry> } };
+
+function contentBody(content: CapabilityContent): SkillContentBody | McpContentBody {
   if (content.kind === 'skill') return { skillContent: { files: content.files } };
   // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
   return {
@@ -45,8 +59,6 @@ function contentBody(content: CapabilityContent): Record<string, unknown> {
     },
   };
 }
-
-import type { EvalForgeBody } from './evalforge-mapper';
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
 export type ScenarioBody = EvalForgeBody;

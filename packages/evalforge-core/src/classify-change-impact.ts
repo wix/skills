@@ -31,7 +31,7 @@ export type ChangeImpact = {
   unattributed: number;
   /** `fixed - newlyBroken` — the necessity signal. */
   netEffect: number;
-  /** False when the base arm produced nothing at all. */
+  /** True when at least one scenario was actually classified against a measured base outcome. */
   attributionAvailable: boolean;
 };
 
@@ -53,18 +53,18 @@ export function classifyChangeImpact(
 
   const scenarios: ScenarioImpact[] = prOutcomes.map(prOutcome => {
     const prPassed = scenarioPassed(prOutcome);
-    const baseOutcome = baseOutcomes === undefined
-      ? undefined
-      : baseById.get(prOutcome.scenarioId);
+    const baseOutcome = baseById.get(prOutcome.scenarioId);
 
     return {
       scenarioId: prOutcome.scenarioId,
       scenarioName: prOutcome.scenarioName,
-      impact: baseOutcome === undefined
+      // A base scenario with zero assertions was not measured, so it is not evidence the
+      // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
+      impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
         ? 'unattributed'
         : classifyOne(prPassed, scenarioPassed(baseOutcome)),
       prPassed,
-      failingAssertionNames: prOutcome.failingAssertionNames,
+      failingAssertionNames: [...prOutcome.failingAssertionNames],
     };
   });
 
@@ -82,6 +82,6 @@ export function classifyChangeImpact(
     stillFailing: countOf('still-failing'),
     unattributed: countOf('unattributed'),
     netEffect: fixed - newlyBroken,
-    attributionAvailable: baseOutcomes !== undefined && baseOutcomes.length > 0,
+    attributionAvailable: scenarios.some(scenario => scenario.impact !== 'unattributed'),
   };
 }

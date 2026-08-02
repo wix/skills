@@ -82,4 +82,25 @@ describe('classifyChangeImpact', () => {
     );
     expect(impact.netEffect).toBe(0);
   });
+
+  it('treats a zero-assertion base scenario as unattributed, not fixed', () => {
+    const unmeasuredBase = outcome('a', false, { totalAssertions: 0 });
+    const impact = classifyChangeImpact([outcome('a', true)], [unmeasuredBase]);
+    expect(impact.scenarios[0].impact).toBe('unattributed');
+    expect(impact.fixed).toBe(0);
+    expect(impact.netEffect).toBe(0);
+  });
+
+  it('reports attributionAvailable false when base ids are disjoint from PR ids', () => {
+    const impact = classifyChangeImpact([outcome('a', true)], [outcome('z', false)]);
+    expect(impact.scenarios[0].impact).toBe('unattributed');
+    expect(impact.attributionAvailable).toBe(false);
+  });
+
+  it('treats an empty base arm the same as an unmeasured one', () => {
+    const impact = classifyChangeImpact([outcome('a', true), outcome('b', false)], []);
+    expect(impact.scenarios.map(scenario => scenario.impact))
+      .toEqual(['unattributed', 'unattributed']);
+    expect(impact.attributionAvailable).toBe(false);
+  });
 });
