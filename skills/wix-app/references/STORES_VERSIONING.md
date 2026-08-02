@@ -78,7 +78,6 @@ Handle `STORES_NOT_INSTALLED` gracefully — return empty results, do not throw.
 9. **V3 paging is cursor-only — no offset, no total count.** The V3 builder uses `.skipTo(cursor)` (not V1's `.skip(n)`), and the result has `cursors.next` + `hasNext()` but no `totalCount`. Don't build "page X of Y" UI for V3 — use Next/Previous.
 10. **V3 product sort fields fail at runtime even when TypeScript accepts them.** TS allows `'_createdDate' | '_updatedDate' | 'slug' | 'visible'`, but real V3 sites return `Field '_createdDate' is not declared as sortable`. **Omit `sort` on V3 product queries** unless verified on a live V3 site.
 11. **Stock status is UPPER_SNAKE_CASE on both versions** — `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK`, plus `PREORDER` on V3. Never compare against lowercase.
-12. **V3 `queryProducts` filters on `_id`, `slug`, `options.id`, `handle` only** — `startsWith('name', …)` is a compile error. Use `productsV3.searchProducts()` for name search; V1 uses `.startsWith('name', …)` on its builder. See [stores/QUERY.md](stores/QUERY.md#search-products-by-name).
 
 ---
 
