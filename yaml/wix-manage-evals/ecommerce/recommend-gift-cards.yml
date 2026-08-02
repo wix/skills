@@ -1,0 +1,75 @@
+name: ecommerce/recommend-gift-cards
+description: A "should I sell gift cards, and at what amounts" prompt should load the gift-cards recommendation skill, check for an existing gift card product first, size denominations from the site's own catalog prices, and persist one gift_cards recommendation without creating the product.
+triggerPrompt: Should I sell gift cards on my store? If it's worth it, tell me exactly which amounts to offer.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed a low-priced product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Beeswax Candle
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "18.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed a mid-priced product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Ceramic Vase
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "45.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed a high-priced product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Linen Armchair Throw
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "210.00" } }
+                  physicalProperties: {}
+                  visible: true
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-gift-cards
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "Should I sell gift cards on my store? If it's worth it, tell me exactly which amounts to offer."
+      The site is a fresh Wix Stores site with three seeded products priced 18, 45, and 210, no orders, and no gift card product.
+
+      Pass if ALL of these are true:
+        1. The agent loaded the `recommend-gift-cards` skill.
+        2. Before recommending anything, it checked whether the site already sells gift cards via Query Gift Card Products (POST https://www.wixapis.com/gift-cards/v1/gift-card-products/query) — this gate matters because a site supports only one gift card product.
+        3. It proposes 3-5 preset denominations AND a custom amount range, and the amounts are visibly derived from this site's own data (catalog price distribution / median price, since there are no orders and therefore no AOV) rather than a generic 25/50/100 ladder. The lowest preset is not below the cheapest product (18) and amounts are stated in the site's currency.
+        4. It defaults to NO expiration, and gives a reason (expiry is regulated in many jurisdictions and/or unexpiring cards convert better) — or, if it does propose an expiry, it is at least 60 months and flagged as needing a compliance check.
+        5. It persists exactly one recommendation with `domain: "gift_cards"` and action `create_gift_card_product` to the tracking service (BatchCreate at manage.wix.com/_api/agentic-recommendations/v1/...) before presenting it, and surfaces the recommendation for approval.
+        6. It does NOT create the gift card product — creation is deferred until the merchant approves.
+
+      Fail if ANY of these are true:
+        - It recommends denominations without any data call, or from generic advice/assumptions.
+        - It skips the existing-gift-card-product check.
+        - It calls Create Gift Card Product (POST /gift-cards/v1/gift-card-products) in this turn, without merchant approval.
+        - It drifts into discounts, coupons, shipping, or abandoned-checkout recommendations — this skill is gift-cards only.
+        - It sets an expiration the user never asked for, or one shorter than 60 months.
+        - It marks the recommendation urgency CRITICAL (gift cards are an opportunity, never a blocker).
+        - It invents gift card endpoints or field names (e.g. a preset variant carrying only `value` with no `price` when calling the public create API).

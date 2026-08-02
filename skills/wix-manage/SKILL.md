@@ -168,12 +168,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Traffic acquisition is NOT an eCommerce-strategy request** ("grow my traffic", SEO, ads, social, content) → do NOT use Recommend: eCommerce Strategy; it only converts visitors a store already has. Route these to marketing.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+- **Gift cards** ("should I sell gift cards", "add a gift card", "what amounts should my gift card have", gifting-holiday prompts) → use [Recommend: Gift Cards](references/ecommerce/recommend-gift-cards.md). Issuing/redeeming an individual gift card is the Gift Cards API, not a recommendation.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
 
 ### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
 **Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for business improvement requests about earning more from existing visitors. **Traffic acquisition (SEO, ads, social, content) is out of scope** — route "grow my traffic" to marketing.
+
+### [Recommend: Gift Cards](references/ecommerce/recommend-gift-cards.md)
+**Single-domain recommendation skill.** Returns one `gift_cards` recommendation — create a gift card product — with preset denominations and a custom amount range calibrated from the site's own AOV and catalog price distribution, plus a no-expiry-by-default policy. Hard-gates on the site already selling gift cards (one product per site) and persists to the tracking database. Recommendation-only: approval hands off to Create Gift Card Product. Discounts/coupons/shipping are NOT in scope — those belong to Recommend: eCommerce Strategy.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
 **Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
