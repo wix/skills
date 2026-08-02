@@ -10,11 +10,11 @@ the Wix client setup.
 
 Follow the steps below exactly:
 
-1. **Install the Wix skills locally**
+1. **Install the Wix skills locally** (and pin their location in AGENTS.md)
 2. **(optional) Brief doesn't say what to build? Read the site**
 3. **Build the client**
 4. **Manage and seed the business** (run in parallel with 3)
-5. **Wrap up**
+5. **Wrap up** (required: mount the dev-only manage banner + point the user to the Wix dashboard)
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -68,6 +68,28 @@ for (const s of ['headless', 'vibe-headless', 'docs']) {
 return 'done';
 ```
 
+**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds (either option),
+run this via exec_tool exactly as written. It appends (never rewrites) a note so any later
+turn knows where the skills live without guessing, and is idempotent (re-running is a no-op):
+
+```js
+const fs = require('fs');
+const NOTE = `
+
+## Wix skills (installed)
+
+Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path; ignore stray copies (e.g. \`agent/skills/\`).
+
+- \`wix-vibe-headless\` — how the CLIENT is built: the REST-only frontend against Wix APIs (start at \`SKILL.md\`; per-vertical \`references/\`).
+- \`wix-headless\` — seeding/admin of the Wix site over the connector (\`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content).
+- \`wix-docs\` — search/read the Wix API docs when the recipes don't cover something.
+`;
+const amd = '/app/AGENTS.md';
+const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
+if (!cur.includes('## Wix skills')) fs.appendFileSync(amd, NOTE);
+return 'noted';
+```
+
 Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
 with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
 whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
@@ -77,6 +99,12 @@ on the tool:
   `.agents/skills/wix-vibe-headless/SKILL.md` — an absolute `/app/...` double-prefixes and fails.
 - **exec_tool / shell** (only if you must): use the absolute path
   `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
+
+**The canonical skill location is `.agents/skills/` — for the whole session, not just now.** The
+installer may also leave stray copies (e.g. `agent/skills/` without the leading dot); **ignore
+them.** On any **later turn** (a follow-up request, after the initial build), do **not** guess or
+recall the path — read from **`.agents/skills/…` exactly**. Guessing variants like `agent/skills/`
+or `.agent/skills/` wastes turns on `File not found` and can read a stale duplicate.
 
 ## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
@@ -108,6 +136,12 @@ Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — i
 source of truth for how the client app is built. To save time, prefer copying ready-made files
 the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
 re-generating them from scratch.
+
+**`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
+scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
+full-file rewrite drops them and the platform validator rejects the write, costing you a redo.
+Wire your routes/imports in with targeted `find_replace` edits and leave the rest of the file
+as-is.
 
 ## STEP 4 — Manage and seed the business
 
@@ -154,7 +188,7 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Add the dev-only manage banner** (links the app to its Wix back office): copy the
+1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): copy the
    `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
    `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
    `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
@@ -163,8 +197,11 @@ Once the site is built and seeded:
    shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
    down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
    banner — offset such a header by the banner's height.
-2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
-   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+2. **Ask the user to open** this URL to complete the setup in Wix (required; substitute the
+   metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}` — and, since
+   the banner from step 1 is mounted, also tell them: *in dev builds the site shows a slim
+   banner at the top linking straight to this Wix dashboard (dismissible; never shown in
+   production).*
 
 ## Later admin requests
 

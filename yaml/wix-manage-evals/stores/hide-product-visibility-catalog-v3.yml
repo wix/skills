@@ -1,0 +1,78 @@
+name: stores/hide-product-visibility-catalog-v3
+description: >
+  A store owner asks to hide an existing Catalog V3 product from the storefront and whether
+  that also hid its variant. Verifies the agent loads the Update Product with Options
+  (Catalog V3) recipe and hides the product with a product-level `visible: false` Update
+  Product PATCH — not a delete, not a variant-only change — and reports the product/variant
+  visibility relationship correctly.
+triggerPrompt: >
+  Hide my "Eval Gate Tee" product so it no longer shows in my store. Then tell me which
+  field you set and on which endpoint, and whether the product's variant ended up hidden
+  too.
+tags: [stores, aria]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+  - type: llm_judge          # GATE — outcome correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Hide my \"Eval Gate Tee\" product so it no longer shows
+      in my store. Then tell me which field you set and on which endpoint, and whether the
+      product's variant ended up hidden too."
+
+      The site is a Catalog V3 store seeded with one product, "Eval Gate Tee", which has a
+      single variant and no product options.
+
+      Score 9-10: the agent hid the product with a successful (2xx) product-level visibility
+      update — `visible: false` on the product in a PATCH to the Catalog V3 Update Product
+      endpoint, carrying the product `id` and current `revision` — did not delete the product,
+      names that field and endpoint back to the user, AND answers the variant question
+      correctly: because this product has no options, the default variant's visibility follows
+      the product automatically (bonus, not required: noting that for a product WITH options
+      the product and variant visibility values are independent).
+
+      Score 7-8: the product is hidden by a successful product-level `visible: false` update
+      and the agent names the field and endpoint, but the variant answer is missing, vague, or
+      only partly right.
+
+      Score 4-6: the product ends up hidden but through the wrong mechanism (for example
+      variant-level visibility only), or the agent cannot confirm the resulting state.
+
+      Score 1-3: the agent DELETED the product instead of hiding it; OR changed the wrong
+      product; OR the update errored (non-2xx); OR it only described how to do it without
+      doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP let the agent fulfill the
+      request. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no
+      errors). Penalize and LIST any of: repeated or probing API-spec/schema lookups used to
+      discover the Update Product endpoint, its HTTP method, or the shape of its request body;
+      a spec or schema lookup that returned an empty or unusable result; a response
+      shape/field guessed wrong then corrected; a call that returned a non-2xx error even if
+      recovered; a wrong endpoint or catalog version tried first. For each issue, name the
+      likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed tee product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Tee
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true

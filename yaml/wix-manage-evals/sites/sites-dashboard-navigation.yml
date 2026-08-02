@@ -1,0 +1,26 @@
+name: sites/sites-dashboard-navigation
+description: >-
+  Verifies the agent reads the sites dashboard-navigation recipe and returns
+  correct manage.wix.com URLs.
+triggerPrompt: >-
+  Give me the link to the Wix page that lists ALL the sites in my account, and explain how I'd build a direct dashboard link for one specific site (its id is 2c9d2b46-fc18-4557-ae71-4d21a2228914).
+tags: [sites]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/sites-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links. Their request: "Give me the link to the Wix page that lists ALL the sites in my account, and explain how I'd build a direct dashboard link for one specific site (its id is 2c9d2b46-fc18-4557-ae71-4d21a2228914)."
+
+      Pass if the response:
+      - gives https://manage.wix.com/account/websites for the site list (an account-level URL without a site id), AND
+      - gives https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/home (or another valid page) for the specific site.
+
+      Fail if the response:
+      - invents routes not in the recipe, OR
+      - uses a wrong domain or malformed URL, OR
+      - only describes how to click through the dashboard instead of giving links.
