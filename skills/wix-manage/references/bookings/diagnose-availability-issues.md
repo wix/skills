@@ -27,8 +27,12 @@ Don't diagnose by default. If the owner just wants to know the status and the se
 
 - Owner asks whether an **appointment-based** service has availability / bookable times → [Step 1](#step-1--report-the-current-availability-status).
 - Owner reports the service has **no bookable times**, or that **customers can't book (or can't even find) it** → Step 1 will come back empty, so go on to diagnose ([Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking) onward). For "can't book / can't find," start diagnosis at Step 2 even if Step 1 returned slots — a hidden service still lists slots (see the note in Step 1).
+- Owner **narrows to a specific date/time** ("why nothing on 3 Aug from 4pm?") and the slot check for that window comes back **empty** → this **is** a "why" question. Run the diagnosis (Step 2 → [Step 3](#step-3--run-the-diagnosis)). **Do not answer it from the empty slot list alone.**
 
 > **Scope:** appointment-based services.
+
+> ## 🚫 Never invent the cause (read first)
+> An empty `ListAvailabilityTimeSlots` tells you **there is no availability — not *why*.** The reason for an empty result comes **only** from the checks in Steps 2–4 (`service.hidden` / `onlineBooking`, then `DiagnoseAvailability`, then policy/capacity). **Never state a cause you didn't get from them** — do not guess "the staff aren't scheduled," "it's outside working hours," a date-range problem, or anything else from a zero slot count. If you haven't run the diagnosis, you don't know the reason yet: run it, then report what it returns.
 
 ---
 
@@ -56,7 +60,7 @@ Interpret the result:
 |-----------------|---------------------|------------|
 | One or more **bookable** slots | **Bookable.** | Tell the owner in a sentence and stop — no diagnosis needed unless they ask why/how to change something. |
 | Slots exist but **none are bookable** (`nonBookableReasons` / `bookingPolicyViolations` set) | **Not bookable — policy/capacity.** | This is the cause. Surface it directly ([policy/capacity causes](#booking-policy--capacity-slots-exist-but-arent-bookable)). No need to run `DiagnoseAvailability`. |
-| **No slots at all** | **No availability.** | Diagnose: go to [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking). |
+| **No slots at all** | **No availability.** | Diagnose: go to [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking), then [Step 3](#step-3--run-the-diagnosis). **Don't guess the reason from the empty list** — an empty result isn't a cause. |
 
 > **The hidden-service trap.** A service that's **hidden** from the site, or has **online booking turned off**, can still list slots here — so bookable slots do **not** prove customers can book it. When the complaint is "customers can't book / can't find this service" (as opposed to "the calendar is empty"), **run [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking) before trusting the slot count** — it's the single most common cause and neither `ListAvailabilityTimeSlots` nor `DiagnoseAvailability` detects it.
 
@@ -288,6 +292,7 @@ Popular reasons a service shows no availability, and where each surfaces:
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
 - **`DiagnoseAvailability` is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 4.
 - **A 403 is an auth problem, not a diagnosis.** The action needs the `bookings:availability:v2:time_slot:diagnose_availability` permission; a caller without it gets a 403 with an empty body. Don't read that as "no cause found" — confirm the caller has the permission (see [Prerequisites](#prerequisites)).
+- **Never state a cause you didn't diagnose.** A zero slot count from `ListAvailabilityTimeSlots` means "no availability," not a reason. Guessing "the staff aren't scheduled to work" (or any other cause) from an empty list is the failure this recipe exists to prevent — run `DiagnoseAvailability` and report the code it returns. This applies especially when the owner narrows to a specific date/time and it comes back empty: that's a diagnosis trigger, not a status reply.
 - **A date-range restriction is a distinct cause — don't blame staff hours for it.** When a service is only offered within a set date range and the owner asks about a date outside it, `DiagnoseAvailability` returns `REQUESTED_DATE_OUTSIDE_SERVICE_AVAILABILITY_RANGE` on the **standard call**, ahead of the deep working-hours/blocked reasons. If you see it, say the service isn't offered on those dates — **not** that staff aren't scheduled (they may well work then; the service just isn't offered). It covers dates both before and after the range.
 - **`deep: true` needs a `serviceId`** (resource-only + `deep` → `MISSING_ARGUMENTS`) and only refines a "no windows" result — it does nothing when windows already exist.
 - **`DiagnoseAvailability` ignores booking policy and capacity** — those come from `ListAvailabilityTimeSlots` (Step 1 / Step 4).

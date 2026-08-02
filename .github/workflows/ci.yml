@@ -63,7 +63,12 @@ jobs:
 
           # evalforge-core plus both actions that bundle it. A change to core affects both
           # actions' committed bundles, so any of these paths exercises the whole set.
-          if match '^packages/evalforge-core/|^\.github/actions/evalforge-(yaml|skill)-gate/'; then
+          #
+          # The evalforge workflow files are in here too, because the only tests covering them —
+          # workflow-config.test.ts, which asserts the gate wiring and the re-eval script's guards —
+          # live under evalforge-skill-gate/tests. Without this a PR editing only a workflow (adding
+          # a gate to the re-eval GATES array, say) would skip the very tests written to catch it.
+          if match '^packages/evalforge-core/|^\.github/actions/evalforge-(yaml|skill)-gate/|^\.github/workflows/evalforge-'; then
             echo "evalforge=true" >> "$GITHUB_OUTPUT"
           else
             echo "evalforge=false" >> "$GITHUB_OUTPUT"

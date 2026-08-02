@@ -83,6 +83,25 @@ The PR comment names the reason. The common ones:
 | capped at `max-scenarios` | Informational. The named scenarios did not run this time |
 | no scenarios could be resolved to run | The gate refuses to report green having verified nothing. Usually a sync gap — check the named scenarios exist in EvalForge |
 
+**When the gate verified nothing at all** — it timed out, the polling failed mid-run, or the
+run never started — the comment ends with `Comment /re-eval to run the gate again`. That is
+not a PR problem: evals depend on live systems, so a run can end without a verdict for
+reasons that have nothing to do with your change.
+
+Commenting `/re-eval` on the PR re-runs **the gate's existing run**, so the check updates in
+place. It deliberately does not evaluate in the comment's own workflow run: an
+`issue_comment` run is associated with the default branch's commit, while required checks
+are evaluated on the PR head, so a verdict published there would land somewhere the PR
+cannot see. See [`.github/workflows/evalforge-re-eval.yml`](../.github/workflows/evalforge-re-eval.yml).
+
+- The command must be the **first thing in the comment** — mentioning it mid-sentence does
+  nothing, so discussing it or quoting someone who used it cannot start a paid run.
+- The **PR author**, or a collaborator with **write access**, may use it. Each scenario is a
+  live agent build, and this repo is public, so it is a spend gate.
+- It covers the **wix-app gate only** for now. On a wix-manage PR it refuses and says so.
+- It cannot help where a re-run would change nothing: a draft or closed PR, a fork branch, a
+  commit the gate never ran for, or a gate job that was skipped. Push a commit instead.
+
 **During the soak period** the gate posts its comment but does not block: it runs with
 `blocking: false` until there is enough real-PR signal to turn it on. Read the comment
 anyway — it is telling you what will block once it flips.
@@ -138,3 +157,11 @@ Adding a dependency to `evalforge-core` also changes both consuming actions' loc
 through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
 `yarn install` in `evalforge-core` **and** in both actions, then commit all three
 `yarn.lock` files.
+
+**The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
+asserts the wiring of the gate, cleanup and re-eval workflows, and
+`tests/re-eval-script.test.ts` runs the re-eval `github-script` body the way the action
+does — it compiles that exact string with stubbed `github`/`context`/`core`, so the guards
+that decide whether money is spent have real tests despite living inside a YAML string.
+That is why `ci.yml`'s change detection counts `.github/workflows/evalforge-*` as an
+evalforge change: editing only a workflow must still run the tests written to cover it.

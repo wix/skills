@@ -39,9 +39,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .action-src
+      # The version label is content-addressed, so it must name the commit actually checked out.
+      # GITHUB_SHA is right on a first run, but a re-run replays the original event's merge commit
+      # while the checkout above resolved refs/pull/N/merge fresh — if base advanced they differ,
+      # and the label would then match a version built from different content.
+      - name: Resolve the checked-out merge commit
+        id: merge
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/evalforge-skill-gate
         with:
           mode: gate
+          evaluated-sha: ${{ steps.merge.outputs.sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
           evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}

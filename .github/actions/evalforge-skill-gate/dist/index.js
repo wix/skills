@@ -30816,11 +30816,12 @@ function runLine(runId, runUrl) {
     return `**Run:** [${runId}](${runUrl})`;
 }
 /**
- * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
- * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ * The three outcomes where nothing was verified and retrying is the answer. These are live-system
+ * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
+ * without asking for a commit the PR does not need.
  */
 function retryNote() {
-    return ['', '_Push any commit to run the gate again._'];
+    return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
 }
 function soakNote(blocking) {
     return blocking
@@ -61933,16 +61934,29 @@ function getHeadSha() {
     return head.sha;
 }
 /**
- * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
- * come from this, not `head.sha`: the same head yields different merge content as base
- * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
+ * The commit the version label is content-addressed to. It must be the commit actually checked out,
+ * not `head.sha`: the same head yields different merge content as base advances, so
+ * `createOrReuseSkillVersion` would reuse a version built from stale content.
+ *
+ * `GITHUB_SHA` names the merge commit on `pull_request` — but on a **re-run** it names the merge
+ * commit from the *original* event, while `actions/checkout` resolves `refs/pull/<n>/merge` fresh.
+ * If base advanced in between, those differ. So the workflow passes `git rev-parse HEAD` and this
+ * prefers it. The `GITHUB_SHA` fallback warns rather than staying silent: it is the pre-existing
+ * bug, so a future gate-mode caller that forgets the input should say so in its own log instead of
+ * quietly relabelling a re-run's version.
  */
 function getEvaluatedSha() {
+    const provided = core.getInput('evaluated-sha');
+    if (provided)
+        return provided;
     const sha = process.env.GITHUB_SHA;
     if (!sha) {
-        throw new Error('GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
-            + 'evaluated. This action expects to run in GitHub Actions.');
+        throw new Error('Neither the evaluated-sha input nor GITHUB_SHA is set, so the skill version cannot be '
+            + 'labelled for the commit actually evaluated. This action expects to run in GitHub Actions.');
     }
+    core.warning('evaluated-sha was not passed, so the version label falls back to GITHUB_SHA. On a re-run that '
+        + 'names the original event\'s merge commit, which can differ from the commit checked out. Pass '
+        + '`evaluated-sha: ${{ steps.<checkout-step>.outputs.sha }}` from `git rev-parse HEAD`.');
     return sha;
 }
 function getGateConfig() {
