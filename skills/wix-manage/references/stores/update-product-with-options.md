@@ -1,6 +1,6 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: "Hide, unhide, or show an existing product in the storefront, and change its description, media, options, option choices, variant prices, or variant stock. Use this recipe for any request to hide a product, make a product not show in the store, or put a hidden product back — that is a product-level `visible` update, never a delete. Everything runs through Catalog V3 Update Product (PATCH /stores/v3/products/{productId}); the recipe gives the exact body for each case plus the revision-based optimistic lock and partial-update rules."
+description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
