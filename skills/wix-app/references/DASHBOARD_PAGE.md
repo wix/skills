@@ -81,10 +81,6 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 `title` (all required) plus optional `fullPage` and `createdBy`. Any other key is a compile
 error (`TS2353 ... does not exist in type 'Options$1'`).
 
-There is no sidebar configuration and no `additionalRoutes` on this builder. If asked to hide
-a page from the sidebar, reorder it, or add extra routes, say it isn't supported rather than
-guessing a field name.
-
 ## Examples
 
 ### Data Management Table
