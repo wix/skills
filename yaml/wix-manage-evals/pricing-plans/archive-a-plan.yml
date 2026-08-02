@@ -1,0 +1,87 @@
+# Seeds one plan and asks for it to be archived.
+#
+# The failure this covers is a routing choice, not a payload mistake. Plans V3 has no archive
+# method, so an agent working from the V3 surface alone has three wrong-looking options and no
+# right one: PATCH a `status`/`archived` field that a GET shows but Update Plan does not accept,
+# DELETE the plan, or hunt for an endpoint that isn't there. The only call that archives is on
+# the V2 resource.
+#
+# Deleting scores zero here on purpose. It satisfies "stop selling it" and destroys the plan,
+# which is not what was asked and is not recoverable.
+name: pricing-plans/archive-a-plan
+description: >
+  A site owner retiring a plan. Plans V3 exposes no archive method and no settable `archived` or
+  `status` field — archiving is `POST /pricing-plans/v2/plans/{id}/archive` with an empty body.
+  Expected: locate the seeded plan, then archive it in one call. Anti-patterns: deleting it;
+  PATCHing `archived: true` or `status: "ARCHIVED"` against Plans V3; setting `visibility` to
+  `PRIVATE` and reporting it as archived.
+triggerPrompt: >
+  Archive my "Legacy Membership" plan — I don't want to sell it any more, but I don't want to
+  lose it either.
+tags: [pricing-plans, aria]
+assertions:
+  # If the recipe is never opened, the content fix cannot be what moved the score —
+  # surface that as a failure rather than letting it pass quietly.
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/create-and-update-pricing-plans
+  - type: llm_judge          # GATE — outcome correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Intent: the user wants the plan named "Legacy Membership" archived — no longer purchasable,
+      but still present on the site.
+
+      Pass only if the plan was archived and the final answer says so. Archiving is a successful
+      (2xx) call to POST /pricing-plans/v2/plans/{id}/archive.
+
+      Fail if the plan was deleted (DELETE on Plans V3) — the user explicitly asked not to lose
+      it. Fail if the only change was setting `visibility` to `PRIVATE`, and the answer reports
+      the plan as archived: a private plan is still purchasable through a direct link, so that
+      claim is untrue. Fail if no successful archive call was made but the answer claims the plan
+      was archived. Fail if the agent reports it cannot archive plans.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the agent fulfill
+      the request. Examine the tool-call trace. Score 0-10 (10 = direct: find the plan, one
+      archive call, no errors, no wasted searches).
+
+      Penalize and LIST any of: a PATCH against Plans V3 carrying `archived`, `status`, or any
+      field that Update Plan rejects; a 400 from such a call; a DELETE attempted and then walked
+      back; more than one documentation or API-spec search to find where archiving lives;
+      searching Plans V3 for an archive method that does not exist; confusion between the V2 and
+      V3 plan resources costing an extra call.
+
+      For each issue, name the likely MCP or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+  bootstrap:
+    steps:
+      # Body shape per the recipe's minimal example: `status` and a caller-generated
+      # `pricingVariants[].id` are both required and both absent from the generated schema.
+      - label: seed the plan to archive
+        method: post
+        url: https://www.wixapis.com/pricing-plans/v3/plans
+        body:
+          plan:
+            name: Legacy Membership
+            visibility: PUBLIC
+            status: ACTIVE
+            buyable: true
+            buyerCanCancel: true
+            pricingVariants:
+              - id: 0f8c2b17-4e6a-4d9b-8a31-5c7e2f9d1a44
+                name: Legacy Membership
+                pricingStrategies:
+                  - flatRate:
+                      amount: "15"
+                billingTerms:
+                  startType: ON_PURCHASE
+                  endType: UNTIL_CANCELLED

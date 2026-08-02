@@ -280,7 +280,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Pricing Plans
 
 ### [Create and Update Pricing Plans](references/pricing-plans/create-and-update-pricing-plans.md)
-**Technical:** Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+**Technical:** Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, plan visibility, and how to archive, hide, or delete a plan that should no longer be sold.
 
 ### [Pricing Plans Bookings Integration](references/pricing-plans/pricing-plans-bookings-integration.md)
 **Technical:** Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.

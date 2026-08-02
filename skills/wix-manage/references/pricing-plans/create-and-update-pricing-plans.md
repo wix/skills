@@ -1,6 +1,6 @@
 ---
 name: "Create and Update Pricing Plans"
-description: Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+description: Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, plan visibility, and how to archive, hide, or delete a plan that should no longer be sold.
 ---
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Pricing Plans (Real-World, API-First)
 
@@ -149,8 +149,33 @@ Each item in the request for this endpoint must adhere to these rules:
 - `itemSetId` must set to the created pool definition benefit item set id.
 - `externalId` must be set to the integrating app entity id, example: booking service id or blog post id.
 
+### 3. Stop selling a plan (archive, hide, or delete)
+
+Plans V3 has **no archive method**. Its methods are Create, Get, Update, Delete, Bulk Update,
+Query, Search and Count — there is no `ArchivePlan` and no settable `archived` field. Pick by what
+the user actually wants:
+
+| Goal | Call | Effect |
+| --- | --- | --- |
+| Stop offering it to new customers, keep existing buyers | `PATCH /pricing-plans/v3/plans/{plan.id}` with `plan.visibility: "PRIVATE"` | Hidden from the plan list. **Still purchasable by anyone with a direct link.** Existing buyers keep their benefits. |
+| Archive it — no longer purchasable at all | `POST /pricing-plans/v2/plans/{id}/archive` (empty body) | Sets the plan's `public` to `false`. Archived plans can't be purchased or reactivated. Existing orders keep their perks and payment schedule. |
+| Remove it entirely | `DELETE /pricing-plans/v3/plans/{planId}` | Deletion, not archiving. Do not use this when the user says "archive". |
+
+Two traps that cost several failed calls each:
+
+- **A plan you `GET` shows `archived`, `status` and `primary`, none of which are in the V3 Plan
+  schema and none of which are settable through Update Plan.** Reading them back and trying to
+  `PATCH` `archived: true` or `status: "ARCHIVED"` does not archive the plan. `visibility` is the
+  only state field on the V3 plan, and its only values are `PUBLIC` and `PRIVATE`.
+- **The archive endpoint is on the V2 resource, which is labelled deprecated.** It is still the
+  only call that archives, and its documented replacement (`UpdatePlan`) does not expose the
+  field. Use it, and treat the V3 `visibility` route as the alternative when "stop selling"
+  rather than "archive" is what was meant.
+
 ## Pricing plans REST API Documentation Reference
 - [Create plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan)
+- [Archive plan (V2)](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-deprecated/archive-plan)
+- [Delete plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/delete-plan)
 - [Get plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/get-plan)
 - [Update plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/update-plan)
 - [Query Plans](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/query-plans)
