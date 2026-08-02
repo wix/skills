@@ -360,6 +360,32 @@ describe('EvalForgeClient (V1) — ensureMcpVersion idempotency', () => {
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     await expect(c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills')).rejects.toMatchObject({ status: 500 });
   });
+
+  it('posts the nested mcpContent config wix-mcp-remote expects, with type and header placeholders', async () => {
+    let captured: unknown;
+    mockFetch(({ url, method, body }) => {
+      if (url.includes('/capabilities/M/versions') && method === 'POST') {
+        captured = body;
+        return { status: 200, body: { capabilityVersion: { id: 'ver-1', capabilityId: 'M', version: 'pr-1-abc' } } };
+      }
+      return { status: 404 };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills');
+
+    expect((captured as { capabilityVersion: { mcpContent: unknown } }).capabilityVersion.mcpContent).toEqual({
+      config: {
+        'wix-mcp-remote': {
+          url: 'https://mcp.wix.com/mcp?skillsRepo=wix%2Fskills&skillsPr=abc1234',
+          type: 'http',
+          headers: {
+            Authorization: '{{wix-auth-token}}',
+            'wix-account-id': '{{wix-auth-user-id}}',
+          },
+        },
+      },
+    });
+  });
 });
 
 describe('EvalForgeClient (V1) — skill capability versions', () => {
@@ -463,8 +489,18 @@ describe('createOrReuseCapabilityVersion', () => {
       kind: 'mcp', url: 'https://example.test/mcp',
     });
 
-    expect((captured as { capabilityVersion: { mcpContent: unknown } }).capabilityVersion.mcpContent)
-      .toEqual({ url: 'https://example.test/mcp' });
+    expect((captured as { capabilityVersion: { mcpContent: unknown } }).capabilityVersion.mcpContent).toEqual({
+      config: {
+        'wix-mcp-remote': {
+          url: 'https://example.test/mcp',
+          type: 'http',
+          headers: {
+            Authorization: '{{wix-auth-token}}',
+            'wix-account-id': '{{wix-auth-user-id}}',
+          },
+        },
+      },
+    });
   });
 
   it('reuses the existing version when the label already exists', async () => {

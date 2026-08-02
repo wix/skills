@@ -3,6 +3,7 @@ import { TokenProvider } from './auth';
 export type HttpError = Error & { status: number };
 
 const MCP_URL = 'https://mcp.wix.com/mcp';
+const MCP_CONFIG_KEY = 'wix-mcp-remote';
 
 // Cap on concurrent per-name scenario queries, so a PR touching many scenarios
 // doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
@@ -27,9 +28,22 @@ export type CapabilityContent =
   | { kind: 'mcp'; url: string };
 
 function contentBody(content: CapabilityContent): Record<string, unknown> {
-  return content.kind === 'skill'
-    ? { skillContent: { files: content.files } }
-    : { mcpContent: { url: content.url } };
+  if (content.kind === 'skill') return { skillContent: { files: content.files } };
+  // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
+  return {
+    mcpContent: {
+      config: {
+        [MCP_CONFIG_KEY]: {
+          url: content.url,
+          type: 'http',
+          headers: {
+            Authorization: '{{wix-auth-token}}',
+            'wix-account-id': '{{wix-auth-user-id}}',
+          },
+        },
+      },
+    },
+  };
 }
 
 import type { EvalForgeBody } from './evalforge-mapper';
