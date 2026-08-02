@@ -47,7 +47,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Blog
 
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
-**Technical:** Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
+**Technical:** Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
 ### [Blog Dashboard Navigation](references/blog/blog-dashboard-navigation.md)
 **Technical:** Direct links to Wix Blog dashboard pages on manage.wix.com (posts list with published/draft tabs, categories, tags, writers, comments, analytics, monetization, settings), pairing each main Blog entity with its read API for "view it in your dashboard" links.
