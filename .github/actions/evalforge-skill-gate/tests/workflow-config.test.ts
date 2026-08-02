@@ -7,13 +7,19 @@ const loadWorkflow = (name: string) =>
   yaml.load(readFileSync(join(__dirname, '../../../workflows', name), 'utf8')) as Workflow;
 
 type Workflow = {
-  on: { pull_request: { types: string[]; paths?: string[]; branches: string[] } };
+  on: {
+    pull_request: { types: string[]; paths?: string[]; branches: string[] };
+    /** Only the re-eval workflow has this one. */
+    issue_comment?: { types: string[] };
+  };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, {
     'timeout-minutes': number;
     permissions: Record<string, string>;
     if?: string;
-    steps: Array<{ uses: string; with?: Record<string, string> }>;
+    // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
+    // typechecks — the gate gained one to capture the checked-out merge commit.
+    steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
   }>;
 };
 
@@ -79,9 +85,18 @@ describe('EvalForge wix-app gate workflow', () => {
 
   it('pins every action by commit sha rather than a tag', () => {
     for (const step of workflow.jobs.gate.steps) {
-      if (step.uses.startsWith('./')) continue;
+      // `run:` steps have nothing to pin, and local `./` actions are this repo's own.
+      if (!step.uses || step.uses.startsWith('./')) continue;
       expect(step.uses, step.uses).toMatch(/@[0-9a-f]{40}$/);
     }
+  });
+
+  // A re-run replays the original event's GITHUB_SHA while checkout resolves the merge ref fresh,
+  // so the label must come from the commit on disk.
+  it('labels the version from the commit actually checked out', () => {
+    expect(gateStep.with?.['evaluated-sha']).toContain('steps.merge.outputs.sha');
+    const mergeStep = workflow.jobs.gate.steps.find(step => step.id === 'merge');
+    expect(mergeStep?.run).toContain('git rev-parse HEAD');
   });
 });
 
@@ -114,5 +129,47 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
   it('asks for no GitHub API access, since cleanup calls none', () => {
     expect(workflow.jobs.cleanup.permissions).toEqual({ 'contents': 'read' });
     expect(cleanupStep.with).not.toHaveProperty('github-token');
+  });
+});
+
+/**
+ * The workflow-level wiring only. What the script itself does — the parse, the spend gate, which
+ * runs are re-run — is covered behaviourally in re-eval-script.test.ts, which compiles this same
+ * `script:` string the way `github-script` does.
+ */
+describe('EvalForge re-eval workflow', () => {
+  const workflow = loadWorkflow('evalforge-re-eval.yml');
+  const job = workflow.jobs['re-eval'];
+  const step = job.steps[job.steps.length - 1];
+
+  it('runs on created comments only', () => {
+    expect(workflow.on.issue_comment?.types).toEqual(['created']);
+  });
+
+  it('fires only for PR comments, from non-bots, mentioning the command', () => {
+    expect(job.if).toContain('github.event.issue.pull_request');
+    expect(job.if).toContain('/re-eval');
+    // Its own comments name the command; without this they re-fire the webhook.
+    expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
+  });
+
+  // Sharing the gate's group would let this job cancel the very run it re-runs. Nor does it cancel
+  // its own predecessor: this job spends, so losing one mid-flight can lose the acknowledgement of
+  // a re-run that was already triggered.
+  it('neither shares a gate concurrency group nor cancels itself', () => {
+    expect(workflow.concurrency.group).not.toContain('evalforge-wix-app-gate-pr');
+    expect(workflow.concurrency['cancel-in-progress']).toBe(false);
+  });
+
+  it('grants exactly what it needs and no more', () => {
+    expect(job.permissions).toEqual({
+      actions: 'write',
+      'pull-requests': 'write',
+      contents: 'read',
+    });
+  });
+
+  it('pins github-script by commit sha', () => {
+    expect(step.uses).toMatch(/^actions\/github-script@[0-9a-f]{40}$/);
   });
 });

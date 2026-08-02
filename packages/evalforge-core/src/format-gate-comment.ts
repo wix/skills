@@ -31,11 +31,12 @@ function runLine(runId: string, runUrl: string): string {
 }
 
 /**
- * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
- * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ * The three outcomes where nothing was verified and retrying is the answer. These are live-system
+ * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
+ * without asking for a commit the PR does not need.
  */
 function retryNote(): string[] {
-  return ['', '_Push any commit to run the gate again._'];
+  return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
 }
 
 function soakNote(blocking: boolean): string[] {
