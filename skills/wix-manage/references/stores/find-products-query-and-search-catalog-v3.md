@@ -20,6 +20,7 @@ Use **Search Products** for text search and name-based lookup. Use **Query Produ
 | Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
 | Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
 | Find which products are out of stock | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) + client-side select | Stock lives on `inventory`, **not** `stock`, and is not filterable. See STEP 6. |
+| Find products above or below a price | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) + client-side select | Price lives on `actualPriceRange`, **not** `priceData`, and is not filterable. See STEP 7. |
 
 ### STEP 1: Search products by name or free text
 
@@ -188,6 +189,37 @@ Include `PARTIALLY_OUT_OF_STOCK` — those products do have out-of-stock variant
 **Endpoint:** `POST https://www.wixapis.com/stores/v3/inventory-items/query`
 
 It *can* filter on `availabilityStatus` (`IN_STOCK`, `OUT_OF_STOCK`, `PREORDER` — a different enum from the product's), and on `inStock`, `quantity`, `trackQuantity`, `productId`, and `product.name`. Items with `trackQuantity: true` carry a numeric `quantity`; items with `trackQuantity: false` carry a boolean `inStock` instead.
+
+---
+
+### STEP 7: Find products by price
+
+Price is on the product as **`actualPriceRange`** — there is no `priceData` field (that is Catalog V1, see Important Notes). A product with variants spans a range, so the shape is:
+
+```json
+"actualPriceRange": {
+  "minValue": { "amount": "12.00", "formattedAmount": "$12.00" },
+  "maxValue": { "amount": "19.50", "formattedAmount": "$19.50" }
+}
+```
+
+`actualPriceRange` is returned **by default** — no `fields` enum value requests it. `compareAtPriceRange` (the "was" price) has the same shape.
+
+Like `inventory`, price is **absent from STEP 4's filterable field list**, so `QueryProducts` cannot filter on it — put it in `query.filter` and the request is rejected. Answer the question in **one** query call and select in your own code:
+
+```javascript
+// products from POST /stores/v3/products/query with "fields": []
+const under20 = products.filter(
+  (p) => parseFloat(p.actualPriceRange?.minValue?.amount ?? 'NaN') < 20,
+);
+```
+
+Two things that will otherwise cost you a wrong answer:
+
+- **`amount` is a decimal string**, not a number — `"12.00"`, not `12`. Compare with `parseFloat`; a raw `<` against a string compares lexicographically and silently misorders (`"9" > "20"`).
+- **Pick the bound the question asks for.** "Under $20" on a product whose variants run $12–$25 is ambiguous: `minValue` means "has something under $20", `maxValue` means "everything is under $20". Choose deliberately and say which you used.
+
+Page until `pagingMetadata.hasNext` is `false` so no product is missed.
 
 ---
 

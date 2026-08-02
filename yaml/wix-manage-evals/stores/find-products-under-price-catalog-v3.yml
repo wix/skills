@@ -1,0 +1,138 @@
+# Seeds five single-variant products at distinct prices: two below $20, three above. Single
+# variant on purpose — a product whose variants span the threshold makes "under $20"
+# ambiguous, and a gate needs one right answer.
+#
+# The failure mode this covers is silent. Price on a Catalog V3 product is
+# `actualPriceRange.minValue.amount`; reading the Catalog V1 `priceData.price` yields
+# undefined rather than an error, so the filter matches nothing and the agent reports a
+# confident "no products under $20". The three above-threshold decoys mean a correct answer
+# has to be both complete and precise.
+#
+# `amount` is a decimal string ("7.25"), so a comparison that skips parseFloat orders
+# lexicographically and misreports — another way to pass the outcome only by accident.
+name: stores/find-products-under-price-catalog-v3
+description: >
+  A store owner asking which products fall under a price. Price lives on the Catalog V3
+  product as `actualPriceRange.minValue.amount` (a decimal string) and is returned by
+  default; there is no `priceData` field, and price is not filterable by Query Products.
+  Expected: one products query, then a client-side numeric comparison, naming both seeded
+  products under $20. Anti-patterns: reading a non-existent `priceData` field and reporting
+  none; sending a price filter to the products query; string-comparing the amount; omitting
+  one of the two; naming an above-threshold product.
+triggerPrompt: >
+  Which products in my store cost less than $20?
+tags: [stores, aria]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/find-products-query-and-search-catalog-v3
+  - type: llm_judge          # GATE — outcome correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Intent: the user wants the products in their Wix store priced under $20.
+
+      Ground truth for this site. Exactly two products are under $20: "Eval Price Coaster"
+      ($7.25) and "Eval Price Mug" ($12.00). Three are above: "Eval Price Tumbler" ($22.50),
+      "Eval Price Apron" ($31.00), "Eval Price Kettle" ($48.00). The agent can only know
+      these names and prices by actually querying the catalog.
+
+      Pass only if the final answer names both under-$20 products and names none of the
+      three above-$20 products as being under $20.
+
+      Fail if the answer reports that no products are under $20, or returns an empty list,
+      or states it could not determine prices. Fail if it omits either under-$20 product —
+      an incomplete list is a wrong answer here, not partial credit. Fail if it lists any
+      above-$20 product as under $20. Fail if it names products it never retrieved.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the agent
+      fulfill the request. Examine the tool-call trace. Score 0-10 (10 = direct: one
+      products query plus a client-side numeric comparison, no wasted calls, no errors).
+
+      Penalize and LIST any of: reading a product price field that does not exist (for
+      example `priceData`, `priceData.price`, `price.amount`) and getting undefined or an
+      empty result; a query that returned zero matches and had to be re-run; a repeat query
+      issued only to dump a product object and discover where price lives; a `filter` on a
+      price field sent to the products query, which does not support it; a 400 from
+      filtering on an unsupported field; comparing the decimal-string `amount` without
+      converting it to a number; extra documentation or API-spec searches needed to locate
+      the price field.
+
+      For each issue, name the likely MCP or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed coaster under threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Price Coaster
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "7.25" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed mug under threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Price Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "12.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed tumbler above threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Price Tumbler
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "22.50" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed apron above threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Price Apron
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "31.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed kettle above threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Price Kettle
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "48.00" } }
+                  physicalProperties: {}
+                  visible: true
