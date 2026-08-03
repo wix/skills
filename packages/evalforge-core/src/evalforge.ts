@@ -1,4 +1,5 @@
 import { TokenProvider } from './auth';
+import type { EvalForgeBody } from './evalforge-mapper';
 
 export type HttpError = Error & { status: number };
 
@@ -22,7 +23,42 @@ export type CapabilityVersion = { id: string; capabilityId: string; version: str
 /** One file of a skill capability version; `path` is relative to the skill root. */
 export type SkillFileContent = { path: string; content: string };
 
-import type { EvalForgeBody } from './evalforge-mapper';
+/** The entity-typed content of a capability version — the seam shared by skills, mcp, and (later) rules/tools. */
+export type CapabilityContent =
+  | { kind: 'skill'; files: SkillFileContent[] }
+  | { kind: 'mcp'; url: string };
+
+/** One entry of an MCP capability version's remote config, keyed by `MCP_CONFIG_KEY`. */
+type McpRemoteConfigEntry = {
+  url: string;
+  type: 'http';
+  headers: {
+    Authorization: string;
+    'wix-account-id': string;
+  };
+};
+
+type SkillContentBody = { skillContent: { files: SkillFileContent[] } };
+type McpContentBody = { mcpContent: { config: Record<string, McpRemoteConfigEntry> } };
+
+function contentBody(content: CapabilityContent): SkillContentBody | McpContentBody {
+  if (content.kind === 'skill') return { skillContent: { files: content.files } };
+  // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
+  return {
+    mcpContent: {
+      config: {
+        [MCP_CONFIG_KEY]: {
+          url: content.url,
+          type: 'http',
+          headers: {
+            Authorization: '{{wix-auth-token}}',
+            'wix-account-id': '{{wix-auth-user-id}}',
+          },
+        },
+      },
+    },
+  };
+}
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
 export type ScenarioBody = EvalForgeBody;
@@ -221,71 +257,12 @@ export class EvalForgeClient {
     return url.toString();
   }
 
-  async createMcpVersion(
-    mcpId: string,
-    projectId: string,
-    versionLabel: string,
-    prNumber: number,
-    headSha: string,
-    skillsRepo: string,
-  ): Promise<CapabilityVersion> {
-    const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
-      'POST',
-      `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
-      {
-        capabilityVersion: {
-          capabilityId: mcpId,
-          version: versionLabel,
-          origin: 'pr',
-          notes: `Auto-created for PR #${prNumber}`,
-          // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
-          mcpContent: {
-            config: {
-              [MCP_CONFIG_KEY]: {
-                url: this.buildMcpUrl(skillsRepo, headSha),
-                type: 'http',
-                headers: {
-                  Authorization: '{{wix-auth-token}}',
-                  'wix-account-id': '{{wix-auth-user-id}}',
-                },
-              },
-            },
-          },
-        },
-      },
-    );
-    const v = res.capabilityVersion;
-    return { id: v.id, capabilityId: v.capabilityId, version: v.version };
-  }
-
-  async ensureMcpVersion(
-    mcpId: string,
-    projectId: string,
-    versionLabel: string,
-    prNumber: number,
-    headSha: string,
-    skillsRepo: string,
-  ): Promise<CapabilityVersion> {
-    try {
-      return await this.createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo);
-    } catch (e) {
-      // A duplicate version should be 409, but the backend currently throws a plain
-      // error for "already exists" that transcodes to 500 — so recover on either by
-      // reusing the existing version, and only rethrow if it genuinely isn't there.
-      if (!isHttpError(e) || (e.status !== 409 && e.status !== 500)) throw e;
-      const versions = await this.listCapabilityVersions(mcpId, projectId);
-      const existing = versions.find(v => v.version === versionLabel);
-      if (!existing) throw e;
-      return existing;
-    }
-  }
-
-  private async createSkillVersion(
+  private async createCapabilityVersion(
     capabilityId: string,
     projectId: string,
     versionLabel: string,
     prNumber: number,
-    files: SkillFileContent[],
+    content: CapabilityContent,
   ): Promise<CapabilityVersion> {
     const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
       'POST',
@@ -296,12 +273,31 @@ export class EvalForgeClient {
           version: versionLabel,
           origin: 'pr',
           notes: `Auto-created for PR #${prNumber}`,
-          skillContent: { files },
+          ...contentBody(content),
         },
       },
     );
     const created = res.capabilityVersion;
     return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+  }
+
+  async createOrReuseCapabilityVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    content: CapabilityContent,
+  ): Promise<CapabilityVersion> {
+    try {
+      return await this.createCapabilityVersion(capabilityId, projectId, versionLabel, prNumber, content);
+    } catch (error) {
+      // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
+      if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
+      const versions = await this.listCapabilityVersions(capabilityId, projectId);
+      const existing = versions.find(candidate => candidate.version === versionLabel);
+      if (!existing) throw error;
+      return existing;
+    }
   }
 
   async createOrReuseSkillVersion(
@@ -311,16 +307,23 @@ export class EvalForgeClient {
     prNumber: number,
     files: SkillFileContent[],
   ): Promise<CapabilityVersion> {
-    try {
-      return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
-    } catch (error) {
-      // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
-      if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
-      const versions = await this.listCapabilityVersions(capabilityId, projectId);
-      const existing = versions.find(candidate => candidate.version === versionLabel);
-      if (!existing) throw error;
-      return existing;
-    }
+    return this.createOrReuseCapabilityVersion(
+      capabilityId, projectId, versionLabel, prNumber, { kind: 'skill', files },
+    );
+  }
+
+  async ensureMcpVersion(
+    mcpId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    headSha: string,
+    skillsRepo: string,
+  ): Promise<CapabilityVersion> {
+    return this.createOrReuseCapabilityVersion(
+      mcpId, projectId, versionLabel, prNumber,
+      { kind: 'mcp', url: this.buildMcpUrl(skillsRepo, headSha) },
+    );
   }
 
   // Without `names`: lists ALL scenarios via an empty-filter query (used by
