@@ -72,9 +72,7 @@ silent false pass:
 
 > **Design, not current behaviour.** Nothing in this section is wired into the gate yet. The
 > classification logic exists (`classifyChangeImpact` in `evalforge-core`), but the gate still
-> runs exactly one eval and the comment carries no impact table. What remains is blocked on
-> where per-scenario results come from — see
-> [CODEAI-877](https://wix.atlassian.net/browse/CODEAI-877).
+> runs exactly one eval and the comment carries no impact table.
 
 The gate will run the selected scenarios **twice**: once with the PR's content pinned, once
 with the base content — the same thing without this diff. Same preset agent, same scenario ids,
@@ -156,7 +154,7 @@ are all entity-blind.
 
 The **inputs** are still single-entity, though — `skill-dir` and `capability-id` are scalars,
 and the entity list is built from them internally with one element. Generalising the input
-surface so a rule needs no workflow change is CODEAI-880's job; what the comparison buys now is
+surface so a rule needs no workflow change is follow-up work; what the comparison buys now is
 that none of the *logic* will have to change. Whether a rule is even expressible as a
 capability version is itself open — rules may live in agent config instead.
 
