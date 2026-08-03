@@ -8,7 +8,6 @@ triggerPrompt: >-
   create a hidden free COURSE service called Test Kurs with 8 future online
   sessions, and what you would verify before telling me it is bookable.
 tags: [bookings]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -25,7 +24,7 @@ assertions:
 
       Pass if the response:
       - says to create the COURSE service with Services V2 `bulkCreateServices`, using `type: "COURSE"`, `onlineBooking.enabled: true`, `defaultCapacity`, and free payment via `rateType: "NO_FEE"` with a valid payment option such as `options.inPerson: true`, AND
-      - says to use the returned `service.schedule.id` to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
+      - says to read the created service's `schedule.id` from the Bulk Create Services response at `results[0].item.schedule.id`, noting that `item` is present only when the request sends `returnEntity: true`, and to use it to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
       - says the Calendar events should use `event.type: "COURSE"` and include at least one resource/staff `resourceId`, AND
       - warns that creating only the service does not make the course bookable and may leave the service page showing ended/unavailable, AND
       - says to verify future course events exist before telling the user the course is bookable, AND
@@ -34,6 +33,8 @@ assertions:
       Fail if the response:
       - puts the 8 sessions under `course.sessions`, `CourseSession`, or another nested Services V2 course field instead of Calendar Events, OR
       - claims `bulkCreateServices` alone creates bookable course sessions, OR
-      - omits `bulkCreateEvents` or the returned `service.schedule.id`, OR
+      - omits `bulkCreateEvents`, OR names a Bulk Create Services response path that does not
+        exist, such as `results[0].item.service.id`, `results[0].service`, or a top-level
+        `service` object, OR
       - says the course is ready/bookable without verifying future events, OR
       - tries to perform the creation instead of explaining the API plan.
