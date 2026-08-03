@@ -21,6 +21,9 @@ references:
   - name: "Setup: Coupons"
     path: ecommerce/setup-coupons.md
     load: false
+  - name: "Goal: Sell Gift Cards"
+    path: ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md
+    load: false
 ---
 # Recommend: eCommerce Strategy
 
@@ -36,6 +39,7 @@ references:
 > | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
 > | "clear inventory", "overstock", "clearance", "slow-moving" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
 > | "bundle", "cross-sell", "buy together", "more items per order" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+> | "sell gift cards", "add a gift card", "gift card amounts / denominations" | [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards) |
 >
 > After loading the goal skill, continue from Step 1 below. The goal skill will instruct you to load the matching flow skill — follow those instructions too.
 >
@@ -177,6 +181,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 |---|---|---|
 | **DISCOUNTS** | Merchant mentions sales, promotions, revenue, AOV, clearance, holidays, coupons. **Also activate if no specific domain is mentioned** (default). | Always — site data contains discount metrics |
 | **SHIPPING** | Merchant mentions shipping, delivery, checkout conversion, cart abandonment. **Also activate proactively** if site data suggests shipping issues. | High visitors + low orders may indicate shipping friction |
+| **GIFT_CARDS** | Merchant mentions gift cards, gift vouchers, gifting, "what to get someone", gift card amounts. **Also activate proactively** on a generic request when the site sells no gift card product yet and a gifting occasion is near. | Site sells no gift card product + gifting-heavy industry or an upcoming gifting occasion |
 
 **Priority rule**: If the merchant mentions a specific holiday/event/date, the DISCOUNTS domain MUST use the **SEASONAL** strategy — even if other signals like "boost sales" or "increase revenue" could match other goals. Holidays are time-sensitive and take priority over general intent.
 
@@ -199,6 +204,8 @@ Based on the merchant's request AND the site data, determine which domains to an
 | STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
 | BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
 | Generic (no clear goal) | "boost sales", ambiguous | Default to SEASONAL if holiday nearby, else UPSELL_BOOST |
+
+**For GIFT_CARDS domain — load [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards).** It owns the existing-product gate (a site supports only one gift card product), eligibility, denomination sizing from AOV / catalog prices, the expiry policy, and the mapping onto the real create call. Do not size gift card amounts without it.
 
 **For SHIPPING domain — load the same goal as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows. Load the matching discount goal above — it now includes shipping flow references.
 
@@ -405,6 +412,20 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 **Priority order:** CRITICAL blockers (no options, no coverage) → Conversion-linked (no free shipping, high rates) → Revenue opportunities (international, tiered pricing) → Configuration improvements (consolidate, add estimates).
 
+### Gift card recommendations (if GIFT_CARDS domain active)
+
+Follow [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards) — it owns the full design. Summary of what it enforces:
+
+| Rule | Detail |
+|---|---|
+| Existing-product gate | `QueryGiftCardProducts` first. A site supports **one** gift card product — if one exists, drop the domain and free the slot. |
+| At most one | Never more than one gift-card recommendation, since there can only be one product. |
+| Amounts from site data | Presets anchor on AOV (catalog median when there are no orders); custom range clamped by cheapest product and top preset. No stock ladder. |
+| Expiry | None by default — it's regulated and varies by market. Only on explicit request, then ≥ 60 months. |
+| Urgency | `HIGH` / `MEDIUM` / `LOW` only — never `CRITICAL`. |
+
+**Gift card action type:** `create_gift_card_product`.
+
 ### Cross-domain balance
 
 - If request is generic, aim for recommendations from **multiple domains** (e.g., 2-3 discount + 1-2 shipping)
@@ -511,7 +532,7 @@ If BatchCreate fails, report the error and include recommendations without track
 | `id` | GUID from tracking BatchCreate response (omit if tracking skipped/failed) |
 | `title` | Short, actionable. Max 200 chars. Always English. |
 | `reasoning` | **Must reference which API call returned the data.** Always English. |
-| `domain` | `"discounts"` or `"shipping"` (future: `"gift_cards"`, `"taxes"`) |
+| `domain` | `"discounts"`, `"shipping"`, or `"gift_cards"` (future: `"taxes"`) |
 | `urgency` | `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` |
 | `mechanism` | `AUTOMATIC` or `COUPON`. From Step 4c. Only for discounts domain. |
 | `name` | Marketing headline, 2-5 words. Translate to site `language` if not English. |
@@ -526,6 +547,7 @@ If BatchCreate fails, report the error and include recommendations without track
 |---|---|
 | discounts | `apply_discount` |
 | shipping | `create_shipping_option`, `update_shipping_option`, `enable_backup_rate`, `activate_region` |
+| gift_cards | `create_gift_card_product` |
 
 ---
 
