@@ -68,6 +68,107 @@ silent false pass:
 - a scenario selection that resolves to **zero** ids — nothing would be verified;
 - a completed run with **zero assertions** — no assertion failed, but none ran either.
 
+## Change-impact comparison — what blocks
+
+> **Design, not current behaviour.** Nothing in this section is wired into the gate yet. The
+> classification logic exists (`classifyChangeImpact` in `evalforge-core`), but the gate still
+> runs exactly one eval and the comment carries no impact table.
+
+The gate will run the selected scenarios **twice**: once with the PR's content pinned, once
+with the base content — the same thing without this diff. Same preset agent, same scenario ids,
+same repeat count. The pinned versions are the only variable, which is what makes the
+difference attributable to the diff.
+
+Only the **PR arm** decides the verdict. The base arm exists to say *who broke it* and
+*whether the change moved anything* — it can never turn a green PR red, or a red PR green.
+
+```mermaid
+flowchart TD
+    VERS[["one job, two run variants:<br/>pr-N-sha7 per changed entity<br/>pr-N-base-sha7 per changed entity"]]
+    VERS --> PRRUN[PR arm]
+    VERS --> BASERUN[base arm]
+
+    PRRUN --> USABLE{completed, with<br/>≥1 assertion?}
+    USABLE -->|"no — timed out · cancelled · nothing verified"| DECIDE
+    USABLE -->|yes| RED{any assertion<br/>failed or errored?}
+    RED -->|no| PASS([✓ check passes])
+    RED -->|yes| DECIDE{{"blocking input?"}}
+    DECIDE -->|true| BLOCK([setFailed — merge blocked])
+    DECIDE -->|false| WARN([warning + comment — passes, soak period])
+
+    BASERUN -.-> BUSABLE{base arm<br/>usable?}
+    BUSABLE -.->|no| NOATTR[attribution unavailable]
+    BUSABLE -.->|yes| CLASS["classify every scenario<br/>fixed · newly-broken<br/>still-passing · still-failing"]
+    CLASS -.-> COMMENT
+    NOATTR -.-> COMMENT[["PR comment — wording and the<br/>necessity signal, never the verdict"]]
+```
+
+Dotted edges inform the comment. Nothing on the dotted path reaches `blocking input?`, so a
+base arm that times out or errors degrades the report to "attribution unavailable" and leaves
+the gate exactly as strict as it was.
+
+| Base | PR | Class | Effect on the check |
+|---|---|---|---|
+| pass | pass | `still-passing` | silent |
+| fail | pass | `fixed` | **passes** — reported as the necessity signal |
+| pass | fail | `newly-broken` | **blocks** — this PR caused it |
+| fail | fail | `still-failing` | **blocks** — labelled pre-existing |
+| unusable | pass | — | **passes**, attribution unavailable |
+| unusable | fail | — | **blocks**, attribution unavailable |
+
+**Why `still-failing` blocks.** A scenario red on both sides tells you nothing about the
+change — it is absence of signal, not evidence of safety, and this is the one rule
+[`evalforge-yaml-gate`](../evalforge-yaml-gate) already enforces for wix-manage
+(`comparisonHasNoWinner` fails when the `llm_judge` failed in *both* runs). Blocking on it
+also keeps the gate's strictness identical to the pre-comparison behaviour: the block
+condition remains "the PR run is fully green", so adding the comparison can only add
+information, never permission to merge something that used to be rejected. The delta's
+payoff is attribution and necessity, not a looser bar.
+
+**Every scenario has a base result.** Both runs are given the same scenario ids, so a
+scenario this PR *authored* still runs against the base skill version. That is exactly the
+signal a new reference file wants: the base version has no such doc and fails, the PR version
+passes, and the scenario reports `fixed`. There is no "no counterpart in base" case to
+special-case.
+
+**A wholly `still-passing` PR is the strongest necessity signal available.** Every scenario
+green on both sides means the measured behaviour did not move — either the change is a no-op
+against the current suite, or the suite does not cover it. Neither blocks; both are worth
+saying out loud in the comment.
+
+The base version is labelled `pr-<number>-base-<base-sha7>`, sharing the `pr-<number>-` prefix
+so PR-close cleanup sweeps it with no extra code. A shared `base-<sha7>` label reused across
+PRs would store fewer versions, but then cleanup for one PR could delete a version another PR
+is still running against — capability versions are cheaper than that ownership problem.
+
+**Nothing in the comparison knows it is comparing skills.** `EvalRunInput.capabilityVersions`
+is a `Record<capabilityId, versionId>`, so an arm is just a map: one entry per **changed**
+entity, at head for the PR arm and at the base ref for the base arm. An entity the PR did not
+touch appears in neither map, so both arms resolve it to the same default version — which is
+the "hold everything else constant" property the delta depends on.
+
+Only two things are entity-typed: the per-entity path conventions used to derive tags, and the
+mapping from content to a version body (`skillContent` for a skill, `mcpContent` for an MCP,
+one case per future kind). Selection, the guard, the gate decision, classification and cleanup
+are all entity-blind.
+
+The **inputs** are still single-entity, though — `skill-dir` and `capability-id` are scalars,
+and the entity list is built from them internally with one element. Generalising the input
+surface so a rule needs no workflow change is follow-up work; what the comparison buys now is
+that none of the *logic* will have to change. Whether a rule is even expressible as a
+capability version is itself open — rules may live in agent config instead.
+
+A PR that changes two entities produces one arm pinning both, so the delta attributes to *the
+PR*, not to either entity — separating them would need one arm per subset. The comment names
+which entities an arm pinned, so the ambiguity is visible rather than implied.
+
+**Why it stops here.** `getEvalRun` returns only `aggregateMetrics` — totals, no per-scenario
+breakdown — so the classification above has no data source yet. The two candidate routes
+(extend the client, or go through the eval-pipeline service the wix-manage gate uses) differ in
+*architecture*, not just in one adapter: the pipeline resolves both arms itself from a commit
+SHA, which would mean no base version and no second run of our own. That is why the orchestration
+is unbuilt rather than merely unwired.
+
 ## `cleanup` flow
 
 ```mermaid
