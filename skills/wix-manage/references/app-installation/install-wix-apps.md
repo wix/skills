@@ -1,6 +1,6 @@
 ---
 name: "Install Wix Apps"
-description: Installs Wix apps on a site using Apps Installer API. Covers enabling Velo (Wix Code), app installation, and common app definition IDs.
+description: Installs Wix apps on a site using Apps Installer API. Covers app installation and common app definition IDs. Does not enable Velo (Wix Code).
 ---
 # Install Wix Apps on a Site
 
@@ -15,12 +15,20 @@ This recipe guides you through installing Wix apps on a site using the Apps Inst
 
 - **Apps Installer API**: [REST](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app)
 
+## Not Supported: Enabling Velo or Dev Mode
+
+Do not use this recipe to enable Velo, Wix Code, or Dev Mode on a site.
+
+Velo is not a Wix app that can be enabled by installing an `appDefId` with the Apps Installer API. Do not search the App Market for "Velo" or "Wix Code" and install a nearby result. For example, "Code with AI: Write Velo Code" is an AI coding assistant app, not the Velo/Dev Mode switch.
+
+If a workflow requires Velo, tell the user to enable Velo/Dev Mode in the Editor or Wix Studio Editor, then continue with the Velo-dependent setup after they confirm it is enabled. Do not invent an appDefId or endpoint for enabling Velo.
+
 ---
 ## Step 0: Find the App ID (skip if you already have it)
 
 If you already know the `appDefId` (e.g. from the table of Wix-built apps below), skip to Step 1.
 
-For any third-party app, or any app you only know by name, resolve the ID first using the Search Market Listings API.
+For any third-party app, or any app you only know by name, resolve the ID first using the Search Market Listings API. This does not apply to Velo, Wix Code, or Dev Mode; those are not installable apps.
 
 **Endpoint**: `POST https://www.wixapis.com/devcenter/app-market-listing/v1/market-listings/search`
 
@@ -51,6 +59,7 @@ Use the returned `appId` as the `appDefId` in Step 2.
 - The `appDefId` field in the install request and the `appId` field returned here are the same value
 - If multiple results come back, match on `basicInfo.name` to confirm you have the right app before installing
 - Only listings with `status: "PUBLISHED"` can be installed
+- Do not use App Market search results to enable Velo, Wix Code, or Dev Mode
 
 ## Install the Wix App
 
@@ -105,6 +114,7 @@ Some common apps:
 
 ### IMPORTANT NOTES:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
+- NEVER use this API to enable Velo, Wix Code, or Dev Mode. There is no appDefId in this recipe for that.
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
 
@@ -130,5 +140,6 @@ After installing an app:
 ## Common Pitfalls
 
 - **"I don't have the appDefId"** → Run Step 0. The table in Step 2 only covers Wix-built apps; the App Market has thousands of others.
+- **"I need Velo / Wix Code / Dev Mode"** → Stop. This recipe cannot enable it. Ask the user to enable Velo/Dev Mode in the Editor or Wix Studio Editor before continuing.
 - **Don't try to scrape the App Market website to find IDs** — pages are client-rendered and the appId is not in the HTML. Use Search Market Listings instead.
 - **Don't try `InstallAppFromShareUrl` as a workaround for unknown IDs** — `shareUrlId` is an internal identifier you generally don't have either.
