@@ -353,6 +353,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Diagnosing a Live Page Returning 504 / "Runtime is unreachable" — Known Gap](references/sites/diagnosing-page-504-runtime-unreachable.md)
+**Technical:** A Velo-enabled site's non-home pages return HTTP 504 "Runtime is unreachable" — Wix's Velo runtime supervisor's own signal for an unreachable backend pod, not a content/publish/routing problem. Republishing doesn't fix it, `ListSitemapPages` cannot diagnose it (it only covers dynamic items, never static pages), and there's no public API to check or restart the runtime. Read this before spending multiple tool calls chasing it.
+
 ---
 
 ## Stores
