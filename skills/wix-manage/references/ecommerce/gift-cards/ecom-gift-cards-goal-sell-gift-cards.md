@@ -83,7 +83,9 @@ Site data comes from the orchestrator's context load ([eCommerce: Load Context](
 | Condition | Decision |
 |---|---|
 | `siteData.hasCatalog === false` (0 products) | **Drop the domain.** "Gift cards need something to spend them on. Add products to your catalog first." |
-| No price data at all — `catalogAnalytics` missing **and** `aov` unavailable | **Drop the domain.** "Cannot size gift card denominations — no order or catalog price data for this site." Do not fall back to a stock 25/50/100 ladder. |
+| `aov` is available (site has orders) | **Continue** — `aov` alone is enough to size denominations. Missing or empty `catalogAnalytics` is **not** a blocker; you simply skip the catalog clamps in Step 3b. |
+| `aov` unavailable but `catalogAnalytics` has price data | **Continue** — anchor on the catalog median instead. |
+| **Both** missing — no `aov` **and** no usable catalog price data | **Drop the domain.** "Cannot size gift card denominations — this site has no order or catalog price data to base amounts on." Do not fall back to a stock 25/50/100 ladder, and do not invent product names or prices. Saying you can't size it yet is the correct answer here; offer to proceed if the merchant names a typical order value. |
 | `orders30d === 0` **and** `visitors30d < 100` | Continue, but urgency is `LOW` and `reasoning` must say the store has little traffic to convert yet. |
 | Everything else | Continue. |
 
@@ -121,10 +123,12 @@ All amounts are **decimal strings** in `siteData.currency`. The numbers in the e
 
 | Available data | `anchor` |
 |---|---|
-| `orders30d >= 1` and `aov > 0` | `aov` (= `gpv30d / orders30d`) — what customers actually spend |
-| Otherwise | `p50` — the median price from the "All Products" group of `catalogAnalytics` |
+| `orders30d >= 1` and `aov > 0` | `aov` (= `gpv30d / orders30d`) — what customers actually spend. **Preferred, and sufficient on its own.** |
+| No `aov`, but `catalogAnalytics` has prices | `p50` — the median price from the "All Products" group |
 
-Also read from the "All Products" group: `priceMin` (`min(price)`), `priceMax` (`max(price)`), `p90`. Ignore every other `categoryName` — category-level stats do not size a store-wide gift card.
+`aov` comes from the metasite profile fields the orchestrator already loaded, **not** from the catalog — so a failed or empty `GetCatalogAnalytics` does not stop you sizing denominations. Only both sources missing does (Step 2a).
+
+When `catalogAnalytics` is available, also read `priceMin` (`min(price)`), `priceMax` (`max(price)`), and `p90` from the "All Products" group — they only tune the clamps in Step 3b. Ignore every other `categoryName`: category-level stats do not size a store-wide gift card.
 
 ### Step 3b: Preset denominations
 
@@ -139,8 +143,8 @@ Also read from the "All Products" group: `priceMin` (`min(price)`), `priceMax` (
    | ≥ 500 | 50 |
 
 3. Floor every value at `10`. Drop duplicates. Sort ascending.
-4. If the lowest preset is below `priceMin`, raise it to `priceMin` rounded **up** with the table — a card that can't buy the cheapest item is dead weight.
-5. If `priceMax` is known, cap the highest preset at `priceMax × 2` rounded with the table.
+4. **If `priceMin` is known** and the lowest preset falls below it, raise it to `priceMin` rounded **up** with the table — a card that can't buy the cheapest item is dead weight. Skip this step when catalog stats are unavailable.
+5. **If `priceMax` is known**, cap the highest preset at `priceMax × 2` rounded with the table. Skip when unavailable.
 6. Keep **3–5 presets**. Fewer than 3 after dedupe ⇒ add `anchor × 3` (rounded) until you have 3.
 
 **Worked example** — `aov = 62`, `priceMin = 18`, `priceMax = 210`, all in the site's currency:

@@ -56,7 +56,8 @@ references:
 4. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data. Every number you cite in `reasoning` MUST come directly from an API response — do NOT assume, infer, or fabricate data.
 5. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
 6. **Issue every API call as an authenticated request in the merchant's site context, using exactly the endpoints given below.** The internal service method names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable — only these HTTP endpoints are.
-7. **Generate recommendations across ALL relevant domains** — not just discounts. Consider shipping, discounts, and any other domain that the data supports.
+7. **Generate recommendations across ALL relevant domains** — not just discounts. Consider shipping, discounts, gift cards, and any other domain that the data supports.
+8. **NEVER present a recommendation you have not persisted.** `BatchCreate` (Step 8) is mandatory for every domain — discounts, shipping, gift cards — unless the merchant said `SKIP_TRACKING`. Presenting an unpersisted recommendation means the merchant cannot approve it, so the whole run is wasted. Do not treat Step 8 as a closing formality: it is the step that makes the output actionable.
 
 ---
 
