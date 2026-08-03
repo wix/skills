@@ -1,0 +1,29 @@
+name: forms/create-form-file-upload
+description: Verifies the Create Form recipe explains the complete WIX_FILE field shape for photo/file uploads without mutating a site.
+triggerPrompt: I am writing a Wix Forms Create Form request later. Do not create anything. What exact JSON shape should I use for an optional photo upload field?
+tags: [forms]
+maxTokens: 150000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/create-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "I am writing a Wix Forms Create Form request later. Do not create anything. What exact JSON shape should I use for an optional photo upload field?"
+
+      Pass if the response:
+      - describes a Forms Create Form file upload field as `identifier: "FILE_UPLOAD"`, `fieldType: "INPUT"`, and `inputOptions.inputType: "WIX_FILE"`;
+      - places file upload configuration under `inputOptions.wixFileOptions`;
+      - includes `wixFileOptions.componentType: "FILE_UPLOAD"`;
+      - includes `wixFileOptions.fileUploadOptions` with label/button-style settings;
+      - includes `wixFileOptions.validation.fileLimit` and `uploadFileFormats`, and makes clear these values should match the file upload options;
+      - does not suggest creating a test form or probing the API.
+
+      Fail if the response:
+      - omits `componentType: "FILE_UPLOAD"`;
+      - uses `inputType: "FILE"` instead of `inputType: "WIX_FILE"`;
+      - places the file upload field under `stringOptions`, `arrayOptions`, or an extra `inputTypeOptions` wrapper;
+      - says `componentType` must be omitted when `fileUploadOptions` is present;
+      - attempts to create or modify a real form.
