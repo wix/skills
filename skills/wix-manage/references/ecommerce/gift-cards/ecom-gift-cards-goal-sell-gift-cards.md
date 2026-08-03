@@ -68,9 +68,19 @@ The orchestrator activates this domain on "should I sell gift cards", "add a gif
 | Outcome | Action |
 |---|---|
 | `giftCardProducts` is empty | Continue to Step 2. |
-| One or more products returned | **Drop the GIFT_CARDS domain** — do not emit a gift-card recommendation, and let the orchestrator use the freed slot for another domain. Report: "This site already sells gift cards ({name}, denominations {formattedAmounts}). A site supports one gift card product, so there's nothing to create. To change the amounts or expiry, edit it directly — [Update Gift Card Product](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product)." |
+| One or more products returned | **Drop the GIFT_CARDS domain** — no create recommendation, nothing persisted, and the orchestrator reuses the freed slot. Then answer with the existing-product review below rather than a bare stop. |
 | Call fails with `403` / app-not-installed | Wix Gift Cards is not available on this site. Report the blocker verbatim; do not recommend around it. |
 | Call fails for any other reason | Report the exact error and drop the domain. Do **not** assume "no product exists" — a false negative here produces a guaranteed-to-fail recommendation. |
+
+### When a product already exists — review it, don't re-pitch it
+
+A merchant asking "should I sell gift cards / which amounts?" who already has a product wants their **current** setup assessed. Never emit a create recommendation, never persist anything, and never propose a second product — a site supports one. Instead, read the design rules in Step 3 and report:
+
+1. **What exists** — `name`, the preset amounts and custom range from the Query response (use `formattedAmount`), and the expiry stance read from `expirationType`: `NONE` → "these never expire, which is the safer default"; `RELATIVE` / `FIXED` → state the period or date and flag that gift card expiry is regulated and varies by market, so it's worth confirming it's permitted where they sell.
+2. **Whether the amounts still fit** — size the ladder you *would* pick from the site's data (Step 3a–3c) and compare. Say plainly if the current presets sit far from that (e.g. every preset below the median product price, or a top preset far above anything the store sells), and name the numbers on both sides.
+3. **How to change it** — [Update Gift Card Product](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product) (`PATCH`, needs the current `revision`), and the dashboard link at the end of Step 5. Updating replaces the whole `presetVariants` list; individual presets can't be patched.
+
+**Expiry gets stated in this path too** — reading it off the existing product, per Step 3d. A gift-card answer that never mentions expiry is incomplete regardless of which branch you took.
 
 ---
 
@@ -171,7 +181,7 @@ Continuing the example: `minValue = "15"`, `maxValue = "500"`.
 
 Only if the merchant explicitly asked for an expiry: propose `expirationMonths: 60` (5 years), and add to `reasoning`: "Expiry set at the merchant's request. Gift card expiry is regulated in many jurisdictions — confirm 5 years is permitted where you sell." Never propose fewer than 60 months. Never volunteer an expiry the merchant didn't ask for.
 
-**State the expiry stance explicitly, every time.** It must appear in all three of `reasoning`, `successCriteria`, and the prose you show the merchant — "these cards never expire, which is also the safer default because expiry is regulated and varies by market", or the 5-year version with its caveat. A recommendation that silently omits expiry is incomplete: expiry is a decision the merchant is accountable for, not a default to leave unmentioned.
+**State the expiry stance explicitly, every time — in every branch.** When you're recommending a new product it must appear in all three of `reasoning`, `successCriteria`, and the prose you show the merchant; when a product already exists, report that product's `expirationType` instead (Step 1). Concretely, for a new product — "these cards never expire, which is also the safer default because expiry is regulated and varies by market", or the 5-year version with its caveat. A recommendation that silently omits expiry is incomplete: expiry is a decision the merchant is accountable for, not a default to leave unmentioned.
 
 ### Step 3e: Name and description
 

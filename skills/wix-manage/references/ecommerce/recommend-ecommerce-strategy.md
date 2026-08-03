@@ -448,6 +448,7 @@ Follow [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-s
 8. **Rounding**: Discount percentages round to 5/10/15/20/25% unless merchant specified exact value.
 9. **Data-backed**: Every recommendation must reference specific data from API responses.
 10. **Domain labeled**: Every recommendation has the correct `domain` field.
+11. **Persisted**: Step 8 has run and every recommendation has an `id` from `BatchCreate`. **If you cannot point at that `id`, you are not finished — go do Step 8 now.** The only exceptions are `SKIP_TRACKING` or a `BatchCreate` call that failed, and a failure must be reported to the merchant, not passed over in silence.
 
 ---
 
@@ -531,7 +532,7 @@ If BatchCreate fails, report the error and include recommendations without track
 
 | Field | Rule |
 |---|---|
-| `id` | GUID from tracking BatchCreate response (omit if tracking skipped/failed) |
+| `id` | GUID from the tracking `BatchCreate` response. **Required** — an output with no `id` means Step 8 never ran, which is a failed run. Omit only when the merchant said `SKIP_TRACKING`, or when `BatchCreate` failed and you say so explicitly. |
 | `title` | Short, actionable. Max 200 chars. Always English. |
 | `reasoning` | **Must reference which API call returned the data.** Always English. |
 | `domain` | `"discounts"`, `"shipping"`, or `"gift_cards"` (future: `"taxes"`) |
