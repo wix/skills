@@ -24,7 +24,7 @@ assertions:
 
       Pass if the response:
       - says to create the COURSE service with Services V2 `bulkCreateServices`, using `type: "COURSE"`, `onlineBooking.enabled: true`, `defaultCapacity`, and free payment via `rateType: "NO_FEE"` with a valid payment option such as `options.inPerson: true`, AND
-      - says to read the created service's `schedule.id` from the Bulk Create Services response at `results[0].item.schedule.id`, noting that `item` is present only when the request sends `returnEntity: true`, and to use it to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
+      - says to use the created service's `schedule.id` to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
       - says the Calendar events should use `event.type: "COURSE"` and include at least one resource/staff `resourceId`, AND
       - warns that creating only the service does not make the course bookable and may leave the service page showing ended/unavailable, AND
       - says to verify future course events exist before telling the user the course is bookable, AND
