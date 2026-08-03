@@ -164,16 +164,17 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## eCommerce
 
 **Routing — pick the right entry point:**
-- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance, gift cards) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, gift cards) and generates cross-domain recommendations. Do NOT ask clarifying questions.
 - **Traffic acquisition is NOT an eCommerce-strategy request** ("grow my traffic", SEO, ads, social, content) → do NOT use Recommend: eCommerce Strategy; it only converts visitors a store already has. Route these to marketing.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+- **Gift cards** ("should I sell gift cards", "add a gift card", "what amounts should my gift card have") → these are recommendations, so they go through [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md), which activates its GIFT_CARDS domain and loads the gift-cards goal itself. Issuing/redeeming an individual gift card is the Gift Cards API, not a recommendation.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
 
 ### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
-**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for business improvement requests about earning more from existing visitors. **Traffic acquisition (SEO, ads, social, content) is out of scope** — route "grow my traffic" to marketing.
+**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping + gift cards), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling), shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup), AND selling gift cards (denominations sized from the site's own AOV and catalog prices). Use this for business improvement requests about earning more from existing visitors. **Traffic acquisition (SEO, ads, social, content) is out of scope** — route "grow my traffic" to marketing.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
 **Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
@@ -190,6 +191,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Pricing: Discount Not Applying](references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md)
 - Goals: [Increase AOV](references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md), [Clear Inventory](references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md), [Seasonal Revenue](references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md), [Drive Cross-Sells](references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md)
 - Flows: [Upsell Boost](references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md), [Bundle and Save](references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md), [Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md), [Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
+
+#### Gift-cards leaf (loaded by the strategy orchestrator when it activates the GIFT_CARDS domain)
+- [Goal: Sell Gift Cards](references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md) — existing-product gate (one per site), eligibility, denomination sizing from AOV / catalog prices, no-expiry-by-default policy, and the mapping onto Create Gift Card Product
 
 #### Shipping leaves (loaded by the Shipping dispatcher)
 - [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
