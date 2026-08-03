@@ -173,24 +173,18 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `schedule.availabilityConstraints.sessionDurations` sets the appointment length
 - Availability is based on the assigned staff member's working hours schedule
 
-Save the `serviceId` from the response: `results[0].itemMetadata.id`.
-
-Bulk Create Services returns a bulk envelope — `{ results: [{ itemMetadata, item }], bulkActionMetadata }`
-— so there is no top-level `service`, and no `service` wrapper under `item`: `item` **is** the
-Service object, and it is omitted unless the request sets `returnEntity: true` (both bodies above
-send it). So:
+Read the created service off the response: each entry in `results` carries the Service on `item`,
+and the request bodies above send `returnEntity: true` so it is present.
 
 ```js
-const created = serviceRes.results[0];
-const serviceId = created.itemMetadata.id;   // always present, even without returnEntity
-const service = created.item;                // the Service object — only when returnEntity: true
+const serviceId = serviceRes.results[0].item.id;
 ```
 
-Reading `results[0].item.service` instead throws `Cannot read properties of undefined (reading
-'service')` on an otherwise successful 200 — the service was created, so take the id from
-`itemMetadata.id` rather than re-creating or re-querying it. See
-[Create Class Service](./create-class-service.md#step-3b-read-the-bulk-create-services-response)
-for the full envelope and the per-item `itemMetadata.success` check.
+Without `returnEntity: true` an entry carries only `itemMetadata`, whose `id` holds the new
+service id either way. A read that throws here means the create already succeeded — take the id
+from the response you already have rather than creating the service again or querying for it. A
+per-item failure still returns 200 overall, with `itemMetadata.success: false` and
+`itemMetadata.error`; check it before reporting the service as created.
 
 ---
 

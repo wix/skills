@@ -26,6 +26,6 @@ Once the service type is determined, follow the corresponding recipe linked abov
 1. Gathering business context (staff where required, categories, duplicate check)
 2. Applying type-specific defaults (pricing, capacity, duration, staff assignment)
 3. Creating the service via `bulkCreateServices`
-4. For COURSE services with session dates/counts, creating separate Calendar events via `bulkCreateEvents` on the returned `service.schedule.id`
+4. For COURSE services with session dates/counts, creating separate Calendar events via `bulkCreateEvents` on the created service's `schedule.id` (read from `results[0].item.schedule.id`, which requires `returnEntity: true` on the create)
 5. Navigating to the service form for user review
 6. Providing a summary of what was created and assumptions made

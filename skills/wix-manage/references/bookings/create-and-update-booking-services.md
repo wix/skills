@@ -257,13 +257,14 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 
 **Create Service Example (CLASS with capacity):**
 
-> **Note:** CLASS services do not use `staffMemberIds` or `sessionDurations`. After creation, you must create events via `bulkCreateEvents` using the returned `service.schedule.id` to define when the class occurs.
+> **Note:** CLASS services do not use `staffMemberIds` or `sessionDurations`. After creation, you must create events via `bulkCreateEvents` using the created service's `schedule.id` to define when the class occurs.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "Yoga Class",
       "type": "CLASS",
@@ -283,7 +284,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   }'
 ```
 
-After creation, use the `service.schedule.id` from the response to create class events with `bulkCreateEvents` (see Step 3).
+After creation, read the created service's `schedule.id` from `results[0].item.schedule.id` — the request above sends `returnEntity: true`, which is what puts the Service on `item` — and use it to create class events with `bulkCreateEvents` (see Step 3).
 
 **Required Fields:**
 

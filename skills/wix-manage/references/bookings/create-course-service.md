@@ -92,7 +92,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
 
 **CRITICAL: COURSE services do NOT use `staffMemberIds` or `sessionDurations`.** These fields are ignored. Use `defaultCapacity` instead.
 
-Do not put session dates under `course.sessions`, `CourseSession`, or any similar nested field in the Services V2 create/update payload. Services V2 creates the course service and returns a `service.schedule.id`; it does not create bookable course sessions from nested `course` data. A course with no Calendar events can be created successfully but appear as ended or unavailable on the service page.
+Do not put session dates under `course.sessions`, `CourseSession`, or any similar nested field in the Services V2 create/update payload. Services V2 creates the course service and returns it with a read-only `schedule.id`; it does not create bookable course sessions from nested `course` data. A course with no Calendar events can be created successfully but appear as ended or unavailable on the service page.
 
 **Paid course:**
 
@@ -101,6 +101,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -129,6 +130,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -154,11 +156,23 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - Do **NOT** include `course.sessions` or inferred `CourseSession` objects in the service payload — accepted or ignored nested course data does not make sessions bookable
 - `defaultCapacity` is **required** — sets max participants for the entire course
 - Customers must book the **entire course** (all sessions), not individual sessions
-- After creation, course sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
+- After creation, course sessions must be scheduled separately via `bulkCreateEvents` using the created service's `schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
 - If the user asked you to create the course and gave the session count/times, the job is not complete after `bulkCreateServices`; continue by creating the Calendar events, then verify the service has future events before telling the user it is ready
 
-Save the `serviceId` from the response: `results[0].item.service.id`
-Save the `service.schedule.id` from the response for the follow-up `bulkCreateEvents` request.
+Read the created service off the response: each entry in `results` carries the Service on `item`,
+and the request bodies above send `returnEntity: true` so it is present.
+
+```js
+const created = serviceRes.results[0];
+const serviceId = created.item.id;
+const scheduleId = created.item.schedule.id;   // pass to bulkCreateEvents to schedule sessions
+```
+
+Without `returnEntity: true` an entry carries only `itemMetadata`, whose `id` holds the new
+service id either way. A read that throws here means the create already succeeded — take the id
+from the response you already have rather than creating the service again or querying for it. A
+per-item failure still returns 200 overall, with `itemMetadata.success: false` and
+`itemMetadata.error`; check it before reporting the service as created.
 
 ---
 
