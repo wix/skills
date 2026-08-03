@@ -168,11 +168,10 @@ const serviceId = created.item.id;
 const scheduleId = created.item.schedule.id;   // pass to bulkCreateEvents to schedule sessions
 ```
 
-Without `returnEntity: true` an entry carries only `itemMetadata`, whose `id` holds the new
-service id either way. A read that throws here means the create already succeeded — take the id
-from the response you already have rather than creating the service again or querying for it. A
-per-item failure still returns 200 overall, with `itemMetadata.success: false` and
-`itemMetadata.error`; check it before reporting the service as created.
+`item` is present only because the request sends `returnEntity: true`; `itemMetadata.id` carries the
+id either way. If reading `item` throws, check `itemMetadata.success`: on `true` the service was
+created, so take `itemMetadata.id` instead of creating it again or querying for it — on `false` the
+create failed for that entry and `itemMetadata.error` says why, with the call still returning 200.
 
 ---
 
