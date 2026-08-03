@@ -52,7 +52,8 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to method-return wrappers (note `checkoutId`).
 
 ```jsonc
-// productsV3.queryProducts() / .searchProducts()  →  result.products[]
+// productsV3.queryProducts().…find()  →  result.items[]
+// productsV3.searchProducts({...})    →  result.products[]
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
