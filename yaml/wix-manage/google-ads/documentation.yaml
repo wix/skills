@@ -26,3 +26,7 @@ apiDoc:
       title: Query Campaign Performance Analytics
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/google-ads/billing-and-payment.md
+      title: Retrieve Google Ads Billing and Payment Details
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [marketing]

@@ -244,6 +244,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
 - **Pause / resume / launch / update budget / delete / history** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
 - **Performance, conversions, search terms, per-product / per-asset metrics** → [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md).
+- **Ad spend, fees, upcoming charges, credit balance** → [Retrieve Billing and Payment Details](references/google-ads/billing-and-payment.md).
 
 ### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
 **Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
@@ -259,6 +260,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md)
 **Technical:** Reads campaign analytics via six endpoints — daily performance metrics (with previous-period trends), conversion metrics (orders/revenue/ROAS from Wix), search terms, per-product shopping performance, and per-asset PMAX-Leads metrics. Explains `campaignResourceName` vs Wix `campaignId`, the `dateRange` shape, field enums, sorting, and paging.
+
+### [Retrieve Google Ads Billing and Payment Details](references/google-ads/billing-and-payment.md)
+**Technical:** Reads billing for the site's Google Ads account (`GET /v1/payment-details`, 30s SLA): current-period ad spend (`usageAmount`), Wix service fee, coupon adjustment, `totalAmount`, billing period, and `creditBalance` (positive = credits, negative = debt). Contrasts with the account's `currentBudget`/`spentBudget`.
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
 **Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
