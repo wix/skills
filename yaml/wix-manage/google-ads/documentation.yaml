@@ -22,3 +22,7 @@ apiDoc:
       title: Manage Campaign Lifecycle
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/google-ads/query-campaign-analytics.md
+      title: Query Campaign Performance Analytics
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [marketing]
