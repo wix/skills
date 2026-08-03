@@ -182,7 +182,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 |---|---|---|
 | **DISCOUNTS** | Merchant mentions sales, promotions, revenue, AOV, clearance, holidays, coupons. **Also activate if no specific domain is mentioned** (default). | Always — site data contains discount metrics |
 | **SHIPPING** | Merchant mentions shipping, delivery, checkout conversion, cart abandonment. **Also activate proactively** if site data suggests shipping issues. | High visitors + low orders may indicate shipping friction |
-| **GIFT_CARDS** | Merchant mentions gift cards, gift vouchers, gifting, "what to get someone", gift card amounts. **Also activate proactively** on a generic request when the site sells no gift card product yet and a gifting occasion is near. | Site sells no gift card product + gifting-heavy industry or an upcoming gifting occasion |
+| **GIFT_CARDS** | **Explicit gift-card intent only** — the merchant mentions gift cards, gift vouchers, or gift card amounts. Do **not** activate this domain on a generic "boost my sales" request: it costs a gift-card-product lookup and a goal-skill load for a lever the merchant didn't ask about. | Merchant named gift cards |
 
 **Priority rule**: If the merchant mentions a specific holiday/event/date, the DISCOUNTS domain MUST use the **SEASONAL** strategy — even if other signals like "boost sales" or "increase revenue" could match other goals. Holidays are time-sensitive and take priority over general intent.
 
@@ -415,18 +415,7 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 ### Gift card recommendations (if GIFT_CARDS domain active)
 
-Follow [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards) — it owns the full design. Summary of what it enforces:
-
-| Rule | Detail |
-|---|---|
-| Existing-product gate | `QueryGiftCardProducts` first. A site supports **one** gift card product — if one exists, drop the domain and free the slot. |
-| At most one | Never more than one gift-card recommendation, since there can only be one product. |
-| Amounts from site data | Presets anchor on AOV (catalog median when there are no orders); custom range clamped by cheapest product and top preset. No stock ladder. |
-| Expiry | None by default — it's regulated and varies by market. Only on explicit request, then ≥ 60 months. **The stance must be stated** in `reasoning`, `successCriteria`, and the prose shown to the merchant. |
-| Urgency | `HIGH` / `MEDIUM` / `LOW` only — never `CRITICAL`. |
-| Persistence | Same mandatory Step 8 `BatchCreate` as every other domain, with `domain: "gift_cards"`. Include it in the single batch; never present it unpersisted. |
-
-**Gift card action type:** `create_gift_card_product`.
+[Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards) owns this domain end to end — the existing-product gate, denomination sizing, expiry policy, and at most one gift-card recommendation. Action type: `create_gift_card_product`.
 
 ### Cross-domain balance
 
