@@ -33,8 +33,6 @@ assertions:
       Fail if the response:
       - puts the 8 sessions under `course.sessions`, `CourseSession`, or another nested Services V2 course field instead of Calendar Events, OR
       - claims `bulkCreateServices` alone creates bookable course sessions, OR
-      - omits `bulkCreateEvents`, OR names a Bulk Create Services response path that does not
-        exist, such as `results[0].item.service.id`, `results[0].service`, or a top-level
-        `service` object, OR
+      - omits `bulkCreateEvents`, OR
       - says the course is ready/bookable without verifying future events, OR
       - tries to perform the creation instead of explaining the API plan.

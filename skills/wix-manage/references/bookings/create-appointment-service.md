@@ -109,6 +109,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -142,6 +143,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -171,15 +173,16 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `schedule.availabilityConstraints.sessionDurations` sets the appointment length
 - Availability is based on the assigned staff member's working hours schedule
 
-Read the created service's id off `itemMetadata`, which each entry in `results` carries:
+Read the created service off the response: each entry in `results` carries the Service on `item`,
+and the request bodies above send `returnEntity: true` so it is present.
 
 ```js
-const serviceId = serviceRes.results[0].itemMetadata.id;
+const serviceId = serviceRes.results[0].item.id;
 ```
 
-On a per-item failure `itemMetadata.success` is `false` and `itemMetadata.error` says why, while the
-call still returns 200 — so check it before reporting the service as created, and never re-issue the
-create to recover from a read that failed.
+If reading `item` throws, check `itemMetadata.success`: on `true` the service was created, so take
+`itemMetadata.id` instead of creating it again or querying for it — on `false` the create failed for
+that entry and `itemMetadata.error` says why, with the call still returning 200.
 
 ---
 
