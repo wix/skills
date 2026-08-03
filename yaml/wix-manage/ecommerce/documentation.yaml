@@ -147,3 +147,16 @@ apiDoc:
       title: "Recommend: eCommerce Strategy"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
+
+    # ============================================================
+    # Gift cards category — GIFT_CARDS domain logic for the strategy
+    # orchestrator. Support file, loaded BY recommend-ecommerce-strategy
+    # (same relationship the pricing goal-* files have to it), never
+    # entered directly. Produces domain: gift_cards /
+    # action: create_gift_card_product.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md
+      title: "Goal: Sell Gift Cards"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]

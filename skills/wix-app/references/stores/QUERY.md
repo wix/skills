@@ -60,6 +60,38 @@ export async function listProductsPage(
 
 ---
 
+## Search products by name
+
+V3 `queryProducts` filters only on `_id`, `slug`, `options.id` and `handle` — `name` is a
+compile error. Use `productsV3.searchProducts()`, a direct call rather than a builder. V1 has
+no search method; its builder accepts `name` via `startsWith` (prefix match only, no `fuzzy`).
+
+Imports come from the first example in this file.
+
+```typescript
+// `v` comes from getVersion() — see STORES_VERSIONING.md.
+export async function searchByName(
+  term: string,
+  limit: number,
+  v: 'V1_CATALOG' | 'V3_CATALOG' | 'STORES_NOT_INSTALLED',
+) {
+  if (v === 'V3_CATALOG') {
+    const res = await productsV3.searchProducts({
+      cursorPaging: { limit },
+      // `fields` is required for free-text search. Searchable: 'name', 'description',
+      // 'variantsInfo.variants.sku', 'minVariantPriceInfo.sku'.
+      search: { expression: term, fields: ['name'], fuzzy: true },
+    });
+    // Note `products` (not `items`) and `pagingMetadata.hasNext` (a property, not a method).
+    return res.products ?? [];
+  }
+  const res = await products.queryProducts().startsWith('name', term).limit(limit).find();
+  return res.items;
+}
+```
+
+---
+
 ## Display price/stock without fetching variants
 
 V3 `queryProducts` does not return variants. Read product-level rollup fields instead:

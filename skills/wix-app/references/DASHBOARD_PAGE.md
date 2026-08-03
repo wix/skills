@@ -75,16 +75,6 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - All parameters must be saved as strings (convert booleans/numbers to strings)
 - Use `withProviders` wrapper when dynamic parameters are present
 
-## Optional builder fields
-
-The CLI scaffolds the builder with `id`, `title`, `routePath`, and `component`. To customize sidebar placement and routing, edit the generated builder file to set:
-
-- `additionalRoutes` (string[]): extra routes leading to this page.
-- `sidebar.disabled` (boolean, default false): hide page from sidebar.
-- `sidebar.priority` (number): sidebar ordering; lower is higher priority.
-- `sidebar.whenActive.selectedPageId` (string): which page appears selected when this page is active.
-- `sidebar.whenActive.hideSidebar` (boolean): hide sidebar when this page is active.
-
 ## Examples
 
 ### Data Management Table
