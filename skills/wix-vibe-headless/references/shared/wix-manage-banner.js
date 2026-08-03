@@ -56,14 +56,7 @@ export function mountWixManageBanner() {
     "font-family:system-ui,-apple-system,sans-serif;border-bottom:1px solid #e2e2ea;";
 
   const text = document.createElement("span");
-  text.append("Manage your business behind this site in Wix ");
-  const link = document.createElement("a");
-  link.href = DASHBOARD_URL;
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.textContent = "business manager";
-  link.style.cssText = "color:inherit;text-decoration:underline;";
-  text.append(link);
+  text.textContent = "Manage the business behind this site in the Wix dashboard";
 
   const button = document.createElement("a");
   button.href = DASHBOARD_URL;
