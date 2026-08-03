@@ -13,20 +13,13 @@ references:
 
 > ⛔ **Routing gate — [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) must be loaded before this file.**
 >
-> This is the GIFT_CARDS domain sub-step, not a direct entry point. If you have not yet loaded the orchestrator in this conversation, **stop and load it now**. It owns domain activation (its Step 4), the recommendation-history check that stops you re-pitching a rejected gift card (its Step 2), the 5-recommendation cap, and the tracking lifecycle (its Step 8). This file owns only what's specific to gift cards: the existing-product gate, eligibility, denomination sizing, expiry policy, and the create-call mapping.
+> This is the GIFT_CARDS domain sub-step, not a direct entry point. If you have not yet loaded the orchestrator in this conversation, **stop and load it now**. It owns domain activation (its Step 4), the recommendation-history check that stops you re-pitching a rejected gift card (its Step 2), and the 5-recommendation cap. This file owns what's specific to gift cards: the existing-product gate, eligibility, denomination sizing, expiry policy, persistence of this recommendation (Step 5), and the create-call mapping.
 
 **Goal ID:** `SELL_GIFT_CARDS`
 
 Produces **at most one** recommendation — create a gift card product on a site that doesn't sell one yet — carrying the full product design: name, description, preset denominations, custom amount range, expiration policy. Amounts are calibrated from the site's own AOV and catalog price distribution.
 
-## Triggers
-
-The orchestrator activates the GIFT_CARDS domain when the merchant says any of:
-
-- "should I sell gift cards", "add a gift card", "set up a gift card"
-- "which amounts should my gift card offer", "gift card denominations"
-- "gift card ideas", or a gifting-season prompt where a gift card is the lever
-- An open "boost my sales" prompt on a site that doesn't sell gift cards yet with a gifting occasion near
+The orchestrator activates this domain on "should I sell gift cards", "add a gift card", "which amounts should my gift card offer", gift-card denominations, a gifting-season prompt where a gift card is the lever, or an open "boost my sales" prompt on a site that sells no gift card yet with a gifting occasion near.
 
 **Not this goal:** issuing / redeeming / voiding / emailing an individual gift card is the [Gift Cards API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards) — a direct operation, not a recommendation. Changing denominations on a product that already exists is [Update Gift Card Product](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product).
 
@@ -35,9 +28,11 @@ The orchestrator activates the GIFT_CARDS domain when the merchant says any of:
 1. **Do NOT ask clarifying questions.** The only question you may ask is the expiration question in Step 3d, and only if the merchant already raised expiry.
 2. **Do NOT size denominations before calling the APIs below.** Amounts invented without the site's AOV and price distribution are wrong even when they look plausible.
 3. **Every number in `reasoning` must come from an API response.** Name the call it came from.
-4. **Never create the gift card product here.** The recommendation is persisted as `PROPOSED` by the orchestrator; creation happens only after the merchant approves (Step 6).
-5. **A site supports a maximum of ONE gift card product.** If one exists, there is nothing to recommend — Step 1 drops this domain.
-6. **All amounts are in the site's currency.** Never hard-code a currency symbol, and never assume USD.
+4. **Persist before presenting.** The recommendation must be written via `BatchCreate` (Step 5) before the merchant sees it, unless they said `SKIP_TRACKING`.
+5. **Never create the gift card product here.** Creation happens only after the merchant approves the persisted recommendation (Step 6).
+6. **A site supports a maximum of ONE gift card product.** If one exists, there is nothing to recommend — Step 1 drops this domain.
+7. **All amounts are in the site's currency.** Never hard-code a currency symbol, and never assume USD.
+8. **Always state the expiry stance** in what you show the merchant — see Step 3d.
 
 ---
 
@@ -172,6 +167,8 @@ Continuing the example: `minValue = "15"`, `maxValue = "500"`.
 
 Only if the merchant explicitly asked for an expiry: propose `expirationMonths: 60` (5 years), and add to `reasoning`: "Expiry set at the merchant's request. Gift card expiry is regulated in many jurisdictions — confirm 5 years is permitted where you sell." Never propose fewer than 60 months. Never volunteer an expiry the merchant didn't ask for.
 
+**State the expiry stance explicitly, every time.** It must appear in all three of `reasoning`, `successCriteria`, and the prose you show the merchant — "these cards never expire, which is also the safer default because expiry is regulated and varies by market", or the 5-year version with its caveat. A recommendation that silently omits expiry is incomplete: expiry is a decision the merchant is accountable for, not a default to leave unmentioned.
+
 ### Step 3e: Name and description
 
 Customer-facing copy — write both in `siteData.language`, not English.
@@ -200,15 +197,30 @@ Run every check before handing the recommendation back to the orchestrator. A fa
 | 9 | `expirationMonths` either unset or ≥ 60, and set only because the merchant asked |
 | 10 | `name` / `description` in `siteData.language`; `title` / `reasoning` in English |
 | 11 | `reasoning` cites the actual numbers and names the call each came from |
-| 12 | **At most one** gift-card recommendation in the orchestrator's set |
+| 12 | The expiry stance is stated in `reasoning`, `successCriteria`, **and** the prose shown to the merchant |
+| 13 | `BatchCreate` returned an `id` (or the merchant said `SKIP_TRACKING`, or you are reporting that tracking failed) |
+| 14 | **At most one** gift-card recommendation in the orchestrator's set |
 
 ---
 
-## Step 5: Hand the recommendation to the orchestrator for persistence
+## Step 5: Persist the recommendation — MANDATORY
 
-The orchestrator persists this recommendation together with every other domain's in **one** `BatchCreate` call (its Step 8) — see [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking) for the full lifecycle. **Persistence is mandatory unless the merchant said `SKIP_TRACKING`**, and the `id` / `revision` that come back are echoed in the output and are what the merchant approves against.
+⛔ **You have not finished this goal until `BatchCreate` has returned an `id`. Do not present the recommendation to the merchant before that.** Skip only if the merchant said `SKIP_TRACKING` or "don't track". See [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking) for the lifecycle.
 
-Emit this shape, `domain: "gift_cards"` and `action: "create_gift_card_product"`:
+**Endpoint:** `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create`
+
+```json
+{
+  "agenticRecommendations": [ <the recommendation object below> ],
+  "conversationId": "<conversationId>"
+}
+```
+
+If the orchestrator activated other domains too, this recommendation goes into **that same batch** — one `BatchCreate` for all domains, not a second call. If gift cards is the only active domain, make the call here yourself.
+
+**Save the returned `id` and `revision`** — they are what the merchant approves against, and Step 6 needs them. If `BatchCreate` fails, present the recommendation anyway, without an `id`, and say that tracking failed.
+
+The recommendation object — `domain: "gift_cards"`, `action: "create_gift_card_product"`:
 
 ```json
 {
@@ -309,12 +321,11 @@ Currency comes from the site's default — the request carries bare amounts, not
 - No expiry unless the merchant asked; then ≥ 60 months, with the compliance caveat stated.
 - Amounts are decimal strings in the site's currency. Never assume USD, never hard-code a symbol.
 - `presetVariants[].price` and `.value` are always equal — promotional gift-card pricing is out of scope.
-- Persistence is the orchestrator's Step 8 and is mandatory unless `SKIP_TRACKING`.
+- Persist via `BatchCreate` before presenting (Step 5), unless `SKIP_TRACKING`.
+- The expiry stance is always stated to the merchant, never left implicit.
 
 ## References
 
-- [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — the orchestrator that loads this file
-- [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
+- [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — the orchestrator that loads this file · [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
 - [Gift Card Products API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products) — [Create](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/create-gift-card-product) · [Query](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/query-gift-card-products) · [Update](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product) · [Delete](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/delete-gift-card-product)
 - [Gift Cards API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards) — individual issued cards (out of scope here)
-- [eCommerce: Load Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context)

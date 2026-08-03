@@ -421,8 +421,9 @@ Follow [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-s
 | Existing-product gate | `QueryGiftCardProducts` first. A site supports **one** gift card product — if one exists, drop the domain and free the slot. |
 | At most one | Never more than one gift-card recommendation, since there can only be one product. |
 | Amounts from site data | Presets anchor on AOV (catalog median when there are no orders); custom range clamped by cheapest product and top preset. No stock ladder. |
-| Expiry | None by default — it's regulated and varies by market. Only on explicit request, then ≥ 60 months. |
+| Expiry | None by default — it's regulated and varies by market. Only on explicit request, then ≥ 60 months. **The stance must be stated** in `reasoning`, `successCriteria`, and the prose shown to the merchant. |
 | Urgency | `HIGH` / `MEDIUM` / `LOW` only — never `CRITICAL`. |
+| Persistence | Same mandatory Step 8 `BatchCreate` as every other domain, with `domain: "gift_cards"`. Include it in the single batch; never present it unpersisted. |
 
 **Gift card action type:** `create_gift_card_product`.
 
