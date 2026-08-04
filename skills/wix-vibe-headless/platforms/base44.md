@@ -37,7 +37,7 @@ exec_tool, exactly as written:
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync } = require('fs');
+const { readdirSync, existsSync, mkdirSync, copyFileSync } = require('fs');
 
 const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
 const results = {};
@@ -56,7 +56,19 @@ for (const skill of skills) {
   }
 }
 
-return { results, installed: readdirSync('/app/.agents/skills') };
+// Pre-place the shared REST scaffolds into src/rest/ so STEP 3 doesn't regenerate them
+// token-by-token. These two are vertical-agnostic and always needed; per-vertical helpers are
+// copied in STEP 3 once the vertical is known. copyFileSync is a no-cost copy (no LLM decode).
+const SHARED = '/app/.agents/skills/wix-vibe-headless/references/shared';
+const copiedToSrcRest = [];
+if (existsSync(SHARED)) {
+  mkdirSync('/app/src/rest', { recursive: true });
+  for (const f of ['wix-client.js', 'wix-manage-banner.js']) {
+    if (existsSync(`${SHARED}/${f}`)) { copyFileSync(`${SHARED}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
+  }
+}
+
+return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest };
 ```
 
 **Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
@@ -148,9 +160,16 @@ guessed ones. If the call fails or reports nothing relevant, ask the user what t
 ## STEP 3 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
-source of truth for how the client app is built. To save time, prefer copying ready-made files
-the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
-re-generating them from scratch.
+source of truth for how the client app is built.
+
+**The shared REST scaffolds are already in `src/rest/`** — STEP 1 copied `wix-client.js` and
+`wix-manage-banner.js` there. **Do not regenerate them.** Just: set `WIX_CLIENT_ID` in
+`src/rest/wix-client.js` (and `WIX_METASITE_ID` in the banner), then **`cp` your vertical's
+helper** — `.agents/skills/wix-vibe-headless/references/<vertical>/*.js` (e.g. storefront's
+`wix-store-catalog.js` / `wix-store-cart.js`) — into that same `src/rest/` folder via exec_tool,
+and adapt with targeted edits. Copying (a shell `cp`) is instant; re-typing these files with
+`write_file` wastes a minute of generation for no gain. Generate from scratch only the
+app-specific UI (components/pages).
 
 **`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
 scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
