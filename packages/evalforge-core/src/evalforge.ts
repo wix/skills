@@ -78,6 +78,25 @@ export type EvalRunInput = {
 
 export type EvalRunCreated = { id: string; status: RunStatus };
 
+export type AssertionOutcome = {
+  assertionName: string;
+  assertionType: string;
+  status: 'PASSED' | 'FAILED' | 'SKIPPED' | 'ERROR';
+  message?: string;
+};
+
+export type EvalRunResultRow = {
+  scenarioId: string;
+  scenarioName: string;
+  passed: number;
+  failed: number;
+  /** Present when the row was reconstructed at cancel and NOT scored. */
+  partial: boolean;
+  /** Distinguishes repeats of the same scenario when runsPerScenario > 1. */
+  iterationIndex: number;
+  assertions: AssertionOutcome[];
+};
+
 export type EvalRunStatus = {
   status: RunStatus;
   progress: number;
@@ -91,6 +110,7 @@ export type EvalRunStatus = {
     avgDuration: number;
     totalDuration: number;
   };
+  results: EvalRunResultRow[];
 };
 
 export const DRAFT_PREFIX = 'draft:';
@@ -168,7 +188,49 @@ function assertNotTruncated(received: number, meta: RawPagingMetadata | undefine
   );
 }
 type RawMetrics = Partial<EvalRunStatus['aggregateMetrics']>;
-type RawEvalRun = { id: string; status: string; progress?: number; aggregateMetrics?: RawMetrics };
+type RawAssertionResult = {
+  assertionName?: string;
+  assertionType?: string;
+  status?: string;
+  message?: string;
+};
+type RawEvalRunResult = {
+  scenarioId?: string;
+  scenarioName?: string;
+  passed?: number;
+  failed?: number;
+  partial?: boolean;
+  iterationIndex?: number;
+  assertionResults?: RawAssertionResult[];
+};
+type RawEvalRun = {
+  id: string;
+  status: string;
+  progress?: number;
+  aggregateMetrics?: RawMetrics;
+  results?: RawEvalRunResult[];
+};
+
+function toAssertionOutcome(rawAssertionResult: RawAssertionResult): AssertionOutcome {
+  return {
+    assertionName: rawAssertionResult.assertionName ?? '(unnamed)',
+    assertionType: rawAssertionResult.assertionType ?? 'unknown',
+    status: (rawAssertionResult.status ?? 'ERROR') as AssertionOutcome['status'],
+    ...(rawAssertionResult.message === undefined ? {} : { message: rawAssertionResult.message }),
+  };
+}
+
+function toResultRow(rawResult: RawEvalRunResult): EvalRunResultRow {
+  return {
+    scenarioId: rawResult.scenarioId ?? '',
+    scenarioName: rawResult.scenarioName ?? '',
+    passed: rawResult.passed ?? 0,
+    failed: rawResult.failed ?? 0,
+    partial: rawResult.partial ?? false,
+    iterationIndex: rawResult.iterationIndex ?? 0,
+    assertions: (rawResult.assertionResults ?? []).map(toAssertionOutcome),
+  };
+}
 
 // V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
 // works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
@@ -447,6 +509,7 @@ export class EvalForgeClient {
         avgDuration: m.avgDuration ?? 0,
         totalDuration: m.totalDuration ?? 0,
       },
+      results: (r.results ?? []).map(toResultRow),
     };
   }
 

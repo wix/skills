@@ -277,6 +277,80 @@ describe('EvalForgeClient (V1) — eval runs', () => {
   });
 });
 
+describe('getEvalRun — per-scenario results', () => {
+  const resultsBody = {
+    evalRun: {
+      id: 'run-1',
+      status: 'COMPLETED',
+      aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1 },
+      results: [
+        {
+          scenarioId: 'sc-1', scenarioName: 'creates a page', passed: 2, failed: 0,
+          iterationIndex: 0,
+          assertionResults: [
+            { assertionName: 'skill called', assertionType: 'skill_was_called', status: 'PASSED' },
+            { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+          ],
+        },
+        {
+          scenarioId: 'sc-2', scenarioName: 'skips the plugin', passed: 1, failed: 1,
+          iterationIndex: 0,
+          assertionResults: [
+            { assertionName: 'build', assertionType: 'build_passed', status: 'FAILED', message: 'tsc failed' },
+            { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+          ],
+        },
+        {
+          scenarioId: 'sc-3', scenarioName: 'cancelled midway', passed: 0, failed: 0,
+          iterationIndex: 0, partial: true, assertionResults: [],
+        },
+      ],
+    },
+  };
+
+  it('surfaces one row per scenario result', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results.map(row => row.scenarioId)).toEqual(['sc-1', 'sc-2', 'sc-3']);
+  });
+
+  it('carries assertion names and statuses', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[1].assertions).toEqual([
+      { assertionName: 'build', assertionType: 'build_passed', status: 'FAILED', message: 'tsc failed' },
+      { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+    ]);
+  });
+
+  it('marks a partial row, and defaults partial to false when absent', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[2].partial).toBe(true);
+    expect(status.results[0].partial).toBe(false);
+  });
+
+  it('defaults iterationIndex to 0 when absent', async () => {
+    const withoutIndex = { evalRun: { ...resultsBody.evalRun, results: [{ scenarioId: 'sc-1', scenarioName: 'x' }] } };
+    mockFetch(() => ({ status: 200, body: withoutIndex }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].iterationIndex).toBe(0);
+  });
+
+  it('tolerates a response with no results array at all', async () => {
+    const withoutResults = { evalRun: { id: 'run-1', status: 'RUNNING' } };
+    mockFetch(() => ({ status: 200, body: withoutResults }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([]);
+    expect(status.aggregateMetrics.totalAssertions).toBe(0);
+  });
+});
+
 describe('EvalForgeClient (V1) — 401 handling', () => {
   it('refreshes the token and retries once on 401', async () => {
     let mints = 0;
