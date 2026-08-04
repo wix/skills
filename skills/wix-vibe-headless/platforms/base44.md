@@ -32,12 +32,11 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
   the seeding recipes above don't cover.
 
-**Option A — skills CLI.** This is the Base44-verified install path — run it first via
-exec_tool, exactly as written:
+Install via the skills CLI — run this through exec_tool, exactly as written:
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync } = require('fs');
+const { readdirSync, existsSync, mkdirSync, copyFileSync } = require('fs');
 
 const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
 const results = {};
@@ -56,21 +55,28 @@ for (const skill of skills) {
   }
 }
 
-return { results, installed: readdirSync('/app/.agents/skills') };
-```
-
-**Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
-do not skip Option A on a guess. Run via exec_tool:
-
-```js
-const { execSync } = require('child_process');
-for (const s of ['headless', 'vibe-headless', 'docs']) {
-  execSync(`mkdir -p /app/.agents/skills/wix-${s} && curl -s "https://www.wix.com/skills/${s}.tgz" | tar xz -C /app/.agents/skills/wix-${s} --strip-components=1`);
+// Deploy the ready-made REST scaffolds into src/rest/ so STEP 3 builds from them instead of
+// regenerating them token-by-token. Copy EVERY .js under references/*/ (the shared transport +
+// all vertical helpers) FLAT into src/rest/ — filenames are unique and each helper imports its
+// sibling `./wix-client.js`, so a flat folder keeps those imports valid with no rewrite.
+// copyFileSync is a no-cost copy (no LLM decode); unused verticals are dead files the bundler drops.
+const REF = '/app/.agents/skills/wix-vibe-headless/references';
+const copiedToSrcRest = [];
+if (existsSync(REF)) {
+  mkdirSync('/app/src/rest', { recursive: true });
+  for (const dir of readdirSync(REF)) {
+    let files;
+    try { files = readdirSync(`${REF}/${dir}`); } catch { continue; }   // skip non-dirs
+    for (const f of files) {
+      if (f.endsWith('.js')) { copyFileSync(`${REF}/${dir}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
+    }
+  }
 }
-return 'done';
+
+return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest };
 ```
 
-**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds (either option),
+**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds,
 run this via exec_tool exactly as written. It appends (never rewrites) a note so any later
 turn knows where the skills live without guessing, and is idempotent (re-running is a no-op):
 
@@ -105,7 +111,7 @@ if (!cur.includes('Wix-managed headless frontend')) fs.appendFileSync(amd, NOTE)
 return 'noted';
 ```
 
-Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
+You end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
 with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
 whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
 ~5000 chars and silently truncates, and web-fetch tools truncate/summarise. The path form depends
@@ -148,9 +154,16 @@ guessed ones. If the call fails or reports nothing relevant, ask the user what t
 ## STEP 3 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
-source of truth for how the client app is built. To save time, prefer copying ready-made files
-the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
-re-generating them from scratch.
+source of truth for how the client app is built.
+
+**All the REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
+(`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`,
+`wix-bookings-services.js`, …) there, so SKILL.md's "get them into `src/rest/`" step is already
+done. **Use your vertical's files** from `src/rest/` (e.g. a store uses `wix-store-catalog.js` +
+`wix-store-cart.js`), set `WIX_CLIENT_ID` in `src/rest/wix-client.js` and `WIX_METASITE_ID` in
+`wix-manage-banner.js`, and adapt with targeted edits — **do not regenerate them**. Files for
+other verticals are harmless (unused → dropped by the bundler); leave or delete them. Generate
+from scratch only the app-specific UI (components/pages).
 
 **`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
 scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
@@ -160,15 +173,15 @@ as-is.
 
 ## STEP 4 — Manage and seed the business
 
+**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
+cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
+delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
+ask the user first.
+
 Seed the site with real content by following the **`wix-headless` skill**'s
 `references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
 don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
 search and read the relevant Wix API docs.
-
-**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
-right after a fresh install, but the site may already hold **real content** (a prior run, or
-owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
-delete or overwrite it without the user's explicit ask or approval** (ask first).
 
 **Auth for these admin calls is the already-configured Wix connector — and nothing else.** Get the
 access token from it and send it as a bearer token — do **not** hand-roll a token getter (e.g. a
