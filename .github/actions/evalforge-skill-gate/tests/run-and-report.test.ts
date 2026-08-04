@@ -119,11 +119,20 @@ const emptyRun = (): EvalRunStatus => runStatus([], { totalAssertions: 0, passed
 /** Never settles — models a base arm that the grace period must not wait out. */
 const NEVER_SETTLES = new Promise<EvalRunStatus>(() => {});
 
+const delay = (ms: number): Promise<void> => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+/** The slice of `PollOptions` these fakes read. */
+type PollSleep = { sleep: (ms: number) => Promise<void> };
+
 const upsertComment = vi.fn().mockResolvedValue(undefined);
 const lastComment = (): string => upsertComment.mock.calls.at(-1)?.[0] as string;
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  // Loaded before any test installs fake timers: a dynamic import that first has to reach the
+  // loader mid-test cannot make progress while the clock is frozen.
+  await import('../src/utils/run-and-report');
+  await import('../src/utils/base-attribution');
   createAndRunEvalRun.mockResolvedValueOnce(runCreated('run-pr')).mockResolvedValueOnce(runCreated('run-base'));
 });
 
@@ -149,7 +158,7 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     pollUntilDone.mockImplementation((_client: unknown, _projectId: unknown, runId: string) =>
       (runId === 'run-pr' ? Promise.resolve(greenRun()) : NEVER_SETTLES));
 
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/run-and-report');
+    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     const done = run();
     await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
     await done;
@@ -165,13 +174,107 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     pollUntilDone.mockImplementation((_client: unknown, _projectId: unknown, runId: string) =>
       (runId === 'run-pr' ? Promise.resolve(redRun()) : NEVER_SETTLES));
 
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/run-and-report');
+    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     const done = run();
     await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
     await done;
 
     expect(setFailedSpy).toHaveBeenCalled();
     expect(await lastImpact()).not.toBeUndefined();
+  });
+
+  // If the grace clock started when the runs started rather than when the PR arm finished, a PR
+  // arm this slow would leave the base arm with no time at all and the attribution would be gone.
+  it('still attributes when the PR arm takes longer than the grace period and the base lands just after', async () => {
+    vi.useFakeTimers();
+    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
+    pollUntilDone.mockImplementation(async (_client: unknown, _projectId: unknown, runId: string) => {
+      if (runId === 'run-pr') {
+        await delay(BASE_ARM_GRACE_MS + 5_000);
+        return greenRun();
+      }
+      await delay(BASE_ARM_GRACE_MS + 10_000);
+      return redRun();
+    });
+
+    const done = run();
+    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS * 3);
+    await done;
+
+    const impact = await lastImpact();
+    expect(impact?.fixed).toBe(1);
+    expect(impact?.attributionAvailable).toBe(true);
+    expect(lastComment()).toContain('`fixed`');
+  });
+
+  // Finding 1: stopping the *wait* on the base poll left the poll itself running for its own
+  // 30 minutes, holding the job step open long after the verdict was published.
+  it('cancels the base arm poll once the grace period expires, and it stays cancelled', async () => {
+    vi.useFakeTimers();
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => undefined);
+    let baseSleeps = 0;
+    let basePollEndedWith: unknown;
+    pollUntilDone.mockImplementation(
+      async (_client: unknown, _projectId: unknown, runId: string, options: PollSleep) => {
+        if (runId === 'run-pr') return greenRun();
+        // Models the real loop, which only ever stops because its injected sleep rejects.
+        try {
+          for (;;) {
+            baseSleeps += 1;
+            await options.sleep(30_000);
+          }
+        } catch (error) {
+          basePollEndedWith = error;
+          throw error;
+        }
+      },
+    );
+
+    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
+    const done = run();
+    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
+    await done;
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect((basePollEndedWith as Error | undefined)?.name).toBe('BaseArmCancelledError');
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringMatching(/cancelled/i));
+
+    // Nothing keeps polling after the verdict: half an hour of virtual time adds no attempt.
+    const sleepsAtCancellation = baseSleeps;
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(baseSleeps).toBe(sleepsAtCancellation);
+  });
+
+  // The early returns are where the base arm used to run wholly unbounded: `collect` is never
+  // reached, so only the `finally` can stop it.
+  it('cancels the base arm poll when the PR arm itself times out', async () => {
+    vi.useFakeTimers();
+    const evalforge = await import('@wix/evalforge-core');
+    vi.spyOn(core, 'warning').mockImplementation(() => undefined);
+    vi.spyOn(core, 'setFailed').mockImplementation(() => undefined);
+    let basePollEndedWith: unknown;
+    pollUntilDone.mockImplementation(
+      async (_client: unknown, _projectId: unknown, runId: string, options: PollSleep) => {
+        if (runId === 'run-pr') {
+          await delay(1_000);
+          throw new evalforge.EvalRunTimeoutError('Eval run timed out after 30 minutes');
+        }
+        try {
+          for (;;) await options.sleep(30_000);
+        } catch (error) {
+          basePollEndedWith = error;
+          throw error;
+        }
+      },
+    );
+
+    const done = run();
+    await vi.advanceTimersByTimeAsync(2_000);
+    await done;
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(lastComment()).toMatch(/timed out/i);
+    expect((basePollEndedWith as Error | undefined)?.name).toBe('BaseArmCancelledError');
   });
 
   it('degrades quietly when the base arm rejects — verdict unchanged, comment still rendered', async () => {

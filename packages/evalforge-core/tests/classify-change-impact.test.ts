@@ -131,8 +131,30 @@ describe('classifyChangeImpact — expectedScenarios (a requested scenario that 
       scenarioId: 'b',
       scenarioName: 'scenario b',
       impact: 'unattributed',
-      prPassed: false,
     });
+  });
+
+  // `prPassed: false` on a scenario that produced no data would read as "the PR failed this" to
+  // any consumer of the field — the very claim the third parameter exists to prevent.
+  it('states no prPassed for a scenario the PR arm never measured', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true)],
+      [outcome('a', false)],
+      [{ id: 'a', name: 'scenario a' }, { id: 'b', name: 'scenario b' }],
+    );
+    expect(impact.scenarios[1].prPassed).toBeUndefined();
+    expect(impact.scenarios[1]).not.toHaveProperty('prPassed');
+    expect(impact.scenarios[0].prPassed).toBe(true);
+  });
+
+  it('appends a duplicated requested id only once', () => {
+    const impact = classifyChangeImpact(
+      [],
+      [outcome('a', true)],
+      [{ id: 'b', name: 'scenario b' }, { id: 'b', name: 'scenario b' }],
+    );
+    expect(impact.scenarios).toHaveLength(1);
+    expect(impact.unattributed).toBe(1);
   });
 
   it('counts the appended scenario in unattributed and leaves other counts alone', () => {

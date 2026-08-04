@@ -18,7 +18,11 @@ export type ScenarioImpact = {
   scenarioId: string;
   scenarioName: string;
   impact: ImpactClass;
-  prPassed: boolean;
+  /**
+   * Whether the PR arm passed this scenario. Absent when the PR arm measured nothing at all: a
+   * `false` there would state the PR failed a scenario that was never scored.
+   */
+  prPassed?: boolean;
   failingAssertionNames?: string[];
 };
 
@@ -78,14 +82,16 @@ export function classifyChangeImpact(
   });
 
   const measuredIds = new Set(prOutcomes.map(outcome => outcome.scenarioId));
-  const unmeasured: ScenarioImpact[] = (expectedScenarios ?? [])
-    .filter(expected => !measuredIds.has(expected.id))
-    .map(expected => ({
-      scenarioId: expected.id,
-      scenarioName: expected.name,
-      impact: 'unattributed',
-      prPassed: false,
-    }));
+  // Deduped: a caller that requested the same id twice would otherwise get the same scenario
+  // listed twice in the comment and counted twice in `unattributed`.
+  const appendedIds = new Set<string>();
+  const unmeasured: ScenarioImpact[] = [];
+  for (const expected of expectedScenarios ?? []) {
+    if (measuredIds.has(expected.id) || appendedIds.has(expected.id)) continue;
+    appendedIds.add(expected.id);
+    // No `prPassed`: nothing was measured, so neither value is a true statement about this run.
+    unmeasured.push({ scenarioId: expected.id, scenarioName: expected.name, impact: 'unattributed' });
+  }
 
   const scenarios = [...measured, ...unmeasured];
 
