@@ -1,0 +1,86 @@
+name: bookings/create-course-service-bulk-create-response-shape
+description: >-
+  Verifies the course-creation recipe lets the agent read the created service's id
+  and schedule id straight out of the Bulk Create Services bulk envelope, instead
+  of reading a non-existent `results[0].item.service` and then re-querying the site
+  to rediscover what the create call already returned. Scoped to the create call and
+  the read of its response; it does not grade course session scheduling.
+triggerPrompt: >-
+  Create a 6 week "Intro to Pottery" course in my Wix Bookings — capacity 8, priced
+  at $240 for the whole course, booked online. Then tell me the course's service ID
+  and the schedule ID that its sessions will belong to.
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-course-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to create a 6-week "Intro to Pottery" COURSE service in Wix
+      Bookings — capacity 8, $240 for the whole course, bookable online — and to report the
+      service ID and the schedule ID its sessions will belong to.
+      Intent: a real COURSE service exists with those settings, and both IDs are reported.
+
+      Judge only the service creation and the reported IDs. Course session scheduling is out of
+      scope here: ignore whether Calendar events were created, and ignore any failure of a
+      Calendar Events call.
+
+      Pass if the trace shows:
+      - a successful (2xx) Bulk Create Services call creating a `type: "COURSE"` service named
+        "Intro to Pottery" with `defaultCapacity: 8`, `onlineBooking.enabled: true`, and a fixed
+        price of 240, AND
+      - the final answer reports both a service ID and a schedule ID.
+
+      Fail if:
+      - the create call errored (non-2xx), OR
+      - the service was created with the wrong type, name, capacity or price, OR
+      - the sessions were passed as nested `course.sessions` / `CourseSession` data on the service
+        payload, OR
+      - the agent only described the steps without performing them, OR
+      - the final answer omits the service ID or the schedule ID.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge ONLY how the agent obtained the created service's id and schedule id from the Bulk
+      Create Services response (`POST /bookings/v2/bulk/services/create`). Ignore answer prose
+      quality.
+
+      Scope, strictly: judge the create call and the reading of its response, and nothing after
+      that. In particular, ignore any Calendar Events (`bulkCreateEvents`) call, whether it
+      succeeded or failed, and ignore any retry, query or recovery step that a Calendar Events
+      failure caused. Those are a different operation and are not under test here.
+
+      That endpoint returns a bulk envelope:
+      `{ results: [{ itemMetadata: { id, originalIndex, success }, item: <Service> }], bulkActionMetadata: {...} }`.
+      `item` is the Service itself — there is no `item.service` — and `item` is present only when
+      the request sends `returnEntity: true`. The schedule id lives on the Service, at
+      `results[0].item.schedule.id`, so it is reachable only with that flag;
+      `results[0].itemMetadata.id` always carries the new service id.
+
+      Pass if:
+      - the agent's code read the service id from a valid path on the create response — either
+        `results[0].itemMetadata.id`, or `results[0].item.id` with `returnEntity: true` sent in the
+        same request body, AND
+      - the schedule id came from `results[0].item.schedule.id` on that same create response, AND
+      - no API-execution step failed while reading the create response, AND
+      - the agent did not issue a Query Services, Get Service or Query Schedules call after a 2xx
+        create in order to recover the service id or schedule id that response already carried.
+
+      Fail if any of these appear:
+      - code reading `results[0].item.service`, `results[0].service`, or a top-level `service`
+        field from the bulk create response, OR
+      - an execution error such as "Cannot read properties of undefined (reading 'service')" or any
+        other undefined-property error while parsing the create response, even if the agent
+        recovered afterwards, OR
+      - reading `results[0].item.…` without `returnEntity: true` in the request body, OR
+      - the service being created a second time because the create response could not be parsed.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse description of the response path used>"}.
+siteSetup:
+  mode: template
+  templateId: bookings-editor
