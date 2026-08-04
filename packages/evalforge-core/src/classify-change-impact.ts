@@ -48,10 +48,17 @@ function classifyOne(prPassed: boolean, basePassed: boolean): ImpactClass {
 export function classifyChangeImpact(
   prOutcomes: ScenarioOutcome[],
   baseOutcomes: ScenarioOutcome[] | undefined,
+  /**
+   * Ids the gate requested for this run, with their names. A requested scenario that produced no
+   * scored iteration (every row `partial`, or none at all) is absent from `prOutcomes` — without
+   * this list that absence is silent, so the comment reads as "not selected" instead of
+   * "not measured". Each one absent from `prOutcomes` is appended below as `unattributed`.
+   */
+  expectedScenarios?: Array<{ id: string; name: string }>,
 ): ChangeImpact {
   const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
 
-  const scenarios: ScenarioImpact[] = prOutcomes.map(prOutcome => {
+  const measured: ScenarioImpact[] = prOutcomes.map(prOutcome => {
     const prPassed = scenarioPassed(prOutcome);
     const baseOutcome = baseById.get(prOutcome.scenarioId);
 
@@ -69,6 +76,18 @@ export function classifyChangeImpact(
         : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
     };
   });
+
+  const measuredIds = new Set(prOutcomes.map(outcome => outcome.scenarioId));
+  const unmeasured: ScenarioImpact[] = (expectedScenarios ?? [])
+    .filter(expected => !measuredIds.has(expected.id))
+    .map(expected => ({
+      scenarioId: expected.id,
+      scenarioName: expected.name,
+      impact: 'unattributed',
+      prPassed: false,
+    }));
+
+  const scenarios = [...measured, ...unmeasured];
 
   const countOf = (impact: ImpactClass): number =>
     scenarios.filter(scenario => scenario.impact === impact).length;

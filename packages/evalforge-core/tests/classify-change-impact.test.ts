@@ -112,3 +112,56 @@ describe('classifyChangeImpact', () => {
     expect(impact.attributionAvailable).toBe(false);
   });
 });
+
+describe('classifyChangeImpact — expectedScenarios (a requested scenario that measured nothing)', () => {
+  it('leaves output unchanged when expectedScenarios is omitted', () => {
+    const withThirdArg = classifyChangeImpact([outcome('a', true)], [outcome('a', false)], undefined);
+    const withoutThirdArg = classifyChangeImpact([outcome('a', true)], [outcome('a', false)]);
+    expect(withThirdArg).toEqual(withoutThirdArg);
+  });
+
+  it('appends a missing scenario as unattributed rather than omitting it', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true)],
+      [outcome('a', false)],
+      [{ id: 'a', name: 'scenario a' }, { id: 'b', name: 'scenario b' }],
+    );
+    expect(impact.scenarios).toHaveLength(2);
+    expect(impact.scenarios[1]).toEqual({
+      scenarioId: 'b',
+      scenarioName: 'scenario b',
+      impact: 'unattributed',
+      prPassed: false,
+    });
+  });
+
+  it('counts the appended scenario in unattributed and leaves other counts alone', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true)],
+      [outcome('a', false)],
+      [{ id: 'a', name: 'scenario a' }, { id: 'b', name: 'scenario b' }],
+    );
+    expect(impact.fixed).toBe(1);
+    expect(impact.unattributed).toBe(1);
+  });
+
+  it('does not duplicate a scenario that was actually measured', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true)],
+      [outcome('a', false)],
+      [{ id: 'a', name: 'scenario a' }],
+    );
+    expect(impact.scenarios).toHaveLength(1);
+    expect(impact.scenarios[0].impact).toBe('fixed');
+  });
+
+  it('never classifies a missing scenario as newly-broken, even against a passing base', () => {
+    const impact = classifyChangeImpact(
+      [],
+      [outcome('a', true)],
+      [{ id: 'a', name: 'scenario a' }],
+    );
+    expect(impact.scenarios).toHaveLength(1);
+    expect(impact.scenarios[0].impact).toBe('unattributed');
+  });
+});
