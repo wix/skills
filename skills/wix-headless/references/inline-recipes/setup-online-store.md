@@ -178,11 +178,18 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
    ```
    The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
 
-- **Write via `media.itemsInfo.items`** (inside the `product` wrapper), never `media.main` — the server derives `media.main` from it. **Success is the PATCH returning `200` with no `error` in the body — use that as your signal.** Do **not** gate success on reading the media back: **the media shape differs between the two responses**, and applying the wrong one is a false-negative that starts a multi-round debug loop.
-  - **PATCH response** → image URL at **`media.main.url`** (flat; there is **no** `media.main.image` here).
-  - **GET read-back** → image URL at **`media.main.image.url`** (nested; there is **no** flat `media.main.url` here).
-  - `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
-  - So: trust the PATCH `200`. If you additionally want to confirm persistence, **re-GET the product and read `media.main.image.url`** — do **not** look for `media.main.image` on the PATCH response (it isn't there).
+- **Write via `media.itemsInfo.items`** (inside the `product` wrapper), never `media.main` — the server derives `media.main` from it. `media.itemsInfo` itself is **write-only** — it comes back `null` on read, so never assert on it.
+- **Success = the PATCH returns `200` with no `error` in the body. Use that as your signal — do NOT gate success on reading the image URL back.** The image URL lives at a **different path in the PATCH response vs. a GET read-back**, and checking the wrong one reads `undefined` and reports a false failure on a *successful* attach (a multi-round debug loop). The two shapes:
+
+  ```jsonc
+  // PATCH /stores/v3/products/{id} response — image URL is FLAT on media.main (no media.main.image):
+  "media": { "main": { "url": "https://static.wixstatic.com/media/…~mv2.png", "altText": "…", "mediaType": "IMAGE" } }
+
+  // GET /stores/v3/products/{id} read-back — image URL is NESTED under media.main.image (no flat media.main.url):
+  "media": { "main": { "image": { "url": "https://static.wixstatic.com/media/…~mv2.png", "width": 1024, "height": 1024 }, "altText": "…" } }
+  ```
+
+  So: trust the PATCH `200`. If you additionally want to confirm persistence, **re-GET the product and read `media.main.image.url`** — never look for `media.main.image` on the PATCH response (it isn't there).
 - Send **one image per product** (primary); a larger gallery is out of scope for the seed.
 - **Never block on image failure** — skip and leave the product text-only.
 
