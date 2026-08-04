@@ -1,6 +1,6 @@
 ---
 name: "Author Ricos Rich Content"
-description: Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) used across Wix Blog posts, Stores product descriptions, Events, and CMS rich-text fields. Covers every common node shape — paragraphs, headings, lists, blockquotes, dividers, tables (with cell fills), code blocks, images — plus inline text decorations and the nesting rules the format enforces.
+description: Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) used across Wix Blog posts, Stores product descriptions, Events, and CMS rich-text fields. Covers node shapes — paragraphs, headings, lists, blockquotes, dividers, tables (with cell fills), code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds — plus inline text decorations (including spoiler) and the nesting rules the format enforces.
 ---
 
 # Author Ricos Rich Content
@@ -142,6 +142,122 @@ Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON.
 }
 ```
 
+**BUTTON** — a standalone call-to-action block. **Not the same as an inline `LINK` decoration** on TEXT (that is hyperlinked body copy; this is a labeled button control). Two `buttonData.type` values:
+
+- **`LINK`** — navigates to a URL when clicked (`link.url`, `link.target`: `BLANK`·`SELF`, optional `link.rel`).
+- **`ACTION`** — triggers a viewer `onClick` handler (store the node in JSON; behavior is configured in the Ricos viewer, not in the document body).
+
+```json
+{
+  "type": "BUTTON",
+  "buttonData": {
+    "type": "LINK",
+    "text": "Get Started",
+    "link": { "url": "https://example.com", "target": "BLANK", "rel": { "nofollow": true } },
+    "containerData": { "alignment": "CENTER", "width": { "size": "ORIGINAL" }, "textWrap": true },
+    "styles": { "borderRadius": 4, "borderWidth": 0, "backgroundColor": "#116DFF", "textColor": "#FFFFFF" }
+  }
+}
+```
+
+**AUDIO** — uploaded audio via Wix Media `src.id`, or an embed variant whose `audioData.html` holds an iframe (SoundCloud, Spotify). Optional `coverImage` (`src.id`, `width`, `height`), `name`, `authorName`, `disableDownload`:
+
+```json
+{
+  "type": "AUDIO",
+  "nodes": [],
+  "audioData": {
+    "containerData": { "alignment": "CENTER", "width": { "size": "CONTENT" }, "textWrap": true },
+    "audio": { "src": { "id": "mp3/f0f74f_48772df0375c41cd88e8e29370ccf899" } },
+    "disableDownload": true,
+    "coverImage": { "src": { "id": "f0f74f_2973832f552e4002b58ec6abbe7fce71~mv2.png" }, "width": 436, "height": 524 },
+    "name": "Track title",
+    "authorName": "Artist name"
+  }
+}
+```
+
+**VIDEO** — Wix Media `video.src.id`, `duration` (seconds), and a `thumbnail` (`src.id`, `width`, `height`). YouTube and other embeds use the same `VIDEO` node shape with the appropriate media id:
+
+```json
+{
+  "type": "VIDEO",
+  "videoData": {
+    "containerData": { "width": { "size": "CONTENT" }, "alignment": "CENTER" },
+    "video": { "src": { "id": "video/11062b_a552731f40854d16a91627687fb8d1a6/1080p/mp4/file.mp4" }, "duration": 14.08 },
+    "thumbnail": { "src": { "id": "media/11062b_a552731f40854d16a91627687fb8d1a6f000.jpg" }, "width": 1920, "height": 1080 }
+  }
+}
+```
+
+**GALLERY** — multiple images in one block. Each `items[]` entry wraps `image.media` with `src` (`id` or `url`), `width`, and `height`. `galleryData.options` controls layout (`layout.type`: `GRID`, `numberOfColumns`, `orientation`; `item.ratio`, `item.crop`; `thumbnails.placement`):
+
+```json
+{
+  "type": "GALLERY",
+  "galleryData": {
+    "containerData": { "width": { "size": "CONTENT" }, "alignment": "CENTER", "textWrap": true },
+    "items": [
+      { "image": { "media": { "src": { "id": "8bb438_36726a2d14ec44ee9edc5693bade1092.jpg" }, "width": 3648, "height": 5472 } } },
+      { "image": { "media": { "src": { "id": "8bb438_6bbf8e82fe8f4b79b6e03ee79b66fd6a.jpg" }, "width": 1920, "height": 1280 } } }
+    ],
+    "options": {
+      "layout": { "type": "GRID", "horizontalScroll": false, "orientation": "COLUMNS", "numberOfColumns": 3 },
+      "item": { "ratio": 1, "crop": "FILL" },
+      "thumbnails": { "placement": "NONE" }
+    }
+  }
+}
+```
+
+**COLLAPSIBLE_LIST** — FAQ-style expandable items. Nesting is `COLLAPSIBLE_LIST → COLLAPSIBLE_ITEM → COLLAPSIBLE_ITEM_TITLE | COLLAPSIBLE_ITEM_BODY → PARAGRAPH → TEXT` (body cells may also contain other supported block plugins such as IMAGE or VIDEO):
+
+```json
+{
+  "type": "COLLAPSIBLE_LIST",
+  "nodes": [
+    {
+      "type": "COLLAPSIBLE_ITEM",
+      "nodes": [
+        {
+          "type": "COLLAPSIBLE_ITEM_TITLE",
+          "nodes": [
+            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Question?", "decorations": [] } } ] }
+          ]
+        },
+        {
+          "type": "COLLAPSIBLE_ITEM_BODY",
+          "nodes": [
+            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Answer text.", "decorations": [] } } ] }
+          ]
+        }
+      ]
+    }
+  ],
+  "collapsibleListData": {
+    "containerData": { "alignment": "CENTER", "textWrap": true },
+    "expandOnlyOne": false,
+    "initialExpandedItems": "FIRST",
+    "direction": "LTR"
+  }
+}
+```
+
+`initialExpandedItems`: `NONE`·`FIRST`·`ALL`. Set `isQapageData: true` in list metadata when the list should render as FAQ structured data in search results.
+
+**HTML** — embeds external content in an iframe. Provide either `url` (page URL) or inline `html` markup; `source` is typically `"HTML"`. Size via `containerData.width` / `height` (`custom` pixel strings or `size`):
+
+```json
+{
+  "type": "HTML",
+  "htmlData": {
+    "containerData": { "width": { "custom": "550" }, "height": { "custom": "550" }, "alignment": "CENTER" },
+    "url": "https://example.com/embed",
+    "source": "HTML"
+  }
+}
+```
+
 ## Inline text formatting (decorations)
 
 Apply formatting with the `decorations` array on a TEXT node. Each decoration is an object with a `type` and (for some types) a data field:
@@ -169,6 +285,7 @@ Apply formatting with the `decorations` array on a TEXT node. Each decoration is
 | `COLOR`                                    | `colorData: { foreground: "#hex" }` (add `background` for highlight) |
 | `LINK`                                     | `linkData: { link: { url, target: "BLANK" } }`             |
 | `FONT_SIZE`                                | `fontSizeData: { unit: "PX", value: 24 }`                  |
+| `SPOILER`                                  | _(none — `{ "type": "SPOILER" }` hides text behind a reveal control)_ |
 
 - **Mixed formatting in one paragraph → split into multiple TEXT nodes** (one per style run) inside the same PARAGRAPH. A single TEXT node carries one consistent set of decorations.
 - Use a plain hex string in `foreground` for colors.
@@ -229,12 +346,16 @@ Note the mixed-run paragraph at the end: the linked words are their own TEXT nod
 
 | Parent | Valid children |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Root `nodes`                         | PARAGRAPH, HEADING, BULLETED_LIST, ORDERED_LIST, BLOCKQUOTE, DIVIDER, IMAGE, TABLE, CODE_BLOCK         |
+| Root `nodes`                         | PARAGRAPH, HEADING, BULLETED_LIST, ORDERED_LIST, BLOCKQUOTE, DIVIDER, IMAGE, TABLE, CODE_BLOCK, BUTTON, AUDIO, VIDEO, GALLERY, COLLAPSIBLE_LIST, HTML |
 | PARAGRAPH / HEADING / CODE_BLOCK     | TEXT                                                                                                  |
 | BULLETED_LIST / ORDERED_LIST         | LIST_ITEM                                                                                             |
 | LIST_ITEM / BLOCKQUOTE               | PARAGRAPH (which then contains TEXT)                                                                  |
 | TABLE → TABLE_ROW → TABLE_CELL       | cell contains PARAGRAPH / HEADING / IMAGE                                                              |
-| IMAGE                                | CAPTION (optional)                                                                                    |
+| IMAGE / VIDEO                        | CAPTION (optional)                                                                                    |
+| COLLAPSIBLE_LIST                     | COLLAPSIBLE_ITEM                                                                                      |
+| COLLAPSIBLE_ITEM                     | COLLAPSIBLE_ITEM_TITLE, COLLAPSIBLE_ITEM_BODY                                                        |
+| COLLAPSIBLE_ITEM_TITLE / _BODY       | PARAGRAPH (and other plugins supported inside collapsible cells — see COLLAPSIBLE_LIST above)           |
+| BUTTON / AUDIO / GALLERY / HTML      | _(leaf — `nodes: []` or omit)_                                                                        |
 
 ## Self-audit before returning the document
 
@@ -246,4 +367,9 @@ All decidable from the JSON itself — check before handing the document to a co
 4. **Headings carry a `level`** (1–6) and nest logically (don't jump H2 → H4).
 5. **No `\n` inside `textData.text`** — split into sibling nodes; mixed inline formatting → split into multiple TEXT runs.
 6. **Images** use a Wix Media `id` (not a raw URL), with `width`, `height`, and meaningful `altText`.
-7. **Links** — every `LINK` decoration has a valid `url` and `target`.
+7. **Links** — every `LINK` decoration has a valid `url` and `target`. Use a `BUTTON` block with `buttonData.type: "LINK"` for CTAs — not an inline `LINK` decoration styled to look like a button.
+8. **Buttons** — `buttonData.type` is `LINK` (requires `link.url`) or `ACTION` (no URL). `LINK` buttons and inline `LINK` decorations serve different purposes.
+9. **Media blocks** — `AUDIO`/`VIDEO` use Wix Media `src.id` with required metadata (`duration` on video; optional `thumbnail`, `coverImage` on audio). `GALLERY` items each carry `image.media.src` plus `width`/`height`.
+10. **Collapsible lists** — every item has both `_TITLE` and `_BODY`, each wrapping content through `PARAGRAPH → TEXT` at minimum.
+11. **HTML embeds** — `htmlData` includes `containerData` sizing and either `url` or `html` (not both empty).
+12. **Spoiler** — `SPOILER` is a decoration on `TEXT` (or `containerData.spoiler` on some block plugins in editor output); preserve it verbatim on edit.
