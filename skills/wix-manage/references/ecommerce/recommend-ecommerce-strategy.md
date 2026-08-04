@@ -1,6 +1,6 @@
 ---
 name: "Recommend: eCommerce Strategy"
-description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Entry point for requests about earning more from the visitors a store already has: sales, promotions, discounts, coupons, clearance, holiday deals, AOV, shipping. Out of scope — traffic acquisition (SEO, ads, social, content); route "grow my traffic" requests to marketing instead. Tracking is built-in.
+description: "Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Entry point for requests about earning more from the visitors a store already has: sales, promotions, discounts, coupons, clearance, holiday deals, AOV, shipping. Out of scope — traffic acquisition (SEO, ads, social, content); route \"grow my traffic\" requests to marketing instead. Tracking is built-in."
 layer: R
 references:
   - name: "API: Recommendation Tracking"
