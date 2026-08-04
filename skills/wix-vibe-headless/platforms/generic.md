@@ -67,9 +67,13 @@ non-sample content); the same set drives STEP 4's seeding — never seed guessed
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **exactly** — it is the single
 source of truth for how the client app is built against the Wix APIs (over the public
-`WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend). To save time,
-prefer copying the ready-made files the `wix-vibe-headless` skill provides (e.g. the Wix client
-setup) and adapting them over re-generating them from scratch.
+`WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend).
+
+**Placement (this platform):** copy the ready-made REST files into the app's `src/rest/` — the
+shared transport `references/shared/wix-client.js` (set `WIX_CLIENT_ID` in it) plus your
+vertical's helper(s) `references/<vertical>/*.js`, **side by side** in that folder (the helper
+imports its sibling `./wix-client.js`). Adapt them with targeted edits; **don't re-generate them
+from scratch.** Generate only the app-specific UI.
 
 ## STEP 4 — Seed and manage the business
 

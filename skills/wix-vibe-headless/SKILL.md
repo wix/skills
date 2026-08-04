@@ -97,19 +97,17 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 runtime:
 
 1. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
-   Set `WIX_CLIENT_ID` in it.
+   Set `WIX_CLIENT_ID` in it before use.
 2. **The vertical helper** — `references/<vertical>/<helper>.js`. It does
-   `import { wixApiRequest } from "./wix-client.js"`, so it and `wix-client.js` must sit
-   **side by side** in the app's `src/rest/`.
+   `import { wixApiRequest } from "./wix-client.js"`, so the two must sit **side by side** in the
+   same folder.
 
-**Getting these two into `src/rest/`:** some platforms pre-install the whole `references/` REST
-layer into `src/rest/` at setup — **check `src/rest/` first; if the files are already there, use
-them as-is (just set `WIX_CLIENT_ID`), don't re-copy.** Otherwise copy the shared transport +
-your vertical's helper into `src/rest/` yourself.
+**Where these files live in the app, and how they get there** (pre-installed at setup, or copied
+in) **is your platform's call — follow your platform instructions for that.**
 
 There is also an optional **manage banner** — `references/shared/wix-manage-banner.js`, a
 dev-build-only banner linking the running app to the Wix Business Manager (the back office)
-behind it. It sits beside `wix-client.js` in `src/rest/` (pre-installed with it, or copy it in);
+behind it. It sits beside `wix-client.js` (placed the same way — per your platform instructions);
 set `WIX_METASITE_ID` and call `mountWixManageBanner()` once from the app entry. It renders only when a dev-build flag
 (`import.meta.env.DEV`) exists and is true — never in production, and not at all on stacks
 without such a flag. It sits in normal flow at the top (pushes the site down, doesn't float
