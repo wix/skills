@@ -30956,9 +30956,24 @@ function runLine(runId, runUrl) {
     return `**Run:** [${runId}](${runUrl})`;
 }
 /**
+ * Only rendered above the default of 1: at 1, "ran once per arm" is the assumption a reader
+ * already makes, and saying so on every comment would be noise. Above 1, it is exactly the
+ * context that makes `newly-broken` interpretable — a reader cannot otherwise tell whether they
+ * are looking at one execution or five, or that a single flaky iteration is enough to block.
+ */
+function runsPerScenarioNote(runsPerScenario) {
+    if (runsPerScenario === undefined || runsPerScenario <= 1)
+        return [];
+    return [
+        '',
+        `**Runs per scenario:** ${runsPerScenario} — each scenario ran ${runsPerScenario} times per arm, `
+            + 'and any failing iteration counts as a failure.',
+    ];
+}
+/**
  * The three outcomes where nothing was verified and retrying is the answer. These are live-system
- * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
- * without asking for a commit the PR does not need.
+ * flakes rather than PR problems, so `/re-eval` is listed first: it re-runs the gate without
+ * asking for a commit the PR does not need.
  */
 function retryNote() {
     return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
@@ -31074,10 +31089,22 @@ const IMPACT_MEANING = {
     'still-failing': 'Fails on both `main` and this PR — pre-existing, not caused by this change.',
     unattributed: 'No comparable result from `main` to classify against.',
 };
+/** Assertion names come from the API and scenario names from repo YAML — neither is safe to render into a table cell unescaped. */
+function escapeTableCell(text) {
+    return text.replace(/\|/g, '\\|');
+}
 function failingAssertionsNote(failingAssertionNames) {
     if (failingAssertionNames === undefined || failingAssertionNames.length === 0)
         return '';
-    return ` Failing: ${failingAssertionNames.map(name => `\`${name}\``).join(', ')}.`;
+    return ` Failing: ${failingAssertionNames.map(name => `\`${escapeTableCell(name)}\``).join(', ')}.`;
+}
+/**
+ * Whether every scenario in an unavailable-attribution result came back with no `prPassed` at
+ * all — i.e. the PR arm itself scored nothing, rather than the base arm being the gap. Built from
+ * `ChangeImpact.scenarios`, which is already on hand at the call site, so this needs no new field.
+ */
+function prArmMeasuredNothing(scenarios) {
+    return scenarios.every(scenario => scenario.prPassed === undefined);
 }
 /**
  * The section that reports the fixed/newly-broken/still-failing delta against `main`. Absent
@@ -31090,21 +31117,30 @@ function impactSection(impact) {
     if (impact === undefined)
         return [];
     if (!impact.attributionAvailable) {
+        // Whichever side produced nothing is named directly rather than defaulting to "the base run":
+        // `attributionAvailable` is also false when the PR arm itself scored nothing, and blaming the
+        // base run on a blocking comment sends the contributor to investigate the wrong side.
+        const reason = prArmMeasuredNothing(impact.scenarios)
+            ? 'this run produced no comparable results'
+            : 'the base run produced no comparable results';
         return [
             '',
-            '**Impact vs `main`:** unavailable — the base run produced no comparable results, so scenarios could not be classified as fixed, newly broken, or pre-existing.',
+            `**Impact vs \`main\`:** unavailable — ${reason}, so scenarios could not be classified as fixed, newly broken, or pre-existing.`,
         ];
     }
     const summary = `**Impact vs \`main\`:** ${count(impact.fixed, 'scenario')} fixed, `
-        + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillFailing, 'scenario')} still failing, `
-        + `${count(impact.unattributed, 'scenario')} unattributed — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
+        + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillPassing, 'scenario')} still passing, `
+        + `${count(impact.stillFailing, 'scenario')} still failing, ${count(impact.unattributed, 'scenario')} unattributed`
+        + ` — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
     const allStillPassing = impact.scenarios.length > 0 && impact.stillPassing === impact.scenarios.length;
     if (allStillPassing) {
         return [
             '',
             summary,
             '',
-            'Every scenario passed on both this PR and `main` — this change moved nothing measurable.',
+            'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
+                + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
+                + 'evaluate identical skill content, so a uniformly green table is not a suspicious no-op.',
         ];
     }
     return [
@@ -31116,7 +31152,7 @@ function impactSection(impact) {
         ...impact.scenarios.map(scenario => {
             const icon = IMPACT_ICON[scenario.impact];
             const meaning = IMPACT_MEANING[scenario.impact];
-            return `| ${icon} \`${scenario.scenarioName}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
+            return `| ${icon} \`${escapeTableCell(scenario.scenarioName)}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
         }),
     ];
 }
@@ -31128,6 +31164,7 @@ function formatGateResult(input) {
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
         runLine(input.runId, input.runUrl),
+        ...runsPerScenarioNote(input.runsPerScenario),
     ];
     if (!verdict.passed) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
@@ -62094,7 +62131,11 @@ async function pollBaseArmSilently(client, config, baseRun, cancellation) {
  */
 function startBaseAttribution(client, config, baseRun) {
     const cancellation = createCancellation();
-    const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation);
+    // `.catch` at creation, not just at `collect` time: on an early-return path (a PR-arm timeout or
+    // poll failure) `collect` is never called, and an unattached promise rejecting under Node's
+    // default unhandled-rejection behaviour would kill the process. `pollBaseArmSilently` already
+    // absorbs every failure internally, so this is a local invariant rather than a live bug.
+    const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation).catch(() => undefined);
     return {
         collect: async () => {
             const status = await withGracePeriod(basePoll, exports.BASE_ARM_GRACE_MS);
@@ -62961,6 +63002,7 @@ versionId, comment) {
             broadImpact: scope.derived.broadImpact,
             blocking: config.isBlocking,
             impact,
+            runsPerScenario: config.runsPerScenario,
         }));
         if (!verdict.passed) {
             (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
