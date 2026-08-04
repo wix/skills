@@ -249,7 +249,7 @@ Do **not** rely on `\n` inside `textData.text` for spacing — that does not cre
 }
 ```
 
-**COLLAPSIBLE_LIST** — FAQ-style expandable items. Nesting is `COLLAPSIBLE_LIST → COLLAPSIBLE_ITEM → COLLAPSIBLE_ITEM_TITLE | COLLAPSIBLE_ITEM_BODY → PARAGRAPH → TEXT` (body cells may also contain other supported block plugins such as IMAGE or VIDEO):
+**COLLAPSIBLE_LIST** — FAQ-style expandable items. Nesting is `COLLAPSIBLE_LIST → COLLAPSIBLE_ITEM → COLLAPSIBLE_ITEM_TITLE | COLLAPSIBLE_ITEM_BODY → PARAGRAPH → TEXT` (body cells may also contain other supported block plugins such as IMAGE or VIDEO). The item wrapper type is **`COLLAPSIBLE_ITEM`** — not `COLLAPSIBLE_LIST_ITEM` or other variants:
 
 ```json
 {
