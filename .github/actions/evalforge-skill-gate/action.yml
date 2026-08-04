@@ -63,6 +63,12 @@ inputs:
     description: 'When "true" a gate failure fails the check. Anything else warns and passes — the soak setting'
     required: false
     default: 'false'
+  runs-per-scenario:
+    description: >-
+      How many times each scenario runs in each arm (max 20). Above 1, an intermittent failure
+      is visible rather than indistinguishable from a regression — at proportional cost.
+    required: false
+    default: '1'
 runs:
   using: 'node20'
   main: 'dist/index.js'

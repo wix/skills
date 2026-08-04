@@ -11,6 +11,9 @@ export const BASE_WORKSPACE_SUBDIR = '.action-src';
 /** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
 export const MAX_SCENARIOS_CEILING = 100;
 
+/** EvalForge's documented maximum for runsPerScenario. */
+export const MAX_RUNS_PER_SCENARIO = 20;
+
 export type SyncConfig = {
   evalforgeUrl: string;
   projectId: string;
@@ -60,6 +63,10 @@ export type GateConfig = {
   /** The commit actually uploaded and evaluated. */
   evaluatedSha: string;
   versionLabel: string;
+  /** Reported only, for `Evaluate`'s `source` traceability; the base arm pins no version. */
+  baseSha: string;
+  comparisonGroupId: string;
+  runsPerScenario: number;
 };
 
 /** No `githubToken`, `owner` or `repo`: cleanup makes no GitHub API call — `getPrNumber` reads the event payload. */
@@ -117,6 +124,23 @@ function getHeadSha(): string {
   return head.sha;
 }
 
+function getBaseSha(): string {
+  const base = github.context.payload.pull_request?.base as { sha?: string } | undefined;
+  if (!base?.sha) throw new Error('PR payload missing base.sha');
+  return base.sha;
+}
+
+/** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
+function getRunsPerScenario(): number {
+  const requested = getPositiveIntegerInput('runs-per-scenario', 1);
+  if (requested <= MAX_RUNS_PER_SCENARIO) return requested;
+  core.warning(
+    `runs-per-scenario: ${requested} exceeds the API maximum of ${MAX_RUNS_PER_SCENARIO}, running `
+    + `${MAX_RUNS_PER_SCENARIO}.`,
+  );
+  return MAX_RUNS_PER_SCENARIO;
+}
+
 /**
  * The commit the version label is content-addressed to. It must be the commit actually checked out,
  * not `head.sha`: the same head yields different merge content as base advances, so
@@ -153,6 +177,7 @@ export function getGateConfig(): GateConfig {
   const repo = github.context.repo.repo;
   const prNumber = getPrNumber(github.context.payload);
   const headSha = getHeadSha();
+  const baseSha = getBaseSha();
   const evaluatedSha = getEvaluatedSha();
 
   return {
@@ -177,6 +202,9 @@ export function getGateConfig(): GateConfig {
     headSha,
     evaluatedSha,
     versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    baseSha,
+    comparisonGroupId: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    runsPerScenario: getRunsPerScenario(),
   };
 }
 

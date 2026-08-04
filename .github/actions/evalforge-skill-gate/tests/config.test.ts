@@ -23,7 +23,13 @@ const REQUIRED_GATE_INPUTS = {
 vi.mock('@actions/github', () => ({
   context: {
     repo: { owner: 'wix', repo: 'skills' },
-    payload: { pull_request: { number: 42, head: { sha: 'abc1234deadbeef' } } },
+    payload: {
+      pull_request: {
+        number: 42,
+        head: { sha: 'abc1234deadbeef' },
+        base: { sha: 'base1234567890' },
+      },
+    },
   },
 }));
 
@@ -213,5 +219,56 @@ describe('getGateConfig — the evaluated SHA', () => {
 
     expect(getGateConfig().versionLabel).toBe('pr-42-abcdef1');
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('evaluated-sha'));
+  });
+});
+
+describe('getGateConfig — comparison fields', () => {
+  it('reads the base SHA for run traceability', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().baseSha).toMatch(/^base1234/);
+  });
+
+  it('throws when the payload has no base SHA rather than mislabelling a version', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const github = await import('@actions/github');
+    const pullRequest = github.context.payload.pull_request as { base?: { sha?: string } };
+    const originalBase = pullRequest.base;
+    delete pullRequest.base;
+    try {
+      const { getGateConfig } = await import('../src/utils/config');
+      expect(() => getGateConfig()).toThrow(/base\.sha/);
+    } finally {
+      pullRequest.base = originalBase;
+    }
+  });
+
+  it('derives a comparison group id from the evaluated commit, not the head', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    process.env.GITHUB_SHA = 'merge567890abc';
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().comparisonGroupId).toBe('pr-42-merge56');
+  });
+
+  it('defaults runsPerScenario to 1', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().runsPerScenario).toBe(1);
+  });
+
+  it('clamps runsPerScenario to the API maximum of 20 with a warning', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'runs-per-scenario': '50' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning');
+    const { getGateConfig, MAX_RUNS_PER_SCENARIO } = await import('../src/utils/config');
+
+    expect(getGateConfig().runsPerScenario).toBe(MAX_RUNS_PER_SCENARIO);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('20'));
+  });
+
+  it('rejects a non-positive runsPerScenario', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'runs-per-scenario': '0' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(() => getGateConfig()).toThrow(/runs-per-scenario/);
   });
 });

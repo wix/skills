@@ -65,6 +65,9 @@ const CONFIG: GateConfig = {
   headSha: 'abc1234deadbeef',
   evaluatedSha: 'merge99feedface',
   versionLabel: 'pr-42-merge99',
+  baseSha: 'base1234567890',
+  comparisonGroupId: 'pr-42-merge99',
+  runsPerScenario: 1,
 };
 
 const strongScenario = (name: string, tags: string[]) => ({
