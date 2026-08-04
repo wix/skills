@@ -567,4 +567,102 @@ describe('formatGateResult impact reporting', () => {
     expect(body).toMatch(/moved nothing measurable/i);
     expect(body).not.toContain('| Scenario | Impact | Meaning |');
   });
+
+  // Finding 7: a scenarios-only PR legitimately produces an all-still-passing result, since both
+  // arms then evaluate identical skill content. Without this sentence that reads as a suspicious
+  // no-op rather than the expected outcome.
+  it('explains that an all-still-passing result is expected for a scenarios-only PR', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([scenarioImpact({ scenarioName: 'one', impact: 'still-passing' })]),
+    });
+    expect(body).toMatch(/scenario YAML/i);
+  });
+
+  // Finding 5: the summary used to omit still-passing, so the counts did not sum to the row count.
+  it('includes still-passing in the summary counts, alongside the other three', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'fixed-one', impact: 'fixed' }),
+        scenarioImpact({ scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false }),
+        scenarioImpact({ scenarioName: 'passing-one', impact: 'still-passing' }),
+        scenarioImpact({ scenarioName: 'flaky-one', impact: 'still-failing', prPassed: false }),
+        scenarioImpact({ scenarioName: 'gap-one', impact: 'unattributed' }),
+      ]),
+    });
+    expect(body).toContain('1 scenario fixed');
+    expect(body).toContain('1 scenario newly broken');
+    expect(body).toContain('1 scenario still passing');
+    expect(body).toContain('1 scenario still failing');
+    expect(body).toContain('1 scenario unattributed');
+    expect(body).toContain('net effect 0');
+  });
+
+  // Finding 4: an author-controlled scenario name or an API-provided assertion name containing a
+  // `|` would otherwise shift every subsequent cell in its row.
+  it('escapes a `|` in the scenario name and in failing-assertion names', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({
+          scenarioName: 'checkout | tax spi', impact: 'newly-broken', prPassed: false,
+          failingAssertionNames: ['checks | total'],
+        }),
+      ]),
+    });
+    const row = body.split('\n').find(line => line.includes('checkout'));
+    expect(row).toBeDefined();
+    expect(row).toContain('checkout \\| tax spi');
+    expect(row).toContain('checks \\| total');
+    // Split on a `|` not preceded by `\` — the markdown-escaped pipes must not count as cell
+    // boundaries, only the three real ones bordering and separating the row's cells.
+    const unescapedPipeSplit = /(?<!\\)\|/;
+    expect(row?.split(unescapedPipeSplit)).toHaveLength('| Scenario | Impact | Meaning |'.split(unescapedPipeSplit).length);
+  });
+
+  // Finding 1: `attributionAvailable` is false both when the base arm produced nothing and when
+  // the PR arm itself scored nothing. Blaming the base run unconditionally sends the contributor
+  // to investigate the wrong side on a blocking comment.
+  it('does not blame the base run when it was the PR arm that produced no comparable results', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      // No `prPassed` at all — exactly how `classifyChangeImpact` appends a scenario the PR arm
+      // never measured, as opposed to a measured scenario the base arm could not match.
+      impact: changeImpact([{ scenarioId: 'id-a', scenarioName: 'covers', impact: 'unattributed' }]),
+    });
+    expect(body).toMatch(/unavailable/i);
+    expect(body).not.toMatch(/base run produced no comparable/i);
+  });
+
+  it('still names the base run when it is the base arm that produced no comparable results', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([scenarioImpact({ impact: 'unattributed' })]),
+    });
+    expect(body).toMatch(/unavailable/i);
+    expect(body).toMatch(/base run produced no comparable/i);
+  });
+});
+
+describe('formatGateResult runs-per-scenario reporting', () => {
+  // Finding 2: with no way to tell from the comment whether a scenario ran once or several times,
+  // a `newly-broken` verdict caused by one flaky iteration is indistinguishable from a real
+  // regression.
+  it('reports runs-per-scenario when above 1, naming that a failing iteration counts as a failure', () => {
+    const body = formatGateResult({ ...baseResult, runsPerScenario: 5 });
+    expect(body).toContain('5');
+    expect(body).toMatch(/each scenario ran 5 times per arm/i);
+    expect(body).toMatch(/failing iteration counts as a failure/i);
+  });
+
+  it('renders nothing when runs-per-scenario is 1', () => {
+    const body = formatGateResult({ ...baseResult, runsPerScenario: 1 });
+    expect(body).not.toMatch(/runs per scenario/i);
+  });
+
+  it('renders nothing when runs-per-scenario is absent', () => {
+    const body = formatGateResult(baseResult);
+    expect(body).not.toMatch(/runs per scenario/i);
+  });
 });

@@ -66,6 +66,7 @@ export async function runAndReport(
       broadImpact: scope.derived.broadImpact,
       blocking: config.isBlocking,
       impact,
+      runsPerScenario: config.runsPerScenario,
     }));
 
     if (!verdict.passed) {

@@ -147,7 +147,11 @@ export function startBaseAttribution(
   baseRun: Promise<string | undefined>,
 ): BaseAttribution {
   const cancellation = createCancellation();
-  const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation);
+  // `.catch` at creation, not just at `collect` time: on an early-return path (a PR-arm timeout or
+  // poll failure) `collect` is never called, and an unattached promise rejecting under Node's
+  // default unhandled-rejection behaviour would kill the process. `pollBaseArmSilently` already
+  // absorbs every failure internally, so this is a local invariant rather than a live bug.
+  const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation).catch(() => undefined);
 
   return {
     collect: async () => {

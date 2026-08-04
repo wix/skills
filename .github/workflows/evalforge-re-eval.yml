@@ -1,8 +1,8 @@
 name: EvalForge Re-eval
 
-# Re-runs a PR's existing eval gate run on demand (CODEAI-895). Evals depend on live systems, so a
-# gate can report an unverified result for reasons that have nothing to do with the PR; without this
-# the only remedy is an empty commit.
+# Re-runs a PR's existing eval gate run on demand. Evals depend on live systems, so a gate can
+# report an unverified result for reasons that have nothing to do with the PR; without this the
+# only remedy is an empty commit.
 #
 # Scoped to the wix-app skill gate for now. See GATES below to extend it.
 #

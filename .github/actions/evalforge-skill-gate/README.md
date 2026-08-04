@@ -33,14 +33,17 @@ flowchart TD
     VER --> SYNC[loadScenarios base + remote lookup<br/>diffSyncPlan — semantic tags + draft tag]
     SYNC --> APPLY[apply CREATE · UPDATE · DELETE · DEFER_DELETE]
     APPLY --> SELECT[selectScenarios<br/>synced ids ∪ tag query, dedup, cap at max-scenarios]
-    SELECT --> RUN[createAndRunEvalRun<br/>agentId · scenarioIds · capabilityVersions]
-    RUN --> POLL[pollUntilDone]
+    SELECT --> RUN["createAndRunEvalRun × 2, one comparisonGroupId<br/>PR arm pins pr-N-sha7 · base arm pins nothing (live @ main)"]
+    RUN --> POLL[pollUntilDone — PR arm]
+    RUN -.-> BASEPOLL[["base arm polled concurrently,<br/>bounded by a 60s grace — see Change-impact comparison below"]]
     POLL --> TIMEOUT{Timed out?}
     TIMEOUT -->|yes| FAILTO[comment timeout] --> GATEFAIL
     TIMEOUT -->|no| EVAL["evaluateRunResult<br/>failed + errors == 0, and any assertions at all?"]
     EVAL --> VERDICT{Passed?}
-    VERDICT -->|yes| PASS([comment results ✓ check passes])
-    VERDICT -->|no| FAILEVAL[comment failing assertions] --> GATEFAIL
+    VERDICT -->|yes| PASS([comment results + impact vs main<br/>✓ check passes])
+    VERDICT -->|no| FAILEVAL[comment failing assertions + impact vs main] --> GATEFAIL
+    BASEPOLL -.-> PASS
+    BASEPOLL -.-> FAILEVAL
     GATEFAIL{{"blocking input?"}}
     GATEFAIL -->|true| BLOCK([setFailed — merge blocked])
     GATEFAIL -->|false| WARN([warning + comment — check passes<br/>soak period])
@@ -77,13 +80,23 @@ that omission is what makes EvalForge live-fetch the git-linked capability at `m
 preset agent, same scenario ids, same `runs-per-scenario`. The pinned version is the only
 variable, which is what makes the difference attributable to the diff.
 
-**Cost:** two eval runs per gated PR instead of one, each multiplied by `runs-per-scenario`.
+**Cost:** two eval runs per gated PR instead of one, each multiplied by `runs-per-scenario` —
+unconditionally, not "two only when attribution lands". The base run always completes in
+EvalForge and stays viewable in its comparison group even when the gate stops waiting for it,
+because nothing here calls a cancel RPC against EvalForge; see the next paragraph for what
+"cancelled" actually stops.
 
 Only the **PR arm** decides the verdict. The base arm is bounded by a 60-second grace period
-that starts once the PR arm finishes, and is then cancelled — it can never turn a green PR red,
-or a red PR green. If it does not finish within the grace period, the comment reports
-**attribution unavailable** and the gate is exactly as strict as it was before comparison
-existed.
+that starts once the PR arm finishes — but what gets cancelled at grace expiry is **only this
+gate's own polling** of the base arm, not the base eval run itself. The run keeps executing and
+completing in EvalForge regardless; the gate simply stops waiting on it and reports whatever it
+has. So the base arm can never turn a green PR red, or a red PR green, and if polling does not
+observe completion within the grace period, the comment reports **attribution unavailable** and
+the gate is exactly as strict as it was before comparison existed.
+
+The 60-second grace period (`BASE_ARM_GRACE_MS`) is the first knob worth tuning once there is
+live evidence: if attribution is frequently unavailable in practice, the doubled spend is buying
+nothing, and the fix is to widen the grace period rather than accept the miss rate.
 
 `runs-per-scenario` (default `1`, max `20`) repeats each scenario that many times **per arm**,
 at proportional cost. Above 1, an intermittent failure is visible as a mix of pass/fail
