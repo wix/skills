@@ -178,7 +178,16 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
    ```
    The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
 
-- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main.image.url`** — it must resolve to a `static.wixstatic.com` URL. Check that nested string, **not** the presence of `media.main` (which can be a non-null object with no image and makes a failed attach look successful). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
+- **Write the image via `media.itemsInfo.items`** (inside the `product` wrapper); the server derives `media.main` from it.
+- **A `200` from the PATCH is success.** The image URL is at `media.main.url` in the PATCH response, and at `media.main.image.url` on a GET read-back:
+
+  ```jsonc
+  // PATCH /stores/v3/products/{id} response:
+  "media": { "main": { "url": "https://static.wixstatic.com/media/…~mv2.png", "altText": "…", "mediaType": "IMAGE" } }
+
+  // GET /stores/v3/products/{id} read-back:
+  "media": { "main": { "image": { "url": "https://static.wixstatic.com/media/…~mv2.png", "width": 1024, "height": 1024 }, "altText": "…" } }
+  ```
 - Send **one image per product** (primary); a larger gallery is out of scope for the seed.
 - **Never block on image failure** — skip and leave the product text-only.
 
