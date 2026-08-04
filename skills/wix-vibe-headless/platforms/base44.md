@@ -173,14 +173,10 @@ as-is.
 
 ## STEP 4 — Manage and seed the business
 
-**⛔ Never delete or clean up anything on the user's site.** Seeding here is strictly **additive**:
-never delete, remove, overwrite, or "reset" existing entities or content — products, collections,
-posts, media, CMS items, categories, anything — and never call a delete/bulk-delete endpoint. This
-holds **even for what looks like install sample/mock data**, and **even where the `wix-headless`
-seed skill's recipes describe a cleanup/reset step — ignore that; it does not apply here.** The
-site is a live, user-owned business that may already hold real content (a prior run, or
-owner-added). If a genuine cleanup truly seems needed, **ask the user first** and act only on their
-explicit approval.
+**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
+cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
+delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
+ask the user first.
 
 Seed the site with real content by following the **`wix-headless` skill**'s
 `references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
