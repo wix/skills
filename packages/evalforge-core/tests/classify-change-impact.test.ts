@@ -97,6 +97,14 @@ describe('classifyChangeImpact', () => {
     expect(impact.attributionAvailable).toBe(false);
   });
 
+  it('classifies correctly when failingAssertionNames is absent', () => {
+    const outcomeWithoutNames = outcome('a', true);
+    delete outcomeWithoutNames.failingAssertionNames;
+    const impact = classifyChangeImpact([outcomeWithoutNames], [outcome('a', false)]);
+    expect(impact.scenarios[0].impact).toBe('fixed');
+    expect(impact.scenarios[0].failingAssertionNames).toEqual([]);
+  });
+
   it('treats an empty base arm the same as an unmeasured one', () => {
     const impact = classifyChangeImpact([outcome('a', true), outcome('b', false)], []);
     expect(impact.scenarios.map(scenario => scenario.impact))

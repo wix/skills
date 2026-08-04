@@ -18,3 +18,4 @@ export * from './select-scenarios';
 export * from './evaluate-run-result';
 export * from './format-gate-comment';
 export * from './classify-change-impact';
+export * from './fold-scenario-iterations';

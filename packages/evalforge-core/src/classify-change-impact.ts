@@ -4,7 +4,7 @@ export type ScenarioOutcome = {
   totalAssertions: number;
   failed: number;
   errors: number;
-  failingAssertionNames: string[];
+  failingAssertionNames?: string[];
 };
 
 export type ImpactClass =
@@ -64,7 +64,7 @@ export function classifyChangeImpact(
         ? 'unattributed'
         : classifyOne(prPassed, scenarioPassed(baseOutcome)),
       prPassed,
-      failingAssertionNames: [...prOutcome.failingAssertionNames],
+      failingAssertionNames: prOutcome.failingAssertionNames ? [...prOutcome.failingAssertionNames] : [],
     };
   });
 
