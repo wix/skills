@@ -56,17 +56,21 @@ for (const skill of skills) {
   }
 }
 
-// Pre-place the shared REST scaffolds into src/rest/ so STEP 3 doesn't regenerate them
-// token-by-token. `references/shared/` holds the vertical-agnostic layer (the wix-client
-// transport every vertical imports, plus the manage banner) — copy ALL of it, so a newly
-// added shared file is picked up automatically. Per-vertical helpers are copied in STEP 3
-// once the vertical is known. copyFileSync is a no-cost copy (no LLM decode).
-const SHARED = '/app/.agents/skills/wix-vibe-headless/references/shared';
+// Deploy the ready-made REST scaffolds into src/rest/ so STEP 3 builds from them instead of
+// regenerating them token-by-token. Copy EVERY .js under references/*/ (the shared transport +
+// all vertical helpers) FLAT into src/rest/ — filenames are unique and each helper imports its
+// sibling `./wix-client.js`, so a flat folder keeps those imports valid with no rewrite.
+// copyFileSync is a no-cost copy (no LLM decode); unused verticals are dead files the bundler drops.
+const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const copiedToSrcRest = [];
-if (existsSync(SHARED)) {
+if (existsSync(REF)) {
   mkdirSync('/app/src/rest', { recursive: true });
-  for (const f of readdirSync(SHARED)) {
-    if (f.endsWith('.js')) { copyFileSync(`${SHARED}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
+  for (const dir of readdirSync(REF)) {
+    let files;
+    try { files = readdirSync(`${REF}/${dir}`); } catch { continue; }   // skip non-dirs
+    for (const f of files) {
+      if (f.endsWith('.js')) { copyFileSync(`${REF}/${dir}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
+    }
   }
 }
 
@@ -164,14 +168,14 @@ guessed ones. If the call fails or reports nothing relevant, ask the user what t
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
 source of truth for how the client app is built.
 
-**The shared REST scaffolds are already in `src/rest/`** — STEP 1 copied `wix-client.js` and
-`wix-manage-banner.js` there. **Do not regenerate them.** Just: set `WIX_CLIENT_ID` in
-`src/rest/wix-client.js` (and `WIX_METASITE_ID` in the banner), then **`cp` your vertical's
-helper** — `.agents/skills/wix-vibe-headless/references/<vertical>/*.js` (e.g. storefront's
-`wix-store-catalog.js` / `wix-store-cart.js`) — into that same `src/rest/` folder via exec_tool,
-and adapt with targeted edits. Copying (a shell `cp`) is instant; re-typing these files with
-`write_file` wastes a minute of generation for no gain. Generate from scratch only the
-app-specific UI (components/pages).
+**All the REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
+(`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`,
+`wix-bookings-services.js`, …) there. **Do not regenerate or re-copy them** (ignore SKILL.md's
+"copy it into src/rest" step — already done). Just **use your vertical's files** from `src/rest/`
+(e.g. a store uses `wix-store-catalog.js` + `wix-store-cart.js`), set `WIX_CLIENT_ID` in
+`src/rest/wix-client.js` and `WIX_METASITE_ID` in `wix-manage-banner.js`, and adapt with targeted
+edits. Files for other verticals are harmless (unused → dropped by the bundler); leave or delete
+them. Generate from scratch only the app-specific UI (components/pages).
 
 **`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
 scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
