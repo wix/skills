@@ -179,10 +179,13 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
    The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
 
 - **Write the image via `media.itemsInfo.items`** (inside the `product` wrapper); the server derives `media.main` from it.
-- **A `200` from the PATCH is success.** To confirm the image persisted, **re-GET the product and read `media.main.image.url`**:
+- **A `200` from the PATCH is success.** The image URL is at `media.main.url` in the PATCH response, and at `media.main.image.url` on a GET read-back:
 
   ```jsonc
-  // GET /stores/v3/products/{id} → the attached image:
+  // PATCH /stores/v3/products/{id} response:
+  "media": { "main": { "url": "https://static.wixstatic.com/media/…~mv2.png", "altText": "…", "mediaType": "IMAGE" } }
+
+  // GET /stores/v3/products/{id} read-back:
   "media": { "main": { "image": { "url": "https://static.wixstatic.com/media/…~mv2.png", "width": 1024, "height": 1024 }, "altText": "…" } }
   ```
 - Send **one image per product** (primary); a larger gallery is out of scope for the seed.
