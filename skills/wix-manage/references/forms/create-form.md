@@ -1,6 +1,6 @@
 ---
 name: "Create Form"
-description: Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, and post-submission triggers.
+description: Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, post-submission triggers, and why the submission-notification recipient email can't be set via API.
 ---
 # RECIPE: Create a Wix Form
 
@@ -288,6 +288,10 @@ The `steps[].layout.large.items` array controls how fields are positioned:
 
 The `postSubmissionTriggers.upsertContact` object maps form field targets to contact fields, so each submission automatically creates or updates a contact. The `fieldsMapping` keys must match the `target` values from the form fields.
 
+### Notification email recipient (not settable via this API)
+
+The form schema has no field for the email address that receives submission notifications — `postSubmissionTriggers` only covers `upsertContact`. There is no REST/SDK API anywhere (Forms, Automations, or Site Properties) to read or set this recipient. By default, notifications go to the site owner's email; changing it requires the site owner to open the [Forms settings dashboard page](./forms-dashboard-navigation.md) (`wix-forms-and-payments/settings`) manually. Don't guess at a field name (e.g. `notificationEmail`) or try routing this through the Automations API as a substitute — there's no confirmed way to do it programmatically.
+
 ### Prerequisites
 
 The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
@@ -302,6 +306,7 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
 | `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
+| Need to change who receives submission-notification emails | No API field for this (see § "Notification email recipient") | Direct the site owner to the Forms settings dashboard page — there's no programmatic way |
 
 ## Related Documentation
 
