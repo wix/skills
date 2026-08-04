@@ -34233,6 +34233,58 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
 
 /***/ }),
 
+/***/ 1985:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.scenarioPassed = scenarioPassed;
+exports.classifyChangeImpact = classifyChangeImpact;
+/** Zero assertions is not a pass: nothing was verified. Errors count as failures. */
+function scenarioPassed(outcome) {
+    return outcome.totalAssertions > 0 && outcome.failed === 0 && outcome.errors === 0;
+}
+function classifyOne(prPassed, basePassed) {
+    if (prPassed)
+        return basePassed ? 'still-passing' : 'fixed';
+    return basePassed ? 'newly-broken' : 'still-failing';
+}
+function classifyChangeImpact(prOutcomes, baseOutcomes) {
+    const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
+    const scenarios = prOutcomes.map(prOutcome => {
+        const prPassed = scenarioPassed(prOutcome);
+        const baseOutcome = baseById.get(prOutcome.scenarioId);
+        return {
+            scenarioId: prOutcome.scenarioId,
+            scenarioName: prOutcome.scenarioName,
+            // A base scenario with zero assertions was not measured, so it is not evidence the
+            // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
+            impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+                ? 'unattributed'
+                : classifyOne(prPassed, scenarioPassed(baseOutcome)),
+            prPassed,
+            failingAssertionNames: [...prOutcome.failingAssertionNames],
+        };
+    });
+    const countOf = (impact) => scenarios.filter(scenario => scenario.impact === impact).length;
+    const fixed = countOf('fixed');
+    const newlyBroken = countOf('newly-broken');
+    return {
+        scenarios,
+        fixed,
+        newlyBroken,
+        stillPassing: countOf('still-passing'),
+        stillFailing: countOf('still-failing'),
+        unattributed: countOf('unattributed'),
+        netEffect: fixed - newlyBroken,
+        attributionAvailable: scenarios.some(scenario => scenario.impact !== 'unattributed'),
+    };
+}
+
+
+/***/ }),
+
 /***/ 4527:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -34557,6 +34609,25 @@ const MAX_QUERY_CONCURRENCY = 8;
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
 const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
+function contentBody(content) {
+    if (content.kind === 'skill')
+        return { skillContent: { files: content.files } };
+    // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
+    return {
+        mcpContent: {
+            config: {
+                [MCP_CONFIG_KEY]: {
+                    url: content.url,
+                    type: 'http',
+                    headers: {
+                        Authorization: '{{wix-auth-token}}',
+                        'wix-account-id': '{{wix-auth-user-id}}',
+                    },
+                },
+            },
+        },
+    };
+}
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
 const UI_BASE = 'https://bo.wix.com/pages/evalforge';
@@ -34690,64 +34761,22 @@ class EvalForgeClient {
         url.searchParams.set('skillsPr', headSha);
         return url.toString();
     }
-    async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-            capabilityVersion: {
-                capabilityId: mcpId,
-                version: versionLabel,
-                origin: 'pr',
-                notes: `Auto-created for PR #${prNumber}`,
-                // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
-                mcpContent: {
-                    config: {
-                        [MCP_CONFIG_KEY]: {
-                            url: this.buildMcpUrl(skillsRepo, headSha),
-                            type: 'http',
-                            headers: {
-                                Authorization: '{{wix-auth-token}}',
-                                'wix-account-id': '{{wix-auth-user-id}}',
-                            },
-                        },
-                    },
-                },
-            },
-        });
-        const v = res.capabilityVersion;
-        return { id: v.id, capabilityId: v.capabilityId, version: v.version };
-    }
-    async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        try {
-            return await this.createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo);
-        }
-        catch (e) {
-            // A duplicate version should be 409, but the backend currently throws a plain
-            // error for "already exists" that transcodes to 500 — so recover on either by
-            // reusing the existing version, and only rethrow if it genuinely isn't there.
-            if (!isHttpError(e) || (e.status !== 409 && e.status !== 500))
-                throw e;
-            const versions = await this.listCapabilityVersions(mcpId, projectId);
-            const existing = versions.find(v => v.version === versionLabel);
-            if (!existing)
-                throw e;
-            return existing;
-        }
-    }
-    async createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+    async createCapabilityVersion(capabilityId, projectId, versionLabel, prNumber, content) {
         const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`, {
             capabilityVersion: {
                 capabilityId,
                 version: versionLabel,
                 origin: 'pr',
                 notes: `Auto-created for PR #${prNumber}`,
-                skillContent: { files },
+                ...contentBody(content),
             },
         });
         const created = res.capabilityVersion;
         return { id: created.id, capabilityId: created.capabilityId, version: created.version };
     }
-    async createOrReuseSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+    async createOrReuseCapabilityVersion(capabilityId, projectId, versionLabel, prNumber, content) {
         try {
-            return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+            return await this.createCapabilityVersion(capabilityId, projectId, versionLabel, prNumber, content);
         }
         catch (error) {
             // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
@@ -34759,6 +34788,12 @@ class EvalForgeClient {
                 throw error;
             return existing;
         }
+    }
+    async createOrReuseSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+        return this.createOrReuseCapabilityVersion(capabilityId, projectId, versionLabel, prNumber, { kind: 'skill', files });
+    }
+    async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
+        return this.createOrReuseCapabilityVersion(mcpId, projectId, versionLabel, prNumber, { kind: 'mcp', url: this.buildMcpUrl(skillsRepo, headSha) });
     }
     // Without `names`: lists ALL scenarios via an empty-filter query (used by
     // promote / cleanup / run-all). With `names`: fetches only those scenarios —
@@ -35229,6 +35264,7 @@ __exportStar(__nccwpck_require__(3308), exports);
 __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
+__exportStar(__nccwpck_require__(1985), exports);
 
 
 /***/ }),
