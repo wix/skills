@@ -42,7 +42,7 @@ Keep two values from the `file` object: **`file.url`** (the full permanent `wixs
 body: { "importFileRequests": [ { "url": "<imageURL>", "mimeType": "image/png", "displayName": "<name>.png" }, … ] }
 ```
 
-Response is `{ "results": [ { "itemMetadata": { "originalIndex", "success" }, "item": { "url", "id", … } } ] }` — read each hit's **`item.url`** / **`item.id`** (same values as the single import's `file.url` / `file.id`) and its `itemMetadata.success`. The bulk path is `/bulk/files/import-v2`; the media manager has **no `/bulk/media/import` endpoint** (that returns a 404 HTML page).
+Response is `{ "results": [ { "itemMetadata": { "originalIndex", "success" }, "item": { "url", "id", … } } ] }` — read each hit's **`item.url`** / **`item.id`** (same values as the single import's `file.url` / `file.id`) and its `itemMetadata.success`.
 
 ## 3 · Attach (by entity type)
 
