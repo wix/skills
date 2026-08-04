@@ -69,12 +69,6 @@ Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **exactly** — i
 source of truth for how the client app is built against the Wix APIs (over the public
 `WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend).
 
-**Placement (this platform):** copy the ready-made REST files into the app's `src/rest/` — the
-shared transport `references/shared/wix-client.js` (set `WIX_CLIENT_ID` in it) plus your
-vertical's helper(s) `references/<vertical>/*.js`, **side by side** in that folder (the helper
-imports its sibling `./wix-client.js`). Adapt them with targeted edits; **don't re-generate them
-from scratch.** Generate only the app-specific UI.
-
 ## STEP 4 — Seed and manage the business
 
 Seed the site with real content by following the `wix-headless` skill's `references/SEED.md`
@@ -116,10 +110,9 @@ back to the `wix-docs` skill where the operation isn't documented there.
 
 After the site is built and seeded:
 
-1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): copy the
-   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
-   `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
-   `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
+1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): from the
+   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` to
+   your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
    builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
    guarantee: verify the gate actually holds in this stack, and that a production build never
    shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
