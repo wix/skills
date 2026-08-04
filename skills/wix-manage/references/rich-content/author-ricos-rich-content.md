@@ -33,8 +33,11 @@ Place spacer paragraphs at the root `nodes` level (or inside a `CARD` page) wher
 
 - **After headings** — before the following body copy or media block.
 - **Between paragraphs** — when two text blocks should not run together visually.
-- **After block plugins** — images, videos, audio, galleries, tables, collapsible lists, HTML embeds, buttons, dividers, lists, and blockquotes often need a spacer before the next section.
+- **After block plugins** — images, videos, audio, galleries, tables, collapsible lists, HTML embeds, buttons, dividers, and lists often need a spacer before the **next distinct section** (not between every adjacent block in a minimal snippet the user enumerated).
+- **After blockquotes** — only when the following block is a separate section; skip the spacer when the user asked for a blockquote immediately followed by a specific paragraph in one compact output.
 - **Before major sections** — optional extra spacer when transitioning from one content group to another.
+
+When the user requests **only** specific nodes in one JSON output (e.g. "a blockquote and then a paragraph"), include exactly those nodes — do not add spacer paragraphs they did not ask for.
 
 Do **not** rely on `\n` inside `textData.text` for spacing — that does not create a real line break between blocks. Do **not** expect `paragraphData` margins or `containerData` alone to separate unrelated sibling nodes; the empty paragraph is the supported spacing mechanism.
 
@@ -258,13 +261,13 @@ Do **not** rely on `\n` inside `textData.text` for spacing — that does not cre
         {
           "type": "COLLAPSIBLE_ITEM_TITLE",
           "nodes": [
-            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Question?", "decorations": [] } } ] }
+            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Question?", "decorations": [] } } ], "paragraphData": { "textStyle": { "textAlignment": "AUTO" } } }
           ]
         },
         {
           "type": "COLLAPSIBLE_ITEM_BODY",
           "nodes": [
-            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Answer text.", "decorations": [] } } ] }
+            { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Answer text.", "decorations": [] } } ], "paragraphData": { "textStyle": { "textAlignment": "AUTO" } } }
           ]
         }
       ]
