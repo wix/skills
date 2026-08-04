@@ -188,6 +188,8 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
   // GET /stores/v3/products/{id} read-back:
   "media": { "main": { "image": { "url": "https://static.wixstatic.com/media/…~mv2.png", "width": 1024, "height": 1024 }, "altText": "…" } }
   ```
+  - Wix **re-hosts** the image on attach, so the read-back `media.main.image.url` is a **new** `wixstatic.com` id — it won't equal the URL you sent. Verify it's *a* wixstatic URL, never string-equality against the imported one.
+  - The read-back can lag the PATCH by a beat: `media.main.image` may be briefly absent right after the `200`. Don't treat one empty read as failure — the `200` already confirmed it.
 - Send **one image per product** (primary); a larger gallery is out of scope for the seed.
 - **Never block on image failure** — skip and leave the product text-only.
 
