@@ -1,6 +1,6 @@
 ---
 name: "Flow: Stock Mover"
-description: Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing); this is a sub-step.
+description: "Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing); this is a sub-step."
 ---
 # Flow: Stock Mover Clearance
 
