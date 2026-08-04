@@ -6,11 +6,14 @@ const NOT_PASSED = new Set(['FAILED', 'ERROR']);
 /**
  * One outcome per scenario, from that scenario's iterations. `partial` rows are reconstructed
  * at cancel and never scored, so they are dropped before scoring — a scenario with nothing left
- * is omitted, which the classifier reads as unattributed rather than as a failure.
+ * is omitted, which the classifier reads as unattributed rather than as a failure. A row with an
+ * empty `scenarioId` is unidentifiable rather than unscored, but the same reasoning applies: it is
+ * dropped rather than folded into a synthetic `''`-keyed outcome that would blame a scenario that
+ * does not exist.
  */
 export function foldScenarioIterations(rows: EvalRunResultRow[]): ScenarioOutcome[] {
   const byScenario = new Map<string, EvalRunResultRow[]>();
-  for (const scoredRow of rows.filter(candidate => !candidate.partial)) {
+  for (const scoredRow of rows.filter(candidate => !candidate.partial && candidate.scenarioId !== '')) {
     const existing = byScenario.get(scoredRow.scenarioId);
     if (existing === undefined) byScenario.set(scoredRow.scenarioId, [scoredRow]);
     else existing.push(scoredRow);

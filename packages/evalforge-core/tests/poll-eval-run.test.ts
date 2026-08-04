@@ -9,6 +9,7 @@ const status = (state: string): EvalRunStatus => ({
     totalAssertions: 1, passed: 1, failed: 0, skipped: 0,
     errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
   },
+  results: [],
 });
 
 const noSleep = () => Promise.resolve();

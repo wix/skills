@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { foldScenarioIterations } from '../src/fold-scenario-iterations';
+import { scenarioPassed } from '../src/classify-change-impact';
 import type { EvalRunResultRow } from '../src/evalforge';
 
 const row = (overrides: Partial<EvalRunResultRow> = {}): EvalRunResultRow => ({
@@ -43,6 +44,19 @@ describe('foldScenarioIterations', () => {
     expect(foldScenarioIterations([row({ partial: true })])).toEqual([]);
   });
 
+  it('omits a row with an empty scenarioId rather than folding it into a synthetic outcome', () => {
+    expect(foldScenarioIterations([row({ scenarioId: '' })])).toEqual([]);
+  });
+
+  it('keeps a valid row when an empty-id row is mixed in, yielding exactly one outcome', () => {
+    const outcomes = foldScenarioIterations([
+      row({ scenarioId: 'sc-1' }),
+      row({ scenarioId: '' }),
+    ]);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].scenarioId).toBe('sc-1');
+  });
+
   it('keeps scenarios separate', () => {
     const outcomes = foldScenarioIterations([
       row({ scenarioId: 'sc-1' }),
@@ -74,5 +88,21 @@ describe('foldScenarioIterations', () => {
       row({ assertions: [{ assertionName: 'judge', assertionType: 'llm_judge', status: 'ERROR' }] }),
     ]);
     expect(outcomes[0].errors).toBe(1);
+  });
+
+  it('composes with scenarioPassed: an intermittent failure fails the folded scenario', () => {
+    const [outcome] = foldScenarioIterations([
+      row({ iterationIndex: 0 }),
+      row({ iterationIndex: 1, passed: 1, failed: 1 }),
+    ]);
+    expect(scenarioPassed(outcome)).toBe(false);
+  });
+
+  it('composes with scenarioPassed: all-green iterations pass the folded scenario', () => {
+    const [outcome] = foldScenarioIterations([
+      row({ iterationIndex: 0 }),
+      row({ iterationIndex: 1 }),
+    ]);
+    expect(scenarioPassed(outcome)).toBe(true);
   });
 });

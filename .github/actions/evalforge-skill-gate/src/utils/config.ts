@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
   DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
-  ensureHttps, safeGetSecret, getPrNumber,
+  DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -132,7 +132,7 @@ function getBaseSha(): string {
 
 /** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
 function getRunsPerScenario(): number {
-  const requested = getPositiveIntegerInput('runs-per-scenario', 1);
+  const requested = getPositiveIntegerInput('runs-per-scenario', DEFAULT_RUNS_PER_SCENARIO);
   if (requested <= MAX_RUNS_PER_SCENARIO) return requested;
   core.warning(
     `runs-per-scenario: ${requested} exceeds the API maximum of ${MAX_RUNS_PER_SCENARIO}, running `
@@ -179,6 +179,7 @@ export function getGateConfig(): GateConfig {
   const headSha = getHeadSha();
   const baseSha = getBaseSha();
   const evaluatedSha = getEvaluatedSha();
+  const shortSha = evaluatedSha.slice(0, 7);
 
   return {
     githubToken: safeGetSecret(core, 'github-token'),
@@ -201,9 +202,9 @@ export function getGateConfig(): GateConfig {
     prNumber,
     headSha,
     evaluatedSha,
-    versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    versionLabel: `pr-${prNumber}-${shortSha}`,
     baseSha,
-    comparisonGroupId: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    comparisonGroupId: `pr-${prNumber}-${shortSha}`,
     runsPerScenario: getRunsPerScenario(),
   };
 }

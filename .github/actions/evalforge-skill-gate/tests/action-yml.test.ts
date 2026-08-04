@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import {
   DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
+  DEFAULT_RUNS_PER_SCENARIO,
 } from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
@@ -20,7 +21,7 @@ describe('action.yml', () => {
       'mode', 'github-token', 'evalforge-url', 'evalforge-project-id',
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
-      'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking',
+      'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);
     }
@@ -38,6 +39,10 @@ describe('action.yml', () => {
     expect(action.inputs['max-scenarios'].default).toBe(String(DEFAULT_MAX_SCENARIOS));
     expect(action.inputs.blocking.default).toBe('false');
     expect(action.inputs['reference-dir'].default).toBe(DEFAULT_REFERENCE_DIR);
+  });
+
+  it('keeps runs-per-scenario in step with the core default', () => {
+    expect(action.inputs['runs-per-scenario'].default).toBe(String(DEFAULT_RUNS_PER_SCENARIO));
   });
 
   it('leaves gate-only inputs optional so sync mode needs none of them', () => {

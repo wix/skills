@@ -246,6 +246,8 @@ describe('getGateConfig — comparison fields', () => {
   it('derives a comparison group id from the evaluated commit, not the head', async () => {
     setInputs(REQUIRED_GATE_INPUTS);
     process.env.GITHUB_SHA = 'merge567890abc';
+    const core = await import('@actions/core');
+    vi.spyOn(core, 'warning').mockImplementation(() => {});
     const { getGateConfig } = await import('../src/utils/config');
     expect(getGateConfig().comparisonGroupId).toBe('pr-42-merge56');
   });
@@ -259,7 +261,7 @@ describe('getGateConfig — comparison fields', () => {
   it('clamps runsPerScenario to the API maximum of 20 with a warning', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, 'runs-per-scenario': '50' });
     const core = await import('@actions/core');
-    const warningSpy = vi.spyOn(core, 'warning');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
     const { getGateConfig, MAX_RUNS_PER_SCENARIO } = await import('../src/utils/config');
 
     expect(getGateConfig().runsPerScenario).toBe(MAX_RUNS_PER_SCENARIO);

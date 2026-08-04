@@ -92,6 +92,7 @@ const runMetrics = (
     errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
     ...overrides,
   },
+  results: [],
 });
 
 beforeEach(async () => {
