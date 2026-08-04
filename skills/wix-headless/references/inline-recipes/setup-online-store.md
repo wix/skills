@@ -16,7 +16,7 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `IMAGE_GENERATION.md` is in context.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
 
@@ -93,7 +93,7 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
-- **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
+- **Media — image generation is opt-in, no exception for stores.** **Always create products text-only here** — omit `media`. When `IMAGE_GENERATION.md` **is in context**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
@@ -158,7 +158,7 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
 
 ### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
+**Only when `IMAGE_GENERATION.md` is in context** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
 
 **The exact working call — do this per product (getting it right first time avoids a multi-round debug loop):**
 

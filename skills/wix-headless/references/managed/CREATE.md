@@ -79,7 +79,7 @@ Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mi
 
 Run the agnostic flow against the scaffolded site:
 - **`references/SETUP.md`** — install the apps the resolved `verticals[]` need.
-- **`references/SEED.md`** — create the backend content (and, if `imagery` is on, attach entity images).
+- **`references/SEED.md`** — create the backend content (and, if `IMAGE_GENERATION.md` is in context, attach entity images).
 
 ## 4 · Build the frontend (wired to the backend)
 
@@ -107,10 +107,10 @@ project, and bind them to the live backend content. Keep it scoped to what was a
 > **expected and harmless — never build, retry, or repair it, and never spend time diagnosing it**
 > (`astro.md` Caveat A9).
 
-If `imagery` is on and a surface needs an image (e.g. a homepage hero, an about-section visual),
+If `IMAGE_GENERATION.md` is in context and a surface needs an image (e.g. a homepage hero, an about-section visual),
 generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url` — up to the per-run
-`imageCap` (Discovery §4). Generate only what the pages actually use. For any slot **not** generated
-(imagery off, over the cap, or a generation failure), render the **themed-block fallback** — a styled
+`imageCap` (see `IMAGE_GENERATION.md` § "Credits, cost & the not-generating fallback"). Generate only what the pages actually use. For any slot **not** generated
+(image generation not opted in, over the cap, or a generation failure), render the **themed-block fallback** — a styled
 `div` on the site's design tokens — never an empty slot or a broken `<img>` (`IMAGE_GENERATION.md`).
 
 ## 5 · Build & release

@@ -1,9 +1,9 @@
 # Image generation (opt-in, all project types)
 
-A single reusable capability: generate an image with **Wix AI (Runware)** via the `wixapis.com` proxy, import it into Wix Media, and attach it where it's needed. **Opt-in** — only runs when `imagery` is on (resolved in `DISCOVERY.md`; default off → text-only). It's **agnostic to the project type**: it uses `$TOKEN`/`$SITE_ID` from the provided authentication mechanism, exactly like every other call.
+A single reusable capability: generate an image with **Wix AI (Runware)** via the `wixapis.com` proxy, import it into Wix Media, and attach it where it's needed. **Agnostic to project type** — uses `$TOKEN`/`$SITE_ID` from the provided authentication mechanism, exactly like every other call.
 
 Use it **intelligently, by need** — there's no fixed slot list:
-- **Entity images** — during Seed, attach images to seeded image-bearing entities (e.g. stores products, blog covers, CMS items, bookings services, restaurant items, portfolio projects + collection covers, event heroes — illustrative, not a write-shape index; each capability's recipe pins its own attach shape, see §3). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
+- **Entity images** — during Seed, attach images to seeded image-bearing entities (e.g. stores products, blog covers, CMS items, bookings services, restaurant items, portfolio projects + collection covers, event heroes — illustrative, not a write-shape index; each capability's recipe pins its own attach shape, see §3). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because `IMAGE_GENERATION.md` is not in context / it failed — then it stays text-only, which is fine).
 - **Contextual / decorative images** — when the skill is building a frontend (the create/connect flows) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
 
 ## 1 · Generate
@@ -59,10 +59,11 @@ Brand-contextual, never generic. Include: subject; the brand aesthetic/mood; the
 
 ## Credits, cost & the not-generating fallback
 
-Each generated image costs **1 Wix AI credit**, billed at the account level regardless of project type (the account behind the metasite must have credits). Volume is bounded in `DISCOVERY.md` §4 — carry those two values through:
+Each generated image costs **1 Wix AI credit**, billed at the account level regardless of project type (the account behind the metasite must have credits).
 
-- **Cost is surfaced** — the pre-work line states the plan in credits (*"~N images ≈ N credits"*). Keep the running count honest with that estimate.
-- **Honor the per-run `imageCap`** (default ~12, from Discovery). Generate up to the cap by priority (hero/most-visible surfaces first); **beyond the cap, don't generate — render the themed-block fallback** and log what was capped. Never silently exceed the cap on a "throughout"-style phrase.
+- **Surface the projected cost** in the brief pre-work line: state the plan in credits — *"~N images ≈ N Wix AI credits"* — so the spend is visible even when nobody asked about volume.
+- **Honor the per-run `imageCap`** (default **~12**). Generate up to the cap by priority (hero/most-visible surfaces first); **beyond the cap, don't generate — render the themed-block fallback** and log what was capped. Never silently exceed the cap on a "throughout"-style phrase.
+- **Confirm only when interactive *and* over the cap** — never a mandatory gate. A non-interactive run honors the cap and fills the rest with themed blocks; it never stalls.
 
 **Themed-block fallback (the not-generating path).** Whenever a **frontend** image isn't generated — imagery off, over the cap, declined, or a generation failure — render a **styled `div` that follows the site's design tokens** (palette, radius, spacing, an optional label/gradient) in the slot, never an empty gap or a broken `<img>`. It's deterministic, needs no input, never hangs — so it's the safe default for any non-interactive run and keeps the layout on-brand at zero credits. (A *seeded backend entity* with no image just stays text-only — there's no div to render server-side; `SEED.md` § "Entity images".)
 

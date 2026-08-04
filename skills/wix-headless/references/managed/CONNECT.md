@@ -39,7 +39,7 @@ Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mi
 ## 3 · Backend flow (shared)
 
 - **`references/SETUP.md`** — install the apps the resolved `verticals[]` need.
-- **`references/SEED.md`** — create the backend content (and, if `imagery` is on, attach entity images).
+- **`references/SEED.md`** — create the backend content (and, if `IMAGE_GENERATION.md` is in context, attach entity images).
 
 ## 4 · Wire the existing UI
 
@@ -56,9 +56,9 @@ then, with **additive** edits:
 - always guard SDK calls (try/catch + fallback) so a failed call never blanks the page.
 
 A run must end with the site actually reading from / writing to Wix — `init` + `release` with nothing
-wired is not an acceptable outcome. If `imagery` is on and a surface needs an image, generate it per
-**`references/IMAGE_GENERATION.md`** (up to the per-run `imageCap`, Discovery §4); for any slot not
-generated — off, over the cap, or a failure — render the **themed-block fallback** (a styled `div` on
+wired is not an acceptable outcome. If `IMAGE_GENERATION.md` is in context and a surface needs an image, generate it per
+**`references/IMAGE_GENERATION.md`** (up to the per-run `imageCap`; see `IMAGE_GENERATION.md` § "Credits, cost & the not-generating fallback"); for any slot not
+generated — image generation not opted in, over the cap, or a failure — render the **themed-block fallback** (a styled `div` on
 the design tokens), never an empty or broken slot.
 
 ## 5 · Build & release

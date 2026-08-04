@@ -132,7 +132,7 @@ Read **`item.priceInfo.price`** — a decimal **string** (`"9.50"`) with **no cu
 - The old top-level `item.price` is **deprecated** and reads `undefined` against seeded data → `$NaN` on the page. Always read `item.priceInfo.price`.
 - The SDK's `PriceInfo` type is **`{ price?: string }`** only. `item.priceInfo.formattedPrice` **does not type-check** (`TS2339`) — even though the REST response happens to include a `formattedPrice`, the SDK type omits it, and the frontend calls the SDK. Do **not** read `formattedPrice`; format the currency yourself from `price` (the amount carries no symbol).
 
-### Rendering images (only when imagery is on)
+### Rendering images (only when `IMAGE_GENERATION.md` is in context)
 
 Menus are seeded **text-only by default**, so `section.image` / `item.image` are usually **absent** — guard for that and render a text-only card when missing. **`image` is a bare STRING** (the SDK types both `Section.image` and `Item.image` as `image?: string`) — a media identifier, usually a `wix:image://…`, occasionally an already-absolute URL. It is **not** an object, so **never read `image.url`** (`TS2339` — the recipe's earlier draft got this wrong). Resolve a `wix:image://` string through the helper (never put it straight into `<img src>` — it fails with `ERR_UNKNOWN_URL_SCHEME`):
 

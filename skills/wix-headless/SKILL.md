@@ -87,7 +87,7 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 **Backend-only** (self-managed, stripe, or managed backend-only) — the lean spine:
 1. **Discovery** (`references/DISCOVERY.md`) — infer capabilities + brand + intent + imagery.
 2. **Setup** (`references/SETUP.md`) — **install** the Wix apps those capabilities need.
-3. **Seed** (`references/SEED.md`) — **create** the backend content (+ entity images if imagery is on).
+3. **Seed** (`references/SEED.md`) — **create** the backend content (+ entity images if `IMAGE_GENERATION.md` is in context).
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
