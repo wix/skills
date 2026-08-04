@@ -59,6 +59,14 @@ The best source for a skill is often a real agent conversation where the agent s
 
 Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill only when those sources are correct but still do not connect the dots for an agent. Keep the skill minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
 
+### Orchestration, not API shape
+
+A skill's job is orchestration: which APIs to call, in what order, what to decide between calls, and what to confirm with the user. Request and response shapes belong in the Wix docs, which the agent reads on demand — so write *"create the product first, then add options and choices to it; variants are generated from those, not passed in"* and let the agent look up the fields. Restating field names, enum values, or full request bodies creates a second source of truth that drifts as the API evolves; do it only when a detail is genuinely non-discoverable and the task fails without it.
+
+### Stay agnostic to agent and client
+
+You don't know which agent will read a skill, which client or provider it's running in, or which tools it has. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. Describe the capability you need, not the tool that provides it.
+
 For mutating flows, ask for user confirmation before changing site or account data unless the surrounding skill already makes the mutation an explicit user-confirmed action.
 
 ## PR Checklist
@@ -69,9 +77,12 @@ Before opening a PR, confirm:
 - Each skill's `description` is at most 1024 characters.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
-- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) plus an `llm_judge`.
-- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion plus an `llm_judge`.
+- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) on its doc URL.
+- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
 - The [wix-app eval gate](docs/skill-evaluation.md#wix-app-scenarios-the-pr-eval-gate) comment has been read: no uncovered tags, and any scenario you added or edited has at least 3 assertions including an `llm_judge`.
+- Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
+- The skill describes [orchestration](#orchestration-not-api-shape), leaving request/response shapes to the Wix docs.
+- The skill names no MCP tool, client, or provider — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.
