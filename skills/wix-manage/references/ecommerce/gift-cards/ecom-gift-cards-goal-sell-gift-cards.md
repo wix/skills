@@ -1,6 +1,6 @@
 ---
 name: "Goal: Sell Gift Cards"
-description: SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy orchestrator. Sizes a gift card product from the site's own AOV and catalog prices (preset denominations, custom amount range, expiration policy) and gates on the site already selling gift cards. Sub-step, NOT a direct entry point — load Recommend: eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking.
+description: "SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy orchestrator. Sizes a gift card product from the site's own AOV and catalog prices (preset denominations, custom amount range, expiration policy) and gates on the site already selling gift cards. Sub-step, NOT a direct entry point — load Recommend: eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking."
 references:
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
