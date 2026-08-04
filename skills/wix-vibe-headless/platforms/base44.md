@@ -32,8 +32,7 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
   the seeding recipes above don't cover.
 
-**Option A — skills CLI.** This is the Base44-verified install path — run it first via
-exec_tool, exactly as written:
+Install via the skills CLI — run this through exec_tool, exactly as written:
 
 ```js
 const { execSync } = require('child_process');
@@ -77,18 +76,7 @@ if (existsSync(REF)) {
 return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest };
 ```
 
-**Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
-do not skip Option A on a guess. Run via exec_tool:
-
-```js
-const { execSync } = require('child_process');
-for (const s of ['headless', 'vibe-headless', 'docs']) {
-  execSync(`mkdir -p /app/.agents/skills/wix-${s} && curl -s "https://www.wix.com/skills/${s}.tgz" | tar xz -C /app/.agents/skills/wix-${s} --strip-components=1`);
-}
-return 'done';
-```
-
-**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds (either option),
+**STEP 1b — pin the skill location in AGENTS.md.** After the install succeeds,
 run this via exec_tool exactly as written. It appends (never rewrites) a note so any later
 turn knows where the skills live without guessing, and is idempotent (re-running is a no-op):
 
@@ -123,7 +111,7 @@ if (!cur.includes('Wix-managed headless frontend')) fs.appendFileSync(amd, NOTE)
 return 'noted';
 ```
 
-Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
+You end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
 with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
 whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
 ~5000 chars and silently truncates, and web-fetch tools truncate/summarise. The path form depends
