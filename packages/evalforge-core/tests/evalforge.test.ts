@@ -254,6 +254,35 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
   });
 
+  it('carries the comparison group, label and runsPerScenario on the run', async () => {
+    mockFetch(({ body }) => {
+      expect((body as { evalRun?: unknown }).evalRun).toMatchObject({
+        comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'pr', runsPerScenario: 3,
+      });
+      return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createAndRunEvalRun('P', {
+      name: 'n', description: 'd', projectId: 'P', agentId: 'agent-1',
+      scenarioIds: ['sc-1'], capabilityIds: ['cap-1'],
+      capabilityVersions: { 'cap-1': 'ver-pr' },
+      comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'pr', runsPerScenario: 3,
+    });
+  });
+
+  it('omits capabilityVersions entirely when no version is pinned', async () => {
+    mockFetch(({ body }) => {
+      expect('capabilityVersions' in (body as { evalRun: object }).evalRun).toBe(false);
+      return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createAndRunEvalRun('P', {
+      name: 'n', description: 'd', projectId: 'P', agentId: 'agent-1',
+      scenarioIds: ['sc-1'], capabilityIds: ['cap-1'],
+      comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'base',
+    });
+  });
+
   it('triggerEvalRun is a no-op returning the run id (no network call)', async () => {
     mockFetch(() => ({ status: 500 })); // would fail if called
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);

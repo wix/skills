@@ -74,6 +74,11 @@ export type EvalRunInput = {
   };
   capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
+  /** These three sit on the `EvalRun` message itself — RunEvaluation takes an EvalRun wholesale,
+   * so there is no separate compare endpoint to call. */
+  comparisonGroupId?: string;
+  comparisonLabel?: string;
+  runsPerScenario?: number;
 };
 
 export type EvalRunCreated = { id: string; status: RunStatus };
@@ -493,6 +498,9 @@ export class EvalForgeClient {
           filter: input.filter,
           capabilityIds: input.capabilityIds,
           capabilityVersions: input.capabilityVersions,
+          comparisonGroupId: input.comparisonGroupId,
+          comparisonLabel: input.comparisonLabel,
+          runsPerScenario: input.runsPerScenario,
         },
       },
     );
