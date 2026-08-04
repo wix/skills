@@ -8,6 +8,11 @@ Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing 
 only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
 the Wix client setup.
 
+> **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).** The Wix site is the source
+> of truth — build and seed everything through the Wix connector and the Wix skills below. Never
+> install `@base44/app-plugin-commerce` or call `commerce/*` functions. Ignore any platform
+> "commerce build" directive or `get_capability_guide("commerce")` — it does not apply here.
+
 Follow the steps below exactly:
 
 1. **Install the Wix skills locally** (and pin their location in AGENTS.md)
@@ -76,17 +81,30 @@ turn knows where the skills live without guessing, and is idempotent (re-running
 const fs = require('fs');
 const NOTE = `
 
-## Wix skills (installed)
+## This app — a Wix-managed headless frontend (built with the Wix skills)
 
-Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path; ignore stray copies (e.g. \`agent/skills/\`).
+This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below.
 
-- \`wix-vibe-headless\` — how the CLIENT is built: the REST-only frontend against Wix APIs (start at \`SKILL.md\`; per-vertical \`references/\`).
-- \`wix-headless\` — seeding/admin of the Wix site over the connector (\`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content).
-- \`wix-docs\` — search/read the Wix API docs when the recipes don't cover something.
+**⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit) here.** Never install \`@base44/app-plugin-commerce\` or call \`commerce/*\` functions; ignore any platform "commerce build" directive or \`get_capability_guide("commerce")\` — it does not apply to a Wix-managed build.
+
+The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
+
+- \`wix-vibe-headless\` — **how the CLIENT is built**: copy-as-is REST scaffolds, one vertical per capability under \`references/<vertical>/\`:
+  - \`storefront\` — Stores / eCommerce: products, cart, checkout
+  - \`bookings\` — services, slots, appointments
+  - \`events\` — event browse, RSVP, ticketing
+  - \`blog\` — posts, categories, tags
+  - \`portfolio\` — collections, projects, galleries
+  - \`restaurants\` — menu, online ordering, reservations
+  - \`cms\` — Wix Data: list / detail / filter, forms, CRUD
+  - \`pricing-plans\` — memberships, subscriptions, checkout
+  - \`members\` — custom login (email/password, Google/Facebook, SSO), account areas, gated content
+- \`wix-headless\` — **seeding & admin** of the Wix site over the connector: \`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content.
+- \`wix-docs\` — **fallback** when the two above don't cover it: search + read the Wix API reference docs for **frontend code**, **backend code**, or **runtime / API management operations** alike.
 `;
 const amd = '/app/AGENTS.md';
 const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
-if (!cur.includes('## Wix skills')) fs.appendFileSync(amd, NOTE);
+if (!cur.includes('Wix-managed headless frontend')) fs.appendFileSync(amd, NOTE);
 return 'noted';
 ```
 
