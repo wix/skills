@@ -170,12 +170,12 @@ source of truth for how the client app is built.
 
 **All the REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
 (`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`,
-`wix-bookings-services.js`, …) there. **Do not regenerate or re-copy them** (ignore SKILL.md's
-"copy it into src/rest" step — already done). Just **use your vertical's files** from `src/rest/`
-(e.g. a store uses `wix-store-catalog.js` + `wix-store-cart.js`), set `WIX_CLIENT_ID` in
-`src/rest/wix-client.js` and `WIX_METASITE_ID` in `wix-manage-banner.js`, and adapt with targeted
-edits. Files for other verticals are harmless (unused → dropped by the bundler); leave or delete
-them. Generate from scratch only the app-specific UI (components/pages).
+`wix-bookings-services.js`, …) there, so SKILL.md's "get them into `src/rest/`" step is already
+done. **Use your vertical's files** from `src/rest/` (e.g. a store uses `wix-store-catalog.js` +
+`wix-store-cart.js`), set `WIX_CLIENT_ID` in `src/rest/wix-client.js` and `WIX_METASITE_ID` in
+`wix-manage-banner.js`, and adapt with targeted edits — **do not regenerate them**. Files for
+other verticals are harmless (unused → dropped by the bundler); leave or delete them. Generate
+from scratch only the app-specific UI (components/pages).
 
 **`src/App.jsx`: edit surgically, never rewrite.** On Base44 it carries required platform auth
 scaffolding (the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a
