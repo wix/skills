@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
@@ -179,7 +180,6 @@ export function getGateConfig(): GateConfig {
   const headSha = getHeadSha();
   const baseSha = getBaseSha();
   const evaluatedSha = getEvaluatedSha();
-  const shortSha = evaluatedSha.slice(0, 7);
 
   return {
     githubToken: safeGetSecret(core, 'github-token'),
@@ -202,9 +202,11 @@ export function getGateConfig(): GateConfig {
     prNumber,
     headSha,
     evaluatedSha,
-    versionLabel: `pr-${prNumber}-${shortSha}`,
+    versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
     baseSha,
-    comparisonGroupId: `pr-${prNumber}-${shortSha}`,
+    /** Fresh per gate execution: EvalForge's comparison-group read returns the group whole with no
+     * paging, so a stable id would accumulate runs across re-runs of the same PR. */
+    comparisonGroupId: randomUUID(),
     runsPerScenario: getRunsPerScenario(),
   };
 }

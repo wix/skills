@@ -243,13 +243,21 @@ describe('getGateConfig — comparison fields', () => {
     }
   });
 
-  it('derives a comparison group id from the evaluated commit, not the head', async () => {
+  it('generates a comparisonGroupId shaped like a UUID v4', async () => {
     setInputs(REQUIRED_GATE_INPUTS);
-    process.env.GITHUB_SHA = 'merge567890abc';
-    const core = await import('@actions/core');
-    vi.spyOn(core, 'warning').mockImplementation(() => {});
     const { getGateConfig } = await import('../src/utils/config');
-    expect(getGateConfig().comparisonGroupId).toBe('pr-42-merge56');
+    expect(getGateConfig().comparisonGroupId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it('generates a different comparisonGroupId on each call, so re-running a PR cannot accumulate '
+    + 'runs into the same EvalForge comparison group', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const { getGateConfig } = await import('../src/utils/config');
+    const first = getGateConfig();
+    const second = getGateConfig();
+    expect(first.comparisonGroupId).not.toBe(second.comparisonGroupId);
   });
 
   it('defaults runsPerScenario to 1', async () => {
