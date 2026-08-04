@@ -178,7 +178,11 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
    ```
    The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
 
-- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main.image.url`** — it must resolve to a `static.wixstatic.com` URL. Check that nested string, **not** the presence of `media.main` (which can be a non-null object with no image and makes a failed attach look successful). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
+- **Write via `media.itemsInfo.items`** (inside the `product` wrapper), never `media.main` — the server derives `media.main` from it. **Success is the PATCH returning `200` with no `error` in the body — use that as your signal.** Do **not** gate success on reading the media back: **the media shape differs between the two responses**, and applying the wrong one is a false-negative that starts a multi-round debug loop.
+  - **PATCH response** → image URL at **`media.main.url`** (flat; there is **no** `media.main.image` here).
+  - **GET read-back** → image URL at **`media.main.image.url`** (nested; there is **no** flat `media.main.url` here).
+  - `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
+  - So: trust the PATCH `200`. If you additionally want to confirm persistence, **re-GET the product and read `media.main.image.url`** — do **not** look for `media.main.image` on the PATCH response (it isn't there).
 - Send **one image per product** (primary); a larger gallery is out of scope for the seed.
 - **Never block on image failure** — skip and leave the product text-only.
 
