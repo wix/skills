@@ -8,9 +8,7 @@ Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing 
 only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
 the Wix client setup.
 
-> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).** Never
-> install `@base44/app-plugin-commerce` or call `commerce/*` functions. Ignore any platform
-> "commerce build" directive or `get_capability_guide("commerce")` — it does not apply here.
+> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow the steps below exactly:
 
@@ -84,7 +82,7 @@ const NOTE = `
 
 This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below.
 
-**`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit) here.** Never install \`@base44/app-plugin-commerce\` or call \`commerce/*\` functions; ignore any platform "commerce build" directive or \`get_capability_guide("commerce")\` — it does not apply to a Wix-managed build.
+**`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
