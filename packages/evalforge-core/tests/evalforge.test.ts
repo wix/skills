@@ -333,12 +333,13 @@ describe('getEvalRun — per-scenario results', () => {
     expect(status.results[0].partial).toBe(false);
   });
 
-  it('defaults iterationIndex to 0 when absent', async () => {
+  it('defaults iterationIndex to 0 when absent, and assertions to [] when assertionResults is absent', async () => {
     const withoutIndex = { evalRun: { ...resultsBody.evalRun, results: [{ scenarioId: 'sc-1', scenarioName: 'x' }] } };
     mockFetch(() => ({ status: 200, body: withoutIndex }));
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     const status = await c.getEvalRun('proj-1', 'run-1');
     expect(status.results[0].iterationIndex).toBe(0);
+    expect(status.results[0].assertions).toEqual([]);
   });
 
   it('tolerates a response with no results array at all', async () => {
@@ -348,6 +349,68 @@ describe('getEvalRun — per-scenario results', () => {
     const status = await c.getEvalRun('proj-1', 'run-1');
     expect(status.results).toEqual([]);
     expect(status.aggregateMetrics.totalAssertions).toBe(0);
+  });
+
+  it('tolerates a null entry inside results, yielding a safe empty row', async () => {
+    const withNullEntry = { evalRun: { ...resultsBody.evalRun, results: [null] } };
+    mockFetch(() => ({ status: 200, body: withNullEntry }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([
+      { scenarioId: '', scenarioName: '', passed: 0, failed: 0, partial: false, iterationIndex: 0, assertions: [] },
+    ]);
+  });
+
+  it('tolerates a null entry inside assertionResults, yielding a safe empty assertion outcome', async () => {
+    const withNullAssertion = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{ scenarioId: 'sc-1', scenarioName: 'x', assertionResults: [null] }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNullAssertion }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions).toEqual([
+      { assertionName: '(unnamed)', assertionType: 'unknown', status: 'ERROR' },
+    ]);
+  });
+
+  it('tolerates assertionResults arriving as a non-array', async () => {
+    const withNonArrayAssertions = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{ scenarioId: 'sc-1', scenarioName: 'x', assertionResults: {} }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNonArrayAssertions }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions).toEqual([]);
+  });
+
+  it('tolerates results arriving as a non-array', async () => {
+    const withNonArrayResults = { evalRun: { id: 'run-1', status: 'RUNNING', results: {} } };
+    mockFetch(() => ({ status: 200, body: withNonArrayResults }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([]);
+  });
+
+  it('falls back an unrecognised assertion status to ERROR', async () => {
+    const withUnknownStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't', status: 'BOGUS' }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withUnknownStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('ERROR');
   });
 });
 

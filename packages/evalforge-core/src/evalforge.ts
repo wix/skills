@@ -211,24 +211,40 @@ type RawEvalRun = {
   results?: RawEvalRunResult[];
 };
 
-function toAssertionOutcome(rawAssertionResult: RawAssertionResult): AssertionOutcome {
+// Guards against a wire array field being absent, null, or (in a malformed
+// response) present but not actually an array — any of which would otherwise
+// crash `.map` mid-poll rather than degrade to an empty result.
+function toRowArray<Row>(value: unknown): Row[] {
+  return Array.isArray(value) ? value as Row[] : [];
+}
+
+const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'] as const;
+
+// Validates against the known enum rather than casting, so a typo'd or novel
+// wire value doesn't silently type-check as one of the four literals and
+// defeat an exhaustive switch over AssertionOutcome['status'].
+function toAssertionStatus(rawStatus: string | undefined): AssertionOutcome['status'] {
+  return ASSERTION_STATUSES.find(candidate => candidate === rawStatus) ?? 'ERROR';
+}
+
+function toAssertionOutcome(rawAssertionResult: RawAssertionResult | null | undefined): AssertionOutcome {
   return {
-    assertionName: rawAssertionResult.assertionName ?? '(unnamed)',
-    assertionType: rawAssertionResult.assertionType ?? 'unknown',
-    status: (rawAssertionResult.status ?? 'ERROR') as AssertionOutcome['status'],
-    ...(rawAssertionResult.message === undefined ? {} : { message: rawAssertionResult.message }),
+    assertionName: rawAssertionResult?.assertionName ?? '(unnamed)',
+    assertionType: rawAssertionResult?.assertionType ?? 'unknown',
+    status: toAssertionStatus(rawAssertionResult?.status),
+    ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
   };
 }
 
-function toResultRow(rawResult: RawEvalRunResult): EvalRunResultRow {
+function toResultRow(rawResult: RawEvalRunResult | null | undefined): EvalRunResultRow {
   return {
-    scenarioId: rawResult.scenarioId ?? '',
-    scenarioName: rawResult.scenarioName ?? '',
-    passed: rawResult.passed ?? 0,
-    failed: rawResult.failed ?? 0,
-    partial: rawResult.partial ?? false,
-    iterationIndex: rawResult.iterationIndex ?? 0,
-    assertions: (rawResult.assertionResults ?? []).map(toAssertionOutcome),
+    scenarioId: rawResult?.scenarioId ?? '',
+    scenarioName: rawResult?.scenarioName ?? '',
+    passed: rawResult?.passed ?? 0,
+    failed: rawResult?.failed ?? 0,
+    partial: rawResult?.partial ?? false,
+    iterationIndex: rawResult?.iterationIndex ?? 0,
+    assertions: toRowArray<RawAssertionResult>(rawResult?.assertionResults).map(toAssertionOutcome),
   };
 }
 
@@ -509,7 +525,7 @@ export class EvalForgeClient {
         avgDuration: m.avgDuration ?? 0,
         totalDuration: m.totalDuration ?? 0,
       },
-      results: (r.results ?? []).map(toResultRow),
+      results: toRowArray<RawEvalRunResult>(r.results).map(toResultRow),
     };
   }
 
