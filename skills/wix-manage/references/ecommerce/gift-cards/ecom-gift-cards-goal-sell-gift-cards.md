@@ -272,12 +272,13 @@ Omit `giftCardProduct.expirationMonths` entirely when there's no expiry. Do not 
 
 ### Field rules
 
-The orchestrator's own field rules apply (`title` ≤ 200 chars English, `reasoning` ≤ 2000 chars English naming its source calls, `id`/`revision` from `BatchCreate`). Gift-card specifics:
+The orchestrator's own field rules apply (`title` ≤ 200 chars English, `id`/`revision` from `BatchCreate`). Gift-card specifics:
 
 | Field | Rule |
 |---|---|
 | `domain` / `action` | Always `"gift_cards"` / `"create_gift_card_product"`. |
 | `urgency` | `HIGH`, `MEDIUM`, or `LOW` — per Step 2c. Never `CRITICAL`. |
+| `reasoning` | Max 2000 chars, English. Must name the source call for every number. |
 | `params.shortTitle` | Max 50 chars, ~5 words. English. |
 | `name`, `description` | Customer-facing — in `siteData.language`, not English. |
 | All amounts | Decimal strings in `siteData.currency`, no symbol in the value. |
@@ -312,8 +313,8 @@ Currency comes from the site's default — the request carries bare amounts, not
 | Error | Cause | Fix |
 |---|---|---|
 | `GIFT_CARD_PRODUCT_ALREADY_EXISTS` (409) | A product exists — Step 1 was skipped or raced | Drop the domain; route to Update Gift Card Product |
-| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS` (428) | No presets and no custom variant | Validation check 5 |
-| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_INVALID_CUSTOM_AMOUNTS_RANGE` (400) | `minValue >= maxValue` | Validation check 7 |
+| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS` (428) | No presets and no custom variant | Validation check 4 |
+| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_INVALID_CUSTOM_AMOUNTS_RANGE` (400) | `minValue >= maxValue` | Validation check 4 |
 | `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_PAST_EXPIRATION_DATE` (428) | A `FIXED` expiry date in the past | This goal never uses `FIXED` — use `RELATIVE` |
 | `403` / app not installed on QueryGiftCardProducts | Wix Gift Cards unavailable on the site | Report the blocker; do not work around it |
 | `RECOMMENDATION_SUPPRESSED` (400) | `create_gift_card_product` permanently rejected for this site | Never re-propose; tell the merchant it's suppressed |
