@@ -36,6 +36,14 @@ body: { "url": "<imageURL from generate>", "mimeType": "image/png", "displayName
 
 Keep two values from the `file` object: **`file.url`** (the full permanent `wixstatic.com` URL) and **`file.id`** (the WixMedia file id, e.g. `<hash>~mv2.jpg`). Some entities bind by url, others by id — **which one a given entity uses is the recipe's concern** (§3), not this common section's. (The import response has **no `fileUrl` field** — the id is `file.id`.)
 
+**Importing several images? Use one bulk call, not N singles** — `POST https://www.wixapis.com/site-media/v1/bulk/files/import-v2` (≤100 per call):
+
+```
+body: { "importFileRequests": [ { "url": "<imageURL>", "mimeType": "image/png", "displayName": "<name>.png" }, … ] }
+```
+
+Response is `{ "results": [ { "itemMetadata": { "originalIndex", "success" }, "item": { "url", "id", … } } ] }` — read each hit's **`item.url`** / **`item.id`** (same values as the single import's `file.url` / `file.id`) and its `itemMetadata.success`. The bulk path is `/bulk/files/import-v2`; the media manager has **no `/bulk/media/import` endpoint** (that returns a 404 HTML page).
+
 ## 3 · Attach (by entity type)
 
 The pass-2 **write shape is per-entity earned knowledge and lives in each capability's seed recipe** — right next to the create shape the seeder already reads (`inline-recipes/setup-<capability>.md`). **That recipe is authoritative** — read the exact shape there (field paths, any required companion fields, silent-drop warnings, confirm-by-requery), not here. This section is navigation only and carries no shapes:
