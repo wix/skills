@@ -15,10 +15,44 @@ Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON.
 - Every node carries a `type`, an optional `id`, and (for container nodes) a `nodes` array of children. Node `id`s are optional when authoring for a create request — the API generates them; the examples below omit `id` for brevity.
 - **TEXT is a leaf.** A TEXT node only ever lives inside a `PARAGRAPH`, `HEADING`, or `CODE_BLOCK`. It must **never** sit directly in the root `nodes` array or inside a `LIST_ITEM`, `BLOCKQUOTE`, or `TABLE_CELL` — those must contain a `PARAGRAPH` (or `HEADING`) that then contains the TEXT. See [Nesting rules](#nesting-rules).
 - Failing to wrap TEXT correctly produces the parse error **"Expected a paragraph node but found TEXT"**.
+- **Block nodes do not get automatic vertical gap when rendered** — insert empty `PARAGRAPH` spacer nodes between sibling blocks when you need breathing room. See [Vertical spacing between blocks](#vertical-spacing-between-blocks).
+
+## Vertical spacing between blocks
+
+The renderer does **not** add margin between stacked block nodes. Adjacent paragraphs, headings, images, videos, tables, collapsible lists, buttons, galleries, and other blocks will sit flush against each other unless you separate them explicitly.
+
+**Use an empty `PARAGRAPH` as a spacer** — a paragraph with no `nodes` (no TEXT children):
+
+```json
+{ "type": "PARAGRAPH" }
+```
+
+Place spacer paragraphs at the root `nodes` level (or inside a `CARD` page) wherever layout needs vertical rhythm:
+
+- **After headings** — before the following body copy or media block.
+- **Between paragraphs** — when two text blocks should not run together visually.
+- **After block plugins** — images, videos, audio, galleries, tables, collapsible lists, HTML embeds, buttons, dividers, lists, and blockquotes often need a spacer before the next section.
+- **Before major sections** — optional extra spacer when transitioning from one content group to another.
+
+Do **not** rely on `\n` inside `textData.text` for spacing — that does not create a real line break between blocks. Do **not** expect `paragraphData` margins or `containerData` alone to separate unrelated sibling nodes; the empty paragraph is the supported spacing mechanism.
+
+**Example — spacer after an image and before a table:**
+
+```json
+{
+  "nodes": [
+    { "type": "IMAGE", "imageData": { /* … */ } },
+    { "type": "PARAGRAPH" },
+    { "type": "TABLE", "nodes": [ /* … */ ], "tableData": { /* … */ } },
+    { "type": "PARAGRAPH" },
+    { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Next section.", "decorations": [] } } ], "paragraphData": {} }
+  ]
+}
+```
 
 ## Block node shapes
 
-**PARAGRAPH** — the base text container. An empty paragraph — `{ "type": "PARAGRAPH" }` — acts as a vertical spacer. `paragraphData.textStyle.textAlignment` accepts `AUTO`·`LEFT`·`CENTER`·`RIGHT`·`JUSTIFY`:
+**PARAGRAPH** — the base text container. An empty paragraph — `{ "type": "PARAGRAPH" }` — is the **vertical spacer** between block nodes (the renderer adds no gap on its own). See [Vertical spacing between blocks](#vertical-spacing-between-blocks). `paragraphData.textStyle.textAlignment` accepts `AUTO`·`LEFT`·`CENTER`·`RIGHT`·`JUSTIFY`:
 
 ```json
 {
@@ -373,3 +407,4 @@ All decidable from the JSON itself — check before handing the document to a co
 10. **Collapsible lists** — every item has both `_TITLE` and `_BODY`, each wrapping content through `PARAGRAPH → TEXT` at minimum.
 11. **HTML embeds** — `htmlData` includes `containerData` sizing and either `url` or `html` (not both empty).
 12. **Spoiler** — `SPOILER` is a decoration on `TEXT` (or `containerData.spoiler` on some block plugins in editor output); preserve it verbatim on edit.
+13. **Vertical spacing** — stacked block nodes that should not appear cramped are separated by empty `{ "type": "PARAGRAPH" }` spacers — especially after images, videos, tables, collapsible lists, galleries, buttons, and between consecutive paragraphs. Missing spacers produce a wall-of-blocks layout with no renderer-added margin.
