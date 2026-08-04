@@ -19,7 +19,7 @@ export type ScenarioImpact = {
   scenarioName: string;
   impact: ImpactClass;
   prPassed: boolean;
-  failingAssertionNames: string[];
+  failingAssertionNames?: string[];
 };
 
 export type ChangeImpact = {
@@ -64,7 +64,9 @@ export function classifyChangeImpact(
         ? 'unattributed'
         : classifyOne(prPassed, scenarioPassed(baseOutcome)),
       prPassed,
-      failingAssertionNames: prOutcome.failingAssertionNames ? [...prOutcome.failingAssertionNames] : [],
+      ...(prOutcome.failingAssertionNames === undefined
+        ? {}
+        : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
     };
   });
 

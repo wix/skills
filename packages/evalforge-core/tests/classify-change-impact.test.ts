@@ -102,7 +102,7 @@ describe('classifyChangeImpact', () => {
     delete outcomeWithoutNames.failingAssertionNames;
     const impact = classifyChangeImpact([outcomeWithoutNames], [outcome('a', false)]);
     expect(impact.scenarios[0].impact).toBe('fixed');
-    expect(impact.scenarios[0].failingAssertionNames).toEqual([]);
+    expect('failingAssertionNames' in impact.scenarios[0]).toBe(false);
   });
 
   it('treats an empty base arm the same as an unmeasured one', () => {
