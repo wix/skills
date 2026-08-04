@@ -98,7 +98,7 @@ The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from th
   - \`pricing-plans\` — memberships, subscriptions, checkout
   - \`members\` — custom login (email/password, Google/Facebook, SSO), account areas, gated content
 - \`wix-headless\` — **seeding & admin** of the Wix site over the connector: \`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content.
-- \`wix-docs\` — **fallback** when the two above don't cover it, for **both** frontend REST calls **and** backend / runtime Wix API management operations: search + read the Wix API reference docs.
+- \`wix-docs\` — **fallback** when the two above don't cover it: search + read the Wix API reference docs for **frontend code**, **backend code**, or **runtime / API management operations** alike.
 `;
 const amd = '/app/AGENTS.md';
 const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
