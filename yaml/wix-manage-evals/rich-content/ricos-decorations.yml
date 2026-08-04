@@ -13,7 +13,7 @@ assertions:
     prompt: |
       Inspect the produced Ricos JSON for a blockquote and a decorated paragraph.
 
-      Score 9-10: a BLOCKQUOTE node wraps a PARAGRAPH (not a bare TEXT); the final paragraph splits into multiple TEXT runs where the "full guide" run carries BOTH a BOLD decoration (`{ "type": "BOLD", "fontWeightValue": 700 }`) and a LINK decoration (`{ "type": "LINK", "linkData": { "link": { "url": "https://example.com/guide", "target": "BLANK" } } }`), while the surrounding words are separate plain TEXT runs; every `type` is a bare string.
+      Score 9-10: a BLOCKQUOTE node wraps a PARAGRAPH (not a bare TEXT); the final paragraph splits into multiple TEXT runs where the "full guide" run carries BOTH a BOLD decoration (`{ "type": "BOLD", "fontWeightValue": 700 }`) and a LINK decoration (`{ "type": "LINK", "linkData": { "link": { "url": "https://example.com/guide", "target": "BLANK" } } }`), while the surrounding words are separate plain TEXT runs; no extra empty spacer PARAGRAPH nodes between the blockquote and the decorated paragraph unless the user asked for spacing; every `type` is a bare string.
       Score 6-8: bold + link applied to the right words but a detail is off (e.g. the whole sentence is one run instead of split, or `target` missing).
       Score 3-5: the BLOCKQUOTE contains a bare TEXT (no PARAGRAPH), OR bold and link are not both applied, OR the link data is malformed.
       Score 0-2: no blockquote/decorations, or prose/plain-text output.
