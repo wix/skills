@@ -153,9 +153,9 @@ installed, not what the business is about. Never default to store/bookings on si
 2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
    **ask or check the site** (see above) instead of guessing. Open each picked vertical's
    `INSTRUCTIONS.md`.
-3. **Copy the two files per vertical** — `shared/wix-client.js` (once) + the vertical helper —
-   into the app's `src/rest/` (adjust only the import path if the app uses a different folder),
-   and set `WIX_CLIENT_ID`.
+3. **Ensure the two files per vertical are in place** — `shared/wix-client.js` (once) + the
+   vertical helper, side by side — and set `WIX_CLIENT_ID`. (Where they live and how they get
+   there is your platform's call — see its instructions.)
 4. **Wire the UI** to the exported helpers following the vertical's INSTRUCTIONS. Build the UI
    however the project wants — these scaffolds ship the REST layer only, no components.
 5. **Verify** against the vertical's checklist before declaring done: token persists across
