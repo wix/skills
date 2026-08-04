@@ -4,6 +4,7 @@ import type { SyncError } from './plan-pr-scenario-sync';
 import type { ScenarioSelection } from './select-scenarios';
 import type { RunVerdict } from './evaluate-run-result';
 import { parseDraftTag, type EvalRunStatus } from './evalforge';
+import type { ChangeImpact, ImpactClass } from './classify-change-impact';
 
 export const GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
 const HEADING = 'EvalForge Skill Gate';
@@ -147,6 +148,76 @@ export function formatForeignDraftConflicts(errors: SyncError[], blocking: boole
   ]);
 }
 
+/**
+ * Two `Record<ImpactClass, string>` maps rather than a switch: a new `ImpactClass` then fails to
+ * compile here until it is given both an icon and a meaning, instead of silently rendering nothing.
+ */
+const IMPACT_ICON: Record<ImpactClass, string> = {
+  fixed: '✅',
+  'newly-broken': '❌',
+  'still-passing': '➖',
+  'still-failing': '⚠️',
+  unattributed: '❔',
+};
+
+const IMPACT_MEANING: Record<ImpactClass, string> = {
+  fixed: 'Failed against `main`, passes on this PR — this change fixed it.',
+  'newly-broken': 'Passed against `main`, fails on this PR — caused by this change.',
+  'still-passing': 'Passed on both `main` and this PR — unaffected by this change.',
+  'still-failing': 'Fails on both `main` and this PR — pre-existing, not caused by this change.',
+  unattributed: 'No comparable result from `main` to classify against.',
+};
+
+function failingAssertionsNote(failingAssertionNames: string[] | undefined): string {
+  if (failingAssertionNames === undefined || failingAssertionNames.length === 0) return '';
+  return ` Failing: ${failingAssertionNames.map(name => `\`${name}\``).join(', ')}.`;
+}
+
+/**
+ * The section that reports the fixed/newly-broken/still-failing delta against `main`. Absent
+ * `impact` means an old caller that has no comparison to offer — the section is skipped so its
+ * output stays byte-identical to before this field existed. Once a caller does pass `impact`, a
+ * failed base arm (`attributionAvailable: false`) still gets an explicit "unavailable" line rather
+ * than silence, so it reads as "no comparison was attempted" rather than "nothing happened".
+ */
+function impactSection(impact: ChangeImpact | undefined): string[] {
+  if (impact === undefined) return [];
+
+  if (!impact.attributionAvailable) {
+    return [
+      '',
+      '**Impact vs `main`:** unavailable — the base run produced no comparable results, so scenarios could not be classified as fixed, newly broken, or pre-existing.',
+    ];
+  }
+
+  const summary = `**Impact vs \`main\`:** ${count(impact.fixed, 'scenario')} fixed, `
+    + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillFailing, 'scenario')} still failing, `
+    + `${count(impact.unattributed, 'scenario')} unattributed — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
+
+  const allStillPassing = impact.scenarios.length > 0 && impact.stillPassing === impact.scenarios.length;
+  if (allStillPassing) {
+    return [
+      '',
+      summary,
+      '',
+      'Every scenario passed on both this PR and `main` — this change moved nothing measurable.',
+    ];
+  }
+
+  return [
+    '',
+    summary,
+    '',
+    '| Scenario | Impact | Meaning |',
+    '|---|---|---|',
+    ...impact.scenarios.map(scenario => {
+      const icon = IMPACT_ICON[scenario.impact];
+      const meaning = IMPACT_MEANING[scenario.impact];
+      return `| ${icon} \`${scenario.scenarioName}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
+    }),
+  ];
+}
+
 export function formatGateResult(input: {
   metrics: EvalRunStatus['aggregateMetrics'];
   verdict: RunVerdict;
@@ -158,6 +229,7 @@ export function formatGateResult(input: {
   unmapped: string[];
   broadImpact: boolean;
   blocking: boolean;
+  impact?: ChangeImpact;
 }): string {
   const { metrics, verdict, selection } = input;
   const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
@@ -198,7 +270,7 @@ export function formatGateResult(input: {
     );
   }
 
-  body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+  body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped), ...impactSection(input.impact));
   if (!verdict.passed) body.push(...soakNote(input.blocking));
 
   return render(icon, label, body);

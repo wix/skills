@@ -5,12 +5,36 @@ import {
   formatGateServiceError, formatGateSkipped,
 } from '../src/format-gate-comment';
 import type { EvalRunStatus } from '../src/evalforge';
+import type { ChangeImpact, ScenarioImpact } from '../src/classify-change-impact';
 
 const metrics = (overrides: Partial<EvalRunStatus['aggregateMetrics']> = {}): EvalRunStatus['aggregateMetrics'] => ({
   totalAssertions: 5, passed: 5, failed: 0, skipped: 0,
   errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
   ...overrides,
 });
+
+const scenarioImpact = (overrides: Partial<ScenarioImpact> = {}): ScenarioImpact => ({
+  scenarioId: 'id-a', scenarioName: 'covers', impact: 'still-passing', prPassed: true,
+  ...overrides,
+});
+
+/** Mirrors `classifyChangeImpact`'s own aggregation, so fixtures do not drift from real counts. */
+const changeImpact = (scenarios: ScenarioImpact[]): ChangeImpact => {
+  const countOf = (impact: ScenarioImpact['impact']): number =>
+    scenarios.filter(scenario => scenario.impact === impact).length;
+  const fixed = countOf('fixed');
+  const newlyBroken = countOf('newly-broken');
+  return {
+    scenarios,
+    fixed,
+    newlyBroken,
+    stillPassing: countOf('still-passing'),
+    stillFailing: countOf('still-failing'),
+    unattributed: countOf('unattributed'),
+    netEffect: fixed - newlyBroken,
+    attributionAvailable: scenarios.some(scenario => scenario.impact !== 'unattributed'),
+  };
+};
 
 const baseResult = {
   metrics: metrics(),
@@ -421,5 +445,126 @@ describe('the retry note', () => {
     for (const body of bodies) {
       expect(body).toContain('/re-eval');
     }
+  });
+});
+
+describe('formatGateResult impact reporting', () => {
+  // The exact string produced before `impact` existed, captured from the unmodified function.
+  // A regression here means an old caller — one that never learned about `impact` — now sees a
+  // different comment than before, breaking the back-compat contract for this optional field.
+  const PRE_IMPACT_BODY = '<!-- evalforge-skill-gate-action -->\n## ✅ EvalForge Skill Gate: Passed'
+    + '\n\n**Pass rate:** 100% — 5/5 assertions passed'
+    + '\n**Run:** [run-1](https://bo.wix.com/pages/evalforge/P/results?runId=run-1)'
+    + '\n\n**Scope:** 1 scenario ran.'
+    + '\n\n- `covers`';
+
+  it('is byte-identical to the pre-`impact` output when `impact` is not passed', () => {
+    expect(formatGateResult(baseResult)).toBe(PRE_IMPACT_BODY);
+  });
+
+  it('says attribution is unavailable when the base arm produced nothing, rather than staying silent', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([scenarioImpact({ impact: 'unattributed' })]),
+    });
+    expect(body).toMatch(/unavailable/i);
+    expect(body).not.toContain('| Scenario | Impact | Meaning |');
+  });
+
+  it('renders a per-scenario table with an icon, the scenario name, the class as code, and a meaning', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'fixed-one', impact: 'fixed' }),
+        scenarioImpact({ scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false }),
+      ]),
+    });
+    expect(body).toContain('| Scenario | Impact | Meaning |');
+    expect(body).toContain('`fixed-one`');
+    expect(body).toContain('`fixed`');
+    expect(body).toContain('`broken-one`');
+    expect(body).toContain('`newly-broken`');
+  });
+
+  it('reads newly-broken as caused by this PR and still-failing as pre-existing, in words', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false }),
+        scenarioImpact({ scenarioName: 'flaky-one', impact: 'still-failing', prPassed: false }),
+      ]),
+    });
+    expect(body).toMatch(/newly-broken.*caused by this change/i);
+    expect(body).toMatch(/still-failing.*pre-existing, not caused by this change/i);
+  });
+
+  it('names the failing assertions for a row that has them', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({
+          scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false,
+          failingAssertionNames: ['checks-total', 'checks-tax'],
+        }),
+      ]),
+    });
+    expect(body).toContain('`checks-total`');
+    expect(body).toContain('`checks-tax`');
+  });
+
+  it('does not render an empty failing-assertions list for a row without the field', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([scenarioImpact({ scenarioName: 'fixed-one', impact: 'fixed' })]),
+    });
+    expect(body).not.toContain('Failing: .');
+    expect(body).not.toMatch(/Failing:\s*\|/);
+  });
+
+  it('carries the four counts and the net effect in a summary line', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'fixed-one', impact: 'fixed' }),
+        scenarioImpact({ scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false }),
+        scenarioImpact({ scenarioName: 'flaky-one', impact: 'still-failing', prPassed: false }),
+        scenarioImpact({ scenarioName: 'gap-one', impact: 'unattributed' }),
+      ]),
+    });
+    expect(body).toContain('1 scenario fixed');
+    expect(body).toContain('1 scenario newly broken');
+    expect(body).toContain('1 scenario still failing');
+    expect(body).toContain('1 scenario unattributed');
+    expect(body).toContain('net effect 0');
+  });
+
+  it('signs a positive net effect but not a negative one, which already carries its own minus', () => {
+    const gain = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'fixed-one', impact: 'fixed' }),
+        scenarioImpact({ scenarioName: 'fixed-two', impact: 'fixed' }),
+      ]),
+    });
+    const loss = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'broken-one', impact: 'newly-broken', prPassed: false }),
+      ]),
+    });
+    expect(gain).toContain('net effect +2');
+    expect(loss).toContain('net effect -1');
+  });
+
+  it('says the change moved nothing measurable when every scenario is still-passing, instead of a uniform table', () => {
+    const body = formatGateResult({
+      ...baseResult,
+      impact: changeImpact([
+        scenarioImpact({ scenarioName: 'one', impact: 'still-passing' }),
+        scenarioImpact({ scenarioName: 'two', impact: 'still-passing' }),
+      ]),
+    });
+    expect(body).toMatch(/moved nothing measurable/i);
+    expect(body).not.toContain('| Scenario | Impact | Meaning |');
   });
 });
