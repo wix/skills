@@ -70,6 +70,19 @@ assertions:
       - the service being created a second time because the first response could not be parsed.
 
       Return ONLY {"score":<0-10>,"reason":"<terse description of the response path used and any wasted or failed call>"}.
+  - type: llm_judge
+    minScore: 3
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC — rate how smoothly the Wix MCP let the agent create a priced appointment service
+      and report its id. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no
+      errors). Penalize and LIST any of: a non-2xx response even if recovered; a request or response
+      shape guessed wrong then corrected; sending a staff member's `id` where a `resourceId` is
+      required, then correcting it; a Query/Get Services call made to rediscover an id the create
+      response already returned; the service being created more than once; a Site Properties or
+      currency lookup, or an installed-apps check, before creating the service; the same fact
+      searched for in the docs more than once. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
 siteSetup:
   mode: template
   templateId: bookings-editor

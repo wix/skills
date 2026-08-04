@@ -81,6 +81,22 @@ assertions:
       - the service being created a second time because the create response could not be parsed.
 
       Return ONLY {"score":<0-10>,"reason":"<terse description of the response path used>"}.
+  - type: llm_judge
+    minScore: 3
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC — rate how smoothly the Wix MCP let the agent create a priced course service and
+      report its service id and schedule id. Examine the tool-call trace, and consider only the
+      creation of the service and the reading of its response: ignore any Calendar Events
+      (`bulkCreateEvents`) call, whether it succeeded or failed, and ignore any retry or query that a
+      Calendar Events failure caused, since session scheduling is not under test here. Score 0-10
+      (10 = direct: no wasted calls, no errors). Penalize and LIST any of: a non-2xx response from
+      the create even if recovered; a request or response shape guessed wrong then corrected; a
+      Query/Get Services or Schedules call made to rediscover an id the create response already
+      returned; the service being created more than once; a Site Properties or currency lookup, or an
+      installed-apps check, before creating the service; the same fact searched for in the docs more
+      than once. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
 siteSetup:
   mode: template
   templateId: bookings-editor
