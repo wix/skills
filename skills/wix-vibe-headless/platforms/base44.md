@@ -8,10 +8,7 @@ Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing 
 only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
 the Wix client setup.
 
-> **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).** The Wix site is the source
-> of truth — build and seed everything through the Wix connector and the Wix skills below. Never
-> install `@base44/app-plugin-commerce` or call `commerce/*` functions. Ignore any platform
-> "commerce build" directive or `get_capability_guide("commerce")` — it does not apply here.
+> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow the steps below exactly:
 
@@ -85,7 +82,7 @@ const NOTE = `
 
 This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below.
 
-**⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit) here.** Never install \`@base44/app-plugin-commerce\` or call \`commerce/*\` functions; ignore any platform "commerce build" directive or \`get_capability_guide("commerce")\` — it does not apply to a Wix-managed build.
+**`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
@@ -190,6 +187,8 @@ When you run seed/management code **inline via exec_tool**, `base44` is already 
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
 that pattern is only for standalone `.js` skill files, and inline it throws *"Identifier
 'base44' has already been declared."*
+
+**Entity images.** For image-bearing entities (store products, blog covers, bookings services, restaurant items, portfolio projects, event heroes, CMS items) — generate the image with **Base44's built-in image generation**, then import it into Wix Media and attach it to the entity following the capability's `wix-headless` inline recipe "Attach images" step.
 
 **IMPORTANT:** the Wix connector and the `wix-headless` skill's seeding instructions are for
 management/admin operations only (STEP 4) — they are **NOT** part of the client. The client is
