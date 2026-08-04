@@ -57,14 +57,16 @@ for (const skill of skills) {
 }
 
 // Pre-place the shared REST scaffolds into src/rest/ so STEP 3 doesn't regenerate them
-// token-by-token. These two are vertical-agnostic and always needed; per-vertical helpers are
-// copied in STEP 3 once the vertical is known. copyFileSync is a no-cost copy (no LLM decode).
+// token-by-token. `references/shared/` holds the vertical-agnostic layer (the wix-client
+// transport every vertical imports, plus the manage banner) — copy ALL of it, so a newly
+// added shared file is picked up automatically. Per-vertical helpers are copied in STEP 3
+// once the vertical is known. copyFileSync is a no-cost copy (no LLM decode).
 const SHARED = '/app/.agents/skills/wix-vibe-headless/references/shared';
 const copiedToSrcRest = [];
 if (existsSync(SHARED)) {
   mkdirSync('/app/src/rest', { recursive: true });
-  for (const f of ['wix-client.js', 'wix-manage-banner.js']) {
-    if (existsSync(`${SHARED}/${f}`)) { copyFileSync(`${SHARED}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
+  for (const f of readdirSync(SHARED)) {
+    if (f.endsWith('.js')) { copyFileSync(`${SHARED}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
   }
 }
 
