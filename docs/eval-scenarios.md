@@ -5,6 +5,30 @@ Reference for authoring the YAML that drives skill evaluation. Start from
 format itself. For what the automated checks do and how to read a failing one, see
 [skill-evaluation.md](skill-evaluation.md).
 
+## What a Scenario Must Test
+
+### Test behavior, not skill text
+
+A scenario tests what the agent *does*, not what the skill *says*. Give it a task-shaped `triggerPrompt` — *"create a product called 'Handmade Ceramic Mug' priced at $24"*, not *"how do I create a product?"* — and assert on the behavior: which APIs it called, what it asked before mutating data, whether the result is correct. Judge the decision the skill exists to drive; if the skill says to ask rather than invent a missing mandatory value, withhold that value and assert the agent asked.
+
+### Assert correctness *and* quality
+
+Assert three things: **coverage** (the agent reached the skill — the assertion is skill-specific, see *Assertions to include* below), **correctness** (an `llm_judge` on the outcome), and **quality** (a second `llm_judge` on the path). Correctness alone hides friction — an agent can reach the right end state after a wrong-shaped call, a recovered 4xx, or a run of probing calls. Point the quality judge at the tool-call trace and have it name the MCP/docs gap behind each stumble:
+
+```yaml
+- type: llm_judge
+  minScore: 7
+  prompt: >
+    Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+    the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any
+    of: a non-2xx error even if recovered; not finding a clone/duplicate endpoint and re-creating the
+    event field-by-field instead; a shape guessed wrong then corrected; redundant/probing calls
+    clearer docs would avoid. For each, name the likely MCP/docs gap.
+    Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+```
+
+Adapt the penalty list to the detours *your* task invites. This judge gates like any other, so a bumpy path fails the PR — deliberately. When it fails, the gap is usually in the skill, the docs, or the MCP: close that gap rather than lowering `minScore`.
+
 ## Adding a Wix Manage Eval Scenario
 
 Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
@@ -26,9 +50,9 @@ On top of the [common fields](#common-scenario-fields):
 
 ### Assertions to include
 
-Include **both**: a tool-call assertion is what makes a scenario cover its doc, and the `llm_judge` checks the response is correct.
+Cover all three of [coverage, correctness, and quality](#assert-correctness-and-quality):
 
-**1. A tool-call assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content. You write it with a `tool:` field naming the doc-reading tool call (its schema type is `tool_called_with_param`; the `type` key is optional and normally omitted):
+**1. A tool-call assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content, and is what makes the scenario *cover* its doc for the automated gate. You write it with a `tool:` field naming the doc-reading tool call (its schema type is `tool_called_with_param`; the `type` key is optional and normally omitted):
 
 ```yaml
 - tool: ReadFullDocsArticle
@@ -38,7 +62,7 @@ Include **both**: a tool-call assertion is what makes a scenario cover its doc, 
 
 The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<slug>`, where `<docsEntry>` and the skill's `title` come from its entry in `yaml/wix-manage/<area>/documentation.yaml`, and `<slug>` is that `title` slugified (lowercased, spaces/punctuation → `-`). For example `title: "Abandoned Carts"` → `…/skills/abandoned-carts`.
 
-**2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the docs.
+**2. An `llm_judge` on correctness** — proves the agent did the right thing, not just that it loaded the docs.
 
 ```yaml
 - type: llm_judge
@@ -47,9 +71,9 @@ The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/
     <Pass/fail criteria specific to this scenario>
 ```
 
-Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the tool-call assertion, the judge can pass on a fabricated response that never touched the skill at all — and the scenario won't cover its doc. That's why you include both.
+**3. An `llm_judge` on quality** — proves the tool-call path to that outcome was a clean one. See [Assert correctness *and* quality](#assert-correctness-and-quality) for the rubric to adapt.
 
-Beyond these two, you can add other assertions (`api_call`, `cost`, `time_limit`) — see [Assertion Types](#assertion-types) for the full catalog.
+Beyond these three, you can add other assertions (`api_call`, `cost`, `time_limit`) — see [Assertion Types](#assertion-types) for the full catalog.
 
 ### Example
 
@@ -171,7 +195,7 @@ assertions:
 
 ### Assertions to include
 
-Include **both**: `skill_was_called` is what ties the scenario to the skill, and the `llm_judge` checks the output is correct.
+Cover all three of [coverage, correctness, and quality](#assert-correctness-and-quality):
 
 **1. A `type: skill_was_called` assertion** — proves the agent actually invoked the skill:
 
@@ -182,7 +206,7 @@ Include **both**: `skill_was_called` is what ties the scenario to the skill, and
   # referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }
 ```
 
-**2. An `llm_judge` assertion** — proves the agent's output was substantively correct, not just that it loaded the skill.
+**2. An `llm_judge` on correctness** — proves the agent's output was substantively correct, not just that it loaded the skill.
 
 ```yaml
 - type: llm_judge
@@ -191,7 +215,9 @@ Include **both**: `skill_was_called` is what ties the scenario to the skill, and
     <Pass/fail criteria specific to this scenario>
 ```
 
-Beyond these two, `wix-app` scenarios often add `build_passed`, and you can use `token_count`, `cost`, or `time_limit` — see [Assertion Types](#assertion-types) for the full catalog.
+**3. An `llm_judge` on quality** — proves the path to that output was a clean one. See [Assert correctness *and* quality](#assert-correctness-and-quality) for the rubric to adapt.
+
+Beyond these three, `wix-app` scenarios often add `build_passed`, and you can use `token_count`, `cost`, or `time_limit` — see [Assertion Types](#assertion-types) for the full catalog.
 
 ### File templates
 
@@ -219,17 +245,17 @@ Every eval scenario — `wix-manage` or `wix-app` — has these fields. Each ski
 | `description` | One or two sentences describing what the scenario verifies. |
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
-| `assertions` | A non-empty array of assertions that decide whether the scenario passed (schema requires at least one). Pair a coverage assertion with an `llm_judge` — see [Assertion Types](#assertion-types). |
+| `assertions` | A non-empty array of assertions that decide whether the scenario passed (schema requires at least one). Combine a coverage assertion with an `llm_judge` on correctness and an `llm_judge` on quality — see [What a Scenario Must Test](#what-a-scenario-must-test) and [Assertion Types](#assertion-types). |
 
 ## Assertion Types
 
-Assertions decide whether a scenario passed; the schema requires at least one, and you should pair a coverage assertion with an `llm_judge`. You can mix any of these in a single scenario:
+Assertions decide whether a scenario passed; the schema requires at least one, and you should combine a coverage assertion with an `llm_judge` on correctness and an `llm_judge` on quality. You can mix any of these in a single scenario:
 
 | Assertion | Skill | What it does |
 |---|---|---|
 | tool-call (`tool:` field, type `tool_called_with_param`) | `wix-manage` | **Coverage** — asserts the agent invoked the skill via the specific tool call that loads its doc (e.g. `ReadFullDocsArticle`). Substring matching on string values. |
 | `type: skill_was_called` | `wix-app` | **Coverage** — proves a skill was invoked by name (`skillNames`); optional `referenceFiles` requires specific reference docs were read. |
-| `type: llm_judge` | both | An LLM rubric that scores the agent's final response 0–10 against your `prompt`. Set `browserTools: true` to let the judge drive a provisioned site's published URL. |
+| `type: llm_judge` | both | An LLM rubric that scores the run 0–10 against your `prompt`. Use one for correctness and a second for the quality of the tool-call path. Set `browserTools: true` to let the judge drive a provisioned site's published URL. |
 | `type: build_passed` | `wix-app` | Runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app. |
 | `type: token_count` | `wix-app` | Fails if total LLM token usage exceeds `maxTokens`. |
 | `type: api_call` | both | Makes an HTTP request after the scenario runs and validates the response (end-to-end state checks). |
