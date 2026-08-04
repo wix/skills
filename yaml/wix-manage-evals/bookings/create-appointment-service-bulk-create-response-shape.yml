@@ -1,0 +1,75 @@
+name: bookings/create-appointment-service-bulk-create-response-shape
+description: >-
+  Verifies the appointment-creation recipe lets the agent read the created service's
+  id straight out of the Bulk Create Services bulk envelope, instead of reading a
+  non-existent `results[0].item.service` and then re-querying the site to rediscover
+  what the create call already returned.
+triggerPrompt: >-
+  Add a 45 minute "Design Review" consultation to my Wix Bookings for $90, then tell
+  me the new service's ID.
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-appointment-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to create a 45-minute "Design Review" consultation service in Wix
+      Bookings priced at $90, and to report the new service's ID.
+      Intent: a real APPOINTMENT service exists with that duration and price, and its ID is
+      reported.
+
+      Pass if the trace shows:
+      - a successful (2xx) Bulk Create Services call creating a `type: "APPOINTMENT"` service named
+        "Design Review", with a 45-minute session duration under
+        `schedule.availabilityConstraints.sessionDurations` and a fixed price of 90, AND
+      - at least one staff member assigned via `staffMemberIds` using a staff `resourceId`, AND
+      - the final answer reports the new service ID.
+
+      Fail if:
+      - the create call errored (non-2xx), OR
+      - the service was created with the wrong type, name, duration or price, OR
+      - `staffMemberIds` was omitted, or populated with a staff member `id` rather than a
+        `resourceId`, OR
+      - the agent only described the steps without performing them, OR
+      - the final answer omits the service ID.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge ONLY how the agent obtained the created service's id from the Bulk Create Services
+      response (`POST /bookings/v2/bulk/services/create`). Ignore answer prose quality.
+
+      That endpoint returns a bulk envelope:
+      `{ results: [{ itemMetadata: { id, originalIndex, success }, item: <Service> }], bulkActionMetadata: {...} }`.
+      `item` is the Service itself — there is no `item.service` — and `item` is present only when
+      the request sends `returnEntity: true`. So `results[0].item.id` works only with that flag,
+      and `results[0].itemMetadata.id` always carries the new service id.
+
+      Pass if:
+      - the agent's code read the id from a valid path on the create response — either
+        `results[0].itemMetadata.id`, or `results[0].item.id` with `returnEntity: true` sent in the
+        same request body, AND
+      - no API-execution step failed while reading that response, AND
+      - after the create returned 2xx the agent did NOT issue an extra Query Services or Get
+        Service call to rediscover the id it had just been given.
+
+      Fail if any of these appear:
+      - code reading `results[0].item.service`, `results[0].service`, or a top-level `service`
+        field from the bulk create response, OR
+      - an execution error such as "Cannot read properties of undefined (reading 'service')" or any
+        other undefined-property error while parsing the create response, even if the agent
+        recovered afterwards, OR
+      - reading `results[0].item.…` without `returnEntity: true` in the request body, OR
+      - a follow-up Query Services / Get Service call issued after a 2xx create purely to recover
+        the service id, OR
+      - the service being created a second time because the first response could not be parsed.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse description of the response path used and any wasted or failed call>"}.
+siteSetup:
+  mode: template
+  templateId: bookings-editor
