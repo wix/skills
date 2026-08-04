@@ -191,6 +191,8 @@ it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `crea
 that pattern is only for standalone `.js` skill files, and inline it throws *"Identifier
 'base44' has already been declared."*
 
+**Entity images.** For image-bearing entities (store products, blog covers, bookings services, restaurant items, portfolio projects, event heroes, CMS items) — generate the image with **Base44's built-in image generation**, then import it into Wix Media and attach it to the entity following the capability's `wix-headless` inline recipe "Attach images" step. Base44 image generation replaces the Wix AI / Runware path described in `wix-headless/references/IMAGE_GENERATION.md` §1 — use that file only for the import (§2) and attach (§3) mechanics, not for generation.
+
 **IMPORTANT:** the Wix connector and the `wix-headless` skill's seeding instructions are for
 management/admin operations only (STEP 4) — they are **NOT** part of the client. The client is
 built solely per the `wix-vibe-headless` skill.
