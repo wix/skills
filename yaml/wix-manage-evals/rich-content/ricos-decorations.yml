@@ -1,6 +1,6 @@
 name: rich-content/ricos-decorations
 description: Sharp-edge check on inline decorations and blockquote nesting from the Author Ricos Rich Content recipe — bold + link split runs and a blockquote wrapping a paragraph.
-triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) with a blockquote, and then a paragraph that reads "Read the full guide for details" where the words "full guide" are a bold hyperlink to https://example.com/guide. Output only the richContent JSON.
+triggerPrompt: I need hand-authored Ricos rich-content JSON. First call ReadFullDocsArticle for the Author Ricos Rich Content recipe at https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content. Then give me the nodes tree with a blockquote, and then a paragraph that reads "Read the full guide for details" where the words "full guide" are a bold hyperlink to https://example.com/guide. Output only the richContent JSON.
 tags: [rich-content]
 maxTokens: 450000
 assertions:
