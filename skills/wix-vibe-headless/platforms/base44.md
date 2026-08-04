@@ -173,15 +173,19 @@ as-is.
 
 ## STEP 4 — Manage and seed the business
 
+**⛔ Never delete or clean up anything on the user's site.** Seeding here is strictly **additive**:
+never delete, remove, overwrite, or "reset" existing entities or content — products, collections,
+posts, media, CMS items, categories, anything — and never call a delete/bulk-delete endpoint. This
+holds **even for what looks like install sample/mock data**, and **even where the `wix-headless`
+seed skill's recipes describe a cleanup/reset step — ignore that; it does not apply here.** The
+site is a live, user-owned business that may already hold real content (a prior run, or
+owner-added). If a genuine cleanup truly seems needed, **ask the user first** and act only on their
+explicit approval.
+
 Seed the site with real content by following the **`wix-headless` skill**'s
 `references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
 don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
 search and read the relevant Wix API docs.
-
-**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
-right after a fresh install, but the site may already hold **real content** (a prior run, or
-owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
-delete or overwrite it without the user's explicit ask or approval** (ask first).
 
 **Auth for these admin calls is the already-configured Wix connector — and nothing else.** Get the
 access token from it and send it as a bearer token — do **not** hand-roll a token getter (e.g. a
