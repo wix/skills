@@ -5,6 +5,8 @@ description: Hand-authoring valid Ricos rich-content JSON (the richContent/nodes
 
 # Author Ricos Rich Content
 
+> **Routing rule (READ FIRST).** If you are hand-authoring or returning Ricos / `richContent` JSON, call **`ReadFullDocsArticle`** on this page (`https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content`) **before** `SearchWixAPISpec` or Ricos API convert/validate calls. Schema search alone misses nesting rules, empty-paragraph spacers, and plugin node shapes documented here. When the user only wants JSON output, **do not** call `ExecuteWixAPI` convert endpoints — compose the `nodes` tree from this recipe.
+
 Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON. The same structure is embedded by many products: a Blog post's `draftPost.richContent`, a Store product's rich description, an Events description, and CMS rich-text fields all expect a Ricos document. This recipe is the **authoring reference for that node tree**: the valid shape of each node, how nodes nest, and how to format text. It is intentionally product-agnostic — the consuming API decides *where* the document goes; this recipe governs *what a valid document looks like*.
 
 > A Ricos document is an object with a `nodes` array: `{ "nodes": [ /* block nodes */ ] }`. Whatever field the consuming API exposes (e.g. `richContent`), it holds this object. For validating or converting an existing document to/from HTML/Markdown, see [Ricos Converter Service](ricos-converter-service.md).
@@ -176,7 +178,7 @@ Do **not** rely on `\n` inside `textData.text` for spacing — that does not cre
 }
 ```
 
-**BUTTON** — a standalone call-to-action block. **Not the same as an inline `LINK` decoration** on TEXT (that is hyperlinked body copy; this is a labeled button control). Two `buttonData.type` values:
+**BUTTON** — a standalone call-to-action block. **Not the same as an inline `LINK` decoration** on TEXT (that is hyperlinked body copy; this is a labeled button control). **`buttonData.type` is required** on every BUTTON node — use `"LINK"` for URL navigation or `"ACTION"` for viewer click handlers (never omit `type` even when `link` is present). Two `buttonData.type` values:
 
 - **`LINK`** — navigates to a URL when clicked (`link.url`, `link.target`: `BLANK`·`SELF`, optional `link.rel`).
 - **`ACTION`** — triggers a viewer `onClick` handler (store the node in JSON; behavior is configured in the Ricos viewer, not in the document body).
@@ -402,7 +404,7 @@ All decidable from the JSON itself — check before handing the document to a co
 5. **No `\n` inside `textData.text`** — split into sibling nodes; mixed inline formatting → split into multiple TEXT runs.
 6. **Images** use a Wix Media `id` (not a raw URL), with `width`, `height`, and meaningful `altText`.
 7. **Links** — every `LINK` decoration has a valid `url` and `target`. Use a `BUTTON` block with `buttonData.type: "LINK"` for CTAs — not an inline `LINK` decoration styled to look like a button.
-8. **Buttons** — `buttonData.type` is `LINK` (requires `link.url`) or `ACTION` (no URL). `LINK` buttons and inline `LINK` decorations serve different purposes.
+8. **Buttons** — every BUTTON includes **`buttonData.type`** (`LINK` requires `link.url`; `ACTION` has no URL). Omitting `type` is invalid even when `link` is set. `LINK` buttons and inline `LINK` decorations serve different purposes.
 9. **Media blocks** — `AUDIO`/`VIDEO` use Wix Media `src.id` with required metadata (`duration` on video; optional `thumbnail`, `coverImage` on audio). `GALLERY` items each carry `image.media.src` plus `width`/`height`.
 10. **Collapsible lists** — every item has both `_TITLE` and `_BODY`, each wrapping content through `PARAGRAPH → TEXT` at minimum.
 11. **HTML embeds** — `htmlData` includes `containerData` sizing and either `url` or `html` (not both empty).
