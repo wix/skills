@@ -125,7 +125,7 @@ function imgSrc(v, w = 800, h = 600) {
 
 **Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL (e.g. an Unsplash placeholder seeded when imagery was off) goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
 
-**⚠️ When imagery is OFF (the seed default), IMAGE fields are EMPTY — fall back, don't render a broken `<img>`.** The seed is text-only unless imagery is on, so a `photo`/`coverImage`/`headshot` field is often **absent or empty** on every item. Guard the render: only emit `<img>` when the field resolves to a real URL, otherwise show a graceful fallback (an initials avatar, a colored placeholder, or simply omit the image) — never an empty/broken `<img src="">`. A missing image is expected content state here, not an error.
+**⚠️ When imagery is OFF (the seed default), IMAGE fields are EMPTY — fall back, don't render a broken `<img>`.** The seed is text-only unless `IMAGE_GENERATION.md` is in context, so a `photo`/`coverImage`/`headshot` field is often **absent or empty** on every item. Guard the render: only emit `<img>` when the field resolves to a real URL, otherwise show a graceful fallback (an initials avatar, a colored placeholder, or simply omit the image) — never an empty/broken `<img src="">`. A missing image is expected content state here, not an error.
 
 ### Rendering rich text (RICH_TEXT / RICH_CONTENT fields)
 

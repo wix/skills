@@ -58,21 +58,13 @@ Counts are deliberately small (the seed shows the shape, not a full catalog).
 
 ## 4 · Imagery (opt-in)
 
-Resolve an `imagery` flag — whether to generate AI images for seeded content (and, when building a frontend, for page surfaces). **Default OFF** (text-only): seed with no imagery; the user can add images later.
+Decide whether to generate AI images for seeded content (and, when building a frontend, for page surfaces). **Default: text-only** — seed without imagery; the user can add images later.
 
-- If the prompt **signals imagery** ("with photos", "product photos", "AI images", "hero image"), set `imagery: on`.
+- If the prompt **signals imagery** ("with photos", "product photos", "AI images", "hero image"), opt in automatically.
 - Otherwise **ask one question** — text-only (default) vs AI-generated images, noting it costs ~1 Wix AI credit per image. Default to off on no answer.
 
-**Bound the *cost*, not just the on/off decision.** `imagery: on` authorizes the *feature*, not unlimited *volume* — a single "imagery throughout" phrase can otherwise fan out to dozens of images (≈1 Wix AI credit each) with the spend never surfaced. So when imagery resolves on:
-
-- **Surface the projected cost** in the brief pre-work line (§5): state the plan in credits — *"~N images ≈ N Wix AI credits"* — so the spend is visible even when nobody asked about volume. Always safe, no interactivity.
-- **Apply a per-run image cap** (`imageCap`, default **~12**). Generate up to the cap; for surfaces/entities beyond it, render the **themed-block fallback** instead of generating (see below). Log what was capped so it's not silently dropped.
-- **Confirm only when interactive *and* over the cap** — never a mandatory "always ask" gate. A non-interactive run honors the cap and fills the rest with themed blocks; it never stalls.
-
-**Themed-block fallback (the not-generating path).** Whenever an image is *not* generated — imagery off, over the cap, declined, or a generation failure — a **frontend** image slot renders a **styled `div` that follows the site's own design tokens** (palette, radius, spacing, maybe a label or gradient), *not* an empty slot or a broken `<img>`. The layout stays intentional and on-brand at **zero credits**, and it's deterministic/headless-safe. (This applies to page surfaces; a *seeded entity* with no image simply stays text-only — `SEED.md` § "Entity images".)
-
-When `imagery` is on, `SEED.md` attaches images to seeded entities and `IMAGE_GENERATION.md` is used for any page images a frontend build calls for (including the cap + themed-block mechanics). Hold `imageCap` alongside `imagery` in scratch. This flag is project-type-agnostic.
+**If image generation is opted in, open `IMAGE_GENERATION.md` now.** It covers cost, the per-run cap, the themed-block fallback, and the generate→import→attach flow — everything the Seed and frontend-build steps need. Opening it here makes it available for the rest of the run without passing state forward.
 
 ## 5 · Hold the contract, proceed
 
-Hold in scratch: `verticals[]`, `brand`, `intent.<cap>` per capability, and `imagery`. The metasite id (`SITE_ID`) and the token are obtained at Setup via the provided authentication mechanism. Then **continue to `SETUP.md`** and install the apps — this is the start of the actual work, not a separate decision. A brief plain-prose line stating what will be set up is fine.
+Hold in scratch: `verticals[]`, `brand`, and `intent.<cap>` per capability. The metasite id (`SITE_ID`) and the token are obtained at Setup via the provided authentication mechanism. Then **continue to `SETUP.md`** and install the apps — this is the start of the actual work, not a separate decision. A brief plain-prose line stating what will be set up is fine.

@@ -20,7 +20,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Portfolio a
 ---
 
 ## Article: Steps for Setting Up Wix Portfolio
-**YOU MUST** complete all the following steps **in the given order** (0-2, plus 3 when imagery is on) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete all the following steps **in the given order** (0-2, plus 3 when `IMAGE_GENERATION.md` is in context) without skipping any and **without requiring additional user input**.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: create the COLLECTIONS first (STEP 1), then the PROJECTS (STEP 2).** A project is assigned to collections by a `collectionIds` array, and **that array is NOT validated on create** — a wrong or nonexistent collection id is **silently accepted**, producing an orphan project that appears under no collection. The only way to assign correctly is to create the collections first, read back their real ids, and thread those exact ids into each project. (There is **no** shared-revision `409` race — creating collections/projects concurrently is safe — but the id dependency still forces collections-before-projects.)
 
@@ -105,9 +105,9 @@ The body wraps the entity in a `project` object:
 
 Keep each **`project.id`** and `slug`. If a create fails, retry that project **once** with the same body; do not loop.
 
-### Attach images (imagery opt-in — skip when imagery is off)
+### Attach images (image generation opt-in — skip when `IMAGE_GENERATION.md` is not in context)
 
-**Only if `imagery` is on** (`SEED.md` § "Entity images"). Portfolio is a visual showcase, so the cover-image-bearing entities are **both projects and collections**. Generate + import each image per `references/IMAGE_GENERATION.md` (generate → import to Wix Media → keep the WixMedia image **id**), then **PATCH the entity's `coverImage`**.
+**Only if `IMAGE_GENERATION.md` is in context** (`SEED.md` § "Entity images"). Portfolio is a visual showcase, so the cover-image-bearing entities are **both projects and collections**. Generate + import each image per `references/IMAGE_GENERATION.md` (generate → import to Wix Media → keep the WixMedia image **id**), then **PATCH the entity's `coverImage`**.
 
 Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{projectId}` (collections are identical: `PATCH …/collections/{collectionId}` with a `collection` wrapper). Echo the entity's current **`revision`** (from the create response, or a fresh `GET`) — no field mask is needed:
 
@@ -124,9 +124,9 @@ Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{pr
 - **`coverImage.imageInfo.id`** is the imported **WixMedia image id** (`file` id from the import step) — **and `height` + `width` are required** alongside it (`url` is read-only, returned populated). A missing revision or a stale one fails the PATCH.
 - Image failures never block the run — skip and leave the entity text-only.
 
-### Attach images — project gallery (imagery on only)
+### Attach images — project gallery (image generation opted in only)
 
-**Only if `imagery` is on.** The cover (attached just above) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
+**Only if `IMAGE_GENERATION.md` is in context.** The cover (attached just above) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items` — `/Items` (capital) 404s
@@ -142,7 +142,7 @@ curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items
 - **One call per image**; **`sortOrder`** (1, 2, 3…) sets the order the frontend renders. `image.imageInfo` is the same shape as `coverImage` (imported WixMedia id + height + width).
 - **Response nests the created item under `item`** (a top-level empty `projectId:""` echo is also returned — ignore it).
 - **⚠️ There is NO public list endpoint.** `GET /portfolio/v1/items?projectId=…`, `/projects/{id}/items`, `/items/project/{id}` **all 404** — do not hunt for one. To verify, `GET https://www.wixapis.com/portfolio/v1/items/{itemId}` one at a time; the frontend lists them via the SDK `projectItems.listProjectItems` (an internal URL the SDK resolves).
-- **Cover vs items:** cover = listing thumbnail (the cover PATCH above); items = ordered detail-page gallery (this call). An imagery-on portfolio typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
+- **Cover vs items:** cover = listing thumbnail (the cover PATCH above); items = ordered detail-page gallery (this call). A portfolio with image generation opted in typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
 - Item failures never block the run — skip and continue (a project with no items still renders from its cover).
 
 ---
@@ -152,4 +152,4 @@ Following these steps **in order** sets up a new Wix Portfolio site:
 - Starts from a **clean portfolio** — the install's default sample collection and projects are all removed first (projects before collections).
 - Contains the collections and projects called for by the request, with **collections created first** so each project's `collectionIds` holds a real, verified collection id (the array is not validated, so a wrong id would silently orphan the project).
 - Every collection and project is **shown** (`hidden` defaults to `false`) — nothing needs setting to be visible.
-- Cover images are attached only when `imagery` is on; otherwise everything stays text-only. All calls use the Portfolio **v1** API.
+- Cover images are attached only when `IMAGE_GENERATION.md` is in context; otherwise everything stays text-only. All calls use the Portfolio **v1** API.

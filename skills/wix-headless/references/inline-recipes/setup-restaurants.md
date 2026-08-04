@@ -18,7 +18,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Restaurants
 ---
 
 ## Article: Steps for Setting Up Wix Restaurants Menus
-**YOU MUST** complete all the following steps **in the given order** (0-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete all the following steps **in the given order** (0-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `IMAGE_GENERATION.md` is in context.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: build the hierarchy BOTTOM-UP — items (STEP 1) → sections (STEP 2) → menu (STEP 3).** A section is created with the **`itemIds`** of the items it contains, and a menu is created with the **`sectionIds`** of the sections it contains. So the child ids must exist before you create the parent. Do the cleanup (STEP 0) first of all, so the ids you delete are provably the install's samples.
 
@@ -57,7 +57,7 @@ Create all items in a **single bulk request** to `POST https://www.wixapis.com/r
 - **Do NOT use the top-level `price` field** — it is deprecated (superseded by `priceInfo`). Use `priceInfo.price`.
 - **`description` is a plain string** (not rich-text nodes). Omit it for a name-only item.
 - **Set `"visible": true` explicitly** on every item (see the visibility callout below).
-- **Imagery is opt-in** (`SEED.md` § "Entity images"). Seed **text-only by default** — omit `image`. When `imagery` is on, the **Attach images** step below writes an `image` onto each item in a second pass.
+- **Imagery is opt-in** (`SEED.md` § "Entity images"). Seed **text-only by default** — omit `image`. When `IMAGE_GENERATION.md` is in context, the **Attach images** step below writes an `image` onto each item in a second pass.
 - If part of the bulk request fails, retry the failed items **once** with the exact same format; do not loop.
 
 **⚠️ Reading the response — created items are under `results[].item`, and `results[].itemMetadata.success` is the per-item flag.** A successful bulk create returns `200`:
@@ -124,7 +124,7 @@ Create the menu with `POST https://www.wixapis.com/restaurants/menus/v1/menus`. 
 
 ### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). Items were created text-only in STEP 1; this pass-2 step writes a generated dish image onto each. The **item** is the image-bearing entity (sections and the menu render from their items) — attach per item. Generate + import per `references/IMAGE_GENERATION.md` → keep `file.url` and its `file.id`, then PATCH the item.
+**Only when `IMAGE_GENERATION.md` is in context** (`SEED.md` § "Entity images"). Items were created text-only in STEP 1; this pass-2 step writes a generated dish image onto each. The **item** is the image-bearing entity (sections and the menu render from their items) — attach per item. Generate + import per `references/IMAGE_GENERATION.md` → keep `file.url` and its `file.id`, then PATCH the item.
 
 **⚠️ On write, `image` is an OBJECT `{ id, url, height, width }`** (per the Create/Update Item docs) — even though the storefront SDK surfaces `item.image` as a bare *string* on **read** (`how-to-code-restaurants.md` § "Rendering images"; at the REST layer the read is an object too). Do **not** write a plain string. The binding field is the image **`id`** (the Wix Media file id); `url` + dimensions are descriptive.
 
@@ -149,4 +149,4 @@ Following these steps **in order** sets up a new Wix Restaurants Menus site:
 - Contains the menu, sections, and items called for by the request, built **bottom-up** (items → sections → menu) so every parent references real child ids.
 - Every item, section, and menu is created **`visible: true`** so it appears on the live site.
 - Prices are decimal strings under `priceInfo.price`; currency is the site's own. All calls use the Restaurants **Menus V1** API.
-- Items are seeded **text-only**; when `imagery` is on, the **Attach images** step writes an `image` **object** (`{ id, url, height, width }`) onto each — never a bare string. Update Item is a full replace with no field mask, so the PATCH echoes the item's existing `revision` **and** `priceInfo` alongside `image` (a body missing `priceInfo` fails `428 MISSING_ITEM_PRICING`).
+- Items are seeded **text-only**; when `IMAGE_GENERATION.md` is in context, the **Attach images** step writes an `image` **object** (`{ id, url, height, width }`) onto each — never a bare string. Update Item is a full replace with no field mask, so the PATCH echoes the item's existing `revision` **and** `priceInfo` alongside `image` (a body missing `priceInfo` fails `428 MISSING_ITEM_PRICING`).

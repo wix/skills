@@ -16,7 +16,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Ev
 ---
 
 ## Article: Steps for Setting Up Wix Events
-**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `IMAGE_GENERATION.md` is in context.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: create each event as a DRAFT (STEP 1) → add its ticket definitions (STEP 2, ticketed only) → PUBLISH (STEP 3).** Two one-way constraints force this order:
 - **`registration.initialType` is immutable after create** — a `TICKETING` event can never become `RSVP` (or vice-versa). Decide the type at create time from the request; never plan to convert.
@@ -160,7 +160,7 @@ Nothing else in the seed depends on categories, and the frontend filters **clien
 
 ### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). Events were created text-only; this pass-2 step writes a generated hero image onto each event's **`mainImage`**. Generate + import per `references/IMAGE_GENERATION.md` → keep `file.url` and its `file.id`, then update the event. This works **before or after publish** — updating an event (unlike publishing) is not one-way — so run it here regardless of an event's status.
+**Only when `IMAGE_GENERATION.md` is in context** (`SEED.md` § "Entity images"). Events were created text-only; this pass-2 step writes a generated hero image onto each event's **`mainImage`**. Generate + import per `references/IMAGE_GENERATION.md` → keep `file.url` and its `file.id`, then update the event. This works **before or after publish** — updating an event (unlike publishing) is not one-way — so run it here regardless of an event's status.
 
 **`mainImage` is an `Image` OBJECT `{ id, url, height, width, altText }`.** The binding field is the image **`id`** (the WixMedia image id); `url`/`altText` are descriptive. **⚠️ `height` and `width` are REQUIRED for the image to render** — the schema states the image only appears when both are defined, so always send them (use the generated dimensions, e.g. `1024`×`1024`). Events V3 uses **no `revision`** — this is a partial update keyed by `event.id`; pass only the field you're setting.
 
@@ -193,4 +193,4 @@ Following these steps **in order** sets up a published Events V3 site:
 - Every event is **published** (one-way) so it's live, after its tickets exist.
 - IDs kept for the coding handoff: `eventIds[]`, event `slug`s, and per ticketed event its `ticketDefinitionIds[]` (`[]` for RSVP).
 - The paid-ticket precondition (premium plan + payment method) is **noted**, not treated as a failure.
-- Events are seeded **text-only**; when `imagery` is on, the **Attach images** step writes a `mainImage` **object** onto each (`{ id, url, height, width }` — `height`/`width` REQUIRED or it won't render; no revision; PATCH `/events/v3/events/{eventId}`).
+- Events are seeded **text-only**; when `IMAGE_GENERATION.md` is in context, the **Attach images** step writes a `mainImage` **object** onto each (`{ id, url, height, width }` — `height`/`width` REQUIRED or it won't render; no revision; PATCH `/events/v3/events/{eventId}`).
