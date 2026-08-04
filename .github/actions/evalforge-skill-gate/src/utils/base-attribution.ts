@@ -112,7 +112,15 @@ async function pollBaseArmSilently(
       sleep: cancellation.sleep,
     });
   } catch (error) {
-    core.warning(`Base comparison arm did not complete: ${describeError(error)}`);
+    // Cancellation at grace expiry is the expected path whenever the base arm runs more than
+    // `BASE_ARM_GRACE_MS` behind the PR arm — it decorates every such PR with a warning
+    // annotation for normal behaviour, so it is `info`. A genuine failure (the base arm erroring,
+    // or never starting) still warrants `warning`.
+    if (error instanceof BaseArmCancelledError) {
+      core.info(`Base comparison arm: ${describeError(error)}`);
+    } else {
+      core.warning(`Base comparison arm did not complete: ${describeError(error)}`);
+    }
     return undefined;
   }
 }

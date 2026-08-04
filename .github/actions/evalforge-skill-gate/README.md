@@ -70,23 +70,32 @@ silent false pass:
 
 ## Change-impact comparison — what blocks
 
-> **Design, not current behaviour.** Nothing in this section is wired into the gate yet. The
-> classification logic exists (`classifyChangeImpact` in `evalforge-core`), but the gate still
-> runs exactly one eval and the comment carries no impact table.
+Comparison is **unconditional** — there is no opt-in input. Every gated PR runs the selected
+scenarios **twice**, in one comparison group: the **PR arm**, with the PR's uploaded skill
+content pinned as a capability version, and the **base arm**, which pins nothing at all —
+that omission is what makes EvalForge live-fetch the git-linked capability at `main`. Same
+preset agent, same scenario ids, same `runs-per-scenario`. The pinned version is the only
+variable, which is what makes the difference attributable to the diff.
 
-The gate will run the selected scenarios **twice**: once with the PR's content pinned, once
-with the base content — the same thing without this diff. Same preset agent, same scenario ids,
-same repeat count. The pinned versions are the only variable, which is what makes the
-difference attributable to the diff.
+**Cost:** two eval runs per gated PR instead of one, each multiplied by `runs-per-scenario`.
 
-Only the **PR arm** decides the verdict. The base arm exists to say *who broke it* and
-*whether the change moved anything* — it can never turn a green PR red, or a red PR green.
+Only the **PR arm** decides the verdict. The base arm is bounded by a 60-second grace period
+that starts once the PR arm finishes, and is then cancelled — it can never turn a green PR red,
+or a red PR green. If it does not finish within the grace period, the comment reports
+**attribution unavailable** and the gate is exactly as strict as it was before comparison
+existed.
+
+`runs-per-scenario` (default `1`, max `20`) repeats each scenario that many times **per arm**,
+at proportional cost. Above 1, an intermittent failure is visible as a mix of pass/fail
+iterations on one side rather than being indistinguishable from a regression — and **an
+intermittent failure counts as a failure**: `scenarioPassed` requires zero failures and zero
+errors across the folded iterations.
 
 ```mermaid
 flowchart TD
-    VERS[["one job, two run variants:<br/>pr-N-sha7 per changed entity<br/>pr-N-base-sha7 per changed entity"]]
-    VERS --> PRRUN[PR arm]
-    VERS --> BASERUN[base arm]
+    START[["one job, two eval runs<br/>sharing comparisonGroupId"]]
+    START --> PRRUN["PR arm<br/>pins pr-N-sha7"]
+    START --> BASERUN["base arm<br/>pins nothing → live @ main"]
 
     PRRUN --> USABLE{completed, with<br/>≥1 assertion?}
     USABLE -->|"no — timed out · cancelled · nothing verified"| DECIDE
@@ -96,7 +105,7 @@ flowchart TD
     DECIDE -->|true| BLOCK([setFailed — merge blocked])
     DECIDE -->|false| WARN([warning + comment — passes, soak period])
 
-    BASERUN -.-> BUSABLE{base arm<br/>usable?}
+    BASERUN -.->|"PR arm done —<br/>60s grace, then cancel"| BUSABLE{base arm<br/>finished in time?}
     BUSABLE -.->|no| NOATTR[attribution unavailable]
     BUSABLE -.->|yes| CLASS["classify every scenario<br/>fixed · newly-broken<br/>still-passing · still-failing"]
     CLASS -.-> COMMENT
@@ -104,8 +113,8 @@ flowchart TD
 ```
 
 Dotted edges inform the comment. Nothing on the dotted path reaches `blocking input?`, so a
-base arm that times out or errors degrades the report to "attribution unavailable" and leaves
-the gate exactly as strict as it was.
+base arm that times out, errors, or is cancelled at grace expiry degrades the report to
+"attribution unavailable" and leaves the gate exactly as strict as it was.
 
 | Base | PR | Class | Effect on the check |
 |---|---|---|---|
@@ -126,26 +135,22 @@ information, never permission to merge something that used to be rejected. The d
 payoff is attribution and necessity, not a looser bar.
 
 **Every scenario has a base result.** Both runs are given the same scenario ids, so a
-scenario this PR *authored* still runs against the base skill version. That is exactly the
-signal a new reference file wants: the base version has no such doc and fails, the PR version
-passes, and the scenario reports `fixed`. There is no "no counterpart in base" case to
-special-case.
+scenario this PR *authored* still runs against whatever exists at `main`. That is exactly the
+signal a new reference file wants: at `main` there is no such doc yet, so the base arm fails
+it; the PR arm has the doc and passes; the scenario reports `fixed`. There is no "no
+counterpart in base" case to special-case.
 
 **A wholly `still-passing` PR is the strongest necessity signal available.** Every scenario
 green on both sides means the measured behaviour did not move — either the change is a no-op
 against the current suite, or the suite does not cover it. Neither blocks; both are worth
 saying out loud in the comment.
 
-The base version is labelled `pr-<number>-base-<base-sha7>`, sharing the `pr-<number>-` prefix
-so PR-close cleanup sweeps it with no extra code. A shared `base-<sha7>` label reused across
-PRs would store fewer versions, but then cleanup for one PR could delete a version another PR
-is still running against — capability versions are cheaper than that ownership problem.
-
-**Nothing in the comparison knows it is comparing skills.** `EvalRunInput.capabilityVersions`
-is a `Record<capabilityId, versionId>`, so an arm is just a map: one entry per **changed**
-entity, at head for the PR arm and at the base ref for the base arm. An entity the PR did not
-touch appears in neither map, so both arms resolve it to the same default version — which is
-the "hold everything else constant" property the delta depends on.
+**Nothing in the comparison knows it is comparing skills.** The PR arm's
+`EvalRunInput.capabilityVersions` is a `Record<capabilityId, versionId>` with one entry per
+**changed** entity, pinned at head. The base arm passes no `capabilityVersions` at all, so
+every entity — changed or not — resolves through the git link to `main`. An entity the PR did
+not touch is likewise absent from the PR arm's map, so both arms end up evaluating that entity
+the same way — which is the "hold everything else constant" property the delta depends on.
 
 Only two things are entity-typed: the per-entity path conventions used to derive tags, and the
 mapping from content to a version body (`skillContent` for a skill, `mcpContent` for an MCP,
@@ -158,16 +163,10 @@ surface so a rule needs no workflow change is follow-up work; what the compariso
 that none of the *logic* will have to change. Whether a rule is even expressible as a
 capability version is itself open — rules may live in agent config instead.
 
-A PR that changes two entities produces one arm pinning both, so the delta attributes to *the
-PR*, not to either entity — separating them would need one arm per subset. The comment names
-which entities an arm pinned, so the ambiguity is visible rather than implied.
-
-**Why it stops here.** `getEvalRun` returns only `aggregateMetrics` — totals, no per-scenario
-breakdown — so the classification above has no data source yet. The two candidate routes
-(extend the client, or go through the eval-pipeline service the wix-manage gate uses) differ in
-*architecture*, not just in one adapter: the pipeline resolves both arms itself from a commit
-SHA, which would mean no base version and no second run of our own. That is why the orchestration
-is unbuilt rather than merely unwired.
+Once the input surface generalises, a PR that changes two entities would produce one PR arm
+pinning both, so the delta attributes to *the PR*, not to either entity — separating them would
+need one arm per subset. The comment would name which entities an arm pinned, so the ambiguity
+stays visible rather than implied.
 
 ## `cleanup` flow
 
@@ -246,6 +245,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `ignore-globs` | `gate` | `scripts/**` | Newline-separated, relative to `skill-dir` |
 | `broad-impact-globs` | `gate` | `SKILL.md` + the six cross-cutting references | Newline-separated, relative to `skill-dir` |
 | `max-scenarios` | `gate` | `25` | Touched scenarios kept first; anything cut is named in the comment |
+| `runs-per-scenario` | `gate` | `1` | Max `20`. Each scenario repeats this many times **per arm**, so an intermittent failure is visible instead of indistinguishable from a regression — at proportional cost. An intermittent failure counts as a failure |
 | `blocking` | `gate` | `false` | `true` fails the check; anything else warns and passes |
 
 `capability-id`, `agent-id` and `skill-dir` are optional at the action level because `sync`

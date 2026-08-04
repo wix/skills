@@ -211,6 +211,9 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
   // 30 minutes, holding the job step open long after the verdict was published.
   it('cancels the base arm poll once the grace period expires, and it stays cancelled', async () => {
     vi.useFakeTimers();
+    // Cancellation at grace expiry is the expected path, not a failure — it is annotated with
+    // `core.info`, not `core.warning`.
+    const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined);
     const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => undefined);
     let baseSleeps = 0;
     let basePollEndedWith: unknown;
@@ -237,7 +240,8 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     await vi.advanceTimersByTimeAsync(0);
 
     expect((basePollEndedWith as Error | undefined)?.name).toBe('BaseArmCancelledError');
-    expect(warningSpy).toHaveBeenCalledWith(expect.stringMatching(/cancelled/i));
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/cancelled/i));
+    expect(warningSpy).not.toHaveBeenCalled();
 
     // Nothing keeps polling after the verdict: half an hour of virtual time adds no attempt.
     const sleepsAtCancellation = baseSleeps;
