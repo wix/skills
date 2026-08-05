@@ -64,7 +64,7 @@ reference for anything not shown.
   `product.modifiers` (TEXT_CHOICES → choice buttons/select; FREE_TEXT → a text input); render
   neither when the arrays are empty. Skipping modifiers is a common miss — a product with a
   **mandatory** modifier (e.g. "gift wrap?") whose control isn't rendered can never be added: the
-  buyer can't satisfy the requirement, so `add-to-cart` returns 200 with an **empty** `lineItems`
+  buyer can't satisfy the requirement, so `add-line-items` returns 200 with an **empty** `lineItems`
   and the add silently no-ops.
   Render `product.plainDescription` as **HTML** — despite the name it contains markup (`<p>`,
   `<br>`, `<strong>`), so `dangerouslySetInnerHTML={{ __html: product.plainDescription }}` (React)
@@ -112,8 +112,8 @@ reference for anything not shown.
   add products in their Wix dashboard. Never invent products.
 
 ## Hard rules (do not violate)
-- ✅ Checkout ONLY via `checkout()` (`create-checkout` → `/headless/v1/redirect-session`
-  `fullUrl`), then redirect.
+- ✅ Checkout ONLY via `checkout()` (current cart id → `/headless/v1/redirect-session`
+  `fullUrl`), then redirect. Cart V2 has no `create-checkout` step — the cart id is the checkout id.
 - ❌ Never hand-build `/checkout`, cart-add, or product permalinks for purchase.
 - ❌ Never mock products — render live Wix data or the empty state.
 - ❌ Never generate fake reviews, ratings, or testimonials. Empty review UI only.
@@ -122,7 +122,7 @@ reference for anything not shown.
 - ✅ On the PDP, render a control for **every** `product.options` entry **and** every `product.modifiers`
   entry — never only variants. Keep Add-to-cart disabled until a variant resolves and every
   `modifier.mandatory === true` has a value; a mandatory modifier with no rendered control makes the
-  product unbuyable (add-to-cart returns 200 with empty `lineItems`).
+  product unbuyable (add-line-items returns 200 with empty `lineItems`).
 - ✅ Pass `addToCart`'s `variantId` (`variantsInfo.variants[].id`) for products with variants; omit for products without.
 - ✅ Pass `modifierChoices` (`{ [modifier.key]: choiceKey }`) for TEXT_CHOICES modifiers; pass `customTextFields`
   (`{ [modifier.freeTextSettings.key]: userInput }`) for FREE_TEXT modifiers. Include mandatory modifiers.
