@@ -55,7 +55,10 @@ export async function startComparisonArms(
   const baseRun = client.createAndRunEvalRun(config.projectId, {
     ...shared,
     name: `${runLabel} — base arm`,
-    description: 'Change-impact base arm: skill unpinned, evaluated live at main',
+    // The base arm pins no version, so this description is the only place that records what
+    // "main" actually meant at run time — the base arm's own EvalForge page is where an operator
+    // comparing the two arms will look for it.
+    description: `Change-impact base arm: skill unpinned, evaluated live at main (base commit ${config.baseSha.slice(0, 7)})`,
     comparisonLabel: 'base',
   })
     .then(created => created.id)

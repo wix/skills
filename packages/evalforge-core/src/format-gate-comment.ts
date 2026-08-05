@@ -238,7 +238,7 @@ function impactSection(impact: ChangeImpact | undefined): string[] {
       '',
       'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
       + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
-      + 'evaluate identical skill content, so a uniformly green table is not a suspicious no-op.',
+      + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
     ];
   }
 

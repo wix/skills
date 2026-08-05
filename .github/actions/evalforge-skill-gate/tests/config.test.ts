@@ -276,10 +276,30 @@ describe('getGateConfig — comparison fields', () => {
     expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('20'));
   });
 
-  it('rejects a non-positive runsPerScenario', async () => {
+  // Finding 2: `getGateConfig` runs before `isBlocking` is known, so a throw here would fail the
+  // check even during the soak period — the gate's own promise. This test used to pin that
+  // throw; it now pins the fix: an invalid value falls back to the default with a warning,
+  // exactly like `getMaxScenarios` already did for "exceeds the ceiling".
+  it('falls back a non-positive runsPerScenario to the default, with a warning, instead of throwing', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, 'runs-per-scenario': '0' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const { DEFAULT_RUNS_PER_SCENARIO } = await import('@wix/evalforge-core');
     const { getGateConfig } = await import('../src/utils/config');
-    expect(() => getGateConfig()).toThrow(/runs-per-scenario/);
+
+    expect(getGateConfig().runsPerScenario).toBe(DEFAULT_RUNS_PER_SCENARIO);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('runs-per-scenario'));
+  });
+
+  it('falls back a non-numeric runsPerScenario to the default, with a warning', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'runs-per-scenario': 'lots' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const { DEFAULT_RUNS_PER_SCENARIO } = await import('@wix/evalforge-core');
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(getGateConfig().runsPerScenario).toBe(DEFAULT_RUNS_PER_SCENARIO);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('runs-per-scenario'));
   });
 
   it('defaults baseArmGraceMs to 60 seconds, in milliseconds', async () => {
@@ -294,7 +314,7 @@ describe('getGateConfig — comparison fields', () => {
     expect(getGateConfig().baseArmGraceMs).toBe(5_000);
   });
 
-  it('clamps base-arm-grace-seconds above the ceiling of 900 with a warning', async () => {
+  it('clamps base-arm-grace-seconds above the ceiling of 300 with a warning', async () => {
     // A throw here would fail the check even during the soak period, the same reason
     // getMaxScenarios clamps rather than throws.
     setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '1000' });
@@ -302,13 +322,61 @@ describe('getGateConfig — comparison fields', () => {
     const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
     const { getGateConfig, MAX_BASE_ARM_GRACE_SECONDS } = await import('../src/utils/config');
 
+    expect(MAX_BASE_ARM_GRACE_SECONDS).toBe(300);
     expect(getGateConfig().baseArmGraceMs).toBe(MAX_BASE_ARM_GRACE_SECONDS * 1_000);
     expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('exceeds the ceiling'));
   });
 
-  it('rejects a non-positive base-arm-grace-seconds', async () => {
+  // Finding 2: `0` is a deliberate, legitimate value for the grace — "don't wait for the base arm
+  // at all" — not a misconfiguration. This test used to pin a throw for it; it now pins the
+  // decision that 0 is accepted outright, with no warning.
+  it('accepts a base-arm-grace-seconds of 0 as "do not wait for the base arm", without a warning', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '0' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
     const { getGateConfig } = await import('../src/utils/config');
-    expect(() => getGateConfig()).toThrow(/base-arm-grace-seconds/);
+
+    expect(getGateConfig().baseArmGraceMs).toBe(0);
+    // Unrelated to the input under test: REQUIRED_GATE_INPUTS omits evaluated-sha, which always
+    // warns on its own GITHUB_SHA fallback (see "falls back to GITHUB_SHA" below).
+    expect(warningSpy).not.toHaveBeenCalledWith(expect.stringContaining('base-arm-grace-seconds'));
+  });
+
+  it('falls back a negative base-arm-grace-seconds to the default, with a warning', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '-5' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const { DEFAULT_BASE_ARM_GRACE_SECONDS } = await import('@wix/evalforge-core');
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(getGateConfig().baseArmGraceMs).toBe(DEFAULT_BASE_ARM_GRACE_SECONDS * 1_000);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('base-arm-grace-seconds'));
+  });
+});
+
+describe('getGateConfig — total scenario execution ceiling (Finding 8)', () => {
+  it('leaves runsPerScenario alone when the product stays under the ceiling', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': '25', 'runs-per-scenario': '1' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().runsPerScenario).toBe(1);
+  });
+
+  it('clamps runsPerScenario down when maxScenarios × runsPerScenario × 2 would exceed the ceiling', async () => {
+    // 100 scenarios × 20 runs × 2 arms = 4000, both inputs individually valid and at their own
+    // ceiling — this is exactly the unbounded-cost case the per-input ceilings do not catch.
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': '100', 'runs-per-scenario': '20' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const { getGateConfig, MAX_TOTAL_SCENARIO_EXECUTIONS } = await import('../src/utils/config');
+
+    const config = getGateConfig();
+    expect(config.maxScenarios * config.runsPerScenario * 2).toBeLessThanOrEqual(MAX_TOTAL_SCENARIO_EXECUTIONS);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('exceeds the ceiling'));
+  });
+
+  it('never clamps runsPerScenario below 1', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': '100', 'runs-per-scenario': '1' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().runsPerScenario).toBeGreaterThanOrEqual(1);
   });
 });

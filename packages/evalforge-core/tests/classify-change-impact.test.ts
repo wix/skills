@@ -64,10 +64,23 @@ describe('classifyChangeImpact', () => {
     expect(impact.scenarios[0].impact).toBe('newly-broken');
   });
 
-  it('does not count a zero-assertion scenario as passing', () => {
+  // Finding 1: a zero-assertion PR outcome (e.g. every assertion SKIPPED) is a scenario the PR
+  // arm never actually scored — the same reasoning already applied to a zero-assertion base
+  // outcome below. Scoring it as a PR failure would manufacture a false `newly-broken` for a run
+  // whose own metrics render "Passed" / "Pass rate: 100%".
+  it('treats a zero-assertion PR outcome as unattributed, never newly-broken, against a green base', () => {
     const empty = outcome('a', true, { totalAssertions: 0 });
     const impact = classifyChangeImpact([empty], [outcome('a', true)]);
-    expect(impact.scenarios[0].impact).toBe('newly-broken');
+    expect(impact.scenarios[0].impact).toBe('unattributed');
+    expect(impact.newlyBroken).toBe(0);
+    expect(impact.scenarios[0].prPassed).toBeUndefined();
+  });
+
+  it('treats a zero-assertion PR outcome as unattributed against a failing base too', () => {
+    const empty = outcome('a', true, { totalAssertions: 0 });
+    const impact = classifyChangeImpact([empty], [outcome('a', false)]);
+    expect(impact.scenarios[0].impact).toBe('unattributed');
+    expect(impact.fixed).toBe(0);
   });
 
   it('ignores base scenarios that the PR arm did not run', () => {
@@ -185,5 +198,34 @@ describe('classifyChangeImpact — expectedScenarios (a requested scenario that 
     );
     expect(impact.scenarios).toHaveLength(1);
     expect(impact.scenarios[0].impact).toBe('unattributed');
+  });
+
+  // Finding 6: `toResultRow` defaults a wire row's `scenarioName` to `''` when the API omits it.
+  // A *measured* scenario still has an authoritative name available — the same `expectedScenarios`
+  // list already used to name the unmeasured ones — so it must not fall through to the id (or an
+  // empty string) when that name is on hand.
+  it('prefers the repo-YAML name over an empty wire scenarioName for a measured scenario', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true, { scenarioName: '' })],
+      [outcome('a', false)],
+      [{ id: 'a', name: 'scenario a' }],
+    );
+    expect(impact.scenarios[0].scenarioName).toBe('scenario a');
+  });
+
+  it('falls back to the wire scenarioName when no expectedScenarios entry names this id', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true, { scenarioName: 'wire name' })],
+      [outcome('a', false)],
+    );
+    expect(impact.scenarios[0].scenarioName).toBe('wire name');
+  });
+
+  it('falls back to the scenarioId when both the expected name and the wire name are empty', () => {
+    const impact = classifyChangeImpact(
+      [outcome('a', true, { scenarioName: '' })],
+      [outcome('a', false)],
+    );
+    expect(impact.scenarios[0].scenarioName).toBe('a');
   });
 });

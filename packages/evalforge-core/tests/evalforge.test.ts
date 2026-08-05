@@ -367,6 +367,35 @@ describe('getEvalRun — per-scenario results', () => {
     ]);
   });
 
+  // Finding 5: `assertionId` is the only field that disambiguates two assertions sharing a name
+  // (see the live fixture used in `fold-scenario-iterations.test.ts`), so it must survive the
+  // wire mapping rather than being dropped like the trimmed fields never were.
+  it('carries assertionId through when the wire row sends one', async () => {
+    const withAssertionId = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{
+            assertionName: 'Skill was called', assertionType: 'skill_was_called', status: 'PASSED',
+            assertionId: 'aid-123',
+          }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withAssertionId }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].assertionId).toBe('aid-123');
+  });
+
+  it('omits assertionId rather than a synthetic default when the wire row does not send one', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect('assertionId' in status.results[0].assertions[0]).toBe(false);
+  });
+
   it('marks a partial row, and defaults partial to false when absent', async () => {
     mockFetch(() => ({ status: 200, body: resultsBody }));
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
@@ -403,6 +432,9 @@ describe('getEvalRun — per-scenario results', () => {
     ]);
   });
 
+  // Finding 4: a null entry has no `status` at all — the same "absent" case a real proto3 payload
+  // reaches whenever the wire omits a zero-valued enum field. That must not read as `ERROR` (a
+  // genuine wire status this action did not see), so it maps to `UNKNOWN` instead.
   it('tolerates a null entry inside assertionResults, yielding a safe empty assertion outcome', async () => {
     const withNullAssertion = {
       evalRun: {
@@ -414,7 +446,7 @@ describe('getEvalRun — per-scenario results', () => {
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     const status = await c.getEvalRun('proj-1', 'run-1');
     expect(status.results[0].assertions).toEqual([
-      { assertionName: '(unnamed)', assertionType: 'unknown', status: 'ERROR' },
+      { assertionName: '(unnamed)', assertionType: 'unknown', status: 'UNKNOWN' },
     ]);
   });
 
@@ -448,7 +480,11 @@ describe('getEvalRun — per-scenario results', () => {
     expect(statuses).not.toContain('ERROR');
   });
 
-  it('falls back an unrecognised assertion status to ERROR', async () => {
+  // Finding 4: an unrecognised status — whether a typo or a genuinely new future enum member —
+  // is not evidence the assertion errored. Folding it into `ERROR` would manufacture a failure
+  // (`foldScenarioIterations` counts every `ERROR` toward `errors`) for a value this action simply
+  // does not know how to read, so it maps to `UNKNOWN` instead.
+  it('maps an unrecognised assertion status to UNKNOWN, not ERROR', async () => {
     const withUnknownStatus = {
       evalRun: {
         ...resultsBody.evalRun,
@@ -461,7 +497,65 @@ describe('getEvalRun — per-scenario results', () => {
     mockFetch(() => ({ status: 200, body: withUnknownStatus }));
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     const status = await c.getEvalRun('proj-1', 'run-1');
-    expect(status.results[0].assertions[0].status).toBe('ERROR');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  it('maps ASSERTION_RESULT_STATUS_UNSPECIFIED to UNKNOWN, not ERROR', async () => {
+    const withUnspecified = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{
+            assertionName: 'a', assertionType: 't', status: 'ASSERTION_RESULT_STATUS_UNSPECIFIED',
+          }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withUnspecified }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  it('maps a wholly absent status to UNKNOWN — the proto3 zero-value-omitted case', async () => {
+    const withAbsentStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't' }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withAbsentStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  // Finding 3: `status` is untrusted wire data, not necessarily a string — a proto enum can arrive
+  // as a number, or (in a malformed response) as anything else. Calling `.startsWith` on it without
+  // a `typeof` guard threw, which previously surfaced as a poll failure for a run that had actually
+  // completed.
+  it.each([
+    ['a numeric proto enum', 1],
+    ['an object', { code: 1 }],
+    ['an array', [1]],
+  ])('does not throw when status arrives as %s, mapping it to UNKNOWN', async (_label, wireStatus) => {
+    const withNonStringStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't', status: wireStatus }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNonStringStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
   });
 });
 

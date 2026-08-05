@@ -86,8 +86,15 @@ export type EvalRunCreated = { id: string; status: RunStatus };
 export type AssertionOutcome = {
   assertionName: string;
   assertionType: string;
-  status: 'PASSED' | 'FAILED' | 'SKIPPED' | 'ERROR';
+  /** `UNKNOWN` is a wire value this action does not recognize (absent, `UNSPECIFIED`, or a future
+   * enum member) — distinct from `ERROR`, which is the API's own genuine-error status. Folding
+   * `UNKNOWN` into `ERROR` would manufacture a failure for an assertion nothing actually reports
+   * as failed. */
+  status: 'PASSED' | 'FAILED' | 'SKIPPED' | 'ERROR' | 'UNKNOWN';
   message?: string;
+  /** Present when the wire row carries one — the only field that disambiguates two assertions
+   * sharing a name (e.g. two `skill_was_called` checks against different reference files). */
+  assertionId?: string;
 };
 
 export type EvalRunResultRow = {
@@ -196,8 +203,12 @@ type RawMetrics = Partial<EvalRunStatus['aggregateMetrics']>;
 type RawAssertionResult = {
   assertionName?: string;
   assertionType?: string;
-  status?: string;
+  // Untyped, not `string`: this is untrusted wire data, and a proto enum can arrive as a number
+  // (or, in a malformed response, an object or array) — `status` must be validated by type before
+  // any string method touches it.
+  status?: unknown;
   message?: string;
+  assertionId?: string;
 };
 type RawEvalRunResult = {
   scenarioId?: string;
@@ -230,13 +241,21 @@ const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'] as const;
 const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
 
 // Validates against the known enum rather than casting, so a typo'd or novel
-// wire value doesn't silently type-check as one of the four literals and
+// wire value doesn't silently type-check as one of the five literals and
 // defeat an exhaustive switch over AssertionOutcome['status'].
-function toAssertionStatus(rawStatus: string | undefined): AssertionOutcome['status'] {
-  const unprefixedStatus = rawStatus?.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
+function toAssertionStatus(rawStatus: unknown): AssertionOutcome['status'] {
+  if (typeof rawStatus !== 'string') return 'UNKNOWN';
+  const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
     ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
     : rawStatus;
-  return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'ERROR';
+  return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
 }
 
 function toAssertionOutcome(rawAssertionResult: RawAssertionResult | null | undefined): AssertionOutcome {
@@ -245,6 +264,7 @@ function toAssertionOutcome(rawAssertionResult: RawAssertionResult | null | unde
     assertionType: rawAssertionResult?.assertionType ?? 'unknown',
     status: toAssertionStatus(rawAssertionResult?.status),
     ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+    ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
   };
 }
 

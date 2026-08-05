@@ -61,20 +61,30 @@ export function classifyChangeImpact(
   expectedScenarios?: Array<{ id: string; name: string }>,
 ): ChangeImpact {
   const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
+  // Authoritative names come from the repo YAML the gate requested, keyed by id — the same source
+  // `unmeasured` below already uses. A measured row can still carry an empty wire `scenarioName`
+  // (see `toResultRow`'s default), and this is the only chance to replace it before it reaches the
+  // comment as a nameless blocking table row.
+  const expectedNameById = new Map((expectedScenarios ?? []).map(scenario => [scenario.id, scenario.name]));
 
   const measured: ScenarioImpact[] = prOutcomes.map(prOutcome => {
-    const prPassed = scenarioPassed(prOutcome);
+    const prMeasuredNothing = prOutcome.totalAssertions === 0;
     const baseOutcome = baseById.get(prOutcome.scenarioId);
 
     return {
       scenarioId: prOutcome.scenarioId,
-      scenarioName: prOutcome.scenarioName,
-      // A base scenario with zero assertions was not measured, so it is not evidence the
-      // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
-      impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+      scenarioName: expectedNameById.get(prOutcome.scenarioId) || prOutcome.scenarioName || prOutcome.scenarioId,
+      // A base or PR scenario with zero assertions was not measured, so it is not evidence the
+      // scenario was broken (base) or that this change broke it (PR) — scoring either as a
+      // failure would manufacture a false `fixed` or `newly-broken` for a scenario nothing
+      // actually verified (e.g. every assertion SKIPPED, so scenarioPassed is false but nothing
+      // failed either).
+      impact: prMeasuredNothing || baseOutcome === undefined || baseOutcome.totalAssertions === 0
         ? 'unattributed'
-        : classifyOne(prPassed, scenarioPassed(baseOutcome)),
-      prPassed,
+        : classifyOne(scenarioPassed(prOutcome), scenarioPassed(baseOutcome)),
+      // Absent, not `false`, when the PR arm scored nothing — same reasoning as the unmeasured
+      // scenarios below: a `false` here would state the PR failed a scenario nothing verified.
+      ...(prMeasuredNothing ? {} : { prPassed: scenarioPassed(prOutcome) }),
       ...(prOutcome.failingAssertionNames === undefined
         ? {}
         : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
