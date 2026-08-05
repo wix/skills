@@ -89,6 +89,36 @@ export default MyElement;
 - Use `this.getAttribute('attribute-name')` to read attribute values
 - Wix handles `define()` for you — do NOT call `customElements.define()` in your code
 
+### Interactive Plugins: Attach Listeners in Exactly One Place
+
+When the plugin has controls, `render()` replaces `innerHTML`, which destroys the old nodes — so listeners must be re-attached after **every** render. Bind them in exactly one place, or a single click fires the handler twice:
+
+```typescript
+// ❌ WRONG — render() already attaches, so connectedCallback binds twice.
+// Both listeners sit on the same button, so one click runs the handler
+// twice — e.g. the item is added to the cart two times.
+connectedCallback() {
+  this.render();        // render() ends with this.attachEvents()
+  this.attachEvents();  // duplicate registration
+}
+
+// ✅ CORRECT — render() owns attachment; lifecycle hooks only render.
+connectedCallback() {
+  this.render();
+}
+
+attributeChangedCallback() {
+  this.render();
+}
+
+render() {
+  this.innerHTML = `...`;
+  this.attachEvents(); // single place, runs after every re-render
+}
+```
+
+Removing the element from the DOM mid-dispatch does not cancel the remaining listeners on it, so re-rendering inside the handler will not suppress the second call. Fix the duplicate registration rather than masking it with an in-flight flag.
+
 ## Settings Panel Pattern
 
 ```typescript
@@ -343,6 +373,48 @@ import { createClient } from "@wix/sdk";
 const wixClient = createClient({ modules: { items, products } });
 await wixClient.items.query(...); // Wrong — API surface differs through client
 ```
+
+### Adding to the Cart
+
+`currentCart.addToCurrentCart()` takes **two different arrays**, and picking the wrong one type-checks but breaks at runtime:
+
+- **`lineItems`** — catalog items only. Each entry **requires** `catalogReference: { catalogItemId, appId }`.
+- **`customLineItems`** — items that are not in a catalog (configurators, bundles, made-to-order). Each entry carries its own `productName`, `price`, and `itemType`.
+
+Never invent a `catalogReference` to force a custom item into `lineItems` — use `customLineItems`.
+
+```typescript
+import { currentCart } from "@wix/ecom";
+
+// ✅ Non-catalog item — customLineItems, price is a decimal STRING
+await currentCart.addToCurrentCart({
+  customLineItems: [
+    {
+      quantity: 1,
+      price: "45.00", // string, no currency symbol
+      productName: { original: "Hoodie (JH001)" },
+      itemType: { preset: "PHYSICAL" },
+      descriptionLines: [
+        { name: { original: "Size" }, plainText: { original: "L" } },
+      ],
+    },
+  ],
+});
+
+// ✅ Catalog item — lineItems, catalogReference required
+await currentCart.addToCurrentCart({
+  lineItems: [
+    {
+      quantity: 1,
+      catalogReference: { catalogItemId: productId, appId: storesAppId },
+    },
+  ],
+});
+```
+
+After any cart mutation, call `refreshCart()` so the site's cart UI and the Cart Updated event pick it up.
+
+> Do **not** grep `node_modules/@wix/ecom` to confirm these methods exist. `@wix/<pkg>` packages are re-export facades — `currentCart` comes from `@wix/auto_sdk_ecom_current-cart`, so `addToCurrentCart` matches zero files under `@wix/ecom`. An empty result is not evidence the API is missing.
 
 ### Performance Considerations
 
