@@ -54,7 +54,10 @@ Example — Start:
 
 ```
 POST https://www.wixapis.com/site-import/v1/imports
-Body: { "request": "Import https://example-store.com into a new Wix site" }
+Body: {
+  "request": "Import https://example-store.com into a new Wix site",
+  "source_url": "https://example-store.com"
+}
 ```
 
 Example — Poll:
@@ -148,12 +151,21 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 **Single `importId` for the whole import — assigned at Start, never changes.**
 
 1. **Start** — `POST /v1/imports`
-   Body: `{"request": "<natural language; MUST include the source store URL>"}`
+   Body: `{"request": "<natural language, MUST include the source store URL>", "source_url": "<the source store URL>"}`
+   `request` is required (1–20000 chars). `source_url` is technically optional but
+   **always send it whenever the user names a site** — it's the identity the
+   service uses to select which migration the request joins, not just an extra
+   hint. Leave it out only for an import with no source site (e.g. the user
+   pastes inline CSV/JSON data to import instead of a URL); a request with
+   neither a `source_url` nor a URL/site identifiable in `request` is rejected
+   with `SITE_UNIDENTIFIED`.
    Returns: `importId`, `sourcePlatform`, `sourceConfidence`.
-   One import per store at a time: if the same user re-starts for the same store,
-   the server returns the existing `importId` (no new import is created). If a
-   different user on the account already owns an import for that store, Start
-   returns `409 { "code": "IMPORT_IN_PROGRESS" }` — tell the user and stop.
+   **One import per store at a time, keyed on `source_url`:** re-starting with the
+   same `source_url` continues the SAME migration (server returns the existing
+   `importId`, no new import created). A different `source_url` always starts an
+   independent migration, even for the same user. If a different user on the
+   account already owns an import for that store, Start returns
+   `409 { "code": "IMPORT_IN_PROGRESS" }` — tell the user and stop.
 
 2. **Poll** — `GET /v1/imports/{importId}?includeRecentActivity=true`
    Returns: `status`, `deployUrl`, `message`, `options[]` (only when
@@ -242,7 +254,10 @@ the user has no way to open a file.
   reaches the team. Do not retry or fall back to another site-creation tool.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
-  required field is missing (`request`/`message` must be 1–20000 chars).
+  required field is missing (`request`/`message` must be 1–20000 chars) or
+  `source_url` exceeds 2048 chars. A request with no identifiable site (no
+  `source_url` and no URL in `request`) and no inline data is rejected with
+  `SITE_UNIDENTIFIED` — ask the user for the store URL and retry.
 - Requesting an unknown id in `artifactIds` is silently ignored — not an error.
   A document simply may not exist yet on an earlier turn.
 - **The user cannot open files.** If a message mentions a document by filename,
