@@ -1,0 +1,10 @@
+# Editor React Component skill docs
+/skills/wix-app/references/EDITOR_REACT_COMPONENT.md        @wix-private/ot-components-ee
+/skills/wix-app/references/editor-react-component/          @wix-private/ot-components-ee
+
+# Wix Headless — Bookings vertical
+/skills/wix-headless/references/bookings/                   @wix-private/bookings-calendar-platform
+/skills/wix-headless/references/astro/bookings/             @wix-private/bookings-calendar-platform
+/skills/wix-headless/references/astro/templates/bookings/   @wix-private/bookings-calendar-platform
+/skills/wix-headless/references/custom/bookings/            @wix-private/bookings-calendar-platform
+/skills/wix-headless/references/verticals/bookings.md       @wix-private/bookings-calendar-platform

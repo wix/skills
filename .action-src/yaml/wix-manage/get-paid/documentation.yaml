@@ -1,0 +1,20 @@
+apiDoc:
+  title: Wix Get Paid Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/get-paid/create-payment-links.md
+      title: Create Payment Links
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [get-paid, stores]
+    - file: ../../../skills/wix-manage/references/get-paid/how-to-setup-wix-payments.md
+      title: How to Setup Wix Payments
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [get-paid]
+    - file: ../../../skills/wix-manage/references/get-paid/payment-links-for-bookings.md
+      title: Payment Links for Bookings
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [get-paid, bookings]
+    - file: ../../../skills/wix-manage/references/get-paid/get-paid-dashboard-navigation.md
+      title: Get Paid Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [get-paid]

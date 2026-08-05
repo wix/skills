@@ -1,0 +1,47 @@
+name: ecommerce/pricing-promotions/create-coupon
+description: Convert a COUPON recommendation from the eCommerce strategy into a Wix coupon via the Coupons API.
+triggerPrompt: |
+  For my Wix store, I ran the eCommerce strategy and got this recommendation output:
+
+  {
+    "mechanism": "COUPON",
+    "scope": "SITE",
+    "categoryIds": [],
+    "name": "Tech Insider Deal",
+    "discountType": "PERCENTAGE",
+    "discount": 20,
+    "code": "TECH20",
+    "usageLimit": 100,
+    "limitPerCustomer": 1,
+    "conditions": {
+      "startDate": "2026-06-01",
+      "endDate": "2026-06-30"
+    }
+  }
+
+  Convert this recommendation into a coupon using the Wix Coupons API.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The agent received a COUPON recommendation object and was asked to convert it into a Wix coupon.
+
+      The agent is converting a pre-approved recommendation — guardrails already ran in the strategy orchestrator, so they are NOT required here.
+
+      Pass if ALL of these are true:
+        1. The agent loaded the `pricing-create-coupon` recipe (NOT the legacy `setup-coupons` slug).
+        2. The create payload correctly maps recommendation fields: `percentOffRate: 20`, `code: "TECH20"`, `usageLimit: 100`, `limitPerCustomer: 1`, and `expirationTime` in UNIX milliseconds for 2026-06-30 (value ~1782777600000, ending in three zeros).
+        3. It applied the recommendation's `scope: "SITE"` — no category filter.
+
+      Fail if ANY of these are true:
+        - The agent used the legacy `setup-coupons` slug or its content.
+        - `expirationTime` was sent in seconds (ten-digit integer) instead of milliseconds.
+        - The agent ignored the recommendation fields and invented its own coupon parameters.

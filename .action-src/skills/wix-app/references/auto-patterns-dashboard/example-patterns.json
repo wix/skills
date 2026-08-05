@@ -1,0 +1,278 @@
+{
+  "pages": [
+    {
+      "id": "additional-fees-collection",
+      "type": "collectionPage",
+      "appMainPage": true,
+      "collectionPage": {
+        "route": {
+          "path": "/"
+        },
+        "title": {
+          "text": "Additional Fees Configuration",
+          "hideTotal": false
+        },
+        "subtitle": {
+          "text": "Manage and configure additional fees for checkout"
+        },
+        "actions": {
+          "primaryActions": {
+            "type": "action",
+            "action": {
+              "item": {
+                "id": "create-additional-fees",
+                "type": "create",
+                "label": "Add New Fee",
+                "collection": {
+                  "collectionId": "@mirivo/mirivo-private-app-for-test2011/additional-fees",
+                  "entityTypeSource": "cms"
+                },
+                "create": {
+                  "mode": "page",
+                  "page": {
+                    "id": "additional-fees-entity"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "components": [
+          {
+            "type": "collection",
+            "layout": [
+              {
+                "type": "Table",
+                "table": {
+                  "columns": [
+                    {
+                      "id": "feeTitle",
+                      "name": "Title",
+                      "width": "200px",
+                      "sortable": true
+                    },
+                    {
+                      "id": "feeAmount",
+                      "name": "Amount",
+                      "width": "100px",
+                      "sortable": true
+                    },
+                    {
+                      "id": "feeType",
+                      "name": "Type",
+                      "width": "200px",
+                      "sortable": true
+                    },
+                    {
+                      "id": "isActive",
+                      "name": "Active",
+                      "width": "100px",
+                      "sortable": true
+                    }
+                  ],
+                  "customColumns": {
+                    "enabled": true
+                  }
+                }
+              }
+            ],
+            "entityPageId": "additional-fees-entity",
+            "collection": {
+              "collectionId": "@mirivo/mirivo-private-app-for-test2011/additional-fees",
+              "entityTypeSource": "cms"
+            },
+            "toolbarTitle": {
+              "title": "Additional Fees",
+              "subtitle": {
+                "text": "Configure fees applied during checkout process"
+              },
+              "showTotal": true
+            },
+            "filters": {
+              "items": [
+                {
+                  "id": "feeAmount-filter",
+                  "fieldId": "feeAmount",
+                  "displayName": "Fee Amount",
+                  "tagLabel": "Fee Amount",
+                  "numberConfig": {
+                    "allowedDecimals": true
+                  }
+                },
+                {
+                  "id": "isActive-filter",
+                  "fieldId": "isActive",
+                  "displayName": "Is Active",
+                  "tagLabel": "Is Active"
+                }
+              ]
+            },
+            "emptyState": {
+              "title": "No Additional Fees Configured",
+              "subtitle": "Start by adding your first additional fee for checkout",
+              "addNewCta": {
+                "id": "create-additional-fees",
+                "text": "Create First Fee"
+              }
+            },
+            "actionCell": {
+              "primaryAction": {
+                "item": {
+                  "id": "edit-additional-fees",
+                  "type": "update",
+                  "update": {
+                    "mode": "page",
+                    "page": {
+                      "id": "additional-fees-entity"
+                    }
+                  }
+                }
+              },
+              "secondaryActions": {
+                "items": [
+                  {
+                    "id": "delete-additional-fees",
+                    "type": "delete",
+                    "label": "Delete",
+                    "delete": {
+                      "mode": "modal",
+                      "modal": {
+                        "title": {
+                          "text": "Remove Additional Fee"
+                        },
+                        "description": {
+                          "text": "Are you sure you want to delete this additional fee? This will remove it from future checkouts."
+                        },
+                        "feedback": {
+                          "successToast": {
+                            "text": "Additional fee deleted successfully"
+                          },
+                          "errorToast": {
+                            "text": "Failed to delete additional fee"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "bulkActionToolbar": {
+              "primaryActions": [
+                {
+                  "type": "action",
+                  "action": {
+                    "item": {
+                      "id": "bulk-delete-additional-fees",
+                      "type": "bulkDelete",
+                      "bulkDelete": {
+                        "mode": "modal",
+                        "modal": {
+                          "title": {
+                            "text": "Remove Multiple Fees"
+                          },
+                          "description": {
+                            "text": "Are you sure you want to delete the selected additional fees? This will remove them from future checkouts."
+                          },
+                          "feedback": {
+                            "successToast": {
+                              "text": "Selected additional fees deleted successfully"
+                            },
+                            "errorToast": {
+                              "text": "Failed to delete selected additional fees"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "additional-fees-entity",
+      "type": "entityPage",
+      "entityPage": {
+        "route": {
+          "path": "/additional-fee/:entityId",
+          "params": {
+            "id": "entityId"
+          }
+        },
+        "title": {
+          "text": "Fee Details"
+        },
+        "subtitle": {
+          "text": "View and edit additional fee configuration"
+        },
+        "parentPageId": "additional-fees-collection",
+        "layout": {
+          "main": [
+            {
+              "type": "card",
+              "card": {
+                "title": {
+                  "text": "Fee Information"
+                },
+                "subtitle": {
+                  "text": "Basic details for the additional fee"
+                },
+                "children": [
+                  {
+                    "type": "field",
+                    "field": {
+                      "span": 12,
+                      "fieldId": "feeTitle"
+                    }
+                  },
+                  {
+                    "type": "field",
+                    "field": {
+                      "span": 12,
+                      "fieldId": "feeAmount"
+                    }
+                  },
+                  {
+                    "type": "field",
+                    "field": {
+                      "span": 12,
+                      "fieldId": "feeType"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "sidebar": [
+            {
+              "type": "card",
+              "card": {
+                "title": {
+                  "text": "Fee Status"
+                },
+                "subtitle": {
+                  "text": "Activation and usage settings"
+                },
+                "children": [
+                  {
+                    "type": "field",
+                    "field": {
+                      "span": 12,
+                      "fieldId": "isActive"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "collectionId": "@mirivo/mirivo-private-app-for-test2011/additional-fees",
+        "entityTypeSource": "cms"
+      }
+    }
+  ]
+}

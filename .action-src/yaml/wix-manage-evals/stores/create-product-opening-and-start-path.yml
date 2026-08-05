@@ -1,0 +1,19 @@
+name: stores/create-product-opening-and-start-path
+description: When the user wants to create a product but hasn't named one, the skill should open by asking what product to create and offer a starting path — from an uploaded image or from a text description.
+triggerPrompt: For my Wix store, I'd like to add a new product.
+tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-with-options-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: the user wants to create a product but has not named a specific product or provided any details.
+      Pass if the response (a) loads the create-product-with-options-catalog-v3 skill, (b) opens by asking what product the user would like to create (e.g. "What product would you like to create?") instead of fabricating a product, and (c) offers the user a starting path — either uploading a product image (from which the agent creates the product info) or describing the product in text/prompt.
+      Fail if the response invents a product name/details the user never gave, jumps straight to a Create Product API call without gathering any details, or fails to offer the image-vs-text starting choice.
+      The exact wording is not required — judge that the opening question and the two starting paths (image or text) are both presented.

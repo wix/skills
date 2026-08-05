@@ -1,0 +1,18 @@
+name: ecommerce/shipping/category-routing
+description: I want to set up shipping rates for my US region AND mark today's orders as shipped with tracking — help with both or tell me what's outside your scope.
+triggerPrompt: For my Wix store, I need to set up shipping rates for my US delivery region, and I also need to mark today's paid orders as shipped with tracking numbers. Handle both, or tell me which one I should ask about somewhere else.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response treats the two asks as separate categories — directs "set up shipping rates" to a Shipping resource (e.g. the setup-rates / optimize-rates / setup-regions recipes) AND directs "mark today's orders as shipped with tracking" to a Fulfillment resource (e.g. fulfill-orders / bulk-fulfill-orders) — and contains no claim that the Shipping category handles the mark-shipped / tracking action itself.
+      Fail if the response treats Fulfillment as part of Shipping, claims a single shipping skill covers both setup and post-purchase order updates, or routes "mark as shipped" / "tracking number" back to a Shipping recipe (setup-rates, fix-coverage, optimize-rates, free-shipping, setup-pickup, setup-regions).
+      Topic-completeness beyond the two asks (e.g. how to set rates, what flat vs tiered means, packing slips, labels) is NOT required to pass — judge the boundary, not the breadth.

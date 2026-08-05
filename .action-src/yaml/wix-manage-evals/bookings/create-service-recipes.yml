@@ -1,0 +1,45 @@
+name: bookings/create-service-recipes
+description: >-
+  Verifies the agent reads the prompt router and the appointment, class, and
+  course service creation recipes without redundant dynamic-context checks.
+triggerPrompt: >-
+  Use the Wix Bookings create-service prompt recipe and the appointment, class,
+  and course service recipes to explain how to create three services: a 60 minute
+  strategy consultation for $75, a yoga class for $25 with room for 12 people,
+  and a 6 week photography course for $300. Which recipe applies to each and what
+  are the key create-service fields?
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-booking-service-from-prompt
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-appointment-service
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-class-service
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-course-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to create appointment, class, and course booking services from prompts.
+      Intent: route each prompt to the correct create-service recipe and summarize the key fields without redundant dynamic-context checks.
+
+      Pass if the response:
+      - routes the consultation to `APPOINTMENT`, the yoga class to `CLASS`, and the photography course to `COURSE`, AND
+      - mentions appointment-specific fields such as staff `resourceId` values and session duration, AND
+      - mentions class/course-specific fields such as `defaultCapacity`, AND
+      - explains that class/course services do not use `staffMemberIds` or appointment `sessionDurations`, AND
+      - does not tell the user to call Site Properties / `properties.paymentCurrency` for currency, AND
+      - does not tell the user to call List Installed Apps or install Wix Bookings before creating the services.
+
+      Fail if the response:
+      - routes any service to the wrong service type, OR
+      - instructs the user to fetch site currency from Site Properties, OR
+      - instructs the user to verify/install the Wix Bookings app as part of these recipes, OR
+      - tells the user to provide, infer, or fall back to a currency for the paid service examples, OR
+      - omits the required appointment or class/course-specific fields.

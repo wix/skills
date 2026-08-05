@@ -1,0 +1,19 @@
+name: Check @wix/cli pinned to @latest
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'plugins/**'
+      - '.github/scripts/check-cli-pinned.sh'
+      - '.github/workflows/check-cli-pinned.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - run: bash .github/scripts/check-cli-pinned.sh

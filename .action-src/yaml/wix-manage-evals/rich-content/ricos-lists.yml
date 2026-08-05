@@ -1,0 +1,19 @@
+name: rich-content/ricos-lists
+description: Verifies the agent reads the Author Ricos Rich Content recipe and builds correctly-nested bulleted and ordered lists (LIST → LIST_ITEM → PARAGRAPH → TEXT).
+triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for a short section containing one bulleted list with two items and one numbered/ordered list with three steps. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 150000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for list structure.
+
+      Score 9-10: contains BOTH a BULLETED_LIST and an ORDERED_LIST; each is nested LIST → LIST_ITEM → PARAGRAPH → TEXT; the bulleted list carries `bulletedListData` and the ordered list carries `orderedListData`; every `type` is a bare string; no TEXT node sits directly inside a LIST_ITEM (it must go through a PARAGRAPH).
+      Score 6-8: both lists present and correctly nested but a minor field is missing (e.g. `bulletedListData`/`orderedListData` omitted).
+      Score 3-5: only one list type present, OR a TEXT node is placed directly inside a LIST_ITEM, OR a nesting level is skipped.
+      Score 0-2: no list structure, or prose/plain-text output.
