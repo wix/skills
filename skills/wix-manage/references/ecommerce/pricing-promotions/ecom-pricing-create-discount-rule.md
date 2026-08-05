@@ -22,15 +22,6 @@ layer: config
 
 ## Critical: `discounts` structure
 
-**On every request you send, `discounts` is an object wrapping a `values` array** —
-`"discounts": { "values": [ … ] }`. This is the single most common rejection on this API: passing
-the array directly under `discounts` returns `400 {"message":"Expected an object"}`. It applies to
-create just as much as to update — including when you are building a brand-new rule from scratch.
-
-**Inside each entry, `discountType` and its value are siblings at the entry root.** Put
-`percentage` (or `fixedAmount`) next to `discountType`, not inside a nested `discount` object;
-nesting them returns `400 DISCOUNT_TYPE_AND_DISCOUNT_VALUE_MISMATCH`.
-
 **The API always returns the full normalized structure**, `values` wrapper included. Never assume a simplified form. Each entry of `discounts.values` looks like:
 
 ```json
