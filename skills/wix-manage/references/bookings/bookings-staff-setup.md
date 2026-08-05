@@ -111,9 +111,9 @@ Before creating staff members, ensure the foundation is properly configured:
 
 **Check Wix Bookings Installation**: Query staff members (`POST https://www.wixapis.com/bookings/v1/staff-members/query`) to test if Bookings is installed. If you receive "Business schedule not found" errors, the foundation needs setup.
 
-**Install Wix Bookings App** (if needed): Use the App Installer API with Wix Bookings app ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`.
+**Install Wix Bookings App** (if needed): Use the App Installer API with Wix Bookings app ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`. Installing Bookings automatically provisions the business schedule that Staff Members needs — no separate schedule-creation call is required.
 
-**Configure Business Schedule**: Set up site properties with business operating hours using the Site Properties API.
+**Configure Business Schedule** (optional — only if you want non-default hours): Use the Calendar Events V3 API, **not** the Site Properties API, to set business operating hours. See the [Configure Default Business Hours recipe](../calendar/configure-default-business-hours.md). The Site Properties Business Schedule API (`site-properties/v4/properties/business-schedule`) is an unrelated resource and won't fix a "Business schedule not found" error.
 
 **Create Calendar Schedule and Working Hours**: Create a calendar schedule for Wix Bookings integration and populate it with business `WORKING_HOURS` events.
 
@@ -204,7 +204,9 @@ Query the staff member to confirm:
 ### Troubleshooting Common Issues
 
 **"Business schedule not found" Error**:
-Execute systematic diagnosis: check app installation, site properties, calendar schedule, and working hours events in sequence. Fix the first failed component before proceeding.
+1. Check Wix Bookings app installation first ([List Installed Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/list-installed-apps)). This is the cause in almost all cases — install the app and retry.
+2. **Do NOT** call the Site Properties Business Schedule API (`site-properties/v4/properties/business-schedule`) as a fix — it's a different, unrelated resource. It will return `200` without creating or affecting the Calendar business schedule that Staff Members/Calendar APIs check for.
+3. If Bookings is confirmed installed (via step 1) and the error still persists after retrying, this is a backend provisioning gap in the site's business schedule, not something fixable via a public API call (there is no create-business-schedule endpoint). Report this to the user and suggest contacting Wix Support with the site ID, rather than continuing to retry business-schedule/location workarounds.
 
 **Staff Member Still Shows Default Hours**:
 Completed assignment but missing event creation. Create `WORKING_HOURS` events using the Bulk Create Events API.
