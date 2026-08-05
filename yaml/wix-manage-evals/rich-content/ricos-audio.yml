@@ -1,12 +1,9 @@
 name: rich-content/ricos-audio
 description: Sharp-edge check on the Author Ricos Rich Content recipe — an AUDIO block with audio.src.id and empty nodes array.
-triggerPrompt: I need hand-authored Ricos rich-content JSON. First call ReadFullDocsArticle for the Author Ricos Rich Content recipe at https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content. Then give me the nodes tree for an AUDIO block for a hosted track using a placeholder Wix media id. Output only the richContent JSON.
+triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for an AUDIO block for a hosted track using a placeholder Wix media id. Output only the richContent JSON.
 tags: [rich-content]
 maxTokens: 450000
 assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
   - type: llm_judge
     minScore: 9
     maxTokens: 2048
