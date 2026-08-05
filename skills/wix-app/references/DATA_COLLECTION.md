@@ -74,43 +74,40 @@ export default {
 | `URL`             | URL validation                   | Links                  |
 | `PAGE_LINK`       | Link to Wix page                 | Internal navigation    |
 | `LANGUAGE`        | Language code                    | Multi-language content |
-| `OBJECT`          | JSON object                      | Flexible data          |
+| `OBJECT`          | JSON object — requires `objectOptions: { fields: [] }` | Flexible data |
 | `ARRAY`           | Array of values                  | Generic arrays         |
 | `ARRAY_STRING`    | Array of strings                 | Tags list              |
 | `ARRAY_DOCUMENT`  | Array of documents               | File collections       |
 | `ANY`             | Any type                         | Most flexible          |
 
-**CRITICAL: OBJECT fields require `objectOptions` with a `fields` array.** When using `type: "OBJECT"`, you MUST include `objectOptions: { fields: [] }` — the API will reject OBJECT fields without it. Use an empty `fields` array if you don't need a fixed schema (the object will still accept arbitrary JSON):
+**CRITICAL: OBJECT fields require `objectOptions` with a `fields` array.** When using `type: 'OBJECT'`, you MUST include `objectOptions: { fields: [] }`. Use an empty `fields` array if you don't need a fixed schema (the object still accepts arbitrary JSON):
 
-```json
-{
-  "key": "settings",
-  "displayName": "Settings",
-  "type": "OBJECT",
-  "objectOptions": { "fields": [] }
-}
+| ❌ WRONG                                                        | ✅ CORRECT                                                                    |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `{ key: 'settings', type: 'OBJECT', objectOptions: {} }`       | `{ key: 'settings', type: 'OBJECT', objectOptions: { fields: [] } }`         |
+
+> ⚠️ `objectOptions: {}` (without the `fields` key) does **not** type-check — `fields` is required on `DevCenterDataCollectionObjectOptions`, so the build fails with `TS2741: Property 'fields' is missing`. Always include `fields`, even as an empty array.
+
+Written as a full field, in the same TypeScript syntax as the rest of the collection file:
+
+```ts
+{ key: 'settings', displayName: 'Settings', type: 'OBJECT', objectOptions: { fields: [] } }
 ```
-
-> ⚠️ `objectOptions: {}` (without the `fields` key) is **not valid** and will cause a runtime error. Always include `fields`, even as an empty array.
 
 For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
 
-```json
+```ts
 {
-  "key": "triggerRules",
-  "displayName": "Trigger Rules",
-  "type": "OBJECT",
-  "objectOptions": {
-    "fields": [
-      { "key": "url", "displayName": "URL Condition", "type": "TEXT" },
-      {
-        "key": "scrollDepth",
-        "displayName": "Scroll Depth %",
-        "type": "NUMBER"
-      },
-      { "key": "dateStart", "displayName": "Start Date", "type": "DATE" }
-    ]
-  }
+  key: 'triggerRules',
+  displayName: 'Trigger Rules',
+  type: 'OBJECT',
+  objectOptions: {
+    fields: [
+      { key: 'url', displayName: 'URL Condition', type: 'TEXT' },
+      { key: 'scrollDepth', displayName: 'Scroll Depth %', type: 'NUMBER' },
+      { key: 'dateStart', displayName: 'Start Date', type: 'DATE' },
+    ],
+  },
 }
 ```
 
@@ -324,6 +321,7 @@ export default {
   fields: [
     { key: 'title', displayName: 'Fee Title', type: 'TEXT' },
     { key: 'amount', displayName: 'Fee Amount', type: 'NUMBER' },
+    { key: 'metadata', displayName: 'Metadata', type: 'OBJECT', objectOptions: { fields: [] } },
   ],
   dataPermissions: {
     itemRead: 'ANYONE',
