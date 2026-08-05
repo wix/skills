@@ -89,7 +89,8 @@ Query the service to confirm policies are applied correctly. The service should 
 
 ## API Documentation References
 
-- [Booking Policies API](https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/introduction)
+- [Query Booking Policies](https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policies/query-booking-policies) - `POST https://www.wixapis.com/bookings/v1/booking-policies/query`
+- [Update Booking Policy](https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policies/update-booking-policy) - `PATCH https://www.wixapis.com/bookings/v1/booking-policies/<POLICY_ID>`
 - [Bulk Create Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services) — `POST https://www.wixapis.com/bookings/v2/bulk/services/create`
 - [Update Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service) — `PATCH https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>`
 - [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services) — `POST https://www.wixapis.com/bookings/v2/services/query`
