@@ -1,6 +1,6 @@
 ---
 name: "Analytics Dashboard Navigation"
-description: "Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, custom reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+description: "Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Analytics Dashboard Navigation
@@ -19,7 +19,6 @@ https://manage.wix.com/dashboard/{metaSiteId}/analytics/{route}
 |---|---|---|
 | Highlights | `analytics/highlights` | Key metrics at a glance |
 | Reports | `analytics/reports` | The full report library |
-| Custom reports | `analytics/custom-reports` | User-built reports |
 | Traffic overview | `analytics/overviews/traffic` | Sessions, sources, top pages |
 | Behavior overview | `analytics/overviews/behavior` | On-site behavior |
 | Sales overview | `analytics/overviews/sales` | Revenue and orders |
