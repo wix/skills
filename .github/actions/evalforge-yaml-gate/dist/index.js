@@ -34717,11 +34717,17 @@ function toRowArray(value) {
     return Array.isArray(value) ? value : [];
 }
 const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'];
+// The real API sends the proto enum's full name (e.g. ASSERTION_RESULT_STATUS_PASSED),
+// not the bare literal — strip that prefix before matching so both forms resolve.
+const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
 // Validates against the known enum rather than casting, so a typo'd or novel
 // wire value doesn't silently type-check as one of the four literals and
 // defeat an exhaustive switch over AssertionOutcome['status'].
 function toAssertionStatus(rawStatus) {
-    return ASSERTION_STATUSES.find(candidate => candidate === rawStatus) ?? 'ERROR';
+    const unprefixedStatus = rawStatus?.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+        ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
+        : rawStatus;
+    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'ERROR';
 }
 function toAssertionOutcome(rawAssertionResult) {
     return {
