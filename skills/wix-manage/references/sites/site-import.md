@@ -230,10 +230,16 @@ the user has no way to open a file.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
   errors.
-- **Site Import is in limited rollout.** If Start returns `404` or `403` with
-  `"code": "NOT_ENABLED"`, tell the user plainly that site import isn't
-  supported on their account yet and they can contact Wix support — then stop.
-  Do not retry or fall back to another site-creation tool.
+- **Site Import is in limited rollout, with no self-service enablement path.**
+  If Start returns `404` or `403` with `"code": "NOT_ENABLED"`, tell the user
+  plainly that site import isn't available on their account yet — then stop.
+  **Do not tell them to "contact Wix support"**: this API is unlisted and
+  ALPHA, Wix Support has no visibility into it or way to grant access, and the
+  public "importing a site created outside of Wix" help-center article is an
+  unrelated, long-stalled feature-request page — sending a user to either is a
+  dead end. If a Wix feedback tool is available in your environment, you may
+  offer to send feedback noting their interest; that is the only channel that
+  reaches the team. Do not retry or fall back to another site-creation tool.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
   required field is missing (`request`/`message` must be 1–20000 chars).
