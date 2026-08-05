@@ -30145,18 +30145,28 @@ function classifyChangeImpact(prOutcomes, baseOutcomes,
  */
 expectedScenarios) {
     const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
+    // Authoritative names come from the repo YAML the gate requested, keyed by id — the same source
+    // `unmeasured` below already uses. A measured row can still carry an empty wire `scenarioName`
+    // (see `toResultRow`'s default), and this is the only chance to replace it before it reaches the
+    // comment as a nameless blocking table row.
+    const expectedNameById = new Map((expectedScenarios ?? []).map(scenario => [scenario.id, scenario.name]));
     const measured = prOutcomes.map(prOutcome => {
-        const prPassed = scenarioPassed(prOutcome);
+        const prMeasuredNothing = prOutcome.totalAssertions === 0;
         const baseOutcome = baseById.get(prOutcome.scenarioId);
         return {
             scenarioId: prOutcome.scenarioId,
-            scenarioName: prOutcome.scenarioName,
-            // A base scenario with zero assertions was not measured, so it is not evidence the
-            // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
-            impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+            scenarioName: expectedNameById.get(prOutcome.scenarioId) || prOutcome.scenarioName || prOutcome.scenarioId,
+            // A base or PR scenario with zero assertions was not measured, so it is not evidence the
+            // scenario was broken (base) or that this change broke it (PR) — scoring either as a
+            // failure would manufacture a false `fixed` or `newly-broken` for a scenario nothing
+            // actually verified (e.g. every assertion SKIPPED, so scenarioPassed is false but nothing
+            // failed either).
+            impact: prMeasuredNothing || baseOutcome === undefined || baseOutcome.totalAssertions === 0
                 ? 'unattributed'
-                : classifyOne(prPassed, scenarioPassed(baseOutcome)),
-            prPassed,
+                : classifyOne(scenarioPassed(prOutcome), scenarioPassed(baseOutcome)),
+            // Absent, not `false`, when the PR arm scored nothing — same reasoning as the unmeasured
+            // scenarios below: a `false` here would state the PR failed a scenario nothing verified.
+            ...(prMeasuredNothing ? {} : { prPassed: scenarioPassed(prOutcome) }),
             ...(prOutcome.failingAssertionNames === undefined
                 ? {}
                 : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
@@ -30607,13 +30617,22 @@ const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'];
 // not the bare literal — strip that prefix before matching so both forms resolve.
 const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
 // Validates against the known enum rather than casting, so a typo'd or novel
-// wire value doesn't silently type-check as one of the four literals and
+// wire value doesn't silently type-check as one of the five literals and
 // defeat an exhaustive switch over AssertionOutcome['status'].
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
 function toAssertionStatus(rawStatus) {
-    const unprefixedStatus = rawStatus?.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+    if (typeof rawStatus !== 'string')
+        return 'UNKNOWN';
+    const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
         ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
         : rawStatus;
-    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'ERROR';
+    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
 }
 function toAssertionOutcome(rawAssertionResult) {
     return {
@@ -30621,6 +30640,7 @@ function toAssertionOutcome(rawAssertionResult) {
         assertionType: rawAssertionResult?.assertionType ?? 'unknown',
         status: toAssertionStatus(rawAssertionResult?.status),
         ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+        ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
     };
 }
 function toResultRow(rawResult) {
@@ -30887,6 +30907,39 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.foldScenarioIterations = foldScenarioIterations;
 const NOT_PASSED = new Set(['FAILED', 'ERROR']);
 /**
+ * `assertionName` is not a unique key: a real run can carry two distinct assertions sharing one
+ * name (e.g. two `skill_was_called` checks against different reference files, distinguished only
+ * by `assertionId`). Deduping the failing set on identity — `assertionId` where the wire sent one,
+ * the name otherwise — keeps two such failures from collapsing into a single, silently-dropped
+ * entry. Ambiguity is checked against every assertion in the scenario, not just the failing ones:
+ * a name shared with a *passing* sibling is exactly as unidentifiable to the reader as one shared
+ * with another failure, so both get the identity suffix that lets the reader tell which is which.
+ */
+function dedupeFailingAssertionNames(iterations) {
+    const identitiesByName = new Map();
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            const identities = identitiesByName.get(assertion.assertionName) ?? new Set();
+            identities.add(assertion.assertionId ?? assertion.assertionName);
+            identitiesByName.set(assertion.assertionName, identities);
+        }
+    }
+    const firstSeenByIdentity = new Map(); // identity → assertionName
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            if (!NOT_PASSED.has(assertion.status))
+                continue;
+            const identity = assertion.assertionId ?? assertion.assertionName;
+            if (!firstSeenByIdentity.has(identity))
+                firstSeenByIdentity.set(identity, assertion.assertionName);
+        }
+    }
+    return [...firstSeenByIdentity.entries()].map(([identity, name]) => {
+        const ambiguous = (identitiesByName.get(name)?.size ?? 1) > 1;
+        return ambiguous ? `${name} [${identity}]` : name;
+    });
+}
+/**
  * One outcome per scenario, from that scenario's iterations. `partial` rows are reconstructed
  * at cancel and never scored, so they are dropped before scoring — a scenario with nothing left
  * is omitted, which the classifier reads as unattributed rather than as a failure. A row with an
@@ -30905,9 +30958,7 @@ function foldScenarioIterations(rows) {
     }
     const outcomes = [];
     for (const [scenarioId, iterations] of byScenario) {
-        const failingNames = [...new Set(iterations.flatMap(iteration => iteration.assertions
-                .filter(assertion => NOT_PASSED.has(assertion.status))
-                .map(assertion => assertion.assertionName)))];
+        const failingNames = dedupeFailingAssertionNames(iterations);
         const errors = iterations.reduce((total, iteration) => total + iteration.assertions.filter(assertion => assertion.status === 'ERROR').length, 0);
         const sumOf = (field) => iterations.reduce((total, iteration) => total + iteration[field], 0);
         outcomes.push({
@@ -31146,7 +31197,7 @@ function impactSection(impact) {
             '',
             'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
                 + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
-                + 'evaluate identical skill content, so a uniformly green table is not a suspicious no-op.',
+                + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
         ];
     }
     return [
@@ -62326,7 +62377,10 @@ async function startComparisonArms(client, config, scenarioIds, prVersionId, com
     const baseRun = client.createAndRunEvalRun(config.projectId, {
         ...shared,
         name: `${runLabel} — base arm`,
-        description: 'Change-impact base arm: skill unpinned, evaluated live at main',
+        // The base arm pins no version, so this description is the only place that records what
+        // "main" actually meant at run time — the base arm's own EvalForge page is where an operator
+        // comparing the two arms will look for it.
+        description: `Change-impact base arm: skill unpinned, evaluated live at main (base commit ${config.baseSha.slice(0, 7)})`,
         comparisonLabel: 'base',
     })
         .then(created => created.id)
@@ -62379,7 +62433,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
+exports.MAX_TOTAL_SCENARIO_EXECUTIONS = exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getCleanupConfig = getCleanupConfig;
@@ -62389,12 +62443,29 @@ const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
-/** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
+/**
+ * Per-input ceiling for `max-scenarios`. On its own this does not bound total cost: each scenario
+ * execution is multiplied by `runs-per-scenario` and by the unconditional second (base) arm — see
+ * `MAX_TOTAL_SCENARIO_EXECUTIONS` for the ceiling on that product.
+ */
 exports.MAX_SCENARIOS_CEILING = 100;
 /** EvalForge's documented maximum for runsPerScenario. */
 exports.MAX_RUNS_PER_SCENARIO = 20;
-/** A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm attribution. */
-exports.MAX_BASE_ARM_GRACE_SECONDS = 900;
+/**
+ * A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm
+ * attribution. Lowered from 900 to 300: a live run measured the base arm landing 124s after the PR
+ * arm, so 300s covers the observed lag with headroom while leaving the job's `timeout-minutes: 60`
+ * margin intact (see `PR_ARM_POLL_TIMEOUT_MS` + this ceiling vs. the workflow timeout).
+ */
+exports.MAX_BASE_ARM_GRACE_SECONDS = 300;
+/**
+ * Ceiling on `maxScenarios × runsPerScenario × 2` (the two comparison arms) — the actual number of
+ * live agent builds a gated PR can trigger. `MAX_SCENARIOS_CEILING` and `MAX_RUNS_PER_SCENARIO`
+ * each bound their own input, but neither bounds their product: at both ceilings that product is
+ * 100 × 20 × 2 = 4000. 1000 stays comfortably above the current defaults (25 × 1 × 2 = 50, 20x
+ * headroom) while still cutting the unclamped worst case by 4x.
+ */
+exports.MAX_TOTAL_SCENARIO_EXECUTIONS = 1000;
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -62419,6 +62490,27 @@ function getPositiveIntegerInput(name, fallback) {
         throw new Error(`${name} must be a positive integer (received: ${raw})`);
     }
     return value;
+}
+/**
+ * Never throws, unlike `getPositiveIntegerInput`: `getGateConfig` runs before `isBlocking` is
+ * known, so a throw here would fail the check even during the soak period. A blank input falls
+ * back silently (the normal unset case); anything else that fails to parse as an integer `>=
+ * floor` — a typo'd repo variable, most likely — falls back with a `core.warning` instead of
+ * failing the run outright. Exceeding `ceiling` clamps the same way `getMaxScenarios` does.
+ */
+function getClampedIntegerInput(name, fallback, ceiling, floor = 1) {
+    const raw = core.getInput(name);
+    if (raw === '')
+        return fallback;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < floor) {
+        core.warning(`${name}: "${raw}" is not an integer >= ${floor}, using the default of ${fallback}.`);
+        return fallback;
+    }
+    if (value <= ceiling)
+        return value;
+    core.warning(`${name}: ${value} exceeds the ceiling of ${ceiling}, using ${ceiling}.`);
+    return ceiling;
 }
 /**
  * Clamps rather than throws. `getGateConfig` runs before `isBlocking` is known, so a throw here
@@ -62452,23 +62544,30 @@ function getBaseSha() {
         throw new Error('PR payload missing base.sha');
     return base.sha;
 }
-/** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
 function getRunsPerScenario() {
-    const requested = getPositiveIntegerInput('runs-per-scenario', evalforge_core_1.DEFAULT_RUNS_PER_SCENARIO);
-    if (requested <= exports.MAX_RUNS_PER_SCENARIO)
-        return requested;
-    core.warning(`runs-per-scenario: ${requested} exceeds the API maximum of ${exports.MAX_RUNS_PER_SCENARIO}, running `
-        + `${exports.MAX_RUNS_PER_SCENARIO}.`);
-    return exports.MAX_RUNS_PER_SCENARIO;
+    return getClampedIntegerInput('runs-per-scenario', evalforge_core_1.DEFAULT_RUNS_PER_SCENARIO, exports.MAX_RUNS_PER_SCENARIO);
 }
-/** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
+/**
+ * Bounds `maxScenarios × runsPerScenario × 2` (see `MAX_TOTAL_SCENARIO_EXECUTIONS`) by clamping
+ * `runsPerScenario` down — `maxScenarios` stays as configured, since it is what the author actually
+ * asked to run; `runsPerScenario` is the flakiness-detection multiplier and the one meant to give
+ * ground first.
+ */
+function clampTotalScenarioExecutions(maxScenarios, runsPerScenario) {
+    const executions = maxScenarios * runsPerScenario * 2;
+    if (executions <= exports.MAX_TOTAL_SCENARIO_EXECUTIONS)
+        return runsPerScenario;
+    const clamped = Math.max(1, Math.floor(exports.MAX_TOTAL_SCENARIO_EXECUTIONS / (maxScenarios * 2)));
+    core.warning(`runs-per-scenario: ${maxScenarios} scenarios × ${runsPerScenario} runs × 2 arms = ${executions} `
+        + `executions exceeds the ceiling of ${exports.MAX_TOTAL_SCENARIO_EXECUTIONS}, clamping runs-per-scenario `
+        + `to ${clamped}.`);
+    return clamped;
+}
+/** `0` is a legitimate value here, not an error: it means "don't wait for the base arm at all" —
+ * collect whatever has already resolved and move straight to the verdict comment. That is why the
+ * floor is 0, unlike every other clamped input. */
 function getBaseArmGraceSeconds() {
-    const requested = getPositiveIntegerInput('base-arm-grace-seconds', evalforge_core_1.DEFAULT_BASE_ARM_GRACE_SECONDS);
-    if (requested <= exports.MAX_BASE_ARM_GRACE_SECONDS)
-        return requested;
-    core.warning(`base-arm-grace-seconds: ${requested} exceeds the ceiling of ${exports.MAX_BASE_ARM_GRACE_SECONDS}, using `
-        + `${exports.MAX_BASE_ARM_GRACE_SECONDS}. The base arm's own run still completes server-side regardless.`);
-    return exports.MAX_BASE_ARM_GRACE_SECONDS;
+    return getClampedIntegerInput('base-arm-grace-seconds', evalforge_core_1.DEFAULT_BASE_ARM_GRACE_SECONDS, exports.MAX_BASE_ARM_GRACE_SECONDS, 0);
 }
 /**
  * The commit the version label is content-addressed to. It must be the commit actually checked out,
@@ -62503,6 +62602,8 @@ function getGateConfig() {
     const headSha = getHeadSha();
     const baseSha = getBaseSha();
     const evaluatedSha = getEvaluatedSha();
+    const maxScenarios = getMaxScenarios();
+    const runsPerScenario = clampTotalScenarioExecutions(maxScenarios, getRunsPerScenario());
     return {
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -62516,7 +62617,7 @@ function getGateConfig() {
         referenceDir: core.getInput('reference-dir') || evalforge_core_1.DEFAULT_REFERENCE_DIR,
         ignoreGlobs: getMultilineList('ignore-globs', evalforge_core_1.DEFAULT_IGNORE_GLOBS),
         broadImpactGlobs: getMultilineList('broad-impact-globs', evalforge_core_1.DEFAULT_BROAD_IMPACT_GLOBS),
-        maxScenarios: getMaxScenarios(),
+        maxScenarios,
         isBlocking: core.getInput('blocking') === 'true',
         owner,
         repo,
@@ -62529,7 +62630,7 @@ function getGateConfig() {
         /** Fresh per gate execution: EvalForge's comparison-group read returns the group whole with no
          * paging, so a stable id would accumulate runs across re-runs of the same PR. */
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
-        runsPerScenario: getRunsPerScenario(),
+        runsPerScenario,
         baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
     };
 }
@@ -62618,7 +62719,8 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
     core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
-        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`);
+        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} `
+        + `into base ${config.baseSha.slice(0, 7)})`);
     const scope = await (0, gate_scope_1.resolveGateScope)(octokit, config, workspace, comment);
     if (!scope.ok)
         return;

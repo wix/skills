@@ -34259,18 +34259,28 @@ function classifyChangeImpact(prOutcomes, baseOutcomes,
  */
 expectedScenarios) {
     const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
+    // Authoritative names come from the repo YAML the gate requested, keyed by id — the same source
+    // `unmeasured` below already uses. A measured row can still carry an empty wire `scenarioName`
+    // (see `toResultRow`'s default), and this is the only chance to replace it before it reaches the
+    // comment as a nameless blocking table row.
+    const expectedNameById = new Map((expectedScenarios ?? []).map(scenario => [scenario.id, scenario.name]));
     const measured = prOutcomes.map(prOutcome => {
-        const prPassed = scenarioPassed(prOutcome);
+        const prMeasuredNothing = prOutcome.totalAssertions === 0;
         const baseOutcome = baseById.get(prOutcome.scenarioId);
         return {
             scenarioId: prOutcome.scenarioId,
-            scenarioName: prOutcome.scenarioName,
-            // A base scenario with zero assertions was not measured, so it is not evidence the
-            // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
-            impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+            scenarioName: expectedNameById.get(prOutcome.scenarioId) || prOutcome.scenarioName || prOutcome.scenarioId,
+            // A base or PR scenario with zero assertions was not measured, so it is not evidence the
+            // scenario was broken (base) or that this change broke it (PR) — scoring either as a
+            // failure would manufacture a false `fixed` or `newly-broken` for a scenario nothing
+            // actually verified (e.g. every assertion SKIPPED, so scenarioPassed is false but nothing
+            // failed either).
+            impact: prMeasuredNothing || baseOutcome === undefined || baseOutcome.totalAssertions === 0
                 ? 'unattributed'
-                : classifyOne(prPassed, scenarioPassed(baseOutcome)),
-            prPassed,
+                : classifyOne(scenarioPassed(prOutcome), scenarioPassed(baseOutcome)),
+            // Absent, not `false`, when the PR arm scored nothing — same reasoning as the unmeasured
+            // scenarios below: a `false` here would state the PR failed a scenario nothing verified.
+            ...(prMeasuredNothing ? {} : { prPassed: scenarioPassed(prOutcome) }),
             ...(prOutcome.failingAssertionNames === undefined
                 ? {}
                 : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
@@ -34721,13 +34731,22 @@ const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'];
 // not the bare literal — strip that prefix before matching so both forms resolve.
 const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
 // Validates against the known enum rather than casting, so a typo'd or novel
-// wire value doesn't silently type-check as one of the four literals and
+// wire value doesn't silently type-check as one of the five literals and
 // defeat an exhaustive switch over AssertionOutcome['status'].
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
 function toAssertionStatus(rawStatus) {
-    const unprefixedStatus = rawStatus?.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+    if (typeof rawStatus !== 'string')
+        return 'UNKNOWN';
+    const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
         ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
         : rawStatus;
-    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'ERROR';
+    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
 }
 function toAssertionOutcome(rawAssertionResult) {
     return {
@@ -34735,6 +34754,7 @@ function toAssertionOutcome(rawAssertionResult) {
         assertionType: rawAssertionResult?.assertionType ?? 'unknown',
         status: toAssertionStatus(rawAssertionResult?.status),
         ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+        ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
     };
 }
 function toResultRow(rawResult) {
@@ -35001,6 +35021,39 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.foldScenarioIterations = foldScenarioIterations;
 const NOT_PASSED = new Set(['FAILED', 'ERROR']);
 /**
+ * `assertionName` is not a unique key: a real run can carry two distinct assertions sharing one
+ * name (e.g. two `skill_was_called` checks against different reference files, distinguished only
+ * by `assertionId`). Deduping the failing set on identity — `assertionId` where the wire sent one,
+ * the name otherwise — keeps two such failures from collapsing into a single, silently-dropped
+ * entry. Ambiguity is checked against every assertion in the scenario, not just the failing ones:
+ * a name shared with a *passing* sibling is exactly as unidentifiable to the reader as one shared
+ * with another failure, so both get the identity suffix that lets the reader tell which is which.
+ */
+function dedupeFailingAssertionNames(iterations) {
+    const identitiesByName = new Map();
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            const identities = identitiesByName.get(assertion.assertionName) ?? new Set();
+            identities.add(assertion.assertionId ?? assertion.assertionName);
+            identitiesByName.set(assertion.assertionName, identities);
+        }
+    }
+    const firstSeenByIdentity = new Map(); // identity → assertionName
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            if (!NOT_PASSED.has(assertion.status))
+                continue;
+            const identity = assertion.assertionId ?? assertion.assertionName;
+            if (!firstSeenByIdentity.has(identity))
+                firstSeenByIdentity.set(identity, assertion.assertionName);
+        }
+    }
+    return [...firstSeenByIdentity.entries()].map(([identity, name]) => {
+        const ambiguous = (identitiesByName.get(name)?.size ?? 1) > 1;
+        return ambiguous ? `${name} [${identity}]` : name;
+    });
+}
+/**
  * One outcome per scenario, from that scenario's iterations. `partial` rows are reconstructed
  * at cancel and never scored, so they are dropped before scoring — a scenario with nothing left
  * is omitted, which the classifier reads as unattributed rather than as a failure. A row with an
@@ -35019,9 +35072,7 @@ function foldScenarioIterations(rows) {
     }
     const outcomes = [];
     for (const [scenarioId, iterations] of byScenario) {
-        const failingNames = [...new Set(iterations.flatMap(iteration => iteration.assertions
-                .filter(assertion => NOT_PASSED.has(assertion.status))
-                .map(assertion => assertion.assertionName)))];
+        const failingNames = dedupeFailingAssertionNames(iterations);
         const errors = iterations.reduce((total, iteration) => total + iteration.assertions.filter(assertion => assertion.status === 'ERROR').length, 0);
         const sumOf = (field) => iterations.reduce((total, iteration) => total + iteration[field], 0);
         outcomes.push({
@@ -35260,7 +35311,7 @@ function impactSection(impact) {
             '',
             'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
                 + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
-                + 'evaluate identical skill content, so a uniformly green table is not a suspicious no-op.',
+                + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
         ];
     }
     return [
