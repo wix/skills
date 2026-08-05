@@ -1,0 +1,162 @@
+apiDoc:
+  title: Wix eCommerce Management Recipes
+
+  docs:
+
+    # ============================================================
+    # L1 context loader (sibling to category-docs, not in a subfolder)
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-load-context.md
+      title: "eCommerce: Load Context"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Cross-domain tracking — sibling to the L1 loader.
+    # Used by any recipe (in any category) that generates recommendations.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
+      title: "API: Recommendation Tracking"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Pricing & promotions category
+    # ============================================================
+
+    # Category-doc + dispatcher merged into one README-surfaced file (no -default hop)
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-pricing.md
+      title: "Pricing & Promotions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # Promotions (actions + troubleshoot)
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md
+      title: "Pricing: Create Coupon"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md
+      title: "Pricing: Create Discount Rule"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md
+      title: "Pricing: Discount Not Applying"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # Support files (loaded only via embedded body links from the orchestrator)
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md
+      title: "Goal: Increase AOV"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md
+      title: "Goal: Clear Inventory"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md
+      title: "Goal: Seasonal Revenue"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md
+      title: "Goal: Drive Cross-Sells"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md
+      title: "Flow: Upsell Boost"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md
+      title: "Flow: Bundle and Save"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md
+      title: "Flow: Stock Mover"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md
+      title: "Flow: Seasonal Promotion"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Shipping category
+    # NOTE: the Shipping Options + Delivery Profiles APIs have NO public
+    # dev.wix.com docs page — ecom-shipping-api.md is the inline reference.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md
+      title: "Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-rates.md
+      title: "Shipping: Set Up Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-regions.md
+      title: "Shipping: Set Up Regions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-pickup.md
+      title: "Shipping: Set Up Pickup / Local Delivery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-free-shipping.md
+      title: "Shipping: Add Free Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-optimize-rates.md
+      title: "Shipping: Optimize Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fix-coverage.md
+      title: "Shipping: Fix Coverage Gaps"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-api.md
+      title: "Shipping: API Reference"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Carry-forward root orchestrator (not yet in routing tree)
+    # The strategy orchestrator is preserved at its main-branch URL.
+    # ABANDONED_CART branch removed; classification falls back to the
+    # remaining 4 outcomes (SEASONAL / UPSELL_BOOST / STOCK_MOVER /
+    # BUNDLE_AND_SAVE).
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
+      title: "Recommend: eCommerce Strategy"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Gift cards category — GIFT_CARDS domain logic for the strategy
+    # orchestrator. Support file, loaded BY recommend-ecommerce-strategy
+    # (same relationship the pricing goal-* files have to it), never
+    # entered directly. Produces domain: gift_cards /
+    # action: create_gift_card_product.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md
+      title: "Goal: Sell Gift Cards"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]

@@ -1,0 +1,17 @@
+name: ecommerce/ecom-load-context
+description: Load my full eCommerce store context — siteId, country, currency, industry, last-30-day visitor count, order count, and GPV.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) load my full eCommerce store context before I ask about anything else. I need siteId, country, currency, industry type, last-30-day visitor count, order count, GPV last 30 days and AOV.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 9-10: Agent called ReadFullDocsArticle on the eCommerce Load Context recipe, used the wix-profile-client metasite endpoint, and reported all fields: siteId, country, currency, industry, visitors30d, orders30d, GPV.
+      Score 7-8: Agent attempted to load the recipe (even if it returned 404), AND correctly reported all required fields (siteId, country, currency, industry, visitors30d, orders30d, GPV) via any endpoint combination.
+      Score 4-6: All fields reported but recipe was never attempted.
+      Score 1-3: Missing visitor count, order count, or GPV; or field values were invented without API calls.
+      Do NOT penalize solely for using a non-metasite endpoint when the recipe returned 404 — a 404 is a content-availability issue, not an agent error.

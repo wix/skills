@@ -1,0 +1,33 @@
+name: Skill Eval Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: skill-eval-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    # Disabled: skill-eval is superseded by the evalforge-yaml-* gate, and its own gate is already
+    # off (skill-eval.yml `if: false`). With no gate creating MCP versions there is nothing to clean
+    # up, and this job failed on every PR close — so turn it off instead of leaving a red check.
+    if: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.action-src/.github/actions/skill-eval
+        with:
+          mode: cleanup
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}

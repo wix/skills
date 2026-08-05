@@ -1,0 +1,18 @@
+name: ecommerce/pricing-promotions/run-a-sale-seasonal
+description: Black Friday is coming up — what should I do to maximize revenue during the sale weekend? Give me concrete actions I can approve.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Black Friday is coming up in three weeks. What should I do to maximize revenue during the sale weekend? Give me concrete actions I can approve.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) classifies the request as SEASONAL (the priority rule dictates that any holiday/event/date trigger MUST be SEASONAL even if other signals like "maximize revenue" suggest UPSELL_BOOST), (b) generates time-windowed recommendations tied to the named event (Black Friday) — at minimum each recommendation should reference a start/end window or campaign duration, and (c) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting.
+      Fail if the response classifies as UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE (ignoring the holiday priority rule), produces recommendations with no time window or seasonal hook, or skips tracking.
+      Topic-completeness across all four seasonal levers (discount depth, scope, urgency banners, post-event recapture) is NOT required to pass — judge the classification + time-binding + tracking lifecycle, not the breadth. Loading the run-a-sale orchestrator is NOT required — direct routing to goal-seasonal-revenue when the holiday signal is unambiguous is acceptable.

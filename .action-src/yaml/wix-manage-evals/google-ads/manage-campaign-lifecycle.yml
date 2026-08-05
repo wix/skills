@@ -1,0 +1,33 @@
+name: google-ads/manage-campaign-lifecycle
+description: >-
+  Verifies the agent uses the lifecycle recipe and correctly distinguishes pause
+  with a scheduled auto-resume from a permanent stop, and Resume vs Launch.
+triggerPrompt: >-
+  I want to pause my running Google Ads campaign for two weeks and have it turn
+  back on automatically. How do I do that with the Wix Google Ads API?
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-campaign-lifecycle
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to pause a running campaign now and auto-resume it in two weeks.
+
+      Pass if the response:
+      - uses the campaign lifecycle recipe, AND
+      - calls POST /v1/campaigns/{id}/pause with a scheduledResumeDate (ISO 8601)
+        set ~2 weeks out, AND
+      - explains the campaign auto-resumes at that date (no manual resume needed),
+        and that settings/data are preserved while paused, AND
+      - does NOT suggest deleting the campaign, AND
+      - correctly treats the later reactivation as Resume (not Launch), if it
+        mentions manual reactivation at all.
+
+      Fail if the response:
+      - deletes the campaign to stop it, OR
+      - uses Launch to reactivate a previously-live paused campaign, OR
+      - invents a separate "schedule" endpoint instead of the pause field, OR
+      - hallucinates endpoints.

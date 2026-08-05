@@ -1,0 +1,107 @@
+name: stores/list-out-of-stock-products-catalog-v3
+description: >
+  A store owner asks which of their products are out of stock. Verifies the agent loads the
+  Find Products (Query and Search, Catalog V3) recipe and reads availability from the product's
+  `inventory` field, rather than a Catalog V1 field name that reads as `undefined` on a V3
+  product and silently yields an empty result. The seeded products are the ground truth, and
+  the agent can only know them by querying.
+triggerPrompt: >
+  Which of my products are out of stock?
+tags: [stores, aria]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/find-products-query-and-search-catalog-v3
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Which of my products are out of stock?"
+
+      The site is a Catalog V3 store. On top of the template's own demo catalog, two products
+      were seeded explicitly out of stock: "Eval Gate Tee" and "Eval Gate Leggings". Some demo
+      products may also legitimately be out of stock.
+
+      Score 9-10: the agent queried the catalog and its final answer names BOTH "Eval Gate Tee"
+      and "Eval Gate Leggings" as out of stock.
+
+      Score 7-8: both seeded products are named as out of stock, but the answer is muddled —
+      for example it hedges about whether they are really out of stock, or buries them in a
+      list it describes as in stock.
+
+      Score 1-3: the answer omits either seeded product; OR it states or implies that nothing
+      is out of stock, that all products are in stock, or that the store has no out-of-stock
+      products; OR it lists products without having queried any Wix API.
+
+      Two rules for judging, both important:
+
+      - An answer of "none of your products are out of stock" is a FAILURE, not a pass. Two
+        products are out of stock. Reporting an empty result is the specific defect this
+        scenario exists to catch, so score it 1-3 even if the agent sounds confident and made
+        a successful (2xx) API call to get there.
+      - Additional out-of-stock products beyond the two seeded ones are NOT an error. The demo
+        catalog may contain its own out-of-stock items. Do not deduct for naming extra
+        products; judge only whether both seeded products are reported as out of stock.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality of the tool-call path
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call
+      trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST any of:
+
+      - guessing where product availability lives and having to correct it — for example
+        reading a `stock` field, `inventoryStatus`, or a quantity off the product and getting
+        `undefined` or an empty result before finding the `inventory` field;
+      - extra probing calls made only to discover the response shape, such as re-querying the
+        catalog to dump a product object, or repeated API-spec/schema lookups for the Product
+        object's availability fields;
+      - sending availability inside `query.filter` on the products query and having it
+        rejected;
+      - a detour into per-variant or per-location inventory endpoints when a single catalog
+        query would have answered the question;
+      - any call that returned a non-2xx error, even if the agent recovered from it;
+      - a wrong endpoint or catalog version tried first.
+
+      For each issue, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      # A plain POST /stores/v3/products creates no inventory item, which leaves the product
+      # untracked and available — it would never surface as out of stock. products-with-inventory
+      # is what makes inventoryItem.inStock=false take effect.
+      - label: seed out-of-stock tee product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Gate Tee
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }
+      - label: seed out-of-stock leggings product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Gate Leggings
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "29.90" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }

@@ -1,0 +1,19 @@
+name: rich-content/ricos-table
+description: Sharp-edge check on the Author Ricos Rich Content recipe — a table with a filled header row (exact field tableCellData.cellStyle.backgroundColor) and correct TABLE nesting.
+triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for a two-column comparison table with columns Feature and Price, a colored/filled header row, and one body row. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 150000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a table.
+
+      Score 9-10: a TABLE nested TABLE → TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT (no TEXT directly in a cell); the header row cells set the fill via `tableCellData.cellStyle.backgroundColor` with a hex color (NOT a top-level `backgroundColor`, `fill`, or `color` field); `tableData.dimensions` is present (e.g. `colsWidthRatio`); every `type` is a bare string.
+      Score 6-8: table correct but one detail off (e.g. `tableData.dimensions` missing).
+      Score 3-5: the header fill uses a wrong field name/location, OR a TEXT node sits directly inside a TABLE_CELL, OR the table nesting skips a level.
+      Score 0-2: no table, or prose/plain-text output.

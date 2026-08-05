@@ -1,0 +1,22 @@
+{
+  "name": "wix",
+  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "version": "1.15.1",
+  "author": {
+    "name": "Wix",
+    "url": "https://dev.wix.com"
+  },
+  "homepage": "https://dev.wix.com/docs/api-reference/articles/ai-tools/about-wix-skills",
+  "repository": "https://github.com/wix/skills",
+  "license": "MIT",
+  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
+  "skills": [
+    "./skills/wix-design-system",
+    "./skills/wix-app",
+    "./skills/wix-manage",
+    "./skills/wix-headless",
+    "./skills/wix-vibe-headless",
+    "./skills/wix-docs"
+  ],
+  "mcpServers": "./.mcp.json"
+}

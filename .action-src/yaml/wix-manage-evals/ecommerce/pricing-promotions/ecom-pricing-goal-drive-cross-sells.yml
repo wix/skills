@@ -1,0 +1,18 @@
+name: ecommerce/pricing-promotions/run-a-sale-drive-cross-sells
+description: Drive cross-sells and get customers buying more items per order — propose bundle and multi-item discounts I can approve or reject.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to drive cross-sells and get customers buying more items per order — propose bundle and multi-item discounts I can approve or reject.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) classifies the request as BUNDLE_AND_SAVE (cues: "cross-sells", "more items per order"), (b) proposes recommendations using minimum-item-quantity / multi-item conditions (NOT pure percent-off discounts), (c) loads both the goal-drive-cross-sells goal recipe AND the flow-bundle-and-save sub-recipe (the latter carries the create-discount-rule mechanics used at execution time), and (d) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting.
+      Fail if it classifies as UPSELL_BOOST / SEASONAL / STOCK_MOVER, proposes only single-item percent-off discounts with no bundle/min-quantity structure, or skips tracking.
+      Topic-completeness beyond the bundle recommendations is NOT required to pass — judge the classification + bundle structure + recipe loading + tracking lifecycle.

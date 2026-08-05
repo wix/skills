@@ -1,0 +1,15 @@
+name: ecommerce/api-recommendation-tracking
+description: Give me 3 concrete actions to improve my checkout conversion that I can approve or reject.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Give me 3 recommendations to improve my checkout conversion. I want concrete actions I can approve or reject.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response treats recommendation tracking as a cross-domain obligation: the agent loads or references api-recommendation-tracking before generating, queries existing tracking history before producing the list, and persists the generated recommendations (BatchCreate as PROPOSED) before presenting them to the merchant — even though the trigger originated from a non-pricing (checkout) intent.
+      Fail if the agent generates checkout-improvement recommendations without ever loading or referencing api-recommendation-tracking, treats tracking as pricing-only, or presents recommendations without a persist step.
+      Topic-completeness beyond the three recommendations is NOT required to pass — judge the tracking lifecycle, not the breadth of the recommendations.

@@ -1,0 +1,18 @@
+name: ecommerce/pricing-promotions/run-a-sale-clearance
+description: I have a lot of slow-moving inventory to clear before Q4 — give me concrete actions targeted at the overstocked SKUs that I can approve or reject.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I have a lot of slow-moving inventory I need to clear before Q4. Give me concrete actions targeted at the overstocked SKUs — I'll approve or reject each.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) lands on the Pricing run-a-sale orchestrator and classifies as STOCK_MOVER (cues: "slow-moving", "clear", "overstocked"), (b) targets the recommendations at SKUs with high stock / low ordersCount rather than the catalog as a whole, applies progressively deeper discounts on the slowest movers, AND references at least one margin guardrail (don't discount below a floor / never push past breakeven), and (c) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting.
+      Fail if the response applies a flat catalog-wide discount with no stock-level targeting, omits margin protection entirely, classifies as UPSELL_BOOST / SEASONAL / BUNDLE_AND_SAVE, or skips tracking.
+      Topic-completeness beyond stock-targeted recommendations (e.g. bundling slow movers with bestsellers, post-clearance archive) is NOT required to pass — judge the classification + stock-targeting + margin-guardrail + tracking lifecycle, not the breadth.

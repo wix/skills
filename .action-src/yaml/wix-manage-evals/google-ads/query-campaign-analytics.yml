@@ -1,0 +1,35 @@
+name: google-ads/query-campaign-analytics
+description: >-
+  Verifies the agent uses the analytics recipe and picks the correct endpoint and
+  identifier (campaignResourceName vs Wix campaignId) for the requested metric.
+triggerPrompt: >-
+  How is my Google Ads campaign performing this month, and which search terms
+  triggered my ads? Show me the Wix Google Ads API calls to get this.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/query-campaign-performance-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants this month's campaign performance and the search terms that
+      triggered ads.
+
+      Pass if the response:
+      - uses the analytics recipe, AND
+      - uses POST /v1/performance-metrics with a campaignResourceName
+        (customers/{customerId}/campaigns/{campaignId}) and a dateRange
+        ({ custom: { from, to } }) for performance, AND
+      - uses a search-term-metrics endpoint for the search queries (V2 keyed by
+        the Wix campaignId is acceptable/preferred), AND
+      - correctly distinguishes campaignResourceName from the Wix campaignId for
+        the two calls, AND
+      - notes data only exists once the campaign is LIVE.
+
+      Fail if the response:
+      - swaps campaignResourceName and campaignId between endpoints, OR
+      - invents a metrics endpoint, OR
+      - omits the dateRange, OR
+      - falls back to generic Google Ads reporting instead of the Wix REST API.

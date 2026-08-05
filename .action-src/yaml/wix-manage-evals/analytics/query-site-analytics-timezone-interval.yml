@@ -1,0 +1,38 @@
+name: analytics/query-site-analytics-timezone-interval
+description: >-
+  Verifies the agent reads the query-site-analytics skill and diagnoses why Semantic Model API
+  numbers are off by a day and don't match the Wix dashboard — the end-exclusive interval and the
+  site time zone (interval.timezone defaults to UTC; get timeZone from Get Site Properties).
+triggerPrompt: >-
+  I'm pulling my site's daily traffic from the Wix Semantic Model API with interval start
+  2026-01-01 and end 2026-01-31, but the totals don't match what I see in my Wix dashboard and
+  the last day looks missing. What am I doing wrong and how do I make the numbers match the
+  dashboard exactly?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user queries the Wix Semantic Model API with interval start 2026-01-01 and end
+      2026-01-31, and their totals are off by a day and don't match the Wix dashboard.
+      Intent: fix the query so it covers the full intended range AND matches the dashboard numbers.
+
+      Pass ONLY if the response identifies BOTH root causes:
+      - The interval is start-inclusive, end-EXCLUSIVE ([start, end)): the current end 2026-01-31
+        excludes Jan 31, so `end` must be set to the day AFTER the last wanted day (e.g. 2026-02-01)
+        to include all of January, AND
+      - The Wix dashboard aggregates by the SITE's time zone, while `interval.timezone` defaults to
+        UTC when omitted; the fix is to set `interval.timezone` to the site's IANA time zone,
+        obtained from `timeZone` in the Get Site Properties API
+        (GET .../site-properties/v4/properties).
+
+      Fail if the response:
+      - misses the end-exclusive interval semantics (e.g. blames data latency or tells them to use
+        end 2026-01-31T23:59:59), OR
+      - misses the time zone cause, or mentions a timezone but not that it defaults to UTC and must
+        come from the site's timeZone via Get Site Properties, OR
+      - is generic troubleshooting with no reference to interval boundaries or site time zone.

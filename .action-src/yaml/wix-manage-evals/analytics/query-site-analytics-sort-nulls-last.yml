@@ -1,0 +1,33 @@
+name: analytics/query-site-analytics-sort-nulls-last
+description: >-
+  Verifies the agent reads the query-site-analytics skill and knows that sorting a nullable
+  measure DESC surfaces null rows first, and that sort.nullsLast must be set to true (it defaults
+  to false and only applies to descending order) to push nulls to the end.
+triggerPrompt: >-
+  I'm querying a Wix semantic model and sorting a revenue measure in descending order to get my
+  top-earning days, but the first rows returned have no revenue at all instead of my highest
+  days. My sort direction looks correct. Why is this happening and how do I fix it?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user sorts a nullable revenue measure DESC in a Semantic Model API query to get top days,
+      but null/no-revenue rows come first instead of the highest values.
+      Intent: explain that nulls sort first under DESC and fix it with sort.nullsLast.
+
+      Pass ONLY if the response:
+      - identifies that null values sort BEFORE real values when ordering DESC (that's why the
+        empty rows appear first), AND
+      - tells the user to set `sort.nullsLast: true` to move nulls to the end, AND
+      - conveys that `nullsLast` defaults to `false` and/or that it applies to descending order.
+
+      Fail if the response:
+      - blames the sort direction/order value or tells them to switch to ASC, OR
+      - suggests filtering the data or post-processing instead of using `nullsLast`, OR
+      - never mentions `nullsLast`, OR
+      - is generic sorting advice not grounded in the Semantic Model API's sort options.

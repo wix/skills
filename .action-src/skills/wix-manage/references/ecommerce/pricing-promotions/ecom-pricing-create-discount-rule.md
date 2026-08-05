@@ -22,16 +22,7 @@ layer: config
 
 ## Critical: `discounts` structure
 
-**On every request you send, `discounts` is an object wrapping a `values` array** —
-`"discounts": { "values": [ … ] }`. This is the single most common rejection on this API: passing
-the array directly under `discounts` returns `400 {"message":"Expected an object"}`. It applies to
-create just as much as to update — including when you are building a brand-new rule from scratch.
-
-**Inside each entry, `discountType` and its value are siblings at the entry root.** Put
-`percentage` (or `fixedAmount`) next to `discountType`, not inside a nested `discount` object;
-nesting them returns `400 DISCOUNT_TYPE_AND_DISCOUNT_VALUE_MISMATCH`.
-
-**The API always returns the full normalized structure**, `values` wrapper included. Never assume a simplified form. Each entry of `discounts.values` looks like:
+**The API always returns the full normalized structure.** Never assume a simplified form. Each discount entry looks like:
 
 ```json
 {
@@ -47,12 +38,14 @@ nesting them returns `400 DISCOUNT_TYPE_AND_DISCOUNT_VALUE_MISMATCH`.
       }
     ]
   },
-  "discountType": "PERCENTAGE",
-  "percentage": 20
+  "discount": {
+    "discountType": "PERCENTAGE",
+    "percentage": 20
+  }
 }
 ```
 
-When updating a rule, always reuse the `discounts.values` entries as returned from the query/get, modifying only the specific fields you need. **Do not reconstruct from scratch unless creating a new rule.**
+When updating a rule, always use the `discounts` array as returned from the query/get, modifying only the specific fields you need. **Do not reconstruct from scratch unless creating a new rule.**
 
 ---
 
@@ -100,7 +93,7 @@ Filterable fields: `id`, `name`, `active`, `revision`, `created_date`, `updated_
         "start": "2026-06-01T00:00:00.000Z",
         "end": "2026-08-31T23:59:59.000Z"
       },
-      "discounts": { "values": [
+      "discounts": [
         {
           "targetType": "SPECIFIC_ITEMS",
           "specificItemsInfo": {
@@ -114,10 +107,12 @@ Filterable fields: `id`, `name`, `active`, `revision`, `created_date`, `updated_
               }
             ]
           },
-          "discountType": "PERCENTAGE",
-          "percentage": 10
+          "discount": {
+            "discountType": "PERCENTAGE",
+            "percentage": 10
+          }
         }
-      ] }
+      ]
     }
   ],
   "pagingMetadata": {
@@ -175,7 +170,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
       "start": "2026-05-01T00:00:00.000Z",
       "end": "2026-05-03T23:59:59.000Z"
     },
-    "discounts": { "values": [
+    "discounts": [
       {
         "targetType": "SPECIFIC_ITEMS",
         "specificItemsInfo": {
@@ -189,10 +184,12 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
             }
           ]
         },
-        "discountType": "PERCENTAGE",
-        "percentage": 20
+        "discount": {
+          "discountType": "PERCENTAGE",
+          "percentage": 20
+        }
       }
-    ] },
+    ],
     "settings": {
       "appliesTo": "ALL_ITEMS"
     }
@@ -206,7 +203,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
   "discountRule": {
     "name": "Summer Collection Sale",
     "active": true,
-    "discounts": { "values": [
+    "discounts": [
       {
         "targetType": "SPECIFIC_ITEMS",
         "specificItemsInfo": {
@@ -223,10 +220,12 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
             }
           ]
         },
-        "discountType": "PERCENTAGE",
-        "percentage": 15
+        "discount": {
+          "discountType": "PERCENTAGE",
+          "percentage": 15
+        }
       }
-    ] },
+    ],
     "settings": {
       "appliesTo": "ALL_ITEMS"
     }
@@ -244,7 +243,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
   "discountRule": {
     "name": "$5 Off Selected Items",
     "active": true,
-    "discounts": { "values": [
+    "discounts": [
       {
         "targetType": "SPECIFIC_ITEMS",
         "specificItemsInfo": {
@@ -259,10 +258,12 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
             }
           ]
         },
-        "discountType": "FIXED_AMOUNT",
-        "fixedAmount": "5.00"
+        "discount": {
+          "discountType": "FIXED_AMOUNT",
+          "fixedAmount": "5.00"
+        }
       }
-    ] },
+    ],
     "settings": {
       "appliesTo": "ALL_ITEMS"
     }
@@ -286,7 +287,7 @@ Always fetch the rule first (via Get or Query), then modify only the fields you 
   "discountRule": {
     "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "revision": "1",
-    "discounts": { "values": [
+    "discounts": [
       {
         "targetType": "SPECIFIC_ITEMS",
         "specificItemsInfo": {
@@ -300,10 +301,12 @@ Always fetch the rule first (via Get or Query), then modify only the fields you 
             }
           ]
         },
-        "discountType": "PERCENTAGE",
-        "percentage": 25
+        "discount": {
+          "discountType": "PERCENTAGE",
+          "percentage": 25
+        }
       }
-    ] }
+    ]
   },
   "mask": { "paths": ["discounts"] }
 }
@@ -327,8 +330,8 @@ Always fetch the rule first (via Get or Query), then modify only the fields you 
 
 The safe pattern for "find a rule by name and update its percentage":
 
-1. Query with name filter → get the rule's `id`, `revision`, and `discounts.values` entries
-2. Modify only `percentage` on each entry, keeping all other fields intact
+1. Query with name filter → get the rule's `id`, `revision`, and `discounts` array
+2. Modify only the `discount.percentage` inside each discount entry, keeping all other fields intact
 3. PATCH with the modified `discounts` and `mask: { paths: ["discounts"] }`
 
 **Step 5a — Query by name**:
@@ -346,27 +349,29 @@ Extract from response: `discountRules[0].id`, `discountRules[0].revision`, `disc
 
 **Step 5b — Update percentage** (modify the returned discounts in-place):
 
-Take the `discounts.values` entries from the query response and update only `percentage` on each entry:
+Take the `discounts` array from the query response and update only `discount.percentage` on each entry:
 ```json
 PATCH https://www.wixapis.com/ecom/v1/discount-rules/{id}
 {
   "discountRule": {
     "id": "<id from query>",
     "revision": "<revision from query>",
-    "discounts": { "values": [
+    "discounts": [
       {
         "targetType": "SPECIFIC_ITEMS",
         "specificItemsInfo": { "<scopes unchanged from query response>" },
-        "discountType": "PERCENTAGE",
-        "percentage": 10
+        "discount": {
+          "discountType": "PERCENTAGE",
+          "percentage": 10
+        }
       }
-    ] }
+    ]
   },
   "mask": { "paths": ["discounts"] }
 }
 ```
 
-> **Important**: Copy `targetType`, `specificItemsInfo.scopes` verbatim from the query response — do not reconstruct them. Only change `discountType` and `percentage`/`fixedAmount`, keeping them at the entry root.
+> **Important**: Copy `targetType`, `specificItemsInfo.scopes` verbatim from the query response — do not reconstruct them. Only change `discount.discountType` and `discount.percentage`/`discount.fixedAmount`.
 
 ---
 
@@ -398,11 +403,11 @@ To delete permanently:
 | `active` | Yes | Whether the rule is currently applied |
 | `activeTimeInfo.start` | No | ISO 8601 start time. Omit for immediate activation |
 | `activeTimeInfo.end` | No | ISO 8601 end time. Omit for no expiration |
-| `discounts.values[].targetType` | Yes | Always `"SPECIFIC_ITEMS"` for standard rules |
-| `discounts.values[].specificItemsInfo.scopes[]` | Yes | Array of scope objects — see Scope types below |
-| `discounts.values[].discountType` | Yes | `"PERCENTAGE"` or `"FIXED_AMOUNT"` or `"FIXED_PRICE"` — at the entry root, not inside a `discount` object |
-| `discounts.values[].percentage` | If PERCENTAGE | Number 0.1-100 |
-| `discounts.values[].fixedAmount` | If FIXED_AMOUNT | Decimal string (e.g., `"5.00"`) |
+| `discounts[].targetType` | Yes | Always `"SPECIFIC_ITEMS"` for standard rules |
+| `discounts[].specificItemsInfo.scopes[]` | Yes | Array of scope objects — see Scope types below |
+| `discounts[].discount.discountType` | Yes | `"PERCENTAGE"` or `"FIXED_AMOUNT"` or `"FIXED_PRICE"` |
+| `discounts[].discount.percentage` | If PERCENTAGE | Integer 1-100 |
+| `discounts[].discount.fixedAmount` | If FIXED_AMOUNT | Decimal string (e.g., `"5.00"`) |
 | `settings.appliesTo` | Yes on create | Always `"ALL_ITEMS"` |
 | `revision` | On update/delete | Must match current value — fetch first |
 | `mask.paths[]` | On update | Recommended — list fields being changed (e.g., `["discounts"]`, `["active"]`) |
@@ -483,9 +488,9 @@ The recommendation's `scope` field maps to the API's internal scope structure. T
 
 | Recommendation `discountType` | API field to set | Value format |
 |---|---|---|
-| `PERCENTAGE` | `discounts.values[].percentage` | Integer (e.g., `15`) |
-| `FIXED_AMOUNT` | `discounts.values[].fixedAmount` | String (e.g., `"5.00"`) |
-| `FIXED_PRICE` | `discounts.values[].fixedPrice` | String (e.g., `"29.99"`) |
+| `PERCENTAGE` | `discount.percentage` | Integer (e.g., `15`) |
+| `FIXED_AMOUNT` | `discount.fixedAmount` | String (e.g., `"5.00"`) |
+| `FIXED_PRICE` | `discount.fixedPrice` | String (e.g., `"29.99"`) |
 
 All discount entries use `targetType: "SPECIFIC_ITEMS"` with the scope wrapped in `specificItemsInfo.scopes[]`.
 
@@ -596,8 +601,6 @@ All recommendation-created rules use these fixed settings:
 | `DISCOUNT_RULE_NOT_FOUND` | The discount rule ID doesn't exist | Re-query discount rules to get current IDs |
 | `REVISION_MISMATCH` | The `revision` doesn't match the current version | Re-fetch the rule to get the latest revision, then retry |
 | `INVALID_DISCOUNT_TYPE` | Unsupported discount type | Use `PERCENTAGE` or `FIXED_AMOUNT` |
-| `Expected an object` (400) | `discounts` sent as a bare array | Wrap the entries — `"discounts": { "values": [ … ] }` |
-| `DISCOUNT_TYPE_AND_DISCOUNT_VALUE_MISMATCH` | `discountType` and the value field nested inside a `discount` object | Move both to the discount entry root, alongside `targetType` |
 | Both `productIds` and `categoryIds` set | Scope mutual exclusivity violation | Use only one: ITEMS with productIds OR CATEGORY with categoryIds |
 | `productIds` empty when scope is ITEMS | Missing required IDs | Query products and provide at least 1 product UUID |
 | `categoryIds` empty when scope is CATEGORY | Missing required IDs | Call getCategoryIds to convert category names to GUIDs |

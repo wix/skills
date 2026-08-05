@@ -1,0 +1,17 @@
+name: ecommerce/shipping/setup-rates
+description: Set up shipping rates for my US delivery region — I sell mostly $30–$80 items and ship via standard ground.
+triggerPrompt: For my Wix store, set up shipping rates for my US delivery region — I sell mostly $30–$80 items and ship via standard ground.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the setup-rates recipe, picks a rate type (flat or tiered-by-subtotal) suited to the $30–$80 AOV band, attaches the rate to the US delivery region in a profile, and surfaces at least one inlined sanity check — AOV-vs-rate sanity, tier gap detection, or per-item-penalty avoidance — using the Shipping Options API.
+      Fail if it invents shipping endpoints not in the Shipping Options spec, routes to Pricing/Discount Rules, ignores AOV context entirely, or omits ALL sanity checks.

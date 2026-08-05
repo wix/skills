@@ -1,0 +1,48 @@
+name: EvalForge YAML Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'skills/wix-manage/references/**'
+      - 'yaml/wix-manage/**'
+      - 'yaml/wix-manage-evals/**'
+
+concurrency:
+  group: evalforge-yaml-gate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      # Two checkouts is intentional:
+      # 1) PR merge ref — reads head YAMLs, .md files, documentation.yaml, and provides the action source.
+      # 2) Base SHA into .action-src — base evals for diff computation only.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.github/actions/evalforge-yaml-gate
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          blocking: ${{ vars.EVAL_BLOCK_MERGE || 'false' }}
+          auto-approve: ${{ vars.EVAL_AUTO_APPROVE || 'false' }}
+          eval-compare: ${{ vars.TRIGGER_EVAL_COMPARE || 'true' }}
+          max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILLS || '1' }}

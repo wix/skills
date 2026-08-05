@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Analytics Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/analytics/query-site-analytics.md
+      title: Query Site Analytics
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
+      tags: [analytics]
+    - file: ../../../skills/wix-manage/references/analytics/analytics-dashboard-navigation.md
+      title: Analytics Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
+      tags: [analytics]

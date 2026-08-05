@@ -1,0 +1,18 @@
+name: ecommerce/pricing-promotions/run-a-sale-increase-sales
+description: Help me boost my sales — give me 3 to 5 concrete actions across discounts, AOV, and shipping that I can approve or reject.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Help me boost my sales — give me 3 to 5 concrete actions I can take across discounts, AOV, and shipping. I want to approve or reject each one.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) lands on the Pricing run-a-sale orchestrator and classifies as UPSELL_BOOST / SHIPPING / BUNDLE_AND_SAVE (any of these is acceptable for an open "boost sales" prompt), (b) produces a MIX of recommendation types covering at least two of {discount rule, coupon, free-shipping/shipping change, bundle/min-quantity rule, minSubTotal/AOV-threshold rule} — NOT just discount recommendations, and (c) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting them to the merchant.
+      Fail if the response presents only discount recommendations with no shipping/AOV/bundle mix, skips tracking entirely, or routes to a single create-coupon recipe instead of the orchestrator.
+      Topic-completeness beyond the 3–5 recommendations is NOT required to pass — judge the classification + recommendation mix + tracking lifecycle, not the breadth.
