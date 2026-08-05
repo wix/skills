@@ -36170,7 +36170,7 @@ function describeIssues(error) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
 exports.selectScenarios = selectScenarios;
 /**
  * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
@@ -36179,6 +36179,8 @@ exports.selectScenarios = selectScenarios;
 exports.DEFAULT_MAX_SCENARIOS = 25;
 /** Default number of times each scenario runs in each arm. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
 exports.DEFAULT_RUNS_PER_SCENARIO = 1;
+/** Default base-arm grace period, in seconds. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = 60;
 /**
  * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
  * results and the tag query, so a slow tag index cannot silently shrink the run.

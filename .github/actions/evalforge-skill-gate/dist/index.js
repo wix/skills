@@ -32056,7 +32056,7 @@ function describeIssues(error) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
 exports.selectScenarios = selectScenarios;
 /**
  * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
@@ -32065,6 +32065,8 @@ exports.selectScenarios = selectScenarios;
 exports.DEFAULT_MAX_SCENARIOS = 25;
 /** Default number of times each scenario runs in each arm. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
 exports.DEFAULT_RUNS_PER_SCENARIO = 1;
+/** Default base-arm grace period, in seconds. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = 60;
 /**
  * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
  * results and the tag query, so a slow tag index cannot silently shrink the run.
@@ -62014,23 +62016,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BASE_ARM_GRACE_MS = void 0;
 exports.startBaseAttribution = startBaseAttribution;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
 /**
- * How long to wait for the base arm once the PR arm has already completed. The base arm is
- * annotation only — it must never move or delay the verdict — so once this elapses we degrade to
- * no attribution rather than keep the job open for it.
+ * The PR arm's own poll deadline. The base poll's ceiling (below) adds the configured grace to
+ * this, independent of cancellation, so a base poll that somehow outlives cancellation still
+ * cannot outlive that.
  */
-exports.BASE_ARM_GRACE_MS = 60_000;
-/**
- * A ceiling on the base poll itself, independent of cancellation: the longest the gate could ever
- * wait is the PR arm's own 30-minute poll deadline plus the grace period, so a base poll that
- * somehow outlives cancellation still cannot outlive that.
- */
-const BASE_ARM_POLL_TIMEOUT_MS = 30 * 60_000 + exports.BASE_ARM_GRACE_MS;
+const PR_ARM_POLL_TIMEOUT_MS = 30 * 60_000;
 class BaseArmCancelledError extends Error {
     constructor() {
         super('cancelled — the verdict was already decided without it');
@@ -62106,15 +62101,15 @@ async function pollBaseArmSilently(client, config, baseRun, cancellation) {
         return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, baseRunId, {
             log: (message) => core.info(`Base comparison arm: ${message}`),
             warn: (message) => core.warning(`Base comparison arm: ${message}`),
-            timeoutMs: BASE_ARM_POLL_TIMEOUT_MS,
+            timeoutMs: PR_ARM_POLL_TIMEOUT_MS + config.baseArmGraceMs,
             sleep: cancellation.sleep,
         });
     }
     catch (error) {
-        // Cancellation at grace expiry is the expected path whenever the base arm runs more than
-        // `BASE_ARM_GRACE_MS` behind the PR arm — it decorates every such PR with a warning
-        // annotation for normal behaviour, so it is `info`. A genuine failure (the base arm erroring,
-        // or never starting) still warrants `warning`.
+        // Cancellation at grace expiry is the expected path whenever the base arm runs more than the
+        // configured grace behind the PR arm — it decorates every such PR with a warning annotation
+        // for normal behaviour, so it is `info`. A genuine failure (the base arm erroring, or never
+        // starting) still warrants `warning`.
         if (error instanceof BaseArmCancelledError) {
             core.info(`Base comparison arm: ${(0, report_1.describeError)(error)}`);
         }
@@ -62138,7 +62133,7 @@ function startBaseAttribution(client, config, baseRun) {
     const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation).catch(() => undefined);
     return {
         collect: async () => {
-            const status = await withGracePeriod(basePoll, exports.BASE_ARM_GRACE_MS);
+            const status = await withGracePeriod(basePoll, config.baseArmGraceMs);
             cancellation.cancel();
             return status;
         },
@@ -62378,7 +62373,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
+exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getCleanupConfig = getCleanupConfig;
@@ -62392,6 +62387,8 @@ exports.BASE_WORKSPACE_SUBDIR = '.action-src';
 exports.MAX_SCENARIOS_CEILING = 100;
 /** EvalForge's documented maximum for runsPerScenario. */
 exports.MAX_RUNS_PER_SCENARIO = 20;
+/** A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm attribution. */
+exports.MAX_BASE_ARM_GRACE_SECONDS = 900;
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -62458,6 +62455,15 @@ function getRunsPerScenario() {
         + `${exports.MAX_RUNS_PER_SCENARIO}.`);
     return exports.MAX_RUNS_PER_SCENARIO;
 }
+/** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
+function getBaseArmGraceSeconds() {
+    const requested = getPositiveIntegerInput('base-arm-grace-seconds', evalforge_core_1.DEFAULT_BASE_ARM_GRACE_SECONDS);
+    if (requested <= exports.MAX_BASE_ARM_GRACE_SECONDS)
+        return requested;
+    core.warning(`base-arm-grace-seconds: ${requested} exceeds the ceiling of ${exports.MAX_BASE_ARM_GRACE_SECONDS}, using `
+        + `${exports.MAX_BASE_ARM_GRACE_SECONDS}. The base arm's own run still completes server-side regardless.`);
+    return exports.MAX_BASE_ARM_GRACE_SECONDS;
+}
 /**
  * The commit the version label is content-addressed to. It must be the commit actually checked out,
  * not `head.sha`: the same head yields different merge content as base advances, so
@@ -62518,6 +62524,7 @@ function getGateConfig() {
          * paging, so a stable id would accumulate runs across re-runs of the same PR. */
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
         runsPerScenario: getRunsPerScenario(),
+        baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
     };
 }
 function getCleanupConfig() {
