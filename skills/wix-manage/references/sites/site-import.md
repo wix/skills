@@ -1,6 +1,6 @@
 ---
 name: "Site Import"
-description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
+description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, gives a source store URL, or has product/data export files they want imported. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 ---
 
 # Site Import
@@ -57,6 +57,16 @@ POST https://www.wixapis.com/site-import/v1/imports
 Body: {
   "request": "Import https://example-store.com into a new Wix site",
   "source_url": "https://example-store.com"
+}
+```
+
+Example — Start from exported files (no source site, FILE run):
+
+```
+POST https://www.wixapis.com/site-import/v1/imports
+Body: {
+  "request": "Import these product export files into a new Wix site",
+  "fileUrls": ["https://example.com/exports/products.csv"]
 }
 ```
 
@@ -151,20 +161,32 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 **Single `importId` for the whole import — assigned at Start, never changes.**
 
 1. **Start** — `POST /v1/imports`
-   Body: `{"request": "<natural language, MUST include the source store URL>", "source_url": "<the source store URL>"}`
-   `request` is required (1–20000 chars). `source_url` is technically optional but
-   **always send it whenever the user names a site** — it's the identity the
-   service uses to select which migration the request joins, not just an extra
-   hint. Leave it out only for an import with no source site (e.g. the user
-   pastes inline CSV/JSON data to import instead of a URL); a request with
-   neither a `source_url` nor a URL/site identifiable in `request` is rejected
-   with `SITE_UNIDENTIFIED`.
-   Returns: `importId`, `sourcePlatform`, `sourceConfidence`.
-   **One import per store at a time, keyed on `source_url`:** re-starting with the
-   same `source_url` continues the SAME migration (server returns the existing
-   `importId`, no new import created). A different `source_url` always starts an
-   independent migration, even for the same user. If a different user on the
-   account already owns an import for that store, Start returns
+   Body: `{"request": "<natural language, MUST include the source store URL>", "source_url": "<the source store URL>", "fileUrls": ["<CSV/TSV export URL>", ...]}`
+   `request` is required (1–20000 chars). `source_url` and `fileUrls` are both
+   optional, but send whichever applies — never leave both out with no way to
+   identify what to import:
+   - **`source_url`** — send it whenever the user names a site to crawl. It's
+     the identity the service uses to select which migration the request joins,
+     not just an extra hint.
+   - **`fileUrls`** — send it when the user has CSV/TSV export file(s) to import
+     instead of (or in addition to) crawling a live site. Setting it makes this
+     a **FILE run**: no source site is probed and no source credentials are
+     requested. Up to 20 URLs, http/https only (ports 80/443), each ≤2048
+     chars. If `source_url` is absent, the file set itself is the migration
+     identity — re-sending the same URLs continues the same migration; a
+     different set starts a new one. If a URL isn't reachable, the whole call
+     is rejected with `INVALID_FILE_URL` (nothing is silently dropped).
+   - A request with neither `source_url` nor a URL/site identifiable in
+     `request`, and no `fileUrls`, is rejected with `SITE_UNIDENTIFIED`.
+   Returns: `importId`, `sourcePlatform`, `sourceConfidence`. `sourcePlatform`
+   comes back as `CSV` for a FILE run (no site was probed, so
+   `sourceConfidence` is meaningless there).
+   **One import per store at a time, keyed on `source_url`** (or the file set
+   when there's no `source_url`): re-starting with the same identity continues
+   the SAME migration (server returns the existing `importId`, no new import
+   created). A different identity always starts an independent migration, even
+   for the same user. If a different user on the account already owns an
+   import for that identity, Start returns
    `409 { "code": "IMPORT_IN_PROGRESS" }` — tell the user and stop.
 
 2. **Poll** — `GET /v1/imports/{importId}?includeRecentActivity=true`
@@ -248,10 +270,14 @@ the user has no way to open a file.
   Do not retry or fall back to another site-creation tool.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
-  required field is missing (`request`/`message` must be 1–20000 chars) or
-  `source_url` exceeds 2048 chars. A request with no identifiable site (no
-  `source_url` and no URL in `request`) and no inline data is rejected with
-  `SITE_UNIDENTIFIED` — ask the user for the store URL and retry.
+  required field is missing (`request`/`message` must be 1–20000 chars),
+  `source_url` exceeds 2048 chars, or `fileUrls` has more than 20 entries or
+  one over 2048 chars. A request with no identifiable site (no `source_url`
+  and no URL in `request`) and no `fileUrls` is rejected with
+  `SITE_UNIDENTIFIED` — ask the user for the store URL or export file(s) and
+  retry. A `fileUrls` entry that isn't a reachable http/https URL rejects the
+  whole call with `INVALID_FILE_URL` — tell the user which link failed and ask
+  for a working one.
 - Requesting an unknown id in `artifactIds` is silently ignored — not an error.
   A document simply may not exist yet on an earlier turn.
 - **The user cannot open files.** If a message mentions a document by filename,
