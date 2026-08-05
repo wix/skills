@@ -109,7 +109,8 @@ and act only on the user's explicit yes.
 
 This creates real infrastructure and writes to the user's Wix account. Before
 calling **Start**, confirm:
-- The source URL and platform are correct
+- The source URL and platform are correct — or, for a file-only import, the
+  export file URL(s) are correct
 - The user understands it runs for up to ~60 minutes and may ask questions mid-way
 
 Also confirm before calling **Cancel** — it's irreversible.
@@ -161,7 +162,7 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 **Single `importId` for the whole import — assigned at Start, never changes.**
 
 1. **Start** — `POST /v1/imports`
-   Body: `{"request": "<natural language, MUST include the source store URL>", "source_url": "<the source store URL>", "fileUrls": ["<CSV/TSV export URL>", ...]}`
+   Body: `{"request": "<natural language; MUST include the source store URL when crawling a live site>", "source_url": "<the source store URL>", "fileUrls": ["<CSV/TSV export URL>", ...]}`
    `request` is required (1–20000 chars). `source_url` and `fileUrls` are both
    optional, but send whichever applies — never leave both out with no way to
    identify what to import:
@@ -169,9 +170,11 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
      the identity the service uses to select which migration the request joins,
      not just an extra hint.
    - **`fileUrls`** — send it when the user has CSV/TSV export file(s) to import
-     instead of (or in addition to) crawling a live site. Setting it makes this
-     a **FILE run**: no source site is probed and no source credentials are
-     requested. Up to 20 URLs, http/https only (ports 80/443), each ≤2048
+     instead of crawling a live site. Setting it makes this a **FILE run**: no
+     source site is probed and no source credentials are requested, even if
+     `source_url` is also present — `source_url` only changes what the
+     migration is keyed on (see below), it does not add a crawl on top of the
+     file import. Up to 20 URLs, http/https only (ports 80/443), each ≤2048
      chars. If `source_url` is absent, the file set itself is the migration
      identity — re-sending the same URLs continues the same migration; a
      different set starts a new one. If a URL isn't reachable, the whole call

@@ -1,8 +1,8 @@
 name: sites/site-import-file-run
 description: >-
   Verifies the agent knows Wix Site Import can start a FILE run from CSV/TSV export URLs via
-  fileUrls, with no source site to crawl, and still applies the source_url identity rule when a
-  site is also named.
+  fileUrls alone, with no source site to crawl and no source credentials needed, and that the
+  file URL(s) themselves become the migration identity when no source_url is given.
 triggerPrompt: >-
   I don't have a live store to point Wix Site Import at — I only have a product export file at
   https://example.com/exports/products.csv. Can Site Import work from just that file? Using the
