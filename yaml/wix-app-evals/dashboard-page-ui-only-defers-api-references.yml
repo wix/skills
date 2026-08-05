@@ -1,0 +1,34 @@
+name: dashboard-page-ui-only-defers-api-references
+description: A dashboard page that is pure local-state UI must not load the Dashboard SDK or Wix Data API references, which it never calls.
+triggerPrompt: |-
+  Build a dashboard page called "Margin Calculator" that helps a store owner work out pricing. The page shows three number inputs — cost price, desired margin percentage, and tax rate — and displays the resulting sale price, profit per unit, and tax amount, recalculating as the owner types. Everything is calculated in the browser from the current input values. Do not persist anything, do not read or write any collection, and do not navigate anywhere else in the dashboard.
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [dashboard-page, data-collection]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/dashboard-page/DASHBOARD_API.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/data-collection/WIX_DATA.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built a working margin calculator dashboard page. Check: (1) There are inputs for cost price, margin percentage, and tax rate. (2) Sale price, profit per unit, and tax amount are derived from those inputs and update as they change. (3) The calculation happens in component state — no collection is created, queried, or written, and no Wix Data API is imported. (4) The page is a registered dashboard page and the UI is usable. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how directly the agent reached a working UI-only dashboard page. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). This task needs no platform API — no Wix Data, no Dashboard SDK, no backend. Penalize and LIST any of: reading an API reference whose API is never called in the final code (for example `dashboard-page/DASHBOARD_API.md` or `data-collection/WIX_DATA.md`); reading any reference file before the code that needs it was being written; MCP doc searches for APIs the skill's own references already cover; a shape guessed wrong then corrected; a non-2xx error even if recovered. For each, name the likely skill/docs gap that invited the detour.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

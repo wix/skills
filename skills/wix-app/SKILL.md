@@ -23,7 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-- [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
+- [ ] **Step 3:** Identified which APIs each extension needs and which reference file covers each one — did NOT pre-read those API reference files (they are read just-in-time in Step 4b)
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
@@ -204,19 +204,20 @@ If unclear on approach (placement, visibility, configuration, integration), ask 
 
 Use the Extension Types Reference Table and decision content above. State extension type and brief reasoning (placement, functionality, integration).
 
-### Step 3: Read Extension Reference, Check API References, Then Discover (if needed)
+### Step 3: Read Extension Reference, Map Required APIs, Then Discover (if needed)
 
-**Workflow: Read extension reference → Check API references → Use MCP only for gaps.**
+**Workflow: Read extension reference → map each required API to its reference file → read that file in Step 4b, when you write the call → use MCP only for gaps.**
 
 1. **Read the extension reference file** for the chosen extension type from the table above
 2. **Identify required APIs** from user requirements
-3. **Check relevant API reference files:**
+3. **Map each required API to the reference file that covers it — do NOT read those files yet:**
    - Backend events → `references/backend-event/COMMON-EVENTS.md`
    - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
-   - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
-4. **Verify the specific method/event exists** in references
-5. **ONLY use MCP discovery if NOT found** in reference files
+   - Service Plugin SPIs → `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
+4. **Read each mapped file in Step 4b**, immediately before writing the first call into that API — not now. These files are among the largest in this skill; loading them up front costs context on every later turn, including turns that never touch the API. If an extension turns out to need no such API (UI-only page, local state, form inputs), the file is never read at all.
+5. **Verify the specific method/event exists** in that reference when you read it
+6. **ONLY use MCP discovery if NOT found** in reference files
 
 **Platform APIs (never discover - in references):**
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
@@ -267,6 +268,7 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 
 - ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
 - ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
+- ⚠️ MANDATORY for platform APIs: Read the API reference file you mapped in Step 3 (`WIX_DATA.md`, `DASHBOARD_API.md`, `COMMON-EVENTS.md`, `service-plugin/<NAME>.md`) **immediately before writing the first call into that API** — same just-in-time rule as WDS, and for the same reason. Still read the reference before reaching for MCP discovery; the point is *when* you read it, not *whether*.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
 ### Step 5: Run Validation
@@ -350,7 +352,9 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Let the CLI scaffold** — don't burn tokens describing folder layouts or builder boilerplate
 - **Only run `wix schema generate --type <extensionType>`** when `wix generate --params` fails — don't pre-fetch it
 - **Read extension reference first** — always read the relevant extension reference file before implementing
-- **Check API references first** — read relevant API reference files before using MCP discovery
+- **Read API references just-in-time** — read `WIX_DATA.md` / `DASHBOARD_API.md` / `COMMON-EVENTS.md` / `service-plugin/<NAME>.md` immediately before writing the first call into that API, not during planning. They are among the largest files in this skill, and anything loaded early is re-read from cache on every later turn.
+- **Never load an API reference you won't call** — a UI-only page, a settings form, or a page with local state needs none of them
+- **Still reference-before-MCP** — deferring the read does not mean skipping it; check the reference file before MCP discovery
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
