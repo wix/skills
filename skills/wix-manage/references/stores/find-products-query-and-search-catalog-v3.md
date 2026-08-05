@@ -54,7 +54,9 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 }'
 ```
 
-This returns all products with their default fields (id, name, slug, visible, productType, priceData, stock, media, etc.).
+This returns all products with their default fields, including `inventory` for product-level availability.
+
+Take availability from `inventory`, and look up any other field you need in the Catalog V3 docs rather than carrying a name over from Catalog V1 — the two catalogs do not share a product shape. A name that isn't on the V3 product reads as `undefined` rather than raising, so the request still succeeds and a check against it quietly matches nothing: an availability question answered that way returns an empty list, which reads as "everything is in stock" instead of as a failure.
 
 ### STEP 3: Understanding the `fields` parameter
 
@@ -186,7 +188,8 @@ Check the response `pagingMetadata` to determine if more pages exist.
 
 - **Variant data is NOT returned** by Query Products. To get variant details, use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) for individual products.
 - **Non-visible products** require the `SCOPE.STORES.PRODUCT_READ_ADMIN` permission.
-- Default fields include: `id`, `name`, `slug`, `visible`, `productType`, `priceData`, `stock`, `media`, `createdDate`, `updatedDate`.
+- Default fields include: `id`, `name`, `slug`, `visible`, `productType`, `inventory`, `media`, `createdDate`, `updatedDate`.
+- **Availability is not in STEP 4's filterable set.** To list out-of-stock products, query the catalog — paging until `pagingMetadata` reports no more results — and select on each returned product's `inventory` availability status in your own code, rather than putting it in `query.filter`.
 - The `fields` parameter adds fields **on top of** the defaults — you never need to request `id` or `name` explicitly.
 
 ## Conclusion
