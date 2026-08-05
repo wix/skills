@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { EvalForgeClient, CODE_TAG, repoTagFor, managedTagsFor, withManagedTags } from '../src/evalforge';
+
+// Captured verbatim (then trimmed of unused bulky fields — conversation/llmTrace/files/
+// templateFiles/fileDiffs) from a real EvalForge run against the live API. This is what
+// caught the ASSERTION_RESULT_STATUS_ prefix bug: every invented fixture in this file uses
+// bare statuses ('PASSED'), which the real API never sends.
+const LIVE_PR_ARM_BODY = JSON.parse(
+  readFileSync(join(__dirname, 'fixtures/live-eval-run-pr-arm.json'), 'utf8'),
+);
+const LIVE_BASE_ARM_BODY = JSON.parse(
+  readFileSync(join(__dirname, 'fixtures/live-eval-run-base-arm.json'), 'utf8'),
+);
 
 const CLIENT_ID = 'cid';
 const CLIENT_SECRET = 'csec';
@@ -424,6 +437,15 @@ describe('getEvalRun — per-scenario results', () => {
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     const status = await c.getEvalRun('proj-1', 'run-1');
     expect(status.results).toEqual([]);
+  });
+
+  it('maps the real API\'s ASSERTION_RESULT_STATUS_-prefixed statuses to PASSED/FAILED, not ERROR', async () => {
+    mockFetch(() => ({ status: 200, body: LIVE_PR_ARM_BODY }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    const statuses = status.results[0].assertions.map(assertion => assertion.status);
+    expect(statuses).toEqual(['FAILED', 'PASSED', 'PASSED', 'FAILED', 'PASSED', 'FAILED', 'FAILED']);
+    expect(statuses).not.toContain('ERROR');
   });
 
   it('falls back an unrecognised assertion status to ERROR', async () => {

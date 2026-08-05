@@ -1,0 +1,88 @@
+{
+  "evalRun": {
+    "id": "f5021bc2-75ee-4d99-9697-59375cd63cc6",
+    "status": "COMPLETED",
+    "progress": 100,
+    "aggregateMetrics": {
+      "totalAssertions": 7,
+      "passed": 3,
+      "failed": 4,
+      "skipped": 0,
+      "errors": 0,
+      "passRate": 42.857142857142854,
+      "avgDuration": 330067,
+      "totalDuration": 330067
+    },
+    "results": [
+      {
+        "scenarioId": "84230038-77b3-42ff-8c41-ceb3e607a156",
+        "scenarioName": "employee-shift-dashboard",
+        "passed": 3,
+        "failed": 4,
+        "iterationIndex": 0,
+        "assertionResults": [
+          {
+            "assertionId": "09a4c58b-ae65-48bf-96bd-db2460981b93",
+            "assertionType": "skill_was_called",
+            "assertionName": "NOT: Skill was called",
+            "status": "ASSERTION_RESULT_STATUS_FAILED",
+            "message": "Expected NOT to pass, but it did: Skill \"wix-app\" was called and read references/DASHBOARD_PAGE.md",
+            "expected": "NOT: wix-app (references/DASHBOARD_PAGE.md)"
+          },
+          {
+            "assertionId": "26b7abc3-3ab0-4d07-b8ee-f37437fa6e54",
+            "assertionType": "skill_was_called",
+            "assertionName": "Skill was called",
+            "status": "ASSERTION_RESULT_STATUS_PASSED",
+            "message": "Skill \"wix-app\" was called and read references/AUTO_PATTERNS_DASHBOARD.md",
+            "expected": "wix-app (references/AUTO_PATTERNS_DASHBOARD.md)"
+          },
+          {
+            "assertionId": "14c2b831-4336-4e17-ad3b-6cc6e93afad8",
+            "assertionType": "skill_was_called",
+            "assertionName": "Skill was called",
+            "status": "ASSERTION_RESULT_STATUS_PASSED",
+            "message": "Skill \"wix-app\" was called and read references/DATA_COLLECTION.md",
+            "expected": "wix-app (references/DATA_COLLECTION.md)"
+          },
+          {
+            "assertionId": "07e2b464-9190-4e33-a4ef-9e166f461960",
+            "assertionType": "build_passed",
+            "assertionName": "Build passed",
+            "status": "ASSERTION_RESULT_STATUS_FAILED",
+            "message": "Build exited with 1, expected 0",
+            "expected": "0",
+            "actual": "1"
+          },
+          {
+            "assertionId": "04b1767d-15a5-45c2-aa23-b02446cadfa9",
+            "assertionType": "llm_judge",
+            "assertionName": "LLM judge",
+            "status": "ASSERTION_RESULT_STATUS_PASSED",
+            "message": "Judge score 10 >= 7: The agent successfully built a fully functional, well-structured, and highly usable auto-patterns dashboard page for managing employee shifts.",
+            "expected": "7",
+            "actual": "10"
+          },
+          {
+            "assertionId": "3fa1f87f-5f0d-439b-9b36-adef41967ff7",
+            "assertionType": "time_limit",
+            "assertionName": "Time limit",
+            "status": "ASSERTION_RESULT_STATUS_FAILED",
+            "message": "Exceeded time limit: 330067ms > 180000ms",
+            "expected": "<= 180000ms",
+            "actual": "330067ms"
+          },
+          {
+            "assertionId": "8f5242b7-7226-4c6c-ae3f-5f1fbcb3ba23",
+            "assertionType": "cost",
+            "assertionName": "Cost",
+            "status": "ASSERTION_RESULT_STATUS_FAILED",
+            "message": "Cost $1.059567 exceeds limit of $1.000000",
+            "expected": "<= $1.000000",
+            "actual": "$1.059567"
+          }
+        ]
+      }
+    ]
+  }
+}
