@@ -1,12 +1,9 @@
 name: rich-content/ricos-html
 description: Sharp-edge check on the Author Ricos Rich Content recipe — an HTML embed block with htmlData.url and container sizing.
-triggerPrompt: I need hand-authored Ricos rich-content JSON. First call ReadFullDocsArticle for the Author Ricos Rich Content recipe at https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content. Then give me the nodes tree for an HTML embed block loading https://example.com/embed in a 550 by 550 iframe. Output only the richContent JSON.
+triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for an HTML embed block loading https://example.com/embed in a 550 by 550 iframe. Output only the richContent JSON.
 tags: [rich-content]
 maxTokens: 450000
 assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
   - type: llm_judge
     minScore: 9
     maxTokens: 2048
