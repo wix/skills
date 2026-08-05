@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-line-item",
+  "displayName": "eCommerce Order Line Item",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "eCommerce Order Line Item",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "order_line_item", "routes": ["/wc/v3/orders"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "ecomOrderLineItem", "routes": ["eCommerce Orders API"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders",
+    "writerId": "createOrder",
+    "verification": "unverified",
+    "importSafe": false,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use when source line-item metadata cannot fit native order line fields or extended fields." }
+  ],
+  "reliability": { "status": "unknown", "flags": ["IMPORT_UNRELIABLE"] },
+  "pitfalls": [
+    { "code": "parent-order-write", "severity": "blocker", "summary": "Line items are written through their parent order; do not create standalone duplicates." }
+  ],
+  "mappingGuidance": ["Preserve source line-item IDs in extended fields or CMS shadow data."],
+  "setupRequirements": ["Order data extension schema if line-item extended fields are used."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" }
+  ]
+}

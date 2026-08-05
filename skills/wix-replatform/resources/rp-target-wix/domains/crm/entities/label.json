@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "entity": "label",
+  "displayName": "CRM Label",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Contact Label",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "customer_tag", "routes": ["customer metadata", "segments"], "confidence": "low" },
+    { "sourceSystem": "wix", "sourceEntity": "contactLabel", "routes": ["Contacts Labels"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Contacts Labels",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for source segmentation rules that are not contact labels." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "source-segment-semantics", "severity": "warning", "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review." }
+  ],
+  "mappingGuidance": ["Create labels before assigning them to contacts."],
+  "setupRequirements": [],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" }
+  ]
+}

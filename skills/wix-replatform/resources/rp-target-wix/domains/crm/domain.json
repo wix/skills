@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "displayName": "Wix CRM",
+  "ownerHint": "Contacts, labels, extended fields, and subscription-consent domain owners",
+  "defaultImportOrder": ["label", "contact", "email-subscription"],
+  "sideEffectNotes": ["Contact creation and subscription updates can trigger automations."],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/orders-contacts-members.md"
+    }
+  ]
+}

@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 1,
+  "domains": {
+    "blog": {
+      "path": "domains/blog/domain.json",
+      "displayName": "Wix Blog",
+      "ownerHint": "Blog posts, categories, tags, authorship, and comments domain owners",
+      "entities": {
+        "category": {
+          "path": "domains/blog/entities/category.json",
+          "displayName": "Blog Category",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Wix Blog categories are flat; WordPress hierarchy needs CMS shadowing if it matters."
+        },
+        "comment": {
+          "path": "domains/blog/entities/comment.json",
+          "displayName": "Blog Comment",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify the target relation and notification behavior before native comment writes."
+        },
+        "post": {
+          "path": "domains/blog/entities/post.json",
+          "displayName": "Blog Post",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "Exact original URL or slug preservation is not reliable through public Blog Draft Posts."
+        },
+        "tag": {
+          "path": "domains/blog/entities/tag.json",
+          "displayName": "Blog Tag",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Blog tag slug is derived; dedupe by label/language."
+        }
+      }
+    },
+    "cms": {
+      "path": "domains/cms/domain.json",
+      "displayName": "Wix CMS",
+      "ownerHint": "CMS/Data collections, items, references, permissions, and indexes domain owners",
+      "entities": {
+        "collection": {
+          "path": "domains/cms/entities/collection.json",
+          "displayName": "CMS Collection",
+          "classification": "setup-config",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Collections, fields, permissions, and indexes must be represented in setup before item import."
+        },
+        "data-item": {
+          "path": "domains/cms/entities/data-item.json",
+          "displayName": "CMS Data Item",
+          "classification": "cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "_createdDate and _updatedDate are read-only; preserve source dates in explicit fields."
+        },
+        "reference": {
+          "path": "domains/cms/entities/reference.json",
+          "displayName": "CMS Reference",
+          "classification": "cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "References and multi-references often require a second pass after target IDs are known."
+        }
+      }
+    },
+    "crm": {
+      "path": "domains/crm/domain.json",
+      "displayName": "Wix CRM",
+      "ownerHint": "Contacts, labels, extended fields, and subscription-consent domain owners",
+      "entities": {
+        "contact": {
+          "path": "domains/crm/entities/contact.json",
+          "displayName": "CRM Contact",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Original contact created dates are not writable as native createdDate."
+        },
+        "email-subscription": {
+          "path": "domains/crm/entities/email-subscription.json",
+          "displayName": "Email Subscription",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Only set subscribed states when the migration has consent evidence."
+        },
+        "label": {
+          "path": "domains/crm/entities/label.json",
+          "displayName": "CRM Label",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review."
+        }
+      }
+    },
+    "ecom": {
+      "path": "domains/ecom/domain.json",
+      "displayName": "Wix eCommerce",
+      "ownerHint": "eCommerce Orders, refunds, checkout, and order-history domain owners",
+      "entities": {
+        "order-line-item": {
+          "path": "domains/ecom/entities/order-line-item.json",
+          "displayName": "eCommerce Order Line Item",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "Line items are written through their parent order; do not create standalone duplicates."
+        },
+        "order-refund": {
+          "path": "domains/ecom/entities/order-refund.json",
+          "displayName": "eCommerce Order Refund",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify whether the selected order write shape preserves refund amounts, reasons, dates, and line references."
+        },
+        "order": {
+          "path": "domains/ecom/entities/order.json",
+          "displayName": "eCommerce Order",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Never route historical orders through createOrder — it decrements inventory, emails the buyer, and auto-creates contacts; importOrder is the only import-safe writer."
+        }
+      }
+    },
+    "media": {
+      "path": "domains/media/domain.json",
+      "displayName": "Wix Media Manager",
+      "ownerHint": "Media Manager import, upload, folders, and metadata domain owners",
+      "entities": {
+        "media-file": {
+          "path": "domains/media/entities/media-file.json",
+          "displayName": "Media File",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Media import is asynchronous; poll until READY before referencing the file."
+        },
+        "media-folder": {
+          "path": "domains/media/entities/media-folder.json",
+          "displayName": "Media Folder",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Do not require folder creation for media file preservation unless verified for the project."
+        }
+      }
+    },
+    "members": {
+      "path": "domains/members/domain.json",
+      "displayName": "Wix Members",
+      "ownerHint": "Members identity, profile, roles, and badges domain owners",
+      "entities": {
+        "badge": {
+          "path": "domains/members/entities/badge.json",
+          "displayName": "Member Badge",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify badge creation and assignment surfaces before native execution."
+        },
+        "member": {
+          "path": "domains/members/entities/member.json",
+          "displayName": "Site Member",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "unreliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "Passwords are NOT imported — project decision (2026-08-03), not just an API gap. Members keep account/profile/contact linkage; they set a new password via reset. Never propose hash import."
+        }
+      }
+    },
+    "stores": {
+      "path": "domains/stores/domain.json",
+      "displayName": "Wix Stores",
+      "ownerHint": "Stores Catalog, Inventory, Coupons, Tags, and merchandising domain owners",
+      "entities": {
+        "category": {
+          "path": "domains/stores/entities/category.json",
+          "displayName": "Stores Category",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Pass Stores treeReference as a top-level sibling of category."
+        },
+        "coupon": {
+          "path": "domains/stores/entities/coupon.json",
+          "displayName": "Stores Coupon",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Source coupon constraints may be narrower or differently modeled in Wix."
+        },
+        "inventory-item": {
+          "path": "domains/stores/entities/inventory-item.json",
+          "displayName": "Stores Inventory Item",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Inventory requires target product and variant IDs."
+        },
+        "product-tag": {
+          "path": "domains/stores/entities/product-tag.json",
+          "displayName": "Stores Product Tag",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Use the verified product FQDN and resolve tag IDs before attaching them to products."
+        },
+        "product": {
+          "path": "domains/stores/entities/product.json",
+          "displayName": "Stores Product",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Normalize V1/simple product fields into Catalog V3 product and variant shapes before create."
+        }
+      }
+    }
+  },
+  "sourceAliasIndex": {
+    "wordpress:category": [
+      "blog/category"
+    ],
+    "wix:blogCategory": [
+      "blog/category"
+    ],
+    "wordpress:comment": [
+      "blog/comment"
+    ],
+    "wix:comment": [
+      "blog/comment"
+    ],
+    "wordpress:post": [
+      "blog/post"
+    ],
+    "wix:blogPost": [
+      "blog/post"
+    ],
+    "wordpress:tag": [
+      "blog/tag"
+    ],
+    "wix:blogTag": [
+      "blog/tag"
+    ],
+    "wordpress:custom_post_type": [
+      "cms/collection"
+    ],
+    "wix:cmsCollection": [
+      "cms/collection"
+    ],
+    "wordpress:custom_post_type_item": [
+      "cms/data-item"
+    ],
+    "wix:cmsDataItem": [
+      "cms/data-item"
+    ],
+    "wordpress:relationship": [
+      "cms/reference"
+    ],
+    "wix:cmsReference": [
+      "cms/reference"
+    ],
+    "woocommerce:customer": [
+      "crm/contact",
+      "members/member"
+    ],
+    "woocommerce:order": [
+      "crm/contact",
+      "ecom/order"
+    ],
+    "wordpress:user": [
+      "crm/contact",
+      "members/member"
+    ],
+    "wix:contact": [
+      "crm/contact"
+    ],
+    "wordpress:newsletter_subscription": [
+      "crm/email-subscription"
+    ],
+    "wix:emailSubscription": [
+      "crm/email-subscription"
+    ],
+    "woocommerce:customer_tag": [
+      "crm/label"
+    ],
+    "wix:contactLabel": [
+      "crm/label"
+    ],
+    "woocommerce:order_line_item": [
+      "ecom/order-line-item"
+    ],
+    "wix:ecomOrderLineItem": [
+      "ecom/order-line-item"
+    ],
+    "woocommerce:order_refund": [
+      "ecom/order-refund"
+    ],
+    "wix:ecomOrderRefund": [
+      "ecom/order-refund"
+    ],
+    "wix:ecomOrder": [
+      "ecom/order"
+    ],
+    "wordpress:attachment": [
+      "media/media-file"
+    ],
+    "wix:mediaFile": [
+      "media/media-file"
+    ],
+    "wordpress:media_folder": [
+      "media/media-folder"
+    ],
+    "wix:mediaFolder": [
+      "media/media-folder"
+    ],
+    "wordpress:user_badge": [
+      "members/badge"
+    ],
+    "wix:memberBadge": [
+      "members/badge"
+    ],
+    "wix:member": [
+      "members/member"
+    ],
+    "woocommerce:product_category": [
+      "stores/category"
+    ],
+    "wix:storesCategory": [
+      "stores/category"
+    ],
+    "woocommerce:coupon": [
+      "stores/coupon"
+    ],
+    "wix:coupon": [
+      "stores/coupon"
+    ],
+    "woocommerce:product_variation_inventory": [
+      "stores/inventory-item"
+    ],
+    "wix:inventoryItem": [
+      "stores/inventory-item"
+    ],
+    "woocommerce:product_tag": [
+      "stores/product-tag"
+    ],
+    "wix:productTag": [
+      "stores/product-tag"
+    ],
+    "woocommerce:product": [
+      "stores/product"
+    ],
+    "wix:storesProduct": [
+      "stores/product"
+    ]
+  },
+  "routeAliasIndex": {
+    "/wp/v2/categories": [
+      "blog/category"
+    ],
+    "Blog Categories": [
+      "blog/category"
+    ],
+    "/wp/v2/comments": [
+      "blog/comment"
+    ],
+    "Comments API": [
+      "blog/comment"
+    ],
+    "/wp/v2/posts": [
+      "blog/post"
+    ],
+    "Blog Draft Posts": [
+      "blog/post"
+    ],
+    "Blog Posts": [
+      "blog/post"
+    ],
+    "/wp/v2/tags": [
+      "blog/tag"
+    ],
+    "Blog Tags": [
+      "blog/tag"
+    ],
+    "/wp/v2/{type}": [
+      "cms/collection",
+      "cms/data-item"
+    ],
+    "Wix Data Collections": [
+      "cms/collection"
+    ],
+    "Wix Data Items": [
+      "cms/data-item"
+    ],
+    "post meta": [
+      "cms/reference"
+    ],
+    "term relationships": [
+      "cms/reference"
+    ],
+    "Wix Data reference fields": [
+      "cms/reference"
+    ],
+    "/wc/v3/customers": [
+      "crm/contact",
+      "members/member"
+    ],
+    "/wc/v3/orders": [
+      "crm/contact",
+      "ecom/order",
+      "ecom/order-line-item"
+    ],
+    "/wp/v2/users": [
+      "crm/contact",
+      "members/member"
+    ],
+    "CRM Contacts V4": [
+      "crm/contact"
+    ],
+    "CRM Contacts V5": [
+      "crm/contact"
+    ],
+    "plugin-specific subscription routes": [
+      "crm/email-subscription"
+    ],
+    "Email Subscriptions API": [
+      "crm/email-subscription"
+    ],
+    "customer metadata": [
+      "crm/label"
+    ],
+    "segments": [
+      "crm/label"
+    ],
+    "Contacts Labels": [
+      "crm/label"
+    ],
+    "eCommerce Orders API": [
+      "ecom/order",
+      "ecom/order-line-item",
+      "ecom/order-refund"
+    ],
+    "/wc/v3/orders/{id}/refunds": [
+      "ecom/order-refund"
+    ],
+    "/wp/v2/media": [
+      "media/media-file"
+    ],
+    "Media Manager": [
+      "media/media-file"
+    ],
+    "plugin-specific media folder routes": [
+      "media/media-folder"
+    ],
+    "Media Manager folders": [
+      "media/media-folder"
+    ],
+    "plugin-specific member badge routes": [
+      "members/badge"
+    ],
+    "Members Badges APIs": [
+      "members/badge"
+    ],
+    "Members APIs": [
+      "members/member"
+    ],
+    "/wc/v3/products/categories": [
+      "stores/category"
+    ],
+    "Catalog V3 Categories": [
+      "stores/category"
+    ],
+    "V1 collections": [
+      "stores/category"
+    ],
+    "/wc/v3/coupons": [
+      "stores/coupon"
+    ],
+    "Coupons API": [
+      "stores/coupon"
+    ],
+    "/wc/v3/products": [
+      "stores/inventory-item",
+      "stores/product"
+    ],
+    "/wc/v3/products/{productId}/variations": [
+      "stores/inventory-item"
+    ],
+    "Stores Inventory APIs": [
+      "stores/inventory-item"
+    ],
+    "/wc/v3/products/tags": [
+      "stores/product-tag"
+    ],
+    "Tags API scoped to product FQDN": [
+      "stores/product-tag"
+    ],
+    "Stores Catalog V1 Products": [
+      "stores/product"
+    ],
+    "Stores Catalog V3 Products": [
+      "stores/product"
+    ]
+  },
+  "flags": {
+    "IMPORT_UNRELIABLE": [
+      "blog/post",
+      "ecom/order-line-item",
+      "members/member"
+    ]
+  }
+}
