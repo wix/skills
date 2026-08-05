@@ -1,0 +1,62 @@
+name: pricing-plans/archive-plan
+description: >
+  A site owner asks for a plan to be created and then archived so it is no longer offered.
+  Verifies the agent loads the Create or Update Pricing Plans recipe and archives the plan with
+  an Update Plan call carrying `archived: true` — rather than deleting it, or discovering the
+  field by probing the generated schema, which does not list it.
+triggerPrompt: >
+  Create a plan called Legacy Plan at $15 a month, then archive it so it's no longer offered.
+tags: [pricing-plans, aria]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/create-and-update-pricing-plans
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Create a plan called Legacy Plan at $15 a month, then
+      archive it so it's no longer offered."
+
+      Score 9-10: a plan named "Legacy Plan" was created with a recurring monthly price of 15,
+      and it was then archived by a successful (2xx) Update Plan call that set `archived: true`
+      on the plan, carrying the plan's `id` and current `revision`. The final answer reports the
+      plan as archived.
+
+      Score 7-8: the plan was created and ends up archived through a successful update, but the
+      agent's report is vague about which field or call archived it.
+
+      Score 4-6: the plan was created but not archived, or the archiving call errored and was
+      never recovered.
+
+      Score 1-3: the agent DELETED the plan instead of archiving it; OR it only described how to
+      archive without doing it; OR the created plan does not match the requested name or price.
+
+      Deleting is a failure, not an alternative: the user asked for the plan to stop being
+      offered, which preserves it, and a deleted plan cannot be reported as archived. Score any
+      run that calls Delete Plan 1-3 even if the agent describes the outcome as "archived".
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality of the tool-call path
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call
+      trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST any of:
+
+      - repeated API-spec or schema lookups made to work out how to archive a plan — for example
+        fetching the Plan schema or the plan status enum, or listing a service's methods looking
+        for an archive or delete operation;
+      - reaching for Delete Plan, or considering it, before finding the archive path;
+      - guessing that archiving is a status value and having to correct it;
+      - a create or update call that returned a non-2xx error, even if the agent recovered;
+      - a missing `revision` on the update, then a retry.
+
+      For each issue, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: bookings-editor
