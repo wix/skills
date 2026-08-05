@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
-  DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
-  DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
+  DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
+  DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -14,6 +14,9 @@ export const MAX_SCENARIOS_CEILING = 100;
 
 /** EvalForge's documented maximum for runsPerScenario. */
 export const MAX_RUNS_PER_SCENARIO = 20;
+
+/** A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm attribution. */
+export const MAX_BASE_ARM_GRACE_SECONDS = 900;
 
 export type SyncConfig = {
   evalforgeUrl: string;
@@ -68,6 +71,8 @@ export type GateConfig = {
   baseSha: string;
   comparisonGroupId: string;
   runsPerScenario: number;
+  /** Milliseconds, converted once here from the `base-arm-grace-seconds` input — see `getBaseArmGraceSeconds`. */
+  baseArmGraceMs: number;
 };
 
 /** No `githubToken`, `owner` or `repo`: cleanup makes no GitHub API call — `getPrNumber` reads the event payload. */
@@ -142,6 +147,17 @@ function getRunsPerScenario(): number {
   return MAX_RUNS_PER_SCENARIO;
 }
 
+/** Mirrors `getMaxScenarios`'s clamp-and-warn shape; see its comment for why this clamps instead of throwing. */
+function getBaseArmGraceSeconds(): number {
+  const requested = getPositiveIntegerInput('base-arm-grace-seconds', DEFAULT_BASE_ARM_GRACE_SECONDS);
+  if (requested <= MAX_BASE_ARM_GRACE_SECONDS) return requested;
+  core.warning(
+    `base-arm-grace-seconds: ${requested} exceeds the ceiling of ${MAX_BASE_ARM_GRACE_SECONDS}, using `
+    + `${MAX_BASE_ARM_GRACE_SECONDS}. The base arm's own run still completes server-side regardless.`,
+  );
+  return MAX_BASE_ARM_GRACE_SECONDS;
+}
+
 /**
  * The commit the version label is content-addressed to. It must be the commit actually checked out,
  * not `head.sha`: the same head yields different merge content as base advances, so
@@ -208,6 +224,7 @@ export function getGateConfig(): GateConfig {
      * paging, so a stable id would accumulate runs across re-runs of the same PR. */
     comparisonGroupId: randomUUID(),
     runsPerScenario: getRunsPerScenario(),
+    baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
   };
 }
 

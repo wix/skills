@@ -94,9 +94,10 @@ has. So the base arm can never turn a green PR red, or a red PR green, and if po
 observe completion within the grace period, the comment reports **attribution unavailable** and
 the gate is exactly as strict as it was before comparison existed.
 
-The 60-second grace period (`BASE_ARM_GRACE_MS`) is the first knob worth tuning once there is
-live evidence: if attribution is frequently unavailable in practice, the doubled spend is buying
-nothing, and the fix is to widen the grace period rather than accept the miss rate.
+The grace period (`base-arm-grace-seconds`, default `60`, max `900`) is the first knob worth
+tuning once there is live evidence: if attribution is frequently unavailable in practice, the
+doubled spend is buying nothing, and the fix is to widen the grace period rather than accept the
+miss rate. It is a repo variable, not a code change — see [Inputs](#inputs).
 
 `runs-per-scenario` (default `1`, max `20`) repeats each scenario that many times **per arm**,
 at proportional cost. Above 1, an intermittent failure is visible as a mix of pass/fail
@@ -259,6 +260,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `broad-impact-globs` | `gate` | `SKILL.md` + the six cross-cutting references | Newline-separated, relative to `skill-dir` |
 | `max-scenarios` | `gate` | `25` | Touched scenarios kept first; anything cut is named in the comment |
 | `runs-per-scenario` | `gate` | `1` | Max `20`. Each scenario repeats this many times **per arm**, so an intermittent failure is visible instead of indistinguishable from a regression — at proportional cost. An intermittent failure counts as a failure |
+| `base-arm-grace-seconds` | `gate` | `60` | Max `900`. Window the base arm gets after the PR arm completes before its poll is cancelled. Exceeding it degrades the comment to "attribution unavailable" without affecting the verdict — the base eval run itself still completes server-side either way |
 | `blocking` | `gate` | `false` | `true` fails the check; anything else warns and passes |
 
 `capability-id`, `agent-id` and `skill-dir` are optional at the action level because `sync`

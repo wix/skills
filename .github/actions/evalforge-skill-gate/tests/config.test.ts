@@ -281,4 +281,34 @@ describe('getGateConfig — comparison fields', () => {
     const { getGateConfig } = await import('../src/utils/config');
     expect(() => getGateConfig()).toThrow(/runs-per-scenario/);
   });
+
+  it('defaults baseArmGraceMs to 60 seconds, in milliseconds', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().baseArmGraceMs).toBe(60_000);
+  });
+
+  it('converts base-arm-grace-seconds to milliseconds', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '5' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().baseArmGraceMs).toBe(5_000);
+  });
+
+  it('clamps base-arm-grace-seconds above the ceiling of 900 with a warning', async () => {
+    // A throw here would fail the check even during the soak period, the same reason
+    // getMaxScenarios clamps rather than throws.
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '1000' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+    const { getGateConfig, MAX_BASE_ARM_GRACE_SECONDS } = await import('../src/utils/config');
+
+    expect(getGateConfig().baseArmGraceMs).toBe(MAX_BASE_ARM_GRACE_SECONDS * 1_000);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('exceeds the ceiling'));
+  });
+
+  it('rejects a non-positive base-arm-grace-seconds', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'base-arm-grace-seconds': '0' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(() => getGateConfig()).toThrow(/base-arm-grace-seconds/);
+  });
 });

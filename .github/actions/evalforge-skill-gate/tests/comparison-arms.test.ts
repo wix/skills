@@ -32,6 +32,7 @@ const CONFIG: GateConfig = {
   baseSha: 'base1234567890',
   comparisonGroupId: 'group-1',
   runsPerScenario: 3,
+  baseArmGraceMs: 60_000,
 };
 
 const runCreated = (id: string): EvalRunCreated => ({ id, status: 'pending' });

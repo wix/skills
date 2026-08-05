@@ -4,18 +4,11 @@ import { describeError } from './report';
 import type { GateConfig } from './config';
 
 /**
- * How long to wait for the base arm once the PR arm has already completed. The base arm is
- * annotation only — it must never move or delay the verdict — so once this elapses we degrade to
- * no attribution rather than keep the job open for it.
+ * The PR arm's own poll deadline. The base poll's ceiling (below) adds the configured grace to
+ * this, independent of cancellation, so a base poll that somehow outlives cancellation still
+ * cannot outlive that.
  */
-export const BASE_ARM_GRACE_MS = 60_000;
-
-/**
- * A ceiling on the base poll itself, independent of cancellation: the longest the gate could ever
- * wait is the PR arm's own 30-minute poll deadline plus the grace period, so a base poll that
- * somehow outlives cancellation still cannot outlive that.
- */
-const BASE_ARM_POLL_TIMEOUT_MS = 30 * 60_000 + BASE_ARM_GRACE_MS;
+const PR_ARM_POLL_TIMEOUT_MS = 30 * 60_000;
 
 class BaseArmCancelledError extends Error {
   constructor() {
@@ -108,14 +101,14 @@ async function pollBaseArmSilently(
     return await pollUntilDone(client, config.projectId, baseRunId, {
       log: (message: string) => core.info(`Base comparison arm: ${message}`),
       warn: (message: string) => core.warning(`Base comparison arm: ${message}`),
-      timeoutMs: BASE_ARM_POLL_TIMEOUT_MS,
+      timeoutMs: PR_ARM_POLL_TIMEOUT_MS + config.baseArmGraceMs,
       sleep: cancellation.sleep,
     });
   } catch (error) {
-    // Cancellation at grace expiry is the expected path whenever the base arm runs more than
-    // `BASE_ARM_GRACE_MS` behind the PR arm — it decorates every such PR with a warning
-    // annotation for normal behaviour, so it is `info`. A genuine failure (the base arm erroring,
-    // or never starting) still warrants `warning`.
+    // Cancellation at grace expiry is the expected path whenever the base arm runs more than the
+    // configured grace behind the PR arm — it decorates every such PR with a warning annotation
+    // for normal behaviour, so it is `info`. A genuine failure (the base arm erroring, or never
+    // starting) still warrants `warning`.
     if (error instanceof BaseArmCancelledError) {
       core.info(`Base comparison arm: ${describeError(error)}`);
     } else {
@@ -127,9 +120,9 @@ async function pollBaseArmSilently(
 
 export type BaseAttribution = {
   /**
-   * The base arm's outcome, or `undefined` if it did not arrive within `BASE_ARM_GRACE_MS` of this
-   * call. Cancels the poll before returning either way — call it once the PR arm is done, so the
-   * grace clock starts from the verdict rather than from the run's start.
+   * The base arm's outcome, or `undefined` if it did not arrive within `config.baseArmGraceMs` of
+   * this call. Cancels the poll before returning either way — call it once the PR arm is done, so
+   * the grace clock starts from the verdict rather than from the run's start.
    */
   collect: () => Promise<EvalRunStatus | undefined>;
   /** Safe to call any number of times, including from a `finally` and after `collect`. */
@@ -155,7 +148,7 @@ export function startBaseAttribution(
 
   return {
     collect: async () => {
-      const status = await withGracePeriod(basePoll, BASE_ARM_GRACE_MS);
+      const status = await withGracePeriod(basePoll, config.baseArmGraceMs);
       cancellation.cancel();
       return status;
     },

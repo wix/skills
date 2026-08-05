@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import {
-  DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
-  DEFAULT_RUNS_PER_SCENARIO,
+  DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
+  DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO,
 } from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
@@ -22,6 +22,7 @@ describe('action.yml', () => {
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
       'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
+      'base-arm-grace-seconds',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);
     }
@@ -43,6 +44,10 @@ describe('action.yml', () => {
 
   it('keeps runs-per-scenario in step with the core default', () => {
     expect(action.inputs['runs-per-scenario'].default).toBe(String(DEFAULT_RUNS_PER_SCENARIO));
+  });
+
+  it('keeps base-arm-grace-seconds in step with the core default', () => {
+    expect(action.inputs['base-arm-grace-seconds'].default).toBe(String(DEFAULT_BASE_ARM_GRACE_SECONDS));
   });
 
   it('leaves gate-only inputs optional so sync mode needs none of them', () => {

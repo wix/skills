@@ -46,6 +46,7 @@ const CONFIG: GateConfig = {
   baseSha: 'base1234567890',
   comparisonGroupId: 'group-1',
   runsPerScenario: 1,
+  baseArmGraceMs: 60_000,
 };
 
 const SCOPE: GateScope = {
@@ -140,9 +141,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function run() {
+async function run(config: GateConfig = CONFIG) {
   const { runAndReport } = await import('../src/utils/run-and-report');
-  await runAndReport(client, CONFIG, SCOPE, NAME_TO_ID, 'ver-1', upsertComment);
+  await runAndReport(client, config, SCOPE, NAME_TO_ID, 'ver-1', upsertComment);
 }
 
 async function lastImpact() {
@@ -158,9 +159,8 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     pollUntilDone.mockImplementation((_client: unknown, _projectId: unknown, runId: string) =>
       (runId === 'run-pr' ? Promise.resolve(greenRun()) : NEVER_SETTLES));
 
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     const done = run();
-    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
+    await vi.advanceTimersByTimeAsync(CONFIG.baseArmGraceMs);
     await done;
 
     expect(setFailedSpy).not.toHaveBeenCalled();
@@ -174,9 +174,8 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     pollUntilDone.mockImplementation((_client: unknown, _projectId: unknown, runId: string) =>
       (runId === 'run-pr' ? Promise.resolve(redRun()) : NEVER_SETTLES));
 
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     const done = run();
-    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
+    await vi.advanceTimersByTimeAsync(CONFIG.baseArmGraceMs);
     await done;
 
     expect(setFailedSpy).toHaveBeenCalled();
@@ -187,24 +186,43 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
   // arm this slow would leave the base arm with no time at all and the attribution would be gone.
   it('still attributes when the PR arm takes longer than the grace period and the base lands just after', async () => {
     vi.useFakeTimers();
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     pollUntilDone.mockImplementation(async (_client: unknown, _projectId: unknown, runId: string) => {
       if (runId === 'run-pr') {
-        await delay(BASE_ARM_GRACE_MS + 5_000);
+        await delay(CONFIG.baseArmGraceMs + 5_000);
         return greenRun();
       }
-      await delay(BASE_ARM_GRACE_MS + 10_000);
+      await delay(CONFIG.baseArmGraceMs + 10_000);
       return redRun();
     });
 
     const done = run();
-    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS * 3);
+    await vi.advanceTimersByTimeAsync(CONFIG.baseArmGraceMs * 3);
     await done;
 
     const impact = await lastImpact();
     expect(impact?.fixed).toBe(1);
     expect(impact?.attributionAvailable).toBe(true);
     expect(lastComment()).toContain('`fixed`');
+  });
+
+  // Proves the grace comes from config, not a leftover module constant: the base arm here lands
+  // comfortably inside CONFIG's 60-second grace, but this run configures a 5-second grace, so it
+  // must still miss. A stray hardcoded 60_000ms would let this test pass for the wrong reason.
+  it('uses the configured grace, not the 60-second default, to decide when the base arm misses', async () => {
+    vi.useFakeTimers();
+    const shortGraceConfig: GateConfig = { ...CONFIG, baseArmGraceMs: 5_000 };
+    pollUntilDone.mockImplementation(async (_client: unknown, _projectId: unknown, runId: string) => {
+      if (runId === 'run-pr') return greenRun();
+      await delay(shortGraceConfig.baseArmGraceMs + 1_000);
+      return redRun();
+    });
+
+    const done = run(shortGraceConfig);
+    await vi.advanceTimersByTimeAsync(shortGraceConfig.baseArmGraceMs);
+    await done;
+
+    expect(lastComment()).toMatch(/unavailable/i);
+    expect(await lastImpact()).not.toBeUndefined();
   });
 
   // Finding 1: stopping the *wait* on the base poll left the poll itself running for its own
@@ -233,9 +251,8 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
       },
     );
 
-    const { BASE_ARM_GRACE_MS } = await import('../src/utils/base-attribution');
     const done = run();
-    await vi.advanceTimersByTimeAsync(BASE_ARM_GRACE_MS);
+    await vi.advanceTimersByTimeAsync(CONFIG.baseArmGraceMs);
     await done;
     await vi.advanceTimersByTimeAsync(0);
 
