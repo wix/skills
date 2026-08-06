@@ -44,9 +44,11 @@ however the project wants; wire it to these two snippets. Copy them into the app
 - `src/rest/wix-store-cart.js` — **Cart & checkout:**
   `addToCart`, `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
 
-The Product and Cart shapes are documented as JSDoc comments at the top of each helper file.
-Read them before building the UI — they describe the key fields and link to the full API
-reference for anything not shown.
+**You don't need to open the source of `wix-client.js` / `wix-store-catalog.js` /
+`wix-store-cart.js`** — just `import` from them. Every field shape and gotcha you need is in
+this file (the prose below + the **Reference components** section), and those components show
+correct usage of every helper. Skip reading the util source; adapt the components' logic and
+restyle to the brand.
 
 ## How to wire it (UI is the project's choice)
 - **Product grid** — `queryProducts()` for the listing (visible products only); pass
@@ -140,6 +142,242 @@ body in the **official Wix API reference** first; never guess:
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
+
+## Reference components (headless — adapt the logic, restyle freely)
+
+These are the recurring storefront pieces, written **headless**: the data wiring (Wix field
+paths, variant resolution, modifier handling, stock gating, cart) is correct and complete — the
+markup is deliberately plain. **Copy the logic exactly; restyle the JSX to the brand.** Don't
+re-derive the data shape from scratch (that's where the bugs are — the variant/modifier/stock
+paths especially). They consume the `src/rest/` helpers; you don't need to read those helpers'
+source.
+
+**`src/context/CartContext.jsx`** — cart state, mirroring the Wix **server** cart (never a
+local copy). Wrap the app in `<CartProvider>`; everything reads `useCart()`.
+
+```jsx
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { getCurrentCart, addToCart as apiAdd, removeFromCart as apiRemove,
+         updateCartItemQuantity as apiQty, checkout as apiCheckout } from "@/rest/wix-store-cart";
+
+const CartContext = createContext(null);
+
+export function CartProvider({ children }) {
+  const [cart, setCart] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const refreshCart = useCallback(async () => setCart(await getCurrentCart()), []);
+  useEffect(() => {                                   // load once + re-sync when tab regains focus
+    refreshCart();
+    const onVisible = () => document.visibilityState === "visible" && refreshCart();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshCart]);
+
+  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantity || 0), 0);
+  const addToCart = async (id, variantId, qty = 1, extras) => {
+    setLoading(true);
+    try { setCart(await apiAdd(id, variantId, qty, extras)); setIsOpen(true); } finally { setLoading(false); }
+  };
+  const removeItem = async (lineItemId) => { setLoading(true); try { setCart(await apiRemove(lineItemId)); } finally { setLoading(false); } };
+  const updateQuantity = async (lineItemId, qty) => { setLoading(true); try { setCart(await apiQty(lineItemId, qty)); } finally { setLoading(false); } };
+  const checkout = async () => { setLoading(true); try { window.location.href = await apiCheckout(); } finally { setLoading(false); } };
+
+  return (
+    <CartContext.Provider value={{ cart, itemCount, isOpen, setIsOpen, loading, addToCart, removeItem, updateQuantity, checkout, refreshCart }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+export function useCart() {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error("useCart must be used within <CartProvider>");
+  return ctx;
+}
+```
+
+**`ProductCard.jsx`** — grid tile. Note the `//`-protocol fix on the image URL and the exact
+price / out-of-stock field paths.
+
+```jsx
+import { Link } from "react-router-dom";
+
+function productImage(product) {
+  const url = product?.media?.main?.image?.url;
+  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
+}
+
+export default function ProductCard({ product }) {
+  const image = productImage(product);
+  const price = product?.actualPriceRange?.minValue?.formattedAmount;           // includes currency symbol
+  const compareAt = product?.compareAtPriceRange?.minValue?.formattedAmount;    // present only when on sale
+  const soldOut = product?.inventory?.availabilityStatus === "OUT_OF_STOCK";
+  return (
+    <Link to={`/product/${product.slug}`} /* restyle */>
+      {image ? <img src={image} alt={product.name} loading="lazy" /> : <div>{/* placeholder */}</div>}
+      {soldOut && <span>Sold out</span>}
+      <h3>{product.name}</h3>
+      <span>{price}</span>
+      {compareAt && compareAt !== price && <span style={{ textDecoration: "line-through" }}>{compareAt}</span>}
+    </Link>
+  );
+}
+```
+
+**`CartDrawer.jsx`** — reads everything from `useCart()`; mutate by `lineItem.id` (not
+`catalogItemId`), check out via the context.
+
+```jsx
+import { useCart } from "@/context/CartContext";
+
+export default function CartDrawer() {
+  const { cart, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading } = useCart();
+  const lineItems = cart?.lineItems ?? [];
+  if (!isOpen) return null;
+  return (
+    <div /* restyle: slide-over panel */>
+      <button onClick={() => setIsOpen(false)}>Close</button>
+      {lineItems.length === 0 ? <p>Your cart is empty.</p> : (
+        <>
+          {lineItems.map((item) => (
+            <div key={item.id}>
+              <img src={item.image} alt={item.productName?.original} />
+              <span>{item.productName?.original}</span>
+              {item.descriptionLines?.map((dl, i) => (               // variant/modifier summary Wix supplies
+                <small key={i}>{dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}</small>
+              ))}
+              <button onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}>−</button>
+              <span>{item.quantity}</span>
+              <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+              <button onClick={() => removeItem(item.id)}>Remove</button>
+              <span>{item.price?.formattedAmount}</span>
+            </div>
+          ))}
+          <button disabled={loading} onClick={checkout}>Checkout</button>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**`pages/ProductDetail.jsx`** — the PDP. This carries the trickiest logic: resolving the
+buyer's option selections to a variant, gating add-to-cart on mandatory modifiers + stock, and
+rendering the HTML description. Keep all of it.
+
+```jsx
+import { useState, useEffect, useMemo } from "react";
+import { useParams } from "react-router-dom";
+import { getProductBySlug } from "@/rest/wix-store-catalog";
+import { useCart } from "@/context/CartContext";
+
+// one control per product.options[] (variant choices)
+function OptionSelector({ option, selected, onSelect }) {
+  return (
+    <div>
+      <label>{option.name}</label>
+      {option.choicesSettings?.choices?.map((c) => (
+        <button key={c.choiceId} disabled={c.inStock === false}      // choice with no in-stock variant
+          aria-pressed={selected === c.choiceId} onClick={() => onSelect(option.id, c.choiceId)}>{c.name}</button>
+      ))}
+    </div>
+  );
+}
+// one control per product.modifiers[] — TEXT_CHOICES → buttons, FREE_TEXT → input
+function ModifierSelector({ modifier, value, onChange }) {
+  const key = modifier.modifierRenderType === "FREE_TEXT" ? modifier.freeTextSettings?.key : modifier.key;
+  if (modifier.modifierRenderType === "FREE_TEXT")
+    return <label>{modifier.name}{modifier.mandatory && " *"}<input value={value || ""} onChange={(e) => onChange(key, e.target.value)} /></label>;
+  return (
+    <div>
+      <label>{modifier.name}{modifier.mandatory && " *"}</label>
+      {modifier.choicesSettings?.choices?.map((c) => (
+        <button key={c.key} aria-pressed={value === c.key} onClick={() => onChange(key, c.key)}>{c.name}</button>
+      ))}
+    </div>
+  );
+}
+
+export default function ProductDetail() {
+  const { slug } = useParams();
+  const { addToCart } = useCart();
+  const [product, setProduct] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState({});
+  const [modifierValues, setModifierValues] = useState({});
+  const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    getProductBySlug(slug).then((p) => {
+      if (!p) return setNotFound(true);
+      setProduct(p);
+      const initial = {};                                            // pre-select first in-stock choice per option
+      (p.options || []).forEach((o) => {
+        const first = o.choicesSettings?.choices?.find((c) => c.inStock !== false);
+        if (first) initial[o.id] = first.choiceId;
+      });
+      setSelectedOptions(initial);
+    });
+  }, [slug]);
+
+  const options = product?.options || [];
+  const modifiers = product?.modifiers || [];
+  const variants = product?.variantsInfo?.variants || [];
+
+  const variant = useMemo(() => {                                    // match selections → variant
+    if (options.length === 0) return variants[0] || null;           // option-less → single variant
+    if (!options.every((o) => selectedOptions[o.id])) return null;  // not all chosen yet
+    return variants.find((v) => (v.choices || []).every((c) =>
+      selectedOptions[c.optionChoiceIds?.optionId] === c.optionChoiceIds?.choiceId)) || null;
+  }, [options, variants, selectedOptions]);
+
+  const inStock = variant ? variant.inventoryStatus?.inStock !== false : true;
+  const canAdd = useMemo(() => {
+    if (options.length > 0 && !variant) return false;               // options exist but unresolved
+    if (variant && !inStock) return false;
+    return modifiers.filter((m) => m.mandatory).every((m) =>        // every mandatory modifier filled
+      m.modifierRenderType === "FREE_TEXT" ? !!modifierValues[m.freeTextSettings?.key] : !!modifierValues[m.key]);
+  }, [options, variant, inStock, modifiers, modifierValues]);
+
+  const price = variant?.price?.actualPrice?.formattedAmount || product?.actualPriceRange?.minValue?.formattedAmount || "";
+
+  async function handleAdd() {
+    const modifierChoices = {}, customTextFields = {};
+    modifiers.forEach((m) => {
+      const k = m.modifierRenderType === "FREE_TEXT" ? m.freeTextSettings?.key : m.key;
+      if (!k || !modifierValues[k]) return;
+      (m.modifierRenderType === "FREE_TEXT" ? customTextFields : modifierChoices)[k] = modifierValues[k];
+    });
+    await addToCart(product.id, variant?.id, quantity, {
+      modifierChoices: Object.keys(modifierChoices).length ? modifierChoices : undefined,
+      customTextFields: Object.keys(customTextFields).length ? customTextFields : undefined,
+    });
+  }
+
+  if (notFound) return <div>Product not found.</div>;
+  if (!product) return <div>Loading…</div>;
+  return (
+    <div /* restyle */>
+      <img src={product.media?.main?.image?.url} alt={product.name} />
+      <h1>{product.name}</h1>
+      <p>{price}</p>
+      {/* plainDescription is HTML despite the name — never render as plain text */}
+      <div dangerouslySetInnerHTML={{ __html: product.plainDescription || "" }} />
+      {options.map((o) => (
+        <OptionSelector key={o.id} option={o} selected={selectedOptions[o.id]}
+          onSelect={(id, cid) => setSelectedOptions((s) => ({ ...s, [id]: cid }))} />
+      ))}
+      {modifiers.map((m) => (
+        <ModifierSelector key={m.key || m.freeTextSettings?.key} modifier={m}
+          value={modifierValues[m.key || m.freeTextSettings?.key]}
+          onChange={(k, v) => setModifierValues((s) => ({ ...s, [k]: v }))} />
+      ))}
+      <button disabled={!canAdd} onClick={handleAdd}>{inStock ? "Add to cart" : "Out of stock"}</button>
+    </div>
+  );
+}
+```
 
 ## Point the user to their dashboard
 In some cases, users need to access the Wix dashboard in order to edit the store content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For store data those pages are:
