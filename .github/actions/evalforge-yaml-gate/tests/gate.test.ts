@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun } from '../src/utils/gate';
+import { scenarioIdsToRun, scenariosToRun } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
-import type { Scenario } from '../src/utils/schema';
+import type { Scenario } from '@wix/evalforge-core';
 
 const scenario = (name: string): LoadedScenario => ({
   path: `yaml/wix-manage-evals/${name}.yml`,
@@ -14,32 +14,9 @@ const scenario = (name: string): LoadedScenario => ({
   } satisfies Scenario,
 });
 
-describe('remoteScenarioFiltersForGate', () => {
-  it('requests changed scenario names, deleted base scenario names, and this PR draft tag', () => {
-    const filters = remoteScenarioFiltersForGate({
-      changedHead: new Map([
-        ['blog/changed', scenario('blog/changed')],
-        ['stores/changed', scenario('stores/changed')],
-      ]),
-      head: new Map([
-        ['blog/changed', scenario('blog/changed')],
-        ['stores/changed', scenario('stores/changed')],
-        ['blog/unchanged', scenario('blog/unchanged')],
-      ]),
-      base: new Map([
-        ['blog/changed', scenario('blog/changed')],
-        ['blog/deleted', scenario('blog/deleted')],
-        ['blog/unchanged', scenario('blog/unchanged')],
-      ]),
-      draftTag: 'draft:wix/skills#42',
-    });
-
-    expect(filters).toEqual({
-      names: ['blog/changed', 'blog/deleted', 'stores/changed'],
-      tags: ['draft:wix/skills#42'],
-    });
-  });
-});
+// remoteScenarioFiltersForGate and stripInactiveForeignDraftTags now live in
+// @wix/evalforge-core and are covered by its tests/plan-pr-scenario-sync.test.ts.
+// What stays here is wix-manage's own doc-coverage selection.
 
 describe('scenariosToRun', () => {
   const head = new Map<string, LoadedScenario>([

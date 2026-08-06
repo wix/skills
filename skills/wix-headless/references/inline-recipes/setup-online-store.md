@@ -22,10 +22,10 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 
 ### STEP 1: Clean the store — remove the default sample products
 
-A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. Remove them **before** creating yours, so the storefront shows only your catalog. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own products.
+A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. **Only remove products that are obviously the install's own demo/sample data on a fresh install.** Do **not** assume the existing products are samples: the site may already hold the owner's **real catalog** (a connect/iterate run, or an owner-populated store). If what's there isn't obviously install demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are the install's samples, remove them **before** creating yours so the storefront shows only the intended catalog.
 
 1. **List the existing products** — `POST https://www.wixapis.com/stores/v3/products/query` with body `{"query": {"paging": {"limit": 50}}}`. Collect every `product.id` from the response.
-2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). The query on a fresh install returns the sample products; delete exactly those ids.
+2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). On a fresh install the query returns only the install's sample products — delete those. **If it returns anything that could be the owner's real catalog, stop and ask first** (above).
 
 ### STEP 2: Bulk-create the products (with options)
 
@@ -158,13 +158,38 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
 
 ### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep each image's `url`.
 
-- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. `PATCH /stores/v3/products/{id}` setting `"media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } }`; the image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`), either works.
-- **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main`** (`media.main.image.url` resolves to a `static.wixstatic.com` URL). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
-- **428 prevention:** first `GET /stores/v3/products/{id}` for its **`revision` + `options` + `variantsInfo`** and echo all three back in the PATCH body — do **not** send a field mask (the validator runs before masking).
-- Send **one image per product** (primary); a larger gallery is out of scope for the seed.
-- **Never block on image failure** — skip and leave the product text-only.
+**Attach every product in ONE call** — `POST https://www.wixapis.com/stores/v3/bulk/products/update` (up to 100 products). You already hold each product's `id` **and `revision`** from STEP 2's bulk-create response (`productResults.results[].item`), so **no per-product `GET` is needed**. Each entry nests under a `product` wrapper carrying just `id`, `revision`, and `media` — options, variants, and every other field are left untouched (it's a partial update):
+
+```json
+{
+  "products": [
+    { "product": {
+        "id": "<product id>",
+        "revision": "<from the create response>",
+        "media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/… or Wix Media id>", "altText": "…" } ] } }
+    } }
+  ]
+}
+```
+
+- **`revision` is required on every entry** — omitting it fails `400 "revision must not be empty"`. Use the revision from the create response (or a fresh query); a stale one fails the optimistic-concurrency check.
+- **Everything nests under `product`** — `id` / `revision` / `media` at the entry root fails validation. **Send no field mask** (the validator runs before masking → `428`).
+- **Write the image via `media.itemsInfo.items`**; the server derives `media.main` from it. One primary image per product (a larger gallery is out of scope for the seed). The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
+- **Success shape** — `bulkActionMetadata` totals the run, and each result carries an `itemMetadata`:
+
+  ```jsonc
+  {
+    "results": [ { "itemMetadata": { "id": "<product id>", "originalIndex": 0, "success": true } } ],
+    "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0, "undetailedFailures": 0 }
+  }
+  ```
+  Read `itemMetadata.success` per product (the result carries no product body). **Retry only the failed ids once**, then move on.
+- **Confirm by requery** — `POST …/stores/v3/products/query` with `"fields": ["MEDIA_ITEMS_INFO"]`; the attached image is at `media.main.image.url`. Wix **re-hosts** the image on attach, so that URL is a **new** `wixstatic.com` id — verify it's *a* wixstatic URL, never string-equality against the one you sent. The read-back can lag a beat; one empty read right after success isn't a failure.
+- **Never block on image failure** — a product that won't attach stays text-only.
+
+**One-off fix (single product).** To (re)attach a single image later, `PATCH https://www.wixapis.com/stores/v3/products/{id}` with the same `{ "product": { "id", "revision", "media": {…} } }` body — same rules apply (revision required, no field mask, media-only is a partial update that leaves options/variants intact). Read the current `revision` from `GET …/products/{id}` → `response.product.revision` (the GET is not flat); the `200` response carries the image at `media.main.url`.
 
 ---
 

@@ -1,0 +1,31 @@
+name: google-ads/billing-and-payment
+description: >-
+  Verifies the agent uses the billing recipe to read payment details and
+  correctly interprets the totalAmount breakdown and creditBalance sign.
+triggerPrompt: >-
+  How much am I going to be charged for my Google Ads this billing period on my
+  Wix site, and do I have any ad credits left? Which endpoint returns this?
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/retrieve-google-ads-billing-and-payment-details
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants their upcoming Google Ads charge and remaining credits.
+
+      Pass if the response:
+      - uses the billing recipe and GET /v1/payment-details, AND
+      - explains the upcomingPayments breakdown: usageAmount (ad spend) plus
+        wixServiceFee minus couponAdjustmentAmount equals totalAmount, over a
+        billingPeriod, AND
+      - interprets creditBalance sign correctly: positive = available credits,
+        negative = outstanding debt not yet charged.
+
+      Fail if the response:
+      - reads the deprecated monthlyPayments field instead of upcomingPayments, OR
+      - inverts the creditBalance meaning, OR
+      - invents a billing endpoint, OR
+      - conflates totalAmount with usageAmount (ignoring the Wix fee).

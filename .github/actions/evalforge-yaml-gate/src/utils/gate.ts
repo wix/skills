@@ -3,12 +3,14 @@ import * as github from '@actions/github';
 import { posix } from 'node:path';
 import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
-import { assertWixAuthor } from './author-gate';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
-import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, evalRunUrl, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
+import {
+  EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
+  listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
+  stripInactiveForeignDraftTags, type RemoteScenario,
+} from '@wix/evalforge-core';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -16,7 +18,7 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
+  comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
 } from './comment';
 import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 
@@ -24,27 +26,6 @@ type Commenter = ReturnType<typeof makeCommenter>;
 
 function allScenariosRequired(result: ComparisonGroupResult): boolean {
   return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
-}
-
-export type RemoteScenarioFilters = {
-  names: string[];
-  tags: string[];
-};
-
-/**
- * Computes the smallest remote scenario lookup needed to sync this PR.
- */
-export function remoteScenarioFiltersForGate(input: {
-  changedHead: Map<string, LoadedScenario>;
-  head: Map<string, LoadedScenario>;
-  base: Map<string, LoadedScenario>;
-  draftTag: string;
-}): RemoteScenarioFilters {
-  const names = new Set<string>(input.changedHead.keys());
-  for (const [name] of input.base) {
-    if (!input.head.has(name)) names.add(name);
-  }
-  return { names: [...names].sort(), tags: [input.draftTag] };
 }
 
 /**
@@ -86,10 +67,33 @@ export function scenarioIdsToRun(
   return ids;
 }
 
+async function isDraftTagActive(
+  octokit: ReturnType<typeof github.getOctokit>,
+  tag: string,
+): Promise<boolean> {
+  const draft = parseDraftTag(tag);
+  if (!draft) return true;
+
+  const [owner, repo] = draft.repo.split('/', 2);
+  if (!owner || !repo) return true;
+
+  try {
+    const pull = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: draft.prNumber,
+    });
+    return pull.data.state === 'open';
+  } catch (e) {
+    core.warning(`Could not resolve draft tag ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+    return true;
+  }
+}
+
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
-  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber);
+  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber, core.info);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
@@ -165,15 +169,20 @@ export async function runGate(): Promise<void> {
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;
+  const normalizedRemote = await stripInactiveForeignDraftTags(
+    remote,
+    draftTag,
+    (tag) => isDraftTagActive(octokit, tag),
+  );
 
-  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
+  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
   if (plan.errors.length > 0) {
     await comment(formatForeignDraftConflicts(plan.errors, { owner: config.owner, repo: config.repo }));
     fail(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
     return;
   }
 
-  const nameToId = new Map(remote.map(r => [r.name, r.id]));
+  const nameToId = new Map(normalizedRemote.map(r => [r.name, r.id]));
   for (const a of plan.actions) {
     try {
       if (a.kind === 'CREATE') {
@@ -230,6 +239,10 @@ export async function runGate(): Promise<void> {
       fail(formatTokenBudgetFailureMessage(tokenBudgetViolations), config.blocking);
       return;
     }
+    if (comparisonHasNoWinner(done.result)) {
+      fail('Eval comparison has no winner because both runs failed assertions', config.blocking);
+      return;
+    }
     if (config.autoApprove && allScenariosRequired(done.result)) {
       await octokit.rest.pulls.createReview({
         owner: config.owner,
@@ -251,18 +264,6 @@ export async function runGate(): Promise<void> {
     fail('Eval pipeline comparison failed', config.blocking);
   }
 
-}
-
-async function listRemoteScenariosForGate(
-  evalforge: EvalForgeClient,
-  projectId: string,
-  filters: RemoteScenarioFilters,
-): Promise<RemoteScenario[]> {
-  const [byName, byTags] = await Promise.all([
-    filters.names.length > 0 ? evalforge.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
-    Promise.all(filters.tags.map(tag => evalforge.listTestScenariosByTag(projectId, tag))),
-  ]);
-  return uniqueRemoteScenarios([byName, ...byTags].flat());
 }
 
 async function guardedCall<T>(

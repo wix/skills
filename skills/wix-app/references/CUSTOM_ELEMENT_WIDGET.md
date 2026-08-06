@@ -102,7 +102,7 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | Field | Type | Default | Purpose |
 |---|---|---|---|
 | `id` | UUID | generated | Extension ID. Don't change after scaffolding. |
-| `name` | string | from scaffold param | Display name. |
+| `name` | string | from scaffold param | Display name. **Maximum 30 characters** — longer names cause a platform validation error on deployment. |
 | `tagName` | kebab-case | derived from `folder` | Custom-element tag the widget is registered under. Used by the Editor and by `customElements.define()`. |
 | `width.defaultWidth` | number (px) | `450` | Initial width when the widget is added to a page. |
 | `width.allowStretch` | boolean | `true` | Whether the site owner can stretch the widget to the page width. |

@@ -67,6 +67,10 @@ giftVouchersProvider.provideHandlers({
 });
 ```
 
+## Singular Constraint
+
+`GIFT_CARDS_PROVIDER` is **singular** — only one component of this type is allowed per app. Do not scaffold or include two Gift Cards service plugins in the same app.
+
 ## Key Implementation Notes
 
 1. **All three handlers required** - You must implement `redeem`, `getBalance`, and `_void`

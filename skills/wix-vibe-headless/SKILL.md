@@ -40,6 +40,12 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   it only mints anonymous visitor tokens. It is **not a secret**; hardcoding and committing it
   is fine. The user provides it (their vibe/host platform surfaces a copyable prompt with the
   id filled in). Paste it into `wix-client.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
+- **Money/price fields are objects, never scalars.** Every price/amount a Wix API returns —
+  Stores `price.actualPrice`, Bookings service `payment.fixed.price`, Events ticket
+  `registration.tickets.lowestPrice`, and the rest — has the shape `{ value, currency,
+  formattedValue }`. Render **`formattedValue`** (it already includes the currency symbol), or
+  fall back to building from `value` + `currency`. **Never** drop the object straight into the UI
+  or treat it as a number/string — that renders `[object Object]` or a bare unformatted number.
 - **Visitor token = identity.** `wix-client.js` mints an anonymous visitor token, persists the
   **refresh token to `localStorage`**, and refreshes on expiry. That token IS the identity of
   the cart / reservation / member session — **never re-mint anonymously per load** or the cart
@@ -91,10 +97,13 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 runtime:
 
 1. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
-   Copy it once into the app's `src/rest/` and set `WIX_CLIENT_ID` in it.
-2. **The vertical helper** — `references/<vertical>/<helper>.js`. Copy it into the **same**
-   `src/rest/` folder (it does `import { wixApiRequest } from "./wix-client.js"`, so the two
-   files must sit side by side).
+   Set `WIX_CLIENT_ID` in it before use.
+2. **The vertical helper** — `references/<vertical>/<helper>.js`. It does
+   `import { wixApiRequest } from "./wix-client.js"`, so the two must sit **side by side** in the
+   same folder.
+
+**Where these files live in the app, and how they get there** (pre-installed at setup, or copied
+in) **is your platform's call — follow your platform instructions for that.**
 
 Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
 prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.
@@ -117,14 +126,28 @@ with a blog, or a store with pricing plans).
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` | `references/pricing-plans/wix-pricing-plans.js` |
 | Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` | `references/members/wix-members-auth.js` |
 
+### When the request doesn't name a Wix Business Solution — ask, or check the site
+
+Don't infer which Wix Business Solution to build (stores, bookings, blog, events, portfolio,
+restaurants, CMS, pricing plans, members, etc..) from a vague brief. **Ask the user** one short
+question — what do they offer (products? appointments? posts? events?) — or **check what the
+site actually has**: call a cheap read from each likely solution's helper (`queryProducts`,
+`queryServices`, `queryPosts`, `queryEvents`, …) — authenticated with a visitor token minted
+from the `WIX_CLIENT_ID`, or with an admin token if you have one — and build for the solutions
+that return real content. A `428` "app not installed" (blog: `401`) means
+that solution isn't on the site; sample-looking content ("Sample product 3") proves the app is
+installed, not what the business is about. Never default to store/bookings on silence.
+
 ## The run
 
 1. **Get `WIX_CLIENT_ID`.** It comes from the user (the handoff prompt from their Wix/vibe
    platform carries it). If it's missing, ask for it before wiring — nothing works without it.
-2. **Pick the vertical(s)** from the routing table and open each one's `INSTRUCTIONS.md`.
-3. **Copy the two files per vertical** — `shared/wix-client.js` (once) + the vertical helper —
-   into the app's `src/rest/` (adjust only the import path if the app uses a different folder),
-   and set `WIX_CLIENT_ID`.
+2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
+   **ask or check the site** (see above) instead of guessing. Open each picked vertical's
+   `INSTRUCTIONS.md`.
+3. **Ensure the two files per vertical are in place** — `shared/wix-client.js` (once) + the
+   vertical helper, side by side — and set `WIX_CLIENT_ID`. (Where they live and how they get
+   there is your platform's call — see its instructions.)
 4. **Wire the UI** to the exported helpers following the vertical's INSTRUCTIONS. Build the UI
    however the project wants — these scaffolds ship the REST layer only, no components.
 5. **Verify** against the vertical's checklist before declaring done: token persists across
