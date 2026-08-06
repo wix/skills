@@ -6,7 +6,7 @@ initial prompt, and the Wix connector is already configured; use it for all admi
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
 
@@ -64,7 +64,7 @@ const NOTE = `
 
 ## This app — a Wix-managed headless frontend (built with the Wix skills)
 
-This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
@@ -126,7 +126,7 @@ routes/imports in with targeted `find_replace` edits and leave the rest as-is.
 
 ## STEP 4 — Manage and seed the business
 
-**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
+**Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
 cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
 delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
 ask the user first.
