@@ -7,11 +7,10 @@ triggerPrompt: >-
   Scan all product pages on my Wix site for accessibility issues. Tell me which pages failed,
   prioritize the critical issues, and explain what I can fix.
 tags: [aria, stores]
-maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/accessibility/skills/scan-a-wix-site-for-accessibility-issues
+      articleUrl: https://dev.wix.com/docs/api-reference/site/accessibility/skills/scan-a-wix-site-for-accessibility-issues
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

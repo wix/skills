@@ -85,16 +85,5 @@ same target again with a **new** idempotency key and compare the results.
 - **Results expired:** start a new scan only when the user still wants fresh
   results.
 
-## Public API map
-
-| Purpose | Method | REST path |
-|---|---|---|
-| Discover page collections | List Accessibility Scan Page Collections | `GET /v1/accessibility-scan-page-collections` |
-| Start a scan | Run Accessibility Scan | `POST /v1/accessibility-scans/run` |
-| Poll/read one scan | Get Accessibility Scan | `GET /v1/accessibility-scans/{accessibilityScanId}` |
-| Read the latest scan for a target | Get Latest Accessibility Scan | `GET /v1/accessibility-scans/latest` |
-| Read all page outcomes | List Accessibility Scan Page Summaries | `GET /v1/accessibility-scans/{accessibilityScanId}/page-summaries` |
-| Read actionable issues | List Accessibility Scan Findings | `GET /v1/accessibility-scans/{accessibilityScanId}/findings` |
-
 Load the current public API reference before constructing requests so field
 names, filters, permissions, and error schemas come from the live contract.
