@@ -58,7 +58,7 @@ The host binds to **schema**, not to a frozen list of content IDs. **Content is 
 
 Carry only the **structural** carve-outs the coding step genuinely reads — the collection/form *names and keys* you must know to query and bind, which do **not** change when an owner adds a row:
 - **cms:** `collectionId` + field keys per collection
-- **forms:** **`formId` only.** The field set, order, labels, `required`, validation format, and dropdown options are **read live from the form schema at render time** (visitor token, no elevate — `how-to-code-forms.md`), so the handoff no longer carries per-field `target` keys. Reading the schema live is the source of truth: it closes the seed↔site drift by construction (a field the owner adds/removes/relabels in the dashboard reflects on the site with no code change) and is the more v2-aligned "host resolves everything else live" shape. (For a bespoke, design-led form where dashboard-editability isn't the value prop, the host may still hardcode inputs from the known `target`s — `how-to-code-forms.md` covers that mode — but the default and the carry is `formId` only.)
+- **forms:** `formId` + each form's field `target` keys (the submission keys the frontend binds `name` = target). Field set, labels, options, and validation (`required`, format, length/pattern) are read live from the schema (`how-to-code-forms.md`).
 
 Everything else the host resolves live from the queries in §3. (Static platform constants — Stores/Bookings app IDs, the Blog appDefId — and the public `clientId` are needed too, but they're identical for every site, not seed output; they're in §2/§3.)
 
