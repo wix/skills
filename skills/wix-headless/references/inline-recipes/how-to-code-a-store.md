@@ -74,7 +74,7 @@ variant = {
 
 // currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: wrapped in { cart } (V1 returned the cart directly)
 lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
-// price → pricing.unitPrice.amount (raw string, NO currency symbol in V2 — format it yourself); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
+// price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
 // Cart V2 has NO checkout entity — the cart's _id IS the checkout id; there is no createCheckout call:
 // redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks })  →  { redirectSession: { fullUrl } }
