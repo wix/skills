@@ -113,16 +113,16 @@ truth for how the client is built.
 
 **All REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
 (`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`, …)
-there, so SKILL.md's "get them into `src/rest/`" step is done. Use your vertical's files (a store
-uses `wix-store-catalog.js` + `wix-store-cart.js`), set `WIX_CLIENT_ID` in `wix-client.js` and
+there. Use your vertical's files, set `WIX_CLIENT_ID` in `wix-client.js` and
 `WIX_METASITE_ID` in `wix-manage-banner.js`, and adapt with targeted edits — **do not regenerate
-them**. Unused verticals are harmless (bundler drops them). Generate from scratch only the
-app-specific UI (components/pages).
+them**. Unused verticals are harmless. Generate only the app-specific UI (components/pages).
+
+**No need to read the scaffolds' source** (`wix-client.js`/`wix-store-*.js`) — the vertical's
+`INSTRUCTIONS.md` has every field shape + correct usage. Just import them.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a full-file
-rewrite drops them and the platform validator rejects the write, costing a redo. Wire your
-routes/imports in with targeted `find_replace` edits and leave the rest as-is.
+(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
+rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
 
 ## STEP 4 — Manage and seed the business
 
@@ -131,9 +131,9 @@ cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned bu
 delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
 ask the user first.
 
-Seed real content by following the **`wix-headless`** skill's `references/SEED.md`; where its
-recipes don't cover something, fall back to the **`wix-docs`** skill to search + read the relevant
-Wix API docs.
+Seed by following these **exact** paths (recipes live under `references/` — don't drop it):
+`.agents/skills/wix-headless/references/SEED.md` + `…/references/inline-recipes/setup-<vertical>.md`
+(e.g. `setup-online-store.md`). Gaps → the **`wix-docs`** skill.
 
 **Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
 access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
