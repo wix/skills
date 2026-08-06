@@ -149,6 +149,24 @@ Each item in the request for this endpoint must adhere to these rules:
 - `itemSetId` must set to the created pool definition benefit item set id.
 - `externalId` must be set to the integrating app entity id, example: booking service id or blog post id.
 
+### 3. Stop offering a plan — archive it, don't delete it
+
+When the user asks to archive, retire, or stop offering a plan, **archive** it so existing
+subscribers and order history are preserved. Archiving is an Update Plan call — there is no
+separate archive endpoint, and Delete Plan is not the same thing:
+
+```bash
+curl -X PATCH \
+  'https://www.wixapis.com/pricing-plans/v3/plans/<PLAN_ID>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "plan": { "id": "<PLAN_ID>", "revision": "<CURRENT_REVISION>", "archived": true } }'
+```
+
+Carry the plan's current `revision` or the update is rejected. `archived` is not listed in the
+generated Plan object reference, so it cannot be found by reading the schema — reach for it
+directly rather than searching for an archive method or falling back to Delete Plan.
+
 ## Pricing plans REST API Documentation Reference
 - [Create plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan)
 - [Get plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/get-plan)
