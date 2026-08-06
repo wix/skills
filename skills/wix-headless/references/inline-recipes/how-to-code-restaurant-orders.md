@@ -30,7 +30,7 @@ A contract for the **frontend code** that lets a visitor **order** from a Wix Re
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call `operations` / `fulfillmentMethods` / `currentCart` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
+- **Astro (Wix-managed):** authentication is ambient. Call `operations` / `fulfillmentMethods` / `currentCartV2` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
   ```js
   import { operations, fulfillmentMethods } from '@wix/restaurants';
   import { currentCartV2 } from '@wix/ecom';
