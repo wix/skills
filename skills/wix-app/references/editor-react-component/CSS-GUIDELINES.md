@@ -39,6 +39,11 @@ import styles from './ProfileCard.module.css';
   {/* ✅ Named part: prefixed global string + short module class */}
   <h2 className={classNames('profile-card-heading', styles.heading)}>{heading}</h2>
 
+  {/* ✅ Named part: interactive elements always get both classes */}
+  <button type="button" className={classNames('profile-card-cta', styles.cta)}>
+    {ctaLabel}
+  </button>
+
   {/* ✅ Non-part layout wrapper: module class only */}
   <div className={styles.contentWrapper}>
     <span className={classNames('profile-card-label', styles.label)}>{label}</span>
