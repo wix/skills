@@ -25,15 +25,15 @@ This distinction must stay explicit in mapper output.
 It owns the purchase flow and operational commerce entities that are reused across multiple vertical apps.
 
 Typical `eCommerce` entities:
-- carts
-- checkouts
+- carts (Cart V2 — the unified cart+checkout entity)
+- checkouts (folded into the cart in Cart V2; map onto `cart`)
 - orders
 - order billing / refunds
 - payment and fulfillment state tied to orders
 
 Use `eCommerce` when the source data is about:
 - cart contents
-- checkout state
+- checkout state (part of the cart in Cart V2)
 - order lifecycle
 - fulfillment and payment operations
 - cross-vertical commerce operations that are not specific to a single catalog app
@@ -90,15 +90,15 @@ Main page:
 - [Integrating with Wix's Business Solutions](https://dev.wix.com/docs/build-apps/get-started/overview/integrating-with-wix-s-business-solutions)
 
 Short description:
-- Shared commerce platform for purchase flow and order operations. It is the canonical target for carts, checkouts, and orders, even when catalog data originates in a vertical app such as Stores or Bookings.
+- Shared commerce platform for purchase flow and order operations. It is the canonical target for carts (Cart V2, which now also covers checkout) and orders, even when catalog data originates in a vertical app such as Stores or Bookings.
 
 Primary entities:
 
 | Entity | What it does | Docs |
 | --- | --- | --- |
-| `cart` | First phase of the purchase flow; holds line items, buyer references, discounts, and pricing context before checkout | [About the eCommerce Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
-| `current-cart` | Visitor/member scoped cart used in live purchase flows | [About the eCommerce Current Cart API](https://dev.wix.com/docs/sdk/backend-modules/ecom/current-cart/introduction) |
-| `checkout` | Second phase of purchase flow; holds calculated prices, tax, billing, shipping, and discount state before order creation | [About the eCommerce Checkout API](https://dev.wix.com/docs/sdk/backend-modules/ecom/checkout/introduction) |
+| `cart` | The unified purchase-flow entity (Cart V2): holds line items, buyer/contact info, discounts, delivery, billing, and payment context all the way through placing the order. Cart V2 replaces the old separate Cart V1 + Checkout V1 model. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
+| `current-cart` | Visitor/member (session) scoped Cart V2 used in live purchase flows — same entity as `cart`, addressed by the shopper's session instead of a cart id. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
+| `checkout` | Not a separate entity in Wix's current model: Cart V2 folds checkout (calculated prices, tax, billing, shipping, discount state) into the cart. Map a source system's checkout state onto `cart`. Legacy Checkout V1 still exists but is removed on 2027-02-01. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
 | `order` | Final commerce record for completed or externally recorded purchases | [About the Orders API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/introduction) |
 | `order-billing` | Payment capture, void, and refund operations for eCommerce orders | [About the Order Billing API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing/introduction) |
 
