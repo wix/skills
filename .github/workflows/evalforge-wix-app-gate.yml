@@ -62,6 +62,10 @@ jobs:
           # evaluates against. As repo vars they could be edited silently.
           capability-id: ad0b7e36-e85b-40b1-902b-d67bb3c90363
           agent-id: 76093ada-d1ad-42a4-9f49-743673763b00
-          # Blank falls through to the action default, so the number has one home (DEFAULT_MAX_SCENARIOS).
+          # These repo variables are what this repo runs; the action's own defaults are what other
+          # consumers get, since the README documents using this action from other repos and they
+          # never set these variables.
           max-scenarios: ${{ vars.WIX_APP_EVAL_MAX_SCENARIOS }}
           blocking: ${{ vars.WIX_APP_EVAL_BLOCK_MERGE || 'false' }}
+          runs-per-scenario: ${{ vars.WIX_APP_EVAL_RUNS_PER_SCENARIO }}
+          base-arm-grace-seconds: ${{ vars.WIX_APP_EVAL_BASE_GRACE_SECONDS }}

@@ -1,10 +1,13 @@
 import * as core from '@actions/core';
 import {
-  EvalForgeClient, evalRunUrl, evaluateRunResult, formatGateResult, formatGateServiceError,
-  selectScenarios, type Commenter, type ScenarioSelection,
+  classifyChangeImpact, EvalForgeClient, evalRunUrl, evaluateRunResult, foldScenarioIterations,
+  formatGateResult, formatGateServiceError, selectScenarios,
+  type Commenter, type ScenarioSelection,
 } from '@wix/evalforge-core';
 import { HALTED, fail, type Guarded } from './report';
-import { pollToCompletion, startEvalRun } from './run-eval';
+import { pollToCompletion } from './run-eval';
+import { startComparisonArms } from './comparison-arms';
+import { startBaseAttribution } from './base-attribution';
 import type { GateConfig } from './config';
 import type { GateScope } from './gate-scope';
 
@@ -21,31 +24,56 @@ export async function runAndReport(
   if (!selected.ok) return;
   const selection = selected.value;
 
-  const run = await startEvalRun(client, config, selection.ids, versionId, comment);
-  if (!run.ok) return;
+  const arms = await startComparisonArms(client, config, selection.ids, versionId, comment);
+  if (!arms.ok) return;
 
-  const runUrl = evalRunUrl(config.projectId, run.value.id);
+  const runUrl = evalRunUrl(config.projectId, arms.value.prRunId);
   core.info(`Eval run started: ${runUrl}`);
 
-  const status = await pollToCompletion(client, config, run.value.id, runUrl, comment);
-  if (!status.ok) return;
+  // Runs concurrently with the PR arm's own poll below rather than adding a wait after it. The
+  // `finally` is what keeps the base arm from outliving the verdict on the paths that return
+  // early — a PR-arm timeout or poll failure never reaches `collect`.
+  const attribution = startBaseAttribution(client, config, arms.value.baseRun);
+  try {
+    const prStatusGuard = await pollToCompletion(client, config, arms.value.prRunId, runUrl, comment);
+    if (!prStatusGuard.ok) return;
+    const prStatus = prStatusGuard.value;
 
-  const verdict = evaluateRunResult(status.value);
-  await comment(formatGateResult({
-    metrics: status.value.aggregateMetrics,
-    verdict,
-    runId: run.value.id,
-    runUrl,
-    selection,
-    maxScenarios: config.maxScenarios,
-    warnings: scope.guard.warnings,
-    unmapped: scope.derived.unmapped,
-    broadImpact: scope.derived.broadImpact,
-    blocking: config.isBlocking,
-  }));
+    const baseStatus = await attribution.collect();
 
-  if (!verdict.passed) {
-    fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
+    // The verdict comes from the PR arm alone — unchanged from before comparison existed.
+    const verdict = evaluateRunResult(prStatus);
+    const prOutcomes = foldScenarioIterations(prStatus.results);
+    const baseOutcomes = baseStatus === undefined ? undefined : foldScenarioIterations(baseStatus.results);
+    // Never undefined: a base arm that produced nothing still classifies against `undefined`,
+    // which comes back fully unattributed — that is what makes the comment say so out loud instead
+    // of silently omitting the whole section.
+    const impact = classifyChangeImpact(
+      prOutcomes,
+      baseOutcomes,
+      selection.ids.map((id, index) => ({ id, name: selection.selected[index] ?? id })),
+    );
+
+    await comment(formatGateResult({
+      metrics: prStatus.aggregateMetrics,
+      verdict,
+      runId: arms.value.prRunId,
+      runUrl,
+      selection,
+      maxScenarios: config.maxScenarios,
+      warnings: scope.guard.warnings,
+      unmapped: scope.derived.unmapped,
+      broadImpact: scope.derived.broadImpact,
+      blocking: config.isBlocking,
+      impact,
+      runsPerScenario: config.runsPerScenario,
+    }));
+
+    if (!verdict.passed) {
+      fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
+    }
+  } finally {
+    attribution.cancel();
   }
 }
 

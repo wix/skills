@@ -79,6 +79,14 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(gateStep.with?.blocking).toContain("vars.WIX_APP_EVAL_BLOCK_MERGE || 'false'");
   });
 
+  it('wires runs-per-scenario to its repo variable, so it is tunable without a code change', () => {
+    expect(gateStep.with?.['runs-per-scenario']).toContain('vars.WIX_APP_EVAL_RUNS_PER_SCENARIO');
+  });
+
+  it('wires base-arm-grace-seconds to its repo variable, so it is tunable without a code change', () => {
+    expect(gateStep.with?.['base-arm-grace-seconds']).toContain('vars.WIX_APP_EVAL_BASE_GRACE_SECONDS');
+  });
+
   it('skips fork PRs, which cannot reach the secrets anyway', () => {
     expect(workflow.jobs.gate.if).toContain('head.repo.full_name == github.repository');
   });

@@ -6,6 +6,12 @@ import type { LoadedScenario } from './load-scenarios';
  */
 export const DEFAULT_MAX_SCENARIOS = 25;
 
+/** Default number of times each scenario runs in each arm. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+export const DEFAULT_RUNS_PER_SCENARIO = 1;
+
+/** Default base-arm grace period, in seconds. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+export const DEFAULT_BASE_ARM_GRACE_SECONDS = 60;
+
 export type ScenarioSelection = {
   ids: string[];
   selected: string[];

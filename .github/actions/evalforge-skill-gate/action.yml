@@ -63,6 +63,20 @@ inputs:
     description: 'When "true" a gate failure fails the check. Anything else warns and passes — the soak setting'
     required: false
     default: 'false'
+  runs-per-scenario:
+    description: >-
+      How many times each scenario runs in each arm (max 20). Above 1, an intermittent failure
+      is visible rather than indistinguishable from a regression — at proportional cost.
+    required: false
+    default: '1'
+  base-arm-grace-seconds:
+    description: >-
+      Seconds the base comparison arm gets after the PR arm completes before its poll is
+      cancelled (max 300; 0 means don't wait for the base arm at all). Exceeding it degrades the
+      PR comment to "attribution unavailable" without affecting the verdict — the base eval run
+      itself still completes server-side.
+    required: false
+    default: '60'
 runs:
   using: 'node20'
   main: 'dist/index.js'
