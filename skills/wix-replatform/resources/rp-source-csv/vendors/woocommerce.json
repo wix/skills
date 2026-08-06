@@ -1,0 +1,82 @@
+{
+  "vendor": "woocommerce",
+  "profileVersion": "2026-07",
+  "sourceOfTruth": "https://woocommerce.com/document/product-csv-importer-exporter/",
+  "anchors": {
+    "required": ["Type", "Name", "SKU"],
+    "strong": ["Regular price", "Is featured?", "Visibility in catalog", "In stock?", "Short description", "Attribute 1 name"],
+    "negative": ["Handle", "attribute_set_code", "Item Type"]
+  },
+  "layout": {
+    "pattern": "sectioned",
+    "discriminatorColumn": "Type",
+    "childLevels": ["variation"],
+    "parentRefColumn": "Parent",
+    "parentEntity": "product",
+    "childEntity": "variant",
+    "columnGroups": [
+      {
+        "entity": "image",
+        "prefixes": [],
+        "columns": ["Images"]
+      }
+    ]
+  },
+  "derived": [
+    {
+      "entity": "category",
+      "fromColumn": "Categories",
+      "hierarchySeparator": ">",
+      "multiValueSeparator": ",",
+      "hierarchical": true,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "categories", "cardinality": "many-to-many" }
+    },
+    {
+      "entity": "tag",
+      "fromColumn": "Tags",
+      "multiValueSeparator": ",",
+      "hierarchical": false,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "tags", "cardinality": "many-to-many" }
+    }
+  ],
+  "fileRoles": [
+    { "role": "product", "filenameHints": ["wc-product-export", "products"] },
+    { "role": "order", "filenameHints": ["wc-order-export", "orders"] },
+    { "role": "customer", "filenameHints": ["customers"] }
+  ],
+  "columnMap": [
+    { "wixTarget": "product.name", "aliases": ["Name", "post_title"] },
+    { "wixTarget": "product.description", "aliases": ["Description", "post_content"] },
+    { "wixTarget": "product.shortDescription", "aliases": ["Short description", "post_excerpt"] },
+    { "wixTarget": "product.sourceId", "aliases": ["ID", "id", "post_id"] },
+    { "wixTarget": "product.visible", "aliases": ["Published", "Visibility in catalog"] },
+    { "wixTarget": "product.ribbon", "aliases": ["Is featured?"] },
+    { "wixTarget": "variant.sku", "aliases": ["SKU", "sku"] },
+    { "wixTarget": "variant.price", "aliases": ["Regular price", "regular_price"] },
+    { "wixTarget": "variant.discountedPrice", "aliases": ["Sale price", "sale_price"] },
+    { "wixTarget": "variant.inventoryQuantity", "aliases": ["Stock", "stock_quantity"] },
+    { "wixTarget": "variant.inStock", "aliases": ["In stock?"] },
+    { "wixTarget": "variant.weight", "aliases": ["Weight (kg)", "weight"] },
+    { "wixTarget": "variant.length", "aliases": ["Length (cm)"] },
+    { "wixTarget": "variant.width", "aliases": ["Width (cm)"] },
+    { "wixTarget": "variant.height", "aliases": ["Height (cm)"] },
+    { "wixTarget": "variant.option1.name", "aliases": ["Attribute 1 name"] },
+    { "wixTarget": "variant.option1.value", "aliases": ["Attribute 1 value(s)"] },
+    { "wixTarget": "variant.option2.name", "aliases": ["Attribute 2 name"] },
+    { "wixTarget": "variant.option2.value", "aliases": ["Attribute 2 value(s)"] },
+    { "wixTarget": "variant.parentRef", "aliases": ["Parent", "parent_id"] },
+    { "wixTarget": "image.url", "aliases": ["Images"] },
+    { "wixTarget": "category.path", "aliases": ["Categories"] },
+    { "wixTarget": "tag.name", "aliases": ["Tags"] }
+  ],
+  "quirks": [
+    "Type is the row discriminator: simple/variable/grouped/external rows are products, variation rows are variants of the product named in Parent.",
+    "Parent on a variation row references the parent by id (id:123) or by SKU, not by row position — resolve it explicitly rather than assuming the variation follows its parent.",
+    "Categories packs hierarchy and multiplicity into one cell: 'Clothing > Shirts, Sale' is two categories, one of them nested. Split the multi-value separator first, then the hierarchy separator.",
+    "A category name containing a comma is quoted inside the cell, so the multi-value split must itself be RFC-4180 aware.",
+    "Images is a comma-separated list of URLs in one cell; the first is the featured image.",
+    "Attribute N value(s) may hold several pipe-separated values on a variable product row while a variation row holds exactly one."
+  ]
+}

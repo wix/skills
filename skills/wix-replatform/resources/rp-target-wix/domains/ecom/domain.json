@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "displayName": "Wix eCommerce",
+  "ownerHint": "eCommerce Orders, refunds, checkout, and order-history domain owners",
+  "wixAppsRequired": ["Wix Stores"],
+  "defaultImportOrder": ["order", "order-line-item", "order-refund"],
+  "sideEffectNotes": [
+    "Historical order writes are blocked unless setup verification proves side-effect behavior."
+  ],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/orders-contacts-members.md"
+    },
+    {
+      "type": "repo-research",
+      "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md"
+    }
+  ]
+}

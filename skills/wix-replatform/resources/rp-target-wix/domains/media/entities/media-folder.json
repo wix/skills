@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "media",
+  "entity": "media-folder",
+  "displayName": "Media Folder",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Media Manager Folder",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "media_folder", "routes": ["plugin-specific media folder routes"], "confidence": "low" },
+    { "sourceSystem": "wix", "sourceEntity": "mediaFolder", "routes": ["Media Manager folders"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Media Manager Folders",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for source folder hierarchy if native folder creation is not in scope." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "folder-writer-unverified", "severity": "warning", "summary": "Do not require folder creation for media file preservation unless verified for the project." }
+  ],
+  "mappingGuidance": ["Preserve folders as metadata when only file import is required."],
+  "setupRequirements": [],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}
