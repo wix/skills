@@ -318,11 +318,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Rich Content
 
+> **Routing rule (READ FIRST).** Any request to **hand-author**, **output**, or **return** Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS — including eval-style prompts like *"give me the Ricos JSON"* — MUST load [Author Ricos Rich Content](https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content) with **`ReadFullDocsArticle` before** `SearchWixAPISpec`, `ExecuteWixAPI`, or answering from memory. API schema search does not carry nesting rules, spacer paragraphs, or plugin shapes; this recipe is the authoritative source. Do not call Ricos convert/validate APIs when the deliverable is JSON only.
+
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
 **Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
 
 ### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
-**Technical:** Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) reused across Blog, Stores, Events, and CMS. Covers every common node shape — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images — plus inline text decorations and the nesting rules the format enforces.
+**Technical:** Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) reused across Blog, Stores, Events, and CMS. Covers node shapes — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds — plus inline text decorations (including spoiler) and nesting rules.
 
 ---
 
