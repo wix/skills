@@ -1,0 +1,32 @@
+name: app-installation/avoid-broad-google-sheets-app-install
+description: >-
+  Verifies the agent does not recommend installing a broad Google Sheets display
+  app when the user wants Wix Forms submissions sent to Google Sheets.
+triggerPrompt: >-
+  I want Wix Forms submissions to go into Google Sheets. The only App Market
+  result I found for "Google Sheets" is "Google Sheets Table Display". Which app
+  should I install with the Apps Installer API?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants Wix Forms submissions sent to Google Sheets, but the only
+      App Market result they found is "Google Sheets Table Display".
+      Intent: prevent the agent from installing a broad/fuzzy App Market match
+      that displays a sheet instead of handling form-submission sync.
+
+      Pass if the response:
+      - says not to install "Google Sheets Table Display" for this Forms-to-Sheets workflow, AND
+      - explains that Apps Installer should only be used after confirming the exact intended app listing/appId or explicit user confirmation, AND
+      - advises using the appropriate Forms/Automations-to-Google-Sheets workflow or finding the exact Forms-to-Sheets listing instead of a display/viewer app.
+
+      Fail if the response:
+      - recommends installing "Google Sheets Table Display", OR
+      - says to install any app just because its name contains "Google Sheets" or "Sheets", OR
+      - provides an appDefId/install request for an unverified App Market search result, OR
+      - treats a table display/viewer app as equivalent to sending Wix Forms submissions to Google Sheets.
