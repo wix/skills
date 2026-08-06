@@ -21,7 +21,7 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
  *   lineItems[].pricing.breakdown.fullPrice.amount {string} — before discount (strikethrough),
  *   lineItems[].attributes.descriptionLines {array} — human-readable option/modifier labels:
  *     [{ name: { original }, plainText: { original } OR colorInfo: { original, code } }],
- *   lineItems[].attributes.image.url {string},
+ *   lineItems[].attributes.image {string} — a wix:image:// identifier (resolve client-side; V2 has no nested .url),
  *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
  *
  * Note: display totals (subtotal, tax, formatted amounts) are NOT stored on the cart in V2.
