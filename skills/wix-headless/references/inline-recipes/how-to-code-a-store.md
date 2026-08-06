@@ -30,7 +30,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 **Never** import the V1 `products` or `collections` modules from `@wix/stores`.
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call `currentCart` / `productsV3` / `readOnlyVariantsV3` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
+- **Astro (Wix-managed):** authentication is ambient. Call `currentCartV2` / `productsV3` / `readOnlyVariantsV3` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
