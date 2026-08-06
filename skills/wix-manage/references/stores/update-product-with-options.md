@@ -11,7 +11,7 @@ Use this recipe to update an existing Catalog V3 product: storefront visibility,
 Every Catalog V3 product update is revision-based:
 
 - If the user gives a product name instead of a product ID, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) and choose the exact product name match.
-- Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product and `product.revision`.
+- Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product, its `product.revision`, and its existing variants. Search Products and Query Products responses do not include `variantsInfo.variants`, so a variant or price update assembled from a search result sends an empty variants array and is rejected. Re-read the product before every variant-level update.
 - Include `product.id` and the current `product.revision` in every [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) PATCH body.
 - Update Product is a partial update: only `product`, `product.id`, and `product.revision` are required, and top-level fields you omit (for example `name`, `ribbon`, `brand`) are left unchanged. The full-array overwrite rule applies only to the repeated fields `options`, `modifiers`, and `variantsInfo.variants`.
 - For simple text/HTML description updates, prefer `plainDescription`. Use `description` only when sending a Rich Content object.
@@ -29,7 +29,7 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   }'
 ```
 
-For product-name lookup, prefer Search Products before retrieving the product by ID.
+For product-name lookup, prefer Search Products before retrieving the product by ID. Search only resolves the product ID; it does not replace the Get Product call.
 
 ### Get the current revision
 
@@ -299,6 +299,8 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Update Variant Price Only
 
+Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it.
+
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" \
@@ -343,5 +345,6 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `choicesSettings must not be empty` | Missing choices array | Include full `choicesSettings.choices` array |
 | `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
 | `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
+| `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
