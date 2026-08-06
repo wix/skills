@@ -97,18 +97,13 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 runtime:
 
 1. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
-   Copy it once into the app's `src/rest/` and set `WIX_CLIENT_ID` in it.
-2. **The vertical helper** — `references/<vertical>/<helper>.js`. Copy it into the **same**
-   `src/rest/` folder (it does `import { wixApiRequest } from "./wix-client.js"`, so the two
-   files must sit side by side).
+   Set `WIX_CLIENT_ID` in it before use.
+2. **The vertical helper** — `references/<vertical>/<helper>.js`. It does
+   `import { wixApiRequest } from "./wix-client.js"`, so the two must sit **side by side** in the
+   same folder.
 
-There is also an optional **manage banner** — `references/shared/wix-manage-banner.js`, a
-dev-build-only banner linking the running app to the Wix Business Manager (the back office)
-behind it. Copy it beside `wix-client.js`, set `WIX_METASITE_ID`, and call
-`mountWixManageBanner()` once from the app entry. It renders only when a dev-build flag
-(`import.meta.env.DEV`) exists and is true — never in production, and not at all on stacks
-without such a flag. It sits in normal flow at the top (pushes the site down, doesn't float
-over it) and is dismissible via its ✕ (persisted in `localStorage`).
+**Where these files live in the app, and how they get there** (pre-installed at setup, or copied
+in) **is your platform's call — follow your platform instructions for that.**
 
 Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
 prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.
@@ -150,9 +145,9 @@ installed, not what the business is about. Never default to store/bookings on si
 2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
    **ask or check the site** (see above) instead of guessing. Open each picked vertical's
    `INSTRUCTIONS.md`.
-3. **Copy the two files per vertical** — `shared/wix-client.js` (once) + the vertical helper —
-   into the app's `src/rest/` (adjust only the import path if the app uses a different folder),
-   and set `WIX_CLIENT_ID`.
+3. **Ensure the two files per vertical are in place** — `shared/wix-client.js` (once) + the
+   vertical helper, side by side — and set `WIX_CLIENT_ID`. (Where they live and how they get
+   there is your platform's call — see its instructions.)
 4. **Wire the UI** to the exported helpers following the vertical's INSTRUCTIONS. Build the UI
    however the project wants — these scaffolds ship the REST layer only, no components.
 5. **Verify** against the vertical's checklist before declaring done: token persists across

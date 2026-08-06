@@ -67,20 +67,18 @@ non-sample content); the same set drives STEP 4's seeding — never seed guessed
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **exactly** — it is the single
 source of truth for how the client app is built against the Wix APIs (over the public
-`WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend). To save time,
-prefer copying the ready-made files the `wix-vibe-headless` skill provides (e.g. the Wix client
-setup) and adapting them over re-generating them from scratch.
+`WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend).
 
 ## STEP 4 — Seed and manage the business
+
+**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
+cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
+delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
+ask the user first.
 
 Seed the site with real content by following the `wix-headless` skill's `references/SEED.md`
 (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes don't cover what you
 need, fall back to the `wix-docs` skill to search and read the relevant Wix API docs.
-
-**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
-right after a fresh install, but the site may already hold **real content** (a prior run, or
-owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
-delete or overwrite it without the user's explicit ask or approval** (ask first).
 
 These management/admin calls need **elevated Wix credentials** — the public client id is not
 enough. If you don't already have a way to authenticate them, either **connect your platform's
@@ -112,10 +110,9 @@ back to the `wix-docs` skill where the operation isn't documented there.
 
 After the site is built and seeded:
 
-1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): copy the
-   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
-   `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
-   `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
+1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): from the
+   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` to
+   your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
    builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
    guarantee: verify the gate actually holds in this stack, and that a production build never
    shows the banner (no dev flag → no banner at all). Also verify it really pushes the site

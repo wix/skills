@@ -9,7 +9,7 @@ triggerPrompt: >
   Hide my "Eval Gate Tee" product so it no longer shows in my store. Then tell me which
   field you set and on which endpoint, and whether the product's variant ended up hidden
   too.
-tags: [stores, aria]
+tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:

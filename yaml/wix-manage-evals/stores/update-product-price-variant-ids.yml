@@ -1,0 +1,87 @@
+name: stores/update-product-price-variant-ids
+description: >
+  A store owner asks to change an existing Catalog V3 product's price. Verifies the agent
+  loads the Update Product with Options (Catalog V3) recipe and re-reads the product with
+  Get Product before the Update Product PATCH, because Search Products and Query Products
+  responses do not carry `variantsInfo.variants` — assembling the variants array from a
+  search result sends an empty array and the update is rejected.
+triggerPrompt: >
+  Change the price of my "Eval Gate Tee" product to $25.
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+  - type: llm_judge          # correctness — the user's outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Change the price of my \"Eval Gate Tee\" product to $25."
+
+      The site is a Catalog V3 store seeded with a product named "Eval Gate Tee" priced at
+      $19.50, with a single variant and no product options. The template also ships other
+      demo products; those are irrelevant and must not affect the score.
+
+      Score 9-10: the agent located the existing "Eval Gate Tee" product and set its price to
+      25 with a successful (2xx) Catalog V3 Update Product PATCH that carried the product's
+      existing variant, then confirmed the new price back to the user.
+
+      Score 7-8: the price is 25 on the existing product after a successful update, but the
+      confirmation to the user is vague or omits the new price.
+
+      Score 4-6: the price ends up correct but the existing variant was replaced rather than
+      updated (a new variant id, or lost variant data), or the agent cannot confirm the
+      resulting state.
+
+      Score 1-3: the agent created a NEW product instead of updating the existing one; OR
+      updated a different product, or to a price other than 25; OR the final update call
+      errored (non-2xx); OR it only described how to do it without doing it.
+
+      Ignore anything the agent did to unrelated demo products only if it did not change them;
+      do not deduct for merely reading or listing them.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the tool-call path (gates, per docs/eval-scenarios.md)
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call
+      trace, including the request bodies and any error bodies.
+
+      Score 9-10: a direct path — the product was located, re-read with Get Product, and
+      updated in one successful PATCH. No non-2xx responses, no retried request bodies.
+
+      Score 4-6: the outcome was reached, but the path cost an avoidable round trip — for
+      example a probing or repeated API-spec/schema lookup to discover the Update Product
+      endpoint or its request shape, or a redundant read.
+
+      Score 1-3: any Update Product call was REJECTED and then retried. In particular, score
+      here when a variants array was assembled from a Search Products or Query Products
+      response and the PATCH came back with `variants has size 0, expected 1 or more` (or any
+      other rejection caused by variant data missing from a search or query result), even
+      though a later call succeeded. Also score here for a wrong endpoint or wrong catalog
+      version tried first.
+
+      Do not deduct for reading the seeded store's other demo products.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed tee product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Tee
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true
