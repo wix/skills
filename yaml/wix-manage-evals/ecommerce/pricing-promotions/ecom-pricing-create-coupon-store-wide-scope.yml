@@ -4,7 +4,7 @@ description: >
   rejects a scope that carries `group` without an `entityId` for percentage coupons, so a recipe
   that documents that shape for "all products" costs the agent a 400 and a retry.
 triggerPrompt: Create a coupon with the code SAVE20 that gives customers 20% off.
-tags: [ecommerce, aria]
+tags: [ecommerce]
 siteSetup:
   mode: template
   templateId: stores-v3-editor
