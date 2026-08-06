@@ -20,11 +20,13 @@ Install three skills — they land under `.agents/skills/`:
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything the recipes don't
   cover.
 
-Install via the skills CLI — run this through exec_tool, exactly as written:
+Install via the skills CLI — run this through exec_tool, exactly as written. One call: installs
+the three skills, deploys the REST scaffolds into `src/rest/`, and pins an AGENTS.md note
+(appended, idempotent):
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync, existsSync, mkdirSync, copyFileSync } = require('fs');
+const { readdirSync, existsSync, mkdirSync, copyFileSync, readFileSync, appendFileSync } = require('fs');
 
 const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
 const results = {};
@@ -57,14 +59,7 @@ if (existsSync(REF)) {
   }
 }
 
-return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest };
-```
-
-**STEP 1b — pin the skill location in AGENTS.md.** After install, run this via exec_tool exactly as
-written — it appends (never rewrites) an AGENTS.md note for later turns, and is idempotent:
-
-```js
-const fs = require('fs');
+// Pin the skill location + project facts in AGENTS.md for later turns (idempotent).
 const NOTE = `
 
 ## This app — a Wix-managed headless frontend (built with the Wix skills)
@@ -78,9 +73,10 @@ The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from th
 - \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
 `;
 const amd = '/app/AGENTS.md';
-const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
-if (!cur.includes('Wix-managed headless frontend')) fs.appendFileSync(amd, NOTE);
-return 'noted';
+const cur = existsSync(amd) ? readFileSync(amd, 'utf8') : '';
+if (!cur.includes('Wix-managed headless frontend')) appendFileSync(amd, NOTE);
+
+return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest, agentsMdPinned: true };
 ```
 
 Read the skills with **`read_file`** (rooted at `/app` → workspace-relative path, e.g.
