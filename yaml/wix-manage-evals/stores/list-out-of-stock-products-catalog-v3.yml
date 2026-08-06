@@ -7,7 +7,7 @@ description: >
   the agent can only know them by querying.
 triggerPrompt: >
   Which of my products are out of stock?
-tags: [stores, aria]
+tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:

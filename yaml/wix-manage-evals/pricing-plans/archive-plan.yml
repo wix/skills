@@ -6,7 +6,7 @@ description: >
   field by probing the generated schema, which does not list it.
 triggerPrompt: >
   Create a plan called Legacy Plan at $15 a month, then archive it so it's no longer offered.
-tags: [pricing-plans, aria]
+tags: [pricing-plans]
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -7,7 +7,7 @@ description: >
   search result sends an empty array and the update is rejected.
 triggerPrompt: >
   Change the price of my "Eval Gate Tee" product to $25.
-tags: [stores, aria]
+tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
