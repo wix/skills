@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "displayName": "Wix CMS",
+  "ownerHint": "CMS/Data collections, items, references, permissions, and indexes domain owners",
+  "wixAppsRequired": ["Wix Data"],
+  "defaultImportOrder": ["collection", "data-item", "reference"],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/blog-cms-media.md"
+    }
+  ]
+}

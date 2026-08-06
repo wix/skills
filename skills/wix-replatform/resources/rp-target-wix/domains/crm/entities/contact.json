@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "entity": "contact",
+  "displayName": "CRM Contact",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Contact",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "customer", "routes": ["/wc/v3/customers"], "confidence": "high" },
+    { "sourceSystem": "woocommerce", "sourceEntity": "order", "routes": ["/wc/v3/orders"], "confidence": "high" },
+    { "sourceSystem": "wordpress", "sourceEntity": "user", "routes": ["/wp/v2/users"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "contact", "routes": ["CRM Contacts V4", "CRM Contacts V5"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Contacts V5",
+    "endpoint": "POST /contacts/v5/bulk/contacts/upsert",
+    "writerId": "bulkUpsertContacts",
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": true,
+    "releaseStatus": "ga",
+    "decision": "Contacts V5 is GA (docs verified 2026-08-04; FR-014 resolved). The GA contact shape is flat: main email/phone + additionalEmails/additionalPhones, addresses[] with postal fields nested under `address`, company as { name, jobTitle }; no `info` wrapper. Bulk upsert (100/call, synchronous, per-item results, externalId set-once) is the import path; createContact/updateContact cover single-record needs. Live create/query/update verification is still pending a token with Contacts permissions (2026-07-26 probe got 403)."
+  },
+  "alternateWrites": [
+    {
+      "surface": "Contacts V5",
+      "endpoint": "POST /contacts/v5/contacts",
+      "writerId": "createContact",
+      "verification": "unverified",
+      "importSafe": true,
+      "bulk": false,
+      "when": "Single-record creates outside the bulk import path; same flat GA contact shape."
+    },
+    {
+      "surface": "Contacts V4",
+      "endpoint": "POST /contacts/v4/contacts",
+      "writerId": null,
+      "verification": "verified-live",
+      "importSafe": true,
+      "bulk": false,
+      "when": "Legacy compatibility fallback only when a migration explicitly requires the V4 surface (e.g. V4 labels or V4 info.extendedFields semantics); requires an explicit legacy writer or direct REST plan because createContact targets V5."
+    }
+  ],
+  "extendedFields": {
+    "schemaKind": "data-extension-schema",
+    "definitionSurface": "Data Extension Schema API",
+    "definitionEndpoint": null,
+    "definitionOperation": "Create Data Extension Schema (FQDN wix.contacts.*.contact) — resolve the concrete endpoint from the Data Extension Schema API docs during setup; not recorded here to avoid guessing",
+    "valuePath": "extendedFields.namespaces._user_fields",
+    "namespaceForCreatedFields": "_user_fields",
+    "dataExtensionSchemaBacked": true,
+    "contactsV5Status": "At GA (verified 2026-08-04) the V5 contact-object docs route custom field definitions through the Data Extension Schema API with FQDN wix.contacts.*.contact, and the V5 contact carries values under extendedFields.namespaces.<ns>. CAVEAT: the Data Extension Schema intro's supported-objects table does not list contacts yet (docs inconsistency at GA cutover) — verify the DES path live during setup before relying on it. The V4 Contacts Extended Fields API (POST /contacts/v4/extended-fields, values under info.extendedFields) still exists but pairs with the V4 write surface only; do not mix the two.",
+    "setupGuidance": [
+      "Define contact custom fields during setup (Data Extension Schema, FQDN wix.contacts.*.contact) before writing contact values; verify live given the docs inconsistency.",
+      "Persist the returned field key from setup; do not invent the final key from the display name.",
+      "Write contact extended field values under extendedFields.namespaces._user_fields[returnedKey] with V5 writers; info.extendedFields is the V4 surface only.",
+      "Use Contacts V5 for contact record writes by default; surface current verification level in execution reports."
+    ],
+    "docs": [
+      "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/contact-object",
+      "https://dev.wix.com/docs/api-reference/business-management/data-extension-schema/introduction",
+      "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/extended-fields/introduction"
+    ]
+  },
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "contact.email.email",
+      "source": "target-schema",
+      "notes": "Contacts V5 GA main email; subscription status and matching key on this value."
+    },
+    {
+      "kind": "email",
+      "targetPath": "contact.additionalEmails[].email",
+      "source": "target-schema",
+      "notes": "Contacts V5 GA additional emails."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "contact.phone.phone",
+      "source": "target-schema",
+      "notes": "Contacts V5 GA main phone."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "contact.additionalPhones[].phone",
+      "source": "target-schema",
+      "notes": "Contacts V5 GA additional phones."
+    }
+  ],
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for source CRM fields that should not or cannot live in contact extended fields." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "created-date-server-controlled", "severity": "warning", "summary": "Original contact created dates are not writable as native createdDate." },
+    { "code": "consent-sensitive", "severity": "blocker", "summary": "Only import subscription status with proof of consent." }
+  ],
+  "mappingGuidance": [
+    "WooCommerce guest-checkout buyers are not WP users and never appear in /wc/v3/customers (guest orders carry customer_id: 0) — also derive contacts from order billing/shipping details on /wc/v3/orders, deduped by email via Bulk Upsert, so every imported order can carry a crosswalked buyerInfo.contactId.",
+    "Prefer contact extended fields for source CRM metadata before CMS fallback.",
+    "Use Contacts V5 (GA) as the default contact writer surface; the GA contact shape is flat (main email/phone + additionalEmails/additionalPhones, addresses[] with nested address, company object) — never emit the V4 info wrapper to V5 endpoints.",
+    "For contact custom fields, setup must define the Data Extension Schema (FQDN wix.contacts.*.contact) and carry the returned key into contact writers under extendedFields.namespaces._user_fields.",
+    "Source labels map to V5 tags (tags.privateTags.tagIds via the Tags API, FQDN wix.contacts.*.contact); resolve the tag/label story during setup before planning post-import label-wave automations."
+  ],
+  "setupRequirements": [
+    "Contact extended fields when source-only CRM fields are preserved natively.",
+    "Data Extension Schema setup (FQDN wix.contacts.*.contact) before contact writers emit extendedFields values; verify live given the DES supported-objects docs inconsistency.",
+    "V5 writers remain UNVERIFIED in execution reports until a live contract test with Contacts permissions promotes create/query/update."
+  ],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/contact-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/bulk-upsert-contacts"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/extended-fields/introduction"
+    }
+  ]
+}

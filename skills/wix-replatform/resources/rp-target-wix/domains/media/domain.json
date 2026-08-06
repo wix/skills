@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "domain": "media",
+  "displayName": "Wix Media Manager",
+  "ownerHint": "Media Manager import, upload, folders, and metadata domain owners",
+  "defaultImportOrder": ["media-folder", "media-file"],
+  "rateLimitNotes": ["Prefer referenced media by default; full-library imports are opt-in."],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/blog-cms-media.md"
+    }
+  ]
+}

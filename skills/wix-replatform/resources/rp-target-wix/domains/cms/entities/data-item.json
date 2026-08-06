@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "entity": "data-item",
+  "displayName": "CMS Data Item",
+  "target": {
+    "classification": "cms",
+    "nativeEntity": "Wix Data Item",
+    "verifiedFqdn": "wix.data.v2.data_item",
+    "idPolicy": "client-assigned",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "custom_post_type_item", "routes": ["/wp/v2/{type}"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "cmsDataItem", "routes": ["Wix Data Items"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Wix Data Items",
+    "endpoint": "POST /wix-data/v2/items",
+    "writerId": "insertDataItem",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "readonly-dates", "severity": "warning", "summary": "_createdDate and _updatedDate are read-only; preserve source dates in explicit fields." },
+    { "code": "bulk-save-replaces", "severity": "warning", "summary": "Bulk Save replaces complete items, so generated records must include all fields." }
+  ],
+  "mappingGuidance": ["Use client-supplied IDs where possible for recoverable CMS imports."],
+  "setupRequirements": ["Wix Data enabled", "Target collection exists before item writes."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}
