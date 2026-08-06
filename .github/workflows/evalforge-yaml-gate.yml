@@ -4,22 +4,43 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'skills/wix-manage/references/**'
-      - 'yaml/wix-manage/**'
-      - 'yaml/wix-manage-evals/**'
 
 concurrency:
   group: evalforge-yaml-gate-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
+  # Always runs on every PR so the `gate` check is never "missing". Decides whether
+  # the PR touches the YAML/docs that the gate evaluates. When it doesn't, `gate` is
+  # skipped — and a skipped job counts as a pass for a required status check, so
+  # unrelated PRs are never wedged on a check that never reported.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - id: filter
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          if echo "$files" | grep -qE '^(skills/wix-manage/references/|yaml/wix-manage/|yaml/wix-manage-evals/)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
   gate:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ needs.changes.outputs.relevant == 'true' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
     permissions:
       contents: read
       pull-requests: write
