@@ -40,7 +40,7 @@ A contract for the **frontend code** that lets a visitor **order** from a Wix Re
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
   import { menus, sections, items, operations, fulfillmentMethods } from '@wix/restaurants';
-  import { currentCart } from '@wix/ecom';
+  import { currentCartV2 } from '@wix/ecom';
   import { redirects } from '@wix/redirects';
 
   const client = createClient({
