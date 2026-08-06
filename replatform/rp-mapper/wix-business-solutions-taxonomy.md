@@ -96,7 +96,7 @@ Primary entities:
 
 | Entity | What it does | Docs |
 | --- | --- | --- |
-| `cart` | First phase of the purchase flow; holds line items, buyer references, discounts, and pricing context before checkout | [About the eCommerce Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart/cart/introduction) |
+| `cart` | First phase of the purchase flow; holds line items, buyer references, discounts, and pricing context before checkout | [About the eCommerce Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
 | `current-cart` | Visitor/member scoped cart used in live purchase flows | [About the eCommerce Current Cart API](https://dev.wix.com/docs/sdk/backend-modules/ecom/current-cart/introduction) |
 | `checkout` | Second phase of purchase flow; holds calculated prices, tax, billing, shipping, and discount state before order creation | [About the eCommerce Checkout API](https://dev.wix.com/docs/sdk/backend-modules/ecom/checkout/introduction) |
 | `order` | Final commerce record for completed or externally recorded purchases | [About the Orders API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/introduction) |

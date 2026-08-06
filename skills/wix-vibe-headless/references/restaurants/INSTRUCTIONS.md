@@ -83,7 +83,7 @@ building the UI — they describe the key fields and link to the full reference 
   a menu in their Wix dashboard. Never invent menu items.
 
 ## Hard rules (do not violate)
-- ✅ Order ONLY through the cart: `addItemToCart()` → `checkout()` (`create-checkout` →
+- ✅ Order ONLY through the cart: `addItemToCart()` → `checkout()` (cart id IS the checkout id →
   `/headless/v1/redirect-session` `fullUrl`), then redirect.
 - ❌ Never hand-build `/checkout`, ordering, or reservation URLs.
 - ❌ Never mock menus, items, prices, operations, locations, or time slots — render live Wix data or

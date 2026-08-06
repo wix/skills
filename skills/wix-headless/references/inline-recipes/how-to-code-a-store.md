@@ -24,22 +24,22 @@ A concise contract for writing the **frontend code** of a storefront against a C
 | Products (list, get, search, filter) | `@wix/stores` | `productsV3` |
 | Variants (to resolve `variantId`) | `@wix/stores` | `readOnlyVariantsV3` |
 | Categories | `@wix/stores` | `categories` |
-| Cart (add / get / checkout) | `@wix/ecom` | `currentCart` |
+| Cart (add / get / checkout) | `@wix/ecom` | `currentCartV2` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
 
 **Never** import the V1 `products` or `collections` modules from `@wix/stores`.
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call `currentCart` / `productsV3` / `readOnlyVariantsV3` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
+- **Astro (Wix-managed):** authentication is ambient. Call `currentCartV2` / `productsV3` / `readOnlyVariantsV3` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
   import { productsV3, readOnlyVariantsV3 } from '@wix/stores';
-  import { currentCart } from '@wix/ecom';
+  import { currentCartV2 } from '@wix/ecom';
   import { redirects } from '@wix/redirects';
 
   const client = createClient({
-    modules: { productsV3, readOnlyVariantsV3, currentCart, redirects },
+    modules: { productsV3, readOnlyVariantsV3, currentCartV2, redirects },
     auth: OAuthStrategy({ clientId: /* the project's PUBLIC OAuth client id */ }),
   });
   ```
@@ -49,7 +49,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 
 ## The shapes you read (field cheat-sheet)
 
-The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to method-return wrappers (note `checkoutId`).
+The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to request params (note the redirect session's `checkoutId`, which is just the cart's `_id`).
 
 ```jsonc
 // productsV3.queryProducts().…find()  →  result.items[]
@@ -72,11 +72,12 @@ variant = {
   inventoryStatus: { inStock },                   // variant-level stock (boolean)
 }
 
-// currentCart.getCurrentCart()  →  { lineItems: [...] }
-lineItem = { quantity, price: { amount }, image }  // price is HERE (NOT actualPriceRange); image is wix:image:// too → resolve
+// currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: wrapped in { cart } (V1 returned the cart directly)
+lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
+// price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
-// currentCart.createCheckoutFromCurrentCart({ channelType })  →  { checkoutId }   // a STRING — NOT { checkout }, NOT _id
-// redirects.createRedirectSession({ ecomCheckout: { checkoutId }, callbacks })  →  { redirectSession: { fullUrl } }
+// Cart V2 has NO checkout entity — the cart's _id IS the checkout id; there is no createCheckout call:
+// redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks })  →  { redirectSession: { fullUrl } }
 ```
 
 ---
@@ -94,7 +95,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
-**Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: method results name their own fields (e.g. `createCheckoutFromCurrentCart` returns `checkoutId`, *not* `_id` — see Checkout). Don't assume a method's return wrapper exposes `_id`.
+**Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: request params name their own fields (e.g. the redirect session takes `ecomCheckout.checkoutId`, *not* `_id` — see Checkout — even though the value you pass is the cart's `_id`). Don't assume every id-shaped field is spelled `_id`.
 
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
 
@@ -149,11 +150,11 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 Each `variant` carries `variant.optionChoices[].optionChoiceNames` — `{ optionName, choiceName }`. Match the buyer's selected options (Size = "Small", Color = "Red", …) against those names to pick the variant. For a **single-variant** product, use the only item. Fall back to `items[0]` if matching yields nothing. The id to send to the cart is **`variant.variantId ?? variant._id`**.
 
-**2 · Add it.** Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/add-to-current-cart.md?apiView=SDK> · catalogReference contract: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md?apiView=SDK>
+**2 · Add it.** Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md?apiView=SDK> · catalogReference contract: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md?apiView=SDK>
 
 ```js
-await currentCart.addToCurrentCart({
-  lineItems: [{
+await currentCartV2.addLineItemsToCurrentCart({
+  catalogItems: [{                                // Cart V2: `catalogItems`, NOT V1's `lineItems`
     quantity,
     catalogReference: {
       catalogItemId: product._id,                 // the product's _id (the `_id` rule above)
@@ -170,19 +171,21 @@ await currentCart.addToCurrentCart({
 
 ### Checkout
 
-Create a checkout from the current cart, then redirect the buyer to the hosted checkout.
-Docs: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/create-checkout-from-current-cart.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/get-current-cart.md?apiView=SDK>
+Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout id. Read the current cart, then hand its id to a redirect session, which carries the visitor/member session across to the hosted checkout on its own domain.
+Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>
 
 ```js
-const checkout = await currentCart.createCheckoutFromCurrentCart({ channelType: currentCart.ChannelType.WEB });
+const { cart } = await currentCartV2.getCurrentCart();   // NOTE: wrapped in { cart } (V1 returned the cart directly)
 const session = await redirects.createRedirectSession({
-  ecomCheckout: { checkoutId: checkout.checkoutId },   // checkout.checkoutId — NOT checkout._id
+  ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id — there is no createCheckout call
   callbacks: { postFlowUrl: `${origin}/`, thankYouPageUrl: `${origin}/` },
 });
 window.location.href = session.redirectSession.fullUrl; // the hosted-checkout URL
 ```
 
-**⚠️ Return shapes are in the cheat-sheet** — `createCheckoutFromCurrentCart` gives **`checkout.checkoutId`** (a string), not `checkout._id`. Reading `checkout._id` (over-applying the `_id` rule) throws *"Cannot read properties of undefined (reading '_id')"* — the silent checkout crash.
+**⚠️ There is no `createCheckoutFromCurrentCart` in Cart V2.** The V1 flow created a checkout entity and returned a `checkoutId`; V2 unifies cart + checkout, so you pass the cart's own `_id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` now returns **`{ cart }`** (V1 returned the cart directly) — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
+
+> **Simpler alternative (see PR note):** `cartV2.getCheckoutUrl(cartId)` returns a hosted-checkout URL directly, letting you drop `@wix/redirects`. It isn't used here because the redirect session is what carries the visitor/member session across domains; whether the plain URL preserves that for a headless storefront is unverified.
 
 **⚠️ CRITICAL: `origin` for `postFlowUrl`/`thankYouPageUrl` MUST be the `https://` published host — derive it from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the site's **`https://`** host and treats **`http://<same host>` as a different, unlisted origin**. When the buyer returns from the hosted checkout (e.g. clicks "Continue Browsing"), the redirect goes through the allowlist — and an `http://` `postFlowUrl` **403s** with *"… isn't listed as an allowed redirect domain."* If you build the redirect session in a **server route** (`src/pages/api/*`), `new URL(request.url).origin` resolves to **`http://`** behind Wix's TLS-terminating proxy → guaranteed 403 on return. So **pass `window.location.origin` from the client** into the route (don't read the origin off the request), or force the scheme to `https`. Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
 
@@ -208,7 +211,7 @@ function imgSrc(mediaMain, w = 600, h = 600) {
 
 **Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** either — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
 
-**This applies to cart line-item images too, not just product reads.** A cart `lineItem.image` is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
+**This applies to cart line-item images too, not just product reads.** A cart `lineItem.attributes.image` (Cart V2 nests it under `attributes`) is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
 
 ### Rendering product descriptions
 
@@ -230,7 +233,7 @@ Optional: render a `Product` schema.org JSON-LD `<script>` from the fetched prod
 
 ## Conclusion
 A correct Catalog V3 storefront frontend:
-- imports **`productsV3` / `readOnlyVariantsV3` / `categories` / `currentCart` / `redirects`** — never the V1 `products`/`collections` modules;
+- imports **`productsV3` / `readOnlyVariantsV3` / `categories` / `currentCartV2` / `redirects`** — never the V1 `products`/`collections` modules;
 - uses **`product._id`** (never `product.id`) as the cart's `catalogItemId`;
 - resolves the **mandatory `variantId`** via `readOnlyVariantsV3` and passes it as `options.variantId` (not `options.options`);
 - builds its category nav from a **live `categories.queryCategories()`** and filters category pages server-side with **`searchProducts` + `$matchItems: [{ id: categoryId }]`** keyed on the live `categoryId` — never a frozen seed-time `productIds` map, never `queryProducts` for category filtering, never `$hasSome`, never V1 `collectionIds`;

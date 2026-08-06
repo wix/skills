@@ -101,31 +101,33 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
 }
 
 /**
- * Create an eCommerce checkout for a created booking and return the hosted checkout URL.
+ * Create an eCommerce cart for a created booking and return the hosted checkout URL.
  * Redirect the buyer there (window.location.href = ...). On return, the booking is confirmed.
  * Throws if no redirect URL is produced.
- * https://dev.wix.com/docs/rest/business-solutions/e-commerce/checkout/create-checkout.md
+ *
+ * Cart V2 unifies cart + checkout: there is no separate checkout entity, so the created
+ * cart's id IS the checkout id fed to the redirect session.
+ * https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
  * @param {string} bookingId  booking.id from createBooking().
  * @returns {Promise<string>} The hosted-checkout URL to redirect to.
  */
 export async function checkoutBooking(bookingId) {
   if (!bookingId) throw new Error("checkoutBooking requires a bookingId.");
 
-  const checkoutRes = await wixApiRequest("/ecom/v1/checkouts", {
+  const cartRes = await wixApiRequest("/ecom/v2/carts", {
     method: "POST",
     body: {
-      channelType: "WEB",
-      lineItems: [
+      catalogItems: [
         { quantity: 1, catalogReference: { appId: BOOKINGS_APP_ID, catalogItemId: bookingId } },
       ],
     },
   });
-  const checkoutId = checkoutRes?.checkout?.id;
-  if (!checkoutId) throw new Error("Failed to create a checkout for the booking.");
+  const cartId = cartRes?.cart?.id;
+  if (!cartId) throw new Error("Failed to create a cart for the booking.");
 
   const redirect = await wixApiRequest("/headless/v1/redirect-session", {
     method: "POST",
-    body: { ecomCheckout: { checkoutId }, callbacks: { postFlowUrl: window.location.href } },
+    body: { ecomCheckout: { checkoutId: cartId }, callbacks: { postFlowUrl: window.location.href } },
   });
   const url = redirect?.redirectSession?.fullUrl;
   if (!url) throw new Error("Failed to create the checkout redirect session.");

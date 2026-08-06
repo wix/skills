@@ -11,15 +11,15 @@ import { wixApiRequest } from "./wix-client.js";
  *   fulfillmentIds {string[]}, businessLocationId {string}
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/operation-object.md
  *
- * Cart (Wix eCom) — restaurant orders use the same visitor cart as the storefront.
- *   id {string}, currency {string},
+ * Cart (Wix eCom V2) — restaurant orders use the same visitor cart as the storefront.
+ *   id {string} — also the checkout id in V2 (pass straight into the redirect session),
  *   lineItems[].id {string} — lineItemId for update/remove (NOT the item id),
- *   lineItems[].quantity {number},
- *   lineItems[].catalogReference.catalogItemId {string} — the ordered item's GUID,
- *   lineItems[].productName.original {string},
- *   lineItems[].price.formattedAmount {string},
- *   lineItems[].availability.status {string} — "AVAILABLE"|"NOT_AVAILABLE"|"PARTIALLY_AVAILABLE"|"NOT_FOUND"
- * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/cart/cart-object.md
+ *   lineItems[].quantityInfo.confirmedQuantity {number} — quantity that will actually be purchased,
+ *   lineItems[].source.catalogReference.catalogItemId {string} — the ordered item's GUID,
+ *   lineItems[].name.original {string},
+ *   lineItems[].pricing.unitPrice.amount {string} — raw decimal, after discounts (NO currency symbol in V2 — format client-side),
+ *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
+ * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-cart.md
  */
 
 // Wix Restaurants Orders app id — required in catalogReference when adding menu items to the eCom cart.
@@ -61,7 +61,7 @@ export async function getDefaultOperation() {
  * Confirm the shape before extending:
  * https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
  *
- * POST https://www.wixapis.com/ecom/v1/carts/current/add-to-cart
+ * POST https://www.wixapis.com/ecom/v2/carts/current/add-line-items
  * @param {string} itemId  Menu item GUID (item.id).
  * @param {{ operationId: string, menuId: string, sectionId: string, onlineOrderingPageUrl?: string, quantity?: number }} opts
  * @returns {Promise<object>} Updated cart.
@@ -74,15 +74,15 @@ export async function addItemToCart(itemId, { operationId, menuId, sectionId, on
   const options = { operationId, menuId, sectionId };
   if (onlineOrderingPageUrl) options.onlineOrderingPageUrl = onlineOrderingPageUrl;
 
-  const res = await wixApiRequest("/ecom/v1/carts/current/add-to-cart", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/add-line-items", {
     method: "POST",
     body: {
-      lineItems: [{ catalogReference: { appId: RESTAURANTS_ORDERS_APP_ID, catalogItemId: itemId, options }, quantity }],
+      catalogItems: [{ catalogReference: { appId: RESTAURANTS_ORDERS_APP_ID, catalogItemId: itemId, options }, quantity }],
     },
   });
-  const line = (res?.cart?.lineItems ?? []).find((l) => l.catalogReference?.catalogItemId === itemId);
-  if (line?.availability?.status && line.availability.status !== "AVAILABLE") {
-    throw new Error(`Item not available to order (status: ${line.availability.status}).`);
+  const line = (res?.cart?.lineItems ?? []).find((l) => l.source?.catalogReference?.catalogItemId === itemId);
+  if (line?.status && line.status !== "IN_STOCK") {
+    throw new Error(`Item not available to order (status: ${line.status}).`);
   }
   return res?.cart;
 }
@@ -90,7 +90,7 @@ export async function addItemToCart(itemId, { operationId, menuId, sectionId, on
 /** Read the visitor's current cart. Returns null if no cart exists yet. */
 export async function getCurrentCart() {
   try {
-    const res = await wixApiRequest("/ecom/v1/carts/current", { method: "GET" });
+    const res = await wixApiRequest("/ecom/v2/carts/current", { method: "GET" });
     return res?.cart ?? null;
   } catch {
     return null;
@@ -99,24 +99,24 @@ export async function getCurrentCart() {
 
 /**
  * Update the quantity of a cart line. lineItemId is cart.lineItems[].id, not the item id.
- * POST https://www.wixapis.com/ecom/v1/carts/current/update-line-items-quantity
+ * POST https://www.wixapis.com/ecom/v2/carts/current/update-line-items
  * @returns {Promise<object>} Updated cart.
  */
 export async function updateCartItemQuantity(lineItemId, quantity) {
-  const res = await wixApiRequest("/ecom/v1/carts/current/update-line-items-quantity", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/update-line-items", {
     method: "POST",
-    body: { lineItems: [{ id: lineItemId, quantity }] },
+    body: { lineItems: [{ lineItemId, quantity: { newQuantity: quantity } }] },
   });
   return res?.cart;
 }
 
 /**
  * Remove a line from the current cart by its cart.lineItems[].id.
- * POST https://www.wixapis.com/ecom/v1/carts/current/remove-line-items
+ * POST https://www.wixapis.com/ecom/v2/carts/current/remove-line-items
  * @returns {Promise<object>} Updated cart.
  */
 export async function removeFromCart(lineItemId) {
-  const res = await wixApiRequest("/ecom/v1/carts/current/remove-line-items", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/remove-line-items", {
     method: "POST",
     body: { lineItemIds: [lineItemId] },
   });
@@ -124,31 +124,28 @@ export async function removeFromCart(lineItemId) {
 }
 
 /**
- * Create a checkout from the current cart and return the Wix-hosted checkout URL.
+ * Send the current cart to the hosted Wix checkout and return the redirect URL.
  * Throws on empty cart, unavailable lines, or a missing redirect URL.
  * Redirect with: window.location.href = await checkout()
+ *
+ * Cart V2 has no separate checkout entity — the cart id IS the checkout id, so there is no
+ * "create checkout" step. We still create a redirect session so the visitor/member session
+ * carries across to the Wix-hosted checkout page on its own domain.
  * @returns {Promise<string>}
  */
 export async function checkout() {
   const cart = await getCurrentCart();
   const lines = cart?.lineItems ?? [];
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
-  const unavailable = lines.filter((l) => l.availability?.status && l.availability.status !== "AVAILABLE");
+  const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.productName?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.source?.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
 
-  const checkoutRes = await wixApiRequest("/ecom/v1/carts/current/create-checkout", {
-    method: "POST",
-    body: { channelType: "WEB" },
-  });
-  const checkoutId = checkoutRes?.checkoutId;
-  if (!checkoutId) throw new Error("Failed to create checkout from the current cart.");
-
   const redirect = await wixApiRequest("/headless/v1/redirect-session", {
     method: "POST",
-    body: { ecomCheckout: { checkoutId }, callbacks: { postFlowUrl: window.location.href } },
+    body: { ecomCheckout: { checkoutId: cart.id }, callbacks: { postFlowUrl: window.location.href } },
   });
   const url = redirect?.redirectSession?.fullUrl;
   if (!url) throw new Error("Failed to create the checkout redirect session.");
