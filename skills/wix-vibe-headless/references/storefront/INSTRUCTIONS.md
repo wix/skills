@@ -44,11 +44,9 @@ however the project wants; wire it to these two snippets. Copy them into the app
 - `src/rest/wix-store-cart.js` — **Cart & checkout:**
   `addToCart`, `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
 
-**You don't need to open the source of `wix-client.js` / `wix-store-catalog.js` /
-`wix-store-cart.js`** — just `import` from them. Every field shape and gotcha you need is in
-this file (the prose below + the **Reference components** section), and those components show
-correct usage of every helper. Skip reading the util source; adapt the components' logic and
-restyle to the brand.
+Every field shape and gotcha you need is in this file (the prose below + the **Reference
+components** section), and those components show correct usage of every helper — `import` from
+`wix-client.js` / `wix-store-*.js`, adapt the components' logic, and restyle to the brand.
 
 ## How to wire it (UI is the project's choice)
 - **Product grid** — `queryProducts()` for the listing (visible products only); pass
