@@ -138,7 +138,8 @@ async function deleteProducts(ctx, ids) {
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
- *   visible/physicalProperties/variant-expansion handled here.
+ *   visible/physicalProperties/variant-expansion handled here. Products are left IN STOCK
+ *   (quantity > 0) whether or not they have options — option-less products are stocked here too.
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
@@ -157,9 +158,36 @@ async function bulkCreateProducts(ctx, products) {
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
   // NB: results nest under productResults.results[].item — NOT a top-level `results`.
-  return (r.productResults?.results ?? []).map((x) => ({
+  const created = (r.productResults?.results ?? []).map((x, i) => ({
     id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
+    variantId: x.item?.variantsInfo?.variants?.[0]?.id,
+    hasOptions: (products[i]?.options?.length ?? 0) > 0,
+    quantity: products[i]?.quantity ?? 0,
   }));
+  await stockOptionlessProducts(ctx, created);
+  return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
+}
+
+// products-with-inventory/create stocks a variant via its choices; an OPTION-LESS product has a
+// single choiceless (default) variant that the create does NOT stock — it lands OUT_OF_STOCK. So
+// set stock on those default variants explicitly (bulk/inventory-items/create). Products WITH options
+// are already stocked by the create above, so they're skipped. Backfills the default variantId from a
+// query if the create response didn't return it.
+async function stockOptionlessProducts(ctx, created) {
+  const need = created.filter((p) => !p.hasOptions && p.id);
+  if (!need.length) return;
+  const missing = need.filter((p) => !p.variantId).map((p) => p.id);
+  if (missing.length) {
+    const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: missing } }, paging: { limit: missing.length } } } });
+    const vById = new Map((q.products ?? []).map((p) => [p.id, p.variantsInfo?.variants?.[0]?.id]));
+    need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
+  }
+  const inventoryItems = need
+    .filter((p) => p.variantId)
+    .map((p) => ({ productId: p.id, variantId: p.variantId, quantity: p.quantity }));
+  if (inventoryItems.length) {
+    await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
+  }
 }
 
 // Categories: no bulk create, and MUST be sequential — they share the @wix/stores tree revision,
