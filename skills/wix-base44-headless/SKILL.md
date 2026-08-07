@@ -57,8 +57,9 @@ yours to design per the brief. See step 6.
    ```
    The `seed/` module is **not** copied into the app — it's required at build time from the installed
    skill path (step 5).
-2. **Set credentials** — put `WIX_CLIENT_ID` in `src/rest/wix-client.js` and (if the vertical uses
-   it) `WIX_METASITE_ID` where `TEMPLATE.md` says. Both come from your prompt.
+2. **Set credentials in one file** — fill `src/wix.config.json` (`WIX_CLIENT_ID` + `WIX_METASITE_ID`,
+   both from your prompt). Everything reads from there: the client (`wix-client.js` imports it) and
+   the build-time seed (`require('/app/src/wix.config.json')`). Don't hardcode ids anywhere else.
 3. **Theme by tokens only** — edit `src/theme.css` to the brand (palette, type, radius). **Do NOT
    restyle the components' JSX** — every component reads these tokens, so editing them re-skins the
    whole site. This is what makes copied components (fast) instead of a regeneration.

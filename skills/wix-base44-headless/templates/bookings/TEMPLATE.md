@@ -11,7 +11,8 @@ you build the **home/landing page, header/nav, and overall layout** yourself.
 
 ## Files the template ships (copied into `src/` by the install step below)
 ```
-src/rest/wix-client.js              visitor-token transport (set WIX_CLIENT_ID here)
+src/wix.config.json                 WIX_CLIENT_ID + WIX_METASITE_ID — the ONE file you fill
+src/rest/wix-client.js              visitor-token transport (imports wix.config.json)
 src/rest/wix-bookings-services.js   queryServices / getService / countServices / slots / mediaUrl
 src/rest/wix-bookings-checkout.js   createBooking / checkoutBooking / bookAndCheckout
 src/lib/format.js                   price + local-slot formatting
@@ -47,8 +48,9 @@ cpSync(TPL, '/app/src', { recursive: true });   // overlays folders, leaves App.
 return { installed: /installed|found/i.test(out), src: readdirSync('/app/src') };
 ```
 
-## 2. Credentials
-In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the public client id from your prompt.
+## 2. Credentials (one file)
+Fill `src/wix.config.json` with `WIX_CLIENT_ID` and `WIX_METASITE_ID` from your prompt. The client
+imports it (`wix-client.js`) and the seed step reads it — don't hardcode ids anywhere else.
 
 ## 3. Theme (this is the styling step — do ONLY this to the template components)
 Edit `src/theme.css` tokens to the brand. Every component reads these vars, so this re-skins the
@@ -79,6 +81,7 @@ import Home from "@/pages/Home";   // <- the home page YOU build
 Order matters: **staff + category BEFORE services; class sessions AFTER.**
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { WIX_METASITE_ID } = require("/app/src/wix.config.json");   // the file you filled in step 2
 const s = require("/app/.agents/skills/wix-base44-headless/templates/bookings/seed/seed-bookings.js");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 

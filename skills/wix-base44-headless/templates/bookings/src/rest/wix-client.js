@@ -3,16 +3,14 @@
  * `storefrontApiRequest` in src/lib/shopify.ts. Plain fetch, JSON in / JSON out.
  * No SDK, no query builder, no Velo.
  *
- * WIX_CLIENT_ID is the one thing to set. The client exchanges it for a visitor
- * access token via the OAuth2 token endpoint, then sends that token on every API call.
+ * Credentials live in one place — src/wix.config.json. Fill that file once (from your prompt);
+ * this client exchanges WIX_CLIENT_ID for a visitor access token via the OAuth2 token endpoint,
+ * then sends that token on every API call. The client id is a buyer-facing credential (anonymous
+ * visitor tokens only), NOT a secret — committing it is fine.
  */
+import wixConfig from "@/wix.config.json";
 
-/**
- * The public headless OAuth client id. It is a buyer-facing credential (it only mints
- * anonymous visitor tokens), NOT a secret — so it is safe to hardcode here. Paste the
- * value from the Wix Business Manager prompt in place of the placeholder.
- */
-export const WIX_CLIENT_ID = "<YOUR-CLIENT-ID>";
+export const WIX_CLIENT_ID = wixConfig.WIX_CLIENT_ID;
 
 export const WIX_API_BASE = "https://www.wixapis.com";
 const OAUTH_TOKEN_URL = `${WIX_API_BASE}/oauth2/token`;

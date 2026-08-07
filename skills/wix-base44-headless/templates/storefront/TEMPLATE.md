@@ -7,7 +7,8 @@ cart all ship) — you build the **home/landing page, header/nav, and overall la
 
 ## Files the template ships (copied into `src/` by the install step below)
 ```
-src/rest/wix-client.js            visitor-token transport (set WIX_CLIENT_ID here)
+src/wix.config.json               WIX_CLIENT_ID + WIX_METASITE_ID — the ONE file you fill
+src/rest/wix-client.js            visitor-token transport (imports wix.config.json)
 src/rest/wix-store-catalog.js     queryProducts / getProductBySlug / countProducts / categories
 src/rest/wix-store-cart.js        addToCart / getCurrentCart / update / remove / checkout
 src/context/CartContext.jsx       <CartProvider> + useCart() — server-cart mirror
@@ -45,8 +46,9 @@ cpSync(TPL, '/app/src', { recursive: true });
 return { installed: /installed|found/i.test(out), src: readdirSync('/app/src') };
 ```
 
-## 2. Credentials
-In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the public client id from your prompt.
+## 2. Credentials (one file)
+Fill `src/wix.config.json` with `WIX_CLIENT_ID` and `WIX_METASITE_ID` from your prompt. The client
+imports it (`wix-client.js`) and the seed step reads it — don't hardcode ids anywhere else.
 
 ## 3. Theme (this is the styling step — do ONLY this to the template components)
 Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
@@ -85,6 +87,7 @@ import Home from "@/pages/Home";   // <- the home page YOU build
 ## 5. Seed (build-time, via exec_tool — see `seed/seed-store.js` header for the exact calls)
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { WIX_METASITE_ID } = require("/app/src/wix.config.json");   // the file you filled in step 2
 // require the seed module straight from the installed skill (build-time; not shipped in the app):
 const s = require("/app/.agents/skills/wix-base44-headless/templates/storefront/seed/seed-store.js");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
