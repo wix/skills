@@ -281,6 +281,58 @@ export default function Shop() {
 }
 ```
 
+**`pages/Category.jsx`** — a category landing page. `getCategoryBySlug(slug)` returns a **bare
+category object** (or `null` on miss — show a not-found state), **not** `{ category }`. Render the
+category's own fields, then feed `category.id` (never the slug) to `queryProductsByCategory` and
+paginate exactly like `Shop.jsx`.
+
+```jsx
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { getCategoryBySlug, queryProductsByCategory } from "@/rest/wix-store-catalog";
+import ProductCard from "@/components/ProductCard";
+
+export default function Category() {
+  const { slug } = useParams();
+  const [category, setCategory] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [cursor, setCursor] = useState(null);
+
+  useEffect(() => {
+    getCategoryBySlug(slug).then((c) => {              // bare category object, or null on miss
+      if (!c) return setNotFound(true);
+      setCategory(c);
+      queryProductsByCategory(c.id, { limit: 24 }).then(({ products, nextCursor }) => {  // feed id, not slug
+        setProducts(products);
+        setCursor(nextCursor);
+      });
+    });
+  }, [slug]);
+
+  const loadMore = () =>
+    queryProductsByCategory(category.id, { limit: 24, cursor }).then(({ products: more, nextCursor }) => {
+      setProducts((p) => [...p, ...more]);
+      setCursor(nextCursor);
+    });
+
+  if (notFound) return <div>Category not found.</div>;
+  if (!category) return <div>Loading…</div>;
+  return (
+    <div /* restyle */>
+      <h1>{category.name}</h1>
+      {/* category.description is a typedef field, but whether it's plain text or HTML is not
+          documented — if it renders raw tags, treat it as HTML like plainDescription; confirm via wix-docs. */}
+      {category.description && <p>{category.description}</p>}
+      {/* category.image is listed in the typedef but WITHOUT a sub-shape (no url/altText) — do NOT
+          assume category.image.url; look the category media shape up via the wix-docs skill before rendering it. */}
+      <div /* grid */>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
 **`CartDrawer.jsx`** — reads everything from `useCart()`; mutate by `lineItem.id` (not
 `catalogItemId`), check out via the context.
 
@@ -310,6 +362,9 @@ export default function CartDrawer() {
               <span>{item.price?.formattedAmount}</span>
             </div>
           ))}
+          {/* Order total / subtotal is NOT in the cart typedef (wix-store-cart.js lists only per-line
+              price/fullPrice) — resolve the exact cart-level total path via the wix-docs skill before
+              rendering one; do NOT invent priceSummary/subtotal. */}
           <button disabled={loading} onClick={checkout}>Checkout</button>
         </>
       )}
@@ -328,6 +383,16 @@ import { useParams } from "react-router-dom";
 import { getProductBySlug } from "@/rest/wix-store-catalog";
 import { useCart } from "@/context/CartContext";
 
+// same //→https: protocol fix as ProductCard — Wix image urls can come back protocol-relative
+function imageUrl(url) {
+  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
+}
+// PDP gallery: product.media.itemsInfo.items — [{ image: { url }, altText }] (see wix-store-catalog.js typedef)
+function galleryImages(product) {
+  return (product?.media?.itemsInfo?.items ?? [])
+    .map((it) => ({ url: imageUrl(it.image?.url), alt: it.altText || product?.name }))
+    .filter((i) => i.url);
+}
 // one control per product.options[] (variant choices)
 function OptionSelector({ option, selected, onSelect }) {
   return (
@@ -415,7 +480,14 @@ export default function ProductDetail() {
   if (!product) return <div>Loading…</div>;
   return (
     <div /* restyle */>
-      <img src={product.media?.main?.image?.url} alt={product.name} />
+      <img src={imageUrl(product.media?.main?.image?.url)} alt={product.name} />   {/* //→https: fix, same as ProductCard */}
+      {galleryImages(product).length > 0 && (
+        <div /* thumbnail strip */>
+          {galleryImages(product).map((img, i) => (
+            <img key={i} src={img.url} alt={img.alt} loading="lazy" />
+          ))}
+        </div>
+      )}
       <h1>{product.name}</h1>
       <p>{price}</p>
       {/* plainDescription is HTML despite the name — never render as plain text */}

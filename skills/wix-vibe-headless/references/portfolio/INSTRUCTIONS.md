@@ -44,26 +44,170 @@ The Collection, Project, and Project Item shapes are documented as JSDoc comment
 image/video, media resolutions, details rows) and link to the full API reference.
 
 ## How to wire it (UI is the project's choice)
-- **Collections gallery (home)** — `queryCollections()` for the listing (visible collections
-  only, in dashboard order); pass `nextCursor` back as `cursor` to load the next page. Render
-  `collection.title`, `collection.description`, and `collection.coverImage.imageInfo.url`. Link
-  each card to a collection page keyed on `collection.slug`.
+
+**Every list helper returns an object, not a bare array** — destructure the named key first, or
+`.map`/`.filter` on the result throws `… is not a function` (the #1 portfolio-listing bug):
+`queryCollections()` → `{ collections, nextCursor }`; `queryProjects()` /
+`queryProjectsByCollection(id)` → `{ projects, nextCursor }`; `listProjectItems(id)` →
+`{ items, total }`. Single fetches (`getCollectionBySlug`, `getProjectBySlug`, `getProject`)
+return the object or `null`; `countCollections()` returns a number.
+
+- **Collections gallery (home)** — `const { collections, nextCursor } = await queryCollections()`
+  for the listing (visible collections only, in dashboard order); pass `nextCursor` back as
+  `cursor` to load the next page. Render `collection.title`, `collection.description`, and
+  `collection.coverImage.imageInfo.url`. Link each card to a collection page keyed on
+  `collection.slug`.
 - **Collection page** — `getCollectionBySlug(slug)` for the header (returns null on miss — show
-  a not-found state, never invent one). Then `queryProjectsByCollection(collection.id, { limit?, cursor? })`
+  a not-found state, never invent one). Then
+  `const { projects, nextCursor } = await queryProjectsByCollection(collection.id, { limit?, cursor? })`
   for its project grid; paginate exactly like `queryCollections`.
-- **All-work gallery (optional)** — `queryProjects()` to list every visible project across
+- **All-work gallery (optional)** —
+  `const { projects, nextCursor } = await queryProjects()` to list every visible project across
   collections (newest-first); paginate the same way.
 - **Project grid card** — render `project.title` and the cover: use `project.coverImage.imageInfo.url`
   when present, else the `project.coverVideo.videoInfo.posters[0]` / first
   `coverVideo.videoInfo.resolutions[]` entry. Link each card to a project page keyed on `project.slug`.
 - **Project detail page** — `getProjectBySlug(slug)` for the header (title, description, and the
   `details[]` rows: each has a `label` plus either `text` or `link: { text, url, target }`).
-  Then `listProjectItems(project.id)` for the media gallery — render IMAGE items from
-  `image.imageInfo.url` and VIDEO items from the first `video.videoInfo.resolutions[]` entry
-  (with `video.videoInfo.posters[0]` as the poster). Honor each item's optional `link`.
+  Then `const { items, total } = await listProjectItems(project.id)` for the media gallery —
+  `items` is the array (the helper returns `{ items, total }`, **not** a bare array; iterate
+  `items`). Branch on **`item.type`**, which is `"IMAGE" | "VIDEO" | "UNDEFINED"`: render IMAGE
+  items from `item.image.imageInfo.url` and VIDEO items from the first
+  `item.video.videoInfo.resolutions[]` entry's `url` (with `item.video.videoInfo.posters[0]` as
+  the poster). Honor each item's optional `item.link: { text, url, target }` (same link shape as
+  the `details[]` rows above).
   - If you already hold a project id (not a slug), use `getProject(projectId)` instead.
 - **Empty state** — if `countCollections()` is 0, show an empty state telling the user to add
   collections and projects in their Wix dashboard. Never invent projects or media.
+
+## Worked snippets (headless — adapt the logic, restyle freely)
+
+Portfolio ships no UI components; these are illustrative wiring, not files to copy verbatim.
+The data paths (return-object destructuring, field paths, `item.type` branching, `details[]`
+link shape) are the load-bearing part — keep those exactly and restyle the markup to the brand.
+
+**`pages/Portfolio.jsx`** — collections gallery (grid + empty state + paging). `queryCollections`
+returns `{ collections, nextCursor }` — an object, not an array. Keep the destructuring.
+
+```jsx
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { queryCollections, countCollections } from "@/rest/wix-portfolio";
+
+export default function Portfolio() {
+  const [collections, setCollections] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    countCollections().then(setTotal);                       // number → 0 means empty state
+    // NB: destructure — queryCollections returns { collections, nextCursor }, not an array.
+    queryCollections({ limit: 24 }).then(({ collections, nextCursor }) => {
+      setCollections(collections);
+      setCursor(nextCursor);
+    });
+  }, []);
+
+  const loadMore = () =>
+    queryCollections({ limit: 24, cursor }).then(({ collections: more, nextCursor }) => {
+      setCollections((c) => [...c, ...more]);
+      setCursor(nextCursor);
+    });
+
+  if (total === 0) return <p>{/* empty state — add collections in the Wix dashboard */}</p>;
+  return (
+    <div /* restyle */>
+      <div /* grid */>
+        {collections.map((c) => (
+          <Link key={c.id} to={`/collection/${c.slug}`} /* restyle */>
+            {c.coverImage?.imageInfo?.url && (
+              <img src={c.coverImage.imageInfo.url} alt={c.title} loading="lazy" />
+            )}
+            <h3>{c.title}</h3>
+            {c.description && <p>{c.description}</p>}
+          </Link>
+        ))}
+      </div>
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
+**`pages/ProjectDetail.jsx`** — project header + `details[]` rows + media gallery. Two shapes to
+keep: `listProjectItems` returns `{ items, total }` (iterate `items`), and each item branches on
+`item.type`. Videos render from `resolutions[].url` (the confirmed field).
+
+```jsx
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { getProjectBySlug, listProjectItems } from "@/rest/wix-portfolio";
+
+// media item: branch on item.type ("IMAGE" | "VIDEO" | "UNDEFINED")
+function ProjectMedia({ item }) {
+  if (item.type === "IMAGE")
+    return <img src={item.image?.imageInfo?.url} alt={item.title || ""} loading="lazy" />;
+  if (item.type === "VIDEO") {
+    const src = item.video?.videoInfo?.resolutions?.[0]?.url; // resolutions[].url is the confirmed field
+    // poster: item.video.videoInfo.posters[0] — poster-entry sub-shape isn't in the helper
+    // JSDoc; if you need the poster image URL, confirm the field in wix-docs before using it.
+    return <video src={src} controls playsInline />;
+  }
+  return null; // UNDEFINED — nothing renderable
+}
+
+export default function ProjectDetail() {
+  const { slug } = useParams();
+  const [project, setProject] = useState(null);
+  const [items, setItems] = useState([]);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    getProjectBySlug(slug).then((p) => {
+      if (!p) return setNotFound(true);                      // null on miss → not-found state
+      setProject(p);
+      // NB: destructure — listProjectItems returns { items, total }, not an array.
+      listProjectItems(p.id).then(({ items }) => setItems(items));
+    });
+  }, [slug]);
+
+  if (notFound) return <div>Project not found.</div>;
+  if (!project) return <div>Loading…</div>;
+  return (
+    <div /* restyle */>
+      <h1>{project.title}</h1>
+      {project.description && <p>{project.description}</p>}
+      {/* details[] row: { label, text? } OR { label, link: { text, url, target } } */}
+      <dl>
+        {(project.details || []).map((d, i) => (
+          <div key={i}>
+            <dt>{d.label}</dt>
+            <dd>
+              {d.link ? (
+                <a href={d.link.url} target={d.link.target}>{d.link.text}</a>
+              ) : (
+                d.text
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div /* gallery grid */>
+        {items.map((item) => (
+          <figure key={item.id}>
+            {item.link ? (
+              <a href={item.link.url} target={item.link.target}><ProjectMedia item={item} /></a>
+            ) : (
+              <ProjectMedia item={item} />
+            )}
+            {item.title && <figcaption>{item.title}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
 
 ## Hard rules (do not violate)
 - ✅ Render only live Wix Portfolio data — collections, projects, and items as returned.

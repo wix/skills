@@ -55,11 +55,26 @@ shapes are documented as JSDoc at the top of each helper file. Read the relevant
 building the UI — they describe the key fields and link to the full reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
-- **Menu page** — call `getFullMenu()` once. It returns `{ menus: [{ ...menu, sections: [{ ...section,
-  items: [assembledItem] }] }] }`, already ordered by `sectionIds` / `itemIds`. Render each item's
-  `name`, `description`, `image`, `labels` (`name` + `icon`), and `featured` flag. For price, show
-  `item.price` (single) or the `item.variants[]` (each `{ name, price }`). **Restaurants prices are
-  plain decimal strings with NO currency symbol** — format with the site's currency in the UI.
+- **Menu page** — call `getFullMenu()` once. It is the **only** pre-joined shape and the entry point
+  for the menu screen. It returns `{ menus: [{ ...menu, sections: [{ ...section, items: [assembledItem]
+  }] }] }`, already ordered by `sectionIds` / `itemIds`, each item enriched with a resolved `price` /
+  `variants`, `modifierGroups`, and `labels`. Render each item's `name`, `description`, `image`,
+  `labels` (`name` + `icon`), and `featured` flag. **`item.image`, `section.image`, and `label.icon`
+  are OBJECTS** (`{ url, width, height, altText }`, and `{ url }` for the icon) — render
+  `item.image?.url`, `section.image?.url`, `label.icon?.url`, never the object itself. For price, show
+  `item.price` (single) or the `item.variants[]` (each `{ name, price }`). **Restaurants MENU prices
+  are plain decimal strings with NO currency symbol** — format with the site's currency in the UI (the
+  eCom cart's `price.formattedAmount` DOES include it — see the cart snippet). This is the main render
+  surface: use the `MenuPage.jsx` reference snippet below.
+- **Build on `getFullMenu`, not the raw `list*` fns** — `getFullMenu` is the only helper that returns
+  a joined tree with references resolved. The raw `listSections` / `listItems` / `listVariants` /
+  `listModifiers` return **unresolved refs** (an item's `labels` and `modifierGroups` come back
+  **id-only**, price variants unresolved) and have **inconsistent return shapes**: `listMenus` → a
+  `{ menus, nextCursor }` wrapper, while `listSections` / `listItems` / `listVariants` /
+  `listModifierGroups` / `listModifiers` → **bare arrays**. Don't re-join them by hand. If you truly
+  need a partial fetch, note the signature — those fns take an **array of GUIDs** (`listSections(sectionIds)`,
+  `listItems(itemIds)`), and the join walks `menu.sectionIds` → `listSections` → each `section.itemIds`
+  → `listItems`.
 - **Item detail** — render `item.modifierGroups[]`: each group's `name`, its `rule`
   (`required`, `minSelections`, `maxSelections`), and `modifiers[]` (`name`, `additionalCharge`,
   `preSelected`, `inStock`). If `orderSettings.acceptSpecialRequests`, offer a free-text field.
@@ -73,12 +88,19 @@ building the UI — they describe the key fields and link to the full reference 
   placed and the cart is empty — re-fetch with `getCurrentCart()` on return (e.g. on mount +
   `visibilitychange`) to clear the UI.
 - **Reservations** — `listReservationLocations()` for the picker (use `location` details for the
-  label; if a location's `configuration.onlineReservations.onlineReservationsEnabled` is false, hide
-  it). Then `getTimeSlots(locationId, dateISO, partySize)` — render `availableTimeSlots` (already
-  filtered to `AVAILABLE`). On slot pick, `createHeldReservation(locationId, slot.startDate,
-  partySize)` → keep the returned `id` + `revision`. Collect the visitor's details, then
-  `reserveReservation(id, revision, { firstName, phone, lastName?, email? })`. A `RESERVED` status is
-  confirmed; `REQUESTED` means the location requires manual approval — tell the user it's pending.
+  label). **Skip archived locations** (`loc.archived === true`) — that flag IS in the location shape.
+  There is **no `onlineReservationsEnabled` field** in the location shape: the util documents
+  `configuration.onlineReservations.approval.mode` (`AUTOMATIC` / `MANUAL` / `MANUAL_FOR_LARGE_PARTIES`)
+  and `configuration.partySize`, not an enable toggle. Do **not** filter on an invented
+  `onlineReservationsEnabled` — if you need to hide locations that don't take online reservations,
+  confirm the real enable/visibility field with the **wix-docs** skill / Restaurants reference first.
+  Then `getTimeSlots(locationId, dateISO, partySize)` — render `availableTimeSlots` (already filtered
+  to `AVAILABLE`). On slot pick, `createHeldReservation(locationId, slot.startDate, partySize)` → keep
+  the returned `id` + `revision`. Collect the visitor's details, then `reserveReservation(id, revision,
+  { firstName, phone, lastName?, email? })`. Read the returned reservation's top-level `status` —
+  `RESERVED` is confirmed, `REQUESTED` means the location requires manual approval (tell the user it's
+  pending) — and echo `reservation.details.{startDate, endDate, partySize}` back as the confirmation
+  summary.
 - **Empty state** — if `getFullMenu()` returns no menus, show an empty state telling the user to add
   a menu in their Wix dashboard. Never invent menu items.
 
@@ -116,6 +138,123 @@ request body in the **official Wix API reference** first; never guess:
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Reference snippets (headless — adapt the logic, restyle freely)
+
+These are the recurring restaurant pieces, written **headless**: the Wix field paths are correct and
+complete; the markup is deliberately plain. **Copy the logic exactly; restyle the JSX to the brand.**
+They consume the `src/rest/` helpers — you don't need to read those helpers' source.
+
+**`pages/MenuPage.jsx`** — the menu render surface. Drives everything off the assembled `getFullMenu()`
+tree. Note the paths that trip people up: `item.image` / `section.image` / `label.icon` are **objects**
+(render `.url`, never the object), menu prices carry **no currency symbol**, and an item is priced by
+**either** `item.price` (single) **or** `item.variants[]` (one-of, each `{ name, price }`).
+
+```jsx
+import { useState, useEffect } from "react";
+import { getFullMenu } from "@/rest/wix-restaurants-menu";
+
+// Wix media urls can come back protocol-relative (//...) — normalize to https.
+// item.image / section.image / label.icon are OBJECTS ({ url, ... }) — read .url, never render the object.
+function imageUrl(img) {
+  const url = img?.url;
+  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
+}
+
+// Restaurants MENU prices are plain decimal strings with NO currency symbol ("12.50").
+function formatPrice(price) {
+  return price == null ? "" : `$${price}`; // swap "$" for the site's currency
+}
+
+export default function MenuPage() {
+  const [menus, setMenus] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getFullMenu().then(({ menus }) => { setMenus(menus); setLoading(false); });
+  }, []);
+
+  if (loading) return <div>Loading…</div>;
+  if (menus.length === 0) return <p>{/* empty state — add a menu in the Wix dashboard */}</p>;
+
+  return (
+    <div /* restyle */>
+      {menus.map((menu) => (
+        <section key={menu.id}>
+          <h2>{menu.name}</h2>
+          {menu.description && <p>{menu.description}</p>}
+          {menu.sections.map((section) => (
+            <div key={section.id}>
+              <h3>{section.name}</h3>
+              {imageUrl(section.image) && <img src={imageUrl(section.image)} alt={section.name} />}
+              {section.items.map((item) => (
+                <article key={item.id}>
+                  {imageUrl(item.image) && <img src={imageUrl(item.image)} alt={item.name} loading="lazy" />}
+                  <h4>{item.name}{item.featured && <span> ★</span>}</h4>
+                  {item.description && <p>{item.description}</p>}
+                  {/* labels: [{ id, name, icon }] — icon is an OBJECT ({ url }); render label.icon.url */}
+                  {item.labels.map((label) => (
+                    <span key={label.id}>
+                      {imageUrl(label.icon) && <img src={imageUrl(label.icon)} alt="" />}
+                      {label.name}
+                    </span>
+                  ))}
+                  {/* price: single string, OR one-of variants [{ name, price }] — neither has a currency symbol */}
+                  {item.price != null
+                    ? <span>{formatPrice(item.price)}</span>
+                    : item.variants.map((v) => (
+                        <span key={v.variantId}>{v.name}: {formatPrice(v.price)}</span>
+                      ))}
+                  {item.orderSettings?.inStock === false && <span>Sold out</span>}
+                </article>
+              ))}
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+```
+
+**`Cart.jsx`** — reads the Wix **server** cart via `getCurrentCart()` (never a local copy). The line
+paths: `line.id` is the **lineItemId** used for mutations (NOT the menu item id), the display name is
+`line.productName.original`, and the line price is `line.price.formattedAmount` (the eCom cart price
+DOES include the currency symbol, unlike the menu). Re-fetch on return from checkout to clear the UI.
+
+```jsx
+import { useState, useEffect } from "react";
+import { getCurrentCart, updateCartItemQuantity, removeFromCart, checkout } from "@/rest/wix-restaurants-ordering";
+
+export default function Cart() {
+  const [cart, setCart] = useState(null);
+  const refresh = () => getCurrentCart().then(setCart);
+  useEffect(() => { // re-fetch on mount + when the tab regains focus (cart is empty after a completed checkout)
+    refresh();
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  const lineItems = cart?.lineItems ?? [];
+  if (lineItems.length === 0) return <p>Your cart is empty.</p>;
+  return (
+    <div /* restyle */>
+      {lineItems.map((line) => (
+        <div key={line.id}>{/* line.id is the lineItemId for mutations — NOT the menu item id */}
+          <span>{line.productName?.original}</span>
+          <button onClick={async () => setCart(await updateCartItemQuantity(line.id, Math.max(1, line.quantity - 1)))}>−</button>
+          <span>{line.quantity}</span>
+          <button onClick={async () => setCart(await updateCartItemQuantity(line.id, line.quantity + 1))}>+</button>
+          <button onClick={async () => setCart(await removeFromCart(line.id))}>Remove</button>
+          <span>{line.price?.formattedAmount}</span>{/* eCom cart price DOES include the currency symbol (unlike menu prices) */}
+        </div>
+      ))}
+      <button onClick={async () => { window.location.href = await checkout(); }}>Checkout</button>
+    </div>
+  );
+}
+```
 
 ## Point the user to their dashboard
 In some cases, users need to access the Wix dashboard in order to edit the restaurant content for their site — across up to three apps. To facilitate this, provide the user with deep links directly to the relevant dashboard pages; only mention the apps the project actually uses. Those pages are:
