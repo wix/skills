@@ -1,0 +1,36 @@
+/* theme.css — THE styling surface. Theme the whole storefront by editing these tokens to the
+   brand; do NOT restyle the components' JSX. Every template component reads these variables, so
+   changing them here re-skins the entire site. Import this once at the app entry.
+
+   Set the palette/typography/shape to the brand, then you're done styling. Add tokens if a brand
+   needs them, but keep components reading `var(--...)` — never hardcode a color in a component. */
+
+:root {
+  /* ---- color (set these to the brand) ---- */
+  --color-bg:        #ffffff;   /* page background */
+  --color-surface:   #f6f6f7;   /* cards, drawers, wells */
+  --color-text:      #16181d;   /* primary text */
+  --color-muted:     #6b7280;   /* secondary text */
+  --color-border:    #e5e7eb;   /* hairlines, dividers */
+  --color-primary:   #111827;   /* buttons, links, active */
+  --color-on-primary:#ffffff;   /* text/icon on primary */
+  --color-accent:    #d97757;   /* highlights, sale, badges */
+  --color-danger:    #dc2626;   /* out-of-stock, errors */
+
+  /* ---- typography ---- */
+  --font-body:    system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-body);  /* set a display face for headings if the brand has one */
+
+  /* ---- shape & rhythm ---- */
+  --radius:      12px;
+  --radius-sm:   8px;
+  --space:       16px;          /* base spacing unit */
+  --maxw:        1200px;        /* content max width */
+  --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* Optional dark theme: the agent may map these if the brand is dark. Components need no change. */
+:root[data-theme="dark"] {
+  --color-bg:#0b0f17; --color-surface:#131a26; --color-text:#e5e7eb; --color-muted:#94a3b8;
+  --color-border:#232b3a; --color-primary:#e5e7eb; --color-on-primary:#0b0f17;
+}

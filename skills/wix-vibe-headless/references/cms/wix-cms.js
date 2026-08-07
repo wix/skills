@@ -13,7 +13,7 @@ import { wixApiRequest } from "./wix-client.js";
  * Data Item — every read helper returns the item's `data` payload:
  *   _id {string} — GUID (route key, itemId for get/update/remove),
  *   _createdDate, _updatedDate {string} — ISO 8601 (use { "$date": "..." } in filters),
- *   _ownerId {string}, ...fields — collection field values keyed by field key
+ *   _owner {string}, ...fields — collection field values keyed by field key
  * Full reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/data-item-object.md
  *
  * FILTERS & SORT (Wix API Query Language):

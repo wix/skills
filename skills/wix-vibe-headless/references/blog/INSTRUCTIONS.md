@@ -44,31 +44,128 @@ The Post, Category, and Tag shapes are documented as JSDoc comments at the top o
 the full API reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
+Every list helper returns an **object, not a bare array** — `queryPosts` /
+`queryPostsByCategory` / `queryPostsByTag` → `{ posts, nextCursor }`; `queryCategories` →
+`{ categories, total }`; `queryTags` → `{ tags, total }`. **Destructure first** — calling
+`.map` / `.filter` on the returned object throws `… is not a function`. See the worked
+snippets below.
+
 - **Post feed** — `queryPosts()` for the listing (published posts only, newest first with
-  pinned posts leading); pass `nextCursor` back as `cursor` to load the next page. Render
-  `title`, `excerpt`, `firstPublishedDate`, `minutesToRead`, and the cover image from
+  pinned posts leading). Destructure `{ posts, nextCursor }` and iterate `posts`; pass
+  `nextCursor` back as `cursor` to load the next page. Render `title`, `excerpt`,
+  `firstPublishedDate`, `minutesToRead`, and the cover image from
   **`post.media.wixMedia.image.url`** (see the cover-image note below). Route to the detail page by `slug`.
+  **Author byline:** the reader helpers do **not** expose an author name (the post shape carries no
+  `author` object) — resolve it via the **members** vertical or omit the byline; never render
+  `post.author.name` (it is `undefined`).
 - **Post detail** — `getPostBySlug(slug)` keyed off the URL slug; returns `null` on miss —
   show a not-found state, never invent a post. It returns full content:
   - `contentText` — the body as plain text. Split on `"\n"` to render simple paragraphs.
   - `richContent` — the body as a Ricos rich-content document (images, embeds, formatting).
     Render it with a Ricos renderer for a faithful post. See "Beyond the snippets" if you
     need rich rendering; `contentText` is the zero-dependency default.
-  - Resolve `categoryIds` / `tagIds` to labels with `queryCategories()` / `queryTags()`
-    (build an id→label map) to show category/tag chips.
+  - Resolve `categoryIds` / `tagIds` to chips by matching each id against `category.id` /
+    `tag.id` from `queryCategories()` / `queryTags()` (build an id→object map). The display
+    field is **`.label`** (not `.name`). This lookup is hit on **every** post render, so fetch
+    the categories/tags once and reuse the map — do not re-query per card.
 - **Cover image** — use **`post.media.wixMedia.image.url`** (a ready-to-use https URL) for the card
   thumbnail and post header. `media` is returned by default (including on the list query), so no extra
   fieldset is needed. When `post.media?.wixMedia?.image` is absent, the cover is the first image inside
   `richContent` — fall back to the first IMAGE node there, or show a text-only card. Never substitute a
-  stock/placeholder image.
-- **Category page** — `queryCategories()` for a category menu (ordered by `displayPosition`;
-  hide categories with `postCount === 0` if you want); `getCategoryBySlug(slug)` for a
-  category landing page. Pass `category.id` to `queryPostsByCategory(categoryId, { limit?, cursor? })`
-  to list that category's posts; paginate exactly like `queryPosts`.
-- **Tag page** — `queryTags()` for a tag cloud/list (most-used first); `getTagBySlug(slug)`
-  for a tag landing page. Pass `tag.id` to `queryPostsByTag(tagId, { limit?, cursor? })`.
+  stock/placeholder image. (This is a **different** path from the category cover — see below.)
+- **Category page** — `queryCategories()` for a category menu; destructure `{ categories, total }`
+  (ordered by `displayPosition`; hide categories with **`postCount === 0`** if you want).
+  Display each category by **`.label`**; a category also carries a cover image at
+  **`category.coverImage.url`** (note: a different path from the post cover
+  `post.media.wixMedia.image.url`). `getCategoryBySlug(slug)` returns the category landing page;
+  pass `category.id` to `queryPostsByCategory(categoryId, { limit?, cursor? })` to list that
+  category's posts; paginate exactly like `queryPosts`.
+- **Tag page** — `queryTags()` for a tag cloud/list (most-used first); destructure
+  `{ tags, total }`. Display each tag by **`.label`**; the per-tag count is
+  **`publishedPostCount`** (note the divergence: categories use `postCount`, tags use
+  `publishedPostCount`). `getTagBySlug(slug)` for a tag landing page; pass `tag.id` to
+  `queryPostsByTag(tagId, { limit?, cursor? })`.
 - **Empty state** — if `getTotalPosts()` is 0, show an empty state telling the user to
   publish posts in their Wix dashboard. Never invent posts.
+
+## Worked snippets (adapt the logic, restyle freely)
+Headless React — the data wiring (destructuring, field paths, id→label resolution) is correct
+and complete; the markup is deliberately plain. **Copy the logic; restyle the JSX to the brand.**
+
+**`pages/Blog.jsx`** — the post feed (listing + empty state + paging). Destructure
+`{ posts, nextCursor }` first; the helper returns an object, not an array.
+
+```jsx
+import { useState, useEffect } from "react";
+import { queryPosts, getTotalPosts } from "@/rest/wix-blog";
+import PostCard from "@/components/PostCard";
+
+export default function Blog() {
+  const [posts, setPosts] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    getTotalPosts().then(setTotal);
+    // NB: destructure — queryPosts returns { posts, nextCursor }, not a bare array.
+    queryPosts({ limit: 20 }).then(({ posts, nextCursor }) => {
+      setPosts(posts);
+      setCursor(nextCursor);
+    });
+  }, []);
+
+  const loadMore = () =>
+    queryPosts({ limit: 20, cursor }).then(({ posts: more, nextCursor }) => {
+      setPosts((p) => [...p, ...more]);
+      setCursor(nextCursor);
+    });
+
+  if (total === 0) return <p>{/* empty state — tell the user to publish posts in Wix */}</p>;
+  return (
+    <div /* restyle */>
+      <div /* grid */>{posts.map((p) => <PostCard key={p.id} post={p} />)}</div>
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+`queryPostsByCategory(categoryId, …)` and `queryPostsByTag(tagId, …)` return the same
+`{ posts, nextCursor }` shape — wire the category/tag landing pages identically.
+
+**`useTaxonomy` + `PostChips`** — resolve `categoryIds`/`tagIds` to chip labels. Fetch the
+categories/tags **once** (this lookup runs on every post render) and reuse the map.
+
+```jsx
+import { useState, useEffect } from "react";
+import { queryCategories, queryTags } from "@/rest/wix-blog";
+
+// Categories + tags turn a post's categoryIds/tagIds into chip labels.
+// Fetch them ONCE (a context/provider) and reuse — do NOT re-query per post card.
+export function useTaxonomy() {
+  const [categories, setCategories] = useState([]);
+  const [tags, setTags] = useState([]);
+  useEffect(() => {
+    // NB: destructure — queryCategories → { categories, total }, queryTags → { tags, total }.
+    queryCategories().then(({ categories }) => setCategories(categories));
+    queryTags().then(({ tags }) => setTags(tags));
+  }, []);
+  const catById = new Map(categories.map((c) => [c.id, c])); // display c.label · count c.postCount
+  const tagById = new Map(tags.map((t) => [t.id, t]));       // display t.label · count t.publishedPostCount
+  return { catById, tagById };
+}
+
+// Resolve a post's ids against category.id / tag.id; display .label (NOT .name); route by .slug.
+export function PostChips({ post, catById, tagById }) {
+  const cats = (post.categoryIds || []).map((id) => catById.get(id)).filter(Boolean);
+  const tags = (post.tagIds || []).map((id) => tagById.get(id)).filter(Boolean);
+  return (
+    <>
+      {cats.map((c) => <a key={c.id} href={`/blog/category/${c.slug}`}>{c.label}</a>)}
+      {tags.map((t) => <a key={t.id} href={`/blog/tag/${t.slug}`}>{t.label}</a>)}
+    </>
+  );
+}
+```
 
 ## Hard rules (do not violate)
 - ✅ Fetch posts/categories/tags ONLY through the shipped helpers (the official Blog REST
@@ -81,8 +178,15 @@ the full API reference for anything not shown.
   and does not expose engagement actions; leave such UI empty or omit it.
 - ❌ Never use a placeholder/stock cover image. If `post.media?.wixMedia?.image` is missing, fall back
   to the first richContent image or a text-only card.
+- ❌ Never render an author name — the reader helpers don't expose one. `post.author.name` is
+  `undefined`; resolve authors via the members vertical or omit the byline.
+- ✅ Every list helper returns an object: destructure `{ posts, nextCursor }` /
+  `{ categories, total }` / `{ tags, total }` before `.map`/`.filter`.
+- ✅ Display categories and tags by **`.label`** (not `.name`); resolve `categoryIds`/`tagIds`
+  by matching `.id`. Category count is `postCount`; tag count is `publishedPostCount`.
 - ✅ Set `WIX_CLIENT_ID` from the prompt's value (public client id — safe to hardcode).
-- ✅ Use `post.media.wixMedia.image.url` for the cover image.
+- ✅ Use `post.media.wixMedia.image.url` for the post cover; `category.coverImage.url` for the
+  category cover (they are different paths).
 - The helpers fail soft on single-item lookups: `getPostBySlug` / `getCategoryBySlug` /
   `getTagBySlug` return `null` on a miss so you can show a proper not-found state — don't
   swallow that into a fake item.
@@ -118,10 +222,12 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (no re-mint storm; same anonymous visitor)
-- [ ] Post feed lists live published posts, newest first, and paginates via `nextCursor`
+- [ ] Post feed lists live published posts, newest first, and paginates via `nextCursor` (destructured from `{ posts, nextCursor }`)
 - [ ] Post detail loads by `slug` and renders real `contentText` (or rendered `richContent`)
 - [ ] `getPostBySlug` on a bad slug shows a not-found state (no invented post)
 - [ ] Cover images come from `post.media.wixMedia.image.url` (or richContent fallback) — no stock placeholders
+- [ ] Category/tag menus destructure `{ categories }` / `{ tags }` and display `.label` (category cover from `category.coverImage.url`)
+- [ ] No author byline rendered from the post (no `post.author.name`) — omitted or sourced from members
 - [ ] Category and tag pages list the right posts via `queryPostsByCategory` / `queryPostsByTag`
 - [ ] Empty state shown when `getTotalPosts()` is 0
 - [ ] No mock posts, authors, comments, likes, or view counts anywhere

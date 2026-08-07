@@ -1,0 +1,111 @@
+# CMS — seeding
+
+Seed Wix CMS (Wix Data v2) collections by **calling `seed-cms.js`** — don't hand-write the REST
+calls. It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every
+Wix Data seed operation. `require` it and call the functions with plain data.
+
+> **NOT yet live-verified — transcribed from `setup-cms.md`.**
+
+```js
+// build-time exec_tool
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
+const fs = require("fs");
+// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
+const seed = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/cms/seed/seed-cms.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
+const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+
+// DEFAULT — one call runs install → create each collection → insert items → attach images → wire
+// references, keeping created item ids in memory. Reference an item by its caller-chosen `_key`
+// (unique across the whole plan) — no ids to paste. Which collections/fields/counts/images come
+// from the request, not this module. Public-read is the default (override per collection via
+// `permissions`: PERMISSIONS.collaborative | memberPrivate | memberSharedReadOnly).
+const summary = await seed.setupCms(ctx, {
+  collections: [
+    { id: "categories", displayName: "Categories",
+      fields: [{ key: "name", displayName: "Name", type: "TEXT" }],
+      items: [
+        { _key: "cat-dessert", name: "Dessert" },
+        { _key: "cat-main",    name: "Mains" },
+      ] },
+    { id: "recipes", displayName: "Recipes",
+      fields: [
+        { key: "title", displayName: "Title", type: "TEXT" },
+        { key: "photo", displayName: "Photo", type: "IMAGE" },
+        // MULTI_REFERENCE → categories; typeMetadata.multiReference.referencedCollectionId is MANDATORY (STEP 1 note)
+        { key: "categories", displayName: "Categories", type: "MULTI_REFERENCE",
+          typeMetadata: { multiReference: { referencedCollectionId: "categories" } } },
+      ],
+      items: [
+        // image ON only: fileUrl generated per IMAGE_GENERATION.md; drop `image` to leave the item text-only
+        { _key: "recipe-cake", title: "Chocolate Cake", image: { fieldKey: "photo", url: fileUrl } },
+      ] },
+  ],
+  // optional — omit when nothing relates. Keys resolve to the created ids from `_key`.
+  references: [
+    { collectionId: "recipes", referringItemFieldName: "categories",
+      referringItemKey: "recipe-cake", referencedItemKey: "cat-dessert" },
+  ],
+});
+// summary = { collections, itemIdsByCollection, referencesInserted, imagesAttached }
+```
+
+## Escape hatch — individual steps
+
+Call the low-level fns directly when `setupCms` doesn't fit (e.g. verifying persistence mid-flow, or a
+shape the plan can't express). Order: install → createCollection → bulkInsertItems → queryItems (verify)
+→ insertReferences (cross-collection) → attachItemImage.
+
+```js
+await seed.installCmsApp(ctx);                          // if a data call returns WDE0110 (app not installed)
+
+// STEP 1 — create each collection BEFORE inserting its items (public-read default).
+const col = await seed.createCollection(ctx, {
+  id: "team-members", displayName: "Team Members",
+  fields: [
+    { key: "name", displayName: "Name", type: "TEXT" },
+    { key: "bio",  displayName: "Bio",  type: "RICH_TEXT" },
+    { key: "order", displayName: "Order", type: "NUMBER" },
+  ],
+  // permissions defaults to PERMISSIONS.publicRead; override for the other shapes:
+  //   PERMISSIONS.collaborative        (visitor-writable shared board — anonymous, unscoped)
+  //   PERMISSIONS.memberPrivate        (per-user-private "my …" rows; seed EMPTY, members populate)
+  //   PERMISSIONS.memberSharedReadOnly (gated: any member reads, only seed/admin writes)
+});
+
+// STEP 2 — bulk-insert with plain fields only (MULTI_REFERENCE is silently dropped at insert)
+const items = await seed.bulkInsertItems(ctx, "team-members", [
+  { name: "Ada Lovelace", role: "Founder",  bio: "<p>Builds the things.</p>", order: 1 },
+  { name: "Alan Turing",  role: "Engineer", bio: "<p>Breaks the things.</p>", order: 2 },
+]);
+
+// STEP 3 — verify persisted (a POST without an error does NOT prove content persisted)
+const rows = await seed.queryItems(ctx, "team-members");
+
+// STEP 4 — wire multi-references only if collections relate (target field needs referencedCollectionId from STEP 1)
+await seed.insertReferences(ctx, "recipes", [
+  { referringItemFieldName: "categories", referringItemId: recipeId, referencedItemId: categoryId },
+]);
+
+// optional — generate an image, then read-merge-PUT the url onto the item's IMAGE field
+await seed.attachItemImage(ctx, "team-members", { itemId: items[0].id, imageFieldKey: "photo", url: fileUrl });
+```
+
+## Functions
+| fn | does |
+|---|---|
+| `setupCms(ctx, {collections, references?})` | **DEFAULT** — one call: install → create+insert each collection → attach images → wire references, keeping ids in memory (reference items by `_key`) → `{collections, itemIdsByCollection, referencesInserted, imagesAttached}` |
+| `installCmsApp(ctx)` | install the Wix Data (CMS) app on the site |
+| `createCollection(ctx, {id, displayName, fields, permissions?})` | STEP 1 — create one collection → the created collection (default `PERMISSIONS.publicRead`) |
+| `bulkInsertItems(ctx, collectionId, items)` | STEP 2 — one bulk insert of plain-field items → `[{id,data}]` |
+| `insertItem(ctx, collectionId, data)` | STEP 2 (single) — insert one item → `{id,data}` |
+| `queryItems(ctx, collectionId)` | STEP 3 — query for verification → `[{id,data}]` |
+| `insertReferences(ctx, collectionId, [{referringItemFieldName, referringItemId, referencedItemId}])` | STEP 4 — wire multi-references |
+| `attachItemImage(ctx, collectionId, {itemId, imageFieldKey, url})` | optional — read-merge-PUT the image url onto an item |
+| `PERMISSIONS` | preset blocks: `publicRead`, `collaborative`, `memberPrivate`, `memberSharedReadOnly` |
+
+## Fallback
+If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
+use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+authoritative source recipe is `wix-headless/references/inline-recipes/setup-cms.md`.

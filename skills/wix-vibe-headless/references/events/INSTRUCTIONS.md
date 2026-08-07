@@ -49,7 +49,9 @@ adjust import paths:
 
 The `Event`, `TicketDefinition`, and `RSVP`/`Order` shapes are documented as JSDoc comments at
 the top of each helper file. Read the relevant file(s) before building the UI — they describe
-the key fields and link to the full API reference for anything not shown.
+the key fields and link to the full API reference for anything not shown. The **Reference
+components** section below shows correct usage of the browse + registration helpers (grid,
+category menu, load-more, detail page, free-ticket checkout) — adapt the logic, restyle freely.
 
 ## How to wire it (UI is the project's choice)
 - **Event grid** — `queryEvents()` lists live (UPCOMING/STARTED) events, soonest first. Render
@@ -121,6 +123,171 @@ first; never guess:
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Reference components (headless — adapt the logic, restyle freely)
+
+These are the recurring events pieces, written **headless**: the data wiring (Wix field paths,
+the offset load-more math, the ticketing Money object, the free-ticket checkout shape) is correct
+and complete — the markup is deliberately plain. **Copy the logic exactly; restyle the JSX to the
+brand.** Don't re-derive the data shapes from scratch (that's where the bugs are — the category
+`label`, the `lowestPrice` Money object, and the `{ events, nextOffset }` paging especially). They
+consume the `src/rest/` helpers; you don't need to read those helpers' source.
+
+**`components/EventCard.jsx`** — grid tile. Note the date/location/teaser field paths and the
+TICKETING "from" price, read off `registration.tickets.lowestPrice` — a **Money object**
+`{ value, currency, formattedValue }`. Render `formattedValue`, **never** the raw object (React
+"objects are not valid as a child" crash). This is a different shape from the ticket-definition
+price path `pricing.fixedPrice.amount` (a plain number) used inside the ticket picker.
+
+```jsx
+import { Link } from "react-router-dom";
+
+export default function EventCard({ event }) {
+  const when = event.dateAndTimeSettings?.formatted?.dateAndTime;
+  const where = event.location?.name;
+  const isTicketing = event.registration?.type === "TICKETING";
+  // lowestPrice is a Money object { value, currency, formattedValue } — render formattedValue,
+  // NEVER the raw object (React child crash). Ticket-definition prices use pricing.fixedPrice.amount.
+  const fromPrice = event.registration?.tickets?.lowestPrice?.formattedValue;
+  const soldOut = event.registration?.tickets?.soldOut;
+  return (
+    <Link to={`/events/${event.slug}`} /* restyle */>
+      {event.mainImage?.url
+        ? <img src={event.mainImage.url} alt={event.title} loading="lazy" />
+        : <div>{/* placeholder */}</div>}
+      <h3>{event.title}</h3>
+      {when && <span>{when}</span>}
+      {where && <span>{where}</span>}
+      {event.shortDescription && <p>{event.shortDescription}</p>}
+      {isTicketing && (soldOut ? <span>Sold out</span> : fromPrice && <span>From {fromPrice}</span>)}
+    </Link>
+  );
+}
+```
+
+**`pages/Events.jsx`** — the listing (grid + category menu + empty state + load-more). Both
+`queryEvents` and `listEventsByCategory` return an **object** `{ events, total, offset, nextOffset }`,
+not a bare array — destructure `events` first; `nextOffset` is `null` when there are no more pages.
+`queryEventCategories()` returns `{ categories, total }`; render `category.label` (**not** `name` —
+the display field is `label`), key/filter by `category.id`, and show `counts.assignedEventsCount`.
+
+```jsx
+import { useState, useEffect } from "react";
+import { queryEvents, listEventsByCategory, queryEventCategories, countUpcomingEvents } from "@/rest/wix-events-browse";
+import EventCard from "@/components/EventCard";
+
+export default function Events() {
+  const [events, setEvents] = useState([]);
+  const [nextOffset, setNextOffset] = useState(null); // offset for the next page; null when no more
+  const [menu, setMenu] = useState([]);               // category menu
+  const [active, setActive] = useState(null);         // selected category id, or null for "all"
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    countUpcomingEvents().then(setTotal);
+    // queryEventCategories returns { categories, total } — destructure the array first.
+    queryEventCategories().then(({ categories }) => setMenu(categories));
+  }, []);
+
+  useEffect(() => {
+    const load = active
+      ? listEventsByCategory(active, { limit: 24 })
+      : queryEvents({ limit: 24 });
+    // Both return an OBJECT { events, total, offset, nextOffset } — not a bare array.
+    load.then(({ events, nextOffset }) => { setEvents(events); setNextOffset(nextOffset); });
+  }, [active]);
+
+  const loadMore = () => {
+    const load = active
+      ? listEventsByCategory(active, { limit: 24, offset: nextOffset })
+      : queryEvents({ limit: 24, offset: nextOffset });
+    load.then(({ events: more, nextOffset: next }) => { setEvents((e) => [...e, ...more]); setNextOffset(next); });
+  };
+
+  if (total === 0) return <p>{/* empty state — no events published yet */}</p>;
+  return (
+    <div /* restyle */>
+      <nav>
+        <button onClick={() => setActive(null)} aria-pressed={active === null}>All</button>
+        {menu.map((c) => (
+          // display field is `label`, NOT `name`; key/filter by `category.id`.
+          <button key={c.id} onClick={() => setActive(c.id)} aria-pressed={active === c.id}>
+            {c.label} ({c.counts?.assignedEventsCount ?? 0})
+          </button>
+        ))}
+      </nav>
+      <div /* grid */>{events.map((e) => <EventCard key={e.id} event={e} />)}</div>
+      {nextOffset !== null && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
+**`pages/EventDetail.jsx`** — the detail page. `getEventBySlug(slug)` returns **null** on miss —
+show a not-found state, never invent an event. Branch the registration UI on `registration.type`
+and only accept registrations while `registration.status` starts with `OPEN_`. `shortDescription`
+is a plain string (safe); the full `event.description` is **Ricos rich content** `{ nodes: [...] }`
+— render it with `@wix/ricos` or walk `nodes`; **never** call string methods on it (that crashes
+the page).
+
+```jsx
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { getEventBySlug } from "@/rest/wix-events-browse";
+
+export default function EventDetail() {
+  const { slug } = useParams();
+  const [event, setEvent] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    getEventBySlug(slug).then((e) => (e ? setEvent(e) : setNotFound(true))); // null on miss
+  }, [slug]);
+
+  if (notFound) return <div>Event not found.</div>;
+  if (!event) return <div>Loading…</div>;
+
+  const reg = event.registration ?? {};
+  const open = typeof reg.status === "string" && reg.status.startsWith("OPEN_"); // only OPEN_* takes registrations
+  return (
+    <div /* restyle */>
+      {event.mainImage?.url && <img src={event.mainImage.url} alt={event.title} />}
+      <h1>{event.title}</h1>
+      <p>{event.dateAndTimeSettings?.formatted?.dateAndTime}</p>
+      {/* shortDescription is a plain string (safe to render). event.description is Ricos rich
+          content { nodes: [...] } — render with @wix/ricos or walk nodes; NEVER call string
+          methods (.slice/.substring) on it — that crashes the page. */}
+      {event.shortDescription && <p>{event.shortDescription}</p>}
+
+      {reg.type === "RSVP" && (open ? <div>{/* RSVP form — fields from event.form.controls */}</div> : <p>Registration is closed.</p>)}
+      {reg.type === "TICKETING" && (open ? <div>{/* ticket picker — see the free-ticket checkout snippet */}</div> : <p>Ticket sales are closed.</p>)}
+      {reg.type === "EXTERNAL" && <a href={reg.external?.url}>Register</a>}
+      {reg.type === "NONE" && null}
+    </div>
+  );
+}
+```
+
+**Free-ticket checkout** — for **free** tickets you may finish in-app instead of redirecting:
+reserve, then call `checkoutTickets(eventId, { reservationId, buyer, guests })` with the guest
+sub-shape `guests: [{ firstName, lastName, email }]`. It throws for paid orders (telling you to use
+`getTicketCheckoutUrl`), so a green path is a real, confirmed order.
+
+```jsx
+import { reserveTickets, checkoutTickets, getTicketCheckoutUrl } from "@/rest/wix-events-registration";
+
+// FREE tickets only: reserve, then finish in-app with checkoutTickets — no redirect.
+// For ANY paid ticket, redirect instead: window.location.href = getTicketCheckoutUrl(event, reservation.id).
+async function claimFreeTicket(event, ticketDefinitionId, buyer /* { firstName, lastName, email } */) {
+  const reservation = await reserveTickets([{ ticketDefinitionId, quantity: 1 }]); // { id, expirationDate }
+  const order = await checkoutTickets(event.id, {
+    reservationId: reservation.id,
+    buyer,
+    guests: [{ firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email }],
+  });
+  return order; // status "FREE"; carries order.ticketsPdf and order.tickets[]. Throws if payment is owed.
+}
+```
 
 ## Point the user to their dashboard
 In some cases, users need to access the Wix dashboard in order to edit the events content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For events data those pages are:
