@@ -14,21 +14,34 @@ redirect-session.
 - The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
 ## STEP 1 — The client is already in `src/`
-The install step (base44.md STEP 1) deployed both the REST scaffolds (`src/rest/`) **and** this
-storefront UI client into `src/`: `src/theme.css`, `src/context/CartContext.jsx`,
-`src/hooks/useProductDetail.js`,
-`src/components/{ProductCard,ProductGrid,CartButton,CartDrawer,VariantPicker}.jsx`,
-`src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`).
+The install step (base44.md STEP 1) deployed the whole storefront UI client + REST scaffolds into
+`src/` (imports use the `@/` alias → `src/`). Here's every file and what it is — **this is your map,
+so you don't need to open them:**
 
-They're already in place (STEP 1 deployed them) — go **straight to theming + wiring**, nothing to
-verify first. **Don't `read_file` the shipped page/component/hook source to inspect it** (`src/components`,
-`src/pages`, `src/hooks`, `src/context`): every field shape you need is in the snippets below. Read a
-shipped file's source **only** on a real fallback — a runtime error, or a field the snippets don't
-cover (see "Fallback only" at the end). (Files missing? the install's `deploy` result lists what it
-wrote; re-run install, or copy `references/storefront/app/` → `src/`.)
+| file | what it is |
+|---|---|
+| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
+| `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
+| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug |
+| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, with empty state) |
+| `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
+| `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
+| `components/VariantPicker.jsx` | option/variant selector used on the PDP |
+| `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
+| `rest/wix-config.js` | **you set the ids here** (STEP 2) |
+| `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
+| `rest/wix-manage-banner.js` | dev-only manage banner — mount it once (base44.md STEP 5) |
+
+They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
+`read_file` the shipped page/component/hook source to inspect it** — the table above says what each is
+and every field shape you need is in the snippets below. Read a shipped file's source **only** on a
+real fallback — a runtime error, or a field the snippets don't cover (see "Fallback only" at the
+end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
+`references/storefront/app/` → `src/`.)
 
 ## STEP 2 — Credentials
-In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the value from your prompt.
+Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
+one place both ids live.
 
 ## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
 Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
