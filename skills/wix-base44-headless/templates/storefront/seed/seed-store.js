@@ -138,8 +138,7 @@ async function deleteProducts(ctx, ids) {
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
- *   visible/physicalProperties/variant-expansion handled here. Products are left IN STOCK
- *   (quantity > 0) whether or not they have options — option-less products are stocked here too.
+ *   visible/physicalProperties/variant-expansion handled here. `quantity` is the stock created.
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
