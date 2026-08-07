@@ -110,15 +110,11 @@ back to the `wix-docs` skill where the operation isn't documented there.
 
 After the site is built and seeded:
 
-1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): from the
-   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` in
-   `references/shared/wix-config.js` to your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
-   builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
-   guarantee: verify the gate actually holds in this stack, and that a production build never
-   shows the banner (no dev flag → no banner at all). A `fixed`/`sticky` app header is not in
-   normal flow and would slide under the banner; it publishes its height as the CSS var
-   `--wix-manage-banner-height` on :root, so set that header's `top: var(--wix-manage-banner-height, 0px)`
-   (0 in prod / when dismissed) — the whole offset, no measuring or state.
+1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): the shipped
+   `<WixManageBanner/>` component (in the vertical's `app/components/`) — set `WIX_METASITE_ID` in
+   `wix-config.js`, then render it in your Layout's fixed top region above the header (see the
+   vertical's INSTRUCTIONS STEP 4). It self-gates to dev builds (via `import.meta.env.DEV`) — use it
+   as-is; you own the guarantee that a production build never shows it (no dev flag → no banner).
 2. **Ask the user to open** this URL to complete the setup in Wix (required; substitute the
    metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}` — and, since
    the banner from step 1 is mounted, also tell them: *in dev builds the site shows a slim

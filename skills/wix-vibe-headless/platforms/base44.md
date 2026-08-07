@@ -19,12 +19,15 @@ Install two skills — they land under `.agents/skills/`:
   doesn't cover.
 
 Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
-skills, then runs the shipped `deploy.cjs` (now on disk) which deploys the REST scaffolds + any ready
-UI client into `src/` and pins an AGENTS.md note:
+skills, then runs `deploy.cjs <vertical>`, which lays the shared transport + **your one vertical's**
+REST scaffolds and UI client into `src/` and pins an AGENTS.md note. **Set `VERTICAL`** to what the
+prompt asks for — one of `storefront`, `bookings`, `blog`, `cms`, `portfolio`, `pricing-plans`,
+`events`, `members` (too vague to tell? do STEP 2 first, then set it).
 
 ```js
 const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
+const VERTICAL = 'storefront'; // ← set from the prompt (see the list above)
 const results = {};
 for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   try {
@@ -34,8 +37,8 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-// Deploy scaffolds + ready UI into src/ and pin AGENTS.md — logic lives in the shipped script.
-const deploy = execSync('node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs', { cwd: '/app' }).toString();
+// Deploy the shared transport + ONLY this vertical's scaffolds/UI into src/, and pin AGENTS.md.
+const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICAL}`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy) };
 ```
 
@@ -132,11 +135,8 @@ parallelize independent work (API calls, multiple entities).
 Once the site is built and seeded:
 
 1. **Mount the dev-only manage banner** (required; links the app to its Wix back office; shipped,
-   self-gates to dev builds, never in production). **Storefront:** render `<WixManageBanner/>` in your
-   Layout's fixed top region above the header (per INSTRUCTIONS STEP 4). **Other verticals:** import
-   `mountWixManageBanner` from `src/rest/wix-manage-banner.js` and call it once from the app entry; a
-   `fixed`/`sticky` app header then offsets with `top: var(--wix-manage-banner-height, 0px)` (the
-   banner keeps that CSS var in sync as it scrolls — the whole offset, no measuring or state).
+   self-gates to dev builds, never in production): render the `<WixManageBanner/>` component in your
+   Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS STEP 4.
 2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute your
    metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
    top banner linking to this same dashboard.
