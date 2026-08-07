@@ -240,7 +240,7 @@ export default function CartDrawer() {
         <>
           {lineItems.map((item) => (
             <div key={item.id}>
-              <img src={item.image} alt={item.productName?.original} />
+              <img src={item.image?.url} alt={item.productName?.original} />   {/* cart image is an object: item.image.url (NOT a bare string — don't apply the ProductCard //-fix to it) */}
               <span>{item.productName?.original}</span>
               {item.descriptionLines?.map((dl, i) => (               // variant/modifier summary Wix supplies
                 <small key={i}>{dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}</small>
