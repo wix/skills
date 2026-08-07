@@ -6,21 +6,19 @@ initial prompt, and the Wix connector is already configured; use it for all admi
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **`wix-vibe-headless` and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
-Install three skills — they land under `.agents/skills/`:
-- **`wix-vibe-headless`** — the client build guide (STEP 3): your main source of truth.
-- **`wix-headless`** — STEP 4 seeding/admin recipes only (`SEED.md` + `inline-recipes/`). **Ignore
-  everything else** — its `@wix/cli` / "managed project" auth (`references/managed/`) is **not** how
-  auth works here (see STEP 4).
-- **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything the recipes don't
-  cover.
+Install two skills — they land under `.agents/skills/`:
+- **`wix-vibe-headless`** — the client build **and** seed guide (STEPs 3–4): your main source of
+  truth. Seeding lives here too, per-vertical under `references/<vertical>/seed/`.
+- **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
+  doesn't cover.
 
-Install via the skills CLI — run this through exec_tool, exactly as written. It installs the three
+Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
 skills, then runs the shipped `deploy.cjs` (now on disk) which deploys the REST scaffolds + any ready
 UI client into `src/` and pins an AGENTS.md note:
 
@@ -28,7 +26,7 @@ UI client into `src/` and pins an AGENTS.md note:
 const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
 const results = {};
-for (const skill of ['wix-headless', 'wix-vibe-headless', 'wix-docs']) {
+for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
       { cwd: '/app', timeout: 60000, shell: '/bin/bash' }).toString().replace(/\x1b\[[0-9;]*m/g, '');
@@ -85,10 +83,9 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 ## STEP 4 — Manage and seed the business
 
-**Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
-cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
-delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
-ask the user first.
+**Never delete or clean up anything on the user's site — seeding is additive only.** It's a live
+user-owned business, so never delete or overwrite existing content, even apparent sample data. If a
+cleanup truly seems needed, ask the user first.
 
 Seed by calling your vertical's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` via
@@ -97,8 +94,8 @@ shape → the **`wix-docs`** skill.
 
 **Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
 access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
-`getAdminToken()`), install/run the Wix CLI (`@wix/cli`), device-login, or follow `wix-headless`'s
-`references/managed/AUTHENTICATION.md` (that managed-project flow doesn't apply to Base44):
+`getAdminToken()`), install/run the Wix CLI (`@wix/cli`), or device-login (no managed-project auth
+flow applies to Base44):
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -111,8 +108,8 @@ inline it throws *"Identifier 'base44' has already been declared."*).
 
 **Entity images.** For image-bearing entities (store products, blog covers, bookings services,
 restaurant items, portfolio projects, event heroes, CMS items), generate with **Base44's built-in
-image generation**, then import into Wix Media and attach per the capability's `wix-headless`
-inline recipe "Attach images" step.
+image generation**, then attach via the vertical seed module's image-attach step — `wix-docs` if the
+module doesn't cover that entity.
 
 **Pass only FINAL image urls to seeding.** Wait for `generate_image` to return its final
 `https://media.base44.com/...` url before handing it to a seed call — an in-flight
@@ -120,8 +117,8 @@ inline recipe "Attach images" step.
 re-seed). To still overlap the work, create the products WITHOUT images first, then attach in a
 second pass once the real urls are in hand (`attachProductImages` takes any product ids, any time).
 
-The connector + `wix-headless` seeding are **admin-only** (STEP 4) — **not** part of the client,
-which is built solely per the `wix-vibe-headless` skill.
+The connector + seeding are **admin-only** (STEP 4) — **not** part of the client, which is built
+solely per the `wix-vibe-headless` skill.
 
 ## Parallelism
 
@@ -148,5 +145,5 @@ resolves on its own. Don't debug it, re-seed, or re-attach; leave it and finish.
 
 ## Later admin requests
 
-For any later admin/management request, work as in STEP 4: `wix-headless` inline recipes first
-(`.agents/skills/wix-headless/references/inline-recipes/`), else `wix-docs` — all over the connector.
+For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
+`wix-docs` — all over the connector.
