@@ -114,6 +114,12 @@ restaurant items, portfolio projects, event heroes, CMS items), generate with **
 image generation**, then import into Wix Media and attach per the capability's `wix-headless`
 inline recipe "Attach images" step.
 
+**Pass only FINAL image urls to seeding.** Wait for `generate_image` to return its final
+`https://media.base44.com/...` url before handing it to a seed call — an in-flight
+`/__generating__/<id>.png` path is a placeholder, not a real url, and Wix rejects it (you'd have to
+re-seed). To still overlap the work, create the products WITHOUT images first, then attach in a
+second pass once the real urls are in hand (`attachProductImages` takes any product ids, any time).
+
 The connector + `wix-headless` seeding are **admin-only** (STEP 4) — **not** part of the client,
 which is built solely per the `wix-vibe-headless` skill.
 
