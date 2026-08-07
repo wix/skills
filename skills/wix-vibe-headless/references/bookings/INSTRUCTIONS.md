@@ -1,7 +1,7 @@
 
 # Wix Bookings Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and both bookings helpers from `references/bookings/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`). Copy **both** for the full booking flow:
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared config `references/shared/wix-config.js`, and both bookings helpers from `references/bookings/`. `wix-client.js` imports from `"./wix-config.js"` and the helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`). Copy **both** helpers for the full booking flow:
 >
 > | File | What it covers |
 > |---|---|
@@ -29,8 +29,8 @@ either slot. **COURSE (whole-course enrollment) is not covered** — see "Beyond
    (this skill does NOT provision — it's read-only over services). Staff/resources and a
    booking policy should be configured so slots are bookable.
 2. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (the Wix
-   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Paste
-   it into `src/rest/wix-client.js` in place of the placeholder. It is a buyer-facing credential
+   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Set it
+   in `src/rest/wix-config.js` in place of the placeholder. It is a buyer-facing credential
    (it only mints anonymous visitor tokens), **not** a secret, so hardcoding/committing it is fine.
 3. The site must **accept payments** for paid services, and the deployed app domain must be
    allow-listed on the OAuth client for Wix-hosted checkout to return. These are **separate Wix
@@ -41,10 +41,10 @@ either slot. **COURSE (whole-course enrollment) is not covered** — see "Beyond
 This skill ships only the REST layer — no UI components. Build the booking UI however the
 project wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only
 adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to the
-  id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token IS
-  the booking visitor identity; it is persisted to localStorage. Do not re-mint anonymously per
-  load.
+- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Reads `WIX_CLIENT_ID` from
+  `wix-config.js`. The visitor refresh token IS the booking visitor identity; it is persisted to
+  localStorage. Do not re-mint anonymously per load.
+- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) from the prompt.
 - `src/rest/wix-bookings-services.js` — **Services & availability:**
   `queryServices`, `getService`, `countServices`, `listAvailableSlots`, `getAvailableSlot`,
   `mediaUrl` (resolve a service image to an absolute URL)
