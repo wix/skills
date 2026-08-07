@@ -9,7 +9,11 @@ Wix Data seed operation. `require` it and call the functions with plain data.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/cms/seed/seed-cms.js");
+const fs = require("fs");
+// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
+const seed = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/cms/seed/seed-cms.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 await seed.installCmsApp(ctx);                          // if a data call returns WDE0110 (app not installed)

@@ -35,6 +35,26 @@ async function req(ctx, path, { method = "POST", body } = {}) {
   return json;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// A freshly installed Stores catalog transiently reports CATALOG_V1: V3 calls 428 with
+// applicationError.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" until provisioning settles to
+// V3. Poll a cheap V3 read until that code clears (bounded ~30s), so seeding doesn't race the
+// install. Returns once V3 is live (or after the budget — the caller's real call then surfaces it).
+async function waitForCatalogV3(ctx, { attempts = 20, delayMs = 1500 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(`${API}/stores/v3/products/query`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ctx.token}`, "wix-site-id": ctx.siteId, "Content-Type": "application/json" },
+      body: JSON.stringify({ query: { paging: { limit: 1 } } }),
+    });
+    if (res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    if (json?.details?.applicationError?.code !== "CATALOG_V1_SITE_CALLING_CATALOG_V3_API") return;
+    await sleep(delayMs);
+  }
+}
+
 // plain string -> Wix rich-text description node tree (plainDescription is HTML/nodes, not text)
 function mkDesc(text, i) {
   return {
@@ -89,10 +109,16 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }) {
 // ---- exported operations ----
 
 async function installStoresApp(ctx) {
-  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
-    tenant: { tenantType: "SITE", id: ctx.siteId },
-    appInstance: { appDefId: STORES_APP_ID, enabled: true },
-  } });
+  try {
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+      tenant: { tenantType: "SITE", id: ctx.siteId },
+      appInstance: { appDefId: STORES_APP_ID, enabled: true },
+    } });
+  } catch {
+    // already installed is fine — the readiness wait below still confirms the V3 catalog is live
+  }
+  // Do NOT return to the caller until V3 is ready, else the first V3 seed call 428s on CATALOG_V1.
+  await waitForCatalogV3(ctx);
 }
 
 // Clean is JUDGMENT — never auto-delete. Agent lists, decides which are obvious install samples,
