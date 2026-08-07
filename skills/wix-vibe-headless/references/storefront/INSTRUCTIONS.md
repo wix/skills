@@ -10,7 +10,7 @@ products; never hand-build a `/checkout` URL — the shipped cart goes through t
 redirect-session.
 
 ## Prerequisites
-- Wix Stores installed with products (this client is read/cart over the catalog; seeding is STEP 5).
+- The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately (see **Seeding** below), in parallel with this build — so it may be empty at build time; the client renders the shipped empty state until products land.
 - The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
 ## STEP 1 — The client is already in `src/`
@@ -18,9 +18,14 @@ The install step (base44.md STEP 1) deployed both the REST scaffolds (`src/rest/
 storefront UI client into `src/`: `src/theme.css`, `src/context/CartContext.jsx`,
 `src/hooks/useProductDetail.js`,
 `src/components/{ProductCard,ProductGrid,CartButton,CartDrawer,VariantPicker}.jsx`,
-`src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`). Nothing to copy —
-confirm the files are there, then theme + wire (below). (Missing? re-run install, or copy
-`references/storefront/app/` → `src/`.)
+`src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`).
+
+They're already in place (STEP 1 deployed them) — go **straight to theming + wiring**, nothing to
+verify first. **Don't `read_file` the shipped page/component/hook source to inspect it** (`src/components`,
+`src/pages`, `src/hooks`, `src/context`): every field shape you need is in the snippets below. Read a
+shipped file's source **only** on a real fallback — a runtime error, or a field the snippets don't
+cover (see "Fallback only" at the end). (Files missing? the install's `deploy` result lists what it
+wrote; re-run install, or copy `references/storefront/app/` → `src/`.)
 
 ## STEP 2 — Credentials
 In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the value from your prompt.

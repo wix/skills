@@ -74,8 +74,9 @@ truth for how the client is built.
 **REST scaffolds are already in `src/rest/`** (STEP 1) — set `WIX_CLIENT_ID` in `wix-client.js`,
 `WIX_METASITE_ID` in `wix-manage-banner.js`; adapt with targeted edits, don't regenerate. Some
 verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
-`INSTRUCTIONS.md`, don't rebuild. The vertical's `INSTRUCTIONS.md` has every field shape; no need to
-read the scaffolds' source.
+`INSTRUCTIONS.md`, don't rebuild. STEP 1 already deployed these files — **don't `read_file` the
+deployed component/page source to inspect them**; every field shape is in `INSTRUCTIONS.md`. Read a
+deployed file only on a real fallback (an error, or a field the snippets don't cover).
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
