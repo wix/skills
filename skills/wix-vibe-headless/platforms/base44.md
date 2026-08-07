@@ -26,7 +26,7 @@ the three skills, deploys the REST scaffolds into `src/rest/`, and pins an AGENT
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync, existsSync, mkdirSync, copyFileSync, readFileSync, appendFileSync } = require('fs');
+const { readdirSync, existsSync, mkdirSync, copyFileSync, cpSync, readFileSync, appendFileSync } = require('fs');
 
 const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
 const results = {};
@@ -56,6 +56,8 @@ if (existsSync(REF)) {
     for (const f of files) {
       if (f.endsWith('.js')) { copyFileSync(`${REF}/${dir}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
     }
+    // A vertical may ship a ready UI client under app/ (storefront) — deploy it into src/.
+    if (existsSync(`${REF}/${dir}/app`)) cpSync(`${REF}/${dir}/app`, '/app/src', { recursive: true });
   }
 }
 
@@ -111,14 +113,11 @@ fails or shows nothing relevant, ask the user what they offer.
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
 
-**All REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
-(`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`, …)
-there. Use your vertical's files, set `WIX_CLIENT_ID` in `wix-client.js` and
-`WIX_METASITE_ID` in `wix-manage-banner.js`, and adapt with targeted edits — **do not regenerate
-them**. Unused verticals are harmless. Generate only the app-specific UI (components/pages).
-
-**No need to read the scaffolds' source** (`wix-client.js`/`wix-store-*.js`) — the vertical's
-`INSTRUCTIONS.md` has every field shape + correct usage. Just import them.
+**REST scaffolds are already in `src/rest/`** (STEP 1) — set `WIX_CLIENT_ID` in `wix-client.js`,
+`WIX_METASITE_ID` in `wix-manage-banner.js`; adapt with targeted edits, don't regenerate. Some
+verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
+`INSTRUCTIONS.md`, don't rebuild. The vertical's `INSTRUCTIONS.md` has every field shape; no need to
+read the scaffolds' source.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
