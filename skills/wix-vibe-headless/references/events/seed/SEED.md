@@ -22,8 +22,32 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
+// DEFAULT — one call runs the whole flow per event (create DRAFT → tiers → publish), then resolves
+// category NAMES → ids + assigns and attaches main images. Ids are kept in memory; nothing is
+// hand-threaded across exec calls. Dates MUST be in the future (ISO-8601 UTC); default ~60–90 days
+// out and note it if the request gives none. price is a decimal STRING; ticket name <= 30 chars;
+// omit ticketTiers for RSVP/free, omit image when imagery is off. height/width REQUIRED or it won't render.
+const summary = await seed.setupEvents(ctx, {
+  events: [{
+    title: "Summer Synth Festival", shortDescription: "One night of analog sound.",
+    type: "TICKETING", startDate: "2026-10-01T03:30:00.000Z", endDate: "2026-10-01T07:00:00.000Z",
+    timeZoneId: "America/Los_Angeles",
+    location: { name: "The Echo Lot", type: "VENUE", address: { addressLine: "120 Harbor St", city: "Seattle", subdivision: "US-WA", postalCode: "98101", country: "US" } },
+    ticketTiers: [{ name: "General Admission", price: "65.00", initialLimit: 200 }],
+    category: "Talks",
+    image: { id: file.id, url: file.url, height: 1024, width: 1024 }, // altText defaults to the event slug
+  }],
+});
+// summary -> { events: [{ id, slug, ticketCount, category }], categories: [{ id, name }], imagesAttached }
+```
+
+### Escape hatch — individual steps
+
+Call the step functions directly only when `setupEvents` doesn't fit (e.g. re-running a single step,
+or a shape it doesn't model). Same order applies: create DRAFT → (ticketed) tiers → publish → categories → image.
+
+```js
 // STEP 1 — create each event as a DRAFT. TICKETING = paid tiers; RSVP = free built-in form (no fields to seed).
-// Dates MUST be in the future (ISO-8601 UTC); default ~60–90 days out and note it if the request gives none.
 const ev = await seed.createEvent(ctx, {
   title: "Summer Synth Festival", shortDescription: "One night of analog sound.",
   type: "TICKETING", startDate: "2026-10-01T03:30:00.000Z", endDate: "2026-10-01T07:00:00.000Z",
@@ -53,6 +77,7 @@ Free/RSVP events need neither.
 ## Functions
 | fn | does |
 |---|---|
+| `setupEvents(ctx, {events})` | **DEFAULT** — one call: per event create DRAFT → tiers → publish, then resolve category names → assign + attach images → `{events, categories, imagesAttached}` |
 | `createEvent(ctx, event)` | STEP 1 — create ONE draft event (no bulk; loop for many) → `{id, slug}` |
 | `createTicketTiers(ctx, eventId, tiers)` | STEP 2 — TICKETING only, parallel batch → `[{id}]` |
 | `publishEvent(ctx, eventId)` | STEP 3 — publish (one-way) |

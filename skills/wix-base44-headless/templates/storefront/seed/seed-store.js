@@ -201,7 +201,47 @@ async function attachProductImages(ctx, items) {
   });
 }
 
+/**
+ * ONE-CALL seed: install → create products → categories → attach images, in the correct order,
+ * keeping the created ids in memory (no hand-threading of product ids across exec calls). This is
+ * the DEFAULT path — call it once instead of the individual functions.
+ *
+ * @param plan {{
+ *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText? }],
+ *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
+ * }}
+ * Cleanup is intentionally NOT here — deleting existing content is a judgment call; do it explicitly
+ * with listProducts/deleteProducts first if (and only if) the site holds obvious install samples.
+ * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
+ */
+async function setupStore(ctx, { products = [], categories = {} } = {}) {
+  await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
+
+  const created = await bulkCreateProducts(ctx, products);
+  const withNames = created.map((p, i) => ({ ...p, name: products[i]?.name }));
+  const idByName = new Map(withNames.map((p) => [p.name, p.id]));
+
+  const names = Object.keys(categories);
+  const cats = names.length ? await createCategories(ctx, names) : [];
+  if (cats.length) {
+    const mapping = {};
+    for (const c of cats) {
+      const ids = (categories[c.name] || []).map((n) => idByName.get(n)).filter(Boolean);
+      if (ids.length) mapping[c.id] = ids;
+    }
+    if (Object.keys(mapping).length) await addProductsToCategories(ctx, mapping);
+  }
+
+  const imageItems = withNames
+    .map((p, i) => ({ id: p.id, revision: p.revision, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
+    .filter((it) => it.url);
+  if (imageItems.length) await attachProductImages(ctx, imageItems);
+
+  return { products: withNames, categories: cats, imagesAttached: imageItems.length };
+}
+
 module.exports = {
+  setupStore,
   installStoresApp, listProducts, deleteProducts,
   bulkCreateProducts, createCategories, addProductsToCategories, attachProductImages,
 };

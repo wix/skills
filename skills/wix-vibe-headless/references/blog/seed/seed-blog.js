@@ -178,6 +178,44 @@ async function attachPostCovers(ctx, covers) {
   }
 }
 
+/**
+ * DEFAULT one-call path — seed a whole blog in ONE exec call. Resolves the author memberId and
+ * category/tag names → ids internally and keeps every id in memory, so nothing is hand-threaded
+ * across exec calls. Order: memberId → categories/tags → posts (with resolved ids) → covers.
+ * @param plan {
+ *   posts: [{ title, content?|richContent?, category?|categories?(name|names), tags?(names), coverImageUrl?|cover?(WixMedia fileId) }],
+ *   categories?: [name],  // pre-create categories even if no post references them
+ *   tags?: [name],
+ * }
+ *   category/categories/tags are display NAMES (resolved to ids here); cover/coverImageUrl is the
+ *   WixMedia file id — a cover is attached only for posts that provide one.
+ * @returns { posts:[{id,index,success}], categories:[{id,name}], tags:[{id,name}], coversAttached }
+ */
+async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
+  const memberId = await getAuthorMemberId(ctx);
+  const catNames = [...new Set([...categories, ...posts.flatMap((p) => [].concat(p.category ?? [], p.categories ?? []))])];
+  const tagNames = [...new Set([...tags, ...posts.flatMap((p) => [].concat(p.tags ?? []))])];
+  const cats = catNames.length ? await createCategories(ctx, catNames) : [];
+  const tgs = tagNames.length ? await createTags(ctx, tagNames) : [];
+  const catId = new Map(cats.map((c) => [c.name, c.id]));
+  const tagId = new Map(tgs.map((t) => [t.name, t.id]));
+  const created = await createPosts(ctx, posts.map((p) => {
+    const cn = [].concat(p.category ?? [], p.categories ?? []);
+    const tn = [].concat(p.tags ?? []);
+    return {
+      ...p,
+      ...(cn.length ? { categoryIds: cn.map((n) => catId.get(n)).filter(Boolean) } : {}),
+      ...(tn.length ? { tagIds: tn.map((n) => tagId.get(n)).filter(Boolean) } : {}),
+    };
+  }), { memberId });
+  const covers = created
+    .map((post, i) => ({ postId: post.id, fileId: posts[i]?.coverImageUrl ?? posts[i]?.cover }))
+    .filter((c) => c.postId && c.fileId);
+  if (covers.length) await attachPostCovers(ctx, covers);
+  return { posts: created, categories: cats, tags: tgs, coversAttached: covers.length };
+}
+
 module.exports = {
+  setupBlog,
   getAuthorMemberId, createPosts, createCategories, createTags, attachPostCovers,
 };

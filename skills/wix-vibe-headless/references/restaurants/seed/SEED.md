@@ -9,6 +9,12 @@ with plain data.
 > **NOT yet live-verified — transcribed from `setup-restaurants.md`, `setup-restaurant-orders.md`,
 > `setup-restaurant-reservations.md`, `setup-restaurant-experiences.md`.**
 
+## Default: one call
+
+`setupRestaurants(ctx, plan)` does the whole seed in one call — installs the Menus app and builds the
+menu **bottom-up (items → sections → menu)** with ids kept in memory, so you never hand-thread ids
+across exec calls. Online ordering and table reservations run only when the plan asks for them.
+
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
@@ -19,15 +25,34 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
+const result = await seed.setupRestaurants(ctx, {
+  menu: {
+    name: "Dinner", description: "Evening menu",
+    sections: [
+      { name: "Antipasti", description: "To start", items: [
+        { name: "Bruschetta al Pomodoro", description: "Grilled sourdough, San Marzano tomatoes, basil.", price: 9.50, imageUrl: "https://…" },
+      ] },
+    ],
+  },
+  ordering: { address },                            // omit for menu-only; `true` skips the STEP 0 address (flag it)
+  reservations: { configuration: { onlineReservations: { partySize: { min: 2, max: 10 } } } },
+});
+// → { menuId, sectionIds, itemIds, orderingEnabled, reservationsEnabled, imagesAttached }
+```
+
+## Escape hatch: the individual fns
+
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
+Reach for these only when the one-call path doesn't fit (partial re-seed, custom
+fulfillment methods, experiences). The **items → sections → menu** ordering below is the rule
+`setupRestaurants`/`createMenu` bake in — a section is created with its `itemIds`, a menu with its
+`sectionIds`, so each child must exist before its parent.
+
+```js
 // ── MENU (always; the seedable core) ────────────────────────────────────────────────────────────
 await seed.installMenusApp(ctx);                    // if the site doesn't have Wix Restaurants Menus yet
-
-// Clean is a JUDGMENT call — never auto-delete. Only remove the install's obvious default "Dinner
-// Menu" on a fresh install; if it could be the owner's real menu, ask first (seeding is additive).
-// Children before parents: items → sections → menus.
-// const items = await seed.listMenuItems(ctx);   await seed.deleteMenuItems(ctx, items.map(i => i.id));
-// const secs  = await seed.listMenuSections(ctx); await seed.deleteMenuSections(ctx, secs.map(s => s.id));
-// const menus = await seed.listMenus(ctx);        for (const m of menus) await seed.deleteMenu(ctx, m.id);
 
 const menu = await seed.createMenu(ctx, {           // builds items → sections → menu bottom-up
   name: "Dinner", description: "Evening menu",
@@ -67,9 +92,6 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 | fn | does |
 |---|---|
 | `installMenusApp(ctx)` | install the Wix Restaurants Menus app |
-| `listMenuItems(ctx)` / `deleteMenuItems(ctx, ids)` | list / bulk-delete items (sample-cleanup judgment) |
-| `listMenuSections(ctx)` / `deleteMenuSections(ctx, ids)` | list / bulk-delete sections |
-| `listMenus(ctx)` / `deleteMenu(ctx, menuId)` | list / delete a menu (no bulk delete — one per menu) |
 | `createMenu(ctx, {name,description?,sections})` | items → sections → menu bottom-up → `{menuId,sectionIds,itemIds}` |
 | `attachItemImages(ctx, [{id,revision,price,image}])` | imagery pass — full-replace PATCH (echo revision + priceInfo) |
 

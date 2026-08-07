@@ -19,14 +19,29 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // There is NO clean-up step — a fresh Pricing Plans install ships no sample plans.
 
-const plans = await seed.createPlans(ctx, [
-  { name: "Studio Membership", description: "Unlimited group classes.", price: "20.00",
-    type: "recurring", billingCycle: { period: "MONTH", count: 1 },
-    perks: ["Unlimited group classes", "10% off workshops"],
-    coveredServiceIds: bookingsServiceIds },  // optional — only when this plan covers bookings services
-  // …just the plan data. price = decimal STRING; currency is site-derived (don't send it).
-]);
+// DEFAULT: one call. Creates the plan(s), keeps their ids in memory, and (per plan) wires bookings
+// coverage when provided — createPlans then attachBookingsCoverage (2a→2b→2c), in order.
+const { plans, coverageAttached, benefitsCreated } = await seed.setupPricingPlans(ctx, {
+  plans: [
+    { name: "Studio Membership", description: "Unlimited group classes.", price: "20.00",
+      type: "recurring", billingCycle: { period: "MONTH", count: 1 },
+      perks: ["Unlimited group classes", "10% off workshops"],
+      coveredServiceIds: bookingsServiceIds },  // optional — only when this plan covers bookings services
+    // …just the plan data. price = decimal STRING; currency is site-derived (don't send it).
+    // limited pack instead of unlimited: bookingsCoverage: { serviceIds, creditAmount: 8 }
+  ],
+});
+// A plans-only run (no bookings) just omits coveredServiceIds — STEP 2 is skipped automatically.
+```
 
+## Escape hatch — individual functions
+Call the steps yourself when you need finer control than the one-call path:
+
+```js
+const plans = await seed.createPlans(ctx, [
+  { name: "Studio Membership", price: "20.00", perks: ["Unlimited group classes"],
+    coveredServiceIds: bookingsServiceIds },
+]);
 // STEP 2 — only when bookings is in the run AND the plan covers services (skip otherwise):
 await seed.attachBookingsCoverage(ctx, plans[0].id, plans[0].coveredServiceIds);
 // limited pack instead of unlimited: attachBookingsCoverage(ctx, id, ids, { creditAmount: 8 })
@@ -35,6 +50,7 @@ await seed.attachBookingsCoverage(ctx, plans[0].id, plans[0].coveredServiceIds);
 ## Functions
 | fn | does |
 |---|---|
+| `setupPricingPlans(ctx, {plans})` | **DEFAULT** one call: createPlans → per-plan attachBookingsCoverage → `{plans,coverageAttached,benefitsCreated}` |
 | `createPlans(ctx, plans)` | one create call per plan (V3 has no bulk) → `[{id,name,coveredServiceIds}]` |
 | `attachBookingsCoverage(ctx, planId, serviceIds, {creditAmount?})` | STEP 2: 2a→2b→2c in order → `{itemSetId,serviceIds}` |
 | `getProgramDefinition(ctx, planId)` | 2a: READ the auto-created program definition (retry-once on 404) → `programDefinitionId` |

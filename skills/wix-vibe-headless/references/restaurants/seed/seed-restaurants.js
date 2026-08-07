@@ -353,7 +353,89 @@ async function createExperiences(ctx, reservationLocationId, experiences) {
   return out;
 }
 
+// ══ ONE-CALL ORCHESTRATOR ══════════════════════════════════════════════════════════════════════════
+/**
+ * DEFAULT one-call path — seed a whole Wix Restaurants site from a plain plan; the caller threads NO
+ * ids across exec calls. Installs the Menus app and builds the menu BOTTOM-UP (items → sections → menu):
+ * `createMenu` bulk-creates every item first, then the sections carrying their item ids, then the menu
+ * carrying its section ids — every child exists before its parent. In-memory name→id maps (item, section)
+ * wire the tree and map each plan item to its created id for the image pass (full-replace, echo revision
+ * + price; freshly created items are at revision "1"). Online ordering and table reservations are
+ * on-demand add-ons — touched ONLY when the plan asks, each installing its own app and following the
+ * module's own fns. Ordering needs a business-location address (`setBusinessLocation` STEP 0); if the
+ * plan names none the recipe's precondition applies (record + flag). `enableOnlineReservations` is
+ * premium-gated (428 on a free site) — expected and non-fatal, recorded not thrown.
+ *
+ * @param plan {
+ *   menu: { name, description?, sections: [{ name, description?,
+ *           items: [{ name, description?, price, imageUrl?|image? }] }] },
+ *   ordering?:     boolean | { address? },
+ *   reservations?: boolean | { address?, configuration? },
+ * }
+ * @returns { menuId, sectionIds, itemIds, orderingEnabled, reservationsEnabled, imagesAttached }
+ */
+async function setupRestaurants(ctx, plan) {
+  await installMenusApp(ctx);
+
+  const { menuId, sectionIds, itemIds } = await createMenu(ctx, plan.menu);
+
+  // name→id maps: createMenu flattens sections→items in order, so itemIds/sectionIds line up 1:1.
+  const flatItems = plan.menu.sections.flatMap((s) => s.items || []);
+  const itemNameToId = new Map(flatItems.map((it, i) => [it.name, itemIds[i]]));
+
+  // imagery pass — map each plan item that carries an image to its created id (revision "1", fresh).
+  const imageItems = flatItems
+    .filter((it) => it.image || it.imageUrl)
+    .map((it) => ({
+      id: itemNameToId.get(it.name),
+      revision: "1",
+      price: it.price,
+      image: it.image || { url: it.imageUrl },
+    }));
+  let imagesAttached = 0;
+  if (imageItems.length) {
+    try { await attachItemImages(ctx, imageItems); imagesAttached = imageItems.length; }
+    catch { /* never block on image failure */ }
+  }
+
+  // shared STEP 0 address — set once across both add-ons (SEED.md: do it once if both run).
+  let locationSet = false;
+  const ensureLocation = async (address) => {
+    if (address && !locationSet) { await setBusinessLocation(ctx, address); locationSet = true; }
+  };
+
+  let orderingEnabled = false;
+  if (plan.ordering) {
+    const cfg = typeof plan.ordering === "object" ? plan.ordering : {};
+    await installOrdersApp(ctx);                 // auto-provisions operation + methods + per-menu settings
+    await ensureLocation(cfg.address);
+    await listOperations(ctx);                   // verify the auto-created operation
+    await queryMenuOrderingSettings(ctx);        // confirm each menu is orderable
+    orderingEnabled = true;
+  }
+
+  let reservationsEnabled = false;
+  if (plan.reservations) {
+    const cfg = typeof plan.reservations === "object" ? plan.reservations : {};
+    await installTableReservationsApp(ctx);      // auto-provisions the default reservation location
+    await ensureLocation(cfg.address);           // independent of menu; address optional for reservations
+    let [loc] = await listReservationLocations(ctx);
+    if (loc && cfg.configuration) {
+      await updateReservationLocation(ctx, loc.id, loc.revision, cfg.configuration);
+      [loc] = await listReservationLocations(ctx);  // re-read for the bumped revision
+    }
+    if (loc) {
+      try { await enableOnlineReservations(ctx, loc.id, loc.revision); reservationsEnabled = true; }
+      catch { /* 428 PREMIUM_ONLY on a free site is expected — record, don't fail */ }
+    }
+  }
+
+  return { menuId, sectionIds, itemIds, orderingEnabled, reservationsEnabled, imagesAttached };
+}
+
 module.exports = {
+  // DEFAULT one-call orchestrator
+  setupRestaurants,
   // app install
   installMenusApp, installOrdersApp, installTableReservationsApp,
   // menu

@@ -97,18 +97,18 @@ const s = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-await s.installStoresApp(ctx);                    // if Wix Stores isn't installed yet
-const products = await s.bulkCreateProducts(ctx, [
-  { name: "…", description: "…", price: 49.99, quantity: 12 /*, options? only for real buyer choices */ },
-]);
-const cats = await s.createCategories(ctx, ["…"]);            // only if the brief names categories
-await s.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
-// imagery: generate per-product images, then ONE bulk attach:
-await s.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, revision: p.revision, url: imageUrls[i], altText: p.slug })));
+// ONE call: install (+wait for V3) → products → categories → images, ids kept in memory.
+// categories map name -> product NAMES; imageUrl per product only when imagery is on.
+await s.setupStore(ctx, {
+  products: [
+    { name: "…", description: "…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] /*, options? only for real buyer choices */ },
+  ],
+  categories: { "…": ["…"] },   // omit if the brief names none
+});
 ```
-Seeding is **additive** — never delete/overwrite existing content; if a cleanup seems needed, ask
-first. Unexpected shape or an operation the module doesn't cover → the **`wix-docs`** skill; never
-guess.
+Seeding is **additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, just add. Unexpected shape or an operation the module doesn't cover → the
+**`wix-docs`** skill; never guess.
 
 ## 6. Done
 - Mount the dev-only manage banner if the app carries `wix-manage-banner.js` (links to the Wix back

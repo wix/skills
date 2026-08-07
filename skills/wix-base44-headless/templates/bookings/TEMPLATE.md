@@ -78,7 +78,6 @@ import Home from "@/pages/Home";   // <- the home page YOU build
 ```
 
 ## 5. Seed (build-time, via exec_tool — see `seed/seed-bookings.js` header + SEED for exact calls)
-Order matters: **staff + category BEFORE services; class sessions AFTER.**
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const { WIX_METASITE_ID } = require("/app/src/wix.config.json");   // the file you filled in step 2
@@ -91,23 +90,19 @@ const s = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-await s.installBookingsApp(ctx);                          // if Wix Bookings isn't installed yet
-const staff = await s.queryStaff(ctx);                    // fresh install has a default owner
-const resourceId = staff[0].resourceId;                   // NB: resourceId, NOT id
-const cats = await s.createCategories(ctx, ["Our Services"]);   // every service needs a category id
-const services = await s.createServices(ctx, [
-  { type: "APPOINTMENT", name: "…", description: "…", price: 75, duration: 60, categoryId: cats[0].id, staffMemberIds: [resourceId] },
-  { type: "CLASS", name: "…", description: "…", price: 20, capacity: 20, categoryId: cats[0].id },
-]);
-await s.scheduleClassSessions(ctx, services.filter(x => x.type === "CLASS").map(x => ({
-  scheduleId: x.scheduleId, resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20,
-})));
-// imagery ON only: generate images, then per-service revision-checked patch:
-// await s.attachServiceImage(ctx, { serviceId: x.id, revision: x.revision, image: { id, url, width, height } });
+// ONE call: install → resolve staff → categories → services → CLASS sessions → images, in the
+// right order, ids kept in memory. `category` is a NAME. Free service: free:true, omit price.
+await s.setupBookings(ctx, {
+  services: [
+    { type: "APPOINTMENT", name: "…", description: "…", price: 75, duration: 60, category: "Our Services" },
+    { type: "CLASS", name: "…", description: "…", price: 20, capacity: 20, category: "Our Services",
+      sessions: [{ start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00" }] },
+  ],
+});
 ```
-Seeding is **additive** — never delete/overwrite existing content; if a cleanup seems needed, ask
-first. Both bulk calls report per-item `success`/`error` — retry only failed items once. Unexpected
-shape or an uncovered operation → the **`wix-docs`** skill; never guess.
+Seeding is **additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, just add. Both bulk calls report per-item `success`/`error` — retry only failed items
+once. Unexpected shape or an uncovered operation → the **`wix-docs`** skill; never guess.
 
 ## 6. Done
 - Point the user to `https://manage.wix.com/dashboard/{metaSiteId}`; slots only appear once **staff
