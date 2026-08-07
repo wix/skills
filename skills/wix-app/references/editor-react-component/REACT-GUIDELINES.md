@@ -10,7 +10,6 @@ This guide defines rules and guidance on **how to implement** production-quality
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
 - [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
-- [`COMPONENT-PREVIEW.md`](COMPONENT-PREVIEW.md) — `component.preview.tsx` patterns and `useIsEditMode()` usage
 - [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
 
 ## React 18 features are not supported
@@ -170,5 +169,5 @@ See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and [`COMPONENT-API.md`](COMPONENT-API.
 
 **Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; toggle custom-state classes from data ([`DESIGN-STATES.md`](DESIGN-STATES.md))
 
-**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md))
+**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md)). If the request uses the words **branded**, **themed**, or **brand-aware**, also apply [`BRANDED-COMPONENTS.md`](BRANDED-COMPONENTS.md) before writing CSS.
 
