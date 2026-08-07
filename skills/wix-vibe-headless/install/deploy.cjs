@@ -1,36 +1,26 @@
 // Post-install deploy — run by base44.md STEP 1 with the target VERTICAL:
 //   node deploy.cjs <vertical>   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
-// Deploys the SHARED transport plus ONLY that vertical's REST helpers + UI client into /app/src,
-// then pins project facts into AGENTS.md. Deploying just one vertical is deliberate: every vertical's
-// app/ has files at the SAME paths (theme.css, components/…), so copying all of them into one src/
-// would clobber (theme.css) and pile up (8 verticals' components/pages). paths are the Base44 sandbox's
-// /app. Safe to re-run (idempotent). No vertical arg → deploys just the shared transport; re-run with
-// the vertical once known.
+// ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
+// wix-config.js) is copied always; then ONLY the chosen vertical's app/ (its UI + app/rest/ helpers).
+// Deploying a single vertical is deliberate: every vertical's app/ has files at the SAME paths
+// (theme.css, components/…), so copying all of them into one src/ would clobber and pile up. Two
+// copies (not one) only because shared stays DRY. paths are the Base44 sandbox's /app. Idempotent.
+// No vertical arg -> deploys just the shared transport; re-run with the vertical once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { readdirSync, existsSync, mkdirSync, copyFileSync, cpSync, readFileSync, appendFileSync } = require('fs');
+const { existsSync, cpSync, readFileSync, appendFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members'];
 const vertical = process.argv[2];
-const deployed = { restScaffolds: [], vertical: null };
+const deployed = { vertical: null };
 
-mkdirSync('/app/src/rest', { recursive: true });
+// Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
+if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', { recursive: true });
 
-// Copy a dir's top-level *.js into src/rest/ (REST helpers; subdirs like app/ and seed/ are skipped).
-function copyRestJs(dir) {
-  for (const f of readdirSync(dir)) {
-    if (f.endsWith('.js')) { copyFileSync(`${dir}/${f}`, `/app/src/rest/${f}`); deployed.restScaffolds.push(f); }
-  }
-}
-
-// Shared transport — always (wix-client.js, wix-config.js, wix-manage-banner.js).
-if (existsSync(`${REF}/shared`)) copyRestJs(`${REF}/shared`);
-
-// The chosen vertical ONLY — its REST helpers -> src/rest/, its UI client (app/) -> src/.
-if (vertical && VERTICALS.includes(vertical) && existsSync(`${REF}/${vertical}`)) {
-  copyRestJs(`${REF}/${vertical}`);
-  if (existsSync(`${REF}/${vertical}/app`)) cpSync(`${REF}/${vertical}/app`, '/app/src', { recursive: true });
+// The chosen vertical ONLY — its app/ (UI + app/rest/ helpers) -> src/.
+if (vertical && VERTICALS.includes(vertical) && existsSync(`${REF}/${vertical}/app`)) {
+  cpSync(`${REF}/${vertical}/app`, '/app/src', { recursive: true });
   deployed.vertical = vertical;
 } else if (vertical) {
   deployed.error = `unknown vertical "${vertical}" — expected one of: ${VERTICALS.join(', ')}`;

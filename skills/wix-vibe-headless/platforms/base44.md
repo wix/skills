@@ -135,11 +135,8 @@ parallelize independent work (API calls, multiple entities).
 Once the site is built and seeded:
 
 1. **Mount the dev-only manage banner** (required; links the app to its Wix back office; shipped,
-   self-gates to dev builds, never in production). **Storefront:** render `<WixManageBanner/>` in your
-   Layout's fixed top region above the header (per INSTRUCTIONS STEP 4). **Other verticals:** import
-   `mountWixManageBanner` from `src/rest/wix-manage-banner.js` and call it once from the app entry; a
-   `fixed`/`sticky` app header then offsets with `top: var(--wix-manage-banner-height, 0px)` (the
-   banner keeps that CSS var in sync as it scrolls — the whole offset, no measuring or state).
+   self-gates to dev builds, never in production): render the `<WixManageBanner/>` component in your
+   Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS STEP 4.
 2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute your
    metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
    top banner linking to this same dashboard.
