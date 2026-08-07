@@ -55,34 +55,49 @@ dark tokens with `document.documentElement.dataset.theme = "dark"`.
 replace it.
 - `import "@/theme.css";` once at the app entry.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
-- Mount `<CartDrawer />` once inside the provider (outside `<Routes>` so it overlays every page), and
-  `<CartButton />` in the header you build.
-- Routes: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped). **You add `/` → your
-  own Home** page.
+- Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
+  route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
+  — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
+  header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
+- Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
+  **You add `/` → your own Home** page.
 
 ```jsx
 import "@/theme.css";
+import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
-import CartButton from "@/components/CartButton";
 import Shop from "@/pages/Shop";
 import ProductDetail from "@/pages/ProductDetail";
-import Home from "@/pages/Home";   // the home page YOU build
+import Home from "@/pages/Home";       // YOU build
+import Header from "@/components/Header";   // YOU build (see "What you build")
+import Footer from "@/components/Footer";   // YOU build
+
+// Your brand chrome around EVERY route. Shipped pages render in <Outlet/> untouched.
+function Layout() {
+  return (<>
+    <Header />
+    <Outlet />
+    <Footer />
+    <CartDrawer />               {/* overlays every page */}
+  </>);
+}
 
 <CartProvider>
-  {/* your header: mount <CartButton /> */}
   <Routes>
-    <Route path="/" element={<Home />} />                        {/* yours */}
-    <Route path="/shop" element={<Shop />} />                    {/* shipped */}
-    <Route path="/product/:slug" element={<ProductDetail />} />  {/* shipped */}
+    <Route element={<Layout />}>                                   {/* header/footer wrap all */}
+      <Route path="/" element={<Home />} />                        {/* yours */}
+      <Route path="/shop" element={<Shop />} />                    {/* shipped, as-is */}
+      <Route path="/product/:slug" element={<ProductDetail />} />  {/* shipped, as-is */}
+    </Route>
   </Routes>
-  <CartDrawer />
 </CartProvider>
 ```
 
 ## What you build (not shipped)
-The **home / landing page**, the **header/nav** (mount `<CartButton/>` in it), and the overall
-layout & brand story — styled from the same `theme.css` tokens. **Compose the shipped pieces** — a
+The **home / landing page**, the **`Header`** (mount `<CartButton/>` in it) and a **`Footer`** — the
+two you drop into the `Layout` (STEP 4) so they wrap every route — plus the overall brand story,
+styled from the same `theme.css` tokens. **Compose the shipped pieces** — a
 featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
 (a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
 text button) + a link to `/shop`:
@@ -185,6 +200,7 @@ these snippets don't have): read the relevant shipped file under `src/`, or look
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
 - Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Shop`/`ProductDetail` to add chrome.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or the shipped empty state — never mock products.
 
@@ -199,7 +215,7 @@ client build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components not restyled.
-- [ ] Routes wired; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
+- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] `Layout` (Header + `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
