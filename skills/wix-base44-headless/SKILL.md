@@ -66,10 +66,10 @@ yours to design per the brief. See step 6.
 4. **Wire routes + provider** — add the template's pages to the router and wrap the app in the
    provider, exactly as `TEMPLATE.md` lists. Small `find_replace` edits to `App.jsx` — never a
    rewrite (it carries platform auth scaffolding).
-5. **Seed** — `require` the vertical's `seed/` module (build-time, via exec_tool) and call its
-   functions with plain data built from the brief + brand. See the vertical's `TEMPLATE.md` and the
-   seed module's own header for the exact calls; if a call returns an unexpected shape, fall back to
-   the `wix-docs` skill (never guess).
+5. **Seed** — load the vertical's `seed/` module (build-time, via exec_tool) with the loader snippet
+   in its `TEMPLATE.md` — a plain `require` there can return empty exports, so use the snippet as
+   written — and call its functions with plain data built from the brief + brand. See `TEMPLATE.md`
+   and the seed module's own header for the exact calls; unexpected shape → the `wix-docs` skill.
 6. **Build the app-specific surface (this is your creative job)** — the home / landing page, the top
    nav/header, the overall layout, brand imagery and copy, and any page the template doesn't include.
    Style it from the same `theme.css` tokens so it matches the template pages. Everything the template

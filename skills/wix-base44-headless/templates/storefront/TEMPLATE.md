@@ -88,8 +88,13 @@ import Home from "@/pages/Home";   // <- the home page YOU build
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const { WIX_METASITE_ID } = require("/app/src/wix.config.json");   // the file you filled in step 2
-// require the seed module straight from the installed skill (build-time; not shipped in the app):
-const s = require("/app/.agents/skills/wix-base44-headless/templates/storefront/seed/seed-store.js");
+// Load the seed module (build-time; not shipped). exec_tool's plain `require` can return EMPTY
+// exports for this file, so load it via a module wrapper:
+const fs = require("fs");
+const s = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require",
+    fs.readFileSync("/app/.agents/skills/wix-base44-headless/templates/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 await s.installStoresApp(ctx);                    // if Wix Stores isn't installed yet
