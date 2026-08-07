@@ -1,9 +1,11 @@
 
 # Wix Members — custom login (client-only REST)
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this
-> vertical's `references/members/wix-members-auth.js`. Copy **both** into your app's `src/rest/` side by
-> side — the helper does `import { … } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared
+> config `references/shared/wix-config.js`, and this vertical's `references/members/wix-members-auth.js`.
+> Copy **all three** into your app's `src/rest/` side by side — `wix-client.js` does
+> `import { WIX_CLIENT_ID } from "./wix-config.js"` and the helper does `import { … } from "./wix-client.js"`,
+> so they must land in the same folder.
 
 Adds real **member accounts** to a client-only headless front end: sign up, log in, log out, and
 member-gated surfaces — all from the browser over the public `WIX_CLIENT_ID`, no SDK, no backend.
@@ -40,8 +42,8 @@ have). Don't blend their exchange calls — the helper handles each internally.
 1. A Wix site with the **Members Area app installed** if you need member *profile* data (name, photo,
    roles) or custom field definitions. Pure "logged-in vs. not" gating needs no app — see the
    identity-vs-profile split below.
-2. The site's public headless **`WIX_CLIENT_ID`** (from the handoff prompt), pasted into
-   `src/rest/wix-client.js`. Public, buyer-facing credential — safe to hardcode/commit.
+2. The site's public headless **`WIX_CLIENT_ID`** (from the handoff prompt), set in
+   `src/rest/wix-config.js`. Public, buyer-facing credential — safe to hardcode/commit.
 3. **OAuth-app allow-listing — the #1 gotcha. Two *different* fields gate the two mechanisms:**
 
    | Mechanism | What must be allow-listed | OAuth-app field | On `localhost:4321`? |
@@ -69,8 +71,8 @@ have). Don't blend their exchange calls — the helper handles each internally.
    > See "Point the user to their dashboard" below for the deep link and the exact values.
 
 ## The API (copy as-is; do not re-derive it)
-Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIENT_ID`. Exports of
-`wix-members-auth.js`:
+Copy `wix-client.js`, `wix-config.js`, and `wix-members-auth.js` into `src/rest/` and set
+`WIX_CLIENT_ID` in `wix-config.js`. Exports of `wix-members-auth.js`:
 - **Direct-credential:** `register(email, password, profile?)`, `login(email, password)`,
   `verifyEmail(code, stateToken)`, `sendPasswordResetEmail(email, redirectUri)`
 - **Social / SSO:** `startSocialLogin(idp, callbackUri, returnTo?)`, `completeSocialLogin()`, `IDP`

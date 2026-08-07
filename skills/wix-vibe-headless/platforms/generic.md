@@ -111,8 +111,8 @@ back to the `wix-docs` skill where the operation isn't documented there.
 After the site is built and seeded:
 
 1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): from the
-   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` to
-   your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
+   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` in
+   `references/shared/wix-config.js` to your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
    builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
    guarantee: verify the gate actually holds in this stack, and that a production build never
    shows the banner (no dev flag → no banner at all). A `fixed`/`sticky` app header is not in

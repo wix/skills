@@ -1,7 +1,7 @@
 
 # Wix Pricing Plans Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/pricing-plans/wix-pricing-plans.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared config `references/shared/wix-config.js`, and this vertical's `references/pricing-plans/wix-pricing-plans.js`. Copy **all three** into your app's `src/rest/` side by side — `wix-client.js` does `import { WIX_CLIENT_ID } from "./wix-config.js"` and the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
 
 Builds a real, client-only Wix pricing-plans / membership front end. The browser talks to Wix
 directly over a public `WIX_CLIENT_ID`. Never mock plans; never hand-build a `/checkout` or
@@ -18,8 +18,8 @@ handles member login and payment).
 1. A Wix site with **Pricing Plans installed and at least one plan created** (this skill does
    NOT provision — it's read-only over the plans the merchant added in the dashboard).
 2. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (the Wix
-   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Paste
-   it into `src/rest/wix-client.js` in place of the placeholder. It is a buyer-facing credential
+   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Set it
+   in `src/rest/wix-config.js` in place of the placeholder. It is a buyer-facing credential
    (it only mints anonymous visitor tokens), **not** a secret, so hardcoding/committing it is fine.
 3. **Purchasing a plan is members-only and uses Wix-hosted checkout.** The hosted flow handles
    member login/signup + the order form + payment, then returns to your site. The deployed app
@@ -33,10 +33,10 @@ handles member login and payment).
 This skill ships only the REST layer — no UI components. Build the page's UI however the project
 wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only adjust
 import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to the
-  id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token is
-  persisted to localStorage; after a hosted checkout the same identity returns as a logged-in
-  member. Do not re-mint anonymously per load.
+- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Reads `WIX_CLIENT_ID` from
+  `wix-config.js`. The visitor refresh token is persisted to localStorage; after a hosted checkout
+  the same identity returns as a logged-in member. Do not re-mint anonymously per load.
+- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) from the prompt.
 - `src/rest/wix-pricing-plans.js` — exports:
   - **Plans:** `queryPlans`, `getPlanById`, `getPlanBySlug`
   - **Purchase:** `checkout`

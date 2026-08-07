@@ -1,7 +1,7 @@
 
 # Wix Restaurants Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/restaurants/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared config `references/shared/wix-config.js`, and the helper file(s) you need from `references/restaurants/`. `wix-client.js` imports from `"./wix-config.js"` and the helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
 >
 > | Need | Copy |
 > |---|---|
@@ -26,7 +26,7 @@ always go through the official cart + redirect-session and the reservations hold
    and online reservations enabled. If a flow's backing app/config isn't set up, that flow returns
    empty — flag it and continue; don't fabricate data.
 3. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (see the router `SKILL.md`).
-   Paste it into `src/rest/wix-client.js` in place of the placeholder. It is a buyer-facing
+   Set it in `src/rest/wix-config.js` in place of the placeholder. It is a buyer-facing
    credential (it only mints anonymous visitor tokens), **not** a secret — hardcoding/committing
    it is fine.
 4. The deployed app domain must be allow-listed on the OAuth client for Wix-hosted checkout to
@@ -37,10 +37,10 @@ always go through the official cart + redirect-session and the reservations hold
 This skill ships only the REST layer — no UI components. Build the restaurant UI however the
 project wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only
 adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to the id
-  from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token IS the
-  cart identity; it is persisted to localStorage. Do not re-mint anonymously per load or the cart
-  silently empties.
+- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Reads `WIX_CLIENT_ID` from
+  `wix-config.js`. The visitor refresh token IS the cart identity; it is persisted to localStorage.
+  Do not re-mint anonymously per load or the cart silently empties.
+- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) from the prompt.
 - `src/rest/wix-restaurants-menu.js` — **Menu (read-only):**
   `getFullMenu` (the assembled tree — start here), `listMenus`, `listSections`, `listItems`,
   `listVariants`, `listModifierGroups`, `listModifiers`, `listLabels`

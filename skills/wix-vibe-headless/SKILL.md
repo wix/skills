@@ -39,7 +39,7 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 - **Auth = one public client id.** `WIX_CLIENT_ID` is a **buyer/visitor-facing** credential —
   it only mints anonymous visitor tokens. It is **not a secret**; hardcoding and committing it
   is fine. The user provides it (their vibe/host platform surfaces a copyable prompt with the
-  id filled in). Paste it into `wix-client.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
+  id filled in). Paste it into `wix-config.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
 - **Money/price fields are objects, never scalars.** Every price/amount a Wix API returns —
   Stores `price.actualPrice`, Bookings service `payment.fixed.price`, Events ticket
   `registration.tickets.lowestPrice`, and the rest — has the shape `{ value, currency,
@@ -93,13 +93,15 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 
 ## How this skill is structured
 
-`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Two files make up each vertical's
+`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Three files make up each vertical's
 runtime:
 
-1. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
-   Set `WIX_CLIENT_ID` in it before use.
-2. **The vertical helper** — `references/<vertical>/<helper>.js`. It does
-   `import { wixApiRequest } from "./wix-client.js"`, so the two must sit **side by side** in the
+1. **The shared config** — `references/shared/wix-config.js`. Set `WIX_CLIENT_ID` (and
+   `WIX_METASITE_ID`) in it from the prompt before use.
+2. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
+   It reads `WIX_CLIENT_ID` from `wix-config.js`.
+3. **The vertical helper** — `references/<vertical>/<helper>.js`. It does
+   `import { wixApiRequest } from "./wix-client.js"`, so all three must sit **side by side** in the
    same folder.
 
 **Where these files live in the app, and how they get there** (pre-installed at setup, or copied
@@ -114,7 +116,7 @@ prerequisites, the exported API, how to wire it, the hard rules, and a verificat
 Load the vertical(s) the user's app needs; a project may combine several (e.g. a restaurant
 with a blog, or a store with pricing plans).
 
-| The user wants… | Vertical | Read | Helper(s) to copy (+ `shared/wix-client.js`) |
+| The user wants… | Vertical | Read | Helper(s) to copy (+ `shared/wix-client.js`, `shared/wix-config.js`) |
 |---|---|---|---|
 | Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` | `wix-store-catalog.js` + `wix-store-cart.js` |
 | Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` | `wix-bookings-services.js` + `wix-bookings-checkout.js` |
@@ -145,9 +147,9 @@ installed, not what the business is about. Never default to store/bookings on si
 2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
    **ask or check the site** (see above) instead of guessing. Open each picked vertical's
    `INSTRUCTIONS.md`.
-3. **Ensure the two files per vertical are in place** — `shared/wix-client.js` (once) + the
-   vertical helper, side by side — and set `WIX_CLIENT_ID`. (Where they live and how they get
-   there is your platform's call — see its instructions.)
+3. **Ensure the files per vertical are in place** — `shared/wix-client.js` + `shared/wix-config.js`
+   (once) + the vertical helper, side by side — and set `WIX_CLIENT_ID` in `wix-config.js`. (Where
+   they live and how they get there is your platform's call — see its instructions.)
 4. **Wire the UI** to the exported helpers following the vertical's INSTRUCTIONS. Build the UI
    however the project wants — these scaffolds ship the REST layer only, no components.
 5. **Verify** against the vertical's checklist before declaring done: token persists across

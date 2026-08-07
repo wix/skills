@@ -1,7 +1,7 @@
 
 # Wix CMS Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/cms/wix-cms.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared config `references/shared/wix-config.js`, and this vertical's `references/cms/wix-cms.js`. Copy **all three** into your app's `src/rest/` side by side — `wix-client.js` does `import { WIX_CLIENT_ID } from "./wix-config.js"` and the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
 
 Builds a real, client-only Wix CMS-backed app. The browser talks to Wix Data directly
 over a public `WIX_CLIENT_ID` to read and write items in the site's data collections.
@@ -22,7 +22,7 @@ the official Wix Data endpoints.
    collections, fields, and items in the Wix dashboard (CMS / Content Manager).
 2. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (the
    Wix Business Manager surfaces a copyable prompt with the id filled in — see
-   the router `SKILL.md`). Paste it into `src/rest/wix-client.js` in place of the placeholder. It is
+   the router `SKILL.md`). Set it in `src/rest/wix-config.js` in place of the placeholder. It is
    a buyer-facing credential (it only mints anonymous visitor tokens), **not** a secret,
    so hardcoding/committing it is fine.
 3. **Collection permissions** must match what you're doing. This skill runs as an
@@ -44,9 +44,10 @@ the official Wix Data endpoints.
 This skill ships only the REST layer — no UI components. Build the UI however the project
 wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only
 adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID`
-  to the id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor
-  refresh token is persisted to localStorage; do not re-mint anonymously per load.
+- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Reads `WIX_CLIENT_ID`
+  from `wix-config.js`. The visitor refresh token is persisted to localStorage; do not
+  re-mint anonymously per load.
+- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) from the prompt.
 - `src/rest/wix-cms.js` — exports:
   - **Read:** `queryDataItems`, `getDataItem`, `getDataItemBy`, `countDataItems`
   - **Write:** `insertDataItem`, `updateDataItem`, `removeDataItem`

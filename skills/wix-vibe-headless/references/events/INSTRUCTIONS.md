@@ -1,7 +1,7 @@
 
 # Wix Events Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/events/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js`, the shared config `references/shared/wix-config.js`, and the helper file(s) you need from `references/events/`. `wix-client.js` imports from `"./wix-config.js"` and the helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
 >
 > | Need | Copy |
 > |---|---|
@@ -24,8 +24,8 @@ ticket form.
    does NOT create events — it's read-only over them). Selling **paid** tickets also needs a
    Wix premium plan + a configured payment method; **free** events and RSVP events work without.
 2. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (the Wix
-   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Paste
-   it into `src/rest/wix-client.js` in place of the placeholder. It is a visitor-facing
+   Business Manager surfaces a copyable prompt with the id filled in — see the router `SKILL.md`). Set it
+   in `src/rest/wix-config.js` in place of the placeholder. It is a visitor-facing
    credential (it only mints anonymous visitor tokens), **not** a secret, so hardcoding/
    committing it is fine.
 3. For paid tickets the buyer completes payment on the **Wix-hosted ticket form** (the redirect
@@ -38,10 +38,10 @@ ticket form.
 This skill ships only the REST layer — no UI components. Build the events UI however the
 project wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only
 adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to the
-  id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token is
-  persisted to localStorage and IS the identity of the visitor's ticket reservation/cart — do
-  not re-mint anonymously per load.
+- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Reads `WIX_CLIENT_ID` from
+  `wix-config.js`. The visitor refresh token is persisted to localStorage and IS the identity of
+  the visitor's ticket reservation/cart — do not re-mint anonymously per load.
+- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) from the prompt.
 - `src/rest/wix-events-browse.js` — **Browse & discovery:**
   `queryEvents`, `getEventBySlug`, `countUpcomingEvents`, `queryEventCategories`, `listEventsByCategory`
 - `src/rest/wix-events-registration.js` — **RSVP & ticketing:**
