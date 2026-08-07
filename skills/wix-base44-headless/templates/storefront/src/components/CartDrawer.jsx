@@ -35,7 +35,7 @@ export default function CartDrawer() {
               display: "flex", gap: 12, padding: "12px 0",
               borderBottom: "1px solid var(--color-border)",
             }}>
-              <img src={item.image} alt={item.productName?.original} style={{
+              <img src={item.image?.url} alt={item.productName?.original} style={{
                 width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)",
                 background: "var(--color-surface)",
               }} />
