@@ -2,7 +2,7 @@
 
 Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
-seed operation. `require` it and call the functions with plain data.
+seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 
 ```js
 // build-time exec_tool
@@ -14,31 +14,28 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-await seed.installStoresApp(ctx);                       // installs if needed AND waits for the V3 catalog to be ready
-
-// Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a fresh
-// install; if what's there could be the owner's real catalog, ask first (seeding is additive).
-const existing = await seed.listProducts(ctx);
-// await seed.deleteProducts(ctx, existing.filter(isObviousSample).map(p => p.id));
-
-const products = await seed.bulkCreateProducts(ctx, [
-  { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12 },
-  // …just the catalog data. options ONLY for real buyer choices (Size/Color); default none.
-]);
-
-const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);   // only if the brief names categories
-await seed.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
-
-// imagery ON only: generate images per IMAGE_GENERATION.md, then one bulk attach
-await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, revision: p.revision, url: imageUrls[i], altText: p.slug })));
+// ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
+// in memory (no hand-threading). Categories map name -> product NAMES. imageUrl per product only
+// when imagery is on. options ONLY for real buyer choices (Size/Color); default none.
+const result = await seed.setupStore(ctx, {
+  products: [
+    { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
+    // …just the catalog data
+  ],
+  categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
+});
+// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached }
 ```
+
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add. Need finer control than `setupStore`? The individual functions
+below still exist (setupStore is built from them).
 
 ## Functions
 | fn | does |
 |---|---|
-| `installStoresApp(ctx)` | install the Wix Stores app on the site |
-| `listProducts(ctx)` | `[{id,name}]` — for the sample-cleanup judgment |
-| `deleteProducts(ctx, ids)` | bulk-delete (only obvious samples) |
+| `setupStore(ctx, {products, categories?})` | **one-call**: install+wait → products → categories → images |
+| `installStoresApp(ctx)` | install the Wix Stores app on the site (waits for the V3 catalog) |
 | `bulkCreateProducts(ctx, products)` | one bulk create → `[{id,slug,revision}]` |
 | `createCategories(ctx, names)` | sequential (shared tree 409s on concurrent) → `[{id,name}]` |
 | `addProductsToCategories(ctx, {catId:[pid]})` | sequential add-items |

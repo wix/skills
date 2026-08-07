@@ -7,6 +7,10 @@ seed operation. `require` it and call the functions with plain data.
 > **NOT yet live-verified — transcribed from `setup-blog.md`.** Endpoints/fields mirror the recipe
 > exactly; if a call returns an unexpected shape, use the **`wix-docs`** skill (never guess).
 
+**DEFAULT — one call.** `setupBlog(ctx, plan)` runs the whole flow (memberId → categories/tags →
+posts → covers), keeping every id in memory. Pass category/tag **names** and it resolves them to
+ids internally; covers attach only for posts that carry a WixMedia file id.
+
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
@@ -17,6 +21,29 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
+const result = await seed.setupBlog(ctx, {
+  categories: ["Recipes", "Brewing"],   // optional — names, resolved to ids internally
+  posts: [
+    { title: "How We Roast Our Beans", category: "Recipes", tags: ["coffee"],
+      content: [
+        { type: "heading", text: "From farm to cup", level: 2 },
+        { type: "paragraph", text: "Every batch starts with beans from a single estate." },
+        { type: "quote", text: "Great coffee is grown, not made." },
+      ],
+      // imagery ON only: import per IMAGE_GENERATION.md, then pass the WixMedia file id here
+      coverImageUrl: fileIds[0],
+    },
+  ],
+});
+// → { posts:[{id,index,success}], categories:[{id,name}], tags:[{id,name}], coversAttached }
+// check each posts[].success (bulk returns 200 even on partial failure).
+```
+
+## Escape hatch — individual functions
+
+Call the steps yourself when you need finer control (custom ordering, reusing existing ids):
+
+```js
 const memberId = await seed.getAuthorMemberId(ctx);   // STEP 1 — required for every post create
 
 // STEP 3 (optional): only if the request groups posts (e.g. "Recipes and Brewing sections")
@@ -38,6 +65,7 @@ await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fi
 ## Functions
 | fn | does |
 |---|---|
+| `setupBlog(ctx, plan)` | **DEFAULT** — one call: memberId → categories/tags → posts → covers; names resolved to ids internally → `{posts,categories,tags,coversAttached}` |
 | `getAuthorMemberId(ctx)` | STEP 1 — fetch a real member id for author attribution (throws if none) |
 | `createPosts(ctx, posts, { memberId })` | STEP 2 — auto single-vs-bulk create, published → `[{id,index,success}]` |
 | `createCategories(ctx, names)` | STEP 3 — sequential creates → `[{id,name}]` (feed into `post.categoryIds`) |

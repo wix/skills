@@ -235,7 +235,66 @@ async function attachServiceImage(ctx, it) {
   });
 }
 
+/**
+ * ONE-CALL seed: install → resolve staff → categories → services → CLASS sessions → images, in the
+ * correct order, keeping ids in memory (no hand-threading of scheduleId/resourceId across exec
+ * calls). DEFAULT path — call it once instead of the individual functions.
+ *
+ * @param plan {{
+ *   services: [{ type:"APPOINTMENT"|"CLASS", name, description, tagLine?, price?, free?, duration?,
+ *                capacity?, category?(name), staffMemberIds?,
+ *                sessions?: [{ start, end, capacity? }],  // CLASS only; local "YYYY-MM-DDThh:mm:ss"
+ *                image? }],                                // {id,url,width,height} to attach, optional
+ *   staffResourceId?: string,   // defaults to the fresh install's owner (queryStaff()[0].resourceId)
+ * }}
+ * Cleanup is intentionally NOT here — deleting existing services is a judgment call.
+ * @returns { services:[...createServices], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
+ */
+async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
+  await installBookingsApp(ctx);
+
+  let resourceId = staffResourceId;
+  if (!resourceId) {
+    const staff = await queryStaff(ctx);
+    resourceId = staff[0]?.resourceId; // fresh install ships a default owner
+  }
+
+  const catNames = [...new Set(services.map((s) => s.category).filter(Boolean))];
+  const cats = catNames.length ? await createCategories(ctx, catNames) : [];
+  const catIdByName = new Map(cats.map((c) => [c.name, c.id]));
+
+  const created = await createServices(ctx, services.map((s) => ({
+    type: s.type, name: s.name, description: s.description, tagLine: s.tagLine,
+    price: s.price, free: s.free, duration: s.duration, capacity: s.capacity,
+    categoryId: s.category ? catIdByName.get(s.category) : undefined,
+    staffMemberIds: s.staffMemberIds ?? (s.type === "APPOINTMENT" && resourceId ? [resourceId] : undefined),
+  })));
+
+  const sessions = [];
+  created.forEach((c, i) => {
+    const plan = services[i];
+    if (c.type === "CLASS" && Array.isArray(plan?.sessions)) {
+      for (const ses of plan.sessions) {
+        sessions.push({ scheduleId: c.scheduleId, resourceId, start: ses.start, end: ses.end, capacity: ses.capacity ?? plan.capacity });
+      }
+    }
+  });
+  const scheduled = sessions.length ? await scheduleClassSessions(ctx, sessions) : [];
+
+  let imagesAttached = 0;
+  for (let i = 0; i < created.length; i++) {
+    const img = services[i]?.image;
+    if (img && created[i]?.id) {
+      await attachServiceImage(ctx, { serviceId: created[i].id, revision: created[i].revision, image: img });
+      imagesAttached++;
+    }
+  }
+
+  return { services: created, categories: cats, resourceId, sessionsScheduled: scheduled.length, imagesAttached };
+}
+
 module.exports = {
+  setupBookings,
   installBookingsApp, listServices, deleteServices,
   queryStaff, createStaff, queryCategories, createCategories,
   createServices, scheduleClassSessions, getService, attachServiceImage,

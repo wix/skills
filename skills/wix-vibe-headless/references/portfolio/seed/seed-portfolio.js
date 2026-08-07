@@ -149,7 +149,57 @@ async function createProjectItems(ctx, items) {
   return out;
 }
 
+/**
+ * DEFAULT one-call path — seed a whole portfolio from one plan; ids stay in memory so
+ * collections→projects→items→covers are wired without hand-threading ids. Order matches SEED.md:
+ * createCollections → createProjects (into collections) → createProjectItems → attach*Covers.
+ * @param plan {
+ *   collections: [{ title, description?, hidden?, cover?: { imageId, height, width } }],
+ *   projects:    [{ title, description?, details?, hidden?,
+ *                   collection?: "<collection title>",   // resolved to that collection's id
+ *                   items?: [{ sortOrder, title, imageId, height, width }],
+ *                   cover?: { imageId, height, width } }],
+ * }
+ *   Covers/items are opt-in (imagery on) — a project/collection without a `cover`/`items` skips it.
+ * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
+ */
+async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
+  const cols = await createCollections(ctx, collections);               // STEP 1
+  const idByName = new Map(collections.map((c, i) => [c.title, cols[i].id]));
+
+  const projs = await createProjects(                                   // STEP 2
+    ctx,
+    projects.map((p) => ({
+      title: p.title, description: p.description, details: p.details, hidden: p.hidden,
+      collectionIds: p.collection ? [idByName.get(p.collection)].filter(Boolean) : [],
+    })),
+  );
+
+  const itemsFlat = projects.flatMap((p, i) =>
+    (p.items ?? []).map((it) => ({ ...it, projectId: projs[i].id })),
+  );
+  const items = itemsFlat.length ? await createProjectItems(ctx, itemsFlat) : [];
+
+  const projCovers = projects
+    .map((p, i) => (p.cover ? { id: projs[i].id, revision: projs[i].revision, ...p.cover } : null))
+    .filter(Boolean);
+  if (projCovers.length) await attachProjectCovers(ctx, projCovers);
+
+  const colCovers = collections
+    .map((c, i) => (c.cover ? { id: cols[i].id, revision: cols[i].revision, ...c.cover } : null))
+    .filter(Boolean);
+  if (colCovers.length) await attachCollectionCovers(ctx, colCovers);
+
+  return {
+    collections: cols,
+    projects: projs,
+    itemsCreated: items.length,
+    coversAttached: projCovers.length + colCovers.length,
+  };
+}
+
 module.exports = {
+  setupPortfolio,
   listProjects, deleteProjects, listCollections, deleteCollections,
   createCollections, createProjects,
   attachProjectCovers, attachCollectionCovers, createProjectItems,

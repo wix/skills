@@ -8,6 +8,13 @@ Portfolio seed operation. `require` it and call the functions with plain data.
 that Wix does **not** validate — a wrong id silently orphans the project. Create the collections
 first, then thread their real ids into each project.
 
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
+**DEFAULT — one call.** `setupPortfolio(ctx, plan)` runs the whole flow in the right order
+(collections → projects → items → covers), threading ids in memory. Pass covers/items only when
+imagery is on. Drop to the individual functions below only for step-by-step control.
+
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
@@ -18,14 +25,26 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-// Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a fresh
-// install (the "My Portfolio" collection + its sample projects); projects BEFORE collections.
-// If what's there could be the owner's real content, ask first (seeding is additive).
-const projs = await seed.listProjects(ctx);
-// await seed.deleteProjects(ctx, projs.filter(isObviousSample).map(p => p.id));
-const cols = await seed.listCollections(ctx);
-// await seed.deleteCollections(ctx, cols.filter(isObviousSample).map(c => c.id));
+const summary = await seed.setupPortfolio(ctx, {
+  collections: [
+    { title: "Brand Identity", description: "Logo systems and visual identities." },
+  ],
+  projects: [
+    { title: "Northwind Rebrand", description: "Full identity refresh for a logistics firm.",
+      collection: "Brand Identity",                    // resolved to that collection's id
+      details: [{ label: "Year", text: "2025" }],
+      // imagery ON only — generate + import per IMAGE_GENERATION.md, then pass ids/dims:
+      cover: { imageId: ids[0], height: 2880, width: 1920 },
+      items: [{ sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }] },
+  ],
+});
+// summary => { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
+```
 
+### Escape hatch — individual functions
+Use these directly when you need step-by-step control. Same order applies.
+
+```js
 const collections = await seed.createCollections(ctx, [                                 // STEP 1
   { title: "Brand Identity", description: "Logo systems and visual identities." },
 ]);
@@ -43,10 +62,7 @@ await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, t
 ## Functions
 | fn | does |
 |---|---|
-| `listProjects(ctx)` | `[{id,title}]` — for the sample-cleanup judgment |
-| `deleteProjects(ctx, ids)` | one DELETE per id (no bulk); run before collections |
-| `listCollections(ctx)` | `[{id,title}]` |
-| `deleteCollections(ctx, ids)` | one DELETE per id (no bulk); run after projects |
+| `setupPortfolio(ctx, plan)` | **DEFAULT** — one call: collections → projects → items → covers; returns `{collections,projects,itemsCreated,coversAttached}` |
 | `createCollections(ctx, collections)` | STEP 1 — `[{title,description?,hidden?}]` → `[{id,slug,revision}]` |
 | `createProjects(ctx, projects)` | STEP 2 — `[{title,description?,collectionIds,details?,hidden?}]` → `[{id,slug,revision}]` |
 | `attachProjectCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each project's cover (imagery on) |

@@ -167,7 +167,47 @@ async function setEventMainImage(ctx, item) {
   });
 }
 
+/**
+ * ONE-CALL seed: per event create DRAFT → (ticketed) add tiers → publish, then create + assign
+ * named categories and attach main images — in the correct order, keeping created ids in memory
+ * (no hand-threading of event ids across exec calls). DEFAULT path.
+ * @param plan {{ events: [{
+ *   ...createEvent fields (title, shortDescription?, type, startDate, endDate, timeZoneId, location, …),
+ *   ticketTiers?: [{ name, price, initialLimit?, … }],   // TICKETING only; omit to skip
+ *   category?: string,                                     // category NAME; resolved to id + assigned
+ *   image?: { id, url, height, width, altText? }           // imagery ON only; omit to skip
+ * }] }}
+ * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
+ */
+async function setupEvents(ctx, { events = [] } = {}) {
+  const created = [];
+  for (const ev of events) {
+    const e = await createEvent(ctx, ev);
+    const tiers = ev.ticketTiers?.length ? await createTicketTiers(ctx, e.id, ev.ticketTiers) : [];
+    await publishEvent(ctx, e.id);
+    created.push({ ...e, category: ev.category, image: ev.image, ticketCount: tiers.length });
+  }
+  const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
+  const cats = names.length ? await createEventCategories(ctx, names) : [];
+  for (const c of cats) {
+    const eventIds = created.filter((e) => e.category === c.name).map((e) => e.id);
+    await assignEventsToCategory(ctx, c.id, eventIds);
+  }
+  let imagesAttached = 0;
+  for (const e of created) {
+    if (!e.image?.url) continue;
+    await setEventMainImage(ctx, { eventId: e.id, altText: e.slug, ...e.image });
+    imagesAttached++;
+  }
+  return {
+    events: created.map((e) => ({ id: e.id, slug: e.slug, ticketCount: e.ticketCount, category: e.category ?? null })),
+    categories: cats,
+    imagesAttached,
+  };
+}
+
 module.exports = {
+  setupEvents,
   createEvent, createTicketTiers, publishEvent,
   createEventCategories, assignEventsToCategory, setEventMainImage,
 };

@@ -167,7 +167,63 @@ async function attachItemImage(ctx, dataCollectionId, { itemId, imageFieldKey, u
   return req(ctx, `/wix-data/v2/items/${itemId}`, { method: "PUT", body: { dataCollectionId, dataItem: { data } } });
 }
 
+// strip seed-only metadata (_key handle, image spec) so only real fields reach the insert
+const stripSeedMeta = ({ _key, image, ...fields }) => fields;
+
+/**
+ * DEFAULT one-call path — run the whole CMS seed (install → per-collection create+insert → images →
+ * cross-collection references) in ONE exec_tool call, keeping created item ids in memory so references
+ * and image attaches resolve WITHOUT the caller hand-threading ids across calls.
+ *
+ * @param plan {
+ *   collections: [{ id, displayName, fields, permissions?,       // fields/permissions per createCollection
+ *     items: [{ ...plainFields, _key?, image?: { fieldKey, url } }] }],  // _key = stable handle; image = attach spec
+ *   references?: [{ collectionId, referringItemFieldName, referringItemKey, referencedItemKey }],  // keys → ids via _key
+ * }
+ *   _key is a caller-chosen stable handle (unique across the whole plan) used to point references and
+ *   images at an item without pasting Wix ids. Optional pieces run only when present: an item's image
+ *   only when it carries `image.url`; references only when the array is non-empty.
+ * @returns { collections:[id], itemIdsByCollection:{[id]:[itemId]}, referencesInserted, imagesAttached }
+ */
+async function setupCms(ctx, { collections = [], references = [] } = {}) {
+  await installCmsApp(ctx);
+  const idByKey = new Map(); // _key -> created item id (resolves references + images, cross-collection)
+  const itemIdsByCollection = {};
+  let imagesAttached = 0;
+
+  for (const { id, displayName, fields, permissions, items = [] } of collections) {
+    await createCollection(ctx, { id, displayName, fields, permissions });
+    const created = await bulkInsertItems(ctx, id, items.map(stripSeedMeta));
+    itemIdsByCollection[id] = created.map((c) => c.id);
+    items.forEach((item, i) => { if (item._key != null) idByKey.set(item._key, created[i].id); });
+    for (let i = 0; i < items.length; i++) {
+      const img = items[i].image;
+      if (!img?.url) continue; // images ON only — leave the item text-only otherwise
+      await attachItemImage(ctx, id, { itemId: created[i].id, imageFieldKey: img.fieldKey, url: img.url });
+      imagesAttached++;
+    }
+  }
+
+  // group by referring collection so each collection's links go in ONE insert-references call
+  const byCollection = {};
+  for (const r of references) {
+    (byCollection[r.collectionId] ??= []).push({
+      referringItemFieldName: r.referringItemFieldName,
+      referringItemId: idByKey.get(r.referringItemKey) ?? r.referringItemKey,
+      referencedItemId: idByKey.get(r.referencedItemKey) ?? r.referencedItemKey,
+    });
+  }
+  let referencesInserted = 0;
+  for (const [collectionId, refs] of Object.entries(byCollection)) {
+    await insertReferences(ctx, collectionId, refs);
+    referencesInserted += refs.length;
+  }
+
+  return { collections: collections.map((c) => c.id), itemIdsByCollection, referencesInserted, imagesAttached };
+}
+
 module.exports = {
+  setupCms,
   PERMISSIONS,
   installCmsApp, createCollection,
   bulkInsertItems, insertItem, queryItems,

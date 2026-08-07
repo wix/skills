@@ -206,7 +206,34 @@ async function attachBookingsCoverage(ctx, planId, serviceIds, { creditAmount } 
   return { itemSetId, serviceIds };
 }
 
+/**
+ * DEFAULT one-call path — create plan(s) and, per plan, wire bookings coverage when provided.
+ * One call; created plan ids stay in memory so coverage never needs hand-threading of plan.id.
+ * Order: createPlans (all plans) -> per covering plan attachBookingsCoverage (2a->2b->2c, in order).
+ * The program definition is provisioned asynchronously ~1s after the plan; the retry-once-after-
+ * backoff on its 404 lives in getProgramDefinition and is preserved via attachBookingsCoverage.
+ * @param plan { plans: [{ ...createPlans fields (name, description?, price, type?, billingCycle?,
+ *   perks?, visibility?, buyable?),
+ *   coveredServiceIds?,                                    // bookings service ids this plan covers
+ *   bookingsCoverage?: { serviceIds?, creditAmount? } }] } // richer coverage; creditAmount = limited pack
+ * @returns { plans: [{id,name,coveredServiceIds}], coverageAttached: [{planId,itemSetId,serviceIds}], benefitsCreated }
+ */
+async function setupPricingPlans(ctx, { plans = [] } = {}) {
+  const created = await createPlans(ctx, plans); // ids kept in memory
+  const coverageAttached = [];
+  for (let i = 0; i < created.length; i++) {
+    const cov = plans[i].bookingsCoverage || {};
+    const serviceIds = cov.serviceIds || created[i].coveredServiceIds;
+    if (!serviceIds?.length) continue; // plans-only plan — skip STEP 2
+    const r = await attachBookingsCoverage(ctx, created[i].id, serviceIds, { creditAmount: cov.creditAmount });
+    coverageAttached.push({ planId: created[i].id, ...r });
+  }
+  const benefitsCreated = coverageAttached.reduce((n, c) => n + c.serviceIds.length, 0);
+  return { plans: created, coverageAttached, benefitsCreated };
+}
+
 module.exports = {
+  setupPricingPlans,
   createPlans,
   attachBookingsCoverage,
   getProgramDefinition, createPoolDefinition, createBenefitItems,
