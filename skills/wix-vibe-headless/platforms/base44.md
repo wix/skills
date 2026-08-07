@@ -71,8 +71,9 @@ fails or shows nothing relevant, ask the user what they offer.
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
 
-**REST scaffolds are already in `src/rest/`** (STEP 1) — set `WIX_CLIENT_ID` in `wix-client.js`,
-`WIX_METASITE_ID` in `wix-manage-banner.js`; adapt with targeted edits, don't regenerate. Some
+**REST scaffolds are already in `src/rest/`** (STEP 1). Write `src/rest/wix-config.js` with your
+`WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the one place both ids live (a single write,
+nothing to read). Some
 verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
 `INSTRUCTIONS.md`, don't rebuild. STEP 1 already deployed these files — **don't `read_file` the
 deployed component/page source to inspect them**; every field shape is in `INSTRUCTIONS.md`. Read a

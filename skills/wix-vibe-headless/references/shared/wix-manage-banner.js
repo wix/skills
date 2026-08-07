@@ -4,8 +4,8 @@
  * production builds (and stacks with no dev flag at all) never show it. The
  * ✕ button dismisses it persistently (localStorage).
  *
- * Copy next to wix-client.js, set WIX_METASITE_ID, and mount once from the
- * app entry (safe to call unconditionally — it no-ops outside dev):
+ * Mounted once from the app entry (safe to call unconditionally — it no-ops outside dev).
+ * Reads WIX_METASITE_ID from wix-config.js; how/when to mount it lives in the build docs.
  *
  *   import { mountWixManageBanner } from "./rest/wix-manage-banner.js";
  *   mountWixManageBanner();
@@ -15,8 +15,8 @@
  * `top: var(--wix-manage-banner-height, 0px)` (0 in prod / when dismissed).
  */
 
-/** The site's metasite id (from the same prompt that carried WIX_CLIENT_ID). */
-export const WIX_METASITE_ID = "<YOUR-METASITE-ID>";
+// The site's metasite id — set it in wix-config.js (alongside WIX_CLIENT_ID), not here.
+import { WIX_METASITE_ID } from "./wix-config.js";
 
 const DASHBOARD_URL = `https://manage.wix.com/dashboard/${WIX_METASITE_ID}`;
 const DISMISS_KEY = `wix-manage-banner-dismissed-${WIX_METASITE_ID}`;
