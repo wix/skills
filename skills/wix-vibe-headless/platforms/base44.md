@@ -20,65 +20,25 @@ Install three skills — they land under `.agents/skills/`:
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything the recipes don't
   cover.
 
-Install via the skills CLI — run this through exec_tool, exactly as written. One call: installs
-the three skills, deploys the REST scaffolds into `src/rest/`, and pins an AGENTS.md note
-(appended, idempotent):
+Install via the skills CLI — run this through exec_tool, exactly as written. It installs the three
+skills, then runs the shipped `deploy.js` (now on disk) which deploys the REST scaffolds + any ready
+UI client into `src/` and pins an AGENTS.md note:
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync, existsSync, mkdirSync, copyFileSync, cpSync, readFileSync, appendFileSync } = require('fs');
-
-const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
+const { readdirSync } = require('fs');
 const results = {};
-
-for (const skill of skills) {
+for (const skill of ['wix-headless', 'wix-vibe-headless', 'wix-docs']) {
   try {
-    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`, {
-      cwd: '/app', timeout: 60000, shell: '/bin/bash', stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const text = out.toString().replace(/\x1b\[[0-9;]*m/g, '');
-    results[skill] = /installed 1 skill|found 1 skill/i.test(text)
-      ? 'success'
-      : text.includes('No valid skills') ? 'not_found' : 'unknown';
-  } catch (e) {
-    results[skill] = 'error: ' + e.message;
-  }
+    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
+      { cwd: '/app', timeout: 60000, shell: '/bin/bash' }).toString().replace(/\x1b\[[0-9;]*m/g, '');
+    results[skill] = /installed 1 skill|found 1 skill/i.test(out) ? 'success'
+      : out.includes('No valid skills') ? 'not_found' : 'unknown';
+  } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-
-// Deploy REST scaffolds flat into src/rest/ so STEP 3 builds from them (siblings import ./wix-client.js).
-const REF = '/app/.agents/skills/wix-vibe-headless/references';
-const copiedToSrcRest = [];
-if (existsSync(REF)) {
-  mkdirSync('/app/src/rest', { recursive: true });
-  for (const dir of readdirSync(REF)) {
-    let files;
-    try { files = readdirSync(`${REF}/${dir}`); } catch { continue; }   // skip non-dirs
-    for (const f of files) {
-      if (f.endsWith('.js')) { copyFileSync(`${REF}/${dir}/${f}`, `/app/src/rest/${f}`); copiedToSrcRest.push(f); }
-    }
-    // A vertical may ship a ready UI client under app/ (storefront) — deploy it into src/.
-    if (existsSync(`${REF}/${dir}/app`)) cpSync(`${REF}/${dir}/app`, '/app/src', { recursive: true });
-  }
-}
-
-// Pin the skill location + project facts in AGENTS.md for later turns (idempotent).
-const NOTE = `
-
-## This app — a Wix-managed headless frontend (built with the Wix skills)
-
-This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
-
-The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
-
-- \`wix-vibe-headless\` — **how the CLIENT is built**: copy-as-is REST scaffolds, one vertical per capability under \`references/<vertical>/\` (storefront, bookings, events, blog, portfolio, restaurants, cms, pricing-plans, members).
-- \`wix-headless\` — **seeding & admin** over the connector: \`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content.
-- \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
-`;
-const amd = '/app/AGENTS.md';
-const cur = existsSync(amd) ? readFileSync(amd, 'utf8') : '';
-if (!cur.includes('Wix-managed headless frontend')) appendFileSync(amd, NOTE);
-
-return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest, agentsMdPinned: true };
+// Deploy scaffolds + ready UI into src/ and pin AGENTS.md — logic lives in the shipped script.
+const deploy = execSync('node /app/.agents/skills/wix-vibe-headless/install/deploy.js', { cwd: '/app' }).toString();
+return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy) };
 ```
 
 Read the skills with **`read_file`** (rooted at `/app` → workspace-relative path, e.g.
