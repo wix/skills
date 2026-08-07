@@ -66,7 +66,8 @@ import Home from "@/pages/Home";   // the home page YOU build
 The **home / landing page**, the **header/nav** (mount `<CartButton/>` in it), and the overall
 layout & brand story — styled from the same `theme.css` tokens. **Compose the shipped pieces** — a
 featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
-(it shows the live count and opens the drawer) + a link to `/shop`:
+(a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
+text button) + a link to `/shop`:
 
 ```jsx
 import { useState, useEffect } from "react";
@@ -76,6 +77,7 @@ import ProductGrid from "@/components/ProductGrid";
 import CartButton from "@/components/CartButton";
 
 export function Header() {                                  // in your nav
+  // <CartButton/> is an icon button — just drop it in; it inherits currentColor.
   return <nav>{/* brand/logo */}<Link to="/shop">Shop</Link><CartButton /></nav>;
 }
 export function Featured() {                                // on your home page
@@ -86,6 +88,18 @@ export function Featured() {                                // on your home page
 }
 ```
 Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+
+**Responsive header — one CartButton, not two.** The shipped components set their own inline
+`display`, so a Tailwind `hidden md:flex` / `md:hidden` toggle placed *on* a shipped component
+(inline style wins over the class) won't hide it — you'd ship a desktop **and** a mobile cart button
+at once. Render one header responsively instead: `const [mobile] = useState(() => window.innerWidth < 768)`
+and branch `{mobile ? <MobileNav/> : <DesktopNav/>}`, or put the `hidden md:flex` on a plain `<div>`
+wrapper you own (not on `<CartButton/>` itself).
+
+**Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
+can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
+full navigate/reload of the preview and re-check — don't keep rewriting correct code against a stale
+render.
 
 ## Using the client from your own UI (cart, hand-built images)
 
