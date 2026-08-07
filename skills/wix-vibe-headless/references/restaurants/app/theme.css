@@ -1,0 +1,37 @@
+/* theme.css — THE styling surface. Theme the whole restaurant by editing these tokens to the
+   brand; do NOT restyle the components' JSX. Every template component reads these variables, so
+   changing them here re-skins the entire site (menu, item dialog, order cart, reservations).
+   Import this once at the app entry.
+
+   Set the palette/typography/shape to the brand, then you're done styling. Add tokens if a brand
+   needs them, but keep components reading `var(--...)` — never hardcode a color in a component. */
+
+:root {
+  /* ---- color (set these to the brand) ---- */
+  --color-bg:        #ffffff;   /* page background */
+  --color-surface:   #f6f5f2;   /* cards, dialogs, wells */
+  --color-text:      #1c1a17;   /* primary text */
+  --color-muted:     #6b6357;   /* secondary text (descriptions, meta) */
+  --color-border:    #e7e3db;   /* hairlines, dividers */
+  --color-primary:   #1c1a17;   /* buttons, links, active */
+  --color-on-primary:#ffffff;   /* text/icon on primary */
+  --color-accent:    #c1440e;   /* featured, price highlight, badges */
+  --color-danger:    #b42318;   /* sold out, errors */
+
+  /* ---- typography ---- */
+  --font-body:    system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-body);  /* set a display/serif face for headings if the brand has one */
+
+  /* ---- shape & rhythm ---- */
+  --radius:      14px;
+  --radius-sm:   8px;
+  --space:       16px;          /* base spacing unit */
+  --maxw:        1040px;        /* content max width */
+  --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* Optional dark theme: the agent may map these if the brand is dark. Components need no change. */
+:root[data-theme="dark"] {
+  --color-bg:#12100d; --color-surface:#1c1913; --color-text:#f3efe8; --color-muted:#a89f90;
+  --color-border:#2c2820; --color-primary:#f3efe8; --color-on-primary:#12100d;
+}
