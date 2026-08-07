@@ -1,0 +1,44 @@
+name: analytics/query-site-analytics-schema-output-limit
+description: >-
+  Verifies the agent reads the query-site-analytics skill and handles large Semantic Model
+  schemas by fetching the complete schema but returning a compact complete projection instead of
+  sampling, truncating, or guessing fields.
+triggerPrompt: >-
+  I'm using the Wix Semantic Model API for Traffic. List Semantic Models returned the traffic
+  model ID, but Get Semantic Model returns so much JSON that my tool output gets truncated before
+  all dimensions are visible. I need top traffic sources without guessing field names. How should
+  I inspect the schema and proceed?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is using the Wix Semantic Model API for the Traffic model. Get Semantic Model
+      returns more JSON than the tool output can show, so the dimensions list is truncated, but the
+      user needs to choose fields for top traffic sources without guessing.
+      Intent: preserve the List -> Get -> Query flow while avoiding output-limit truncation.
+
+      Pass ONLY if the response:
+      - says to still fetch the complete schema from Get Semantic Model and select exact field
+        names from that schema before querying, AND
+      - explains that when raw schema output is too large, the agent should return a compact
+        COMPLETE projection that preserves every measure, dimension, and parameter field (at least
+        exact name plus enough metadata such as type, description/group, dependencies, and
+        sortable) instead of raw verbose metadata, AND
+      - explicitly warns not to use first-N sampling, `.slice(...)`, truncated output, or guessed
+        field names to build the query, AND
+      - mentions proceeding to Query Semantic Model Data only after selecting exact field names,
+        with the required interval.
+
+      Fail if the response:
+      - recommends choosing from the truncated output or asking the user to choose from an
+        incomplete field list, OR
+      - recommends increasing output limits as the only fix, OR
+      - samples or slices the fields list, OR
+      - presents traffic source field names as safe to query without first confirming them from Get
+        Semantic Model, OR
+      - skips the required Query Semantic Model Data interval.
