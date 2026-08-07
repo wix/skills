@@ -63,8 +63,28 @@ import Home from "@/pages/Home";   // the home page YOU build
 
 ## What you build (not shipped)
 The **home / landing page**, the **header/nav** (mount `<CartButton/>` in it), and the overall
-layout & brand story — styled from the same `theme.css` tokens. The shipped `Shop`/`ProductCard`
-are your reference for pulling catalog data (see below).
+layout & brand story — styled from the same `theme.css` tokens. **Compose the shipped pieces** — a
+featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
+(it shows the live count and opens the drawer) + a link to `/shop`:
+
+```jsx
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { queryProducts } from "@/rest/wix-store-catalog";
+import ProductGrid from "@/components/ProductGrid";
+import CartButton from "@/components/CartButton";
+
+export function Header() {                                  // in your nav
+  return <nav>{/* brand/logo */}<Link to="/shop">Shop</Link><CartButton /></nav>;
+}
+export function Featured() {                                // on your home page
+  const [products, setProducts] = useState([]);
+  // NB: queryProducts returns { products, nextCursor } — destructure the array.
+  useEffect(() => { queryProducts({ limit: 8 }).then(({ products }) => setProducts(products)); }, []);
+  return <ProductGrid products={products} empty="Products coming soon." />;
+}
+```
+Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
 
 ## Extending the client (read the files, don't guess shapes)
 The shipped files under `src/` are the source of truth for field shapes and correct usage — **read
