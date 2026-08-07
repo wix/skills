@@ -226,6 +226,61 @@ export default function ProductCard({ product }) {
 }
 ```
 
+**`pages/Shop.jsx`** — the catalog listing (grid + category menu + empty state + paging). Every
+catalog helper returns an **object, not a bare array** — `queryProducts`/`queryProductsByCategory`
+→ `{ products, nextCursor }`, `queryCategories` → `{ categories, nextCursor }`, `countProducts` → a
+number. Destructure first: calling `.filter`/`.map` on the returned object throws
+`… is not a function` (the #1 catalog-listing bug). Keep the destructuring exactly.
+
+```jsx
+import { useState, useEffect } from "react";
+import { queryProducts, queryProductsByCategory, queryCategories, countProducts } from "@/rest/wix-store-catalog";
+import ProductCard from "@/components/ProductCard";
+
+export default function Shop() {
+  const [products, setProducts] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [menu, setMenu] = useState([]);         // category menu (system category dropped)
+  const [active, setActive] = useState(null);   // selected category id, or null for "all"
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    // NB: destructure — these return objects, not arrays.
+    countProducts().then(setTotal);
+    queryCategories().then(({ categories }) =>
+      setMenu(categories.filter((c) => c.slug !== "all-products")));   // drop Wix's "All Products" system category
+  }, []);
+
+  useEffect(() => {
+    const load = active
+      ? queryProductsByCategory(active, { limit: 24 })
+      : queryProducts({ limit: 24 });
+    load.then(({ products, nextCursor }) => { setProducts(products); setCursor(nextCursor); });
+  }, [active]);
+
+  const loadMore = () => {
+    const load = active
+      ? queryProductsByCategory(active, { limit: 24, cursor })
+      : queryProducts({ limit: 24, cursor });
+    load.then(({ products: more, nextCursor }) => { setProducts((p) => [...p, ...more]); setCursor(nextCursor); });
+  };
+
+  if (total === 0) return <p>{/* empty state — no products yet */}</p>;
+  return (
+    <div /* restyle */>
+      <nav>
+        <button onClick={() => setActive(null)} aria-pressed={active === null}>All</button>
+        {menu.map((c) => (
+          <button key={c.id} onClick={() => setActive(c.id)} aria-pressed={active === c.id}>{c.name}</button>
+        ))}
+      </nav>
+      <div /* grid */>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
 **`CartDrawer.jsx`** — reads everything from `useCart()`; mutate by `lineItem.id` (not
 `catalogItemId`), check out via the context.
 
