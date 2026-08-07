@@ -39,7 +39,7 @@ below still exist (setupStore is built from them).
 | `bulkCreateProducts(ctx, products)` | one bulk create → `[{id,slug,revision}]`; products come out in stock with the `quantity` you pass |
 | `createCategories(ctx, names)` | sequential (shared tree 409s on concurrent) → `[{id,name}]` |
 | `addProductsToCategories(ctx, {catId:[pid]})` | sequential add-items |
-| `attachProductImages(ctx, [{id,url,altText}])` | one bulk media attach; no revision to pass. Safe to call right after generating images — it waits until each url actually serves before attaching (a not-yet-ready url would otherwise attach no media, permanently) |
+| `attachProductImages(ctx, [{id,url,altText}])` | one bulk media attach; no revision to pass. Wix re-hosts each url server-side; the media can take a little while to appear on read-back (propagation) — normal, not a failure |
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,

@@ -135,6 +135,11 @@ Once the site is built and seeded:
    metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
    top banner linking to this same dashboard.
 
+**Preview briefly, don't chase images.** A quick preview to confirm the app renders is enough.
+Seeded product images and any hero you generated are re-hosted by Wix from their urls server-side,
+so they can be missing or still loading right after seeding — that's normal propagation timing that
+resolves on its own. Don't debug it, re-seed, or re-attach; leave it and finish.
+
 ## Later admin requests
 
 For any later admin/management request, work as in STEP 4: `wix-headless` inline recipes first
