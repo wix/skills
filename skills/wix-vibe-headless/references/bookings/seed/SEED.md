@@ -9,7 +9,11 @@ Bookings seed operation. `require` it and call the functions with plain data.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.js");
+const fs = require("fs");
+// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
+const seed = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 await seed.installBookingsApp(ctx);                      // if the site doesn't have Wix Bookings yet

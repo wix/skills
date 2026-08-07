@@ -7,10 +7,14 @@ seed operation. `require` it and call the functions with plain data.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js");
+const fs = require("fs");
+// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
+const seed = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-await seed.installStoresApp(ctx);                       // if the site doesn't have Wix Stores yet
+await seed.installStoresApp(ctx);                       // installs if needed AND waits for the V3 catalog to be ready
 
 // Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a fresh
 // install; if what's there could be the owner's real catalog, ask first (seeding is additive).

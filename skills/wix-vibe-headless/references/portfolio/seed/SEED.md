@@ -11,7 +11,11 @@ first, then thread their real ids into each project.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
+const fs = require("fs");
+// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
+const seed = (() => { const m = { exports: {} };
+  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js", "utf8"))(m, m.exports, require);
+  return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a fresh
