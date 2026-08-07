@@ -131,9 +131,10 @@ cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned bu
 delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
 ask the user first.
 
-Seed by following these **exact** paths (recipes live under `references/` — don't drop it):
-`.agents/skills/wix-headless/references/SEED.md` + `…/references/inline-recipes/setup-<vertical>.md`
-(e.g. `setup-online-store.md`). Gaps → the **`wix-docs`** skill.
+Seed by calling your vertical's ready-made seed module — read
+`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and `require` its `seed-*.js`
+(build-time, via exec_tool); call its functions with your data. Gaps or an unexpected shape →
+the **`wix-docs`** skill.
 
 **Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
 access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
