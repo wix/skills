@@ -49,14 +49,21 @@ export function mountWixManageBanner() {
   // A solid, full-width strip in normal flow as <body>'s first child, so it
   // pushes the whole site down rather than floating over it. A position:fixed
   // (or absolute-over-hero) app header is NOT in normal flow, so it won't be
-  // pushed — but this banner publishes its own height as the CSS var
-  // `--wix-manage-banner-height` on :root (see below), so such a header just
-  // needs `top: var(--wix-manage-banner-height, 0px)` (0 in prod / when dismissed).
+  // pushed — so this banner publishes its own CURRENTLY-VISIBLE height as the CSS
+  // var `--wix-manage-banner-height` on :root: it's the full height at the top and
+  // shrinks to 0 as the banner scrolls away. A fixed/sticky header that sets
+  // `top: var(--wix-manage-banner-height, 0px)` therefore rides glued to the
+  // banner's bottom edge and lands flush at the top once it's scrolled off — no gap.
   const bar = document.createElement("div");
   bar.id = "wix-manage-banner";
   const root = document.documentElement;
-  const syncHeight = () =>
-    root.style.setProperty("--wix-manage-banner-height", `${bar.offsetHeight}px`);
+  let raf = 0;
+  const syncHeight = () => {
+    raf = 0;
+    const visible = Math.max(0, bar.offsetHeight - window.scrollY);
+    root.style.setProperty("--wix-manage-banner-height", `${visible}px`);
+  };
+  const onScrollOrResize = () => { if (!raf) raf = requestAnimationFrame(syncHeight); };
   bar.style.cssText =
     "position:relative;z-index:2147483647;box-sizing:border-box;display:flex;" +
     "align-items:center;justify-content:center;gap:14px;width:100%;" +
@@ -93,7 +100,8 @@ export function mountWixManageBanner() {
   close.addEventListener("click", () => {
     bar.remove();
     root.style.setProperty("--wix-manage-banner-height", "0px");
-    window.removeEventListener("resize", syncHeight);
+    window.removeEventListener("scroll", onScrollOrResize);
+    window.removeEventListener("resize", onScrollOrResize);
     try {
       window.localStorage.setItem(DISMISS_KEY, "1");
     } catch {
@@ -104,5 +112,6 @@ export function mountWixManageBanner() {
   bar.append(text, button, close);
   document.body.prepend(bar);
   syncHeight();                                  // publish height now that it's measurable
-  window.addEventListener("resize", syncHeight); // keep it correct if the bar wraps at narrow widths
+  window.addEventListener("scroll", onScrollOrResize, { passive: true });  // shrink the var as it scrolls off
+  window.addEventListener("resize", onScrollOrResize); // keep it correct if the bar wraps at narrow widths
 }

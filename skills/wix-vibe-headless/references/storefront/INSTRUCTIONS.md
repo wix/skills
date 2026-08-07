@@ -27,10 +27,10 @@ so you don't need to open them:**
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
 | `components/VariantPicker.jsx` | option/variant selector used on the PDP |
+| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
 | `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
-| `rest/wix-manage-banner.js` | dev-only manage banner — mount it once (base44.md STEP 5) |
 
 They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
 `read_file` the shipped page/component/hook source to inspect it** — the table above says what each is
@@ -59,33 +59,51 @@ replace it.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
   header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+  your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
+  markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
+  the content by the region's measured height so it clears the chrome and self-corrects when the
+  banner is dismissed.
 - Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
   **You add `/` → your own Home** page.
 
 ```jsx
 import "@/theme.css";
+import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
 import Shop from "@/pages/Shop";
 import ProductDetail from "@/pages/ProductDetail";
 import Home from "@/pages/Home";       // YOU build
-import Header from "@/components/Header";   // YOU build (see "What you build")
+import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
 
-// Your brand chrome around EVERY route. Shipped pages render in <Outlet/> untouched.
 function Layout() {
+  const topRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {                                  // measure the fixed region → pad content below it
+    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
+    if (topRef.current) ro.observe(topRef.current);
+    return () => ro.disconnect();
+  }, []);
   return (<>
-    <Header />
-    <Outlet />
-    <Footer />
-    <CartDrawer />               {/* overlays every page */}
+    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
+      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <Header />                             {/* your brand header, in-flow inside this fixed block */}
+    </div>
+    <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
+      <Outlet />                             {/* shipped Shop/ProductDetail render here, untouched */}
+      <Footer />
+    </div>
+    <CartDrawer />                           {/* overlays every page */}
   </>);
 }
 
 <CartProvider>
   <Routes>
-    <Route element={<Layout />}>                                   {/* header/footer wrap all */}
+    <Route element={<Layout />}>                                   {/* chrome wraps all */}
       <Route path="/" element={<Home />} />                        {/* yours */}
       <Route path="/shop" element={<Shop />} />                    {/* shipped, as-is */}
       <Route path="/product/:slug" element={<ProductDetail />} />  {/* shipped, as-is */}
@@ -201,6 +219,7 @@ these snippets don't have): read the relevant shipped file under `src/`, or look
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
 - Theme via `theme.css` tokens, never by rewriting the shipped components.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Shop`/`ProductDetail` to add chrome.
+- The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or the shipped empty state — never mock products.
 
@@ -216,6 +235,6 @@ client build; run in parallel.
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
 - [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
-- [ ] `Layout` (Header + `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
+- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
