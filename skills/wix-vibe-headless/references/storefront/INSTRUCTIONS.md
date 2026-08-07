@@ -89,12 +89,15 @@ components** section), and those components show correct usage of every helper �
   `inStock: true` and stays freely addable — tracking-off is not "no data", it's "always available".
   `addToCart` still throws on a sold-out line as a backstop, but the UI should prevent reaching it.
 - **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
-  a category landing page. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
+  a category landing page. **`queryCategories()` returns `{ categories, nextCursor }`** (same shape
+  as `queryProducts`) — destructure the array first; it is **not** itself an array, so
+  `queryCategories().filter(...)` / `(await queryCategories()).filter(...)` throws
+  `filter is not a function`. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
   to list only the products in that category; paginate exactly like `queryProducts`.
-  `queryCategories()` includes Wix's auto-created **"All Products" system category** (`slug:
-  "all-products"`) — it mirrors the full catalog, so drop it from the category menu
-  (`categories.filter(c => c.slug !== "all-products")`). Filter by that slug, not by name (renames/
-  localizes) or `visible` (it's `visible: true` like any other).
+  The result includes Wix's auto-created **"All Products" system category** (`slug: "all-products"`) —
+  it mirrors the full catalog, so drop it from the menu:
+  `const { categories } = await queryCategories(); const menu = categories.filter(c => c.slug !== "all-products");`
+  Filter by that slug, not by name (renames/localizes) or `visible` (it's `visible: true` like any other).
 - **Cart** — `addToCart(catalogItemId, variantId?, qty?, { modifierChoices?, customTextFields? }?)`,
   `updateCartItemQuantity(lineItemId, qty)`, `removeFromCart(lineItemId)`.
   - `variantId` (`variantsInfo.variants[].id` from `getProductBySlug`) — required for products with
@@ -219,6 +222,61 @@ export default function ProductCard({ product }) {
       <span>{price}</span>
       {compareAt && compareAt !== price && <span style={{ textDecoration: "line-through" }}>{compareAt}</span>}
     </Link>
+  );
+}
+```
+
+**`pages/Shop.jsx`** — the catalog listing (grid + category menu + empty state + paging). Every
+catalog helper returns an **object, not a bare array** — `queryProducts`/`queryProductsByCategory`
+→ `{ products, nextCursor }`, `queryCategories` → `{ categories, nextCursor }`, `countProducts` → a
+number. Destructure first: calling `.filter`/`.map` on the returned object throws
+`… is not a function` (the #1 catalog-listing bug). Keep the destructuring exactly.
+
+```jsx
+import { useState, useEffect } from "react";
+import { queryProducts, queryProductsByCategory, queryCategories, countProducts } from "@/rest/wix-store-catalog";
+import ProductCard from "@/components/ProductCard";
+
+export default function Shop() {
+  const [products, setProducts] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [menu, setMenu] = useState([]);         // category menu (system category dropped)
+  const [active, setActive] = useState(null);   // selected category id, or null for "all"
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    // NB: destructure — these return objects, not arrays.
+    countProducts().then(setTotal);
+    queryCategories().then(({ categories }) =>
+      setMenu(categories.filter((c) => c.slug !== "all-products")));   // drop Wix's "All Products" system category
+  }, []);
+
+  useEffect(() => {
+    const load = active
+      ? queryProductsByCategory(active, { limit: 24 })
+      : queryProducts({ limit: 24 });
+    load.then(({ products, nextCursor }) => { setProducts(products); setCursor(nextCursor); });
+  }, [active]);
+
+  const loadMore = () => {
+    const load = active
+      ? queryProductsByCategory(active, { limit: 24, cursor })
+      : queryProducts({ limit: 24, cursor });
+    load.then(({ products: more, nextCursor }) => { setProducts((p) => [...p, ...more]); setCursor(nextCursor); });
+  };
+
+  if (total === 0) return <p>{/* empty state — no products yet */}</p>;
+  return (
+    <div /* restyle */>
+      <nav>
+        <button onClick={() => setActive(null)} aria-pressed={active === null}>All</button>
+        {menu.map((c) => (
+          <button key={c.id} onClick={() => setActive(c.id)} aria-pressed={active === c.id}>{c.name}</button>
+        ))}
+      </nav>
+      <div /* grid */>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
   );
 }
 ```
