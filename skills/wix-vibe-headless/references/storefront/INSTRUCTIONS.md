@@ -10,7 +10,7 @@ products; never hand-build a `/checkout` URL — the shipped cart goes through t
 redirect-session.
 
 ## Prerequisites
-- Wix Stores installed with products (this client is read/cart over the catalog; seeding is STEP 5).
+- The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately (see **Seeding** below), in parallel with this build — so it may be empty at build time; the client renders the shipped empty state until products land.
 - The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
 ## STEP 1 — The client is already in `src/`
