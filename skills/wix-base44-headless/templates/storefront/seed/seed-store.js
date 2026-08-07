@@ -138,8 +138,7 @@ async function deleteProducts(ctx, ids) {
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
- *   visible/physicalProperties/variant-expansion handled here. Products are left IN STOCK
- *   (quantity > 0) whether or not they have options — option-less products are stocked here too.
+ *   visible/physicalProperties/variant-expansion handled here. `quantity` is the stock created.
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
@@ -215,20 +214,51 @@ async function addProductsToCategories(ctx, mapping) {
   }
 }
 
+// Does the url actually SERVE an image yet? (HEAD, with a ranged-GET fallback for hosts that reject HEAD.)
+async function imageServes(url) {
+  if (!url) return false;
+  const isImg = (r) => r.ok && (r.headers.get("content-type") || "").startsWith("image/");
+  try {
+    const h = await fetch(url, { method: "HEAD" });
+    if (isImg(h)) return true;
+    return isImg(await fetch(url, { headers: { Range: "bytes=0-0" } }));
+  } catch {
+    return false;
+  }
+}
+
+// Return only the items whose image url is ready, polling up to ~60s. A freshly generated image url
+// can 404 / not-serve for a few seconds; Wix re-hosts by fetching the url server-side, so attaching a
+// not-yet-serving url silently attaches NO media and the product stays imageless PERMANENTLY (Wix
+// doesn't retro-fetch). Waiting here makes the attach robust even if the url was just handed over.
+async function readyImageItems(items, { attempts = 20, delayMs = 3000 } = {}) {
+  let pending = items.slice();
+  const ready = [];
+  for (let i = 0; i < attempts && pending.length; i++) {
+    const checks = await Promise.all(pending.map(async (it) => [it, await imageServes(it.url)]));
+    checks.forEach(([it, ok]) => ok && ready.push(it));
+    pending = checks.filter(([, ok]) => !ok).map(([it]) => it);
+    if (pending.length && i < attempts - 1) await sleep(delayMs);
+  }
+  return ready;
+}
+
 // Bulk image attach in ONE call. items: [{ id, url, altText }] — NO revision.
-// An attach bumps the product's revision, so a caller-supplied revision goes stale between passes
-// (INVALID_REVISION). We read each product's CURRENT revision here, right before the update, so the
-// caller never manages a revision token — attach as many times as you like, in any pass. Wix
-// re-hosts the image (new wixstatic id on read-back); media-only update preserves options/variants.
-// Read success from results[].itemMetadata.success + bulkActionMetadata.totalSuccesses.
+// Waits for each url to actually serve an image first (see readyImageItems). An attach bumps the
+// product's revision, so a caller-supplied revision goes stale between passes (INVALID_REVISION); we
+// read each product's CURRENT revision here, right before the update, so the caller never manages a
+// revision token — attach as many times as you like, in any pass. Wix re-hosts the image (new
+// wixstatic id on read-back); media-only update preserves options/variants.
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
-  const ids = items.map((it) => it.id);
+  const ready = await readyImageItems(items);
+  if (!ready.length) return;
+  const ids = ready.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
   return req(ctx, "/stores/v3/bulk/products/update", {
     body: {
-      products: items.map((it) => ({
+      products: ready.map((it) => ({
         product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
       })),
     },

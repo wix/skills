@@ -36,10 +36,10 @@ below still exist (setupStore is built from them).
 |---|---|
 | `setupStore(ctx, {products, categories?})` | **one-call**: install+wait → products → categories → images |
 | `installStoresApp(ctx)` | install the Wix Stores app on the site (waits for the V3 catalog) |
-| `bulkCreateProducts(ctx, products)` | one bulk create → `[{id,slug,revision}]`; leaves products IN STOCK whether or not they have options (option-less ones are stocked internally) |
+| `bulkCreateProducts(ctx, products)` | one bulk create → `[{id,slug,revision}]`; products come out in stock with the `quantity` you pass |
 | `createCategories(ctx, names)` | sequential (shared tree 409s on concurrent) → `[{id,name}]` |
 | `addProductsToCategories(ctx, {catId:[pid]})` | sequential add-items |
-| `attachProductImages(ctx, [{id,url,altText}])` | one bulk media attach — reads each product's current revision internally, so a 2nd/manual attach (images generated later) is safe; no revision to pass |
+| `attachProductImages(ctx, [{id,url,altText}])` | one bulk media attach; no revision to pass. Safe to call right after generating images — it waits until each url actually serves before attaching (a not-yet-ready url would otherwise attach no media, permanently) |
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
