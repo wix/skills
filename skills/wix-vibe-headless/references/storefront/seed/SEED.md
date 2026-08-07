@@ -16,7 +16,8 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. imageUrl per product only
-// when imagery is on. options ONLY for real buyer choices (Size/Color); default none.
+// when imagery is on — passing it here does the image attach in the SAME pass, on the fresh
+// create-time revision. options ONLY for real buyer choices (Size/Color); default none.
 const result = await seed.setupStore(ctx, {
   products: [
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -39,7 +40,7 @@ below still exist (setupStore is built from them).
 | `bulkCreateProducts(ctx, products)` | one bulk create → `[{id,slug,revision}]` |
 | `createCategories(ctx, names)` | sequential (shared tree 409s on concurrent) → `[{id,name}]` |
 | `addProductsToCategories(ctx, {catId:[pid]})` | sequential add-items |
-| `attachProductImages(ctx, [{id,revision,url,altText}])` | one bulk media attach |
+| `attachProductImages(ctx, [{id,revision,url,altText}])` | one bulk media attach — each attach **bumps `revision`**; before a 2nd/manual attach (images generated later) re-read the current revision (`listProducts`), don't reuse the create-time one, else `INVALID_REVISION` |
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,

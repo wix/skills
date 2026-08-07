@@ -191,6 +191,10 @@ async function addProductsToCategories(ctx, mapping) {
 // revision comes from bulkCreateProducts' return. Wix re-hosts the image (new wixstatic id on
 // read-back) and bumps revision; media-only update preserves options/variants. Read success from
 // results[].itemMetadata.success + bulkActionMetadata.totalSuccesses.
+// Each attach BUMPS the product's revision. Attaching all images in this ONE call is why the
+// create-time revision works. If you attach in a SECOND/manual pass (e.g. images generated later),
+// re-read the current revision first (listProducts / getProduct) — reusing the create-time revision
+// throws INVALID_REVISION ("Outdated revision for entity id").
 async function attachProductImages(ctx, items) {
   return req(ctx, "/stores/v3/bulk/products/update", {
     body: {
