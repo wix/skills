@@ -6,7 +6,7 @@ initial prompt, and the Wix connector is already configured; use it for all admi
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **`wix-vibe-headless`, `wix-headless`, and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
 
@@ -20,11 +20,13 @@ Install three skills — they land under `.agents/skills/`:
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything the recipes don't
   cover.
 
-Install via the skills CLI — run this through exec_tool, exactly as written:
+Install via the skills CLI — run this through exec_tool, exactly as written. One call: installs
+the three skills, deploys the REST scaffolds into `src/rest/`, and pins an AGENTS.md note
+(appended, idempotent):
 
 ```js
 const { execSync } = require('child_process');
-const { readdirSync, existsSync, mkdirSync, copyFileSync } = require('fs');
+const { readdirSync, existsSync, mkdirSync, copyFileSync, readFileSync, appendFileSync } = require('fs');
 
 const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
 const results = {};
@@ -57,19 +59,12 @@ if (existsSync(REF)) {
   }
 }
 
-return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest };
-```
-
-**STEP 1b — pin the skill location in AGENTS.md.** After install, run this via exec_tool exactly as
-written — it appends (never rewrites) an AGENTS.md note for later turns, and is idempotent:
-
-```js
-const fs = require('fs');
+// Pin the skill location + project facts in AGENTS.md for later turns (idempotent).
 const NOTE = `
 
 ## This app — a Wix-managed headless frontend (built with the Wix skills)
 
-This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **⛔ Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
@@ -78,9 +73,10 @@ The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from th
 - \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
 `;
 const amd = '/app/AGENTS.md';
-const cur = fs.existsSync(amd) ? fs.readFileSync(amd, 'utf8') : '';
-if (!cur.includes('Wix-managed headless frontend')) fs.appendFileSync(amd, NOTE);
-return 'noted';
+const cur = existsSync(amd) ? readFileSync(amd, 'utf8') : '';
+if (!cur.includes('Wix-managed headless frontend')) appendFileSync(amd, NOTE);
+
+return { results, installed: readdirSync('/app/.agents/skills'), copiedToSrcRest, agentsMdPinned: true };
 ```
 
 Read the skills with **`read_file`** (rooted at `/app` → workspace-relative path, e.g.
@@ -117,27 +113,28 @@ truth for how the client is built.
 
 **All REST scaffolds are already in `src/rest/`** — STEP 1 deployed the shared transport
 (`wix-client.js`, `wix-manage-banner.js`) and every vertical helper (`wix-store-catalog.js`, …)
-there, so SKILL.md's "get them into `src/rest/`" step is done. Use your vertical's files (a store
-uses `wix-store-catalog.js` + `wix-store-cart.js`), set `WIX_CLIENT_ID` in `wix-client.js` and
+there. Use your vertical's files, set `WIX_CLIENT_ID` in `wix-client.js` and
 `WIX_METASITE_ID` in `wix-manage-banner.js`, and adapt with targeted edits — **do not regenerate
-them**. Unused verticals are harmless (bundler drops them). Generate from scratch only the
-app-specific UI (components/pages).
+them**. Unused verticals are harmless. Generate only the app-specific UI (components/pages).
+
+**No need to read the scaffolds' source** (`wix-client.js`/`wix-store-*.js`) — the vertical's
+`INSTRUCTIONS.md` has every field shape + correct usage. Just import them.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(the `AuthProvider` / `useAuth` imports and wrappers from `@/lib/AuthContext`) — a full-file
-rewrite drops them and the platform validator rejects the write, costing a redo. Wire your
-routes/imports in with targeted `find_replace` edits and leave the rest as-is.
+(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
+rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
 
 ## STEP 4 — Manage and seed the business
 
-**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
+**Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
 cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
 delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
 ask the user first.
 
-Seed real content by following the **`wix-headless`** skill's `references/SEED.md`; where its
-recipes don't cover something, fall back to the **`wix-docs`** skill to search + read the relevant
-Wix API docs.
+Seed by calling your vertical's ready-made seed module — read
+`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` via
+its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
+shape → the **`wix-docs`** skill.
 
 **Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
 access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.

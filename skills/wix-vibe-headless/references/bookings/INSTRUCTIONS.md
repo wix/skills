@@ -56,25 +56,30 @@ each helper file. Read them before building the UI — they describe the key fie
 the full API reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
-- **Service list** — `queryServices()` for the listing (visitor-visible services only). Render
-  `name`, `tagLine`, the image via `mediaUrl(service.media?.items?.[0]?.image)`, and the price
-  from `payment.fixed.price`. `value` + `currency` are always present; `formattedValue` is
+- **Service list** — `const { services, total, nextOffset } = await queryServices({ limit, offset })`
+  for the listing (visitor-visible services only); it returns an **object, not a bare array** —
+  destructure it, then render `.services`. Each service's id is `service.id`. Render `name`,
+  `tagLine`, the image via `mediaUrl(service.media?.items?.[0]?.image)`, and the price from
+  `payment.fixed.price`. `value` + `currency` are always present; `formattedValue` is
   **optional** (it may be missing), so don't depend on it — build the price from `value`+`currency`
   and use `formattedValue` only when present. e.g. `new Intl.NumberFormat(undefined, { style:
   'currency', currency }).format(Number(value))`. (Rendering `formattedValue` alone leaves the price
-  blank — or your "Varies" fallback — whenever it's absent.) Pass the returned
-  `nextOffset` back as `offset` to load the next page. Books **APPOINTMENT and CLASS** services
-  (see the slot picker below); COURSE is whole-course enrollment and out of scope.
+  blank — or your "Varies" fallback — whenever it's absent.) Pass the returned `nextOffset` back as
+  `offset` to load the next page (it is `null` on the last page). See the **`pages/Services.jsx`**
+  snippet below. Books **APPOINTMENT and CLASS** services (see the slot picker below); COURSE is
+  whole-course enrollment and out of scope.
 - **Service detail** — `getService(serviceId)` keyed off the URL/route; returns null on miss —
   show a not-found state, never invent a service. Render `description`, price, and `locations`.
-- **Slot picker** — use **`listSlotsForService(service, { fromLocalDate, toLocalDate, timeZone? })`**:
+- **Slot picker** — `const { slots, nextCursor } = await listSlotsForService(service, { fromLocalDate, toLocalDate, timeZone? })`:
   it routes by `service.type` — APPOINTMENT → `listAvailableSlots` (staff working hours), CLASS/COURSE
-  → `listEventTimeSlots` (scheduled sessions). Both return the same slot shape. (Call the specific
-  function directly if you already know the type.) Dates are **local** wall-clock strings
-  `"YYYY-MM-DDThh:mm:ss"` (no zone), interpreted in `timeZone` (defaults to the visitor's IANA zone).
-  Only `bookable: true` slots come back. Render each `slot.localStartDate`/`localEndDate`; group by
-  day for a calendar. Pass `nextCursor` back
-  as `cursor` to page.
+  → `listEventTimeSlots` (scheduled sessions). Both return the same `{ slots, nextCursor }` shape;
+  iterate `.slots`. (Call the specific function directly if you already know the type.) Dates are
+  **local** wall-clock strings `"YYYY-MM-DDThh:mm:ss"` (no zone), interpreted in `timeZone` (defaults
+  to the visitor's IANA zone). **Mind the date-arg naming difference:** the list calls take
+  `fromLocalDate`/`toLocalDate`, while the single-slot re-validate call (`getAvailableSlot`, below)
+  takes `localStartDate`/`localEndDate` — they are not interchangeable. Only `bookable: true` slots
+  come back. Render each `slot.localStartDate`/`localEndDate`; group by day for a calendar. Pass
+  `nextCursor` back as `cursor` to page. See the **`SlotPicker.jsx`** snippet below.
 - **Booking form** — collect the buyer's `firstName`, `lastName`, `email`, `phone`. Keep it
   minimal; richer per-service form fields live in the service's `form.id` (see "Beyond the snippets").
 - **Participant count** — cap it by the service policy, not just slot capacity. The most a single
@@ -86,10 +91,15 @@ the full API reference for anything not shown.
   on it alone lets the buyer pick a count that `createBooking` then rejects. Pass the chosen count
   as `createBooking`'s `totalParticipants`.
 - **Re-validate + book** — right before submitting, call
-  `getAvailableSlot(serviceId, { localStartDate, localEndDate, timeZone? })` to confirm the slot
-  is still open (and to pick up the staff resource). Then create + check out in one step:
-  `window.location.href = (await bookAndCheckout(slot, { email, firstName, lastName, phone })).checkoutUrl;`
-  Or split it: `const booking = await createBooking(slot, contact); const url = await checkoutBooking(booking.id);`
+  `const slot = await getAvailableSlot(serviceId, { localStartDate, localEndDate, timeZone? })` to
+  confirm the slot is still open (and to pick up the staff resource). It returns the slot object or
+  **`null`** if the time was just taken — **guard for `null`** and prompt for another slot; never
+  book a null slot. Then create + check out in one step:
+  `window.location.href = (await bookAndCheckout(slot, { email, firstName, lastName, phone }, { totalParticipants })).checkoutUrl;`
+  (`bookAndCheckout` returns `{ booking, checkoutUrl }`.) Or split it — note `createBooking` is the
+  **3-arg** form `(slot, contact, options)` and `checkoutBooking` returns a **bare URL string**:
+  `const booking = await createBooking(slot, contact, { totalParticipants, timeZone }); window.location.href = await checkoutBooking(booking.id);`
+  See the **`BookingForm.jsx`** snippet below.
 - **Confirmation / return** — after the buyer returns from hosted checkout, the order is placed
   and Wix Bookings confirms the booking automatically (status becomes `CONFIRMED`, or `PENDING`
   if the service needs manual approval). Show a confirmation screen on return.
@@ -98,7 +108,9 @@ the full API reference for anything not shown.
 
 ## Hard rules (do not violate)
 - ✅ Book ONLY via `createBooking()` → `checkoutBooking()` (or `bookAndCheckout()`), then redirect
-  to the returned `fullUrl`.
+  to the returned URL: `window.location.href = await checkoutBooking(bookingId)` — `checkoutBooking`
+  returns a **bare URL string** (not an object; no `.fullUrl`), and `bookAndCheckout` returns
+  `{ booking, checkoutUrl }` (redirect to `checkoutUrl`).
 - ❌ Never hand-build a `/checkout`, booking, or calendar URL.
 - ❌ Never mock services, time slots, or availability — render live Wix data or the empty state.
 - ❌ Never invent reviews, ratings, staff, or testimonials. Empty review UI only.
@@ -136,6 +148,173 @@ exact endpoint, method, and body in the **official Wix API reference** first (ne
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
 
+## Reference components (headless — adapt the logic, restyle freely)
+
+These are the recurring bookings pieces, written **headless**: the data wiring (Wix field paths,
+`{ services, ... }` / `{ slots, ... }` destructuring, the local-date arg names, the null-slot guard,
+the participant cap) is correct and complete — the markup is deliberately plain. **Copy the logic
+exactly; restyle the JSX to the brand.** They consume the `src/rest/` helpers; you don't need to
+read those helpers' source.
+
+**`pages/Services.jsx`** — the service listing (grid + empty state + paging). `queryServices`
+returns an **object, not a bare array** — `{ services, total, nextOffset }`; destructure first
+(calling `.map` on the returned object throws `… is not a function`). The id is `service.id`;
+`payment.fixed.price.formattedValue` is optional, so format from `value`+`currency`.
+
+```jsx
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { queryServices, mediaUrl } from "@/rest/wix-bookings-services";
+
+export default function Services() {
+  const [services, setServices] = useState([]);
+  const [nextOffset, setNextOffset] = useState(null);
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    // queryServices returns an OBJECT, not a bare array — destructure it.
+    queryServices({ limit: 24 }).then(({ services, total, nextOffset }) => {
+      setServices(services);
+      setTotal(total);
+      setNextOffset(nextOffset);
+    });
+  }, []);
+
+  const loadMore = () =>
+    queryServices({ limit: 24, offset: nextOffset }).then(({ services: more, nextOffset: next }) => {
+      setServices((s) => [...s, ...more]);
+      setNextOffset(next);
+    });
+
+  if (total === 0) return <p>{/* empty state — add a service in the Wix dashboard */}</p>;
+  return (
+    <div /* restyle */>
+      {services.map((service) => {
+        const image = mediaUrl(service.media?.items?.[0]?.image);
+        const p = service.payment?.fixed?.price;                     // may be absent (free / custom-priced)
+        const price = p && (p.formattedValue                         // formattedValue is OPTIONAL — build from value+currency when missing
+          || new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency }).format(Number(p.value)));
+        return (
+          <Link key={service.id} to={`/service/${service.id}`} /* the service id is service.id */>
+            {image && <img src={image} alt={service.name} loading="lazy" />}
+            <h3>{service.name}</h3>
+            {service.tagLine && <p>{service.tagLine}</p>}
+            {price && <span>{price}</span>}
+          </Link>
+        );
+      })}
+      {nextOffset != null && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
+**`SlotPicker.jsx`** — lists bookable slots for a chosen service. `listSlotsForService` routes by
+`service.type` and returns `{ slots, nextCursor }`; iterate `.slots`, page with `nextCursor`. The
+**list** call takes `fromLocalDate`/`toLocalDate` (local wall-clock, no zone) — a different arg
+naming than the single-slot `getAvailableSlot`.
+
+```jsx
+import { useState, useEffect } from "react";
+import { listSlotsForService } from "@/rest/wix-bookings-services";
+
+// Local wall-clock "YYYY-MM-DDThh:mm:ss" (NO zone / Z) — the slot APIs interpret it in timeZone.
+function localMidnight(daysFromNow = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`;
+}
+
+export default function SlotPicker({ service, onPick }) {
+  const [slots, setSlots] = useState([]);
+  const [cursor, setCursor] = useState(null);
+
+  useEffect(() => {
+    // listSlotsForService routes by service.type and returns { slots, nextCursor }. Note the arg names:
+    // the LIST call uses fromLocalDate / toLocalDate (getAvailableSlot, the single-slot re-validate
+    // call, uses localStartDate / localEndDate instead).
+    listSlotsForService(service, { fromLocalDate: localMidnight(0), toLocalDate: localMidnight(14) })
+      .then(({ slots, nextCursor }) => { setSlots(slots); setCursor(nextCursor); });
+  }, [service]);
+
+  const loadMore = () =>
+    listSlotsForService(service, { cursor }).then(({ slots: more, nextCursor }) => {
+      setSlots((s) => [...s, ...more]);
+      setCursor(nextCursor);
+    });
+
+  return (
+    <div /* restyle: group slots by day for a calendar */>
+      {slots.map((slot) => (
+        <button key={`${slot.localStartDate}-${slot.scheduleId || slot.eventInfo?.eventId}`}
+          onClick={() => onPick(slot)}>
+          {new Date(slot.localStartDate).toLocaleString()}
+        </button>
+      ))}
+      {cursor && <button onClick={loadMore}>Load more</button>}
+    </div>
+  );
+}
+```
+
+**`BookingForm.jsx`** — re-validate the picked slot, then book + check out. `getAvailableSlot`
+returns the slot **or `null`** (guard it — the time may have just been taken). `createBooking` is
+the 3-arg form `(slot, contact, { totalParticipants, timeZone })`, and `checkoutBooking` returns a
+**bare URL string** you redirect straight to.
+
+```jsx
+import { useState } from "react";
+import { getAvailableSlot } from "@/rest/wix-bookings-services";
+import { createBooking, checkoutBooking } from "@/rest/wix-bookings-checkout";
+
+export default function BookingForm({ service, slot }) {
+  const [contact, setContact] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  // maxParticipantsPerBooking is the per-booking cap (commonly 1 → no selector at all). Never use
+  // slot.remainingCapacity as the per-buyer limit — a count above the policy makes createBooking fail.
+  const maxParticipants = service.bookingPolicy?.participantsPolicy?.maxParticipantsPerBooking ?? 1;
+  const [participants, setParticipants] = useState(1);
+  const set = (k) => (e) => setContact((c) => ({ ...c, [k]: e.target.value }));
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      // Re-validate right before booking — slots get taken. getAvailableSlot returns the slot or NULL;
+      // the single-slot call uses localStartDate / localEndDate (not from/toLocalDate).
+      const fresh = await getAvailableSlot(service.id, {
+        localStartDate: slot.localStartDate,
+        localEndDate: slot.localEndDate,
+      });
+      if (!fresh) { alert("That time was just taken — please pick another."); return; }
+
+      // createBooking is the 3-arg form: (slot, contact, options). Pass the chosen count as totalParticipants.
+      const booking = await createBooking(fresh, contact, { totalParticipants: participants });
+      // checkoutBooking returns a BARE URL string (not an object) — redirect straight to it.
+      window.location.href = await checkoutBooking(booking.id);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} /* restyle */>
+      <input required type="email" placeholder="Email" value={contact.email} onChange={set("email")} />
+      <input placeholder="First name" value={contact.firstName} onChange={set("firstName")} />
+      <input placeholder="Last name" value={contact.lastName} onChange={set("lastName")} />
+      <input placeholder="Phone" value={contact.phone} onChange={set("phone")} />
+      {maxParticipants > 1 && (
+        <input type="number" min={1} max={maxParticipants} value={participants}
+          onChange={(e) => setParticipants(Number(e.target.value))} />
+      )}
+      <button type="submit" disabled={submitting}>Book</button>
+    </form>
+  );
+}
+```
+
 ## Point the user to their dashboard
 In some cases, users need to access the Wix dashboard in order to edit the bookings content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For bookings data those pages are:
 - **Booking Services** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/services` (`Dashboard → Bookings → Booking Services`; add services and service categories)
@@ -151,7 +330,7 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Slot is re-validated with `getAvailableSlot()` immediately before booking
 - [ ] Participant selector capped by `maxParticipantsPerBooking` (hidden when 1) — a count above the policy is not offerable
 - [ ] `createBooking()` returns a booking with `status: "CREATED"` and a real id
-- [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
+- [ ] Checkout redirects to the URL `checkoutBooking()` returns (a bare string) — or `bookAndCheckout()`'s `checkoutUrl` — with no hand-built URL
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
 - [ ] Told the user at least once that they can continue setting up their bookings in the dashboard and provided deep links.
