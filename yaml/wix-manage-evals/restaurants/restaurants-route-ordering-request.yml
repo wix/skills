@@ -1,0 +1,68 @@
+name: restaurants/route-ordering-request
+description: >-
+  Verifies the routing recipe sends a vague late-night ordering complaint to the
+  ordering-settings entities rather than the menus catalog, and that the agent
+  diagnoses before mutating — the fulfillment availability window and the
+  operation's prep time, not menu items.
+triggerPrompt: >-
+  Customers keep telling me they can't order from my restaurant late in the
+  evening even though we're open until midnight. Can you look at my online
+  ordering setup and tell me what's wrong?
+tags: [restaurants]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/configure-restaurants-from-prompt
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant reports that customers cannot order late in the evening,
+      without naming a setting. The correct reading is an online-ordering
+      configuration question, not a menu-catalog one: the answer lies in the
+      fulfillment method's availability window, the operation's preparation time
+      (which pulls the effective last-order time earlier than the window end),
+      the operation's ordering status, and any availability exception — not in
+      menus, sections, or items.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. The agent read the ordering configuration before proposing changes:
+           it listed or read operations and fulfillment methods.
+        2. Its explanation names the availability window and preparation time as
+           the reason ordering can stop before closing time, i.e. that the last
+           order lands earlier than the window's end.
+        3. It did not attribute the problem to menu items, sections, prices, or
+           modifiers.
+        4. Any change it proposed or made targets the fulfillment method's
+           availability or the operation, and it either asked before mutating or
+           only read.
+
+      Fail if ANY of these hold:
+        - It went to the Menus API to investigate an ordering-availability
+          problem.
+        - It claimed the setup looked fine without having read the fulfillment
+          methods.
+        - It mutated settings without confirming intent with the merchant first.
+        - It offered to configure dine-in ordering through the API, which is not
+          supported there.
+        - It described steps without executing any reads.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent diagnose this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; exploring the
+      Menus API before the Online Orders APIs; hunting for a cutoff or
+      last-order field that does not exist for ASAP ordering; repeated probing
+      of unrelated endpoints to find where ordering hours live; failing to find
+      the time-slot calculation endpoint that shows what customers actually see.
+      For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

@@ -1,0 +1,101 @@
+name: restaurants/import-pasted-menu
+description: >-
+  Verifies the agent reads the menus-import recipe when a merchant pastes an
+  existing menu, extracts sections, prices, modifiers and the section-wide
+  "choice of" rules rather than dropping them into descriptions, and does not
+  treat a time-bound Happy Hour block as if the hours were a menu property.
+triggerPrompt: |
+  Here's our menu, put it on the site:
+
+  STARTERS
+  Loaded Nachos — 14
+  Queso • Jalapeños • Pico
+  Wings (8) — 15
+  Buffalo • BBQ • Garlic Parm
+
+  BURGERS
+  Served with fries or tots
+  The Classic — 17
+  Cheddar • Bacon • House sauce
+  Veggie Stack (V) — 15
+  Grilled halloumi • Roasted pepper
+
+  HAPPY HOUR
+  Monday–Friday | 3 PM – 6 PM
+  Drafts — 5
+  Wings — 10
+tags: [restaurants]
+maxTokens: 60000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-menus-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant pasted a menu with three headings — STARTERS, BURGERS and
+      HAPPY HOUR — six items, one dietary marker, one section-wide choice, and
+      a time window on the Happy Hour block.
+
+      The traps. First and most important: a section has no `items` field.
+      Items are separate entities, and a section receives their IDs afterwards.
+      Nesting the dishes inside the section body — or writing them into its
+      description — returns 2xx while creating no items at all, which has
+      already shipped a menu to a real merchant that reported "37 items" and
+      contained none. Second: "Served with fries or tots" applies to every item
+      in BURGERS and is a modifier group, not description text. Third: "(V)" is
+      a dietary label, not part of the item name. Fourth: the Happy Hour hours
+      are not a menu property — making those items available only 3–6pm is a
+      menu ordering setting in a different app, so the right move is to create
+      the section and then ask, not to silently drop the hours or invent a
+      field for them.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. Three sections were created with the merchant's own names and order.
+        2. All six items were created as their own entities, via the items API,
+           with their prices as numbers — 14, 15, 17, 15, 5, 10 — and no
+           currency invented into the price.
+        3. Items were attached to their sections by ID, and sections to the
+           menu, and the agent read the items back to confirm they exist rather
+           than inferring success from create responses.
+        4. "Served with fries or tots" became a modifier group on the burgers,
+           not description text.
+        5. The Happy Hour time window was either raised with the merchant as a
+           separate ordering-availability decision, or explicitly noted as not
+           yet applied. Silently discarding it is a failure.
+
+      Fail if ANY of these hold:
+        - Any section was created with the dishes nested inside its body, or
+          listed in its description, instead of items being created separately
+          and attached by ID. This is a hard fail even if the call returned 2xx.
+        - The agent stated an item count it had not read back from the API.
+        - "(V)" was left inside the item name rather than treated as a label.
+        - The agent created items one at a time when bulk endpoints were
+          available for a menu this size.
+        - The agent reported the menu as imported without reading it back.
+        - Prices were attached to the wrong items, or a section's items ended up
+          under another section.
+        - The agent invented an hours field on the menu or section.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent import this menu. Examine the
+      tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; sending a
+      section with the dishes nested inside it and having to redo the import
+      once the items turned out not to exist; creating entities one by one
+      where a bulk endpoint exists; creating a modifier group before its item
+      modifiers and having to patch it afterwards;
+      re-querying for IDs that a create call could have returned; revision
+      conflicts during attach; searching for a way to put opening hours on a
+      menu or section before discovering that lives in ordering settings.
+      For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

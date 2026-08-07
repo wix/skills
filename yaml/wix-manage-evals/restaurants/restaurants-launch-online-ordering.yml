@@ -1,0 +1,71 @@
+name: restaurants/launch-online-ordering
+description: >-
+  Verifies the agent reads the end-to-end setup recipe when asked to launch
+  restaurant ordering, works the dependency chain in order, surfaces the
+  payment connection that silently blocks checkout, and verifies against what
+  customers would see rather than declaring success from 2xx responses.
+triggerPrompt: >-
+  I just started a restaurant site and I want customers to be able to order
+  online for pickup. We're open 11am to 9pm every day and the kitchen needs
+  about 20 minutes. Can you get that set up for me?
+tags: [restaurants]
+maxTokens: 60000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-orders-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked to launch pickup ordering on a new restaurant site,
+      open 11am–9pm daily, with 20 minutes preparation time.
+
+      Launching has a required order: the Orders app installed, a payment
+      method connected, a menu with items, that menu linked to an operation, a
+      fulfillment method enabled with hours, then verification. The payment
+      connection is the trap — nothing in the Restaurants APIs reports that it
+      is missing, so ordering can look fully configured while checkout cannot
+      complete.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. The agent checked what was already installed before installing
+           anything.
+        2. It raised the payment method — either connecting one, or telling the
+           merchant explicitly that orders cannot be completed until one is
+           connected. Silence about payments is a failure even if every other
+           step is perfect.
+        3. Preparation time of 20 minutes was set on the operation, and pickup
+           availability covering 11:00 to 21:00 was set on a fulfillment
+           method.
+        4. It verified the result against what a customer would see — a
+           time-slot or availability read — rather than inferring success from
+           write responses alone.
+        5. Its closing summary states the effective ordering hours and names
+           anything left undone.
+
+      Fail if ANY of these hold:
+        - Payments were never mentioned.
+        - The agent tried to create an operation instead of reading the one
+          that installation produces.
+        - It declared ordering live without any read-back verification.
+        - It reported a step as done that has no successful call behind it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent launch ordering end to end.
+      Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no
+      errors). Penalize and LIST any of: a non-2xx error even if recovered;
+      attempting to create an operation and being rejected; installing an app
+      that was already present; hunting across APIs for where preparation time
+      versus availability lives; no way found to check whether payments are
+      connected; failing to find a read that confirms customers can actually
+      order. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.
