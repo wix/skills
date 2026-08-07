@@ -19,12 +19,15 @@ Install two skills — they land under `.agents/skills/`:
   doesn't cover.
 
 Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
-skills, then runs the shipped `deploy.cjs` (now on disk) which deploys the REST scaffolds + any ready
-UI client into `src/` and pins an AGENTS.md note:
+skills, then runs `deploy.cjs <vertical>`, which lays the shared transport + **your one vertical's**
+REST scaffolds and UI client into `src/` and pins an AGENTS.md note. **Set `VERTICAL`** to what the
+prompt asks for — one of `storefront`, `bookings`, `blog`, `cms`, `portfolio`, `pricing-plans`,
+`events`, `members` (too vague to tell? do STEP 2 first, then set it).
 
 ```js
 const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
+const VERTICAL = 'storefront'; // ← set from the prompt (see the list above)
 const results = {};
 for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   try {
@@ -34,8 +37,8 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-// Deploy scaffolds + ready UI into src/ and pin AGENTS.md — logic lives in the shipped script.
-const deploy = execSync('node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs', { cwd: '/app' }).toString();
+// Deploy the shared transport + ONLY this vertical's scaffolds/UI into src/, and pin AGENTS.md.
+const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICAL}`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy) };
 ```
 
