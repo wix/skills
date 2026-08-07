@@ -20,12 +20,12 @@ storefront UI client into `src/`: `src/theme.css`, `src/context/CartContext.jsx`
 `src/components/{ProductCard,ProductGrid,CartButton,CartDrawer,VariantPicker}.jsx`,
 `src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`).
 
-The install's `deploy` result already lists every file it wrote — that's your confirmation they
-exist. **Don't read the shipped page/component/hook source to "check" them** (no `read_file` sweep of
-`src/components`, `src/pages`, `src/hooks`, `src/context`): every field shape you need is in the
-snippets below, so go straight to theming + wiring. Read a shipped file's source **only** on a real
-fallback — a runtime error, or a field the snippets don't cover (see "Fallback only" at the end).
-(Files missing? re-run install, or copy `references/storefront/app/` → `src/`.)
+They're already in place (STEP 1 deployed them) — go **straight to theming + wiring**, nothing to
+verify first. **Don't `read_file` the shipped page/component/hook source to inspect it** (`src/components`,
+`src/pages`, `src/hooks`, `src/context`): every field shape you need is in the snippets below. Read a
+shipped file's source **only** on a real fallback — a runtime error, or a field the snippets don't
+cover (see "Fallback only" at the end). (Files missing? the install's `deploy` result lists what it
+wrote; re-run install, or copy `references/storefront/app/` → `src/`.)
 
 ## STEP 2 — Credentials
 In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the value from your prompt.
