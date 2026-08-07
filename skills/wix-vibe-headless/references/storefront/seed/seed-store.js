@@ -11,7 +11,7 @@
 //   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
 //   const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);
 //   await seed.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
-//   await seed.attachProductImages(ctx, products.map((p,i) => ({ id:p.id, revision:p.revision, url:imageUrls[i], altText:p.slug })));
+//   await seed.attachProductImages(ctx, products.map((p,i) => ({ id:p.id, url:imageUrls[i], altText:p.slug })));
 //
 // If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
@@ -139,7 +139,7 @@ async function deleteProducts(ctx, ids) {
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
  *   visible/physicalProperties/variant-expansion handled here.
- * @returns [{ id, slug, revision }]  (revision feeds attachProductImages)
+ * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
   const body = {
@@ -187,15 +187,21 @@ async function addProductsToCategories(ctx, mapping) {
   }
 }
 
-// Bulk image attach in ONE call. items: [{ id, revision, url, altText }]
-// revision comes from bulkCreateProducts' return. Wix re-hosts the image (new wixstatic id on
-// read-back) and bumps revision; media-only update preserves options/variants. Read success from
-// results[].itemMetadata.success + bulkActionMetadata.totalSuccesses.
+// Bulk image attach in ONE call. items: [{ id, url, altText }] — NO revision.
+// An attach bumps the product's revision, so a caller-supplied revision goes stale between passes
+// (INVALID_REVISION). We read each product's CURRENT revision here, right before the update, so the
+// caller never manages a revision token — attach as many times as you like, in any pass. Wix
+// re-hosts the image (new wixstatic id on read-back); media-only update preserves options/variants.
+// Read success from results[].itemMetadata.success + bulkActionMetadata.totalSuccesses.
 async function attachProductImages(ctx, items) {
+  if (!items?.length) return;
+  const ids = items.map((it) => it.id);
+  const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
+  const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
   return req(ctx, "/stores/v3/bulk/products/update", {
     body: {
       products: items.map((it) => ({
-        product: { id: it.id, revision: it.revision, media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
+        product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
       })),
     },
   });
@@ -233,7 +239,7 @@ async function setupStore(ctx, { products = [], categories = {} } = {}) {
   }
 
   const imageItems = withNames
-    .map((p, i) => ({ id: p.id, revision: p.revision, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
+    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
     .filter((it) => it.url);
   if (imageItems.length) await attachProductImages(ctx, imageItems);
 

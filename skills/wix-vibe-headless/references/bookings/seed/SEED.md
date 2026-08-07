@@ -30,7 +30,7 @@ const result = await seed.setupBookings(ctx, {
 });
 // result: { services:[...], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
 
-// imagery ON only: generate per IMAGE_GENERATION.md, then patch each service (revision-checked):
+// optional — generate an image, then patch each service (revision-checked):
 // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
 ```
 
@@ -50,7 +50,7 @@ functions below still exist (setupBookings is built from them, in the order show
 | `createServices(ctx, services)` | STEP 3 — one bulk create (APPOINTMENT/CLASS mixed) → `[{id,slug,revision,type,scheduleId,success,error}]` |
 | `scheduleClassSessions(ctx, sessions)` | STEP 4 (CLASS only) — one bulk Calendar-Events-V3 create → `[{id,success,error}]` |
 | `getService(ctx, serviceId)` | fetch a service (current `revision`; confirm an image landed) |
-| `attachServiceImage(ctx, {serviceId,revision,image})` | imagery ON — patch `media.mainMedia`/`coverMedia` (revision-checked) |
+| `attachServiceImage(ctx, {serviceId,revision,image})` | optional — patch `media.mainMedia`/`coverMedia` (revision-checked) |
 
 Both bulk calls report per-item `success`/`error` — retry only the failed items **once** with the
 same body; don't loop and don't re-create the ones that already succeeded.

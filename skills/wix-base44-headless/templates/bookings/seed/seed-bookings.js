@@ -32,7 +32,7 @@
 //   await seed.scheduleClassSessions(ctx, services.filter(s => s.type === "CLASS").map(s => ({
 //     scheduleId: s.scheduleId, resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20,
 //   })));
-//   // imagery ON only: generate per IMAGE_GENERATION.md, then patch each service (revision-checked).
+//   // optional — generate an image, then patch each service (revision-checked).
 //   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
 //
 // If any call fails with a shape the caller didn't expect, or you need an operation this module
@@ -217,7 +217,7 @@ async function getService(ctx, serviceId) {
 }
 
 /**
- * Attach images (imagery ON only). Writes under media.mainMedia + media.coverMedia; revision-checked.
+ * Attach images (optional). Writes under media.mainMedia + media.coverMedia; revision-checked.
  * @param it { serviceId, revision, image: { id, url, width, height } }  (image.id is the binding field)
  * ⚠️ Writing under media.image (not mainMedia/coverMedia) returns 200 but SILENTLY drops the image — a 200
  * is not proof; confirm with getService and check media.mainMedia is populated. Never block on failure.

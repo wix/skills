@@ -28,7 +28,7 @@
 //   // STEP 4 (optional): group by format/track
 //   const cats = await seed.createEventCategories(ctx, ["Talks"]);
 //   await seed.assignEventsToCategory(ctx, cats[0].id, [ev.id]);
-//   // Attach images (imagery ON only): height/width REQUIRED or it won't render
+//   // Attach images (optional): height/width REQUIRED or it won't render
 //   await seed.setEventMainImage(ctx, { eventId: ev.id, id: fileId, url: fileUrl, height: 1024, width: 1024, altText: ev.slug });
 //
 // If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
@@ -151,7 +151,7 @@ async function assignEventsToCategory(ctx, categoryId, eventIds) {
   return req(ctx, `/events/v1/categories/${categoryId}/events`, { body: { eventId: eventIds } });
 }
 
-// Attach images (imagery ON only). mainImage is an Image OBJECT; height/width are REQUIRED or it won't
+// Attach images (optional). mainImage is an Image OBJECT; height/width are REQUIRED or it won't
 // render. Events V3 uses NO revision — partial PATCH keyed by event.id. Works before OR after publish.
 // item: { eventId, id, url, height, width, altText }  (id = the WixMedia image id)
 async function setEventMainImage(ctx, item) {
@@ -175,7 +175,7 @@ async function setEventMainImage(ctx, item) {
  *   ...createEvent fields (title, shortDescription?, type, startDate, endDate, timeZoneId, location, …),
  *   ticketTiers?: [{ name, price, initialLimit?, … }],   // TICKETING only; omit to skip
  *   category?: string,                                     // category NAME; resolved to id + assigned
- *   image?: { id, url, height, width, altText? }           // imagery ON only; omit to skip
+ *   image?: { id, url, height, width, altText? }           // optional; omit to skip
  * }] }}
  * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
  */

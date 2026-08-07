@@ -30,7 +30,7 @@ const result = await seed.setupBlog(ctx, {
         { type: "paragraph", text: "Every batch starts with beans from a single estate." },
         { type: "quote", text: "Great coffee is grown, not made." },
       ],
-      // imagery ON only: import per IMAGE_GENERATION.md, then pass the WixMedia file id here
+      // optional — import an image, then pass the WixMedia file id here
       coverImageUrl: fileIds[0],
     },
   ],
@@ -58,7 +58,7 @@ const posts = await seed.createPosts(ctx, [
   ] },
 ]);   // → [{ id, index, success }] — check each .success (bulk returns 200 even on partial failure)
 
-// imagery ON only: import images per IMAGE_GENERATION.md, then attach covers (PATCH + re-publish)
+// optional — import images, then attach covers (PATCH + re-publish)
 await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fileIds[i] })));
 ```
 
@@ -70,7 +70,7 @@ await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fi
 | `createPosts(ctx, posts, { memberId })` | STEP 2 — auto single-vs-bulk create, published → `[{id,index,success}]` |
 | `createCategories(ctx, names)` | STEP 3 — sequential creates → `[{id,name}]` (feed into `post.categoryIds`) |
 | `createTags(ctx, names)` | STEP 3 — sequential creates → `[{id,name}]` (feed into `post.tagIds`) |
-| `attachPostCovers(ctx, [{postId,fileId}])` | imagery-on: PATCH cover (`displayed+custom+wixMedia.image.id`) + re-publish |
+| `attachPostCovers(ctx, [{postId,fileId}])` | optional — PATCH cover (`displayed+custom+wixMedia.image.id`) + re-publish |
 
 `content` blocks: `{type:"heading",text,level?}` · `{type:"paragraph",text}` · `{type:"quote",text}` ·
 `{type:"bulleted"|"ordered",items:[…]}`. For node types the recipe doesn't cover (code, images),

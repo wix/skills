@@ -20,7 +20,7 @@
 //   const projects = await seed.createProjects(ctx, [                                        // STEP 2
 //     { title, description, collectionIds: [collections[0].id], details: [{ label, text }] },
 //   ]);
-//   // imagery ON only:
+//   // optional —
 //   await seed.attachProjectCovers(ctx, projects.map((p,i) => ({ id:p.id, revision:p.revision, imageId:ids[i], height:2880, width:1920 })));
 //   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId, height:896, width:1200 }]);
 //
@@ -115,7 +115,7 @@ async function createProjects(ctx, projects) {
   return out;
 }
 
-// Imagery opt-in — skip when imagery is off. Cover = the listing-card thumbnail. PATCH per entity,
+// Optional — pass a cover/items to attach, omit to skip. Cover = the listing-card thumbnail. PATCH per entity,
 // echoing the current revision (a missing/stale revision fails). height + width are required
 // alongside the imported WixMedia image id. items: [{ id, revision, imageId, height, width }].
 async function attachProjectCovers(ctx, items) {
@@ -135,7 +135,7 @@ async function attachCollectionCovers(ctx, items) {
   }
 }
 
-// Imagery opt-in — the project's media gallery (detail-page images) is a SEPARATE `item` entity,
+// Optional — the project's media gallery (detail-page images) is a SEPARATE `item` entity,
 // one POST per image. sortOrder (1,2,3…) sets render order. lowercase `items` — `/Items` 404s.
 // There is NO public list endpoint. items: [{ projectId, sortOrder, title, imageId, height, width }].
 async function createProjectItems(ctx, items) {
@@ -160,7 +160,7 @@ async function createProjectItems(ctx, items) {
  *                   items?: [{ sortOrder, title, imageId, height, width }],
  *                   cover?: { imageId, height, width } }],
  * }
- *   Covers/items are opt-in (imagery on) — a project/collection without a `cover`/`items` skips it.
+ *   Covers/items are optional — a project/collection without a `cover`/`items` skips it.
  * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
  */
 async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {

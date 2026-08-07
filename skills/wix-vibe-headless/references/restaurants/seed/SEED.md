@@ -63,7 +63,7 @@ const menu = await seed.createMenu(ctx, {           // builds items → sections
   ],
 });                                                 // → { menuId, sectionIds, itemIds }
 
-// imagery ON only: generate per IMAGE_GENERATION.md, then attach (full-replace — echo revision + price)
+// optional — generate an image, then attach (full-replace — echo revision + price)
 // await seed.attachItemImages(ctx, [{ id, revision, price, image: { id, url, height, width } }]);
 
 // ── ONLINE ORDERING (add-on, on demand; MENU-FIRST) ──────────────────────────────────────────────
@@ -93,7 +93,7 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 |---|---|
 | `installMenusApp(ctx)` | install the Wix Restaurants Menus app |
 | `createMenu(ctx, {name,description?,sections})` | items → sections → menu bottom-up → `{menuId,sectionIds,itemIds}` |
-| `attachItemImages(ctx, [{id,revision,price,image}])` | imagery pass — full-replace PATCH (echo revision + priceInfo) |
+| `attachItemImages(ctx, [{id,revision,price,image}])` | image pass — full-replace PATCH (echo revision + priceInfo) |
 
 **Shared** (ordering + reservations STEP 0)
 | fn | does |
