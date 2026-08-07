@@ -29,7 +29,8 @@ In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the value from your prompt.
 Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
 spacing. Every shipped component reads these vars, so this re-skins the whole storefront. **Do not
 restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches.
+home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
+dark tokens with `document.documentElement.dataset.theme = "dark"`.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
@@ -86,17 +87,58 @@ export function Featured() {                                // on your home page
 ```
 Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
 
-## Extending the client (read the files, don't guess shapes)
-The shipped files under `src/` are the source of truth for field shapes and correct usage — **read
-them before writing a new Wix call.** Two things bite otherwise:
-- Every catalog/cart list helper returns a **wrapper object, not a bare array** — `queryProducts`/
-  `queryCategories`/… → `{ <plural>, nextCursor }`. Destructure the array (`Shop.jsx` shows it);
-  calling `.map`/`.filter` on the return throws `… is not a function`.
-- `product.plainDescription` is **HTML** despite the name (the PDP renders it correctly); image URLs
-  come as objects — `product.media.main.image.url`, `lineItems[].image.url`.
+## Using the client from your own UI (cart, hand-built images)
 
-For anything the shipped client doesn't cover (coupons, members, a field not used yet), look up the
-exact endpoint/shape in the **`wix-docs`** skill — never guess.
+```jsx
+import { Link } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+
+// useCart() gives:
+// { cart, itemCount, isOpen, setIsOpen, loading,
+//   addToCart(productId, variantId?, qty=1, { modifierChoices?, customTextFields? }?),
+//   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
+
+function CartCount() {                                   // header badge
+  const { itemCount, setIsOpen } = useCart();
+  return <button onClick={() => setIsOpen(true)}>Cart ({itemCount})</button>;
+}
+
+// Buy from a card → link to the PDP; the shipped ProductDetail owns options/variants + add-to-cart.
+// (Listing helpers return no variants — only getProductBySlug does — so buying happens on the PDP.)
+const CardBuy = ({ product }) => <Link to={`/product/${product.slug}`}>View</Link>;
+
+// Doing add-to-cart yourself? addToCart resolves for an option-less product; wrap it — it rejects on
+// out-of-stock / empty cart / a missing required selection, and you show that message.
+async function quickAdd(addToCart, product) {
+  try { await addToCart(product.id); } catch (e) { alert(e.message); }
+}
+
+// An image you render yourself (hero / custom card): make the url https + keep a token bg so a
+// just-generated url that 404s for a second reads as a surface, not a blank block.
+function BrandImage({ url, alt }) {
+  const src = url?.startsWith("//") ? `https:${url}` : url;      // ProductCard already does this
+  return <div style={{ background: "var(--color-surface)" }}><img src={src} alt={alt} /></div>;
+}
+```
+
+## Extending the client
+Building something beyond the shipped pages? Copy these:
+
+```jsx
+// Every catalog/cart list helper returns { <plural>, nextCursor } — destructure the array:
+const { products, nextCursor } = await queryProducts({ limit: 24 });
+const { categories } = await queryCategories();
+const menu = categories.filter((c) => c.slug !== "all-products");   // drop Wix's system category
+const { products: inCategory } = await queryProductsByCategory(menu[0].id, { limit: 24 });
+
+// product.plainDescription is HTML → render as HTML (the PDP does this):
+<div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
+// image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
+```
+
+Fallback only — when you hit an error or need something not shown here (coupons, members, a field
+these snippets don't have): read the relevant shipped file under `src/`, or look it up via the
+**`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
