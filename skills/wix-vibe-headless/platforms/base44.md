@@ -21,7 +21,7 @@ Install three skills — they land under `.agents/skills/`:
   cover.
 
 Install via the skills CLI — run this through exec_tool, exactly as written. It installs the three
-skills, then runs the shipped `deploy.js` (now on disk) which deploys the REST scaffolds + any ready
+skills, then runs the shipped `deploy.cjs` (now on disk) which deploys the REST scaffolds + any ready
 UI client into `src/` and pins an AGENTS.md note:
 
 ```js
@@ -37,7 +37,7 @@ for (const skill of ['wix-headless', 'wix-vibe-headless', 'wix-docs']) {
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
 // Deploy scaffolds + ready UI into src/ and pin AGENTS.md — logic lives in the shipped script.
-const deploy = execSync('node /app/.agents/skills/wix-vibe-headless/install/deploy.js', { cwd: '/app' }).toString();
+const deploy = execSync('node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs', { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy) };
 ```
 
