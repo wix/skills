@@ -76,9 +76,25 @@ import { queryProducts } from "@/rest/wix-store-catalog";
 import ProductGrid from "@/components/ProductGrid";
 import CartButton from "@/components/CartButton";
 
+// Responsive header: choose ONE branch with a state flag, so <CartButton/> mounts once.
+// Do NOT render a desktop nav AND a mobile nav toggled by `hidden md:flex` / `md:hidden`:
+// these navs are inline-styled, and an inline `display` beats a Tailwind class, so `hidden`
+// never applies — BOTH branches render and you get two cart buttons. One branch = one cart.
 export function Header() {                                  // in your nav
-  // <CartButton/> is an icon button — just drop it in; it inherits currentColor.
-  return <nav>{/* brand/logo */}<Link to="/shop">Shop</Link><CartButton /></nav>;
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);            // keep it reactive to viewport changes
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return (
+    <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* brand/logo */}
+      {mobile
+        ? <YourMenu />                                       // your hamburger + <CartButton/> here
+        : <div style={{ display: "flex", gap: 24 }}><Link to="/shop">Shop</Link><CartButton /></div>}
+    </nav>
+  );
 }
 export function Featured() {                                // on your home page
   const [products, setProducts] = useState([]);
@@ -88,13 +104,7 @@ export function Featured() {                                // on your home page
 }
 ```
 Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
-
-**Responsive header — one CartButton, not two.** The shipped components set their own inline
-`display`, so a Tailwind `hidden md:flex` / `md:hidden` toggle placed *on* a shipped component
-(inline style wins over the class) won't hide it — you'd ship a desktop **and** a mobile cart button
-at once. Render one header responsively instead: `const [mobile] = useState(() => window.innerWidth < 768)`
-and branch `{mobile ? <MobileNav/> : <DesktopNav/>}`, or put the `hidden md:flex` on a plain `<div>`
-wrapper you own (not on `<CartButton/>` itself).
+`<CartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh

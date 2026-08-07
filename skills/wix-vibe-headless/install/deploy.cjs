@@ -31,8 +31,7 @@ This project is the **frontend for a Wix-managed business** — a REST client th
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
-- \`wix-vibe-headless\` — **how the CLIENT is built**: REST scaffolds + (some verticals) a ready UI client, already deployed into \`src/\`; one vertical per capability under \`references/<vertical>/\` (storefront, bookings, events, blog, portfolio, restaurants, cms, pricing-plans, members).
-- \`wix-headless\` — **seeding & admin** over the connector: \`SETUP.md\` installs apps, \`SEED.md\` + \`inline-recipes/\` create content.
+- \`wix-vibe-headless\` — **how the CLIENT is built AND how the site is seeded**: REST scaffolds + (some verticals) a ready UI client, already deployed into \`src/\`; one vertical per capability under \`references/<vertical>/\` (storefront, bookings, events, blog, portfolio, restaurants, cms, pricing-plans, members), each with a \`seed/\` module that creates content over the connector.
 - \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
 `;
 const amd = '/app/AGENTS.md';

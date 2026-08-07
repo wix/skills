@@ -132,8 +132,9 @@ Once the site is built and seeded:
 1. **Mount the dev-only manage banner** (required; links the app to its Wix back office): import
    `mountWixManageBanner` from `src/rest/wix-manage-banner.js` (deployed in STEP 1, `WIX_METASITE_ID`
    set in STEP 3) and call it once from the app entry. It self-gates to dev builds (via
-   `import.meta.env.DEV`) — never in production; use as-is. If a `fixed`/`absolute` app header
-   slides under it, offset that header by the banner's height.
+   `import.meta.env.DEV`) — never in production; use as-is. If your app header is `fixed`/`sticky`,
+   set its `top: var(--wix-manage-banner-height, 0px)` — the banner publishes its own height in that
+   CSS var (0 in prod / when dismissed); that's the whole offset, no measuring or state.
 2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute your
    metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
    top banner linking to this same dashboard.
