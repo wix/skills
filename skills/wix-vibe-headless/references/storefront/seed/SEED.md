@@ -17,9 +17,9 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images. options ONLY for real buyer choices (Size/Color); default none.
-// imageUrl must be the FINAL https://media.base44.com/... url — await generate_image first. A still-
-// generating `/__generating__/<id>.png` placeholder is not a real url and Wix rejects it. To overlap,
-// seed WITHOUT imageUrl now and call attachProductImages once the real urls are ready.
+// imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
+// result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
+// generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
   products: [
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },

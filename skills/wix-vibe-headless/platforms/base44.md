@@ -113,11 +113,11 @@ restaurant items, portfolio projects, event heroes, CMS items), generate with **
 image generation**, then attach via the vertical seed module's image-attach step — `wix-docs` if the
 module doesn't cover that entity.
 
-**Pass only FINAL image urls to seeding.** Wait for `generate_image` to return its final
-`https://media.base44.com/...` url before handing it to a seed call — an in-flight
-`/__generating__/<id>.png` path is a placeholder, not a real url, and Wix rejects it (you'd have to
-re-seed). To still overlap the work, create the products WITHOUT images first, then attach in a
-second pass once the real urls are in hand (`attachProductImages` takes any product ids, any time).
+**Seed images with the FINAL url, in one call.** Seeding writes to Wix, so use the real
+`https://media.base44.com/...` url from the **completed** `generate_image` result and pass it straight
+into your single `setupStore`/seed call (images included). A still-generating `/__generating__/<id>.png`
+placeholder is not a real url — Wix can't fetch it. `generate_image` runs in the background while you
+build the client, so the urls are ready by the time you seed.
 
 The connector + seeding are **admin-only** (STEP 4) — **not** part of the client, which is built
 solely per the `wix-vibe-headless` skill.
@@ -142,9 +142,9 @@ Once the site is built and seeded:
    top banner linking to this same dashboard.
 
 **Preview briefly, don't chase images.** A quick preview to confirm the app renders is enough.
-Seeded product images and any hero you generated are re-hosted by Wix from their urls server-side,
-so they can be missing or still loading right after seeding — that's normal propagation timing that
-resolves on its own. Don't debug it, re-seed, or re-attach; leave it and finish.
+Generated images — the hero in your own code and the seeded product images alike — can still be
+resolving right after the build; that's normal. Don't debug, re-seed, re-attach, or swap a generated
+image's url in your code; leave them and finish.
 
 ## Later admin requests
 
