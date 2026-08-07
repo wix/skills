@@ -13,20 +13,14 @@ redirect-session.
 - Wix Stores installed with products (this client is read/cart over the catalog; seeding is STEP 5).
 - The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
-## STEP 1 — Copy the client into `src/` (run as-is, via exec_tool)
-The REST scaffolds (`wix-client.js`, `wix-store-catalog.js`, `wix-store-cart.js`) are already in
-`src/rest/` from the platform install step. This adds the UI layer — context, hooks, components,
-pages, and `theme.css`:
-
-```js
-const fs = require("fs");
-// recursive; overlays into src/, leaves src/rest and App.jsx untouched
-fs.cpSync("/app/.agents/skills/wix-vibe-headless/references/storefront/app", "/app/src", { recursive: true });
-return fs.readdirSync("/app/src");
-```
-Files added: `src/theme.css`, `src/context/CartContext.jsx`, `src/hooks/useProductDetail.js`,
+## STEP 1 — The client is already in `src/`
+The install step (base44.md STEP 1) deployed both the REST scaffolds (`src/rest/`) **and** this
+storefront UI client into `src/`: `src/theme.css`, `src/context/CartContext.jsx`,
+`src/hooks/useProductDetail.js`,
 `src/components/{ProductCard,ProductGrid,CartButton,CartDrawer,VariantPicker}.jsx`,
-`src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`).
+`src/pages/{Shop,ProductDetail}.jsx`. Imports use the `@/` alias (→ `src/`). Nothing to copy —
+confirm the files are there, then theme + wire (below). (Missing? re-run install, or copy
+`references/storefront/app/` → `src/`.)
 
 ## STEP 2 — Credentials
 In `src/rest/wix-client.js` set `WIX_CLIENT_ID` to the value from your prompt.
