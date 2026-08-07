@@ -39,9 +39,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // A freshly installed Stores catalog transiently reports CATALOG_V1: V3 calls 428 with
 // applicationError.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" until provisioning settles to
-// V3. Poll a cheap V3 read until that code clears (bounded ~30s), so seeding doesn't race the
-// install. Returns once V3 is live (or after the budget — the caller's real call then surfaces it).
-async function waitForCatalogV3(ctx, { attempts = 20, delayMs = 1500 } = {}) {
+// V3. Poll a cheap V3 read until that code clears (bounded ~80s — a fresh install can take a while to
+// settle; the poll returns the instant V3 is live, so a generous ceiling only helps the slow tail and
+// costs nothing normally), so seeding doesn't race the install. Returns once V3 is live (or after the
+// budget — the caller's real call then surfaces it).
+async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
       method: "POST",
