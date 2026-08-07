@@ -34,6 +34,7 @@ implementation detail.
 2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
 3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
+5. **Respect `prefers-reduced-motion`** — suppress autoplay when the OS requests reduced motion
 
 ---
 
@@ -65,14 +66,34 @@ export interface MyAnimationProps {
 
 ## 2. Playback state
 
-Track play/pause state with `useState`, initialized from the `autoPlay` prop:
+Track play/pause state with `useState`. Initialize it from `autoPlay` and the OS reduced-motion preference — when the visitor has requested reduced motion, the animation starts paused:
 
 ```tsx
-const [isPlaying, setIsPlaying] = React.useState(autoPlay ?? true);
+import { useReducedMotion } from '@wix/react-component-utils';
+
+// inside the component:
+const reducedMotion = useReducedMotion();
+
+const [isPlaying, setIsPlaying] = React.useState((autoPlay ?? true) && !reducedMotion);
+
+// when autoPlay prop changes, re-sync (but still respect reduced motion)
+React.useEffect(() => {
+  setIsPlaying((autoPlay ?? true) && !reducedMotion);
+}, [autoPlay]);
+
+// when reduced motion is enabled, suppress playback; never re-enable on its own
+// (visitor may have manually paused — don't restart against their will)
+React.useEffect(() => {
+  if (reducedMotion) {
+    setIsPlaying(false);
+  }
+}, [reducedMotion]);
 
 const handlePause = () => setIsPlaying(false);
 const handleResume = () => setIsPlaying(true);
 ```
+
+**`reducedMotion`** is `true` when the hook reports that reduced motion is enabled. When active, the animation starts paused — the visitor can still press the play button to start it manually. It is a runtime browser signal, not a manifest/data prop; never expose it as a component prop or in the manifest.
 
 Pass `isPlaying` to the animation renderer and toggle between `handlePause` / `handleResume` on button click.
 
