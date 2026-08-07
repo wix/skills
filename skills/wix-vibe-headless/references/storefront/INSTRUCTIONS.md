@@ -89,12 +89,15 @@ components** section), and those components show correct usage of every helper �
   `inStock: true` and stays freely addable — tracking-off is not "no data", it's "always available".
   `addToCart` still throws on a sold-out line as a backstop, but the UI should prevent reaching it.
 - **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
-  a category landing page. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
+  a category landing page. **`queryCategories()` returns `{ categories, nextCursor }`** (same shape
+  as `queryProducts`) — destructure the array first; it is **not** itself an array, so
+  `queryCategories().filter(...)` / `(await queryCategories()).filter(...)` throws
+  `filter is not a function`. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
   to list only the products in that category; paginate exactly like `queryProducts`.
-  `queryCategories()` includes Wix's auto-created **"All Products" system category** (`slug:
-  "all-products"`) — it mirrors the full catalog, so drop it from the category menu
-  (`categories.filter(c => c.slug !== "all-products")`). Filter by that slug, not by name (renames/
-  localizes) or `visible` (it's `visible: true` like any other).
+  The result includes Wix's auto-created **"All Products" system category** (`slug: "all-products"`) —
+  it mirrors the full catalog, so drop it from the menu:
+  `const { categories } = await queryCategories(); const menu = categories.filter(c => c.slug !== "all-products");`
+  Filter by that slug, not by name (renames/localizes) or `visible` (it's `visible: true` like any other).
 - **Cart** — `addToCart(catalogItemId, variantId?, qty?, { modifierChoices?, customTextFields? }?)`,
   `updateCartItemQuantity(lineItemId, qty)`, `removeFromCart(lineItemId)`.
   - `variantId` (`variantsInfo.variants[].id` from `getProductBySlug`) — required for products with
