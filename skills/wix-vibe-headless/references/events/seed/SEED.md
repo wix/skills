@@ -26,7 +26,7 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // category NAMES → ids + assigns and attaches main images. Ids are kept in memory; nothing is
 // hand-threaded across exec calls. Dates MUST be in the future (ISO-8601 UTC); default ~60–90 days
 // out and note it if the request gives none. price is a decimal STRING; ticket name <= 30 chars;
-// omit ticketTiers for RSVP/free, omit image when imagery is off. height/width REQUIRED or it won't render.
+// omit ticketTiers for RSVP/free, omit image if you have none. height/width REQUIRED or it won't render.
 const summary = await seed.setupEvents(ctx, {
   events: [{
     title: "Summer Synth Festival", shortDescription: "One night of analog sound.",
@@ -65,7 +65,7 @@ await seed.publishEvent(ctx, ev.id);
 const cats = await seed.createEventCategories(ctx, ["Talks"]);
 await seed.assignEventsToCategory(ctx, cats[0].id, [ev.id]);
 
-// Attach images (imagery ON only): generate per IMAGE_GENERATION.md, then set mainImage. height/width REQUIRED or it won't render.
+// Attach images (optional): generate per IMAGE_GENERATION.md, then set mainImage. height/width REQUIRED or it won't render.
 await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 ```
 
@@ -83,7 +83,7 @@ Free/RSVP events need neither.
 | `publishEvent(ctx, eventId)` | STEP 3 — publish (one-way) |
 | `createEventCategories(ctx, names)` | STEP 4 (opt) — v1 Categories, one call each → `[{id,name}]` |
 | `assignEventsToCategory(ctx, categoryId, eventIds)` | STEP 4 (opt) — path `/{categoryId}/events`, body `{eventId:[…]}` |
-| `setEventMainImage(ctx, {eventId,id,url,height,width,altText})` | imagery ON — PATCH `mainImage` (no revision) |
+| `setEventMainImage(ctx, {eventId,id,url,height,width,altText})` | optional — PATCH `mainImage` (no revision) |
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,

@@ -88,7 +88,7 @@ await seed.insertReferences(ctx, "recipes", [
   { referringItemFieldName: "categories", referringItemId: recipeId, referencedItemId: categoryId },
 ]);
 
-// imagery ON only: generate per IMAGE_GENERATION.md, then read-merge-PUT the url onto the item's IMAGE field
+// optional — generate an image, then read-merge-PUT the url onto the item's IMAGE field
 await seed.attachItemImage(ctx, "team-members", { itemId: items[0].id, imageFieldKey: "photo", url: fileUrl });
 ```
 
@@ -102,7 +102,7 @@ await seed.attachItemImage(ctx, "team-members", { itemId: items[0].id, imageFiel
 | `insertItem(ctx, collectionId, data)` | STEP 2 (single) — insert one item → `{id,data}` |
 | `queryItems(ctx, collectionId)` | STEP 3 — query for verification → `[{id,data}]` |
 | `insertReferences(ctx, collectionId, [{referringItemFieldName, referringItemId, referencedItemId}])` | STEP 4 — wire multi-references |
-| `attachItemImage(ctx, collectionId, {itemId, imageFieldKey, url})` | imagery ON only — read-merge-PUT the image url onto an item |
+| `attachItemImage(ctx, collectionId, {itemId, imageFieldKey, url})` | optional — read-merge-PUT the image url onto an item |
 | `PERMISSIONS` | preset blocks: `publicRead`, `collaborative`, `memberPrivate`, `memberSharedReadOnly` |
 
 ## Fallback

@@ -130,7 +130,7 @@ async function deleteMenu(ctx, menuId) {
  *   price -> priceInfo.price as a decimal STRING; currency is the site's (send none).
  *   description is a plain string (NOT rich-text nodes); omit for a name-only item/section.
  *   visible:true is baked in at every level (item, section, menu) — required to render on the live site.
- * @returns { menuId, sectionIds:[…], itemIds:[…] }  (revisions available via listMenuItems for imagery pass)
+ * @returns { menuId, sectionIds:[…], itemIds:[…] }  (revisions available via listMenuItems for image pass)
  */
 async function createMenu(ctx, menu) {
   // STEP 1 — bulk-create every item across all sections in ONE request; track which section each belongs to.
@@ -184,7 +184,7 @@ async function createMenu(ctx, menu) {
   return { menuId: menuRes.menu?.id, sectionIds, itemIds: createdItems.map((it) => it?.id) };
 }
 
-// Imagery ON only (pass-2). The ITEM is the image-bearing entity. Update Item is a FULL-ENTITY REPLACE
+// Optional (pass-2). The ITEM is the image-bearing entity. Update Item is a FULL-ENTITY REPLACE
 // with NO field mask — you MUST echo each item's current `revision` AND `priceInfo`, or it fails
 // `428 MISSING_ITEM_PRICING` and the image does NOT apply. `image` is an OBJECT { id, url, height, width }
 // (never a bare string); the binding field is the Wix Media file `id`. Never block on image failure.
@@ -383,7 +383,7 @@ async function setupRestaurants(ctx, plan) {
   const flatItems = plan.menu.sections.flatMap((s) => s.items || []);
   const itemNameToId = new Map(flatItems.map((it, i) => [it.name, itemIds[i]]));
 
-  // imagery pass — map each plan item that carries an image to its created id (revision "1", fresh).
+  // image pass — map each plan item that carries an image to its created id (revision "1", fresh).
   const imageItems = flatItems
     .filter((it) => it.image || it.imageUrl)
     .map((it) => ({

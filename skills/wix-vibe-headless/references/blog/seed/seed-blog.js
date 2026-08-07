@@ -17,7 +17,7 @@
 //       { type: "quote", text: "Great coffee is grown, not made." },
 //     ] },
 //   ], { memberId });
-//   // imagery ON only: import images per IMAGE_GENERATION.md, then attach covers + re-publish
+//   // optional — import images, then attach covers + re-publish
 //   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fileIds[i] })));
 //
 // **NOT yet live-verified — transcribed from setup-blog.md.** If any call fails with a shape the
@@ -85,7 +85,7 @@ function mkRichContent(blocks = [], postIdx = 0) {
 
 // One post's plain data -> a flat Blog V3 draft-post object.
 // `content` (block list) is turned into Ricos richContent unless a pre-built `richContent` is given.
-// media is omitted here — covers are a separate pass (attachPostCovers), imagery-gated. Per recipe.
+// media is omitted here — covers are a separate pass (attachPostCovers), optional (a separate covers pass). Per recipe.
 function buildPost(p, i, memberId) {
   return {
     title: p.title,
@@ -158,7 +158,7 @@ async function createTags(ctx, names) {
   return out;
 }
 
-// Attach images step (imagery ON only). covers: [{ postId, fileId }] where fileId is the WixMedia
+// Attach images step (optional). covers: [{ postId, fileId }] where fileId is the WixMedia
 // file.id from IMAGE_GENERATION.md import (Blog binds the cover by id, not url). Per post:
 //   PATCH /blog/v3/draft-posts/{id}  (NOT POST …/{id}/update — that 404s for a single post),
 // setting media.displayed:true + media.custom:true + wixMedia.image.id (id ALONE is a silent no-op),

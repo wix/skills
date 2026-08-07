@@ -12,8 +12,7 @@ first, then thread their real ids into each project.
 "sample" data, don't reset. Just add.
 
 **DEFAULT — one call.** `setupPortfolio(ctx, plan)` runs the whole flow in the right order
-(collections → projects → items → covers), threading ids in memory. Pass covers/items only when
-imagery is on. Drop to the individual functions below only for step-by-step control.
+(collections → projects → items → covers), threading ids in memory. Pass covers/items only when you have them. Drop to the individual functions below only for step-by-step control.
 
 ```js
 // build-time exec_tool
@@ -33,7 +32,7 @@ const summary = await seed.setupPortfolio(ctx, {
     { title: "Northwind Rebrand", description: "Full identity refresh for a logistics firm.",
       collection: "Brand Identity",                    // resolved to that collection's id
       details: [{ label: "Year", text: "2025" }],
-      // imagery ON only — generate + import per IMAGE_GENERATION.md, then pass ids/dims:
+      // optional — generate + import per IMAGE_GENERATION.md, then pass ids/dims:
       cover: { imageId: ids[0], height: 2880, width: 1920 },
       items: [{ sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }] },
   ],
@@ -53,7 +52,7 @@ const projects = await seed.createProjects(ctx, [                               
     collectionIds: [collections[0].id], details: [{ label: "Year", text: "2025" }] },
 ]);
 
-// imagery ON only: generate + import images per IMAGE_GENERATION.md, then attach
+// optional — generate + import images, then attach
 await seed.attachProjectCovers(ctx, projects.map((p, i) => ({ id: p.id, revision: p.revision, imageId: ids[i], height: 2880, width: 1920 })));
 await seed.attachCollectionCovers(ctx, collections.map((c, i) => ({ id: c.id, revision: c.revision, imageId: cids[i], height: 2880, width: 1920 })));
 await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }]);
@@ -65,9 +64,9 @@ await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, t
 | `setupPortfolio(ctx, plan)` | **DEFAULT** — one call: collections → projects → items → covers; returns `{collections,projects,itemsCreated,coversAttached}` |
 | `createCollections(ctx, collections)` | STEP 1 — `[{title,description?,hidden?}]` → `[{id,slug,revision}]` |
 | `createProjects(ctx, projects)` | STEP 2 — `[{title,description?,collectionIds,details?,hidden?}]` → `[{id,slug,revision}]` |
-| `attachProjectCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each project's cover (imagery on) |
-| `attachCollectionCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each collection's cover (imagery on) |
-| `createProjectItems(ctx, [{projectId,sortOrder,title,imageId,height,width}])` | one POST per gallery image (imagery on) |
+| `attachProjectCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each project's cover (optional) |
+| `attachCollectionCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each collection's cover (optional) |
+| `createProjectItems(ctx, [{projectId,sortOrder,title,imageId,height,width}])` | one POST per gallery image (optional) |
 
 `hidden` defaults to `false` (shown) — omit it for visible entities; send `hidden: true` only to
 hide. On `428` / `APP_NOT_INSTALLED`, the Setup step was skipped — fail loudly, don't self-install.

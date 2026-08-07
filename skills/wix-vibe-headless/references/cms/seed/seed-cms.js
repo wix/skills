@@ -20,7 +20,7 @@
 //   await seed.insertReferences(ctx, "recipes", [                        // STEP 4 (only if collections relate)
 //     { referringItemFieldName: "categories", referringItemId: recipeId, referencedItemId: categoryId },
 //   ]);
-//   await seed.attachItemImage(ctx, "team-members", { itemId, imageFieldKey: "photo", url: fileUrl }); // imagery ON only
+//   await seed.attachItemImage(ctx, "team-members", { itemId, imageFieldKey: "photo", url: fileUrl }); // optional
 //
 // **NOT yet live-verified — transcribed from setup-cms.md.**
 //
@@ -155,7 +155,7 @@ async function insertReferences(ctx, dataCollectionId, references) {
   });
 }
 
-// Attach a generated image to an item (imagery ON only). Read-merge-PUT — a partial PUT wipes omitted
+// Attach a generated image to an item (optional). Read-merge-PUT — a partial PUT wipes omitted
 // fields, so query the item, merge the url into its IMAGE field key, and PUT the WHOLE record back.
 // Never block on image failure — on failure skip and leave the item text-only. url = the permanent
 // wixstatic.com file.url (an IMAGE field stores the URL string).
