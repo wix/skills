@@ -3,7 +3,7 @@
 // the bug-prone part — keep them verbatim; the Events page only renders what this returns.
 //   • queryEvents / listEventsByCategory return { events, total, offset, nextOffset } — an OBJECT,
 //     not a bare array; nextOffset is null when there are no more pages.
-//   • queryEventCategories returns { categories, total }; render category.label (NOT name),
+//   • queryEventCategories returns { categories, total }; render category.name,
 //     key/filter by category.id, count = counts.assignedEventsCount.
 //   • total === 0 → the whole catalog is empty; show the "publish events" empty state.
 import { useState, useEffect } from "react";
