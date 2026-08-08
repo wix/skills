@@ -27,17 +27,6 @@ the token set) is **universal — follow it as-is**.
 
 (All paths are under `.agents/skills/wix-vibe-headless/references/`.)
 
-## Hard rules
-
-1. **Never convert the project's framework, bundler, dev server, or ports** — generate the Wix files
-   *into* the existing stack. Switching the project to another bundler is the #1 time-sink here:
-   orphaned dev servers, port whack-a-mole, broken previews.
-2. **`rest/` layer ~verbatim; regenerate everything else in your idiom.** Browser-only code (cart,
-   manage banner, anything using `localStorage`/`window`) must be **SSR-safe**; dev-gate the banner
-   portably (`import.meta.env?.DEV` is Vite-only → fall back to `process.env.NODE_ENV !== "production"`).
-3. **Read-only over the owner's content** — render live Wix data or an honest empty state; never
-   mock, invent, or provision.
-
 ## The flow — install → build client → seed → done
 
 Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work within each.
