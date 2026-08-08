@@ -137,42 +137,46 @@ async function createPosts(ctx, posts, { memberId, publish = true } = {}) {
   }));
 }
 
-// Resolve existing label -> id for categories/tags so re-creating an existing label is a
-// no-op instead of a 409. Both endpoints enforce a unique-label constraint (label+language),
-// so a partial-failure re-run of setupBlog would otherwise explode on labels made last run.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Existing label -> id, straight from the query (the source of truth for what actually persisted).
 async function labelIdMap(ctx, kind) {
   const path = kind === "categories" ? "/blog/v3/categories/query" : "/v3/tags/query";
   const r = await req(ctx, path, { body: { query: { paging: { limit: 100 } } } });
   return new Map((r[kind] ?? []).map((x) => [x.label, x.id]));
 }
 
-// STEP 3 (optional — only if the request groups posts): create categories, one POST each.
-// No bulk endpoint. `label` is the Category display-name field, sent NESTED under `category`.
-// Idempotent: an existing label reuses its id. Returns [{ id, name }] — feed into post.categoryIds.
-async function createCategories(ctx, names) {
-  const existing = await labelIdMap(ctx, "categories");
-  const out = [];
-  for (const name of names) {
-    let id = existing.get(name);
-    if (!id) id = (await req(ctx, "/blog/v3/categories", { body: { category: { label: name } } })).category?.id;
-    out.push({ id, name });
+// Create category/tag labels resiliently. TWO hazards this absorbs:
+//  1. Fresh-install provisioning window — for a few seconds after the Blog app is installed, per-item
+//     category/tag creates return 200 with an id but DON'T persist (last-write-wins; the id is a lie).
+//     Posts (bulk) are unaffected. So we never trust the create response — we re-query and treat what
+//     the query returns as truth, re-creating anything still missing until it sticks (store warms in ~s).
+//  2. Idempotency — an already-present label (e.g. a partial-failure re-run) is skipped, not re-created.
+// Category bodies are NESTED (`{ category: { label } }`); tag bodies are FLAT (`{ label }`) — a
+// `{ tag: { label } }` body sends an empty top-level label and 400s. Returns [{ id, name }].
+async function ensureLabels(ctx, kind, createPath, mkBody, names) {
+  let map = await labelIdMap(ctx, kind);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const missing = names.filter((n) => !map.has(n));
+    if (!missing.length) break;
+    if (attempt) await sleep(1500); // backoff only between retries — happy path pays nothing
+    for (const name of missing) {
+      try { await req(ctx, createPath, { body: mkBody(name) }); }
+      catch (e) { if (!String(e.message).includes("-> 409")) throw e; } // 409 = raced, already there
+    }
+    map = await labelIdMap(ctx, kind);
   }
-  return out;
+  return names.map((name) => ({ id: map.get(name), name }));
 }
 
-// STEP 3 (optional): create tags, one POST each. The tag create body is FLAT (`{ label }`) —
-// NOT nested under `tag` like categories; a `{ tag: { label } }` body sends an empty top-level
-// label and 400s ("label must not be empty"). Idempotent: an existing label reuses its id.
-// Returns [{ id, name }] — feed ids into post.tagIds.
+// STEP 3 (optional — only if the request groups posts): create categories. No bulk endpoint.
+async function createCategories(ctx, names) {
+  return ensureLabels(ctx, "categories", "/blog/v3/categories", (name) => ({ category: { label: name } }), names);
+}
+
+// STEP 3 (optional): create tags. Feed the returned ids into post.tagIds.
 async function createTags(ctx, names) {
-  const existing = await labelIdMap(ctx, "tags");
-  const out = [];
-  for (const name of names) {
-    let id = existing.get(name);
-    if (!id) id = (await req(ctx, "/blog/v3/tags", { body: { label: name } })).tag?.id;
-    out.push({ id, name });
-  }
-  return out;
+  return ensureLabels(ctx, "tags", "/blog/v3/tags", (name) => ({ label: name }), names);
 }
 
 // Import an external image URL into Wix Media → { id, url }. Blog binds the cover by the Wix Media
@@ -229,6 +233,8 @@ async function installBlogApp(ctx) {
 
 async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
   await installBlogApp(ctx);
+  await sleep(3000); // let a fresh Blog install settle so the first category/tag writes stick (see ensureLabels);
+                     // correctness is still guaranteed by ensureLabels' verify-retry — this just cuts the retries.
   const memberId = await getAuthorMemberId(ctx);
   const catNames = [...new Set([...categories, ...posts.flatMap((p) => [].concat(p.category ?? [], p.categories ?? []))])];
   const tagNames = [...new Set([...tags, ...posts.flatMap((p) => [].concat(p.tags ?? []))])];
