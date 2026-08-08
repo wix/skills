@@ -66,8 +66,7 @@ CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 
 Read `SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` (through **"What you've got"**
 above). Read and use the `rest/` layer, regenerate the UI for your framework, and set `WIX_CLIENT_ID`
-+ `WIX_METASITE_ID` in `wix-config`. If the brief doesn't say which Wix solution(s) to build, **ask the
-user** one short question (what do they offer?).
++ `WIX_METASITE_ID` in `wix-config`.
 
 ### 3 · Seed the content
 
