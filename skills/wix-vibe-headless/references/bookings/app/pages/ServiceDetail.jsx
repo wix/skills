@@ -13,7 +13,7 @@ export default function ServiceDetail() {
   if (d.notFound) return <Centered>Service not found.</Centered>;
   if (!d.service) return <Centered>Loading…</Centered>;
 
-  const image = mediaUrl(d.service.media?.items?.[0]?.image);
+  const image = mediaUrl(d.service.media?.mainMedia?.image ?? d.service.media?.items?.[0]?.image ?? d.service.media?.coverMedia?.image);
   const locations = (d.service.locations || []).map((l) => l.name || l.formattedAddress).filter(Boolean);
 
   return (
