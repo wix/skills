@@ -63,9 +63,22 @@ CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 
 ### 2 · Build the client
 
-Read `SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` (through **"What you've got"**
-above). Read and use the `rest/` layer, regenerate the UI for your framework, and set `WIX_CLIENT_ID`
-+ `WIX_METASITE_ID` in `wix-config`.
+Pull the whole client reference into context in two reads — **this is basically your prompt: it's all
+the client code you need.** Build the client from it in your own stack's idiom (your router, file
+extensions, design tokens), and set `WIX_CLIENT_ID` + `WIX_METASITE_ID` in `wix-config`.
+
+```bash
+V=<vertical>   # the vertical you're building
+
+# utils — transport + data layer (plain fetch, already SSR-guarded; use ~as-is)
+find .agents/skills/wix-vibe-headless/references/shared/app/rest \
+     .agents/skills/wix-vibe-headless/references/$V/app/rest \
+     -type f -name '*.js' -exec tail -n +1 {} +
+
+# components/pages — a reference UI (rebuild for your framework; keep the field shapes + route patterns)
+find .agents/skills/wix-vibe-headless/references/$V/app \
+     -type f \( -name '*.jsx' -o -name '*.js' \) -not -path '*/rest/*' -exec tail -n +1 {} +
+```
 
 ### 3 · Seed the content
 
@@ -86,10 +99,17 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   -H 'Content-Type: application/json' -d '{"query":{"cursorPaging":{"limit":10}}}'
 ```
 
-Seed by reusing the functions in `references/<vertical>/seed/seed-*.js` (they encode the Wix API
-sequences, incl. app-install + provisioning-race handling); use `wix-docs` for anything they don't
-cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is installed + seeded
-(expected; the seed modules install it first). Image seeding = two Wix Media calls
+Pull the seed code into context — **this is your seeding prompt: it's all the code you need.** Run
+these functions (adapting the exec + auth to your platform) to create the content:
+
+```bash
+V=<vertical>
+find .agents/skills/wix-vibe-headless/references/$V/seed -name '*.js' -exec tail -n +1 {} +
+```
+
+They encode the Wix API sequences (incl. app-install + provisioning-race handling); use `wix-docs`
+for anything they don't cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
+installed + seeded (expected; the seed modules install it first). Image seeding = two Wix Media calls
 (`generate-upload-url` → `PUT` the bytes) before attaching.
 
 ### 4 · Done
