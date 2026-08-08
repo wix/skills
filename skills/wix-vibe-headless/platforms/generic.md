@@ -17,7 +17,7 @@ the **three assets** and adapt them; don't copy the host's setup:
 2. **UI + data contract** — `<vertical>/app/{components,pages,hooks}` + the field snippets in
    `INSTRUCTIONS.md`: a **reference** UI. **Regenerate it in your framework** (your router, `.tsx`,
    your design tokens); keep the field shapes and route patterns (e.g. `/product/:slug`).
-3. **seed functions** — `<vertical>/seed/seed-*.js`: **reuse them** to create content (step 4).
+3. **seed functions** — `<vertical>/seed/seed-*.js`: **reuse them** to create content (step 3).
 
 Anything in the docs about the **host's own setup** — copying files into `src/`, its `@/` alias, its
 `import.meta.env` flags, a theming file, its build/exec/connector tooling — is that host's, not a
@@ -40,7 +40,7 @@ the token set) is **universal — follow it as-is**.
 
 ## The flow — install → build client → seed → done
 
-Run **build client** (step 3) and **seed** (step 4) in parallel; parallelize independent work within each.
+Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work within each.
 
 ### 1 · Install the skills
 
@@ -60,42 +60,25 @@ for s in vibe-headless docs; do
 done
 ```
 
-### 2 · (optional) Not sure what to build?
-
-Only if the brief is vague. **Ask** one short question, or — with an admin credential (step 4) —
-**read the site**:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
-  -H 'Authorization: Bearer <admin token>' -H 'Content-Type: application/json' \
-  -d '{"siteId": "<metasite id from your prompt>"}'
-```
-
-Returns the installed apps, status, locale, CMS collections
-([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md);
-API key → send it raw, no `Bearer`). Build for the **installed** apps — never guessed ones.
-
-### 3 · Build the client
+### 2 · Build the client
 
 Read `SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` (through **"What you've got"**
 above). Use the `rest/` layer as-is, regenerate the UI for your framework, and set `WIX_CLIENT_ID` +
-`WIX_METASITE_ID` in `wix-config`.
+`WIX_METASITE_ID` in `wix-config`. If the brief doesn't say which Wix solution(s) to build, **ask the
+user** one short question (what do they offer?), or let step 3's site read settle it.
 
-### 4 · Seed the content
+### 3 · Seed the content
 
 **⛔ NO CLEANUP — EVER.** Strictly **additive**: never delete, reset, or overwrite anything on the
 user's live site — not even apparent sample/demo content. If something looks wrong, leave it and tell
 the user.
 
-Reuse the functions in `references/<vertical>/seed/seed-*.js` (they encode the Wix API sequences,
-incl. app-install + provisioning-race handling); use `wix-docs` for anything they don't cover.
-
 **Auth** (the public client id won't do): if your platform has a **built-in Wix connector**, use it
 (it holds the credential). Otherwise take a **Wix API key** into your secrets manager (never hardcode
 or commit) — create one at **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)**
 ([how-to](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)) —
-and send it **raw as `Authorization` (no `Bearer`)** with a **`wix-site-id`** header
-(`wix-account-id` only for account-level APIs — one, not both):
+and send it **raw as `Authorization` (no `Bearer`)** with a **`wix-site-id`** header (`wix-account-id`
+only for account-level APIs — one, not both):
 
 ```bash
 curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
@@ -103,11 +86,22 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   -H 'Content-Type: application/json' -d '{"query":{"cursorPaging":{"limit":10}}}'
 ```
 
-Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is installed + seeded (expected; the
-seed modules install it first). Image seeding = two Wix Media calls (`generate-upload-url` → `PUT` the
-bytes) before attaching.
+**Once you have that admin credential**, you can read the site to see which apps are actually
+installed — build and seed only those, never guessed ones:
 
-### 5 · Done
+```bash
+curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H 'Authorization: <admin token or raw API key>' -H 'Content-Type: application/json' \
+  -d '{"siteId": "<metasite id from your prompt>"}'
+```
+
+Then seed by reusing the functions in `references/<vertical>/seed/seed-*.js` (they encode the Wix API
+sequences, incl. app-install + provisioning-race handling); use `wix-docs` for anything they don't
+cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is installed + seeded
+(expected; the seed modules install it first). Image seeding = two Wix Media calls
+(`generate-upload-url` → `PUT` the bytes) before attaching.
+
+### 4 · Done
 
 Mount the dev-only manage banner (regenerate `WixManageBanner` for your stack — set `WIX_METASITE_ID`,
 above the header, SSR-safe, portable dev-gate, **never in production**), then tell the user to open
