@@ -13,7 +13,7 @@ function servicePrice(service) {
 }
 
 export default function ServiceCard({ service }) {
-  const image = mediaUrl(service.media?.items?.[0]?.image);
+  const image = mediaUrl(service.media?.mainMedia?.image ?? service.media?.items?.[0]?.image ?? service.media?.coverMedia?.image);
   const price = servicePrice(service);
 
   return (
