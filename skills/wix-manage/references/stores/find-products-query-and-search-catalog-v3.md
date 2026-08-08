@@ -37,11 +37,18 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
 }'
 ```
 
-Both endpoints return their matches in `products`:
+The response puts the matches in `products`:
 
 ```json
-{ "products": [ { "id": "...", "name": "Blue Shirt" } ], "pagingMetadata": { "count": 1 } }
+{
+  "products": [
+    { "id": "...", "name": "Blue Shirt", "slug": "blue-shirt" }
+  ],
+  "pagingMetadata": { "count": 1 }
+}
 ```
+
+Query Products returns the same envelope.
 
 For exact name matching, search with the user-provided text and then compare the returned `product.name` values in your own code.
 
