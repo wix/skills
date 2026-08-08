@@ -14,19 +14,18 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
 
 | file | what's in it |
 |---|---|
-| `wix-client.js` | The transport. Exchanges `WIX_CLIENT_ID` for an anonymous **visitor token**, persists + refreshes it (that token *is* the cart/session identity), and exposes `wixApiRequest(path, {method, body, query})`. Also the member-session swap — `setSessionTokens` / `clearSession` / `isMember`. Plain `fetch`; already SSR-guards `window`/`localStorage`; maps 402 + error bodies. **Use ~verbatim.** |
-| `wix-config.js` | The one place you set `WIX_CLIENT_ID` + `WIX_METASITE_ID`. |
+| `wix-client.js` | The transport: exchanges `WIX_CLIENT_ID` for an anonymous **visitor token**, persists + refreshes it (that token *is* the cart/session identity), and exposes `wixApiRequest(path, {method, body, query})` — plus the member-session swap (`setSessionTokens` / `clearSession` / `isMember`). Plain `fetch`; SSR-guards `window`/`localStorage`; maps 402 + error bodies. |
+| `wix-config.js` | Holds `WIX_CLIENT_ID` + `WIX_METASITE_ID` — the only values to fill in. |
 
 **Every `references/<vertical>/` holds the same four things:**
 
 - `app/rest/wix-*.js` — the vertical's **data layer**: named calls carrying the exact request/response
-  **shapes**, fieldsets, and paging. **Use ~verbatim** (TS → rename `.js → .ts` + add types); never
-  change the shapes.
-- `app/{components,pages,hooks,context}/…` — a **reference UI** (+ hooks/providers). **Regenerate it
-  in your framework** (your router, `.tsx`, your design tokens); keep the field shapes and route
-  patterns (e.g. `/product/:slug`).
-- `seed/seed-*.js` — build-time **seeding functions**; **reuse them** to create content (step 3).
-- `INSTRUCTIONS.md` (build guide + field-shape snippets) and `seed/SEED.md` (how to run the seed module).
+  **shapes**, fieldsets, and paging.
+- `app/{components,pages,hooks,context}/…` — a **reference UI** (+ hooks/providers) built on that data
+  layer; the field shapes and route patterns it uses (e.g. `/product/:slug`) are the data contract.
+- `seed/seed-*.js` — build-time **seeding functions** that create content.
+- `INSTRUCTIONS.md` — the vertical's build guide + field-shape snippets; `seed/SEED.md` — how the seed
+  module is run.
 
 **The nine verticals — data layer (`app/rest/`) + seed module (`seed/`):**
 
