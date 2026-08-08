@@ -21,28 +21,38 @@ const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
-  const res = await fetch(API + path, {
-    method,
-    headers: {
-      Authorization: `Bearer ${ctx.token}`,
-      "wix-site-id": ctx.siteId,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
-  return json;
+  // Retry the catalog-V1 provisioning race: right after a fresh Stores install the V3 WRITE path
+  // clears CATALOG_V1 a bit later than the V3 read path, so even once waitForCatalogV3 (a read probe)
+  // returns, the first bulk-create can still 428 with CATALOG_V1_SITE_CALLING_CATALOG_V3_API. Wait it
+  // out on that code only (~80s budget); every other error throws on the first try as before.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(API + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${ctx.token}`,
+        "wix-site-id": ctx.siteId,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return json;
+    if (json?.details?.applicationError?.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" && attempt < 40) {
+      await sleep(2000);
+      continue;
+    }
+    throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
+  }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // A freshly installed Stores catalog transiently reports CATALOG_V1: V3 calls 428 with
 // applicationError.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" until provisioning settles to
-// V3. Poll a cheap V3 read until that code clears (bounded ~80s — a fresh install can take a while to
-// settle; the poll returns the instant V3 is live, so a generous ceiling only helps the slow tail and
-// costs nothing normally), so seeding doesn't race the install. Returns once V3 is live (or after the
-// budget — the caller's real call then surfaces it).
+// V3. Poll a cheap V3 read until that code clears (bounded ~80s), so we don't fire the expensive
+// bulk-create repeatedly during the window. This is a cheap pre-gate on the READ path; the WRITE path
+// clears slightly later, so the real guarantee is req()'s retry on the same code — this just minimizes
+// how many times the actual write has to retry.
 async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
