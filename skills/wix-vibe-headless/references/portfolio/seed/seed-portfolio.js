@@ -31,6 +31,7 @@
 // wix-headless/references/inline-recipes/setup-portfolio.md.
 
 const API = "https://www.wixapis.com";
+const PORTFOLIO_APP_ID = "d90652a2-f5a1-4c7c-84c4-d4cdcc41f130"; // installPortfolioApp installs this before seeding
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -175,7 +176,17 @@ async function createProjectItems(ctx, items) {
  *   are optional — a project/collection without one skips it.
  * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
  */
+// Install the Wix Portfolio app before seeding — base44 sites aren't guaranteed to have it (no
+// separate Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installPortfolioApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: PORTFOLIO_APP_ID, enabled: true },
+  } });
+}
+
 async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
+  await installPortfolioApp(ctx);
   const cols = await createCollections(ctx, collections);               // STEP 1
   const idByName = new Map(collections.map((c, i) => [c.title, cols[i].id]));
 
@@ -236,7 +247,7 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
 }
 
 module.exports = {
-  setupPortfolio,
+  setupPortfolio, installPortfolioApp,
   listProjects, deleteProjects, listCollections, deleteCollections,
   createCollections, createProjects, importImage,
   attachProjectCovers, attachCollectionCovers, createProjectItems,

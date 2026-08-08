@@ -9,7 +9,7 @@ seed operation. `require` it and call the functions with plain data.
 
 Two one-way constraints fix the order: `registration.initialType` (`TICKETING`/`RSVP`) is **immutable**
 after create, and **publishing is one-way**. So per event: create DRAFT → (ticketed) add tiers → publish.
-Wix Events is **pre-installed** by setup — never reinstall (a 403 means fail loudly). There is no
+`setupEvents` **installs the Wix Events app first** (idempotent — a re-install returns 200), so seeding works even if the site doesn't have it yet. There is no
 clean-up step (a fresh install ships no sample events).
 
 ```js

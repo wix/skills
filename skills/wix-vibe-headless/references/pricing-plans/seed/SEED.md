@@ -17,7 +17,8 @@ const seed = (() => { const m = { exports: {} };
   return m.exports; })();
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
-// There is NO clean-up step — a fresh Pricing Plans install ships no sample plans.
+// setupPricingPlans installs the Wix Pricing Plans app first (idempotent) — base44 sites may not
+// have it. There is NO clean-up step — a fresh Pricing Plans install ships no sample plans.
 
 // DEFAULT: one call. Creates the plan(s), keeps their ids in memory, and (per plan) wires bookings
 // coverage when provided — createPlans then attachBookingsCoverage (2a→2b→2c), in order.
