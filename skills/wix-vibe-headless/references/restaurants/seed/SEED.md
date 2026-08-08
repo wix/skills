@@ -30,7 +30,10 @@ const result = await seed.setupRestaurants(ctx, {
     name: "Dinner", description: "Evening menu",
     sections: [
       { name: "Antipasti", description: "To start", items: [
-        { name: "Bruschetta al Pomodoro", description: "Grilled sourdough, San Marzano tomatoes, basil.", price: 9.50, imageUrl: "https://…" },
+        // imageUrl per item is optional and attached IN this one call. It must be the FINAL
+        // https://media.base44.com/... url from the COMPLETED generate_image (it runs in the background
+        // while you build — wait for it), never a still-generating /__generating__/<id>.png placeholder.
+        { name: "Bruschetta al Pomodoro", description: "Grilled sourdough, San Marzano tomatoes, basil.", price: 9.50, imageUrl: "https://media.base44.com/…" },
       ] },
     ],
   },

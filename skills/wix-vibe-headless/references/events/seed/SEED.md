@@ -35,6 +35,9 @@ const summary = await seed.setupEvents(ctx, {
     location: { name: "The Echo Lot", type: "VENUE", address: { addressLine: "120 Harbor St", city: "Seattle", subdivision: "US-WA", postalCode: "98101", country: "US" } },
     ticketTiers: [{ name: "General Admission", price: "65.00", initialLimit: 200 }],
     category: "Talks",
+    // image is optional and attached IN this one call. Use the FINAL https://media.base44.com/... url
+    // from the COMPLETED generate_image (it runs in the background while you build — wait for it), never a
+    // still-generating /__generating__/<id>.png placeholder; import it into Wix Media for { id, url, … }.
     image: { id: file.id, url: file.url, height: 1024, width: 1024 }, // altText defaults to the event slug
   }],
 });

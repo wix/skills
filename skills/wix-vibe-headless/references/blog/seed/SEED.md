@@ -30,7 +30,9 @@ const result = await seed.setupBlog(ctx, {
         { type: "paragraph", text: "Every batch starts with beans from a single estate." },
         { type: "quote", text: "Great coffee is grown, not made." },
       ],
-      // optional — import an image, then pass the WixMedia file id here
+      // cover is optional and attached IN this one call. Import the FINAL https://media.base44.com/...
+      // url from the COMPLETED generate_image (it runs in the background while you build — wait for it)
+      // into Wix Media to get the fileId; never import a /__generating__/<id>.png placeholder.
       coverImageUrl: fileIds[0],
     },
   ],

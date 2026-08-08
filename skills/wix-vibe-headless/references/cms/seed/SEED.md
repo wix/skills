@@ -38,7 +38,9 @@ const summary = await seed.setupCms(ctx, {
           typeMetadata: { multiReference: { referencedCollectionId: "categories" } } },
       ],
       items: [
-        // image ON only: fileUrl generated per IMAGE_GENERATION.md; drop `image` to leave the item text-only
+        // image is optional and attached IN this one call; drop it to leave the item text-only. The url
+        // must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image (it runs in
+        // the background while you build — wait for it), never a still-generating /__generating__/<id>.png.
         { _key: "recipe-cake", title: "Chocolate Cake", image: { fieldKey: "photo", url: fileUrl } },
       ] },
   ],

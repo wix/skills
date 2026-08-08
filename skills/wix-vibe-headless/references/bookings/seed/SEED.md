@@ -22,7 +22,11 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // are local "YYYY-MM-DDThh:mm:ss".
 const result = await seed.setupBookings(ctx, {
   services: [
-    { type: "APPOINTMENT", name: "Consultation", description: "…", tagLine: "…", price: 75, duration: 60, category: "Our Services" },
+    // `image` per service is optional and attached IN this one call. Use the FINAL
+    // https://media.base44.com/... url from the COMPLETED generate_image (it runs in the background
+    // while you build — wait for it), never a still-generating /__generating__/<id>.png placeholder
+    // (Wix can't fetch it); import it into Wix Media for the { id, url, width, height } shape.
+    { type: "APPOINTMENT", name: "Consultation", description: "…", tagLine: "…", price: 75, duration: 60, category: "Our Services", image: { id, url, width, height } },
     { type: "CLASS", name: "Morning Yoga", description: "…", price: 20, capacity: 20, category: "Our Services",
       sessions: [{ start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00" }] },
   ],
@@ -30,7 +34,7 @@ const result = await seed.setupBookings(ctx, {
 });
 // result: { services:[...], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
 
-// optional — generate an image, then patch each service (revision-checked):
+// fallback (finer control / re-attach): attachServiceImage patches one service's image after the fact.
 // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
 ```
 
