@@ -32,8 +32,9 @@
 //   await seed.scheduleClassSessions(ctx, services.filter(s => s.type === "CLASS").map(s => ({
 //     scheduleId: s.scheduleId, resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20,
 //   })));
-//   // optional — generate an image, then patch each service (revision-checked).
-//   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
+//   // optional — import the image url to Wix Media first (bookings binds by file id), then patch (revision-checked).
+//   // const file = await seed.importImage(ctx, imageUrl); // → { id, url } (Wix Media file id + wixstatic url)
+//   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
 //
 // If any call fails with a shape the caller didn't expect, or you need an operation this module
 // doesn't cover, fall back to the wix-docs skill (search + read the live Wix API reference) —
@@ -217,8 +218,22 @@ async function getService(ctx, serviceId) {
 }
 
 /**
- * Attach images (optional). Writes under media.mainMedia + media.coverMedia; revision-checked.
- * @param it { serviceId, revision, image: { id, url, width, height } }  (image.id is the binding field)
+ * Import an external image URL into Wix Media → { id, url }. Bookings binds a service image by the
+ * Wix Media file **id** (`mainMedia.image.id`), NOT a url — so an external url (e.g. a base44
+ * generate_image result) MUST be imported first; the raw url as the id stores (200) but renders
+ * nothing. `id` is the wixstatic file id (`<hash>~mv2.png`), `url` the permanent wixstatic url.
+ */
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
+/**
+ * Attach an image (optional). Writes under media.mainMedia + media.coverMedia; revision-checked.
+ * @param it { serviceId, revision, image: { id, url, width, height } } — `image.id` MUST be a Wix
+ *   Media file id (from importImage), never a raw external url.
  * ⚠️ Writing under media.image (not mainMedia/coverMedia) returns 200 but SILENTLY drops the image — a 200
  * is not proof; confirm with getService and check media.mainMedia is populated. Never block on failure.
  */
@@ -244,7 +259,7 @@ async function attachServiceImage(ctx, it) {
  *   services: [{ type:"APPOINTMENT"|"CLASS", name, description, tagLine?, price?, free?, duration?,
  *                capacity?, category?(name), staffMemberIds?,
  *                sessions?: [{ start, end, capacity? }],  // CLASS only; local "YYYY-MM-DDThh:mm:ss"
- *                image? }],                                // {id,url,width,height} to attach, optional
+ *                imageUrl? }],                             // a plain image url; imported to Wix Media here, optional
  *   staffResourceId?: string,   // defaults to the fresh install's owner (queryStaff()[0].resourceId)
  * }}
  * Cleanup is intentionally NOT here — deleting existing services is a judgment call.
@@ -283,11 +298,16 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
   let imagesAttached = 0;
   for (let i = 0; i < created.length; i++) {
-    const img = services[i]?.image;
-    if (img && created[i]?.id) {
-      await attachServiceImage(ctx, { serviceId: created[i].id, revision: created[i].revision, image: img });
+    const url = services[i]?.imageUrl;         // a plain image url (e.g. base44 generate_image) — imported here
+    if (!url || !created[i]?.id) continue;
+    try {
+      const file = await importImage(ctx, url, `${created[i].slug || "service"}.png`);   // → Wix Media file id
+      await attachServiceImage(ctx, {
+        serviceId: created[i].id, revision: created[i].revision,
+        image: { id: file.id, url: file.url, width: 1024, height: 1024 },
+      });
       imagesAttached++;
-    }
+    } catch { /* never block on image failure — leave the service text-only */ }
   }
 
   return { services: created, categories: cats, resourceId, sessionsScheduled: scheduled.length, imagesAttached };
@@ -297,5 +317,5 @@ module.exports = {
   setupBookings,
   installBookingsApp, listServices, deleteServices,
   queryStaff, createStaff, queryCategories, createCategories,
-  createServices, scheduleClassSessions, getService, attachServiceImage,
+  createServices, scheduleClassSessions, getService, importImage, attachServiceImage,
 };

@@ -20,9 +20,10 @@
 //   const projects = await seed.createProjects(ctx, [                                        // STEP 2
 //     { title, description, collectionIds: [collections[0].id], details: [{ label, text }] },
 //   ]);
-//   // optional —
-//   await seed.attachProjectCovers(ctx, projects.map((p,i) => ({ id:p.id, revision:p.revision, imageId:ids[i], height:2880, width:1920 })));
-//   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId, height:896, width:1200 }]);
+//   // optional — import each image url to Wix Media first (portfolio binds by file id), then attach.
+//   const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+//   await seed.attachProjectCovers(ctx, projects.map((p,i) => ({ id:p.id, revision:p.revision, imageId:files[i].id, height:1024, width:1024 })));
+//   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId: files[0].id, height:1024, width:1024 }]);
 //
 // **NOT yet live-verified — transcribed from setup-portfolio.md.** If any call fails with a
 // shape the caller didn't expect, fall back to the wix-docs skill (search + read the live Wix
@@ -115,9 +116,19 @@ async function createProjects(ctx, projects) {
   return out;
 }
 
+// Import an external image URL into Wix Media → { id, url }. Portfolio binds covers + gallery items
+// by the Wix Media file **id**, NOT a url — an external url (e.g. a base44 generate_image result)
+// MUST be imported first; the raw url renders nothing. id = wixstatic file id, url = wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Optional — pass a cover/items to attach, omit to skip. Cover = the listing-card thumbnail. PATCH per entity,
 // echoing the current revision (a missing/stale revision fails). height + width are required
-// alongside the imported WixMedia image id. items: [{ id, revision, imageId, height, width }].
+// alongside the imported WixMedia image id (from importImage). items: [{ id, revision, imageId, height, width }].
 async function attachProjectCovers(ctx, items) {
   for (const it of items) {
     await req(ctx, `/portfolio/v1/projects/${it.id}`, {
@@ -154,13 +165,14 @@ async function createProjectItems(ctx, items) {
  * collections→projects→items→covers are wired without hand-threading ids. Order matches SEED.md:
  * createCollections → createProjects (into collections) → createProjectItems → attach*Covers.
  * @param plan {
- *   collections: [{ title, description?, hidden?, cover?: { imageId, height, width } }],
+ *   collections: [{ title, description?, hidden?, coverImageUrl? }],
  *   projects:    [{ title, description?, details?, hidden?,
  *                   collection?: "<collection title>",   // resolved to that collection's id
- *                   items?: [{ sortOrder, title, imageId, height, width }],
- *                   cover?: { imageId, height, width } }],
+ *                   items?: [{ sortOrder, title, imageUrl }],
+ *                   coverImageUrl? }],
  * }
- *   Covers/items are optional — a project/collection without a `cover`/`items` skips it.
+ *   coverImageUrl / items[].imageUrl are plain image urls — imported to Wix Media here. Covers/items
+ *   are optional — a project/collection without one skips it.
  * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
  */
 async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
@@ -175,19 +187,44 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
     })),
   );
 
-  const itemsFlat = projects.flatMap((p, i) =>
-    (p.items ?? []).map((it) => ({ ...it, projectId: projs[i].id })),
-  );
+  // resolve a plain image url → { imageId, height, width } by importing to Wix Media (binds by file id)
+  const toImage = async (url, name) => {
+    const file = await importImage(ctx, url, name);
+    return { imageId: file.id, height: 1024, width: 1024 };
+  };
+
+  // STEP 3 — project media-gallery items (import each image; a failed import skips that item)
+  const itemsFlat = [];
+  for (let i = 0; i < projects.length; i++) {
+    for (const it of projects[i].items ?? []) {
+      if (!it.imageUrl) continue;
+      try {
+        const img = await toImage(it.imageUrl, `${it.title || "item"}.png`);
+        itemsFlat.push({ projectId: projs[i].id, sortOrder: it.sortOrder, title: it.title, ...img });
+      } catch { /* skip this item's image */ }
+    }
+  }
   const items = itemsFlat.length ? await createProjectItems(ctx, itemsFlat) : [];
 
-  const projCovers = projects
-    .map((p, i) => (p.cover ? { id: projs[i].id, revision: projs[i].revision, ...p.cover } : null))
-    .filter(Boolean);
+  // STEP 4 — covers (import each; a failed import skips that cover)
+  const projCovers = [];
+  for (let i = 0; i < projects.length; i++) {
+    if (!projects[i].coverImageUrl) continue;
+    try {
+      const img = await toImage(projects[i].coverImageUrl, `${projects[i].title || "project"}-cover.png`);
+      projCovers.push({ id: projs[i].id, revision: projs[i].revision, ...img });
+    } catch { /* skip */ }
+  }
   if (projCovers.length) await attachProjectCovers(ctx, projCovers);
 
-  const colCovers = collections
-    .map((c, i) => (c.cover ? { id: cols[i].id, revision: cols[i].revision, ...c.cover } : null))
-    .filter(Boolean);
+  const colCovers = [];
+  for (let i = 0; i < collections.length; i++) {
+    if (!collections[i].coverImageUrl) continue;
+    try {
+      const img = await toImage(collections[i].coverImageUrl, `${collections[i].title || "collection"}-cover.png`);
+      colCovers.push({ id: cols[i].id, revision: cols[i].revision, ...img });
+    } catch { /* skip */ }
+  }
   if (colCovers.length) await attachCollectionCovers(ctx, colCovers);
 
   return {
@@ -201,6 +238,6 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
 module.exports = {
   setupPortfolio,
   listProjects, deleteProjects, listCollections, deleteCollections,
-  createCollections, createProjects,
+  createCollections, createProjects, importImage,
   attachProjectCovers, attachCollectionCovers, createProjectItems,
 };
