@@ -332,7 +332,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
-- Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates.
+- Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates. Reading them back is not symmetric: Get Product returns each variant's `choices` with `optionChoiceIds` only, and fills in `optionChoiceNames` just when the request's `fields` array includes `"VARIANT_OPTION_CHOICE_NAMES"`. So to find the variant for a named choice such as `Large`, either pass that field and match on the name, or take the choice GUID from `options[].choicesSettings.choices[].choiceId` and match it against `variants[].choices[].optionChoiceIds.choiceId`. Matching on a name the response never carried raises nothing — it just selects no variant.
 - Include the `renderType` in `optionChoiceNames`.
 
 ## Error Message Reference
