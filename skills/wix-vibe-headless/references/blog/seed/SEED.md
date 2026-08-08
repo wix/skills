@@ -45,8 +45,8 @@ const result = await seed.setupBlog(ctx, {
 "sample" data, don't reset. Just add.
 
 ## Escape hatch — individual functions
-
-Call the steps yourself when you need finer control (custom ordering, reusing existing ids):
+Reach for the functions below only when the one-call `setupBlog` doesn't fit (custom ordering,
+reusing existing ids). `setupBlog` is built from them, in this order:
 
 ```js
 const memberId = await seed.getAuthorMemberId(ctx);   // STEP 1 — required for every post create

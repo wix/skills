@@ -42,8 +42,8 @@ const result = await seed.setupBookings(ctx, {
 "sample" data, don't reset. Just add.
 
 ## Escape hatch — individual functions
-Reach for the individual functions below only when the one-call `setupBookings` doesn't fit (partial
-re-seed, custom ordering). `setupBookings` is built from them, in this order.
+Reach for the functions below only when the one-call `setupBookings` doesn't fit (partial re-seed,
+custom staff/ordering). `setupBookings` is built from them, in this order:
 
 ```js
 await seed.installBookingsApp(ctx);

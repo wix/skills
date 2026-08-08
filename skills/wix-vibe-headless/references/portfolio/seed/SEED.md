@@ -42,8 +42,9 @@ const summary = await seed.setupPortfolio(ctx, {
 // summary => { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
 ```
 
-### Escape hatch — individual functions
-Use these directly when you need step-by-step control. Same order applies.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupPortfolio` doesn't fit (step-by-step
+control, partial re-seed). `setupPortfolio` is built from them, in this order:
 
 ```js
 const collections = await seed.createCollections(ctx, [                                 // STEP 1

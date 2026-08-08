@@ -34,8 +34,8 @@ const result = await seed.setupStore(ctx, {
 "sample" data, don't reset. Just add.
 
 ## Escape hatch — individual functions
-Reach for the individual functions below only when the one-call `setupStore` doesn't fit (partial
-re-seed, custom ordering, verifying persistence mid-flow). `setupStore` is built from them, in this order.
+Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom
+ordering, mid-flow checks). `setupStore` is built from them, in this order:
 
 ```js
 await seed.installStoresApp(ctx);                                     // install + wait for the V3 catalog

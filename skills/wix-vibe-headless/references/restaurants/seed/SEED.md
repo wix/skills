@@ -43,15 +43,13 @@ const result = await seed.setupRestaurants(ctx, {
 // → { menuId, sectionIds, itemIds, orderingEnabled, reservationsEnabled, imagesAttached }
 ```
 
-## Escape hatch: the individual fns
-
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-Reach for these only when the one-call path doesn't fit (partial re-seed, custom
-fulfillment methods, experiences). The **items → sections → menu** ordering below is the rule
-`setupRestaurants`/`createMenu` bake in — a section is created with its `itemIds`, a menu with its
-`sectionIds`, so each child must exist before its parent.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupRestaurants` doesn't fit (partial re-seed,
+custom fulfillment methods, experiences). `setupRestaurants` is built from them, in this order
+(items → sections → menu — each child before its parent):
 
 ```js
 // ── MENU (always; the seedable core) ────────────────────────────────────────────────────────────
