@@ -2,9 +2,10 @@
 
 The events client is **shipped as real files**, not snippets to regenerate. It's a complete events
 listing + detail page + RSVP + ticketing (reserve → hosted checkout, plus in-app free-ticket
-checkout), styled entirely from `theme.css` tokens. Copy it into the app, theme the tokens, wire the
-routes — you generate almost none of the events code (offset paging, category filtering, the RSVP
-`WAITLIST` case, the ticket reservation/checkout shapes all ship and are correct).
+checkout), styled with your app's design tokens (base44's `src/index.css` — the shadcn palette the
+design phase already set). Copy it into the app and wire the routes — you generate almost none of the
+events code (offset paging, category filtering, the RSVP `WAITLIST` case, the ticket
+reservation/checkout shapes all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock events;
 never hand-build a registration/ticket/checkout URL — RSVP completes client-side and paid tickets go
@@ -22,7 +23,6 @@ don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `hooks/useEventsList.js` | listing logic — categories, active filter, offset "load more", empty count |
 | `hooks/useEventDetail.js` | detail data for a slug — event + derived `type`/`open` registration state |
 | `hooks/useRsvpForm.js` | RSVP submit logic (`YES`/`NO`, additional guests, `WAITLIST` result) |
@@ -51,18 +51,22 @@ Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` f
 one place both ids live. The visitor refresh token minted from this id is persisted to localStorage
 and **is** the identity of the visitor's ticket reservation — don't re-mint anonymously per load.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole events site. **Do not
-restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
-dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens in
+`src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
+`--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
+`bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`, `font-display`). Those tokens
+are **already set to the brand by the design phase**, so the shipped pages are themed with zero work
+here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way; **never add
+a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the Home/Header you add
+(STEP 4) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
+base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. (Events needs no cross-page provider — there's no cart; the RSVP/ticketing state is local
 to the detail page.)
-- `import "@/theme.css";` once at the app entry.
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Events` / `EventDetail` — so you **never edit the shipped pages to add a
@@ -76,12 +80,11 @@ to the detail page.)
   **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Events from "@/pages/Events";
-import EventDetail from "@/pages/EventDetail";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Events from "@/pages/Events";                   // shipped · default export, no props
+import EventDetail from "@/pages/EventDetail";         // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
@@ -117,9 +120,9 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`
-(STEP 4) so they wrap every route — plus the overall brand story, styled from the same `theme.css`
-tokens. **Compose the shipped pieces** — a "featured events" strip is just `queryEvents` + the shipped
-`EventGrid`; the nav is a link to `/events`:
+(STEP 4) so they wrap every route — plus the overall brand story, styled with the same base44
+tokens/classes. **Compose the shipped pieces** — a "featured events" strip is just `queryEvents` + the
+shipped `EventGrid`; the nav is a link to `/events`:
 
 ```jsx
 import { useState, useEffect } from "react";
@@ -152,7 +155,7 @@ export function Featured() {                                 // on your home pag
   return <EventGrid events={events} empty="Events coming soon." />;
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
@@ -211,7 +214,7 @@ under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Events`/`EventDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Paid ticket checkout goes through the shipped reserve → `getTicketCheckoutUrl` redirect (the Wix-hosted ticket form) — never a hand-built registration/ticket/payment URL.
@@ -227,7 +230,8 @@ parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened the vertical's data route(s) (not just the home page) and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Events`/`EventDetail` untouched; content clears the fixed chrome.
 - [ ] Event grid renders live events; clicking a card opens the detail page by `slug`; visitor token persists across reload.
 - [ ] Detail page branches correctly on `registration.type` (RSVP form vs. ticket picker vs. external link vs. none); closed registration / sold-out tickets show a clear state.

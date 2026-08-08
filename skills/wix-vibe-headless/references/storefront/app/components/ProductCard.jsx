@@ -1,5 +1,6 @@
-// Grid tile. Styled entirely from theme.css tokens (var(--...)) — re-skin via those tokens, not
-// this JSX. The image `//`-protocol fix and the price / out-of-stock field paths are load-bearing.
+// Grid tile. Styled with base44 design tokens (shadcn Tailwind classes: bg-card / text-foreground /
+// border-border) — re-skin via the app's design tokens (src/index.css :root/.dark), not this JSX.
+// The image `//`-protocol fix and the price / out-of-stock field paths are load-bearing.
 import { Link } from "react-router-dom";
 
 function productImage(product) {
@@ -14,30 +15,22 @@ export default function ProductCard({ product }) {
   const soldOut = product?.inventory?.availabilityStatus === "OUT_OF_STOCK";
 
   return (
-    <Link to={`/product/${product.slug}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
-      <div style={{ position: "relative", aspectRatio: "1 / 1", background: "var(--color-bg)" }}>
+    <Link to={`/product/${product.slug}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+      <div className="relative aspect-square bg-background">
         {image
-          ? <img src={image} alt={product.name} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%" }} />}
+          ? <img src={image} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
+          : <div className="w-full h-full" />}
         {soldOut && (
-          <span style={{
-            position: "absolute", top: 8, left: 8, padding: "2px 8px", fontSize: 12,
-            background: "var(--color-danger)", color: "#fff", borderRadius: "var(--radius-sm)",
-          }}>Sold out</span>
+          <span className="absolute top-2 left-2 px-2 py-0.5 text-xs bg-destructive text-white rounded-sm">Sold out</span>
         )}
       </div>
-      <div style={{ padding: "calc(var(--space) * 0.75)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600 }}>{product.name}</h3>
-        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-          <span style={{ fontWeight: 600 }}>{price}</span>
+      <div className="p-3 flex flex-col gap-1">
+        <h3 className="m-0 font-display text-[15px] font-semibold">{product.name}</h3>
+        <div className="flex gap-2 items-baseline">
+          <span className="font-semibold">{price}</span>
           {compareAt && compareAt !== price && (
-            <span style={{ color: "var(--color-muted)", textDecoration: "line-through", fontSize: 13 }}>{compareAt}</span>
+            <span className="text-muted-foreground line-through text-[13px]">{compareAt}</span>
           )}
         </div>
       </div>

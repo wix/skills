@@ -3,7 +3,7 @@
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
 // wix-config.js) is copied always; then ONLY the chosen vertical's app/ (its UI + app/rest/ helpers).
 // Deploying a single vertical is deliberate: every vertical's app/ has files at the SAME paths
-// (theme.css, components/…), so copying all of them into one src/ would clobber and pile up. Two
+// (components/…, pages/…), so copying all of them into one src/ would clobber and pile up. Two
 // copies (not one) only because shared stays DRY. paths are the Base44 sandbox's /app. Re-running is
 // non-destructive: it fills in only missing files, never overwriting the agent's edits (see COPY).
 // No vertical arg -> deploys just the shared transport; re-run with the vertical once known.
@@ -18,7 +18,7 @@ const deployed = { vertical: null };
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
-// clobbering the agent's edits (themed theme.css, wired components) from the first deploy.
+// clobbering the agent's edits (wired App.jsx, home/header components) from the first deploy.
 const COPY = { recursive: true, force: false, errorOnExist: false };
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).

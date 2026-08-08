@@ -9,10 +9,10 @@ export default function Shop() {
   useEffect(() => { queryProducts({ limit: 100 }).then((r) => setProducts(r.products)); }, []);
 
   return (
-    <main style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)" }}>
-      <h1 style={{ fontFamily: "var(--font-display)", marginBottom: "var(--space)" }}>Shop</h1>
+    <main className="max-w-[1200px] mx-auto p-4">
+      <h1 className="font-display mb-4">Shop</h1>
       {products === null
-        ? <p style={{ color: "var(--color-muted)" }}>Loading…</p>
+        ? <p className="text-muted-foreground">Loading…</p>
         : <ProductGrid products={products} empty="No products yet — add some from your Wix dashboard." />}
     </main>
   );

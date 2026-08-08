@@ -8,19 +8,18 @@ export default function Collection() {
   const { items, total, loadMore, hasMore } = useCollection({ limit: 24 });
 
   return (
-    <main style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)" }}>
+    <main className="max-w-[1200px] mx-auto p-4">
       {items === null && total === null
-        ? <p style={{ color: "var(--color-muted)" }}>Loading…</p>
+        ? <p className="text-muted-foreground">Loading…</p>
         : (
           <>
             <ItemGrid items={items} empty="No items yet — add some from your Wix dashboard." />
             {hasMore && (
-              <div style={{ textAlign: "center", marginTop: "calc(var(--space) * 1.5)" }}>
-                <button onClick={loadMore} style={{
-                  padding: "10px 24px", cursor: "pointer",
-                  background: "var(--color-primary)", color: "var(--color-on-primary)",
-                  border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-                }}>Load more</button>
+              <div className="text-center mt-6">
+                <button onClick={loadMore}
+                  className="px-6 py-2.5 cursor-pointer bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold">
+                  Load more
+                </button>
               </div>
             )}
           </>

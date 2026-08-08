@@ -1,28 +1,21 @@
 // PDP choice controls: one OptionSelector per product.options[] (variant choices) and one
 // ModifierSelector per product.modifiers[] (TEXT_CHOICES → buttons, FREE_TEXT → input). Driven by
-// useProductDetail — pass its selection state/handlers in. Token-styled; re-skin via theme.css.
+// useProductDetail — pass its selection state/handlers in. Styled with base44 design tokens (shadcn Tailwind classes).
 
-const chipBase = {
-  padding: "6px 12px", cursor: "pointer", fontSize: 14, fontFamily: "var(--font-body)",
-  border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)",
-  background: "var(--color-surface)", color: "var(--color-text)",
-};
-const chipActive = { background: "var(--color-primary)", color: "var(--color-on-primary)", borderColor: "var(--color-primary)" };
-const label = { display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: "var(--color-muted)" };
+const chipBase = "py-1.5 px-3 cursor-pointer text-sm font-body border rounded-sm";
+const chipIdle = "border-border bg-card text-foreground";
+const chipActive = "border-primary bg-primary text-primary-foreground";
+const label = "block mb-1.5 text-[13px] font-semibold text-muted-foreground";
 
 function OptionSelector({ option, selected, onSelect }) {
   return (
-    <div style={{ marginBottom: "var(--space)" }}>
-      <label style={label}>{option.name}</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+    <div className="mb-4">
+      <label className={label}>{option.name}</label>
+      <div className="flex flex-wrap gap-2">
         {option.choicesSettings?.choices?.map((c) => (
           <button key={c.choiceId} disabled={c.inStock === false}
             aria-pressed={selected === c.choiceId} onClick={() => onSelect(option.id, c.choiceId)}
-            style={{
-              ...chipBase, ...(selected === c.choiceId ? chipActive : null),
-              opacity: c.inStock === false ? 0.4 : 1,
-              textDecoration: c.inStock === false ? "line-through" : "none",
-            }}>{c.name}</button>
+            className={`${chipBase} ${selected === c.choiceId ? chipActive : chipIdle} ${c.inStock === false ? "opacity-40 line-through" : ""}`}>{c.name}</button>
         ))}
       </div>
     </div>
@@ -33,23 +26,20 @@ function ModifierSelector({ modifier, value, onChange }) {
   const key = modifier.modifierRenderType === "FREE_TEXT" ? modifier.freeTextSettings?.key : modifier.key;
   if (modifier.modifierRenderType === "FREE_TEXT") {
     return (
-      <div style={{ marginBottom: "var(--space)" }}>
-        <label style={label}>{modifier.name}{modifier.mandatory && " *"}</label>
-        <input value={value || ""} onChange={(e) => onChange(key, e.target.value)} style={{
-          width: "100%", padding: "8px 12px", fontFamily: "var(--font-body)",
-          border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)",
-          background: "var(--color-bg)", color: "var(--color-text)",
-        }} />
+      <div className="mb-4">
+        <label className={label}>{modifier.name}{modifier.mandatory && " *"}</label>
+        <input value={value || ""} onChange={(e) => onChange(key, e.target.value)}
+          className="w-full py-2 px-3 font-body border border-border rounded-sm bg-background text-foreground" />
       </div>
     );
   }
   return (
-    <div style={{ marginBottom: "var(--space)" }}>
-      <label style={label}>{modifier.name}{modifier.mandatory && " *"}</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+    <div className="mb-4">
+      <label className={label}>{modifier.name}{modifier.mandatory && " *"}</label>
+      <div className="flex flex-wrap gap-2">
         {modifier.choicesSettings?.choices?.map((c) => (
           <button key={c.key} aria-pressed={value === c.key} onClick={() => onChange(key, c.key)}
-            style={{ ...chipBase, ...(value === c.key ? chipActive : null) }}>{c.name}</button>
+            className={`${chipBase} ${value === c.key ? chipActive : chipIdle}`}>{c.name}</button>
         ))}
       </div>
     </div>

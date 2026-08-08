@@ -12,7 +12,7 @@ export default function RequireAuth({ children, fallback = "/login" }) {
   // Wait for the initial session read before deciding — otherwise a logged-in member gets bounced to
   // /login on first paint while the token check is still resolving.
   if (loading) {
-    return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>Loading…</div>;
+    return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
   }
   if (!loggedIn) {
     return <Navigate to={fallback} replace state={{ from: location.pathname }} />;

@@ -1,6 +1,6 @@
 // Menu page — the restaurant's main render surface. Loads the assembled getFullMenu() tree once,
 // renders it via MenuList, and opens ItemDialog for a tapped dish (add-to-order lives there).
-// Empty state when there are no menus. Token-styled; re-skin via theme.css.
+// Empty state when there are no menus. Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
 import { getFullMenu } from "@/rest/wix-restaurants-menu";
 import MenuList from "@/components/MenuList";
@@ -13,10 +13,10 @@ export default function Menu() {
   useEffect(() => { getFullMenu().then(({ menus }) => setMenus(menus)); }, []);
 
   return (
-    <main style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)" }}>
-      <h1 style={{ fontFamily: "var(--font-display)", marginBottom: "var(--space)" }}>Menu</h1>
+    <main className="max-w-[1040px] mx-auto p-4">
+      <h1 className="font-display mb-4">Menu</h1>
       {menus === null
-        ? <p style={{ color: "var(--color-muted)" }}>Loading…</p>
+        ? <p className="text-muted-foreground">Loading…</p>
         : <MenuList menus={menus} onOpenItem={(item, ctx) => setActive({ item, ...ctx })}
             empty="No menu yet — add one from your Wix dashboard." />}
       {active && (

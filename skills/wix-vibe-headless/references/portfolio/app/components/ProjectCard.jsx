@@ -1,6 +1,7 @@
-// Project tile → links to /project/:slug. Styled entirely from theme.css tokens (var(--...)) —
-// re-skin via those tokens, not this JSX. The cover is a one-of: image when present, else the
-// video's poster / first resolution. The `//`-protocol fix and these field paths are load-bearing.
+// Project tile → links to /project/:slug. Styled with base44 design tokens (shadcn Tailwind classes)
+// — re-skin via the app's design tokens (src/index.css :root/.dark), not this JSX. The cover is a
+// one-of: image when present, else the video's poster / first resolution. The `//`-protocol fix and
+// these field paths are load-bearing.
 import { Link } from "react-router-dom";
 
 function https(url) {
@@ -19,22 +20,18 @@ export default function ProjectCard({ project }) {
   const image = coverUrl(project);
 
   return (
-    <Link to={`/project/${project.slug}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
-      <div style={{ aspectRatio: "4 / 3", background: "var(--color-bg)" }}>
+    <Link to={`/project/${project.slug}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+      <div className="aspect-[4/3] bg-background">
         {image
           ? <img src={image} alt={project.title} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%" }} />}
+              className="w-full h-full object-cover" />
+          : <div className="w-full h-full" />}
       </div>
-      <div style={{ padding: "calc(var(--space) * 0.75)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600 }}>{project.title}</h3>
+      <div className="p-3 flex flex-col gap-1">
+        <h3 className="m-0 font-display text-[15px] font-semibold">{project.title}</h3>
         {project.description && (
-          <p style={{ margin: 0, color: "var(--color-muted)", fontSize: 14, lineHeight: 1.5 }}>{project.description}</p>
+          <p className="m-0 text-muted-foreground text-sm leading-normal">{project.description}</p>
         )}
       </div>
     </Link>

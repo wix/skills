@@ -1,7 +1,7 @@
 // collection.config.js — THE data surface. This is where you point the shipped list + detail at
 // YOUR Wix CMS collection and map its field keys to the roles the UI renders. Edit this file; do
-// NOT edit the components. It is the CMS equivalent of theme.css: one place, and the whole client
-// follows.
+// NOT edit the components. It is the data-side equivalent of the design tokens in `index.css`: one
+// place, and the whole client follows.
 //
 // The item shape is USER-DEFINED — the field keys below are the ones from your own seed / design
 // plan for this collection. Carry that plan forward as the canonical list; don't guess keys or

@@ -1,7 +1,7 @@
 // Plan detail page — thin view over usePlanDetail (all logic lives in the hook). Shows the full
 // price/billing summary, perks, terms & conditions if present, and a Subscribe button (only when
-// plan.buyable). Not-found state on a bad slug — never invent a plan. Token-styled; re-skin via
-// theme.css. termsAndConditions is plain text; render as-is.
+// plan.buyable). Not-found state on a bad slug — never invent a plan. Styled with base44 design
+// tokens (shadcn Tailwind classes). termsAndConditions is plain text; render as-is.
 import { useParams } from "react-router-dom";
 import { usePlanDetail } from "@/hooks/usePlanDetail";
 import PlanPrice from "@/components/PlanPrice";
@@ -14,19 +14,19 @@ export default function PlanDetail() {
   if (!plan) return <Centered>Loading…</Centered>;
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "calc(var(--space) * 2) var(--space)" }}>
-      <h1 style={{ fontFamily: "var(--font-display)", margin: "0 0 8px" }}>{plan.name}</h1>
+    <main className="max-w-[720px] mx-auto py-8 px-4">
+      <h1 className="font-display m-0 mb-2">{plan.name}</h1>
       {plan.description && (
-        <p style={{ color: "var(--color-muted)", lineHeight: 1.6, margin: "0 0 var(--space)" }}>{plan.description}</p>
+        <p className="text-muted-foreground leading-[1.6] m-0 mb-4">{plan.description}</p>
       )}
 
-      <div style={{ margin: "var(--space) 0" }}><PlanPrice plan={plan} /></div>
+      <div className="my-4"><PlanPrice plan={plan} /></div>
 
       {(plan.perks || []).length > 0 && (
-        <ul style={{ margin: "var(--space) 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+        <ul className="my-4 p-0 list-none flex flex-col gap-2.5">
           {plan.perks.map((perk) => (
-            <li key={perk.id} style={{ display: "flex", gap: 8, lineHeight: 1.4 }}>
-              <span style={{ color: "var(--color-accent)" }} aria-hidden>✓</span>
+            <li key={perk.id} className="flex gap-2 leading-[1.4]">
+              <span className="text-primary" aria-hidden>✓</span>
               <span>{perk.description}</span>
             </li>
           ))}
@@ -34,17 +34,14 @@ export default function PlanDetail() {
       )}
 
       {plan.buyable && (
-        <button onClick={subscribe} style={{
-          padding: "12px 32px", cursor: "pointer",
-          background: "var(--color-primary)", color: "var(--color-on-primary)",
-          border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-        }}>Subscribe</button>
+        <button onClick={subscribe}
+          className="py-3 px-8 cursor-pointer bg-primary text-primary-foreground rounded-sm text-[15px] font-semibold">Subscribe</button>
       )}
 
       {plan.termsAndConditions && (
-        <div style={{ marginTop: "calc(var(--space) * 2)", paddingTop: "var(--space)", borderTop: "1px solid var(--color-border)" }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 16 }}>Terms &amp; conditions</h2>
-          <p style={{ color: "var(--color-muted)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{plan.termsAndConditions}</p>
+        <div className="mt-8 pt-4 border-t border-border">
+          <h2 className="font-display text-base">Terms &amp; conditions</h2>
+          <p className="text-muted-foreground leading-[1.6] whitespace-pre-wrap">{plan.termsAndConditions}</p>
         </div>
       )}
     </main>
@@ -52,5 +49,5 @@ export default function PlanDetail() {
 }
 
 function Centered({ children }) {
-  return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>{children}</div>;
+  return <div className="p-12 text-center text-muted-foreground">{children}</div>;
 }

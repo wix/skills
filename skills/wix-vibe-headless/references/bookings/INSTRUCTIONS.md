@@ -65,6 +65,7 @@ shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 t
 matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Bookings needs **no cross-page provider** (there's no cart — each booking completes on
 its own detail page), so there's nothing to wrap the tree in.
@@ -83,9 +84,9 @@ its own detail page), so there's nothing to wrap the tree in.
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Services from "@/pages/Services";
-import ServiceDetail from "@/pages/ServiceDetail";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Services from "@/pages/Services";               // shipped · default export, no props
+import ServiceDetail from "@/pages/ServiceDetail";     // shipped · default export, no props
 import Home from "@/pages/Home";           // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build

@@ -1,5 +1,5 @@
 // PDP — thin view over useProductDetail (all logic lives in the hook). plainDescription is HTML
-// despite the name; render via dangerouslySetInnerHTML. Token-styled; re-skin via theme.css.
+// despite the name; render via dangerouslySetInnerHTML. Styled with base44 design tokens (shadcn Tailwind classes).
 import { useParams } from "react-router-dom";
 import { useProductDetail } from "@/hooks/useProductDetail";
 import VariantPicker from "@/components/VariantPicker";
@@ -18,22 +18,16 @@ export default function ProductDetail() {
 
   const image = productImage(d.product);
   return (
-    <main style={{
-      maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)",
-      display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "calc(var(--space) * 2)",
-    }}>
-      <div style={{
-        aspectRatio: "1 / 1", background: "var(--color-surface)",
-        borderRadius: "var(--radius)", overflow: "hidden",
-      }}>
-        {image && <img src={image} alt={d.product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+    <main className="max-w-[1200px] mx-auto p-4 grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+      <div className="aspect-square bg-card rounded-lg overflow-hidden">
+        {image && <img src={image} alt={d.product.name} className="w-full h-full object-cover" />}
       </div>
 
       <div>
-        <h1 style={{ fontFamily: "var(--font-display)", margin: "0 0 8px" }}>{d.product.name}</h1>
-        <p style={{ fontSize: 22, fontWeight: 600, margin: "0 0 var(--space)" }}>{d.price}</p>
+        <h1 className="font-display m-0 mb-2">{d.product.name}</h1>
+        <p className="text-[22px] font-semibold m-0 mb-4">{d.price}</p>
 
-        <div style={{ color: "var(--color-muted)", lineHeight: 1.6, marginBottom: "calc(var(--space) * 1.5)" }}
+        <div className="text-muted-foreground leading-relaxed mb-6"
           dangerouslySetInnerHTML={{ __html: d.product.plainDescription || "" }} />
 
         <VariantPicker
@@ -42,20 +36,12 @@ export default function ProductDetail() {
           modifierValues={d.modifierValues} setModifier={d.setModifier}
         />
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "var(--space)" }}>
+        <div className="flex items-center gap-3 mt-4">
           <input type="number" min={1} value={d.quantity}
             onChange={(e) => d.setQuantity(Math.max(1, Number(e.target.value) || 1))}
-            style={{
-              width: 72, padding: "10px", textAlign: "center",
-              border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)",
-              background: "var(--color-bg)", color: "var(--color-text)",
-            }} />
-          <button disabled={!d.canAdd} onClick={d.submit} style={{
-            flex: 1, padding: "12px 24px", cursor: d.canAdd ? "pointer" : "not-allowed",
-            background: "var(--color-primary)", color: "var(--color-on-primary)",
-            border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-            opacity: d.canAdd ? 1 : 0.5,
-          }}>{d.inStock ? "Add to cart" : "Out of stock"}</button>
+            className="w-[72px] p-2.5 text-center border border-border rounded-sm bg-background text-foreground" />
+          <button disabled={!d.canAdd} onClick={d.submit}
+            className="flex-1 py-3 px-6 bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{d.inStock ? "Add to cart" : "Out of stock"}</button>
         </div>
       </div>
     </main>
@@ -63,5 +49,5 @@ export default function ProductDetail() {
 }
 
 function Centered({ children }) {
-  return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>{children}</div>;
+  return <div className="p-12 text-center text-muted-foreground">{children}</div>;
 }

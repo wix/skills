@@ -2,7 +2,7 @@
 // it must match SocialButtons' callbackUri character-for-character). The provider redirects the whole
 // page back here with `#code`/`#state` in the hash; completeSocialLogin() verifies state, exchanges
 // the code for member tokens, and logs the member in on the shared client. Then refresh the session
-// and send them to `returnTo`. Token-styled; re-skin via theme.css.
+// and send them to `returnTo`. Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
 import { completeSocialLogin } from "@/rest/wix-members-auth";
 import { useMember } from "@/context/MemberContext";
@@ -23,9 +23,9 @@ export default function Callback() {
   }, [refresh]);
 
   return (
-    <main style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>
+    <main className="p-12 text-center text-muted-foreground">
       {error
-        ? <p style={{ color: "var(--color-danger)" }} role="alert">{error} <a href="/login" style={{ color: "var(--color-primary)" }}>Try again</a></p>
+        ? <p className="text-destructive" role="alert">{error} <a href="/login" className="text-primary">Try again</a></p>
         : <p>Signing you in…</p>}
     </main>
   );

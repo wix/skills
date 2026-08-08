@@ -1,7 +1,8 @@
-// Plan card — pure UI. Styled entirely from theme.css tokens (var(--...)) — re-skin via those
-// tokens, not this JSX. Renders name, description, price, perks as feature bullets, and a
-// Subscribe button ONLY when plan.buyable is true (otherwise the plan is merchant-assigned).
-// The card links to the plan detail route by slug. `onSubscribe(plan)` runs the hosted checkout.
+// Plan card — pure UI. Styled with base44 design tokens (shadcn Tailwind classes) — re-skin via the
+// app's design tokens (src/index.css :root/.dark), not this JSX. Renders name, description, price,
+// perks as feature bullets, and a Subscribe button ONLY when plan.buyable is true (otherwise the
+// plan is merchant-assigned). The card links to the plan detail route by slug. `onSubscribe(plan)`
+// runs the hosted checkout.
 //
 // plan.image is a WixMedia object { id, width, height, altText } with NO .url — its id must be
 // resolved to a URL before it can render. Rendering plan text only here avoids that trap; see
@@ -11,48 +12,36 @@ import PlanPrice from "./PlanPrice";
 
 export default function PlanCard({ plan, onSubscribe, featured = false }) {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", gap: "var(--space)",
-      background: "var(--color-surface)", color: "var(--color-text)",
-      border: `1px solid ${featured ? "var(--color-accent)" : "var(--color-border)"}`,
-      borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "var(--shadow)",
-      padding: "calc(var(--space) * 1.5)",
-    }}>
+    <div className={`flex flex-col gap-4 bg-card text-foreground border ${featured ? "border-primary" : "border-border"} rounded-lg overflow-hidden shadow-sm p-6`}>
       <div>
-        <h3 style={{ margin: "0 0 4px", fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700 }}>
+        <h3 className="m-0 mb-1 font-display text-[20px] font-bold">
           {plan.name}
         </h3>
         {plan.description && (
-          <p style={{ margin: 0, color: "var(--color-muted)", lineHeight: 1.5 }}>{plan.description}</p>
+          <p className="m-0 text-muted-foreground leading-[1.5]">{plan.description}</p>
         )}
       </div>
 
       <PlanPrice plan={plan} />
 
       {(plan.perks || []).length > 0 && (
-        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+        <ul className="m-0 p-0 list-none flex flex-col gap-2">
           {plan.perks.map((perk) => (
-            <li key={perk.id} style={{ display: "flex", gap: 8, color: "var(--color-text)", lineHeight: 1.4 }}>
-              <span style={{ color: "var(--color-accent)" }} aria-hidden>✓</span>
+            <li key={perk.id} className="flex gap-2 text-foreground leading-[1.4]">
+              <span className="text-primary" aria-hidden>✓</span>
               <span>{perk.description}</span>
             </li>
           ))}
         </ul>
       )}
 
-      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="mt-auto flex flex-col gap-2">
         {plan.buyable && (
-          <button onClick={() => onSubscribe?.(plan)} style={{
-            padding: "12px 24px", cursor: "pointer",
-            background: "var(--color-primary)", color: "var(--color-on-primary)",
-            border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-          }}>Subscribe</button>
+          <button onClick={() => onSubscribe?.(plan)}
+            className="py-3 px-6 cursor-pointer bg-primary text-primary-foreground rounded-sm text-[15px] font-semibold">Subscribe</button>
         )}
-        <Link to={`/plans/${plan.slug}`} style={{
-          textAlign: "center", padding: "10px 24px", textDecoration: "none",
-          color: "var(--color-text)", border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-sm)", fontSize: 14, fontWeight: 600,
-        }}>View details</Link>
+        <Link to={`/plans/${plan.slug}`}
+          className="text-center py-2.5 px-6 no-underline text-foreground border border-border rounded-sm text-sm font-semibold">View details</Link>
       </div>
     </div>
   );

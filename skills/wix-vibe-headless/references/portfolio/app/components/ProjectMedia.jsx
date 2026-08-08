@@ -1,6 +1,6 @@
 // One gallery media item. Branch on item.type ("IMAGE" | "VIDEO" | "UNDEFINED") — this branching
 // and the field paths (image.imageInfo.url, video.videoInfo.resolutions[0].url) are load-bearing;
-// re-skin via theme.css, don't rewire the paths. Token-styled.
+// re-skin via base44 design tokens (shadcn Tailwind classes), don't rewire the paths.
 
 function https(url) {
   return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
@@ -11,7 +11,7 @@ export default function ProjectMedia({ item }) {
     const src = https(item.image?.imageInfo?.url);
     return src ? (
       <img src={src} alt={item.title || ""} loading="lazy"
-        style={{ display: "block", width: "100%", height: "auto", borderRadius: "var(--radius-sm)" }} />
+        className="block w-full h-auto rounded-sm" />
     ) : null;
   }
   if (item.type === "VIDEO") {
@@ -22,7 +22,7 @@ export default function ProjectMedia({ item }) {
     const poster = https(vi?.posters?.[0]?.url);
     return src ? (
       <video src={src} poster={poster || undefined} controls playsInline
-        style={{ display: "block", width: "100%", height: "auto", borderRadius: "var(--radius-sm)", background: "var(--color-surface)" }} />
+        className="block w-full h-auto rounded-sm bg-card" />
     ) : null;
   }
   return null; // UNDEFINED — nothing renderable

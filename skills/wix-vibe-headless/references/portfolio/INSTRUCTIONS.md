@@ -2,9 +2,10 @@
 
 The portfolio client is **shipped as real files**, not snippets to regenerate. It's a complete
 collections gallery + collection page + project detail (media gallery + `details[]` rows), styled
-entirely from `theme.css` tokens. The install step copied it into `src/`; you theme the tokens and
-wire the routes — you generate almost none of the read/render code (return-object destructuring,
-`item.type` media branching, the `details[]` link shape all ship and are correct).
+with your app's design tokens (base44's `src/index.css` — the shadcn palette the design phase already
+set). The install step copied it into `src/`; you wire the routes — you generate almost none of the
+read/render code (return-object destructuring, `item.type` media branching, the `details[]` link
+shape all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Portfolio is
 **read-only**: never mock projects, never invent media — render live Wix data or the shipped empty
@@ -26,7 +27,6 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `hooks/usePortfolioGallery.js` | collections gallery data — first page + count + cursor paging |
 | `hooks/useCollectionProjects.js` | one collection's header + its projects (paged), by slug |
 | `hooks/useProjectDetail.js` | project + its media gallery, by slug (null → not-found) |
@@ -51,18 +51,22 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole portfolio. **Do not
-restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
-dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens in
+`src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
+`--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
+`bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`, `font-display`). Those tokens
+are **already set to the brand by the design phase**, so the shipped pages are themed with zero work
+here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way; **never add
+a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the Home/Header you add
+(STEP 4) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
+base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Portfolio is read-only with no cross-page state, so there's **no provider to wrap** (no
 cart equivalent) — just the Layout and the routes.
-- `import "@/theme.css";` once at the app entry.
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Portfolio` / `CollectionPage` / `ProjectDetail` — so you **never edit the
@@ -76,13 +80,12 @@ cart equivalent) — just the Layout and the routes.
   `/project/:slug` → `ProjectDetail` (all shipped, as-is). **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Portfolio from "@/pages/Portfolio";
-import CollectionPage from "@/pages/CollectionPage";
-import ProjectDetail from "@/pages/ProjectDetail";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Portfolio from "@/pages/Portfolio";             // shipped · default export, no props
+import CollectionPage from "@/pages/CollectionPage";   // shipped · default export, no props
+import ProjectDetail from "@/pages/ProjectDetail";     // shipped · default export, no props
 import Home from "@/pages/Home";        // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
@@ -119,8 +122,8 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`
-(STEP 4) so they wrap every route — plus the overall brand story, styled from the same `theme.css`
-tokens. **Compose the shipped pieces** — a featured strip is just `queryCollections` (or
+(STEP 4) so they wrap every route — plus the overall brand story, styled with the same base44
+tokens/classes. **Compose the shipped pieces** — a featured strip is just `queryCollections` (or
 `queryProjects`) + the shipped `CollectionGrid` / `ProjectGrid`; the nav is a link to `/portfolio`:
 
 ```jsx
@@ -155,7 +158,7 @@ export function Featured() {                                // on your home page
   return <CollectionGrid collections={collections} empty="Collections coming soon." />;
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
@@ -187,7 +190,7 @@ const n = await countCollections();             // number → 0 means the empty 
 // just-generated url that 404s for a second reads as a surface, not a blank block.
 function BrandImage({ url, alt }) {
   const src = url?.startsWith("//") ? `https:${url}` : url;      // the shipped cards already do this
-  return <div style={{ background: "var(--color-surface)" }}><img src={src} alt={alt} /></div>;
+  return <div className="bg-card"><img src={src} alt={alt} /></div>;
 }
 ```
 
@@ -200,7 +203,7 @@ it up via the **`wix-docs`** skill / the Portfolio API reference.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped
   `Portfolio`/`CollectionPage`/`ProjectDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
@@ -221,7 +224,8 @@ Seed collections and projects per `seed/SEED.md` — separate from this client b
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened the vertical's data route(s) (`/portfolio`, a collection, a project) — not just the home page — and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all
       routes; shipped `Portfolio`/`CollectionPage`/`ProjectDetail` untouched; content clears the fixed chrome.
 - [ ] Visitor token persists across reload (no re-mint storm; reads stay fast).

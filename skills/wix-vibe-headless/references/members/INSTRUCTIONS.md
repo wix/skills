@@ -2,10 +2,10 @@
 
 The members client is **shipped as real files**, not snippets to regenerate. It's a complete
 **custom login** — email+password sign-up/sign-in, "Continue with Google/Facebook" (and custom SSO),
-a member session, an account area, and route gating — styled entirely from `theme.css` tokens. Copy
-it into the app, theme the tokens, wire the routes — you generate almost none of the auth code (the
-OAuth state machine, PKCE, the hidden-iframe token exchange, and the social `/callback` all ship and
-are correct).
+a member session, an account area, and route gating — styled with your app's design tokens (base44's
+`src/index.css` — the shadcn palette the design phase already set). Copy it into the app and wire the
+routes — you generate almost none of the auth code (the OAuth state machine, PKCE, the hidden-iframe
+token exchange, and the social `/callback` all ship and are correct).
 
 **Custom login only.** The member types credentials in **your own form on your own page** (or clicks
 your own social button) — they are **never redirected to a Wix-hosted login page**. Talks to Wix
@@ -46,7 +46,6 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `context/MemberContext.jsx` | `useMember()` provider: current member, `loggedIn`, `refresh()`, `logout()` |
 | `hooks/useLoginForm.js` | credential state machine (login/register/verify, error mapping) — logic only |
 | `components/LoginForm.jsx` | email+password form UI (sign-in/sign-up tabs, verify-code + pending phases) |
@@ -76,18 +75,22 @@ fallback — a runtime error, or a field the snippets don't cover (see "Fallback
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing, `--form-maxw` (the login card width). Every shipped component reads these vars, so this
-re-skins the whole auth surface. **Do not restyle the shipped components' JSX** — that's what keeps
-this a copy, not a regeneration. Style the home page / header you build (STEP 4) from the same tokens
-so it matches. Dark brand → activate the dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens
+in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
+`--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
+`bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`, `font-display`). Those tokens
+are **already set to the brand by the design phase**, so the shipped auth surfaces are themed with
+zero work here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way;
+**never add a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the
+Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it matches automatically. A
+dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`, the **Base44 builder
 account**) — edit it in, don't replace it. The Wix member session is separate and ships under its own
 name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename it to `useAuth`).
-- `import "@/theme.css";` once at the app entry.
 - Wrap the routed tree in `<MemberProvider>` (from `@/context/MemberContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
@@ -103,15 +106,14 @@ name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename 
   `/` → your own Home** page. Gate your own member-only routes ("my orders", "my plans") the same way.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { MemberProvider } from "@/context/MemberContext";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
 import RequireAuth from "@/components/RequireAuth";           // shipped route gate
-import Login from "@/pages/Login";
-import Account from "@/pages/Account";
-import Callback from "@/pages/Callback";
+import Login from "@/pages/Login";                     // shipped · default export, no props
+import Account from "@/pages/Account";                 // shipped · default export, no props
+import Callback from "@/pages/Callback";               // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
@@ -151,7 +153,7 @@ function Layout() {
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<MemberMenu/>` in it) and a **`Footer`** — the
 two you drop into the `Layout` (STEP 4) so they wrap every route — plus the overall brand story,
-styled from the same `theme.css` tokens. The nav's account control is a `<MemberMenu/>` (shows
+styled from the same base44 tokens/classes. The nav's account control is a `<MemberMenu/>` (shows
 "Log in" for a visitor, the member's name + log-out once signed in — render it as-is, don't wrap it in
 your own auth text button):
 
@@ -181,7 +183,7 @@ export function Header() {
   );
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything visual reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
@@ -246,7 +248,7 @@ connection ids, a profile field these snippets don't have): read the relevant sh
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - **Custom login only** — the member logs in on **your** UI; never redirect them to a Wix-hosted login page.
 - **One shared client** — login swaps the token set on `wix-client.js`; reuse it for everything so the
   member identity carries across the app. Never mint a second client or re-mint anonymously after login.
@@ -272,7 +274,8 @@ site's `metaSiteId` from the handoff / `ListWixSites`):
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened the vertical's data route(s) (not just the home page) — `/login` and `/account` — and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Login`/`Account`/`Callback` untouched; content clears the fixed chrome; `<MemberProvider>` wraps the tree; `<MemberMenu/>` in the header.
 - [ ] Sign-up: `register()` reaches `SUCCESS` (or `REQUIRE_EMAIL_VERIFICATION` handled via the code entry).
 - [ ] Log-in: `login()` reaches `SUCCESS`; wrong password shows `invalidCredentials`, not a crash.
