@@ -52,14 +52,6 @@ CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 ```
 
-Only if the CLI errors (not on a guess), fall back to curl + gzip:
-```bash
-for s in vibe-headless docs; do
-  mkdir -p ".agents/skills/wix-$s"
-  curl -s "https://www.wix.com/skills/$s.tgz" | tar xz -C ".agents/skills/wix-$s" --strip-components=1
-done
-```
-
 ### 2 · Build the client
 
 Read `SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` (through **"What you've got"**
