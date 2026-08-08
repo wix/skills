@@ -12,7 +12,6 @@
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   // setupEvents installs the Wix Events app first (installEventsApp) — base44 sites may not have it.
-//   // No clean-up: a fresh Events install ships no sample events, so nothing to delete first.
 //
 //   // STEP 1: create each event as a DRAFT (TICKETING = paid tiers | RSVP = free built-in form)
 //   const ev = await seed.createEvent(ctx, {
@@ -189,7 +188,6 @@ async function setEventMainImage(ctx, item) {
  *   category?: string,                                     // category NAME; resolved to id + assigned
  *   imageUrl?: string                                      // a plain image url; imported to Wix Media here, optional
  * }] }}
- * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
  */
 // Install the Wix Events app so seeding self-provisions — base44 sites aren't guaranteed to have it
 // (there's no separate Setup step here, unlike the wix-headless recipe this was ported from). Idempotent:

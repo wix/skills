@@ -9,13 +9,6 @@
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
-//   // Clean is JUDGMENT — never auto-delete. Only obvious install samples on a fresh install;
-//   // projects BEFORE collections. If it could be the owner's real content, ask first.
-//   const projs = await seed.listProjects(ctx);
-//   // await seed.deleteProjects(ctx, projs.filter(isObviousSample).map(p => p.id));
-//   const cols = await seed.listCollections(ctx);
-//   // await seed.deleteCollections(ctx, cols.filter(isObviousSample).map(c => c.id));
-//
 //   const collections = await seed.createCollections(ctx, [{ title, description }]);        // STEP 1
 //   const projects = await seed.createProjects(ctx, [                                        // STEP 2
 //     { title, description, collectionIds: [collections[0].id], details: [{ label, text }] },
@@ -50,25 +43,14 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 
 // ---- exported operations ----
 
-// STEP 0 clean helpers. Clean is JUDGMENT — never auto-delete. Delete children before parents:
-// projects first, then collections (deleting a collection does not clean up its projects).
+// Read-only listing helpers.
 async function listProjects(ctx) {
   const r = await req(ctx, "/portfolio/v1/projects", { method: "GET" });
   return (r.projects ?? []).map((p) => ({ id: p.id, title: p.title }));
 }
-// No bulk-delete for projects — one DELETE call per id (each returns 200).
-async function deleteProjects(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/projects/${id}`, { method: "DELETE" });
-}
 async function listCollections(ctx) {
   const r = await req(ctx, "/portfolio/v1/collections", { method: "GET" });
   return (r.collections ?? []).map((c) => ({ id: c.id, title: c.title }));
-}
-// No bulk-delete for collections — one DELETE call per id (each returns 200).
-async function deleteCollections(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/collections/${id}`, { method: "DELETE" });
 }
 
 /**
@@ -248,7 +230,7 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
 
 module.exports = {
   setupPortfolio, installPortfolioApp,
-  listProjects, deleteProjects, listCollections, deleteCollections,
+  listProjects, listCollections,
   createCollections, createProjects, importImage,
   attachProjectCovers, attachCollectionCovers, createProjectItems,
 };

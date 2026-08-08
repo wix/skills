@@ -123,15 +123,9 @@ async function installStoresApp(ctx) {
   await waitForCatalogV3(ctx);
 }
 
-// Clean is JUDGMENT — never auto-delete. Agent lists, decides which are obvious install samples,
-// deletes only those (SEED.md: seeding is additive; deleting real content needs the owner's OK).
 async function listProducts(ctx) {
   const r = await req(ctx, "/stores/v3/products/query", { body: { query: { paging: { limit: 50 } } } });
   return (r.products ?? []).map((p) => ({ id: p.id, name: p.name }));
-}
-async function deleteProducts(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/stores/v3/bulk/products/delete", { body: { productIds: ids } });
 }
 
 /**
@@ -245,8 +239,6 @@ async function attachProductImages(ctx, items) {
  *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
- * Cleanup is intentionally NOT here — deleting existing content is a judgment call; do it explicitly
- * with listProducts/deleteProducts first if (and only if) the site holds obvious install samples.
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
@@ -277,6 +269,6 @@ async function setupStore(ctx, { products = [], categories = {} } = {}) {
 
 module.exports = {
   setupStore,
-  installStoresApp, listProducts, deleteProducts,
+  installStoresApp, listProducts,
   bulkCreateProducts, createCategories, addProductsToCategories, attachProductImages,
 };

@@ -13,11 +13,6 @@
 //
 //   await seed.installBookingsApp(ctx);                          // if the site doesn't have Wix Bookings yet
 //
-//   // Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a
-//   // fresh install; if what's there could be the owner's real services, ask first (additive).
-//   const existing = await seed.listServices(ctx);
-//   // await seed.deleteServices(ctx, existing.filter(isObviousSample).map(s => s.id));
-//
 //   // ORDER MATTERS: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE services (STEP 3).
 //   const staff = await seed.queryStaffWithRetry(ctx);           // polls: fresh install provisions the owner async
 //   const resourceId = staff[0].resourceId;                      // NB: resourceId, NOT staff id
@@ -105,17 +100,10 @@ async function installBookingsApp(ctx) {
   } });
 }
 
-// Clean is JUDGMENT — never auto-delete. Agent lists, decides which are obvious install samples,
-// deletes only those. The default "Business Owner" is a RESOURCE, not a service — it won't appear here.
+// The default "Business Owner" is a RESOURCE, not a service — it won't appear here.
 async function listServices(ctx) {
   const r = await req(ctx, "/bookings/v2/services/query", { body: { query: { paging: { limit: 100 } } } });
   return (r.services ?? []).map((s) => ({ id: s.id, name: s.name }));
-}
-async function deleteServices(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) {
-    await req(ctx, `/bookings/v2/services/${id}`, { method: "DELETE" });
-  }
 }
 
 // STEP 1: resolve staff resources. Returns [{ resourceId, id, name }].
@@ -287,7 +275,6 @@ async function attachServiceImage(ctx, it) {
  *                imageUrl? }],                             // a plain image url; imported to Wix Media here, optional
  *   staffResourceId?: string,   // defaults to the fresh install's owner (queryStaff()[0].resourceId)
  * }}
- * Cleanup is intentionally NOT here — deleting existing services is a judgment call.
  * @returns { services:[...createServices], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
  */
 async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
@@ -340,7 +327,7 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
 module.exports = {
   setupBookings,
-  installBookingsApp, listServices, deleteServices,
+  installBookingsApp, listServices,
   queryStaff, queryStaffWithRetry, createStaff, queryCategories, createCategories,
   createServices, scheduleClassSessions, getService, importImage, attachServiceImage,
 };
