@@ -31,8 +31,22 @@ const result = await seed.setupStore(ctx, {
 ```
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
-"sample" data, don't reset. Just add. Need finer control than `setupStore`? The individual functions
-below still exist (setupStore is built from them).
+"sample" data, don't reset. Just add.
+
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom
+ordering, mid-flow checks). `setupStore` is built from them, in this order:
+
+```js
+await seed.installStoresApp(ctx);                                     // install + wait for the V3 catalog
+const products = await seed.bulkCreateProducts(ctx, [                 // → [{id,slug,revision}], in stock by `quantity`
+  { name: "The Glam Rocker", description: "…", price: 49.99, quantity: 12 },
+]);
+const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
+await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
+// images: use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
+await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
+```
 
 ## Functions
 | fn | does |

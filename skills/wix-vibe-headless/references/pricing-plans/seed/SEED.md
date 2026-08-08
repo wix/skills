@@ -38,7 +38,8 @@ const { plans, coverageAttached, benefitsCreated } = await seed.setupPricingPlan
 "sample" data, don't reset. Just add.
 
 ## Escape hatch — individual functions
-Call the steps yourself when you need finer control than the one-call path:
+Reach for the functions below only when the one-call `setupPricingPlans` doesn't fit (custom coverage,
+step-by-step control). `setupPricingPlans` is built from them, in this order:
 
 ```js
 const plans = await seed.createPlans(ctx, [

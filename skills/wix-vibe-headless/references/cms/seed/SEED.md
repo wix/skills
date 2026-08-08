@@ -56,11 +56,9 @@ const summary = await seed.setupCms(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-## Escape hatch — individual steps
-
-Call the low-level fns directly when `setupCms` doesn't fit (e.g. verifying persistence mid-flow, or a
-shape the plan can't express). Order: install → createCollection → bulkInsertItems → queryItems (verify)
-→ insertReferences (cross-collection) → attachItemImage.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupCms` doesn't fit (verifying persistence
+mid-flow, a shape the plan can't express). `setupCms` is built from them, in this order:
 
 ```js
 await seed.installCmsApp(ctx);                          // if a data call returns WDE0110 (app not installed)

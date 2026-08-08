@@ -47,10 +47,9 @@ const summary = await seed.setupEvents(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-### Escape hatch — individual steps
-
-Call the step functions directly only when `setupEvents` doesn't fit (e.g. re-running a single step,
-or a shape it doesn't model). Same order applies: create DRAFT → (ticketed) tiers → publish → categories → image.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupEvents` doesn't fit (re-running a single
+step, a shape it doesn't model). `setupEvents` is built from them, in this order:
 
 ```js
 // STEP 1 — create each event as a DRAFT. TICKETING = paid tiers; RSVP = free built-in form (no fields to seed).
