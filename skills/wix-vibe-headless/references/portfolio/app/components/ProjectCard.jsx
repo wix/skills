@@ -26,7 +26,7 @@ export default function ProjectCard({ project }) {
         {image
           ? <img src={image} alt={project.title} loading="lazy"
               className="w-full h-full object-cover" />
-          : <div className="w-full h-full" />}
+          : <div className="w-full h-full bg-muted flex items-center justify-center" aria-hidden="true"><svg viewBox="0 0 24 24" className="w-8 h-8 text-muted-foreground/40" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg></div>}
       </div>
       <div className="p-3 flex flex-col gap-1">
         <h3 className="m-0 font-display text-[15px] font-semibold">{project.title}</h3>
