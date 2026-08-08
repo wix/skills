@@ -8,10 +8,10 @@ read everything else), then the steps.
 
 `wix-vibe-headless` is a **client-only REST connector** to a live Wix site over the public
 `WIX_CLIENT_ID` (visitor-facing, safe in the browser) — **no `@wix/sdk`, no backend, no build step**.
-Its docs (`SKILL.md`, each `references/<vertical>/INSTRUCTIONS.md`) are written for **one host —
-Base44** (Vite + react-router, `.jsx`, shadcn tokens in `index.css`, files pre-copied to `src/` via
-`deploy.cjs`). **You're almost certainly on another stack** — read them for the **three real assets**,
-and translate the Base44-isms (table below):
+Its docs (`SKILL.md`, each `references/<vertical>/INSTRUCTIONS.md`) are written for **one specific
+host stack** — Vite + react-router, `.jsx`, shadcn tokens in `index.css`, files pre-copied into
+`src/` by a `deploy.cjs`. **You may well be on a different stack**, so don't read them literally —
+read them for the **three real assets**, and translate the host-stack assumptions (table below):
 
 1. **`shared/app/rest/wix-client.js` + `<vertical>/app/rest/wix-*.js`** — REST transport + data layer.
    **Copy ~verbatim** (rule 2); the source of truth for every request/response **shape**, the token
@@ -27,9 +27,9 @@ and translate the Base44-isms (table below):
 ## Hard rules (do not skip)
 
 1. **Never convert the project's framework, bundler, dev server, or ports** — generate the Wix files
-   *into* the existing stack (Next.js → `app/<route>/page.tsx`; TanStack Start → `src/routes/*`;
-   Vite + react-router → as-is). Migrating to Vite is the #1 time-sink here: orphaned dev servers,
-   port whack-a-mole, broken previews.
+   *into* the existing stack (Next.js → `app/<route>/page.tsx`; a file-based SSR router →
+   `src/routes/*`; Vite + react-router → as-is). Switching the project to a different bundler is the
+   #1 time-sink here: orphaned dev servers, port whack-a-mole, broken previews.
 2. **Copy the `rest/` layer ~verbatim** — plain `fetch`, framework-agnostic, already SSR-guards
    `window`/`localStorage`. TypeScript project? rename `.js → .ts` + add types — but **never change
    the shapes, endpoints, or token logic** (the hard-won part).
@@ -40,7 +40,7 @@ and translate the Base44-isms (table below):
 4. **Read-only over the owner's content** — live Wix data or an honest empty state; never mock,
    invent, or provision on the client.
 
-## How to read `SKILL.md` + `INSTRUCTIONS.md` — translate the Base44-isms
+## How to read `SKILL.md` + `INSTRUCTIONS.md` — translate the host-stack assumptions
 
 | The doc says… | For you it means… |
 |---|---|
@@ -48,9 +48,9 @@ and translate the Base44-isms (table below):
 | "don't `read_file` the shipped source" | **do** read the `rest/` files — your source of truth for shapes |
 | "copy-as-is `.jsx`" | **regenerate** as your framework's components (`.tsx`, your router) |
 | `@/` alias, `import.meta.env.DEV` | use **your** import paths + a **portable** dev check |
-| theme via base44 `index.css` / shadcn tokens | map the intent to **your** design tokens |
+| theme via the host's `index.css` / shadcn tokens | map the intent to **your** design tokens |
 | react-router `/product/:slug` | keep the **route pattern**; implement it in **your** router |
-| `preview_screenshot` / `exec_tool` / base44 connector | use **your** platform's equivalents (STEP 4) |
+| host-specific tools (screenshot / exec / a pre-wired connector) | use **your** platform's equivalents (STEP 4) |
 
 `SKILL.md`'s **"shared model"** (public-client-id auth, money = objects → render `formattedValue`,
 visitor token = cart identity, member login swaps the token set) is **universal — follow as-is.**
@@ -101,11 +101,11 @@ Read `wix-vibe-headless/SKILL.md` + each target `references/<vertical>/INSTRUCTI
 lens above**, and set `WIX_CLIENT_ID` + `WIX_METASITE_ID` in `wix-config`. Map the reference UI to
 your stack — **never convert the project**:
 
-| stack (example platform) | routes go in | dev-gate | SSR / verify notes |
+| your stack | routes go in | dev-gate | SSR / verify notes |
 |---|---|---|---|
-| **Next.js** (v0) | `app/<route>/page.tsx`; `"use client"` on cart + banner | `process.env.NODE_ENV !== "production"` | keep the dev server on **:3000** (don't spawn Vite). If the in-tool browser rewrites `localhost` to a sandbox host, verify by curling the served module URLs + checking for transform errors instead of a screenshot. |
-| **TanStack Start** (Lovable) | `src/routes/*.tsx` (e.g. `shop.tsx`, `product.$slug.tsx`) | `import.meta.env.DEV` | wrap client-only bits in a `ClientOnly` / `useHydrated` guard; copying `.js` `rest/` files into a TS project → set `allowJs` + `jsx` in `tsconfig.json` (or rename to `.ts`). |
-| **Vite + react-router** (Base44-like) | `src/pages/*` in `<Routes>` | `import.meta.env.DEV` | closest to the reference; the `rest/` files drop in directly. |
+| **Next.js (App Router)** | `app/<route>/page.tsx`; `"use client"` on cart + banner | `process.env.NODE_ENV !== "production"` | build in Next — don't switch bundlers. If the in-tool preview can't reach your dev server, verify by curling the served module URLs + checking for transform errors instead of a screenshot. |
+| **File-based SSR router** (TanStack Start, Remix, …) | `src/routes/*` | `import.meta.env?.DEV` or your bundler's equivalent | wrap client-only bits in a `ClientOnly` / `useHydrated` guard; copying `.js` `rest/` files into a TS project → set `allowJs` + `jsx` in `tsconfig.json` (or rename to `.ts`). |
+| **Vite + react-router (SPA)** | `src/pages/*` in `<Routes>` | `import.meta.env.DEV` | closest to the reference; the `rest/` files drop in directly. |
 
 ## STEP 4 — Seed and manage the business (parallel with STEP 3)
 
@@ -118,10 +118,9 @@ Wix API sequences (incl. app-install + provisioning-race handling). For anything
 `wix-docs` to read the relevant API reference.
 
 **Auth (elevated — the public client id won't do), in order:**
-1. **Platform has a built-in Wix integration/connector? Use it** — call Wix through it; it owns the
-   credential, so you never touch a raw key. *(Base44: pre-wired connector, run the seed modules via
-   its exec tool. Lovable: gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY`
-   + `X-Connection-Api-Key`.)*
+1. **Platform has a built-in Wix integration / connector? Use it** — call Wix through it; it owns the
+   credential, so you never touch a raw key. Look for a Wix connection in your platform's connector /
+   secrets manager and call through its gateway.
 2. **Otherwise, take a Wix API key into your secret / env manager** — ask the user, store it there
    (**never hardcode or commit**). Create one:
    **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)** (how-to:
