@@ -22,11 +22,11 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // are local "YYYY-MM-DDThh:mm:ss".
 const result = await seed.setupBookings(ctx, {
   services: [
-    // `image` per service is optional and attached IN this one call. Use the FINAL
-    // https://media.base44.com/... url from the COMPLETED generate_image (it runs in the background
-    // while you build — wait for it), never a still-generating /__generating__/<id>.png placeholder
-    // (Wix can't fetch it); import it into Wix Media for the { id, url, width, height } shape.
-    { type: "APPOINTMENT", name: "Consultation", description: "…", tagLine: "…", price: 75, duration: 60, category: "Our Services", image: { id, url, width, height } },
+    // `imageUrl` per service is optional and attached IN this one call. Pass a plain url — the module
+    // imports it into Wix Media for you (bookings binds a service image by the Wix Media file id, not a
+    // url). Use the FINAL https://media.base44.com/... url from the COMPLETED generate_image (it runs in
+    // the background while you build — wait for it), never a still-generating /__generating__/<id>.png.
+    { type: "APPOINTMENT", name: "Consultation", description: "…", tagLine: "…", price: 75, duration: 60, category: "Our Services", imageUrl: "https://media.base44.com/…" },
     { type: "CLASS", name: "Morning Yoga", description: "…", price: 20, capacity: 20, category: "Our Services",
       sessions: [{ start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00" }] },
   ],
@@ -34,8 +34,9 @@ const result = await seed.setupBookings(ctx, {
 });
 // result: { services:[...], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
 
-// fallback (finer control / re-attach): attachServiceImage patches one service's image after the fact.
-// await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
+// fallback (finer control / re-attach): import the url to Wix Media, then patch one service after the fact.
+// const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+// await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
 ```
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
@@ -57,8 +58,10 @@ const services = await seed.createServices(ctx, [                   // → [{id,
 await seed.scheduleClassSessions(ctx, [
   { scheduleId: services[1].scheduleId, resourceId: staff[0].resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20 },
 ]);
-// images (optional): use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
-await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: services[0].revision, image: { id, url, width, height } });
+// images (optional): import the url to Wix Media first (bookings binds by file id), then attach.
+// Use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder).
+const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: services[0].revision, image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
 ```
 
 ## Functions
@@ -73,7 +76,8 @@ await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: servic
 | `createServices(ctx, services)` | STEP 3 — one bulk create (APPOINTMENT/CLASS mixed) → `[{id,slug,revision,type,scheduleId,success,error}]` |
 | `scheduleClassSessions(ctx, sessions)` | STEP 4 (CLASS only) — one bulk Calendar-Events-V3 create → `[{id,success,error}]` |
 | `getService(ctx, serviceId)` | fetch a service (current `revision`; confirm an image landed) |
-| `attachServiceImage(ctx, {serviceId,revision,image})` | optional — patch `media.mainMedia`/`coverMedia` (revision-checked) |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); bookings binds by this file id |
+| `attachServiceImage(ctx, {serviceId,revision,image})` | optional — patch `media.mainMedia`/`coverMedia` (revision-checked); `image.id` MUST be a Wix Media file id from `importImage` |
 
 Both bulk calls report per-item `success`/`error` — retry only the failed items **once** with the
 same body; don't loop and don't re-create the ones that already succeeded.

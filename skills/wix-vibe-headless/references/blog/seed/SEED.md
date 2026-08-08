@@ -9,7 +9,8 @@ seed operation. `require` it and call the functions with plain data.
 
 **DEFAULT — one call.** `setupBlog(ctx, plan)` runs the whole flow (memberId → categories/tags →
 posts → covers), keeping every id in memory. Pass category/tag **names** and it resolves them to
-ids internally; covers attach only for posts that carry a WixMedia file id.
+ids internally; a post's `coverImageUrl` is a plain image url that the module imports into Wix Media
+for you (Blog binds the cover by the Wix Media file id, not a url).
 
 ```js
 // build-time exec_tool
@@ -30,10 +31,11 @@ const result = await seed.setupBlog(ctx, {
         { type: "paragraph", text: "Every batch starts with beans from a single estate." },
         { type: "quote", text: "Great coffee is grown, not made." },
       ],
-      // cover is optional and attached IN this one call. Import the FINAL https://media.base44.com/...
-      // url from the COMPLETED generate_image (it runs in the background while you build — wait for it)
-      // into Wix Media to get the fileId; never import a /__generating__/<id>.png placeholder.
-      coverImageUrl: fileIds[0],
+      // cover is optional and attached IN this one call. Pass a plain url — the module imports it to
+      // Wix Media for you (Blog binds the cover by file id). Use the FINAL https://media.base44.com/...
+      // url from the COMPLETED generate_image (it runs in the background while you build — wait for
+      // it), never a still-generating /__generating__/<id>.png placeholder.
+      coverImageUrl: "https://media.base44.com/…",
     },
   ],
 });
@@ -63,8 +65,9 @@ const posts = await seed.createPosts(ctx, [
   ] },
 ]);   // → [{ id, index, success }] — check each .success (bulk returns 200 even on partial failure)
 
-// optional — import images, then attach covers (PATCH + re-publish)
-await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fileIds[i] })));
+// optional — import each url to Wix Media (blog binds by file id), then attach covers (PATCH + re-publish)
+const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 ```
 
 ## Functions
@@ -75,7 +78,8 @@ await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fi
 | `createPosts(ctx, posts, { memberId })` | STEP 2 — auto single-vs-bulk create, published → `[{id,index,success}]` |
 | `createCategories(ctx, names)` | STEP 3 — sequential creates → `[{id,name}]` (feed into `post.categoryIds`) |
 | `createTags(ctx, names)` | STEP 3 — sequential creates → `[{id,name}]` (feed into `post.tagIds`) |
-| `attachPostCovers(ctx, [{postId,fileId}])` | optional — PATCH cover (`displayed+custom+wixMedia.image.id`) + re-publish |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); blog binds the cover by this file id |
+| `attachPostCovers(ctx, [{postId,fileId}])` | optional — PATCH cover (`displayed+custom+wixMedia.image.id`) + re-publish; `fileId` MUST be a Wix Media file id from `importImage` |
 
 `content` blocks: `{type:"heading",text,level?}` · `{type:"paragraph",text}` · `{type:"quote",text}` ·
 `{type:"bulleted"|"ordered",items:[…]}`. For node types the recipe doesn't cover (code, images),

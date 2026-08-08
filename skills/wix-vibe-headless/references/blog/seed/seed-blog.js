@@ -17,8 +17,9 @@
 //       { type: "quote", text: "Great coffee is grown, not made." },
 //     ] },
 //   ], { memberId });
-//   // optional — import images, then attach covers + re-publish
-//   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fileIds[i] })));
+//   // optional — import each image url to Wix Media (blog binds by file id), then attach covers + re-publish
+//   const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+//   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 //
 // **NOT yet live-verified — transcribed from setup-blog.md.** If any call fails with a shape the
 // caller didn't expect, fall back to the wix-docs skill (search + read the live Wix Blog API
@@ -158,8 +159,18 @@ async function createTags(ctx, names) {
   return out;
 }
 
+// Import an external image URL into Wix Media → { id, url }. Blog binds the cover by the Wix Media
+// file **id**, NOT a url — an external url (e.g. a base44 generate_image result) MUST be imported
+// first; the raw url renders nothing. id = wixstatic file id, url = the permanent wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Attach images step (optional). covers: [{ postId, fileId }] where fileId is the WixMedia
-// file.id from IMAGE_GENERATION.md import (Blog binds the cover by id, not url). Per post:
+// file.id from importImage (Blog binds the cover by id, not url). Per post:
 //   PATCH /blog/v3/draft-posts/{id}  (NOT POST …/{id}/update — that 404s for a single post),
 // setting media.displayed:true + media.custom:true + wixMedia.image.id (id ALONE is a silent no-op),
 // then re-publish (the PATCH sets hasUnpublishedChanges, so the live post stays cover-less until republish).
@@ -183,12 +194,12 @@ async function attachPostCovers(ctx, covers) {
  * category/tag names → ids internally and keeps every id in memory, so nothing is hand-threaded
  * across exec calls. Order: memberId → categories/tags → posts (with resolved ids) → covers.
  * @param plan {
- *   posts: [{ title, content?|richContent?, category?|categories?(name|names), tags?(names), coverImageUrl?|cover?(WixMedia fileId) }],
+ *   posts: [{ title, content?|richContent?, category?|categories?(name|names), tags?(names), coverImageUrl? }],
  *   categories?: [name],  // pre-create categories even if no post references them
  *   tags?: [name],
  * }
- *   category/categories/tags are display NAMES (resolved to ids here); cover/coverImageUrl is the
- *   WixMedia file id — a cover is attached only for posts that provide one.
+ *   category/categories/tags are display NAMES (resolved to ids here); coverImageUrl is a plain image
+ *   url — imported to Wix Media here — and a cover is attached only for posts that provide one.
  * @returns { posts:[{id,index,success}], categories:[{id,name}], tags:[{id,name}], coversAttached }
  */
 async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
@@ -208,14 +219,20 @@ async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
       ...(tn.length ? { tagIds: tn.map((n) => tagId.get(n)).filter(Boolean) } : {}),
     };
   }), { memberId });
-  const covers = created
-    .map((post, i) => ({ postId: post.id, fileId: posts[i]?.coverImageUrl ?? posts[i]?.cover }))
-    .filter((c) => c.postId && c.fileId);
+  const covers = [];
+  for (let i = 0; i < created.length; i++) {
+    const url = posts[i]?.coverImageUrl;
+    if (!created[i]?.id || !url) continue;
+    try {
+      const file = await importImage(ctx, url, `post-${i}.png`);   // → Wix Media file id
+      covers.push({ postId: created[i].id, fileId: file.id });
+    } catch { /* never block on image failure — leave the post cover-less */ }
+  }
   if (covers.length) await attachPostCovers(ctx, covers);
   return { posts: created, categories: cats, tags: tgs, coversAttached: covers.length };
 }
 
 module.exports = {
   setupBlog,
-  getAuthorMemberId, createPosts, createCategories, createTags, attachPostCovers,
+  getAuthorMemberId, createPosts, createCategories, createTags, importImage, attachPostCovers,
 };

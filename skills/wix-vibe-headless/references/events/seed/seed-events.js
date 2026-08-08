@@ -28,8 +28,9 @@
 //   // STEP 4 (optional): group by format/track
 //   const cats = await seed.createEventCategories(ctx, ["Talks"]);
 //   await seed.assignEventsToCategory(ctx, cats[0].id, [ev.id]);
-//   // Attach images (optional): height/width REQUIRED or it won't render
-//   await seed.setEventMainImage(ctx, { eventId: ev.id, id: fileId, url: fileUrl, height: 1024, width: 1024, altText: ev.slug });
+//   // Attach images (optional): import the url to Wix Media first (events binds by file id), then patch.
+//   const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+//   await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 //
 // If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
@@ -151,9 +152,20 @@ async function assignEventsToCategory(ctx, categoryId, eventIds) {
   return req(ctx, `/events/v1/categories/${categoryId}/events`, { body: { eventId: eventIds } });
 }
 
+// Import an external image URL into Wix Media → { id, url }. Events binds mainImage by the Wix Media
+// file **id**, NOT a url — an external url (e.g. a base44 generate_image result) MUST be imported
+// first; the raw url as the id stores (200) but renders nothing. id = wixstatic file id, url = the
+// permanent wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Attach images (optional). mainImage is an Image OBJECT; height/width are REQUIRED or it won't
 // render. Events V3 uses NO revision — partial PATCH keyed by event.id. Works before OR after publish.
-// item: { eventId, id, url, height, width, altText }  (id = the WixMedia image id)
+// item: { eventId, id, url, height, width, altText }  (id = the WixMedia image id, from importImage)
 async function setEventMainImage(ctx, item) {
   return req(ctx, `/events/v3/events/${item.eventId}`, {
     method: "PATCH",
@@ -175,7 +187,7 @@ async function setEventMainImage(ctx, item) {
  *   ...createEvent fields (title, shortDescription?, type, startDate, endDate, timeZoneId, location, …),
  *   ticketTiers?: [{ name, price, initialLimit?, … }],   // TICKETING only; omit to skip
  *   category?: string,                                     // category NAME; resolved to id + assigned
- *   image?: { id, url, height, width, altText? }           // optional; omit to skip
+ *   imageUrl?: string                                      // a plain image url; imported to Wix Media here, optional
  * }] }}
  * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
  */
@@ -185,7 +197,7 @@ async function setupEvents(ctx, { events = [] } = {}) {
     const e = await createEvent(ctx, ev);
     const tiers = ev.ticketTiers?.length ? await createTicketTiers(ctx, e.id, ev.ticketTiers) : [];
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, image: ev.image, ticketCount: tiers.length });
+    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, ticketCount: tiers.length });
   }
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
   const cats = names.length ? await createEventCategories(ctx, names) : [];
@@ -195,9 +207,12 @@ async function setupEvents(ctx, { events = [] } = {}) {
   }
   let imagesAttached = 0;
   for (const e of created) {
-    if (!e.image?.url) continue;
-    await setEventMainImage(ctx, { eventId: e.id, altText: e.slug, ...e.image });
-    imagesAttached++;
+    if (!e.imageUrl) continue;
+    try {
+      const file = await importImage(ctx, e.imageUrl, `${e.slug || "event"}.png`);   // → Wix Media file id
+      await setEventMainImage(ctx, { eventId: e.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: e.slug });
+      imagesAttached++;
+    } catch { /* never block on image failure — leave the event image-less */ }
   }
   return {
     events: created.map((e) => ({ id: e.id, slug: e.slug, ticketCount: e.ticketCount, category: e.category ?? null })),
@@ -209,5 +224,5 @@ async function setupEvents(ctx, { events = [] } = {}) {
 module.exports = {
   setupEvents,
   createEvent, createTicketTiers, publishEvent,
-  createEventCategories, assignEventsToCategory, setEventMainImage,
+  createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
 };

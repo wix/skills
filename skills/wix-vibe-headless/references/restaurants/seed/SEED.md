@@ -64,8 +64,9 @@ const menu = await seed.createMenu(ctx, {           // builds items → sections
   ],
 });                                                 // → { menuId, sectionIds, itemIds }
 
-// optional — generate an image, then attach (full-replace — echo revision + price)
-// await seed.attachItemImages(ctx, [{ id, revision, price, image: { id, url, height, width } }]);
+// optional — import the url to Wix Media (restaurants binds by file id), then attach (full-replace — echo revision + price)
+// const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+// await seed.attachItemImages(ctx, [{ id, revision, price, image: { id: file.id, url: file.url, height: 1024, width: 1024 } }]);
 
 // ── ONLINE ORDERING (add-on, on demand; MENU-FIRST) ──────────────────────────────────────────────
 await seed.installOrdersApp(ctx);                   // auto-provisions a working ordering setup
@@ -94,7 +95,8 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 |---|---|
 | `installMenusApp(ctx)` | install the Wix Restaurants Menus app |
 | `createMenu(ctx, {name,description?,sections})` | items → sections → menu bottom-up → `{menuId,sectionIds,itemIds}` |
-| `attachItemImages(ctx, [{id,revision,price,image}])` | image pass — full-replace PATCH (echo revision + priceInfo) |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); menu items bind by this file id |
+| `attachItemImages(ctx, [{id,revision,price,image}])` | image pass — full-replace PATCH (echo revision + priceInfo); `image.id` = a Wix Media file id from `importImage` |
 
 **Shared** (ordering + reservations STEP 0)
 | fn | does |
