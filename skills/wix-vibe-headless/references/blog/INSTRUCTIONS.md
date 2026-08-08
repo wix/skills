@@ -55,6 +55,7 @@ a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build t
 base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
 - Wrap the routed tree in `<TaxonomyProvider>` (from `@/context/TaxonomyContext`) so categories/tags
@@ -75,11 +76,11 @@ replace it.
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { TaxonomyProvider } from "@/context/TaxonomyContext";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Blog from "@/pages/Blog";
-import PostDetail from "@/pages/PostDetail";
-import CategoryPage from "@/pages/CategoryPage";
-import TagPage from "@/pages/TagPage";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Blog from "@/pages/Blog";                       // shipped · default export, no props
+import PostDetail from "@/pages/PostDetail";           // shipped · default export, no props
+import CategoryPage from "@/pages/CategoryPage";       // shipped · default export, no props
+import TagPage from "@/pages/TagPage";                 // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build

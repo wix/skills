@@ -67,6 +67,7 @@ base44 tokens/classes so it matches automatically. A dark brand is just base44's
 `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
 - Wrap the routed tree in `<OrderCartProvider>` (from `@/context/OrderCartContext`).
@@ -87,9 +88,9 @@ import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { OrderCartProvider } from "@/context/OrderCartContext";
 import OrderCartDrawer from "@/components/OrderCartDrawer";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Menu from "@/pages/Menu";
-import Reservations from "@/pages/Reservations";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Menu from "@/pages/Menu";                       // shipped · default export, no props
+import Reservations from "@/pages/Reservations";       // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build

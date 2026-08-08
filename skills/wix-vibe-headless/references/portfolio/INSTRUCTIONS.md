@@ -63,6 +63,7 @@ a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build t
 base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Portfolio is read-only with no cross-page state, so there's **no provider to wrap** (no
 cart equivalent) — just the Layout and the routes.
@@ -81,10 +82,10 @@ cart equivalent) — just the Layout and the routes.
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Portfolio from "@/pages/Portfolio";
-import CollectionPage from "@/pages/CollectionPage";
-import ProjectDetail from "@/pages/ProjectDetail";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Portfolio from "@/pages/Portfolio";             // shipped · default export, no props
+import CollectionPage from "@/pages/CollectionPage";   // shipped · default export, no props
+import ProjectDetail from "@/pages/ProjectDetail";     // shipped · default export, no props
 import Home from "@/pages/Home";        // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build

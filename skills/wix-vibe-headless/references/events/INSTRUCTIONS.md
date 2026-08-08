@@ -63,6 +63,7 @@ a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build t
 base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. (Events needs no cross-page provider — there's no cart; the RSVP/ticketing state is local
 to the detail page.)
@@ -81,9 +82,9 @@ to the detail page.)
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
-import Events from "@/pages/Events";
-import EventDetail from "@/pages/EventDetail";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import Events from "@/pages/Events";                   // shipped · default export, no props
+import EventDetail from "@/pages/EventDetail";         // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build

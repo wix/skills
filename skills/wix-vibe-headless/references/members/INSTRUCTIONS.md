@@ -87,6 +87,7 @@ Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it match
 dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`, the **Base44 builder
 account**) — edit it in, don't replace it. The Wix member session is separate and ships under its own
 name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename it to `useAuth`).
@@ -108,11 +109,11 @@ name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename 
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { MemberProvider } from "@/context/MemberContext";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
 import RequireAuth from "@/components/RequireAuth";           // shipped route gate
-import Login from "@/pages/Login";
-import Account from "@/pages/Account";
-import Callback from "@/pages/Callback";
+import Login from "@/pages/Login";                     // shipped · default export, no props
+import Account from "@/pages/Account";                 // shipped · default export, no props
+import Callback from "@/pages/Callback";               // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
