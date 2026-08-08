@@ -48,7 +48,7 @@ custom staff/ordering). `setupBookings` is built from them, in this order:
 
 ```js
 await seed.installBookingsApp(ctx);
-const staff = await seed.queryStaff(ctx);                            // → [{resourceId,id,name}]; use resourceId, NOT id
+const staff = await seed.queryStaffWithRetry(ctx);                   // → [{resourceId,id,name}]; polls (fresh install provisions the owner async); use resourceId, NOT id
 const cats = await seed.createCategories(ctx, ["Our Services"]);    // → [{id,name}]; every service needs a categoryId
 const services = await seed.createServices(ctx, [                   // → [{id,slug,revision,type,scheduleId}]
   { type: "APPOINTMENT", name: "Consultation", price: 75, duration: 60, categoryId: cats[0].id, staffMemberIds: [staff[0].resourceId] },
@@ -69,10 +69,11 @@ await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: servic
 |---|---|
 | `setupBookings(ctx, {services, staffResourceId?})` | **one-call**: install → staff → categories → services → CLASS sessions → images |
 | `installBookingsApp(ctx)` | install the Wix Bookings app on the site |
-| `queryStaff(ctx)` | `[{resourceId,id,name}]` — STEP 1; use `resourceId`, not `id` |
+| `queryStaff(ctx)` | `[{resourceId,id,name}]` — one shot; use `resourceId`, not `id` |
+| `queryStaffWithRetry(ctx)` | STEP 1 — same, but polls until the default owner provisions after a fresh install (avoids `MISSING_APPOINTMENT_RESOURCES`) |
 | `createStaff(ctx, [{name,description}])` | create named staff → `[{resourceId,id,name}]` (omit email/phone) |
 | `queryCategories(ctx)` | `[{id,name}]` — reuse a category created earlier this run |
-| `createCategories(ctx, names)` | STEP 2 — every service needs a `category.id` or it's invisible → `[{id,name}]` |
+| `createCategories(ctx, names)` | STEP 2 — every service needs a `category.id` or it's invisible → `[{id,name}]`; reuses an existing same-named category (idempotent, no dupes on re-run) |
 | `createServices(ctx, services)` | STEP 3 — one bulk create (APPOINTMENT/CLASS mixed) → `[{id,slug,revision,type,scheduleId,success,error}]` |
 | `scheduleClassSessions(ctx, sessions)` | STEP 4 (CLASS only) — one bulk Calendar-Events-V3 create → `[{id,success,error}]` |
 | `getService(ctx, serviceId)` | fetch a service (current `revision`; confirm an image landed) |

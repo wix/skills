@@ -19,7 +19,7 @@
 //   // await seed.deleteServices(ctx, existing.filter(isObviousSample).map(s => s.id));
 //
 //   // ORDER MATTERS: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE services (STEP 3).
-//   const staff = await seed.queryStaff(ctx);                    // fresh install has a default "Business Owner"
+//   const staff = await seed.queryStaffWithRetry(ctx);           // polls: fresh install provisions the owner async
 //   const resourceId = staff[0].resourceId;                      // NB: resourceId, NOT staff id
 //   const cats = await seed.createCategories(ctx, ["Our Services"]);
 //   const services = await seed.createServices(ctx, [
@@ -127,6 +127,22 @@ async function queryStaff(ctx) {
   return (r.staffMembers ?? []).map((m) => ({ resourceId: m.resourceId, id: m.id, name: m.name }));
 }
 
+// installBookingsApp → provisioning is async (Wix signals completion via the App-Instance-Installed
+// webhook, which an exec script can't receive). The default "Business Owner" resource isn't queryable
+// in the same tick, so queryStaff returns [] (or throws "Business schedule not found") until it lands.
+// Poll so the one-call path resolves the owner instead of failing APPOINTMENT services with
+// MISSING_APPOINTMENT_RESOURCES. Already-provisioned sites return on the first try (no added latency).
+async function queryStaffWithRetry(ctx, { tries = 10, delayMs = 2000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { const s = await queryStaff(ctx); if (s.length) return s; }
+    catch (e) { lastErr = e; }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  if (lastErr) throw lastErr; // never provisioned → surface the real error rather than a silent []
+  return [];
+}
+
 // STEP 1 (optional): create named staff when the request names stylists/providers. staff: [{ name, description }].
 // ⚠️ Omit email/phone unless you have a real value — V1 rejects empty strings. Returns [{ resourceId, id, name }].
 async function createStaff(ctx, staff) {
@@ -148,10 +164,19 @@ async function queryCategories(ctx) {
 // STEP 2: create categories — every service needs a category.id or it's invisible on the live site.
 // Independent (no shared revision, unlike Stores categories); looped here one call per category.
 async function createCategories(ctx, names) {
+  // Reuse an existing same-named category instead of creating a duplicate. Bookings categories aren't
+  // unique-by-name, so a re-run (or a partial-failure retry — categories are created before services)
+  // would otherwise pile up dupes. Keeps the seed additive-but-idempotent.
+  const byName = new Map((await queryCategories(ctx)).map((c) => [c.name, c]));
   const out = [];
   for (const name of names) {
-    const r = await req(ctx, "/bookings/v2/categories", { body: { category: { name } } });
-    out.push({ id: r.category?.id, name });
+    let cat = byName.get(name);
+    if (!cat) {
+      const r = await req(ctx, "/bookings/v2/categories", { body: { category: { name } } });
+      cat = { id: r.category?.id, name };
+      byName.set(name, cat);
+    }
+    out.push(cat);
   }
   return out;
 }
@@ -270,8 +295,8 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
   let resourceId = staffResourceId;
   if (!resourceId) {
-    const staff = await queryStaff(ctx);
-    resourceId = staff[0]?.resourceId; // fresh install ships a default owner
+    const staff = await queryStaffWithRetry(ctx); // fresh install provisions the default owner async — poll
+    resourceId = staff[0]?.resourceId;
   }
 
   const catNames = [...new Set(services.map((s) => s.category).filter(Boolean))];
@@ -316,6 +341,6 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 module.exports = {
   setupBookings,
   installBookingsApp, listServices, deleteServices,
-  queryStaff, createStaff, queryCategories, createCategories,
+  queryStaff, queryStaffWithRetry, createStaff, queryCategories, createCategories,
   createServices, scheduleClassSessions, getService, importImage, attachServiceImage,
 };
