@@ -67,7 +67,7 @@ CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 Read `SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` (through **"What you've got"**
 above). Use the `rest/` layer as-is, regenerate the UI for your framework, and set `WIX_CLIENT_ID` +
 `WIX_METASITE_ID` in `wix-config`. If the brief doesn't say which Wix solution(s) to build, **ask the
-user** one short question (what do they offer?), or let step 3's site read settle it.
+user** one short question (what do they offer?).
 
 ### 3 · Seed the content
 
@@ -88,16 +88,7 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   -H 'Content-Type: application/json' -d '{"query":{"cursorPaging":{"limit":10}}}'
 ```
 
-**Once you have that admin credential**, you can read the site to see which apps are actually
-installed — build and seed only those, never guessed ones:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
-  -H 'Authorization: <admin token or raw API key>' -H 'Content-Type: application/json' \
-  -d '{"siteId": "<metasite id from your prompt>"}'
-```
-
-Then seed by reusing the functions in `references/<vertical>/seed/seed-*.js` (they encode the Wix API
+Seed by reusing the functions in `references/<vertical>/seed/seed-*.js` (they encode the Wix API
 sequences, incl. app-install + provisioning-race handling); use `wix-docs` for anything they don't
 cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is installed + seeded
 (expected; the seed modules install it first). Image seeding = two Wix Media calls
