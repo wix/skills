@@ -141,10 +141,13 @@ Once the site is built and seeded:
    metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
    top banner linking to this same dashboard.
 
-**Preview briefly, don't chase images.** A quick preview to confirm the app renders is enough.
-Generated images — the hero in your own code and the seeded product images alike — can still be
-resolving right after the build; that's normal. Don't debug, re-seed, re-attach, or swap a generated
-image's url in your code; leave them and finish.
+**Preview briefly, don't chase images.** A quick render check is enough. Generated images show as
+alt-text/broken in this preview because `generate_image` returns a `/__generating__/…` placeholder —
+the platform swaps every placeholder for the final url **automatically at the end of the turn**
+(failed ones get a stock fallback), in your own components and the seeded data alike. So a broken
+image in the preview is expected and already handled: **do NOT swap, re-seed, re-attach, or debug
+image urls.** Hand-editing a placeholder `src` is wasted work and just risks find_replace errors on
+urls that are about to be replaced anyway. Leave them and finish.
 
 ## Later admin requests
 
