@@ -105,6 +105,8 @@ cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is inst
 
 ### 4 · Done
 
-Mount the dev-only manage banner (regenerate `WixManageBanner` for your stack — set `WIX_METASITE_ID`,
-above the header, SSR-safe, portable dev-gate, **never in production**), then tell the user to open
-`https://manage.wix.com/dashboard/{metaSiteId}` to finish setup in Wix (payments, content).
+Mount the dev-only manage banner (regenerate `WixManageBanner` for your stack — it reads
+`WIX_METASITE_ID` from `wix-config`, already set in step 2, and self-hides while it's still the
+placeholder; mount above the header, SSR-safe, portable dev-gate, **never in production**), then tell
+the user to open `https://manage.wix.com/dashboard/{metaSiteId}` to finish setup in Wix (payments,
+content).
