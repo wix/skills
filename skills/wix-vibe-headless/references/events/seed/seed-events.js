@@ -11,8 +11,7 @@
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/events/seed/seed-events.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
-//   // Wix Events is PRE-INSTALLED by setup — do NOT reinstall. A 403/app-not-installed means fail loudly.
-//   // No clean-up: a fresh Events install ships no sample events, so nothing to delete first.
+//   // setupEvents installs the Wix Events app first (installEventsApp) — base44 sites may not have it.
 //
 //   // STEP 1: create each event as a DRAFT (TICKETING = paid tiers | RSVP = free built-in form)
 //   const ev = await seed.createEvent(ctx, {
@@ -37,7 +36,7 @@
 // wix-headless/references/inline-recipes/setup-events.md.
 
 const API = "https://www.wixapis.com";
-// Wix Events app id — for reference only. The app is pre-installed by setup; never reinstall here.
+// Wix Events app id — installEventsApp installs it before seeding (base44 sites may not have it).
 const EVENTS_APP_ID = "140603ad-af8d-84a5-2c80-a0f60cb47351";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
@@ -189,9 +188,19 @@ async function setEventMainImage(ctx, item) {
  *   category?: string,                                     // category NAME; resolved to id + assigned
  *   imageUrl?: string                                      // a plain image url; imported to Wix Media here, optional
  * }] }}
- * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
  */
+// Install the Wix Events app so seeding self-provisions — base44 sites aren't guaranteed to have it
+// (there's no separate Setup step here, unlike the wix-headless recipe this was ported from). Idempotent:
+// re-installing an already-installed app returns 200 (verified), so it's safe to call unconditionally.
+async function installEventsApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: EVENTS_APP_ID, enabled: true },
+  } });
+}
+
 async function setupEvents(ctx, { events = [] } = {}) {
+  await installEventsApp(ctx);
   const created = [];
   for (const ev of events) {
     const e = await createEvent(ctx, ev);
@@ -224,5 +233,5 @@ async function setupEvents(ctx, { events = [] } = {}) {
 module.exports = {
   setupEvents,
   createEvent, createTicketTiers, publishEvent,
-  createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
+  installEventsApp, createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
 };

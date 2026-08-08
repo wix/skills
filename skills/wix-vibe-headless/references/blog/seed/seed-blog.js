@@ -27,6 +27,7 @@
 // wix-headless/references/inline-recipes/setup-blog.md.
 
 const API = "https://www.wixapis.com";
+const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103"; // installBlogApp installs this before seeding
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -202,7 +203,17 @@ async function attachPostCovers(ctx, covers) {
  *   url — imported to Wix Media here — and a cover is attached only for posts that provide one.
  * @returns { posts:[{id,index,success}], categories:[{id,name}], tags:[{id,name}], coversAttached }
  */
+// Install the Wix Blog app before seeding — base44 sites aren't guaranteed to have it (no separate
+// Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installBlogApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: BLOG_APP_ID, enabled: true },
+  } });
+}
+
 async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
+  await installBlogApp(ctx);
   const memberId = await getAuthorMemberId(ctx);
   const catNames = [...new Set([...categories, ...posts.flatMap((p) => [].concat(p.category ?? [], p.categories ?? []))])];
   const tagNames = [...new Set([...tags, ...posts.flatMap((p) => [].concat(p.tags ?? []))])];
@@ -233,6 +244,6 @@ async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
 }
 
 module.exports = {
-  setupBlog,
+  setupBlog, installBlogApp,
   getAuthorMemberId, createPosts, createCategories, createTags, importImage, attachPostCovers,
 };

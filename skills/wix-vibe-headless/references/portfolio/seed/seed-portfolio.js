@@ -9,13 +9,6 @@
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
-//   // Clean is JUDGMENT — never auto-delete. Only obvious install samples on a fresh install;
-//   // projects BEFORE collections. If it could be the owner's real content, ask first.
-//   const projs = await seed.listProjects(ctx);
-//   // await seed.deleteProjects(ctx, projs.filter(isObviousSample).map(p => p.id));
-//   const cols = await seed.listCollections(ctx);
-//   // await seed.deleteCollections(ctx, cols.filter(isObviousSample).map(c => c.id));
-//
 //   const collections = await seed.createCollections(ctx, [{ title, description }]);        // STEP 1
 //   const projects = await seed.createProjects(ctx, [                                        // STEP 2
 //     { title, description, collectionIds: [collections[0].id], details: [{ label, text }] },
@@ -31,6 +24,7 @@
 // wix-headless/references/inline-recipes/setup-portfolio.md.
 
 const API = "https://www.wixapis.com";
+const PORTFOLIO_APP_ID = "d90652a2-f5a1-4c7c-84c4-d4cdcc41f130"; // installPortfolioApp installs this before seeding
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -49,25 +43,14 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 
 // ---- exported operations ----
 
-// STEP 0 clean helpers. Clean is JUDGMENT — never auto-delete. Delete children before parents:
-// projects first, then collections (deleting a collection does not clean up its projects).
+// Read-only listing helpers.
 async function listProjects(ctx) {
   const r = await req(ctx, "/portfolio/v1/projects", { method: "GET" });
   return (r.projects ?? []).map((p) => ({ id: p.id, title: p.title }));
 }
-// No bulk-delete for projects — one DELETE call per id (each returns 200).
-async function deleteProjects(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/projects/${id}`, { method: "DELETE" });
-}
 async function listCollections(ctx) {
   const r = await req(ctx, "/portfolio/v1/collections", { method: "GET" });
   return (r.collections ?? []).map((c) => ({ id: c.id, title: c.title }));
-}
-// No bulk-delete for collections — one DELETE call per id (each returns 200).
-async function deleteCollections(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/collections/${id}`, { method: "DELETE" });
 }
 
 /**
@@ -175,7 +158,17 @@ async function createProjectItems(ctx, items) {
  *   are optional — a project/collection without one skips it.
  * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
  */
+// Install the Wix Portfolio app before seeding — base44 sites aren't guaranteed to have it (no
+// separate Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installPortfolioApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: PORTFOLIO_APP_ID, enabled: true },
+  } });
+}
+
 async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
+  await installPortfolioApp(ctx);
   const cols = await createCollections(ctx, collections);               // STEP 1
   const idByName = new Map(collections.map((c, i) => [c.title, cols[i].id]));
 
@@ -236,8 +229,8 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
 }
 
 module.exports = {
-  setupPortfolio,
-  listProjects, deleteProjects, listCollections, deleteCollections,
+  setupPortfolio, installPortfolioApp,
+  listProjects, listCollections,
   createCollections, createProjects, importImage,
   attachProjectCovers, attachCollectionCovers, createProjectItems,
 };

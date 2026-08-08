@@ -93,32 +93,17 @@ async function installTableReservationsApp(ctx) { return installApp(ctx, TABLE_R
 // Everything is the Restaurants Menus V1 API on /restaurants/menus/v1/... — one service.
 // REST flattens the protobuf wrappers: send plain values (`"visible": true`), never `{"value": …}`.
 
-// STEP 0 — clean the install's default sample "Dinner Menu". JUDGMENT call: only delete when it's
-// obviously the install's own sample; if it could be the owner's real menu, ask first (seeding is
-// additive). Children before parents: items → sections → menus.
 async function listMenuItems(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/items", { method: "GET" });
   return (r.items ?? []).map((it) => ({ id: it.id, name: it.name }));
-}
-async function deleteMenuItems(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/restaurants/menus/v1/bulk/items/delete", { method: "DELETE", body: { ids } });
 }
 async function listMenuSections(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/sections", { method: "GET" });
   return (r.sections ?? []).map((s) => ({ id: s.id, name: s.name }));
 }
-async function deleteMenuSections(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/restaurants/menus/v1/bulk/sections/delete", { method: "DELETE", body: { ids } });
-}
 async function listMenus(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/menus", { method: "GET" });
   return (r.menus ?? []).map((m) => ({ id: m.id, name: m.name }));
-}
-// No bulk-delete endpoint for menus — one DELETE per menu; single delete takes only the path id (no revision).
-async function deleteMenu(ctx, menuId) {
-  return req(ctx, `/restaurants/menus/v1/menus/${menuId}`, { method: "DELETE" });
 }
 
 /**
@@ -452,7 +437,7 @@ module.exports = {
   // app install
   installMenusApp, installOrdersApp, installTableReservationsApp,
   // menu
-  listMenuItems, deleteMenuItems, listMenuSections, deleteMenuSections, listMenus, deleteMenu,
+  listMenuItems, listMenuSections, listMenus,
   createMenu, importImage, attachItemImages,
   // shared business location (ordering + reservations STEP 0)
   setBusinessLocation,

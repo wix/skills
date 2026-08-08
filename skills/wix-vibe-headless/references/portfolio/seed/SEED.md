@@ -75,7 +75,7 @@ await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, t
 | `createProjectItems(ctx, [{projectId,sortOrder,title,imageId,height,width}])` | one POST per gallery image (optional) |
 
 `hidden` defaults to `false` (shown) — omit it for visible entities; send `hidden: true` only to
-hide. On `428` / `APP_NOT_INSTALLED`, the Setup step was skipped — fail loudly, don't self-install.
+hide. `setupPortfolio` **installs the Wix Portfolio app first** (`installPortfolioApp`, idempotent), so seeding works even if the site doesn't have it yet.
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,

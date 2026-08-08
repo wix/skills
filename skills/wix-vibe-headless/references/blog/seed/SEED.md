@@ -83,8 +83,8 @@ await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fi
 
 `content` blocks: `{type:"heading",text,level?}` · `{type:"paragraph",text}` · `{type:"quote",text}` ·
 `{type:"bulleted"|"ordered",items:[…]}`. For node types the recipe doesn't cover (code, images),
-pass a pre-built Ricos `richContent` on the post instead. No Blog-app install helper — the recipe
-assumes Blog is already installed on the site.
+pass a pre-built Ricos `richContent` on the post instead. `setupBlog` **installs the Wix Blog app
+first** (`installBlogApp`, idempotent), so seeding works even if the site doesn't have it yet.
 
 ## Fallback
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,

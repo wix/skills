@@ -28,6 +28,7 @@ const { randomUUID } = require("crypto");
 
 const API = "https://www.wixapis.com";
 const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97"; // per recipe: providerAppId for coverage
+const PRICING_PLANS_APP_ID = "1522827f-c56c-a5c9-2ac9-00f9e6ae12d3"; // installPricingPlansApp installs this before seeding
 const PP_NAMESPACE = "@wix/pricing-plans"; // per recipe: literal, with @ and slash, in every 2a–2c call
 
 async function req(ctx, path, { method = "POST", body } = {}) {
@@ -218,7 +219,17 @@ async function attachBookingsCoverage(ctx, planId, serviceIds, { creditAmount } 
  *   bookingsCoverage?: { serviceIds?, creditAmount? } }] } // richer coverage; creditAmount = limited pack
  * @returns { plans: [{id,name,coveredServiceIds}], coverageAttached: [{planId,itemSetId,serviceIds}], benefitsCreated }
  */
+// Install the Wix Pricing Plans app before seeding — base44 sites aren't guaranteed to have it (no
+// separate Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installPricingPlansApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: PRICING_PLANS_APP_ID, enabled: true },
+  } });
+}
+
 async function setupPricingPlans(ctx, { plans = [] } = {}) {
+  await installPricingPlansApp(ctx);
   const created = await createPlans(ctx, plans); // ids kept in memory
   const coverageAttached = [];
   for (let i = 0; i < created.length; i++) {
@@ -233,7 +244,7 @@ async function setupPricingPlans(ctx, { plans = [] } = {}) {
 }
 
 module.exports = {
-  setupPricingPlans,
+  setupPricingPlans, installPricingPlansApp,
   createPlans,
   attachBookingsCoverage,
   getProgramDefinition, createPoolDefinition, createBenefitItems,
