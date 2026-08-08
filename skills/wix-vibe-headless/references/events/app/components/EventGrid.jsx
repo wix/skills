@@ -1,18 +1,12 @@
-// Responsive event grid + empty state. Token-styled; re-skin via theme.css.
+// Responsive event grid + empty state. Styled with base44 design tokens (shadcn Tailwind classes).
 import EventCard from "./EventCard";
 
 export default function EventGrid({ events, empty = "No events yet." }) {
   if (!events?.length) {
-    return (
-      <p style={{ color: "var(--color-muted)", padding: "var(--space)", textAlign: "center" }}>{empty}</p>
-    );
+    return <p className="text-muted-foreground p-4 text-center">{empty}</p>;
   }
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-      gap: "var(--space)",
-    }}>
+    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
       {events.map((e) => <EventCard key={e.id} event={e} />)}
     </div>
   );

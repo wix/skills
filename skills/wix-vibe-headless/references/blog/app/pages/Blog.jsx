@@ -1,5 +1,5 @@
 // Blog feed — lists published posts (newest first, pinned lead), paginates via nextCursor, and
-// shows the shipped empty state when the blog has no posts. Token-styled; re-skin via theme.css.
+// shows the shipped empty state when the blog has no posts. Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
 import { queryPosts, getTotalPosts } from "@/rest/wix-blog";
 import PostGrid from "@/components/PostGrid";
@@ -22,20 +22,17 @@ export default function Blog() {
     });
 
   return (
-    <main style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)" }}>
-      <h1 style={{ fontFamily: "var(--font-display)", marginBottom: "var(--space)" }}>Blog</h1>
+    <main className="max-w-[1100px] mx-auto p-4">
+      <h1 className="font-display mb-4">Blog</h1>
       {posts === null
-        ? <p style={{ color: "var(--color-muted)" }}>Loading…</p>
+        ? <p className="text-muted-foreground">Loading…</p>
         : <PostGrid posts={posts} empty={total === 0
             ? "No posts yet — publish posts from your Wix dashboard to see them here."
             : "No posts to show."} />}
       {cursor && (
-        <div style={{ textAlign: "center", marginTop: "calc(var(--space) * 2)" }}>
-          <button onClick={loadMore} style={{
-            padding: "12px 24px", cursor: "pointer", fontSize: 15, fontWeight: 600,
-            background: "var(--color-primary)", color: "var(--color-on-primary)",
-            border: "none", borderRadius: "var(--radius-sm)",
-          }}>Load more</button>
+        <div className="text-center mt-8">
+          <button onClick={loadMore}
+            className="py-3 px-6 cursor-pointer text-[15px] font-semibold bg-primary text-primary-foreground border-none rounded-sm">Load more</button>
         </div>
       )}
     </main>

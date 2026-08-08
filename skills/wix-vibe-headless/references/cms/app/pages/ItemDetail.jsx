@@ -1,7 +1,7 @@
 // Item detail page — thin view over useItemDetail (all logic in the hook). Renders the mapped
 // fields: image, date, title, and the long body. The body is treated as HTML (CMS rich-text fields
-// come back as HTML); it renders via dangerouslySetInnerHTML only when it's a string. Token-styled;
-// re-skin via theme.css.
+// come back as HTML); it renders via dangerouslySetInnerHTML only when it's a string. Styled with
+// base44 design tokens (shadcn Tailwind classes).
 import { useParams } from "react-router-dom";
 import { useItemDetail } from "@/hooks/useItemDetail";
 import { FIELDS } from "@/collection.config";
@@ -23,27 +23,24 @@ export default function ItemDetail() {
   const summary = FIELDS.summary ? item[FIELDS.summary] : null;
 
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: "calc(var(--space) * 1.5) var(--space)" }}>
-      {date && <p style={{ color: "var(--color-muted)", fontSize: 13, margin: "0 0 8px" }}>{date}</p>}
-      <h1 style={{ fontFamily: "var(--font-display)", margin: "0 0 var(--space)" }}>{title}</h1>
+    <main className="max-w-[760px] mx-auto py-6 px-4">
+      {date && <p className="text-muted-foreground text-[13px] m-0 mb-2">{date}</p>}
+      <h1 className="font-display m-0 mb-4">{title}</h1>
 
       {image && (
-        <div style={{
-          aspectRatio: "16 / 9", background: "var(--color-surface)",
-          borderRadius: "var(--radius)", overflow: "hidden", marginBottom: "calc(var(--space) * 1.5)",
-        }}>
-          <img src={image} alt={title || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div className="aspect-[16/9] bg-card rounded-lg overflow-hidden mb-6">
+          <img src={image} alt={title || ""} className="w-full h-full object-cover" />
         </div>
       )}
 
       {typeof body === "string"
-        ? <div style={{ color: "var(--color-text)", lineHeight: 1.7 }}
+        ? <div className="text-foreground leading-[1.7]"
             dangerouslySetInnerHTML={{ __html: body }} />
-        : summary && <p style={{ color: "var(--color-text)", lineHeight: 1.7 }}>{summary}</p>}
+        : summary && <p className="text-foreground leading-[1.7]">{summary}</p>}
     </main>
   );
 }
 
 function Centered({ children }) {
-  return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>{children}</div>;
+  return <div className="p-12 text-center text-muted-foreground">{children}</div>;
 }

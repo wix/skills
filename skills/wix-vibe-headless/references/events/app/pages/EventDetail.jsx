@@ -1,5 +1,5 @@
 // Event detail page — thin view over useEventDetail (all logic lives in the hook). Renders the
-// event summary + the registration surface. Token-styled; re-skin via theme.css.
+// event summary + the registration surface. Styled with base44 design tokens (shadcn Tailwind classes).
 //
 // shortDescription is a PLAIN string (safe to render). event.description is Ricos rich content
 // { nodes: [...] } — NOT a string; to show the full body render it with @wix/ricos or walk `nodes`.
@@ -20,25 +20,19 @@ export default function EventDetail() {
   const where = event.location?.name;
 
   return (
-    <main style={{
-      maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)",
-      display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "calc(var(--space) * 2)",
-    }}>
-      <div style={{
-        aspectRatio: "3 / 2", background: "var(--color-surface)",
-        borderRadius: "var(--radius)", overflow: "hidden",
-      }}>
+    <main className="max-w-[1200px] mx-auto p-4 grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+      <div className="aspect-[3/2] bg-card rounded-lg overflow-hidden">
         {event.mainImage?.url &&
-          <img src={event.mainImage.url} alt={event.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+          <img src={event.mainImage.url} alt={event.title} className="w-full h-full object-cover" />}
       </div>
 
       <div>
-        <h1 style={{ fontFamily: "var(--font-display)", margin: "0 0 8px" }}>{event.title}</h1>
-        {when && <p style={{ margin: "0 0 4px", color: "var(--color-muted)" }}>{when}</p>}
-        {where && <p style={{ margin: "0 0 var(--space)", color: "var(--color-muted)" }}>{where}</p>}
+        <h1 className="font-display m-0 mb-2">{event.title}</h1>
+        {when && <p className="m-0 mb-1 text-muted-foreground">{when}</p>}
+        {where && <p className="m-0 mb-4 text-muted-foreground">{where}</p>}
 
         {event.shortDescription && (
-          <p style={{ color: "var(--color-text)", lineHeight: 1.6, marginBottom: "calc(var(--space) * 1.5)" }}>
+          <p className="text-foreground leading-relaxed mb-6">
             {event.shortDescription}
           </p>
         )}
@@ -50,5 +44,5 @@ export default function EventDetail() {
 }
 
 function Centered({ children }) {
-  return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>{children}</div>;
+  return <div className="p-12 text-center text-muted-foreground">{children}</div>;
 }

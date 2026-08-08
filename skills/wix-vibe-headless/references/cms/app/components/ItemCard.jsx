@@ -1,5 +1,5 @@
 // List tile for one CMS item. Pure UI: which fields to show comes from collection.config (FIELDS),
-// styling comes entirely from theme.css tokens (var(--...)) — re-skin via those, not this JSX. The
+// styling comes from base44 design tokens (shadcn Tailwind classes) — re-skin via those, not this JSX. The
 // image conversion (wixImage) and the slug-or-_id route key (itemKey) are load-bearing.
 import { Link } from "react-router-dom";
 import { FIELDS, itemKey } from "@/collection.config";
@@ -14,23 +14,18 @@ export default function ItemCard({ item }) {
     : null;
 
   return (
-    <Link to={`/item/${itemKey(item)}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
-      <div style={{ aspectRatio: "16 / 10", background: "var(--color-bg)" }}>
+    <Link to={`/item/${itemKey(item)}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+      <div className="aspect-[16/10] bg-background">
         {image
-          ? <img src={image} alt={title || ""} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%" }} />}
+          ? <img src={image} alt={title || ""} loading="lazy" className="w-full h-full object-cover" />
+          : <div className="w-full h-full" />}
       </div>
-      <div style={{ padding: "calc(var(--space) * 0.75)", display: "flex", flexDirection: "column", gap: 6 }}>
-        {date && <span style={{ color: "var(--color-muted)", fontSize: 12 }}>{date}</span>}
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600 }}>{title}</h3>
+      <div className="p-3 flex flex-col gap-1.5">
+        {date && <span className="text-muted-foreground text-[12px]">{date}</span>}
+        <h3 className="m-0 font-display text-base font-semibold">{title}</h3>
         {summary && (
-          <p style={{ margin: 0, color: "var(--color-muted)", fontSize: 14, lineHeight: 1.5 }}>{summary}</p>
+          <p className="m-0 text-muted-foreground text-sm leading-[1.5]">{summary}</p>
         )}
       </div>
     </Link>

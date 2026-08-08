@@ -1,8 +1,9 @@
-// Grid tile for one event. Styled entirely from theme.css tokens (var(--...)) — re-skin via those
-// tokens, not this JSX. The date/location/teaser field paths and the TICKETING "from" price are
-// load-bearing: lowestPrice is a Money object { value, currency, formattedValue } — render
-// formattedValue, NEVER the raw object (React "objects are not valid as a child" crash). This is a
-// different shape from the ticket-definition price (pricing.fixedPrice.amount) used in the picker.
+// Grid tile for one event. Styled with base44 design tokens (shadcn Tailwind classes) — re-skin via
+// those tokens (src/index.css :root/.dark), not this JSX. The date/location/teaser field paths and
+// the TICKETING "from" price are load-bearing: lowestPrice is a Money object { value, currency,
+// formattedValue } — render formattedValue, NEVER the raw object (React "objects are not valid as a
+// child" crash). This is a different shape from the ticket-definition price (pricing.fixedPrice.amount)
+// used in the picker.
 import { Link } from "react-router-dom";
 
 export default function EventCard({ event }) {
@@ -14,35 +15,27 @@ export default function EventCard({ event }) {
   const image = event.mainImage?.url;
 
   return (
-    <Link to={`/events/${event.slug}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
-      <div style={{ position: "relative", aspectRatio: "3 / 2", background: "var(--color-bg)" }}>
+    <Link to={`/events/${event.slug}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+      <div className="relative aspect-[3/2] bg-background">
         {image
-          ? <img src={image} alt={event.title} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%" }} />}
+          ? <img src={image} alt={event.title} loading="lazy" className="w-full h-full object-cover" />
+          : <div className="w-full h-full" />}
         {isTicketing && soldOut && (
-          <span style={{
-            position: "absolute", top: 8, left: 8, padding: "2px 8px", fontSize: 12,
-            background: "var(--color-danger)", color: "#fff", borderRadius: "var(--radius-sm)",
-          }}>Sold out</span>
+          <span className="absolute top-2 left-2 py-0.5 px-2 text-xs bg-destructive text-white rounded-sm">Sold out</span>
         )}
       </div>
-      <div style={{ padding: "calc(var(--space) * 0.75)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600 }}>{event.title}</h3>
-        {when && <span style={{ color: "var(--color-muted)", fontSize: 13 }}>{when}</span>}
-        {where && <span style={{ color: "var(--color-muted)", fontSize: 13 }}>{where}</span>}
+      <div className="p-3 flex flex-col gap-1">
+        <h3 className="m-0 font-display text-base font-semibold">{event.title}</h3>
+        {when && <span className="text-muted-foreground text-[13px]">{when}</span>}
+        {where && <span className="text-muted-foreground text-[13px]">{where}</span>}
         {event.shortDescription && (
-          <p style={{ margin: "4px 0 0", color: "var(--color-muted)", fontSize: 14, lineHeight: 1.4 }}>
+          <p className="m-0 mt-1 text-muted-foreground text-sm leading-[1.4]">
             {event.shortDescription}
           </p>
         )}
         {isTicketing && !soldOut && fromPrice && (
-          <span style={{ marginTop: 4, fontWeight: 600, color: "var(--color-accent)" }}>From {fromPrice}</span>
+          <span className="mt-1 font-semibold text-primary">From {fromPrice}</span>
         )}
       </div>
     </Link>

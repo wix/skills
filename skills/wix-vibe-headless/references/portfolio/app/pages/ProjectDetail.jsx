@@ -1,6 +1,6 @@
 // Project detail — thin view over useProjectDetail (all data logic lives in the hook). Renders the
 // header, the details[] rows (text OR link), and the media gallery (each item via ProjectMedia,
-// which branches on item.type). Token-styled; re-skin via theme.css.
+// which branches on item.type). Styled with base44 design tokens (shadcn Tailwind classes).
 import { useParams } from "react-router-dom";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import ProjectMedia from "@/components/ProjectMedia";
@@ -14,27 +14,24 @@ export default function ProjectDetail() {
 
   const details = project.details || [];
   return (
-    <main style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "var(--space)" }}>
-      <header style={{ marginBottom: "calc(var(--space) * 1.5)" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", margin: "0 0 8px" }}>{project.title}</h1>
+    <main className="max-w-[1200px] mx-auto p-4">
+      <header className="mb-6">
+        <h1 className="font-display m-0 mb-2">{project.title}</h1>
         {project.description && (
-          <p style={{ color: "var(--color-muted)", lineHeight: 1.6, margin: 0 }}>{project.description}</p>
+          <p className="text-muted-foreground leading-relaxed m-0">{project.description}</p>
         )}
       </header>
 
       {/* details[] row: { label, text? } OR { label, link: { text, url, target } } */}
       {details.length > 0 && (
-        <dl style={{
-          display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 24px",
-          margin: "0 0 calc(var(--space) * 2)", alignItems: "baseline",
-        }}>
+        <dl className="grid [grid-template-columns:auto_1fr] gap-x-6 gap-y-2 m-0 mb-8 items-baseline">
           {details.map((d, i) => (
-            <div key={i} style={{ display: "contents" }}>
-              <dt style={{ color: "var(--color-muted)", fontSize: 14 }}>{d.label}</dt>
-              <dd style={{ margin: 0 }}>
+            <div key={i} className="contents">
+              <dt className="text-muted-foreground text-sm">{d.label}</dt>
+              <dd className="m-0">
                 {d.link
                   ? <a href={d.link.url} target={d.link.target} rel="noopener"
-                      style={{ color: "var(--color-accent)" }}>{d.link.text}</a>
+                      className="text-primary">{d.link.text}</a>
                   : d.text}
               </dd>
             </div>
@@ -42,14 +39,14 @@ export default function ProjectDetail() {
         </dl>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space)" }}>
+      <div className="flex flex-col gap-4">
         {items.map((item) => (
-          <figure key={item.id} style={{ margin: 0 }}>
+          <figure key={item.id} className="m-0">
             {item.link
               ? <a href={item.link.url} target={item.link.target} rel="noopener"><ProjectMedia item={item} /></a>
               : <ProjectMedia item={item} />}
             {item.title && (
-              <figcaption style={{ color: "var(--color-muted)", fontSize: 14, marginTop: 6 }}>{item.title}</figcaption>
+              <figcaption className="text-muted-foreground text-sm mt-1.5">{item.title}</figcaption>
             )}
           </figure>
         ))}
@@ -59,5 +56,5 @@ export default function ProjectDetail() {
 }
 
 function Centered({ children }) {
-  return <div style={{ padding: "calc(var(--space) * 3)", textAlign: "center", color: "var(--color-muted)" }}>{children}</div>;
+  return <div className="p-12 text-center text-muted-foreground">{children}</div>;
 }

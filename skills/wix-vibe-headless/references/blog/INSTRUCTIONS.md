@@ -1,9 +1,10 @@
 # Wix Blog — ready-made client
 
 The blog reader is **shipped as real files**, not snippets to regenerate. It's a complete feed + post
-detail + category/tag landing pages, styled entirely from `theme.css` tokens. Copy it into the app,
-theme the tokens, wire the routes — you generate almost none of the reader code (post paging, slug
-routing, the category/tag id→label resolution, the plain-text body split all ship and are correct).
+detail + category/tag landing pages, styled with your app's design tokens (base44's `src/index.css` —
+the shadcn palette the design phase already set). Copy it into the app and wire the routes — you
+generate almost none of the reader code (post paging, slug routing, the category/tag id→label
+resolution, the plain-text body split all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). The reader is
 **read-only and visitor-facing** — it never creates, edits, or moderates content. Never mock posts;
@@ -20,7 +21,6 @@ don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `context/TaxonomyContext.jsx` | `useTaxonomy()` provider: categories + tags fetched **once**, exposed as `catById` / `tagById` id→object maps |
 | `hooks/usePostDetail.js` | post-detail data — load by slug, not-found state, resolved category/tag chips, body paragraphs |
 | `components/PostCard.jsx`, `PostGrid.jsx` | post listing UI (grid + card, with cover image + empty state) |
@@ -43,17 +43,20 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing, `--measure` (the article body line length). Every shipped component reads these vars, so
-this re-skins the whole blog. **Do not restyle the shipped components' JSX** — that's what keeps this
-a copy, not a regeneration. Style the home page / header you build (STEP 4) from the same tokens so it
-matches. Dark brand → activate the dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens in
+`src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
+`--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
+`bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`, `font-display`). Those tokens
+are **already set to the brand by the design phase**, so the shipped pages are themed with zero work
+here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way; **never add
+a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the Home/Header you add
+(STEP 4) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
+base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
-- `import "@/theme.css";` once at the app entry.
 - Wrap the routed tree in `<TaxonomyProvider>` (from `@/context/TaxonomyContext`) so categories/tags
   are fetched **once** and every card/chip reuses the shared map (never re-query per post).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
@@ -69,7 +72,6 @@ replace it.
   `CategoryPage`, `/blog/tag/:slug` → `TagPage` (all shipped, as-is). **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { TaxonomyProvider } from "@/context/TaxonomyContext";
@@ -117,8 +119,8 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`
-(STEP 4) so they wrap every route — plus the overall brand story, styled from the same `theme.css`
-tokens. **Compose the shipped pieces** — a "latest posts" strip is just `queryPosts` + the shipped
+(STEP 4) so they wrap every route — plus the overall brand story, styled with the same base44
+tokens/classes. **Compose the shipped pieces** — a "latest posts" strip is just `queryPosts` + the shipped
 `PostGrid`; a category nav is `useTaxonomy()` + links to `/blog/category/:slug`:
 
 ```jsx
@@ -159,7 +161,7 @@ export function CategoryNav() {                              // a menu of the bl
     .map((c) => <Link key={c.id} to={`/blog/category/${c.slug}`}>{c.label}</Link>);
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
@@ -210,7 +212,7 @@ under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Blog`/`PostDetail`/category/tag pages to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Route by `slug` through the shipped helpers — never hand-build a post/category/tag URL. Display categories/tags by `.label` (not `.name`).
@@ -227,7 +229,8 @@ connector) — separate from this client build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] **Opened the vertical's data route(s)** (not just the home page) — `/blog` and a post detail page (plus a category/tag page) — and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Blog`/`PostDetail`/`CategoryPage`/`TagPage` untouched; content clears the fixed chrome; `<TaxonomyProvider>` wraps the tree.
 - [ ] Feed lists live published posts (newest first) and paginates via `nextCursor`; post detail loads by `slug`; a bad slug shows the not-found state (no invented post).
 - [ ] Category/tag pages list the right posts; chips display `.label` and route by `.slug`; taxonomy fetched once (no re-query per card).

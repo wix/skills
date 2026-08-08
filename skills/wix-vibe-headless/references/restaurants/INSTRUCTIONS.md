@@ -1,10 +1,10 @@
 # Wix Restaurants — ready-made client
 
 The restaurant client is **shipped as real files**, not snippets to regenerate. It's a complete
-menu + item ordering + server-cart + checkout, plus a table-reservation flow, styled entirely from
-`theme.css` tokens. Copy it into the app, theme the tokens, wire the routes — you generate almost
-none of the restaurant code (the menu tree join, the order cart, the reservation hold→reserve flow
-all ship and are correct).
+menu + item ordering + server-cart + checkout, plus a table-reservation flow, styled with your app's
+design tokens (base44's `src/index.css` — the shadcn palette the design phase already set). Copy it
+into the app and wire the routes — you generate almost none of the restaurant code (the menu tree
+join, the order cart, the reservation hold→reserve flow all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock the
 menu; never hand-build `/checkout` or reservation URLs — the shipped cart goes through the eCom
@@ -28,7 +28,6 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `context/OrderCartContext.jsx` | `useOrderCart()` provider: resolves the ordering Operation, server cart, add/update/remove, checkout, `ordering` flag |
 | `hooks/useItemOrder.js` | item-dialog add-to-order logic (stock + ordering-available gating, quantity) |
 | `hooks/useReservation.js` | reservation flow (locations → date/party → AVAILABLE slots → hold → reserve) |
@@ -55,17 +54,21 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole restaurant. **Do not
-restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
-dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components (menu, item dialog, order cart, reservations) carry **no palette of their
+own** — they render from base44's design tokens in `src/index.css` (`:root`/`.dark`: `--background`,
+`--foreground`, `--card`, `--primary`, `--muted`, `--border`, `--radius`, `--font-*`) via shadcn
+Tailwind classes (`bg-card`, `text-foreground`, `bg-primary`, `text-muted-foreground`,
+`border-border`, `rounded-lg`, `font-display`). Those tokens are **already set to the brand by the
+design phase**, so the shipped pages are themed with zero work here. To adjust the palette, edit
+`index.css` (`:root` **and** `.dark`) — the base44 way; **never add a parallel theme file (e.g. a
+`theme.css`) or restyle the shipped JSX.** Build the Home/Header you add (STEP 4) from the **same**
+base44 tokens/classes so it matches automatically. A dark brand is just base44's dark palette in
+`index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
-- `import "@/theme.css";` once at the app entry.
 - Wrap the routed tree in `<OrderCartProvider>` (from `@/context/OrderCartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
@@ -80,7 +83,6 @@ replace it.
   **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { OrderCartProvider } from "@/context/OrderCartContext";
@@ -127,7 +129,7 @@ function Layout() {
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<OrderCartButton/>` in it) and a **`Footer`** —
 the two you drop into the `Layout` (STEP 4) so they wrap every route — plus the overall brand story,
-styled from the same `theme.css` tokens. The nav is an `<OrderCartButton/>` (a clean order-**icon**
+styled with the same base44 tokens/classes. The nav is an `<OrderCartButton/>` (a clean order-**icon**
 button with a live-count badge — render it as-is, don't wrap it in your own text button) + links to
 `/menu` and `/reservations`:
 
@@ -160,7 +162,7 @@ export function Header() {
 }
 ```
 
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything visual reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 `<OrderCartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
@@ -227,7 +229,7 @@ file under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Menu`/`Reservations` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Order through the shipped cart: `addItem()` → `checkout()` (redirect-session) — never a hand-built `/checkout`, ordering, or reservation URL.
@@ -250,7 +252,8 @@ run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened `/menu` and `/reservations` (not just the home page) and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Menu`/`Reservations` untouched; content clears the fixed chrome; `<OrderCartProvider>` wraps the tree; `<OrderCartDrawer/>` mounted; `<OrderCartButton/>` in the header.
 - [ ] `getFullMenu()` renders real sections/items with prices, variants, modifiers, and labels; empty catalog shows the shipped empty state (no mock items).
 - [ ] Add to order works with a real operation (or shows "ordering unavailable"); order survives reload (same visitor); update-qty / remove work; checkout redirects and re-fetches on return.

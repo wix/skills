@@ -1,9 +1,10 @@
 # Wix Storefront — ready-made client
 
 The storefront client is **shipped as real files**, not snippets to regenerate. It's a complete
-catalog + PDP + server-cart + checkout, styled entirely from `theme.css` tokens. Copy it into the
-app, theme the tokens, wire the routes — you generate almost none of the commerce code (variant
-resolution, modifiers, stock gating, the server cart all ship and are correct).
+catalog + PDP + server-cart + checkout, styled with your app's design tokens (base44's
+`src/index.css` — the shadcn palette the design phase already set). Copy it into the app and wire
+the routes — you generate almost none of the commerce code (variant resolution, modifiers, stock
+gating, the server cart all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock
 products; never hand-build a `/checkout` URL — the shipped cart goes through the eCom
@@ -20,7 +21,6 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
 | `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug |
 | `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, with empty state) |
@@ -43,17 +43,20 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole storefront. **Do not
-restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
-dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens
+in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
+`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
+`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
+`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
+pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
+`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
+shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it
+matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
-- `import "@/theme.css";` once at the app entry.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
@@ -68,7 +71,6 @@ replace it.
   **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
@@ -115,7 +117,7 @@ function Layout() {
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<CartButton/>` in it) and a **`Footer`** — the
 two you drop into the `Layout` (STEP 4) so they wrap every route — plus the overall brand story,
-styled from the same `theme.css` tokens. **Compose the shipped pieces** — a
+styled from the same base44 tokens/classes. **Compose the shipped pieces** — a
 featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
 (a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
 text button) + a link to `/shop`:
@@ -154,8 +156,8 @@ export function Featured() {                                // on your home page
   return <ProductGrid products={products} empty="Products coming soon." />;
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
-`<CartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages
+automatically. `<CartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
 can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
@@ -192,7 +194,7 @@ async function quickAdd(addToCart, product) {
 // just-generated url that 404s for a second reads as a surface, not a blank block.
 function BrandImage({ url, alt }) {
   const src = url?.startsWith("//") ? `https:${url}` : url;      // ProductCard already does this
-  return <div style={{ background: "var(--color-surface)" }}><img src={src} alt={alt} /></div>;
+  return <div className="bg-card"><img src={src} alt={alt} /></div>;
 }
 ```
 
@@ -217,7 +219,7 @@ these snippets don't have): read the relevant shipped file under `src/`, or look
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Shop`/`ProductDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
@@ -234,7 +236,8 @@ client build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.

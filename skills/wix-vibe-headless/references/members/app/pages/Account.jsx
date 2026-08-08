@@ -1,7 +1,7 @@
 // Account page (`/account`) — the member's own profile + log out. Gate it with <RequireAuth> in the
 // router (STEP 4) so a visitor is bounced to /login. Reads the member from useMember(); shows the
 // identity-only fallback when the Members Area app isn't installed (member is null but loggedIn is
-// true — that's setup, not a bug). Token-styled; re-skin via theme.css.
+// true — that's setup, not a bug). Styled with base44 design tokens (shadcn Tailwind classes).
 import { useMember } from "@/context/MemberContext";
 
 export default function Account() {
@@ -15,30 +15,21 @@ export default function Account() {
   const photo = member?.profile?.photo?.url;
 
   return (
-    <main style={{ maxWidth: "var(--form-maxw)", margin: "0 auto", padding: "calc(var(--space) * 2) var(--space)" }}>
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center",
-        padding: "calc(var(--space) * 1.5)", background: "var(--color-surface)",
-        border: "1px solid var(--color-border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)",
-      }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: "50%", overflow: "hidden",
-          background: "var(--color-bg)", border: "1px solid var(--color-border)",
-        }}>
-          {photo && <img src={photo.startsWith("//") ? `https:${photo}` : photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+    <main className="max-w-[420px] mx-auto py-8 px-4">
+      <div className="flex flex-col items-center gap-3 text-center p-6 bg-card border border-border rounded-lg shadow-sm">
+        <div className="w-[72px] h-[72px] rounded-full overflow-hidden bg-background border border-border">
+          {photo && <img src={photo.startsWith("//") ? `https:${photo}` : photo} alt="" className="w-full h-full object-cover" />}
         </div>
-        <h1 style={{ fontFamily: "var(--font-display)", margin: 0, fontSize: 22 }}>{name}</h1>
-        {email && <p style={{ color: "var(--color-muted)", margin: 0 }}>{email}</p>}
+        <h1 className="font-display m-0 text-[22px]">{name}</h1>
+        {email && <p className="text-muted-foreground m-0">{email}</p>}
         {!member && (
-          <p style={{ color: "var(--color-muted)", margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+          <p className="text-muted-foreground m-0 text-[13px] leading-normal">
             You're signed in. Install the Wix Members Area app to show profile details here.
           </p>
         )}
-        <button type="button" onClick={() => logout()} style={{
-          marginTop: 8, padding: "10px 24px", cursor: "pointer", fontSize: 14, fontWeight: 600,
-          background: "var(--color-primary)", color: "var(--color-on-primary)",
-          border: "none", borderRadius: "var(--radius-sm)",
-        }}>Log out</button>
+        <button type="button" onClick={() => logout()}
+          className="mt-2 py-2.5 px-6 cursor-pointer text-sm font-semibold bg-primary text-primary-foreground border-none rounded-sm"
+        >Log out</button>
       </div>
     </main>
   );

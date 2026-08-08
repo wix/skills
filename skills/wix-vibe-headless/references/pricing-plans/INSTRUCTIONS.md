@@ -1,10 +1,11 @@
 # Wix Pricing Plans — ready-made client
 
 The Plans & Pricing client is **shipped as real files**, not snippets to regenerate. It's a complete
-plans table + plan detail + members-only hosted checkout + "my plans" area, styled entirely from
-`theme.css` tokens. Copy it into the app, theme the tokens, wire the routes — you generate almost
-none of the plans code (the destructure shapes, the price/billing-cycle field paths, the hosted
-checkout redirect, the anonymous `[]` case all ship and are correct).
+plans table + plan detail + members-only hosted checkout + "my plans" area, styled with your app's
+design tokens (base44's `src/index.css` — the shadcn palette the design phase already set). Copy it
+into the app and wire the routes — you generate almost none of the plans code (the destructure
+shapes, the price/billing-cycle field paths, the hosted checkout redirect, the anonymous `[]` case
+all ship and are correct).
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock plans;
 never hand-build a `/checkout` or purchase URL — purchasing always goes through the Wix-hosted
@@ -28,7 +29,6 @@ map, so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `hooks/usePlans.js` | plans-listing data — first page, cursor paging, `subscribe(plan)` checkout |
 | `hooks/usePlanDetail.js` | plan-detail data — plan-by-slug + `notFound` + `subscribe()` checkout |
 | `hooks/useMyPlans.js` | member's orders + auto re-sync on return from checkout |
@@ -54,18 +54,21 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole pricing page. **Do not
-restyle the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the
-home page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the
-dark tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens
+in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
+`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
+`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
+`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
+pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
+`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
+shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it
+matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Pricing Plans needs **no** cross-page provider (checkout is a redirect, not client
 state) — so unlike the storefront there's no `<CartProvider>` to wrap.
-- `import "@/theme.css";` once at the app entry.
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every**
   page — including the shipped `Plans` / `PlanDetail` / `MyPlans` — so you **never edit the shipped
@@ -79,7 +82,6 @@ state) — so unlike the storefront there's no `<CartProvider>` to wrap.
   `MyPlans` (all shipped, as-is). **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
@@ -122,8 +124,8 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the
-`Layout` (STEP 4) so they wrap every route — plus the overall brand story, styled from the same
-`theme.css` tokens. **Compose the shipped pieces** — a "featured plans" strip is just `queryPlans` +
+`Layout` (STEP 4) so they wrap every route — plus the overall brand story, styled with the same
+base44 tokens/classes. **Compose the shipped pieces** — a "featured plans" strip is just `queryPlans` +
 the shipped `PlanGrid`; the nav is links to `/plans` and `/my-plans`:
 
 ```jsx
@@ -162,7 +164,7 @@ export function Featured() {                                // on your home page
   return <PlanGrid plans={plans} onSubscribe={subscribe} empty="Plans coming soon." />;
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev
 preview can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do
@@ -212,7 +214,7 @@ file under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped
   `Plans`/`PlanDetail`/`MyPlans` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
@@ -234,7 +236,9 @@ in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened the vertical's data route(s) (not just the home page) and confirmed the shipped
+      components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps
       all routes; shipped `Plans`/`PlanDetail`/`MyPlans` untouched; content clears the fixed chrome.
 - [ ] Plans list renders live data; price, billing cycle, and free trial read correctly across

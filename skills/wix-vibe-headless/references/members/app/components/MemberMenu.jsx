@@ -1,20 +1,18 @@
 // Header account control — the members analog of a cart button. Reads useMember() and renders the
 // session state: a "Log in" link for a visitor, or the member's name + a log-out button once signed
 // in. Drop it into the Header you build (STEP 4), same as the storefront's CartButton. Pure UI reading
-// useMember + theme.css tokens — render it as-is; don't wrap it in your own auth logic.
+// useMember + base44 design tokens (shadcn Tailwind classes) — render it as-is; don't wrap it in your own auth logic.
 import { Link } from "react-router-dom";
 import { useMember } from "@/context/MemberContext";
 
 export default function MemberMenu() {
   const { loggedIn, member, loading, logout } = useMember();
 
-  if (loading) return <span style={{ color: "var(--color-muted)", fontSize: 14 }}>…</span>;
+  if (loading) return <span className="text-muted-foreground text-sm">…</span>;
 
   if (!loggedIn) {
     return (
-      <Link to="/login" style={{
-        color: "var(--color-primary)", textDecoration: "none", fontSize: 14, fontWeight: 600,
-      }}>Log in</Link>
+      <Link to="/login" className="text-primary no-underline text-sm font-semibold">Log in</Link>
     );
   }
 
@@ -23,14 +21,13 @@ export default function MemberMenu() {
   const name = member?.profile?.nickname || member?.contact?.firstName || member?.loginEmail || "Account";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <Link to="/account" style={{ color: "var(--color-text)", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
+    <div className="flex items-center gap-3">
+      <Link to="/account" className="text-foreground no-underline text-sm font-semibold">
         {name}
       </Link>
-      <button type="button" onClick={() => logout()} style={{
-        background: "none", border: "1px solid var(--color-border)", borderRadius: 999,
-        padding: "4px 12px", fontSize: 13, cursor: "pointer", color: "var(--color-muted)",
-      }}>Log out</button>
+      <button type="button" onClick={() => logout()}
+        className="bg-transparent border border-border rounded-full py-1 px-3 text-[13px] cursor-pointer text-muted-foreground"
+      >Log out</button>
     </div>
   );
 }

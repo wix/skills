@@ -94,7 +94,7 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 ## How this skill is structured
 
 `<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Each vertical ships a **complete UI
-client as files** under `references/<vertical>/app/` — `theme.css`, `components/`, `pages/`,
+client as files** under `references/<vertical>/app/` — `components/`, `pages/`,
 `hooks/`/`context/`, and its REST helpers in `app/rest/` — plus the **shared transport** in
 `references/shared/app/` (`app/rest/wix-client.js` + `wix-config.js`, identical for every vertical).
 Set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) in `wix-config.js`. Deploying `references/<vertical>/app/`
@@ -150,9 +150,10 @@ installed, not what the business is about. Never default to store/bookings on si
 3. **Ensure the vertical's files are in place** — copy `references/<vertical>/app/` and
    `references/shared/app/` into the app's `src/`, and set `WIX_CLIENT_ID` in `wix-config.js`. (Where
    and how they get there is your platform's call — see its instructions.)
-4. **Theme + wire the shipped client** following the vertical's INSTRUCTIONS: theme via `theme.css`
-   tokens, and wire routes + header/footer through the Layout. The UI ships as files — you compose
-   the home page and wire it, you don't rebuild the client.
+4. **Wire the shipped client** following the vertical's INSTRUCTIONS: the components are themed by
+   base44's design tokens (`src/index.css` — shadcn palette, already set by the design phase), so
+   there's no re-skin step; just wire routes + header/footer through the Layout. The UI ships as
+   files — you compose the home page and wire it, you don't rebuild the client.
 5. **Verify** against the vertical's checklist before declaring done: token persists across
    reload, live data renders (or a real empty state), and purchases go through the Wix redirect.
 

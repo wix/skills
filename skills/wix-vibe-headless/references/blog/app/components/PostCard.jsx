@@ -1,4 +1,4 @@
-// Feed tile. Styled entirely from theme.css tokens (var(--...)) — re-skin via those tokens, not this
+// Feed tile. Styled with base44 design tokens (shadcn Tailwind classes) — re-skin via those tokens, not this
 // JSX. The cover-image path (post.media.wixMedia.image.url) and the text-only fallback are
 // load-bearing: never substitute a stock/placeholder image. Routes to the detail page by slug.
 import { Link } from "react-router-dom";
@@ -19,24 +19,20 @@ export default function PostCard({ post }) {
   const date = formatDate(post?.firstPublishedDate);
 
   return (
-    <Link to={`/blog/${post.slug}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
+    <Link to={`/blog/${post.slug}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
       {image && (
-        <div style={{ aspectRatio: "16 / 9", background: "var(--color-bg)" }}>
+        <div className="aspect-[16/9] bg-background">
           <img src={image} alt={post.media?.wixMedia?.image?.altText || post.title} loading="lazy"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            className="w-full h-full object-cover" />
         </div>
       )}
-      <div style={{ padding: "var(--space)", display: "flex", flexDirection: "column", gap: 8 }}>
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, lineHeight: 1.3 }}>{post.title}</h3>
+      <div className="p-4 flex flex-col gap-2">
+        <h3 className="m-0 font-display text-lg font-semibold leading-[1.3]">{post.title}</h3>
         {post.excerpt && (
-          <p style={{ margin: 0, color: "var(--color-muted)", fontSize: 14, lineHeight: 1.5 }}>{post.excerpt}</p>
+          <p className="m-0 text-muted-foreground text-sm leading-[1.5]">{post.excerpt}</p>
         )}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--color-muted)", fontSize: 12 }}>
+        <div className="flex gap-2 items-center text-muted-foreground text-[12px]">
           {date && <span>{date}</span>}
           {date && post.minutesToRead ? <span aria-hidden="true">·</span> : null}
           {post.minutesToRead ? <span>{post.minutesToRead} min read</span> : null}

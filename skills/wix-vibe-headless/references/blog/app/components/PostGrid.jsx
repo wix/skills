@@ -1,18 +1,14 @@
-// Responsive post grid + empty state. Token-styled; re-skin via theme.css.
+// Responsive post grid + empty state. Styled with base44 design tokens (shadcn Tailwind classes).
 import PostCard from "./PostCard";
 
 export default function PostGrid({ posts, empty = "No posts yet." }) {
   if (!posts?.length) {
     return (
-      <p style={{ color: "var(--color-muted)", padding: "var(--space)", textAlign: "center" }}>{empty}</p>
+      <p className="text-muted-foreground p-4 text-center">{empty}</p>
     );
   }
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-      gap: "calc(var(--space) * 1.5)",
-    }}>
+    <div className="grid [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] gap-6">
       {posts.map((p) => <PostCard key={p.id} post={p} />)}
     </div>
   );

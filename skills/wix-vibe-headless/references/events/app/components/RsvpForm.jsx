@@ -1,15 +1,11 @@
-// RSVP form for an RSVP-type event. Pure UI over useRsvpForm — no data logic here. Token-styled;
-// re-skin via theme.css. Offers a "NO" reply only when responseType is "YES_AND_NO"; a WAITLIST
-// result (event full) is surfaced distinctly from a confirmed YES.
+// RSVP form for an RSVP-type event. Pure UI over useRsvpForm — no data logic here. Styled with
+// base44 design tokens (shadcn Tailwind classes). Offers a "NO" reply only when responseType is
+// "YES_AND_NO"; a WAITLIST result (event full) is surfaced distinctly from a confirmed YES.
 import { useRsvpForm } from "@/hooks/useRsvpForm";
 
-const input = {
-  width: "100%", padding: "10px 12px", boxSizing: "border-box", fontFamily: "var(--font-body)",
-  border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)",
-  background: "var(--color-bg)", color: "var(--color-text)",
-};
-const label = { display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: "var(--color-muted)" };
-const field = { marginBottom: "var(--space)" };
+const input = "w-full px-3 py-2.5 box-border font-body border border-border rounded-sm bg-background text-foreground";
+const label = "block mb-1.5 text-[13px] font-semibold text-muted-foreground";
+const field = "mb-4";
 
 export default function RsvpForm({ eventId, responseType }) {
   const { form, setField, submit, submitting, canSubmit, result, error } = useRsvpForm(eventId);
@@ -17,10 +13,7 @@ export default function RsvpForm({ eventId, responseType }) {
   if (result) {
     const waitlisted = result.status === "WAITLIST";
     return (
-      <div style={{
-        padding: "var(--space)", borderRadius: "var(--radius)",
-        background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text)",
-      }}>
+      <div className="p-4 rounded-lg bg-card border border-border text-foreground">
         {waitlisted
           ? "This event is full — you've been added to the waitlist. We'll email you if a spot opens."
           : "You're on the list! A confirmation is on its way to your email."}
@@ -29,38 +22,36 @@ export default function RsvpForm({ eventId, responseType }) {
   }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); submit(); }} style={{ maxWidth: 440 }}>
-      <div style={field}>
-        <label style={label}>First name</label>
-        <input style={input} value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} required />
+    <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="max-w-[440px]">
+      <div className={field}>
+        <label className={label}>First name</label>
+        <input className={input} value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} required />
       </div>
-      <div style={field}>
-        <label style={label}>Last name</label>
-        <input style={input} value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} required />
+      <div className={field}>
+        <label className={label}>Last name</label>
+        <input className={input} value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} required />
       </div>
-      <div style={field}>
-        <label style={label}>Email</label>
-        <input style={input} type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} required />
+      <div className={field}>
+        <label className={label}>Email</label>
+        <input className={input} type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} required />
       </div>
 
       {responseType === "YES_AND_NO" && (
-        <div style={field}>
-          <label style={label}>Will you attend?</label>
-          <select style={input} value={form.status} onChange={(e) => setField("status", e.target.value)}>
+        <div className={field}>
+          <label className={label}>Will you attend?</label>
+          <select className={input} value={form.status} onChange={(e) => setField("status", e.target.value)}>
             <option value="YES">Yes, I'll be there</option>
             <option value="NO">No, I can't make it</option>
           </select>
         </div>
       )}
 
-      {error && <p style={{ color: "var(--color-danger)", marginBottom: "var(--space)" }}>{error}</p>}
+      {error && <p className="text-destructive mb-4">{error}</p>}
 
-      <button type="submit" disabled={!canSubmit} style={{
-        padding: "12px 24px", cursor: canSubmit ? "pointer" : "not-allowed",
-        background: "var(--color-primary)", color: "var(--color-on-primary)",
-        border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-        opacity: canSubmit ? 1 : 0.5,
-      }}>{submitting ? "Sending…" : "RSVP"}</button>
+      <button type="submit" disabled={!canSubmit}
+        className="py-3 px-6 cursor-pointer bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+        {submitting ? "Sending…" : "RSVP"}
+      </button>
     </form>
   );
 }
