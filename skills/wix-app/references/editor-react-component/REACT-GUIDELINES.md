@@ -111,7 +111,7 @@ Unless explicitly specified as a component capability/API in the specification, 
 **External handlers (only when specified):**
 
 - Only expose handlers that are explicitly listed as component capabilities
-- Example: If specification says "onClick callback for external control", then add `onClick?: () => void` to props
+- Use the standard SDK prop names and DOM wiring rules from [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md)
 
 **Child component handlers:**
 
