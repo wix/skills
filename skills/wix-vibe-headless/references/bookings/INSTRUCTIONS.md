@@ -2,7 +2,8 @@
 
 The bookings client is **shipped as real files**, not snippets to regenerate. It's a complete
 service catalog + detail page + slot picker + booking flow (create booking → hosted checkout),
-styled entirely from `theme.css` tokens. Copy it into the app, theme the tokens, wire the routes —
+styled with your app's design tokens (base44's `src/index.css` — the shadcn palette the design phase
+already set). Copy it into the app and wire the routes —
 you generate almost none of the booking code (the `{ services }` / `{ slots }` destructuring, the
 local wall-clock date args, the null-slot re-validate guard, the participant cap, the eCom
 redirect-session all ship and are correct).
@@ -29,7 +30,6 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `theme.css` | design tokens — the **only** file you edit to re-skin (STEP 3) |
 | `hooks/useServices.js` | services-list data — one page + `loadMore` paging; `total === 0` → empty state |
 | `hooks/useServiceDetail.js` | detail + booking flow — load service, list slots, hold slot/contact/participants, re-validate + book + checkout |
 | `components/ServiceCard.jsx`, `ServiceGrid.jsx` | service listing UI (grid + card, with empty state) |
@@ -53,18 +53,21 @@ the end). (Files missing? the install's `deploy` result lists what it wrote; re-
 Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
 one place both ids live.
 
-## STEP 3 — Theme (the styling step — do ONLY this to the shipped components)
-Edit `src/theme.css` tokens to the brand: palette, `--font-display`/`--font-body`, `--radius`,
-spacing. Every shipped component reads these vars, so this re-skins the whole site. **Do not restyle
-the shipped components' JSX** — that's what keeps this a copy, not a regeneration. Style the home
-page / header you build (STEP 4) from the same tokens so it matches. Dark brand → activate the dark
-tokens with `document.documentElement.dataset.theme = "dark"`.
+## STEP 3 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens
+in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
+`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
+`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
+`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
+pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
+`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
+shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it
+matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
 ## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Bookings needs **no cross-page provider** (there's no cart — each booking completes on
 its own detail page), so there's nothing to wrap the tree in.
-- `import "@/theme.css";` once at the app entry.
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Services` / `ServiceDetail` — so you **never edit the shipped pages to add
@@ -78,7 +81,6 @@ its own detail page), so there's nothing to wrap the tree in.
   shipped, as-is). **You add `/` → your own Home** page.
 
 ```jsx
-import "@/theme.css";
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only
@@ -119,8 +121,8 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the
-`Layout` (STEP 4) so they wrap every route — plus the overall brand story, styled from the same
-`theme.css` tokens. **Compose the shipped pieces** — a "featured services" strip is just
+`Layout` (STEP 4) so they wrap every route — plus the overall brand story, styled with the same
+base44 tokens/classes. **Compose the shipped pieces** — a "featured services" strip is just
 `queryServices` + the shipped `ServiceGrid`; the nav is a link to `/services`:
 
 ```jsx
@@ -154,7 +156,7 @@ export function Featured() {                                // on your home page
   return <ServiceGrid services={services} empty="Services coming soon." />;
 }
 ```
-Everything visual reads `theme.css` tokens, so your home/nav match the shipped pages automatically.
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
 
 **Editing a component and the change doesn't show? It's the preview, not your code.** The dev
 preview can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a
@@ -177,8 +179,9 @@ const p = service.payment?.fixed?.price;
 const price = p && (p.formattedValue
   || new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency }).format(Number(p.value)));
 
-// IMAGE — resolve through mediaUrl (Wix media can be a bare handle, not a full URL):
-const img = mediaUrl(service.media?.items?.[0]?.image);
+// IMAGE — the primary image is media.mainMedia; resolve through mediaUrl (Wix media can be a bare
+// handle, not a full URL). Fall back to the gallery/cover:
+const img = mediaUrl(service.media?.mainMedia?.image ?? service.media?.items?.[0]?.image ?? service.media?.coverMedia?.image);
 
 // SLOTS — listSlotsForService routes by service.type and returns { slots, nextCursor }; iterate .slots.
 // Dates are LOCAL wall-clock "YYYY-MM-DDThh:mm:ss" (NO zone / Z). The LIST call takes
@@ -213,7 +216,7 @@ file under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Theme via `theme.css` tokens, never by rewriting the shipped components.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped
   `Services`/`ServiceDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
@@ -241,7 +244,8 @@ build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `theme.css` themed to the brand; shipped components/pages not restyled or rewritten.
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] **Opened `/services` and a service detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all
       routes; shipped `Services`/`ServiceDetail` untouched; content clears the fixed chrome.
 - [ ] Visitor token persists across reload (same visitor identity across reloads).
