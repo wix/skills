@@ -31,8 +31,11 @@ const result = await seed.setupStore(ctx, {
 ```
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
-"sample" data, don't reset. Just add. Need finer control than `setupStore`? The individual functions
-below still exist (setupStore is built from them).
+"sample" data, don't reset. Just add.
+
+## Escape hatch — individual functions
+Reach for the individual functions below only when the one-call `setupStore` doesn't fit (partial
+re-seed, custom ordering, verifying persistence mid-flow). `setupStore` is built from them.
 
 ## Functions
 | fn | does |

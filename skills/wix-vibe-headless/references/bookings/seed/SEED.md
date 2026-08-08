@@ -39,8 +39,11 @@ const result = await seed.setupBookings(ctx, {
 ```
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
-"sample" data, don't reset. Just add. Need finer control than `setupBookings`? The individual
-functions below still exist (setupBookings is built from them, in the order shown).
+"sample" data, don't reset. Just add.
+
+## Escape hatch — individual functions
+Reach for the individual functions below only when the one-call `setupBookings` doesn't fit (partial
+re-seed, custom ordering). `setupBookings` is built from them, in the order shown.
 
 ## Functions
 | fn | does |
