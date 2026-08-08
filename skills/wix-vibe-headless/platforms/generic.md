@@ -6,26 +6,47 @@ id are in your prompt. This skill is **client-only REST** over the public `WIX_C
 
 ## What you've got in the skill
 
-Its docs (`SKILL.md`, each `references/<vertical>/INSTRUCTIONS.md`) were authored for **one host
-stack** (Vite + react-router, `.jsx`, files pre-copied into `src/`). You may be on another — so take
-the **three assets** and adapt them; don't copy the host's setup:
+The docs were authored for **one host stack** (Vite + react-router, `.jsx`, files pre-copied into
+`src/`) — you may be on another, so **adapt these assets to your stack; don't copy the host's setup.**
+Everything is under `.agents/skills/wix-vibe-headless/references/`.
 
-1. **`rest/` layer** — `shared/app/rest/wix-client.js` + `<vertical>/app/rest/wix-*.js`: the transport
-   + data layer, and the source of truth for every request/response **shape**, the token lifecycle,
-   fieldsets, and paging. **Use ~verbatim** (plain `fetch`, already SSR-guarded; TS → rename `.js →
-   .ts` + add types) — don't change the shapes.
-2. **UI + data contract** — `<vertical>/app/{components,pages,hooks}` + the field snippets in
-   `INSTRUCTIONS.md`: a **reference** UI. **Regenerate it in your framework** (your router, `.tsx`,
-   your design tokens); keep the field shapes and route patterns (e.g. `/product/:slug`).
-3. **seed functions** — `<vertical>/seed/seed-*.js`: **reuse them** to create content (step 3).
+**Shared transport — both files, used by every vertical (`shared/app/rest/`):**
+
+| file | what's in it |
+|---|---|
+| `wix-client.js` | The transport. Exchanges `WIX_CLIENT_ID` for an anonymous **visitor token**, persists + refreshes it (that token *is* the cart/session identity), and exposes `wixApiRequest(path, {method, body, query})`. Also the member-session swap — `setSessionTokens` / `clearSession` / `isMember`. Plain `fetch`; already SSR-guards `window`/`localStorage`; maps 402 + error bodies. **Use ~verbatim.** |
+| `wix-config.js` | The one place you set `WIX_CLIENT_ID` + `WIX_METASITE_ID`. |
+
+**Every `references/<vertical>/` holds the same four things:**
+
+- `app/rest/wix-*.js` — the vertical's **data layer**: named calls carrying the exact request/response
+  **shapes**, fieldsets, and paging. **Use ~verbatim** (TS → rename `.js → .ts` + add types); never
+  change the shapes.
+- `app/{components,pages,hooks,context}/…` — a **reference UI** (+ hooks/providers). **Regenerate it
+  in your framework** (your router, `.tsx`, your design tokens); keep the field shapes and route
+  patterns (e.g. `/product/:slug`).
+- `seed/seed-*.js` — build-time **seeding functions**; **reuse them** to create content (step 3).
+- `INSTRUCTIONS.md` (build guide + field-shape snippets) and `seed/SEED.md` (how to run the seed module).
+
+**The nine verticals — data layer (`app/rest/`) + seed module (`seed/`):**
+
+| vertical | `app/rest/` data layer | seed module |
+|---|---|---|
+| storefront | `wix-store-catalog.js`, `wix-store-cart.js` — products & variants; server cart + checkout redirect | `seed-store.js` |
+| bookings | `wix-bookings-services.js`, `wix-bookings-checkout.js` — services/categories/slots; booking + checkout | `seed-bookings.js` |
+| blog | `wix-blog.js` — posts (list + by-slug), categories, tags | `seed-blog.js` |
+| events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.js` |
+| portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.js` |
+| restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.js` |
+| cms | `wix-cms.js` — Wix Data collections: list / detail / filter + form CRUD | `seed-cms.js` |
+| pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.js` |
+| members | `wix-members-auth.js` — custom login/signup (email+password, social, SSO), session, account | *(none — members sign up at runtime; nothing to seed)* |
 
 Anything in the docs about the **host's own setup** — copying files into `src/`, its `@/` alias, its
 `import.meta.env` flags, a theming file, its build/exec/connector tooling — is that host's, not a
-rule: adapt it to your stack or ignore it. The **"shared model"** in `SKILL.md` (public-client-id
+rule: **adapt it to your stack or ignore it.** The `SKILL.md` **"shared model"** (public-client-id
 auth, money = objects → render `formattedValue`, visitor token = cart identity, member login swaps
 the token set) is **universal — follow it as-is**.
-
-(All paths are under `.agents/skills/wix-vibe-headless/references/`.)
 
 ## The flow — install → build client → seed → done
 
