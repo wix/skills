@@ -57,22 +57,20 @@ visitor token = cart identity, member login swaps the token set) is **universal 
 
 ## STEP 1 — Install the Wix skills locally
 
-Install three (land under `.agents/skills/`):
-- **`wix-vibe-headless`** — the client guide (STEP 3), via the lens above.
-- **`wix-headless`** — **only** a seeding/admin recipe reference (`references/SEED.md`,
-  `references/inline-recipes/`, STEP 4). **Ignore the rest** — especially its `@wix/cli` /
-  "managed project" auth (`references/managed/`); that is **not** how auth works here.
-- **`wix-docs`** — **fallback** to search/read the Wix API reference.
+Install two (land under `.agents/skills/`):
+- **`wix-vibe-headless`** — the client build guide (STEP 3) **and** the seeding modules (STEP 4),
+  read via the lens above. **This skill is self-contained — everything you need is here.**
+- **`wix-docs`** — **fallback** to search/read the Wix API reference for anything the seed modules
+  don't cover.
 
 ```bash
-CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 ```
 
 **Only if the CLI errors** (not on a guess), fall back to curl + gzip:
 ```bash
-for s in headless vibe-headless docs; do
+for s in vibe-headless docs; do
   mkdir -p ".agents/skills/wix-$s"
   curl -s "https://www.wix.com/skills/$s.tgz" | tar xz -C ".agents/skills/wix-$s" --strip-components=1
 done
@@ -112,27 +110,34 @@ your stack — **never convert the project**:
 ## STEP 4 — Seed and manage the business (parallel with STEP 3)
 
 **⛔ NO CLEANUP — EVER.** Seeding is strictly **additive**: never delete, reset, or overwrite
-anything on the user's live site — **not even apparent sample/demo content**. **Ignore every
-cleanup/reset step in the `wix-headless` recipes.** If something looks wrong, leave it and tell the
-user — do not remove it.
+anything on the user's live site — **not even apparent sample/demo content**. Ignore any
+cleanup/reset step you come across. If something looks wrong, leave it and tell the user.
 
-Seed by **reusing the functions** in `references/<vertical>/seed/seed-*.js` (correct Wix API sequences
-incl. app-install + provisioning-race handling); fall back to `wix-headless`'s `references/SEED.md`,
-then `wix-docs`.
+Seed by **reusing the functions** in `references/<vertical>/seed/seed-*.js` — they encode the correct
+Wix API sequences (incl. app-install + provisioning-race handling). For anything they don't cover, use
+`wix-docs` to read the relevant API reference.
 
 **Auth (elevated — the public client id won't do), in order:**
 1. **Platform has a built-in Wix integration/connector? Use it** — call Wix through it; it owns the
-   credential, so you never touch a raw key. *(Base44: pre-wired connector, run seed modules via its
-   exec tool. Lovable: gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY` +
-   `X-Connection-Api-Key`.)*
+   credential, so you never touch a raw key. *(Base44: pre-wired connector, run the seed modules via
+   its exec tool. Lovable: gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY`
+   + `X-Connection-Api-Key`.)*
 2. **Otherwise, take a Wix API key into your secret / env manager** — ask the user, store it there
-   (**never hardcode or commit**), and send it **raw as `Authorization`, no `Bearer`** (`wix-docs`
-   covers key auth). Create one:
+   (**never hardcode or commit**). Create one:
    **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)** (how-to:
    [Generate an API key](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)).
+   A key call is like a token call, but `Authorization` is the **raw key (no `Bearer`)** plus a
+   **`wix-site-id`** header (site-level; `wix-account-id` only for account-level APIs — one, not both;
+   site-level keys must be made from the **site owner's** account):
+   ```bash
+   curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
+     -H 'Authorization: <API_KEY>' -H 'wix-site-id: <METASITE_ID>' \
+     -H 'Content-Type: application/json' -d '{"query":{"cursorPaging":{"limit":10}}}'
+   ```
+   The seed modules take a token via `ctx`; to run them with a key, swap their
+   `Authorization: Bearer <token>` for the raw-key + `wix-site-id` shape above.
 
-Do **not** run the Wix CLI (`@wix/cli`), device-login, or `wix-headless`'s
-`references/managed/AUTHENTICATION.md` — that managed-project flow doesn't apply here.
+Do **not** reach for the Wix CLI (`@wix/cli`) or a device-login — auth is the connector or the API key.
 
 **Notes:** client content queries return `REQUIRED_APP_NOT_INSTALLED` until STEP 4 installs + seeds
 the app (expected; the seed modules install it first). Image seeding = two Wix Media calls
@@ -140,8 +145,8 @@ the app (expected; the seed modules install it first). Image seeding = two Wix M
 
 ## Later admin requests
 
-Same as STEP 4: check `wix-headless`'s inline recipes
-(`.agents/skills/wix-headless/references/inline-recipes/`) first, fall back to `wix-docs`.
+Same as STEP 4: reuse the skill's `references/<vertical>/seed/` modules and patterns; fall back to
+`wix-docs` for anything they don't cover.
 
 ## STEP 5 — When done
 
