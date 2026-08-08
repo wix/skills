@@ -136,7 +136,9 @@ hardcode or commit it:
   gateway `https://connector-gateway.lovable.dev/wix`, with `LOVABLE_API_KEY` + `X-Connection-Api-Key`.)*
 - **Base44** → the connector is pre-wired; run seed modules via its exec tool.
 - **Otherwise** → ask the user for a **Wix API key** and authenticate each REST call with it (the
-  `wix-docs` skill covers Wix API-key auth — send it raw as `Authorization`, no `Bearer`).
+  `wix-docs` skill covers Wix API-key auth — send it raw as `Authorization`, no `Bearer`). Point the
+  user at where to create one: **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)**
+  (how-to: [Generate an API key](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)).
 
 Do **not** install/run the Wix CLI (`@wix/cli`), device-login, or follow `wix-headless`'s
 `references/managed/AUTHENTICATION.md` — that managed-project flow does not apply here.
