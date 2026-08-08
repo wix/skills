@@ -314,6 +314,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 **Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.
 
+### [Table Reservations Widget Localization Gap](references/restaurants/table-reservations-widget-localization-gap.md)
+**Technical:** Explains why the built-in Table Reservations reservation-form widget can show untranslated English copy on a non-English site, and why no API or Editor control can fix it — built-in labels come from Wix's internal translation bundles keyed to site language, not editable content.
+
 ---
 
 ## Rich Content
