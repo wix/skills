@@ -63,7 +63,7 @@ function buildRegistration(ev) {
       initialType: "TICKETING",
       tickets: {
         ticketLimitPerOrder: ev.ticketLimitPerOrder ?? 8, // per recipe (example value)
-        currency: ev.currency ?? "USD", // per recipe (example value)
+        currency: ev.currency ?? "USD", // setupEvents threads the site currency; USD only as last-resort fallback
         reservationDurationInMinutes: ev.reservationDurationInMinutes ?? 20, // per recipe (example value)
       },
     };
@@ -121,7 +121,7 @@ async function createTicketTiers(ctx, eventId, tiers) {
         name: t.name,
         description: t.description,
         ...(t.initialLimit != null ? { initialLimit: t.initialLimit } : {}), // omit => unlimited
-        pricingMethod: { fixedPrice: { value: String(t.price), currency: t.currency ?? "USD" } }, // value MUST be a decimal string
+        pricingMethod: { fixedPrice: { value: String(t.price), currency: t.currency ?? "USD" } }, // value = decimal string; currency = site currency (threaded by setupEvents), USD only as fallback
         feeType: t.feeType ?? "FEE_INCLUDED", // per recipe (default)
       },
       fields: ["SALES_DETAILS"],
@@ -199,12 +199,26 @@ async function installEventsApp(ctx) {
   } });
 }
 
+// Ticket prices are in the SITE's currency. The ticket-definitions API REQUIRES `currency` and does
+// not infer it (omitting it 400s), and it does NOT fall back to the site currency — whatever you pass
+// is used verbatim. So resolve the site's payment currency once and thread it through, instead of a
+// hardcoded default that would mis-price tickets on a non-USD site (e.g. USD tickets on a EUR/ILS site).
+async function getSiteCurrency(ctx) {
+  try {
+    const r = await req(ctx, "/site-properties/v4/properties", { method: "GET" });
+    return r?.properties?.paymentCurrency || "USD";
+  } catch { return "USD"; }
+}
+
 async function setupEvents(ctx, { events = [] } = {}) {
   await installEventsApp(ctx);
+  const siteCurrency = await getSiteCurrency(ctx);
   const created = [];
   for (const ev of events) {
-    const e = await createEvent(ctx, ev);
-    const tiers = ev.ticketTiers?.length ? await createTicketTiers(ctx, e.id, ev.ticketTiers) : [];
+    const e = await createEvent(ctx, { ...ev, currency: ev.currency ?? siteCurrency });
+    const tiers = ev.ticketTiers?.length
+      ? await createTicketTiers(ctx, e.id, ev.ticketTiers.map((t) => ({ ...t, currency: t.currency ?? siteCurrency })))
+      : [];
     await publishEvent(ctx, e.id);
     created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, ticketCount: tiers.length });
   }
@@ -233,5 +247,5 @@ async function setupEvents(ctx, { events = [] } = {}) {
 module.exports = {
   setupEvents,
   createEvent, createTicketTiers, publishEvent,
-  installEventsApp, createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
+  installEventsApp, getSiteCurrency, createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
 };
