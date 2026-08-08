@@ -1,73 +1,68 @@
 # Wix Managed Headless — build instructions (any stack)
 
-You are building a **Wix Managed** headless site. The business to build, and your Wix client id
-and metasite id, are given in your initial prompt. Read **"What this skill is"** and **"Hard
-rules"** first — they change how you read everything else — then follow the steps.
+You are building a **Wix Managed** headless site — the business, your `WIX_CLIENT_ID`, and metasite
+id are in your prompt. Read **"What this skill is"** + **"Hard rules"** first (they change how you
+read everything else), then the steps.
 
-## What this skill is (read this first)
+## What this skill is (read first)
 
 `wix-vibe-headless` is a **client-only REST connector** to a live Wix site over the public
-`WIX_CLIENT_ID` (a visitor-facing credential, safe in the browser) — **no `@wix/sdk`, no backend,
-no build step**. Its docs (`SKILL.md` and each `references/<vertical>/INSTRUCTIONS.md`) are written
-for **one specific host — Base44** (Vite + react-router, `.jsx`, shadcn tokens in `index.css`, files
-pre-copied into `src/` by a `deploy.cjs`). **You are almost certainly on a different stack** (Next.js,
-TanStack Start, Remix, plain Vite, …), so don't read those docs literally — read them for the **three
-real assets** and translate the Base44-isms (table below):
+`WIX_CLIENT_ID` (visitor-facing, safe in the browser) — **no `@wix/sdk`, no backend, no build step**.
+Its docs (`SKILL.md`, each `references/<vertical>/INSTRUCTIONS.md`) are written for **one host —
+Base44** (Vite + react-router, `.jsx`, shadcn tokens in `index.css`, files pre-copied to `src/` via
+`deploy.cjs`). **You're almost certainly on another stack** — read them for the **three real assets**,
+and translate the Base44-isms (table below):
 
-1. **`references/shared/app/rest/wix-client.js` + `references/<vertical>/app/rest/wix-*.js`** — the
-   REST transport + per-vertical data layer. **Copy these ~verbatim** (rule 2). They are the source
-   of truth for every request/response **shape**, the token lifecycle, fieldsets, and paging.
-2. **`references/<vertical>/app/{components,pages,hooks}` + the field snippets in `INSTRUCTIONS.md`** —
-   a **reference UI + the data contract**. **Regenerate the UI in your framework**; what you actually
-   take from here is the **field shapes** and the **route patterns** (e.g. `/product/:slug`).
-3. **`references/<vertical>/seed/seed-*.js`** — build-time seeding **functions**. **Reuse the
-   functions**; wrap them in *your* platform's exec/connector (STEP 4).
+1. **`shared/app/rest/wix-client.js` + `<vertical>/app/rest/wix-*.js`** — REST transport + data layer.
+   **Copy ~verbatim** (rule 2); the source of truth for every request/response **shape**, the token
+   lifecycle, fieldsets, and paging.
+2. **`<vertical>/app/{components,pages,hooks}` + the field snippets in `INSTRUCTIONS.md`** — a
+   reference UI + data contract. **Regenerate the UI in your framework**; what you take is the **field
+   shapes** and **route patterns** (e.g. `/product/:slug`).
+3. **`<vertical>/seed/seed-*.js`** — build-time seeding **functions**. **Reuse them**; wrap in your
+   platform's exec/connector (STEP 4).
+
+(All paths are under `.agents/skills/wix-vibe-headless/references/`.)
 
 ## Hard rules (do not skip)
 
-1. **Never convert the project's framework, bundler, dev server, or ports.** If the template is
-   Next.js, build Next.js (App Router: `app/<route>/page.tsx`); if TanStack Start, add `src/routes/*`;
-   if Vite + react-router, use that. **Generate the Wix files *into* the existing stack — do NOT
-   migrate the project to Vite.** (Converting the framework is the single biggest source of wasted
-   time here: orphaned dev servers, port whack-a-mole, broken previews.)
-2. **Copy the `rest/` layer ~verbatim.** It's plain `fetch`, framework-agnostic, and already guards
-   `window`/`localStorage` for SSR. If your project is TypeScript, rename `.js → .ts` and add types —
-   but **do not change the request/response shapes, endpoints, or token logic**. That's the hard-won
-   part.
-3. **Everything else you GENERATE in your stack's idiom** — your router, your file extensions
-   (`.tsx`), your design tokens. Any browser-only code (cart provider, the manage banner, anything
-   reading `localStorage`/`window`) must be **SSR-safe**: gate it with a client-only / hydration
-   guard so it doesn't run during server render or static prerender. For the dev-only manage banner,
-   use a **portable dev check** — `import.meta.env?.DEV` is Vite-only; fall back to
-   `process.env.NODE_ENV !== "production"`.
-4. **Read-only over the owner's content.** Render live Wix data or an honest empty state — never
-   mock, invent, or provision content on the client.
+1. **Never convert the project's framework, bundler, dev server, or ports** — generate the Wix files
+   *into* the existing stack (Next.js → `app/<route>/page.tsx`; TanStack Start → `src/routes/*`;
+   Vite + react-router → as-is). Migrating to Vite is the #1 time-sink here: orphaned dev servers,
+   port whack-a-mole, broken previews.
+2. **Copy the `rest/` layer ~verbatim** — plain `fetch`, framework-agnostic, already SSR-guards
+   `window`/`localStorage`. TypeScript project? rename `.js → .ts` + add types — but **never change
+   the shapes, endpoints, or token logic** (the hard-won part).
+3. **Generate everything else in your idiom** — your router, `.tsx`, your design tokens. Browser-only
+   code (cart provider, manage banner, anything touching `localStorage`/`window`) must be **SSR-safe**
+   (client-only / hydration guard). Dev-gate the banner portably: `import.meta.env?.DEV` is Vite-only
+   → fall back to `process.env.NODE_ENV !== "production"`.
+4. **Read-only over the owner's content** — live Wix data or an honest empty state; never mock,
+   invent, or provision on the client.
 
 ## How to read `SKILL.md` + `INSTRUCTIONS.md` — translate the Base44-isms
 
 | The doc says… | For you it means… |
 |---|---|
-| "the client is already deployed into `src/`" / run `deploy.cjs` | there is **no copy step** — you **generate** these files into your project |
-| "don't `read_file` the shipped source" | **do** read the `rest/` files — they are your source of truth for shapes |
-| "shipped as real files, copy-as-is `.jsx`" | **regenerate** as your framework's components (`.tsx`, your router) |
-| `@/` import alias, `import.meta.env.DEV` | use **your** stack's import paths + a **portable** dev check |
-| theme via base44 `src/index.css` / shadcn tokens | map the same intent to **your** design system's tokens |
-| react-router routes like `/product/:slug` | keep the **route pattern**; implement it in **your** router |
-| `preview_screenshot` / `exec_tool` / base44 connector | use **your** platform's equivalents (STEP 4 for seeding) |
+| "already deployed into `src/`" / run `deploy.cjs` | there is **no copy step** — you **generate** these files |
+| "don't `read_file` the shipped source" | **do** read the `rest/` files — your source of truth for shapes |
+| "copy-as-is `.jsx`" | **regenerate** as your framework's components (`.tsx`, your router) |
+| `@/` alias, `import.meta.env.DEV` | use **your** import paths + a **portable** dev check |
+| theme via base44 `index.css` / shadcn tokens | map the intent to **your** design tokens |
+| react-router `/product/:slug` | keep the **route pattern**; implement it in **your** router |
+| `preview_screenshot` / `exec_tool` / base44 connector | use **your** platform's equivalents (STEP 4) |
 
-Everything in `SKILL.md`'s **"shared model"** (auth = one public client id, money fields are objects →
-render `formattedValue`, visitor token = cart identity, member login swaps the token set) **is
-universal — follow it as-is.**
+`SKILL.md`'s **"shared model"** (public-client-id auth, money = objects → render `formattedValue`,
+visitor token = cart identity, member login swaps the token set) is **universal — follow as-is.**
 
 ## STEP 1 — Install the Wix skills locally
 
-Install three skills — they land under `.agents/skills/`:
-- **`wix-vibe-headless`** — the client build guide (STEP 3), read through the lens above.
-- **`wix-headless`** — use it **only** as a seeding/admin recipe reference (`references/SEED.md`,
-  `references/inline-recipes/`, for STEP 4). **Ignore everything else** — in particular its
-  `@wix/cli` / "managed project" auth (`references/managed/`). That is **not** how auth works here.
-- **`wix-docs`** — a **fallback**: how to search + read the Wix API reference for anything the
-  seeding recipes don't cover.
+Install three (land under `.agents/skills/`):
+- **`wix-vibe-headless`** — the client guide (STEP 3), via the lens above.
+- **`wix-headless`** — **only** a seeding/admin recipe reference (`references/SEED.md`,
+  `references/inline-recipes/`, STEP 4). **Ignore the rest** — especially its `@wix/cli` /
+  "managed project" auth (`references/managed/`); that is **not** how auth works here.
+- **`wix-docs`** — **fallback** to search/read the Wix API reference.
 
 ```bash
 CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
@@ -75,7 +70,7 @@ CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 ```
 
-**Only if the CLI actually errors** (not on a guess), fall back to curl + gzip:
+**Only if the CLI errors** (not on a guess), fall back to curl + gzip:
 ```bash
 for s in headless vibe-headless docs; do
   mkdir -p ".agents/skills/wix-$s"
@@ -83,14 +78,13 @@ for s in headless vibe-headless docs; do
 done
 ```
 
-Read the skills from these files as you go (fetching skill docs over the web truncates large files).
+Read them from files as you go (web fetches truncate large docs).
 
-## STEP 2 (optional) — Brief doesn't say what to build? Ask, or read the site
+## STEP 2 (optional) — Brief vague? Ask, or read the site
 
-Only when the business description is vague or missing. Don't guess which Wix Business Solution to
-build (stores, bookings, blog, events, portfolio, restaurants, CMS, pricing plans, members):
-**ask the user** one short question, or — with an admin-grade Wix credential (connector token or API
-key, per STEP 4; the public `WIX_CLIENT_ID` is not enough) — **read the site** in one call:
+Only when the business description is missing/unclear. Don't guess the Wix Business Solution (stores,
+bookings, blog, events, portfolio, restaurants, CMS, pricing plans, members): **ask** one short
+question, or — with an admin credential (STEP 4; the public client id won't do) — **read the site**:
 
 ```bash
 curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
@@ -98,73 +92,61 @@ curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-contex
   -d '{"siteId": "<metasite id from your prompt>"}'
 ```
 
-It returns the installed apps (by name), status, URL, locale, and CMS collections
+Returns installed apps (by name), status, URL, locale, CMS collections
 ([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md);
-with an API key send it raw as the `Authorization` value, no `Bearer`). Build for the solutions whose
-apps are installed; the same set drives STEP 4's seeding — never seed guessed ones.
+with an API key send it raw, no `Bearer`). Build for the **installed** apps — never guessed ones; the
+same set drives STEP 4's seeding.
 
 ## STEP 3 — Build the client (generate into your stack)
 
-Read `.agents/skills/wix-vibe-headless/SKILL.md` and each target vertical's
-`references/<vertical>/INSTRUCTIONS.md` **through the lens above**: copy the `rest/` layer verbatim,
-regenerate the UI in your framework from the field snippets + route patterns, and ignore the
-"already in `src/` / don't read the source / `index.css` / `@/` / `deploy.cjs`" framing (that's
-Base44's copy path — you generate instead). Set `WIX_CLIENT_ID` + `WIX_METASITE_ID` in `wix-config`.
-
-**Per-stack cheatsheet** (map the reference UI to your stack; never convert the project):
+Read `wix-vibe-headless/SKILL.md` + each target `references/<vertical>/INSTRUCTIONS.md` **through the
+lens above**, and set `WIX_CLIENT_ID` + `WIX_METASITE_ID` in `wix-config`. Map the reference UI to
+your stack — **never convert the project**:
 
 | stack (example platform) | routes go in | dev-gate | SSR / verify notes |
 |---|---|---|---|
-| **Next.js** (v0) | `app/<route>/page.tsx`; `"use client"` on the cart provider + banner | `process.env.NODE_ENV !== "production"` | keep the dev server on **:3000** (don't spawn Vite). If the in-tool browser rewrites `localhost` to a sandbox host, verify by curling the served module URLs + checking for transform errors instead of a screenshot. |
-| **TanStack Start** (Lovable) | `src/routes/*.tsx` (e.g. `shop.tsx`, `product.$slug.tsx`) | `import.meta.env.DEV` | wrap client-only bits in a `ClientOnly` / `useHydrated` guard; if copying the `.js` `rest/` files into a TS project, set `allowJs` + `jsx` in `tsconfig.json` (or rename to `.ts`). |
-| **Vite + react-router** (Base44-like) | `src/pages/*` wired in `<Routes>` | `import.meta.env.DEV` | closest to the shipped reference; the `rest/` files drop in directly. |
+| **Next.js** (v0) | `app/<route>/page.tsx`; `"use client"` on cart + banner | `process.env.NODE_ENV !== "production"` | keep the dev server on **:3000** (don't spawn Vite). If the in-tool browser rewrites `localhost` to a sandbox host, verify by curling the served module URLs + checking for transform errors instead of a screenshot. |
+| **TanStack Start** (Lovable) | `src/routes/*.tsx` (e.g. `shop.tsx`, `product.$slug.tsx`) | `import.meta.env.DEV` | wrap client-only bits in a `ClientOnly` / `useHydrated` guard; copying `.js` `rest/` files into a TS project → set `allowJs` + `jsx` in `tsconfig.json` (or rename to `.ts`). |
+| **Vite + react-router** (Base44-like) | `src/pages/*` in `<Routes>` | `import.meta.env.DEV` | closest to the reference; the `rest/` files drop in directly. |
 
-## STEP 4 — Seed and manage the business (run in parallel with STEP 3)
+## STEP 4 — Seed and manage the business (parallel with STEP 3)
 
-**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
-cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business. If a cleanup
-truly seems needed, ask the user first.
+**⛔ Seeding is additive — never delete or clean up anything** on the user's live site. Ignore any
+cleanup/reset step in the `wix-headless` recipes; if one truly seems needed, ask the user first.
 
-Seed real content by **reusing the functions** in `references/<vertical>/seed/seed-*.js` (they encode
-the correct Wix API sequences, incl. app-install + provisioning-race handling), following the
-`wix-headless` skill's `references/SEED.md` for anything they don't cover, and `wix-docs` beyond that.
+Seed by **reusing the functions** in `references/<vertical>/seed/seed-*.js` (correct Wix API sequences
+incl. app-install + provisioning-race handling); fall back to `wix-headless`'s `references/SEED.md`,
+then `wix-docs`.
 
-**Auth for admin/seed calls** — the public client id is **not** enough; you need an elevated
-credential. Pick in this order:
-
-1. **If your platform has a built-in Wix integration / connector, use it.** Connect it and make the
-   Wix calls through it — the platform handles the credential, so you never touch a raw key.
-   *(Base44: the connector is pre-wired; run the seed modules via its exec tool. Lovable, e.g.: call
-   through its gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY` +
+**Auth (elevated — the public client id won't do), in order:**
+1. **Platform has a built-in Wix integration/connector? Use it** — call Wix through it; it owns the
+   credential, so you never touch a raw key. *(Base44: pre-wired connector, run seed modules via its
+   exec tool. Lovable: gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY` +
    `X-Connection-Api-Key`.)*
-2. **Otherwise, take a Wix API key into your platform's secret / env manager.** Ask the user for a
-   **Wix API key**, store it in your built-in secrets manager (**never hardcode or commit it**), and
-   authenticate each REST call with it — send it **raw as `Authorization`, no `Bearer`** (the
-   `wix-docs` skill covers Wix API-key auth). Point the user at where to create one:
+2. **Otherwise, take a Wix API key into your secret / env manager** — ask the user, store it there
+   (**never hardcode or commit**), and send it **raw as `Authorization`, no `Bearer`** (`wix-docs`
+   covers key auth). Create one:
    **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)** (how-to:
    [Generate an API key](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)).
 
-Do **not** install/run the Wix CLI (`@wix/cli`), device-login, or follow `wix-headless`'s
-`references/managed/AUTHENTICATION.md` — that managed-project flow does not apply here.
+Do **not** run the Wix CLI (`@wix/cli`), device-login, or `wix-headless`'s
+`references/managed/AUTHENTICATION.md` — that managed-project flow doesn't apply here.
 
-**Notes:** the client's product/content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
-installed + seeded — that's expected and resolves once STEP 4 lands (the seed modules install the app
-first). **Image seeding** is two Wix Media calls — `generate-upload-url` then a `PUT` of the bytes —
-before you attach the returned file to a product/post/etc.
-
-Run STEP 3 and STEP 4 in parallel where possible, and parallelize independent work within each.
+**Notes:** client content queries return `REQUIRED_APP_NOT_INSTALLED` until STEP 4 installs + seeds
+the app (expected; the seed modules install it first). Image seeding = two Wix Media calls
+(`generate-upload-url` → `PUT` the bytes) before you attach the file to a product/post/etc.
 
 ## Later admin requests
 
-Work the same way as STEP 4: check `wix-headless`'s inline recipes
+Same as STEP 4: check `wix-headless`'s inline recipes
 (`.agents/skills/wix-headless/references/inline-recipes/`) first, fall back to `wix-docs`.
 
 ## STEP 5 — When done
 
-1. **Add the dev-only manage banner** (required): regenerate `WixManageBanner` for your stack from the
-   reference (`references/<vertical>/app/components/WixManageBanner.jsx`) — set `WIX_METASITE_ID`, mount
-   it in your Layout's fixed top region above the header, gate it to dev with a **portable** check
-   (see rule 3), and guard its `localStorage` read for SSR. It must **never** render in production.
-2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute the metasite id
-   from your prompt) to finish setup in Wix — connect a payment provider, manage content, etc. Mention
-   the dev builds show a slim dismissible banner linking to that same dashboard (never in production).
+1. **Add the dev-only manage banner** (required): regenerate `WixManageBanner` for your stack
+   (reference: `references/<vertical>/app/components/WixManageBanner.jsx`) — set `WIX_METASITE_ID`,
+   mount it in the Layout's fixed top region above the header, dev-gate it **portably** (rule 3), and
+   guard its `localStorage` read for SSR. **Never** render it in production.
+2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` to finish setup in Wix
+   (payments, content). Mention dev builds show a slim dismissible banner to that same dashboard
+   (never in production).
