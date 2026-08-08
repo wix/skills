@@ -43,7 +43,23 @@ const result = await seed.setupBookings(ctx, {
 
 ## Escape hatch — individual functions
 Reach for the individual functions below only when the one-call `setupBookings` doesn't fit (partial
-re-seed, custom ordering). `setupBookings` is built from them, in the order shown.
+re-seed, custom ordering). `setupBookings` is built from them, in this order.
+
+```js
+await seed.installBookingsApp(ctx);
+const staff = await seed.queryStaff(ctx);                            // → [{resourceId,id,name}]; use resourceId, NOT id
+const cats = await seed.createCategories(ctx, ["Our Services"]);    // → [{id,name}]; every service needs a categoryId
+const services = await seed.createServices(ctx, [                   // → [{id,slug,revision,type,scheduleId}]
+  { type: "APPOINTMENT", name: "Consultation", price: 75, duration: 60, categoryId: cats[0].id, staffMemberIds: [staff[0].resourceId] },
+  { type: "CLASS", name: "Morning Yoga", price: 20, capacity: 20, categoryId: cats[0].id },
+]);
+// CLASS only: schedule sessions with each class's returned scheduleId (local wall-clock times)
+await seed.scheduleClassSessions(ctx, [
+  { scheduleId: services[1].scheduleId, resourceId: staff[0].resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20 },
+]);
+// images (optional): use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
+await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: services[0].revision, image: { id, url, width, height } });
+```
 
 ## Functions
 | fn | does |

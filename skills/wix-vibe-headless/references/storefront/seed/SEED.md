@@ -35,7 +35,18 @@ const result = await seed.setupStore(ctx, {
 
 ## Escape hatch — individual functions
 Reach for the individual functions below only when the one-call `setupStore` doesn't fit (partial
-re-seed, custom ordering, verifying persistence mid-flow). `setupStore` is built from them.
+re-seed, custom ordering, verifying persistence mid-flow). `setupStore` is built from them, in this order.
+
+```js
+await seed.installStoresApp(ctx);                                     // install + wait for the V3 catalog
+const products = await seed.bulkCreateProducts(ctx, [                 // → [{id,slug,revision}], in stock by `quantity`
+  { name: "The Glam Rocker", description: "…", price: 49.99, quantity: 12 },
+]);
+const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
+await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
+// images: use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
+await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
+```
 
 ## Functions
 | fn | does |
