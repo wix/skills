@@ -1,44 +1,38 @@
 // Contact + participants form — pure UI. All state/handlers (field setters, participant cap,
 // submit, submitting, error) come from useServiceDetail; this only renders them. The participant
 // selector shows ONLY when maxParticipants > 1 (commonly 1 → no selector, book exactly one).
-// Token-styled; re-skin via theme.css.
-const field = {
-  width: "100%", padding: "10px 12px", boxSizing: "border-box", fontFamily: "var(--font-body)",
-  border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)",
-  background: "var(--color-bg)", color: "var(--color-text)",
-};
+// Styled with base44 design tokens (shadcn Tailwind classes).
+const fieldCls =
+  "px-3 py-2.5 box-border font-body border border-border rounded-sm bg-background text-foreground";
 
 export default function BookingForm({
   contact, setContactField, maxParticipants, participants, setParticipants,
   onSubmit, submitting, canSubmit, error,
 }) {
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
-      style={{ display: "flex", flexDirection: "column", gap: "var(--space)" }}>
-      <input required type="email" placeholder="Email" value={contact.email} onChange={setContactField("email")} style={field} />
-      <div style={{ display: "flex", gap: "var(--space)" }}>
-        <input placeholder="First name" value={contact.firstName} onChange={setContactField("firstName")} style={field} />
-        <input placeholder="Last name" value={contact.lastName} onChange={setContactField("lastName")} style={field} />
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="flex flex-col gap-4">
+      <input required type="email" placeholder="Email" value={contact.email} onChange={setContactField("email")} className={`${fieldCls} w-full`} />
+      <div className="flex gap-4">
+        <input placeholder="First name" value={contact.firstName} onChange={setContactField("firstName")} className={`${fieldCls} w-full`} />
+        <input placeholder="Last name" value={contact.lastName} onChange={setContactField("lastName")} className={`${fieldCls} w-full`} />
       </div>
-      <input placeholder="Phone" value={contact.phone} onChange={setContactField("phone")} style={field} />
+      <input placeholder="Phone" value={contact.phone} onChange={setContactField("phone")} className={`${fieldCls} w-full`} />
 
       {maxParticipants > 1 && (
-        <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--color-muted)" }}>
+        <label className="flex flex-col gap-1.5 text-[13px] text-muted-foreground">
           Participants
           <input type="number" min={1} max={maxParticipants} value={participants}
             onChange={(e) => setParticipants(Math.max(1, Math.min(maxParticipants, Number(e.target.value) || 1)))}
-            style={{ ...field, width: 100 }} />
+            className={`${fieldCls} w-[100px]`} />
         </label>
       )}
 
-      {error && <p style={{ margin: 0, color: "var(--color-danger)", fontSize: 14 }}>{error}</p>}
+      {error && <p className="m-0 text-destructive text-sm">{error}</p>}
 
-      <button type="submit" disabled={!canSubmit} style={{
-        padding: "12px 24px", cursor: canSubmit ? "pointer" : "not-allowed",
-        background: "var(--color-primary)", color: "var(--color-on-primary)",
-        border: "none", borderRadius: "var(--radius-sm)", fontSize: 15, fontWeight: 600,
-        opacity: canSubmit ? 1 : 0.5,
-      }}>{submitting ? "Booking…" : "Book"}</button>
+      <button type="submit" disabled={!canSubmit}
+        className="px-6 py-3 cursor-pointer bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+        {submitting ? "Booking…" : "Book"}
+      </button>
     </form>
   );
 }

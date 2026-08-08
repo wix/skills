@@ -1,6 +1,7 @@
-// Grid tile for one bookable service. Styled entirely from theme.css tokens (var(--...)) — re-skin
-// via those tokens, not this JSX. The load-bearing bits: the image goes through mediaUrl() (Wix
-// media can be a bare handle), the id is `service.id`, and the price is built from value+currency
+// Grid tile for one bookable service. Styled with base44 design tokens (shadcn Tailwind classes:
+// bg-card / text-foreground / border-border / text-primary) — re-skin via the app's design tokens
+// (src/index.css :root/.dark), not this JSX. The load-bearing bits: the image goes through mediaUrl()
+// (Wix media can be a bare handle), the id is `service.id`, and the price is built from value+currency
 // because `formattedValue` is OPTIONAL (rendering it alone leaves the price blank when it's absent).
 import { Link } from "react-router-dom";
 import { mediaUrl } from "@/rest/wix-bookings-services";
@@ -17,24 +18,17 @@ export default function ServiceCard({ service }) {
   const price = servicePrice(service);
 
   return (
-    <Link to={`/service/${service.id}`} style={{
-      display: "flex", flexDirection: "column", textDecoration: "none",
-      color: "var(--color-text)", background: "var(--color-surface)",
-      border: "1px solid var(--color-border)", borderRadius: "var(--radius)",
-      overflow: "hidden", boxShadow: "var(--shadow)",
-    }}>
-      <div style={{ position: "relative", aspectRatio: "4 / 3", background: "var(--color-bg)" }}>
+    <Link to={`/service/${service.id}`}
+      className="flex flex-col no-underline text-foreground bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+      <div className="relative aspect-[4/3] bg-background">
         {image
-          ? <img src={image} alt={service.name} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%" }} />}
+          ? <img src={image} alt={service.name} loading="lazy" className="w-full h-full object-cover" />
+          : <div className="w-full h-full" />}
       </div>
-      <div style={{ padding: "calc(var(--space) * 0.75)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600 }}>{service.name}</h3>
-        {service.tagLine && (
-          <p style={{ margin: 0, color: "var(--color-muted)", fontSize: 13 }}>{service.tagLine}</p>
-        )}
-        {price && <span style={{ fontWeight: 600, color: "var(--color-accent)" }}>{price}</span>}
+      <div className="p-3 flex flex-col gap-1">
+        <h3 className="m-0 font-display text-[15px] font-semibold">{service.name}</h3>
+        {service.tagLine && <p className="m-0 text-muted-foreground text-[13px]">{service.tagLine}</p>}
+        {price && <span className="font-semibold text-primary">{price}</span>}
       </div>
     </Link>
   );
