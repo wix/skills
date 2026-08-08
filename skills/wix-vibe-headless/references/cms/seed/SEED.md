@@ -53,6 +53,9 @@ const summary = await seed.setupCms(ctx, {
 // summary = { collections, itemIdsByCollection, referencesInserted, imagesAttached }
 ```
 
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
 ## Escape hatch — individual steps
 
 Call the low-level fns directly when `setupCms` doesn't fit (e.g. verifying persistence mid-flow, or a

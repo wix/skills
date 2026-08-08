@@ -34,6 +34,9 @@ const { plans, coverageAttached, benefitsCreated } = await seed.setupPricingPlan
 // A plans-only run (no bookings) just omits coveredServiceIds — STEP 2 is skipped automatically.
 ```
 
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
 ## Escape hatch — individual functions
 Call the steps yourself when you need finer control than the one-call path:
 

@@ -44,6 +44,9 @@ const summary = await seed.setupEvents(ctx, {
 // summary -> { events: [{ id, slug, ticketCount, category }], categories: [{ id, name }], imagesAttached }
 ```
 
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
 ### Escape hatch — individual steps
 
 Call the step functions directly only when `setupEvents` doesn't fit (e.g. re-running a single step,

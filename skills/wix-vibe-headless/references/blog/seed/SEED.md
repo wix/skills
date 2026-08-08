@@ -41,6 +41,9 @@ const result = await seed.setupBlog(ctx, {
 // check each posts[].success (bulk returns 200 even on partial failure).
 ```
 
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
+
 ## Escape hatch — individual functions
 
 Call the steps yourself when you need finer control (custom ordering, reusing existing ids):
