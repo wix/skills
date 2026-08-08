@@ -129,16 +129,20 @@ Seed real content by **reusing the functions** in `references/<vertical>/seed/se
 the correct Wix API sequences, incl. app-install + provisioning-race handling), following the
 `wix-headless` skill's `references/SEED.md` for anything they don't cover, and `wix-docs` beyond that.
 
-**Auth for admin/seed calls** — the public client id is **not** enough. Get an elevated credential
-one of these ways, and store it in your platform's **connector / secrets (env) manager** — never
-hardcode or commit it:
-- **Your platform has a Wix connector** → connect it and call through its gateway. *(Lovable, e.g.:
-  gateway `https://connector-gateway.lovable.dev/wix`, with `LOVABLE_API_KEY` + `X-Connection-Api-Key`.)*
-- **Base44** → the connector is pre-wired; run seed modules via its exec tool.
-- **Otherwise** → ask the user for a **Wix API key** and authenticate each REST call with it (the
-  `wix-docs` skill covers Wix API-key auth — send it raw as `Authorization`, no `Bearer`). Point the
-  user at where to create one: **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)**
-  (how-to: [Generate an API key](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)).
+**Auth for admin/seed calls** — the public client id is **not** enough; you need an elevated
+credential. Pick in this order:
+
+1. **If your platform has a built-in Wix integration / connector, use it.** Connect it and make the
+   Wix calls through it — the platform handles the credential, so you never touch a raw key.
+   *(Base44: the connector is pre-wired; run the seed modules via its exec tool. Lovable, e.g.: call
+   through its gateway `https://connector-gateway.lovable.dev/wix` with `LOVABLE_API_KEY` +
+   `X-Connection-Api-Key`.)*
+2. **Otherwise, take a Wix API key into your platform's secret / env manager.** Ask the user for a
+   **Wix API key**, store it in your built-in secrets manager (**never hardcode or commit it**), and
+   authenticate each REST call with it — send it **raw as `Authorization`, no `Bearer`** (the
+   `wix-docs` skill covers Wix API-key auth). Point the user at where to create one:
+   **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)** (how-to:
+   [Generate an API key](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)).
 
 Do **not** install/run the Wix CLI (`@wix/cli`), device-login, or follow `wix-headless`'s
 `references/managed/AUTHENTICATION.md` — that managed-project flow does not apply here.
