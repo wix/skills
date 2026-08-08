@@ -216,7 +216,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID.
+When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID. Each variant object is replaced whole rather than merged, so carry over the fields you are not changing: rebuilding a variant from just its `id` plus the field you want to set drops everything else and is rejected on the first required field it lost (`price must not be empty`). Start from the variant as returned by Get Product and override only what the user asked to change.
 
 ### Convert a Simple Product to Color Variants
 
@@ -344,7 +344,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `Expected an object` for `description` | Sent `description` as a string | Use `plainDescription` for HTML strings, or send `description` as Rich Content |
 | `choicesSettings must not be empty` | Missing choices array | Include full `choicesSettings.choices` array |
 | `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
-| `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
+| `price must not be empty` | A variant was sent without a price — including an existing variant rebuilt from only its `id` and the field being changed | Carry `price.actualPrice.amount` on every variant you send, not just new ones; copy it from the Get Product response for variants you are not repricing |
 | `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
