@@ -111,8 +111,10 @@ your stack — **never convert the project**:
 
 ## STEP 4 — Seed and manage the business (parallel with STEP 3)
 
-**⛔ Seeding is additive — never delete or clean up anything** on the user's live site. Ignore any
-cleanup/reset step in the `wix-headless` recipes; if one truly seems needed, ask the user first.
+**⛔ NO CLEANUP — EVER.** Seeding is strictly **additive**: never delete, reset, or overwrite
+anything on the user's live site — **not even apparent sample/demo content**. **Ignore every
+cleanup/reset step in the `wix-headless` recipes.** If something looks wrong, leave it and tell the
+user — do not remove it.
 
 Seed by **reusing the functions** in `references/<vertical>/seed/seed-*.js` (correct Wix API sequences
 incl. app-install + provisioning-race handling); fall back to `wix-headless`'s `references/SEED.md`,
