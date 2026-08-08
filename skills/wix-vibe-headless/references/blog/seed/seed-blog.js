@@ -21,9 +21,9 @@
 //   const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
 //   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 //
-// **NOT yet live-verified — transcribed from setup-blog.md.** If any call fails with a shape the
-// caller didn't expect, fall back to the wix-docs skill (search + read the live Wix Blog API
-// reference) — never guess. Source recipe (authoritative):
+// Live-verified end-to-end (members author, categories, posts single+bulk, tags, covers, idempotent
+// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the wix-docs
+// skill (search + read the live Wix Blog API reference) — never guess. Source recipe:
 // wix-headless/references/inline-recipes/setup-blog.md.
 
 const API = "https://www.wixapis.com";
@@ -137,25 +137,40 @@ async function createPosts(ctx, posts, { memberId, publish = true } = {}) {
   }));
 }
 
+// Resolve existing label -> id for categories/tags so re-creating an existing label is a
+// no-op instead of a 409. Both endpoints enforce a unique-label constraint (label+language),
+// so a partial-failure re-run of setupBlog would otherwise explode on labels made last run.
+async function labelIdMap(ctx, kind) {
+  const path = kind === "categories" ? "/blog/v3/categories/query" : "/v3/tags/query";
+  const r = await req(ctx, path, { body: { query: { paging: { limit: 100 } } } });
+  return new Map((r[kind] ?? []).map((x) => [x.label, x.id]));
+}
+
 // STEP 3 (optional — only if the request groups posts): create categories, one POST each.
-// No bulk endpoint. `label` is the Category display-name field (Category object model; the recipe
-// gives the endpoint but not the body). Returns [{ id, name }] — feed ids into post.categoryIds.
+// No bulk endpoint. `label` is the Category display-name field, sent NESTED under `category`.
+// Idempotent: an existing label reuses its id. Returns [{ id, name }] — feed into post.categoryIds.
 async function createCategories(ctx, names) {
+  const existing = await labelIdMap(ctx, "categories");
   const out = [];
   for (const name of names) {
-    const r = await req(ctx, "/blog/v3/categories", { body: { category: { label: name } } });
-    out.push({ id: r.category?.id, name });
+    let id = existing.get(name);
+    if (!id) id = (await req(ctx, "/blog/v3/categories", { body: { category: { label: name } } })).category?.id;
+    out.push({ id, name });
   }
   return out;
 }
 
-// STEP 3 (optional): create tags, one POST each. `label` is the Tag display-name field.
+// STEP 3 (optional): create tags, one POST each. The tag create body is FLAT (`{ label }`) —
+// NOT nested under `tag` like categories; a `{ tag: { label } }` body sends an empty top-level
+// label and 400s ("label must not be empty"). Idempotent: an existing label reuses its id.
 // Returns [{ id, name }] — feed ids into post.tagIds.
 async function createTags(ctx, names) {
+  const existing = await labelIdMap(ctx, "tags");
   const out = [];
   for (const name of names) {
-    const r = await req(ctx, "/blog/v3/tags", { body: { tag: { label: name } } });
-    out.push({ id: r.tag?.id, name });
+    let id = existing.get(name);
+    if (!id) id = (await req(ctx, "/blog/v3/tags", { body: { label: name } })).tag?.id;
+    out.push({ id, name });
   }
   return out;
 }
