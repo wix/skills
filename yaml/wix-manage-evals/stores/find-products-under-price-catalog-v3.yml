@@ -68,6 +68,9 @@ assertions:
         to re-read a product to discover the real field;
       - a price filter was sent inside the Query Products `query.filter` and was rejected
         with `Field '<fieldName>' is not declared as filterable`;
+      - the response was parsed with a Catalog V1/V2 shape, such as reading results from
+        `productResults.results` or `catalogItems` rather than `products`, and the call had
+        to be repeated;
       - a `fields` value that is not a valid enum constant was sent and rejected;
       - any other non-2xx response, or a wrong endpoint or catalog version tried first.
 
