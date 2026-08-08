@@ -32,7 +32,9 @@ const summary = await seed.setupPortfolio(ctx, {
     { title: "Northwind Rebrand", description: "Full identity refresh for a logistics firm.",
       collection: "Brand Identity",                    // resolved to that collection's id
       details: [{ label: "Year", text: "2025" }],
-      // optional — generate + import per IMAGE_GENERATION.md, then pass ids/dims:
+      // cover/items are optional and attached IN this one call. Import the FINAL https://media.base44.com/...
+      // url from the COMPLETED generate_image (it runs in the background while you build — wait for it) to
+      // get each imageId; never import a still-generating /__generating__/<id>.png placeholder.
       cover: { imageId: ids[0], height: 2880, width: 1920 },
       items: [{ sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }] },
   ],

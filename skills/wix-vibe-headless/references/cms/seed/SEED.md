@@ -38,7 +38,9 @@ const summary = await seed.setupCms(ctx, {
           typeMetadata: { multiReference: { referencedCollectionId: "categories" } } },
       ],
       items: [
-        // image ON only: fileUrl generated per IMAGE_GENERATION.md; drop `image` to leave the item text-only
+        // image is optional and attached IN this one call; drop it to leave the item text-only. The url
+        // must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image (it runs in
+        // the background while you build — wait for it), never a still-generating /__generating__/<id>.png.
         { _key: "recipe-cake", title: "Chocolate Cake", image: { fieldKey: "photo", url: fileUrl } },
       ] },
   ],
@@ -50,6 +52,9 @@ const summary = await seed.setupCms(ctx, {
 });
 // summary = { collections, itemIdsByCollection, referencesInserted, imagesAttached }
 ```
+
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
 
 ## Escape hatch — individual steps
 
