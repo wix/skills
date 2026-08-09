@@ -65902,6 +65902,7 @@ function errMsg(e) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
+exports.composeSections = composeSections;
 exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
@@ -65926,6 +65927,23 @@ exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
     return [exports.COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+/**
+ * Joins non-empty comment section bodies into a single comment, separated by a
+ * horizontal rule. Only the first body's `COMMENT_MARKER` line is kept — the marker
+ * must appear exactly once so the commenter still recognizes this as a single upsert
+ * target, so it is stripped from every subsequent section.
+ */
+function composeSections(...bodies) {
+    const nonEmpty = bodies.filter(b => b.trim().length > 0);
+    return nonEmpty
+        .map((b, i) => {
+        if (i === 0)
+            return b;
+        const lines = b.split('\n');
+        return lines[0] === exports.COMMENT_MARKER ? lines.slice(1).join('\n') : b;
+    })
+        .join('\n\n---\n\n');
 }
 function failIcon(blocking) {
     return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
@@ -66108,24 +66126,25 @@ function formatTokenBudgetExceeded(violations, projectId) {
 function formatConfirmOnFail(result, blocking) {
     const confirmed = result.verdicts.filter(v => v.confirmed);
     const recovered = result.verdicts.filter(v => !v.confirmed);
-    const lines = [
-        exports.COMMENT_MARKER,
-        `## ${confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅'} ${HEADING}: Confirm-on-Fail`,
-        '',
+    const icon = confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅';
+    const body = [
         'Failing scenarios are rerun and block only when a majority of attempts fail.',
         '',
     ];
-    if (result.retriesSkipped) {
-        lines.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once, which is treated as a real regression (or the retry infrastructure failed; see the job log).`, '');
+    if (result.skipReason === 'broad-failure') {
+        body.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once — treated as a real regression.`, '');
+    }
+    else if (result.skipReason === 'rerun-error') {
+        body.push('> Retries skipped — the retry infrastructure failed; first-attempt failures stand — see the job log.', '');
     }
     if (confirmed.length > 0) {
-        lines.push('**Confirmed failures:**', '', ...confirmed.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
+        body.push('**Confirmed failures:**', '', ...confirmed.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
     }
     if (recovered.length > 0) {
-        lines.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
-        lines.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
+        body.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
+        body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
     }
-    return lines.join('\n');
+    return render(icon, 'Confirm-on-Fail', body);
 }
 
 
@@ -66247,7 +66266,7 @@ exports.MAX_RETRY_SCENARIOS = 10;
 async function confirmOnFail(initial, rerun) {
     const failed = initial.filter(o => o.failed);
     if (failed.length === 0)
-        return { verdicts: [], retriesRun: 0, retriesSkipped: false };
+        return { verdicts: [], retriesRun: 0 };
     const state = new Map(failed.map(o => [o.scenarioId, {
             scenarioId: o.scenarioId,
             scenarioName: o.scenarioName,
@@ -66259,7 +66278,7 @@ async function confirmOnFail(initial, rerun) {
         return {
             verdicts: finalize(state, () => true),
             retriesRun: 0,
-            retriesSkipped: true,
+            skipReason: 'broad-failure',
         };
     }
     let pending = [...state.keys()];
@@ -66287,7 +66306,6 @@ async function confirmOnFail(initial, rerun) {
     return {
         verdicts: finalize(state, s => s.failures >= 2),
         retriesRun,
-        retriesSkipped: false,
     };
 }
 function finalize(state, isConfirmed) {
@@ -66786,11 +66804,6 @@ async function runGate() {
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
     core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
-    const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
-    if (!mcpVersion)
-        return;
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
     if (loadErrors.length > 0) {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
@@ -66841,15 +66854,24 @@ async function runGate() {
         (0, github_1.fail)(`${lintViolations.length} scenario lint violation(s)`, config.blocking);
         return;
     }
-    const quarantine = (0, quarantine_1.loadQuarantine)(workspace);
+    const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
+    if (!mcpVersion)
+        return;
+    // Quarantine entries are read from the base-branch checkout, never the PR's own
+    // head — otherwise a PR could quarantine its own covering scenario and skip it
+    // in the same run. An entry only takes effect once merged to the base branch.
+    const quarantine = (0, quarantine_1.loadQuarantine)(baseWorkspace);
     for (const err of quarantine.errors)
         core.warning(`Quarantine file issue: ${err}`);
     const { selected: changedHeadScenarios, quarantineSkipped } = scenariosToRun({
         headScenarios, changedEvalPaths, coveredBy: cov.coveredBy, quarantined: quarantine.names,
     });
-    if (quarantineSkipped.length > 0) {
+    const quarantineSkippedBody = quarantineSkipped.length > 0 ? (0, comment_1.formatQuarantineSkipped)(quarantineSkipped) : '';
+    if (quarantineSkippedBody) {
         core.info(`Quarantined scenarios skipped: ${quarantineSkipped.join(', ')}`);
-        await comment((0, comment_1.formatQuarantineSkipped)(quarantineSkipped));
+        await comment(quarantineSkippedBody);
     }
     const filters = (0, evalforge_core_1.remoteScenarioFiltersForGate)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => (0, evalforge_core_1.listRemoteScenariosForGate)(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
@@ -66912,7 +66934,8 @@ async function runGate() {
             if (s.without.runId)
                 core.info(`${s.scenarioName} [prod]: ${(0, evalforge_core_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
         }
-        await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
+        const comparisonBody = (0, comment_1.formatComparisonResult)(done, config.projectId);
+        await comment((0, comment_1.composeSections)(comparisonBody, quarantineSkippedBody));
         const initialOutcomes = toAttemptOutcomes(done.result.scenarios ?? [], headScenarios);
         const initialFailures = initialOutcomes.filter(o => o.failed);
         if (initialFailures.length > 0) {
@@ -66934,10 +66957,11 @@ async function runGate() {
                         attempts: 1, failures: 1, confirmed: true, reasons: o.reasons,
                     })),
                     retriesRun: 0,
-                    retriesSkipped: true,
+                    skipReason: 'rerun-error',
                 };
             }
-            await comment((0, comment_1.formatConfirmOnFail)(confirmResult, config.blocking));
+            const confirmBody = (0, comment_1.formatConfirmOnFail)(confirmResult, config.blocking);
+            await comment((0, comment_1.composeSections)(comparisonBody, confirmBody, quarantineSkippedBody));
             const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
             if (confirmed.length > 0) {
                 (0, github_1.fail)(`${confirmed.length} scenario(s) failed after confirm-on-fail (${confirmed.map(v => v.scenarioName).join(', ')})`, config.blocking);
