@@ -51,7 +51,7 @@ The Wix Bookings system contains **fundamental undocumented integration patterns
 - ❌ **NOT** documented booking status vs order status separation
 - ❌ **NOT** documented service properties preservation in checkout
 - ❌ **NO** mention of `BACKOFFICE_MERCHANT` channel requirement
-- ❌ **NO** explanation of why checkout/order APIs are needed for bookings
+- ❌ **NO** explanation of why the cart/order APIs are needed for bookings
 
 **Additional Service-Specific Gaps**:
 - ❌ **Courses**: Dual API requirement (booking + calendar events) completely undocumented
@@ -69,7 +69,7 @@ The Wix Bookings system contains **fundamental undocumented integration patterns
 - Create booking → Booking system creates reservation only
 - Use booking ID as catalog item in ecom system
 - Ecom system handles all pricing, tax, discount calculations
-- Create checkout and order for actual payment processing
+- Create a cart and place the order for actual payment processing
 - Async messaging system handles payment confirmation
 - Booking status (CONFIRMED) independent of payment status
 
@@ -329,7 +329,7 @@ Booking (CONFIRMED) → Cart → Place Order → Payment Processing (async)
 **Service Packages**: Multi-service booking + ecom integration
 
 **Universal Integration Considerations**:
-- All service types use same checkout/order creation pattern
+- All service types use the same cart/order creation pattern
 - Pricing calculations always handled by ecom system
 - Async payment confirmation applies to all booking types
 - Service properties preserved across all integration points

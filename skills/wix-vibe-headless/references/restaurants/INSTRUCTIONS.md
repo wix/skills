@@ -13,6 +13,11 @@ Builds a real, client-only Wix restaurant experience. The browser talks to Wix d
 public `WIX_CLIENT_ID`. Never mock the menu; never hand-build `/checkout` or reservation URLs —
 always go through the official cart + redirect-session and the reservations hold/reserve flow.
 
+> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
+> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
+> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
+> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+
 ## When to use
 - User wants a Wix restaurant site, an online food-ordering page, or a table-reservation page.
 - User asks to "connect Wix Restaurants" or replace placeholder menu/ordering/booking UI with live data.

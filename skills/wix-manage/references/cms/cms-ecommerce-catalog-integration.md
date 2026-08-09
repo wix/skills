@@ -10,7 +10,7 @@ This recipe documents how to convert CMS collections into sellable product catal
 
 Converting a CMS collection to a catalog enables:
 - Items in the collection become purchasable products
-- Integration with Wix Cart and Checkout APIs
+- Integration with the Wix Cart API (Cart V2, which unifies cart and checkout)
 - Real-time price and availability from your CMS data
 
 ## Prerequisites

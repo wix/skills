@@ -10,6 +10,8 @@ A concise contract for writing the **frontend code** of a storefront against a C
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The Wix docs render two views of the same page. The **bare / REST view shows `id`**; the **`?apiView=SDK` view shows `_id`** — and the SDK is what your frontend calls. Reading the REST view by mistake is the single most common source of the cart-killing `product.id` bug (see the `_id` rule under *Listing products*). Fetch the `.md?apiView=SDK` form directly; don't re-discover these with search.
 
+> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow (items → delivery/billing/payment → placing the order). This recipe says **"cart"** for that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+
 ---
 
 ## The modules and the client (read this first)

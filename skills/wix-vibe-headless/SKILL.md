@@ -75,6 +75,10 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   collection is empty, show the empty state — never fabricate data, reviews, ratings, or counts.
 - **Purchases go through Wix.** Checkout/ticketing/plan purchase always complete via the Wix
   redirect-session / Wix-hosted form — **never hand-build a `/checkout` or purchase URL**.
+- **One cart entity, one checkout page.** Cart V2 is the evolution of the old two-entity model —
+  what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole
+  purchase flow (items → delivery/billing/payment → placing the order). These docs say **"cart"**
+  for that entity; **"checkout"** refers only to the hosted checkout *page* the buyer is redirected to.
 - **Fail loudly.** The helpers throw on out-of-stock, empty carts, unbookable slots, expired
   holds, and payment-still-owed. A green path means it really worked — don't swallow the error.
 - **Copy the shipped helpers as-is — don't rewrite their internals.** Wire your UI to the *exported*

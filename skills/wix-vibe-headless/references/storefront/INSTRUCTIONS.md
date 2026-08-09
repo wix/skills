@@ -12,6 +12,11 @@ Builds a real, client-only Wix storefront. The browser talks to Wix directly ove
 public `WIX_CLIENT_ID`. Never mock products; never hand-build `/checkout` URLs — always
 go through the eCom cart + redirect-session.
 
+> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
+> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
+> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
+> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+
 ## When to use
 - User wants a Wix eCommerce store or asks to "connect Wix".
 - Replacing placeholder/mock products with live Wix data.

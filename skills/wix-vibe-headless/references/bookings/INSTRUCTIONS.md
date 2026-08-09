@@ -12,6 +12,11 @@ Builds a real, client-only Wix Bookings front end. The browser talks to Wix dire
 public `WIX_CLIENT_ID`. Never mock services or slots; never hand-build a `/checkout` URL —
 always create the booking through the API and complete it via the eCom checkout + redirect-session.
 
+> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
+> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
+> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
+> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+
 This skill ships the single-service booking flow for **APPOINTMENT and CLASS** services: browse
 services → pick a service → pick an available slot → enter details → book → hosted checkout.
 Appointments and classes differ only in the availability call (`listAvailableSlots` vs
