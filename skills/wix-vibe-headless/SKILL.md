@@ -46,6 +46,7 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   formattedValue }`. Render **`formattedValue`** (it already includes the currency symbol), or
   fall back to building from `value` + `currency`. **Never** drop the object straight into the UI
   or treat it as a number/string — that renders `[object Object]` or a bare unformatted number.
+  - **Cart V2 is the exception** — its money is a different shape, `ConvertedMoney { amount, convertedAmount }`, with **no `formattedValue`** and **no currency on the object**. Read the currency from the cart (`cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`) and format the amount yourself: `new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(money.convertedAmount ?? money.amount))`. Applies to line-item `pricing.*` and the calculate/estimate `summary.priceSummary.*`.
 - **Visitor token = identity.** `wix-client.js` mints an anonymous visitor token, persists the
   **refresh token to `localStorage`**, and refreshes on expiry. That token IS the identity of
   the cart / reservation / member session — **never re-mint anonymously per load** or the cart

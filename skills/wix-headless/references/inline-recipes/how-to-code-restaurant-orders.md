@@ -174,7 +174,7 @@ window.location.href = session.redirectSession.fullUrl; // the hosted-checkout U
 
 ### Reading the price and the cart
 
-Menu item price is **`item.priceInfo.price`** — a decimal **string** with no currency symbol (see `how-to-code-restaurants.md`; the SDK `PriceInfo` type has only `price`, no `formattedPrice`). A cart line's price is **`lineItem.pricing.unitPrice.amount`** (also a raw decimal string — Cart V2 dropped the preformatted line-item price). Prefix your own currency in the UI. Cart line images are `wix:image://` identifiers — resolve them with `media.getScaledToFillImageUrl(id, w, h, {})` (4 args), never raw (see the store/menu recipes' image callout).
+Menu item price is **`item.priceInfo.price`** — a decimal **string** with no currency symbol (see `how-to-code-restaurants.md`; the SDK `PriceInfo` type has only `price`, no `formattedPrice`). A cart line's price is **`lineItem.pricing.unitPrice`** / **`pricing.totalPrice`** — a `ConvertedMoney` `{ amount, convertedAmount }`; Cart V2 dropped the preformatted line-item price, so format it yourself. The currency lives on the cart, not the money object — format from `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode` (see the *Formatting cart prices* section of `how-to-code-a-store.md` for the exact `Intl.NumberFormat` helper), e.g. `new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(pricing.totalPrice.convertedAmount ?? pricing.totalPrice.amount))`. Cart line images are `wix:image://` identifiers — resolve them with `media.getScaledToFillImageUrl(id, w, h, {})` (4 args), never raw (see the store/menu recipes' image callout).
 
 ---
 
