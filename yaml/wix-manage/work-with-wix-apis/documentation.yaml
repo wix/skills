@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Data Retrieval Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/work-with-wix-apis/data-retrieval.md
+      title: Data Retrieval Across Wix APIs
+      docsEntry: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/data-retrieval
+      tags: [work-with-wix-apis]

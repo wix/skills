@@ -1,0 +1,190 @@
+# WHAT THIS MEASURES
+# Whether the agent expresses a bounded range the way the Wix API Query Language requires:
+# one comparison operator per field object, with the two bounds joined as clauses under
+# $and. It asserts the query the agent actually sent, NOT whether it opened any document.
+#
+# THE BUG, MEASURED OVER 30 DAYS OF MCP TELEMETRY (all verticals)
+# The compact form {"field":{"$gte":X,"$lte":Y}} is rejected almost everywhere:
+#   /ecom/v1/orders/search              87.0% of 1,622 attempts
+#   /forms/v4/submissions/.../query     92.3% of 143
+#   /events/v3/events/query             87.6% of 421
+#   /contacts/v4/contacts/query         79.8% of 336
+#   /stores/v3/products/query           97.8% of 46
+# It is accepted only by /wix-data/v2/items/query (2.9%) and Blog (7.2%). Wix Data is
+# Mongo-backed and passes the filter through, so the Mongo idiom works there — which is
+# where the habit is learned before it is carried to APIs that parse WQL strictly.
+# Splitting the bounds into $and clauses works everywhere (orders/search: 5,782 calls, 2.7%).
+#
+# NOTE ON JUSTIFICATION — the rule IS derivable from the docs. "About the Wix API Query
+# Language" states the operator format as { "<field>": { "$<operator>": <value> } } and
+# defines $and as joining clauses. What the article lacks is a worked range example: none
+# of its four sample queries is a bounded range, and its only compound example combines two
+# DIFFERENT fields under $or. So this scenario measures the outcome, and would also go green
+# if that example were added to the article. It is deliberately not the skill's coverage
+# proof; use a scenario for something no article covers for that.
+#
+# WHY info.birthdate — it is the only high-failure range field an eval can seed with chosen
+# values. createdDate, purchasedDate and submission timestamps are all server-assigned, so a
+# bounded window could not separate a correct filter from a broken one. Verified live
+# 2026-08-05 on this template:
+#   {"info.birthdate":{"$gte":"1990-01-01","$lte":"1999-12-31"}}
+#     -> 400 SE-1105 "Filter must contain single operator for 'birthdate'"
+#   {"$and":[{birthdate $gte},{birthdate $lte}]} -> 200, exactly Ana + Ben + Carla
+#   $gte alone -> 4 contacts (Erin included), so the upper bound genuinely narrows the set
+#   two operators on DIFFERENT fields in one object -> 200; the limit is per field, not per filter
+# Contacts v5 does not declare birthdate filterable, so an agent that lands on v5 has to move
+# to v4; there is no v5 route that satisfies the request API-side.
+#
+# SEED ORDER IS DELIBERATE. The v4 query read model trails creation by seconds and the
+# last-created contacts surface last, so the three in-range contacts are created first. A
+# boundary contact that has not surfaced yet can only make the gate more lenient.
+name: work-with-wix-apis/wql-date-range-single-operator
+description: >-
+  Verifies the agent asks the API for a bounded date range using one comparison operator per
+  field object joined with $and, rather than putting $gte and $lte on the same field, which
+  the Contacts query API rejects with SE-1105.
+triggerPrompt: >-
+  I'm putting together a birthday campaign segment. Which of my contacts were born between
+  1 January 1990 and 31 December 1999? Have the API return just that range — don't pull my
+  whole contact list and filter it yourself.
+tags: [work-with-wix-apis]
+maxTokens: 30000
+# NO COVERAGE ASSERTION ON PURPOSE. This scenario is run BEFORE and AFTER the skill exists to
+# measure the difference the skill makes, so both runs must carry identical assertions. An
+# assertion that a skill doc was read can only fail in the "before" run, which would destroy the
+# baseline. Both assertions below judge the request the agent sent and the answer it produced.
+# Consequence: this scenario does not make the skill's doc "covered" for the repo's automated
+# check — a separate scenario has to do that.
+assertions:
+  - type: llm_judge # GATE — the query that was sent, and the answer it produced
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked which contacts were born between 1 January 1990 and 31 December 1999,
+      and asked for the API to return just that range rather than fetching every contact and
+      filtering client-side.
+
+      Seeded contacts:
+        Ana Ruiz     1992-03-14  -> in range
+        Ben Ford     1995-11-02  -> in range
+        Carla Mota   1999-12-31  -> in range (last day of the range)
+        Erin Vaz     2000-01-05  -> OUT of range
+        Dan Ellis    1989-12-20  -> OUT of range
+      The correct answer is Ana Ruiz, Ben Ford and Carla Mota.
+
+      Pass only if ALL THREE hold:
+      1. The final answer names Ana, Ben and Carla, and names neither Erin nor Dan.
+      2. The range was evaluated BY THE API IN A SINGLE CALL, with at most one comparison
+         operator per field object. The canonical form is both bounds as separate clauses
+         under $and, for example
+           {"$and":[{"info.birthdate":{"$gte":"1990-01-01"}},
+                    {"info.birthdate":{"$lte":"1999-12-31"}}]}
+         Any other structure that keeps one operator per field object and returns the range
+         in one call is equally acceptable.
+      3. Every query or search call in the trace returned 2xx.
+
+      Fail if ANY of these occurred, even if the final answer was right:
+      - two comparison operators on the same field in one object, e.g.
+        {"info.birthdate":{"$gte":...,"$lte":...}} — this is the specific defect under test,
+        and recovering from its 4xx afterwards does not redeem the run;
+      - the whole contact list was fetched and the range applied in the agent's own code;
+      - one bound was sent to the API and the other applied locally;
+      - the two bounds were sent as two separate calls and intersected client-side — the user
+        asked the API to return just the range;
+      - any other non-2xx query or search call, or contacts that were never seeded.
+
+      Two conditions on DIFFERENT fields inside one filter object are legal and must not be
+      penalised; the constraint is one operator per field, not one condition per filter.
+
+      Ignore any contact that is not one of the five above — the site owner's own contact is
+      created automatically and has no birthdate; its presence must not affect pass/fail. If a
+      seeded OUT-of-range contact never appears in the agent's reads, that is a known
+      read-model lag and must not be penalised; only INCLUDING an out-of-range contact fails.
+
+      If none of the five seeded contacts appear anywhere in the trace, the seed failed:
+      score 0 and begin the reason with "SEED FAILURE" so it is not mistaken for an agent
+      error.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence naming the filter structure sent>"}.
+  - type: llm_judge # QUALITY — how it got there; diagnostic, does not carry the verdict
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the prose. The task needed a bounded date range on a
+      contacts field.
+
+      Report: the exact filter structure of the FIRST range attempt; whether it hit
+      SE-1105 "Filter must contain single operator" and how it recovered; which contacts
+      version and method it used; whether it inspected the endpoint's declared fields before
+      filtering; and how many round trips the range cost.
+
+      Score:
+        10 - one call, bounds as separate single-operator clauses, no failed calls
+         7 - correct structure but reached inefficiently (redundant reads, or after
+             exploratory calls that all succeeded)
+         3 - avoided the range: fetched all contacts and filtered in memory, or sent one
+             bound and narrowed locally
+         0 - two comparison operators on the same field, in any attempt
+
+      Return ONLY {"score":<0-10>,"reason":"<terse finding naming the filter structure used>"}.
+siteSetup:
+  mode: template
+  # Contacts is core platform, not an installable app, so this scenario needs no apps at all.
+  # Verified 2026-08-05 on a blank-editor site whose only app is Wix Invoices: contact created
+  # at 766ms after provisioning, and the query endpoint answered normally (SE-1105 for the
+  # compact filter, 200 for the $and form). Blank also keeps the site free of template content
+  # the agent could wander into. Writes under the eval's app identity are proven separately
+  # (12/12 CreateContact -> 200 in a live run).
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: In range - Ana Ruiz, born 1992
+        method: post
+        url: https://www.wixapis.com/contacts/v4/contacts
+        body:
+          info:
+            name: { first: Ana, last: Ruiz }
+            birthdate: "1992-03-14"
+            emails:
+              items:
+                - { tag: MAIN, email: ana.ruiz@example.com }
+      - label: In range - Ben Ford, born 1995
+        method: post
+        url: https://www.wixapis.com/contacts/v4/contacts
+        body:
+          info:
+            name: { first: Ben, last: Ford }
+            birthdate: "1995-11-02"
+            emails:
+              items:
+                - { tag: MAIN, email: ben.ford@example.com }
+      - label: In range - Carla Mota, born on the last day of the range
+        method: post
+        url: https://www.wixapis.com/contacts/v4/contacts
+        body:
+          info:
+            name: { first: Carla, last: Mota }
+            birthdate: "1999-12-31"
+            emails:
+              items:
+                - { tag: MAIN, email: carla.mota@example.com }
+      - label: Out of range - Erin Vaz, born five days after the range ends
+        method: post
+        url: https://www.wixapis.com/contacts/v4/contacts
+        body:
+          info:
+            name: { first: Erin, last: Vaz }
+            birthdate: "2000-01-05"
+            emails:
+              items:
+                - { tag: MAIN, email: erin.vaz@example.com }
+      - label: Out of range - Dan Ellis, born eleven days before the range starts
+        method: post
+        url: https://www.wixapis.com/contacts/v4/contacts
+        body:
+          info:
+            name: { first: Dan, last: Ellis }
+            birthdate: "1989-12-20"
+            emails:
+              items:
+                - { tag: MAIN, email: dan.ellis@example.com }
