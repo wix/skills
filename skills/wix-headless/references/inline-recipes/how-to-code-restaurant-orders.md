@@ -187,5 +187,5 @@ A correct Restaurants ordering frontend:
 - reads the **`operationId`** once from `listOperations()` (the `ENABLED`/`default` operation) and reuses it;
 - adds menu items with the **Orders app id `9a5d83fd-…`** (never the Stores id) and `options` carrying **`operationId` + `menuId` + `sectionId`** (all three) — **no `variantId`**;
 - threads `menuId`/`sectionId` from the render context, not a re-lookup;
-- checks out by feeding the **current cart's `_id`** (the checkout id in Cart V2) to **`redirects`** — no `createCheckoutFromCurrentCart` step — with an **`https://` `window.location.origin`** for the callbacks; the hosted checkout collects fulfillment + payment (which needs a premium plan + payment method).
+- checks out by feeding the **current cart's `_id`** (the checkout id) to **`redirects`**, with an **`https://` `window.location.origin`** for the callbacks; the hosted checkout collects fulfillment + payment (which needs a premium plan + payment method).
 </content>
