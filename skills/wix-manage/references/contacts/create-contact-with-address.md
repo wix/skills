@@ -39,6 +39,8 @@ At least one of `name.first`, `name.last`, `email.email`, or `phone.phone` must 
 
 `addresses[].address` takes either `addressLine` as free text, or a structured `streetAddress` object — not both.
 
+`tag` is one of `OTHER`, `HOME`, `WORK`, `BILLING`, `SHIPPING`, and that list is closed — there is no "untagged" or "none" member. When the user did not say what kind of address it is, leave `tag` out and it defaults to `OTHER`; inventing a value for that case is rejected with `400`.
+
 `email` is a single object, exactly as above. Send a list instead — `emails: [{ tag: 'MAIN', email: '…' }]` — and the request still returns `200`, but the field is discarded: the contact is created with no email at all. Nothing in the response reports this, so it surfaces only when something later reads the contact back and the email is missing. The same holds for `phone`. Read `contact.email.email` off the create response to confirm it was stored.
 
 ### 2. Write `subdivision` in ISO 3166-2 form

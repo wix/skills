@@ -57,8 +57,9 @@ assertions:
       Score 1-3: any create call was REJECTED and then retried. Score here in particular when a
       create was rejected with `subdivision is not a valid subdivision code` (a `FORMAT` violation
       on `contact.addresses[0].address.subdivision`) because the subdivision was sent without its
-      country prefix, even though a later call succeeded. Also score here for a wrong endpoint or
-      wrong API version tried first.
+      country prefix, or when it was rejected for an address `tag` outside the accepted set
+      (`OTHER`, `HOME`, `WORK`, `BILLING`, `SHIPPING`), even though a later call succeeded. Also
+      score here for a wrong endpoint or wrong API version tried first.
 
       For each issue found, name the likely MCP/docs gap.
 
