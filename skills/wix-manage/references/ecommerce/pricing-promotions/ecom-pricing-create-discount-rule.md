@@ -51,8 +51,6 @@ When updating a rule, always reuse the `discounts.values` entries as returned fr
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
 
-> **Paging**: This API uses **cursor paging** (`cursorPaging`), not offset paging. Using `paging` instead of `cursorPaging` will fail.
-
 **Request** — list all rules:
 ```json
 {
@@ -183,10 +181,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
         "discountType": "PERCENTAGE",
         "percentage": 20
       }
-    ] },
-    "settings": {
-      "appliesTo": "ALL_ITEMS"
-    }
+    ] }
   }
 }
 ```
@@ -217,10 +212,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
         "discountType": "PERCENTAGE",
         "percentage": 15
       }
-    ] },
-    "settings": {
-      "appliesTo": "ALL_ITEMS"
-    }
+    ] }
   }
 }
 ```
@@ -253,10 +245,7 @@ When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Ap
         "discountType": "FIXED_AMOUNT",
         "fixedAmount": "5.00"
       }
-    ] },
-    "settings": {
-      "appliesTo": "ALL_ITEMS"
-    }
+    ] }
   }
 }
 ```
@@ -394,7 +383,6 @@ To delete permanently:
 | `discounts.values[].discountType` | Yes | `"PERCENTAGE"` or `"FIXED_AMOUNT"` or `"FIXED_PRICE"` — at the entry root, not inside a `discount` object |
 | `discounts.values[].percentage` | If PERCENTAGE | Number 0.1-100 |
 | `discounts.values[].fixedAmount` | If FIXED_AMOUNT | Decimal string (e.g., `"5.00"`) |
-| `settings.appliesTo` | Yes on create | Always `"ALL_ITEMS"` |
 | `revision` | On update/delete | Must match current value — fetch first |
 | `mask.paths[]` | On update | Recommended — list fields being changed (e.g., `["discounts"]`, `["active"]`) |
 
@@ -565,18 +553,6 @@ Triggers determine WHEN the discount activates. They are built from the recommen
 | `startDate` is empty `""` | Default to current time (now) |
 | `endDate` is a date string | Convert to ISO 8601 timestamp: `activeTimeInfo.end` |
 | `endDate` is empty `""` | Omit `activeTimeInfo.end` — rule has no expiration |
-
-### Settings
-
-All recommendation-created rules use these fixed settings:
-```json
-{
-  "settings": {
-    "appliesTo": "ALL_ITEMS",
-    "indexOptIn": true
-  }
-}
-```
 
 ---
 
