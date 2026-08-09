@@ -358,6 +358,8 @@ Once the cart is populated, give the user a checkout link:
 
 This opens the checkout page with the pre-filled cart. The user only needs to complete payment.
 
+**Important**: The checkout page requires the user's logged-in Wix session. If you're running inside a chat app's own in-app browser/webview (as opposed to the device's default browser), that embedded view often doesn't share cookies/session with the user's regular browser and the page can fail to load with a generic error. If the user reports the checkout link failing to load or showing a technical-issue error, ask them to open it in their device's default browser (Safari/Chrome) instead of an in-app browser -- the cart itself persists server-side, so no purchase progress is lost.
+
 ---
 
 ## Error Handling
@@ -369,6 +371,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 | Offering API returns no products | TLD not supported by Wix | Tell user to try a different TLD (.com, .net, .org) |
 | Intent API validation error | Missing/invalid contact fields | Show the error, ask user to correct, retry |
 | Cart add-items fails | Product ID or format issue | Verify product ID came from offering API response |
+| Checkout link shows a generic "technical issue" error page | Session not shared by an in-app browser/webview | Cart is unaffected server-side; ask the user to open the checkout link in their device's default browser instead |
 
 ---
 
