@@ -32,7 +32,7 @@ Typical `eCommerce` entities:
 
 Use `eCommerce` when the source data is about:
 - cart contents
-- checkout input state — billing / shipping / coupons (maps onto the cart; unified into Cart V2. Calculated totals are not stored on the cart — see Mapper notes)
+- checkout state
 - order lifecycle
 - fulfillment and payment operations
 - cross-vertical commerce operations that are not specific to a single catalog app
