@@ -12,7 +12,7 @@ Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the 
 
 | Handler | Docs URL |
 | --- | --- |
-| `runTool` | <!-- TODO: add docs URL --> |
+| `runTool` | https://dev.wix.com/docs/api-reference/app-management/app-tools/tools-provider-v1/run-tool?apiView=SDK |
 
 ## Example: Routing Tool Calls by methodName
 
