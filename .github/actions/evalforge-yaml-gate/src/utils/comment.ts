@@ -78,6 +78,15 @@ export function formatTooManyNewSkills(count: number, limit: number, files: stri
   ]);
 }
 
+export function formatQuarantineSkipped(names: string[]): string {
+  return render('⚠️', 'Quarantined Scenarios Skipped', [
+    'These covering scenarios are quarantined as flaky and were not run against this PR',
+    '(see `yaml/wix-manage-evals/quarantine.yaml`):',
+    '',
+    ...names.map(n => `- \`${n}\``),
+  ]);
+}
+
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
