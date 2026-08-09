@@ -5,6 +5,7 @@ import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
 import type { LintViolation } from './scenario-lint';
+import type { ConfirmResult } from './confirm';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
@@ -218,4 +219,29 @@ export function formatTokenBudgetExceeded(violations: TokenBudgetViolation[], pr
   }
 
   return render('❌', 'Token Budget Exceeded', lines);
+}
+
+export function formatConfirmOnFail(result: ConfirmResult, blocking: boolean): string {
+  const confirmed = result.verdicts.filter(v => v.confirmed);
+  const recovered = result.verdicts.filter(v => !v.confirmed);
+  const lines: string[] = [
+    COMMENT_MARKER,
+    `## ${confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅'} ${HEADING}: Confirm-on-Fail`,
+    '',
+    'Failing scenarios are rerun and block only when a majority of attempts fail.',
+    '',
+  ];
+  if (result.retriesSkipped) {
+    lines.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once, which is treated as a real regression (or the retry infrastructure failed; see the job log).`, '');
+  }
+  if (confirmed.length > 0) {
+    lines.push('**Confirmed failures:**', '', ...confirmed.map(v =>
+      `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
+  }
+  if (recovered.length > 0) {
+    lines.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v =>
+      `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
+    lines.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
+  }
+  return lines.join('\n');
 }
