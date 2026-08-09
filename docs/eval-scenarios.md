@@ -29,6 +29,22 @@ Assert three things: **coverage** (the agent reached the skill — the assertion
 
 Adapt the penalty list to the detours *your* task invites. This judge gates like any other, so a bumpy path fails the PR — deliberately. When it fails, the gap is usually in the skill, the docs, or the MCP: close that gap rather than lowering `minScore`.
 
+### Enforced by the lint
+
+The evaluation gate lints every scenario your PR adds or modifies and fails the check on violations:
+
+| Rule | Requirement |
+|---|---|
+| `three-assertions` | At least 3 assertions (doc tool-call, correctness judge, quality judge). |
+| `coverage-assertion` | A tool-call assertion with `params.articleUrl` pointing at the skill's doc URL. |
+| `two-llm-judges` | At least two `llm_judge` assertions — one for the outcome, one for the tool-call path. |
+| `min-score-floor` | Numeric judges declare `minScore` of at least 6. |
+| `judge-fail-criteria` | Every judge prompt states explicit fail criteria, not only pass criteria. |
+| `task-shaped-prompt` | `triggerPrompt` is a task with concrete values, not a "how do I…" question. |
+| `max-tokens` | Top-level `maxTokens` is set. |
+
+Scenarios you don't touch are never linted by your PR.
+
 ## Adding a Wix Manage Eval Scenario
 
 Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
