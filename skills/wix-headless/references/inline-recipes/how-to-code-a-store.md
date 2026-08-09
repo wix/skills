@@ -97,7 +97,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
-**Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: request params name their own fields (e.g. the redirect session takes `ecomCheckout.checkoutId`, *not* `_id` — see Checkout — even though the value you pass is the cart's `_id`). Don't assume every id-shaped field is spelled `_id`.
+**Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: request params name their own fields (e.g. the redirect session takes `ecomCheckout.checkoutId`, *not* `_id` — see the *Checkout* section below — even though the value you pass is the cart's `_id`). Don't assume every id-shaped field is spelled `_id`.
 
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
 
@@ -171,7 +171,7 @@ await currentCartV2.addLineItemsToCurrentCart({
 
 **⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug (`200` + empty cart).
 
-### Checkout
+### Checkout — redirect to the hosted checkout page
 
 Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout id. Read the current cart, then hand its id to a redirect session, which carries the visitor/member session across to the hosted checkout on its own domain.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>

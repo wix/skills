@@ -154,7 +154,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purch
 
 Optional: `options.onlineOrderingPageUrl` (e.g. `"/online-ordering"`) lets the buyer click the cart line to return to the item — include it only if your site has such a page.
 
-### Checkout
+### Checkout — redirect to the hosted checkout page
 
 Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout id. Read the current cart, then hand its id to a redirect session (identical to the storefront flow — restaurant orders ride on the same eCommerce checkout).
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>
