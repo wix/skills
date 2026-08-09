@@ -42,12 +42,29 @@ Use logical CSS properties — never physical `left`/`right`-only layouts. See �
 
 ### Root Element Pattern
 
-Apply on main component only:
+Apply on main component only. `dir` and the fallback class go on whatever element is the root — never add a wrapper `<div>` to host them (see [`PARTS.md`](PARTS.md) Step 0).
 
 ```typescript
 <div
+  id={id}
   dir={direction}
   className={classNames(
+    'profile-card',
+    styles.root,
+    className,
+    styles.fallbackDirection,
+  )}
+>
+```
+
+```typescript
+/* Root is the component's own semantic element — same attribute, same classes */
+<button
+  type="button"
+  id={id}
+  dir={direction}
+  className={classNames(
+    'like-button',
     styles.root,
     className,
     styles.fallbackDirection,
