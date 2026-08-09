@@ -4,6 +4,7 @@ import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
+import type { LintViolation } from './scenario-lint';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
@@ -35,6 +36,17 @@ export function formatUncovered(uncovered: Uncovered[]): string {
     ...uncovered.map(u =>
       `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`yaml/wix-manage-evals/${u.area}/\``,
     ),
+  ]);
+}
+
+export function formatLintViolations(violations: LintViolation[], blocking: boolean): string {
+  const { icon } = failIcon(blocking);
+  return render(icon, 'Scenario Lint', [
+    'Changed eval scenarios must meet the authoring standards in docs/eval-scenarios.md:',
+    '',
+    '| Scenario | Rule | Problem |',
+    '|---|---|---|',
+    ...violations.map(v => `| \`${v.name}\` | \`${v.rule}\` | ${v.message} |`),
   ]);
 }
 
