@@ -96,7 +96,7 @@ Primary entities:
 | Entity | What it does | Docs |
 | --- | --- | --- |
 | `cart` | The unified purchase-flow entity (Cart V2): holds line items, buyer/contact info, discounts, delivery, billing, and payment context all the way through placing the order. Cart V2 replaces the old separate Cart V1 + Checkout V1 model. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
-| `current-cart` | Visitor/member (session) scoped Cart V2 used in live purchase flows — same entity as `cart`, addressed by the shopper's session instead of a cart id. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
+| `current-cart` | The current cart for a visitor/member session — the same entity as `cart`, addressed by the shopper's session rather than a cart id. | [About the Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
 | `order` | Final commerce record for completed or externally recorded purchases | [About the Orders API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/introduction) |
 | `order-billing` | Payment capture, void, and refund operations for eCommerce orders | [About the Order Billing API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing/introduction) |
 
