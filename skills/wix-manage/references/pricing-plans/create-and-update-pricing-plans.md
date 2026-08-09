@@ -1,6 +1,6 @@
 ---
 name: "Create and Update Pricing Plans"
-description: Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+description: Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring until cancelled, recurring for a set number of payments, one-time, free), trial periods, perks configuration, and plan visibility.
 ---
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Pricing Plans (Real-World, API-First)
 
