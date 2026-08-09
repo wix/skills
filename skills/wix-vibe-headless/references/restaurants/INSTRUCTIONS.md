@@ -17,6 +17,7 @@ always go through the official cart + redirect-session and the reservations hold
 > separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
 > (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
 > that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+> Migrating from Cart V1 / Checkout V1? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
 
 ## When to use
 - User wants a Wix restaurant site, an online food-ordering page, or a table-reservation page.
