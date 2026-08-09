@@ -95,7 +95,9 @@ endpoint/method/body in the official Wix reference first (or use the `wix-docs` 
 - Member-gated / user-generated content → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 
 ## Seeding
-Seed the collection per `seed/SEED.md` (the build-time seed module) — separate from this build, run in parallel.
+Seed the collection per `seed/SEED.md` — the Wix Data v2 REST API with curl examples (create collection
++ permissions, bulk-insert, verify, references, images). Needs an elevated credential; separate from
+this build, run in parallel.
 
 ## Point the user to their dashboard
 Substitute the site's `metaSiteId`:

@@ -1,114 +1,105 @@
-# CMS — seeding
+# CMS — seeding (Wix Data v2 REST)
 
-Seed Wix CMS (Wix Data v2) collections by **calling `seed-cms.js`** — don't hand-write the REST
-calls. It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every
-Wix Data seed operation. `require` it and call the functions with plain data.
+Seeding a collection is an **admin/build-time** job: create the collection(s), insert items, wire
+references, attach images — all via the **Wix Data v2 REST API**. There is **no helper module** — make
+the calls yourself with the shapes below. Needs an **elevated credential** (a connector token or a Wix
+API key; the public `WIX_CLIENT_ID` cannot write — see the platform doc's seed-auth step).
 
-> **NOT yet live-verified — transcribed from `setup-cms.md`.**
+**⛔ Additive only — never delete, reset, or overwrite existing content.**
 
-```js
-// build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/cms/seed/seed-cms.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
-const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
-
-// DEFAULT — one call runs install → create each collection → insert items → attach images → wire
-// references, keeping created item ids in memory. Reference an item by its caller-chosen `_key`
-// (unique across the whole plan) — no ids to paste. Which collections/fields/counts/images come
-// from the request, not this module. Public-read is the default (override per collection via
-// `permissions`: PERMISSIONS.collaborative | memberPrivate | memberSharedReadOnly).
-const summary = await seed.setupCms(ctx, {
-  collections: [
-    { id: "categories", displayName: "Categories",
-      fields: [{ key: "name", displayName: "Name", type: "TEXT" }],
-      items: [
-        { _key: "cat-dessert", name: "Dessert" },
-        { _key: "cat-main",    name: "Mains" },
-      ] },
-    { id: "recipes", displayName: "Recipes",
-      fields: [
-        { key: "title", displayName: "Title", type: "TEXT" },
-        { key: "photo", displayName: "Photo", type: "IMAGE" },
-        // MULTI_REFERENCE → categories; typeMetadata.multiReference.referencedCollectionId is MANDATORY (STEP 1 note)
-        { key: "categories", displayName: "Categories", type: "MULTI_REFERENCE",
-          typeMetadata: { multiReference: { referencedCollectionId: "categories" } } },
-      ],
-      items: [
-        // image is optional and attached IN this one call; drop it to leave the item text-only. The url
-        // must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image (it runs in
-        // the background while you build — wait for it), never a still-generating /__generating__/<id>.png.
-        { _key: "recipe-cake", title: "Chocolate Cake", image: { fieldKey: "photo", url: fileUrl } },
-      ] },
-  ],
-  // optional — omit when nothing relates. Keys resolve to the created ids from `_key`.
-  references: [
-    { collectionId: "recipes", referringItemFieldName: "categories",
-      referringItemKey: "recipe-cake", referencedItemKey: "cat-dessert" },
-  ],
-});
-// summary = { collections, itemIdsByCollection, referencesInserted, imagesAttached }
+## Auth (on every call)
+```bash
+API=https://www.wixapis.com
+AUTH=(-H "Authorization: Bearer <TOKEN>" -H "wix-site-id: <METASITE_ID>" -H "Content-Type: application/json")
+#  connector/service-role token → "Authorization: Bearer <TOKEN>"
+#  Wix API key                  → "Authorization: <API_KEY>"   (raw, NO "Bearer")
 ```
 
-**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
-"sample" data, don't reset. Just add.
-
-## Escape hatch — individual functions
-Reach for the functions below only when the one-call `setupCms` doesn't fit (verifying persistence
-mid-flow, a shape the plan can't express). `setupCms` is built from them, in this order:
-
-```js
-await seed.installCmsApp(ctx);                          // if a data call returns WDE0110 (app not installed)
-
-// STEP 1 — create each collection BEFORE inserting its items (public-read default).
-const col = await seed.createCollection(ctx, {
-  id: "team-members", displayName: "Team Members",
-  fields: [
-    { key: "name", displayName: "Name", type: "TEXT" },
-    { key: "bio",  displayName: "Bio",  type: "RICH_TEXT" },
-    { key: "order", displayName: "Order", type: "NUMBER" },
-  ],
-  // permissions defaults to PERMISSIONS.publicRead; override for the other shapes:
-  //   PERMISSIONS.collaborative        (visitor-writable shared board — anonymous, unscoped)
-  //   PERMISSIONS.memberPrivate        (per-user-private "my …" rows; seed EMPTY, members populate)
-  //   PERMISSIONS.memberSharedReadOnly (gated: any member reads, only seed/admin writes)
-});
-
-// STEP 2 — bulk-insert with plain fields only (MULTI_REFERENCE is silently dropped at insert)
-const items = await seed.bulkInsertItems(ctx, "team-members", [
-  { name: "Ada Lovelace", role: "Founder",  bio: "<p>Builds the things.</p>", order: 1 },
-  { name: "Alan Turing",  role: "Engineer", bio: "<p>Breaks the things.</p>", order: 2 },
-]);
-
-// STEP 3 — verify persisted (a POST without an error does NOT prove content persisted)
-const rows = await seed.queryItems(ctx, "team-members");
-
-// STEP 4 — wire multi-references only if collections relate (target field needs referencedCollectionId from STEP 1)
-await seed.insertReferences(ctx, "recipes", [
-  { referringItemFieldName: "categories", referringItemId: recipeId, referencedItemId: categoryId },
-]);
-
-// optional — generate an image, then read-merge-PUT the url onto the item's IMAGE field
-await seed.attachItemImage(ctx, "team-members", { itemId: items[0].id, imageFieldKey: "photo", url: fileUrl });
+## 0 · Install the Wix Data app — only if a data call returns `WDE0110` (app not installed)
+```bash
+curl -sS -X POST "$API/apps-installer-service/v1/app-instance/install" "${AUTH[@]}" \
+  -d '{"tenant":{"tenantType":"SITE","id":"<METASITE_ID>"},
+       "appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4","enabled":true}}'
 ```
 
-## Functions
-| fn | does |
-|---|---|
-| `setupCms(ctx, {collections, references?})` | **DEFAULT** — one call: install → create+insert each collection → attach images → wire references, keeping ids in memory (reference items by `_key`) → `{collections, itemIdsByCollection, referencesInserted, imagesAttached}` |
-| `installCmsApp(ctx)` | install the Wix Data (CMS) app on the site |
-| `createCollection(ctx, {id, displayName, fields, permissions?})` | STEP 1 — create one collection → the created collection (default `PERMISSIONS.publicRead`) |
-| `bulkInsertItems(ctx, collectionId, items)` | STEP 2 — one bulk insert of plain-field items → `[{id,data}]` |
-| `insertItem(ctx, collectionId, data)` | STEP 2 (single) — insert one item → `{id,data}` |
-| `queryItems(ctx, collectionId)` | STEP 3 — query for verification → `[{id,data}]` |
-| `insertReferences(ctx, collectionId, [{referringItemFieldName, referringItemId, referencedItemId}])` | STEP 4 — wire multi-references |
-| `attachItemImage(ctx, collectionId, {itemId, imageFieldKey, url})` | optional — read-merge-PUT the image url onto an item |
-| `PERMISSIONS` | preset blocks: `publicRead`, `collaborative`, `memberPrivate`, `memberSharedReadOnly` |
+## 1 · Create a collection — the `permissions` block is MANDATORY
+```bash
+curl -sS -X POST "$API/wix-data/v2/collections" "${AUTH[@]}" -d '{
+  "collection": {
+    "id": "Recipes", "displayName": "Recipes",
+    "fields": [
+      { "key": "title", "displayName": "Title", "type": "TEXT" },
+      { "key": "photo", "displayName": "Photo", "type": "IMAGE" },
+      { "key": "categories", "displayName": "Categories", "type": "MULTI_REFERENCE",
+        "typeMetadata": { "multiReference": { "referencedCollectionId": "Categories" } } }
+    ],
+    "permissions": { "insert": "ADMIN", "update": "ADMIN", "remove": "ADMIN", "read": "ANYONE" }
+  }
+}'
+```
+- The `id` you send **is** the collection id (Wix doesn't rename it) — keep it + the field keys.
+- **Permissions is required and load-bearing.** A public collection's `read` **must** be `"ANYONE"` or a visitor query silently returns 0 items. Presets:
 
-## Fallback
-If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-cms.md`.
+  | preset | `read` / `insert` / `update` / `remove` | use |
+  |---|---|---|
+  | **public-read** (default) | `ANYONE` / `ADMIN` / `ADMIN` / `ADMIN` | admin content, anyone reads |
+  | **collaborative** | `ANYONE` / `ANYONE` / `ANYONE` / `ANYONE` | visitor-written shared board (anonymous, unscoped) |
+  | **member-private** | `SITE_MEMBER_AUTHOR` / `SITE_MEMBER` / `SITE_MEMBER_AUTHOR` / `SITE_MEMBER_AUTHOR` | per-user "my…" rows (`_owner`-matched); **create it EMPTY** — members populate it from the client with their **member token** so Wix stamps `_owner` |
+  | **member-shared-read-only** | `SITE_MEMBER` / `ADMIN` / `ADMIN` / `ADMIN` | gated: any member reads, seed/admin writes |
+
+- **MULTI_REFERENCE fields:** `typeMetadata.multiReference.referencedCollectionId` is mandatory (NOT `referencedCollection` — the docs' stale key stores an empty target and every later link is dead), and the **target collection must be created first**.
+- `409 WDE0104` = "collection already exists" — fine (additive); skip and move on.
+
+## 2 · Insert items — bulk
+```bash
+curl -sS -X POST "$API/wix-data/v2/bulk/items/insert" "${AUTH[@]}" -d '{
+  "dataCollectionId": "Recipes",
+  "dataItems": [ { "data": { "title": "Chocolate Cake" } }, { "data": { "title": "Pavlova" } } ],
+  "returnEntity": true
+}'
+#  ← read each id from  results[].dataItem.id  (NOT results[].item)
+```
+Single item: `POST $API/wix-data/v2/items` with `{"dataCollectionId":"Recipes","dataItem":{"data":{…}}}`.
+- Set plain fields + single `REFERENCE` (pass the target item's `_id` string) only. A **`MULTI_REFERENCE` value here is silently dropped** (no error) — wire it in step 4.
+
+## 3 · Verify — a `200` does NOT prove the rows persisted
+```bash
+curl -sS -X POST "$API/wix-data/v2/items/query" "${AUTH[@]}" -d '{"dataCollectionId":"Recipes"}'
+#  ← { "dataItems": [ { "id": "...", "data": { … } }, … ] }
+```
+
+## 4 · Wire multi-references — only if collections relate
+```bash
+curl -sS -X POST "$API/wix-data/v2/bulk/items/insert-references" "${AUTH[@]}" -d '{
+  "dataCollectionId": "Recipes",
+  "dataItemReferences": [
+    { "referringItemFieldName": "categories", "referringItemId": "<recipeId>", "referencedItemId": "<categoryId>" }
+  ]
+}'
+```
+Resolves only if the field was created with a non-empty `referencedCollectionId` (step 1). Ids come from step 2's `results[].dataItem.id`.
+
+## 5 · Images (optional)
+An `IMAGE` field stores a **URL string**. Use a permanent Wix Media URL — if your image is external
+(e.g. a generated one), **upload it to Wix Media first** (`POST /site-media/v1/files/import` with
+`{url, mimeType, displayName}` → use the returned `file.url`; the blog/storefront seeds show this), then
+set it. Attaching is a **read-merge-PUT** — a PUT replaces the whole item, so a partial body wipes the
+other fields:
+```bash
+# query the item (step 3), merge the url into its IMAGE field, then PUT the WHOLE record back:
+curl -sS -X PUT "$API/wix-data/v2/items/<itemId>" "${AUTH[@]}" -d '{
+  "dataCollectionId": "Recipes",
+  "dataItem": { "data": { <…all existing fields…>, "_id": "<itemId>", "photo": "https://…/file.jpg" } }
+}'
+```
+
+## Gotchas
+- Elevated credential required (the public client id can't write).
+- **Provisioning race:** a fresh site's FIRST create/insert can transiently fail — `403`, or `400 WDE0117` ("MetaSite not found"), or `5xx`. Retry the same call **once** after ~3s, then fail loud (don't loop).
+- Any PUT/update **replaces** the whole item — always fetch + merge (or use Patch Data Item).
+- Verify with a query; a non-error POST is not proof of persistence.
+
+## Reference
+- Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
+- Collections: https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections.md
+- Anything not covered → use the `wix-docs` skill (search + read the live reference); never guess.
