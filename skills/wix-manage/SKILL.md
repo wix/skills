@@ -142,6 +142,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Contact with Address](references/contacts/create-contact-with-address.md)
 **Technical:** Creates a contact with a physical address in one Contacts API call. Covers the minimum identifying fields and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
 
+### [Update a Contact](references/contacts/update-a-contact.md)
+**Technical:** Updates an existing contact's email, phone, name or address. Covers locating the contact with Search Contacts when the user names it (Query Contacts cannot filter by name), passing the current `revision`, appending an address via the contact's `addresses` sub-resource, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`).
+
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 **Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
 
