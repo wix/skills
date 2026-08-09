@@ -191,7 +191,7 @@ window.location.href = session.redirectSession.fullUrl; // the hosted-checkout U
 
 ### Formatting cart prices (Cart V2 has no preformatted amount)
 
-**Product** prices from `productsV3` still carry a ready-to-show `actualPriceRange.minValue.formattedAmount` — use it directly. But **Cart V2 money does not**: every cart amount — line-item `pricing.unitPrice` / `pricing.totalPrice` **and** the `estimateCurrentCart`/`calculateCart` `summary.priceSummary.*` — is a `ConvertedMoney` `{ amount, convertedAmount }` with **no** formatted string. So once items are in the cart, you format the price yourself. The currency isn't on the money object; read it from the cart (`cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`), and use `convertedAmount` (buyer's display currency) when present, else `amount` (site currency):
+**Product** prices from `productsV3` still carry a ready-to-show `actualPriceRange.minValue.formattedAmount` — use it directly. But **Cart V2 money does not**: every cart amount — line-item `pricing.unitPrice` / `pricing.totalPrice` **and** the `estimateCurrentCart`/`calculateCurrentCart` `summary.priceSummary.*` — is a `ConvertedMoney` `{ amount, convertedAmount }` with **no** formatted string. So once items are in the cart, you format the price yourself. The currency isn't on the money object; read it from the cart (`cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`), and use `convertedAmount` (buyer's display currency) when present, else `amount` (site currency):
 
 ```js
 function formatCartMoney(money, cart) {
