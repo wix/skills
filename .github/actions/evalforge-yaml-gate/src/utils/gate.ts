@@ -19,8 +19,10 @@ import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
   comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
+  formatLintViolations,
 } from './comment';
 import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
+import { lintChangedScenarios } from './scenario-lint';
 
 type Commenter = ReturnType<typeof makeCommenter>;
 
@@ -161,6 +163,13 @@ export async function runGate(): Promise<void> {
     ...classifiedChanges.evalsAdded.map(f => f.filename),
     ...classifiedChanges.evalsModified.map(f => f.filename),
   ]);
+  const lintViolations = lintChangedScenarios(headScenarios, changedEvalPaths);
+  if (lintViolations.length > 0) {
+    await comment(formatLintViolations(lintViolations, config.blocking));
+    fail(`${lintViolations.length} scenario lint violation(s)`, config.blocking);
+    return;
+  }
+
   const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });

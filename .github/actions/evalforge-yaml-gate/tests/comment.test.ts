@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as c from '../src/utils/comment';
+import { formatLintViolations } from '../src/utils/comment';
 import type { CompareGroupComplete, ScenarioComparison, ScenarioRunResult } from '../src/utils/eval-pipeline';
 
 function run(over: Partial<ScenarioRunResult> = {}): ScenarioRunResult {
@@ -223,5 +224,16 @@ describe('comment formatters', () => {
     expect(out).toContain('| bookings/diagnose-availability-issues | — | - |');
     expect(out).toContain('**No winner:** both runs failed the LLM judge.');
     expect(out).not.toContain('⬆️ with (high)');
+  });
+});
+
+describe('formatLintViolations', () => {
+  it('lists each violation with its rule id and scenario name', () => {
+    const out = formatLintViolations([
+      { name: 'blog/create-post', path: 'yaml/wix-manage-evals/blog/create-post.yml', rule: 'max-tokens', message: 'top-level maxTokens is unset — every scenario needs a token budget' },
+    ], true);
+    expect(out).toContain('blog/create-post');
+    expect(out).toContain('max-tokens');
+    expect(out).toContain('docs/eval-scenarios.md');
   });
 });
