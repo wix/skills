@@ -1,275 +1,110 @@
-# Wix CMS — ready-made client
+# Wix CMS — client utils (you build the UI)
 
-The CMS client is **shipped as real files**, not snippets to regenerate. It's a complete
-list + detail over any Wix Data collection, styled with your app's design tokens (base44's
-`src/index.css` — the shadcn palette the design phase already set) and pointed at
-your collection from one `collection.config.js`. Copy it into the app, map your
-fields, wire the routes — you generate almost none of the data code (query/cursor pagination, detail
-resolution by slug-or-id, image-URI conversion, empty state all ship and are correct).
+Unlike the other verticals, CMS ships **no UI**. A CMS is schema-driven — every collection is
+different — so there are no meaningful "list/detail" components to hand you. You **build the UI
+yourself** (list, detail, home, forms) in your own framework and design tokens, calling the shipped
+**utils**. Everything talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor token)
+using the official Wix Data endpoints — never hand-build a Wix Data URL, never mock items.
 
-Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens) using the official
-Wix Data endpoints. Never mock items; never hand-build a Wix Data URL — the shipped helpers call
-`/wix-data/v2/items`.
-
-## Prerequisites
-- A Wix site with **a data collection** (CMS / Content Manager) as the read target. It's created and
-  seeded separately (see **Seeding** below), in parallel with this build — so it may be empty at
-  build time; the client renders the shipped empty state until items land. This skill does NOT
-  provision collections.
-- **Collection permissions** must grant the action you do to "Anyone" — this client runs as an
-  anonymous visitor. Read for listing/detail (**Show content → Everyone**); Insert only if you add a
-  public form. Update/Delete are admin/author-only and will 403 for a visitor. The owner sets these
-  in the dashboard (CMS → collection → Permissions) — a **separate Wix setup step**, out of scope. A
-  403 before it's set is expected; flag it and continue.
-- The public headless **`WIX_CLIENT_ID`** (and `WIX_METASITE_ID`) from your prompt (buyer-facing,
-  safe to hardcode/commit).
-
-## STEP 1 — The client is already in `src/`
-The install step (base44.md STEP 1) deployed the whole CMS UI client + REST scaffolds into `src/`
-(imports use the `@/` alias → `src/`). Here's every file and what it is — **this is your map, so you
-don't need to open them:**
+## What ships (utils only)
 
 | file | what it is |
 |---|---|
-| `collection.config.js` | **you point at your collection + map field keys here** (STEP 2) |
-| `hooks/useCollection.js` | list data — count, first page, cursor pagination for the configured collection |
-| `hooks/useItemDetail.js` | detail data — resolves one item by slug (or `_id`) for a route |
-| `components/ItemCard.jsx`, `ItemGrid.jsx` | list UI (grid + card, with empty state) |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
-| `lib/wixImage.js` | converts a `wix:image://` media field to a renderable URL (used by the UI) |
-| `pages/Collection.jsx`, `pages/ItemDetail.jsx` | the two shipped routes (list + detail) |
-| `rest/wix-config.js` | **you set the ids here** (STEP 2) |
-| `rest/wix-client.js` + `rest/wix-cms.js` | REST transport + Wix Data helpers |
+| `rest/wix-cms.js` | Wix Data helpers over the official endpoints: `queryDataItems`, `getDataItem`, `getDataItemBy`, `countDataItems`, `insertDataItem`, `updateDataItem`, `removeDataItem`. |
+| `lib/wixImage.js` | `wixImage(uri)` — converts a `wix:image://…` media field into a renderable URL (passes `https://` / `//` through). |
+| `collection.config.js` | Optional one-file mapping: `COLLECTION_ID` (your collection's **name**, not a GUID) + `FIELDS` (map `title`/`image`/`summary`/`body`/`date`/`slug` to your field keys). Keeps field mapping in one place; skip it and pass field keys inline if you prefer. |
+| `wix-config.js` *(shared)* | Set `WIX_CLIENT_ID` + `WIX_METASITE_ID` here (the one place both ids live). |
+| `WixManageBanner` *(shared)* | Dev-only manage banner — mount it in your Layout (see the platform doc's "Done" step). |
 
-They're already in place — go **straight to config + theming + wiring**, nothing to verify first.
-**Don't `read_file` the shipped page/component/hook source to inspect it** — the table says what each
-is and every field shape you need is in the snippets below. Read a shipped file's source **only** on
-a real fallback — a runtime error, or a field the snippets don't cover (see "Fallback only" at the
-end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
-`references/cms/app/` → `src/`.)
+## Prerequisites
+- A Wix **data collection** as the read target, created + seeded separately (see **Seeding**) — it may
+  be empty at build time, so render an honest empty state until items land. This skill does **not**
+  provision collections.
+- **Collection permissions** must grant the action you perform to the visitor: **read** (Show content
+  → *Everyone*) for listing/detail; **insert** only if you add a public form or member submissions;
+  update/delete are author/admin-only and **403 for a visitor**. The owner sets these in the dashboard
+  (CMS → collection → Permissions) — a separate Wix step, out of scope. A 403 before it's set is
+  expected: flag it and continue.
 
-## STEP 2 — Credentials + point at your collection
-Two one-file edits (the CMS equivalent of storefront's credentials step):
-- `src/rest/wix-config.js` — set `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt (the one place
-  both ids live).
-- `src/collection.config.js` — set `COLLECTION_ID` to your collection's **name** (e.g. `"Recipes"` —
-  it's the id in Wix Data, not a GUID), and map `FIELDS` (`title`, `image`, `summary`, `body`,
-  `date`, `slug`) to your collection's field keys. **Use the field keys from your own seed / design
-  plan** as the canonical list — don't guess or reverse-engineer them from a fetched row. Set any
-  role you don't have to `null` and the UI omits it; `title` is the only required role. If you map a
-  `slug` field, detail URLs use it; otherwise they fall back to the item's `_id`.
+## Build the UI from the utils
+Generate whatever the app needs — a list/grid, a detail page, a home page, a submit form — with your
+framework, your router, and your design tokens. Wire the data with the helpers below (the shapes are
+the bug-prone part). Mount the shared `WixManageBanner` (dev-only) in your Layout. Route conventions
+are yours (e.g. a list path + `/item/:slugOrId` detail).
 
-## STEP 3 — Theme (nothing to style on the shipped components)
-The shipped components carry **no palette of their own** — they render from base44's design tokens
-in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
-`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
-`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
-`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
-pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
-`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
-shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it
-matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
-
-## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
-**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
-`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
-replace it.
-- Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
-  route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
-  — including the shipped `Collection` / `ItemDetail` — so you **never edit the shipped pages to add a
-  header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
-  your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
-  markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
-  the content by the region's **ResizeObserver-measured** height so it clears the chrome and
-  self-corrects when the banner is dismissed.
-- Routes under the Layout: your list path → `Collection`, `/item/:key` → `ItemDetail` (both shipped,
-  as-is). **You add `/` → your own Home** page. (The list path and `/item/:key` are conventions — the
-  card links to `/item/:key`; if you rename that route, keep the two in sync.)
-
-CMS has **no cross-page state** (no cart), so there's **no provider to wrap** — this is the one place
-the CMS Layout is simpler than storefront's `<CartProvider>`/`<CartDrawer>`.
-
-```jsx
-import { useRef, useState, useEffect } from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
-import Collection from "@/pages/Collection";           // shipped · default export, no props
-import ItemDetail from "@/pages/ItemDetail";           // shipped · default export, no props
-import Home from "@/pages/Home";           // YOU build
-import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
-import Footer from "@/components/Footer";   // YOU build
-
-function Layout() {
-  const topRef = useRef(null);
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {                                  // measure the fixed region → pad content below it
-    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
-    if (topRef.current) ro.observe(topRef.current);
-    return () => ro.disconnect();
-  }, []);
-  return (<>
-    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
-      <Header />                             {/* your brand header, in-flow inside this fixed block */}
-    </div>
-    <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
-      <Outlet />                             {/* shipped Collection/ItemDetail render here, untouched */}
-      <Footer />
-    </div>
-  </>);
-}
-
-<Routes>
-  <Route element={<Layout />}>                              {/* chrome wraps all */}
-    <Route path="/" element={<Home />} />                   {/* yours */}
-    <Route path="/browse" element={<Collection />} />       {/* shipped — rename the path to your content */}
-    <Route path="/item/:key" element={<ItemDetail />} />    {/* shipped, as-is */}
-  </Route>
-</Routes>
-```
-
-## What you build (not shipped)
-The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`
-(STEP 4) so they wrap every route — plus the overall brand story, styled with the same base44
-tokens/classes. **Compose the shipped pieces** — a featured strip is just `useCollection` + the shipped
-`ItemGrid`; the nav is a link to your list route. Build the `Header` responsive via a **single-branch
-`mobile`-state ternary** (copy storefront's pattern) — **never** a Tailwind `hidden md:*` toggle on an
-inline-styled component (an inline `display` beats a Tailwind class, so both branches would render).
-
-```jsx
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useCollection } from "@/hooks/useCollection";
-import ItemGrid from "@/components/ItemGrid";
-
-export function Header() {
-  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", onResize);            // keep it reactive to viewport changes
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  return (
-    <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      {/* brand/logo */}
-      {mobile
-        ? <YourMenu />                                       // your hamburger here
-        : <div style={{ display: "flex", gap: 24 }}><Link to="/browse">Browse</Link></div>}
-    </nav>
-  );
-}
-
-export function Featured() {                                // on your home page
-  const { items } = useCollection({ limit: 6 });            // hook returns { items, total, loadMore, hasMore }
-  return <ItemGrid items={items || []} empty="Content coming soon." />;
-}
-```
-Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
-
-**Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
-can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
-full navigate/reload of the preview and re-check — don't keep rewriting correct code against a stale
-render.
-
-## Using the client (data shapes that are load-bearing)
-The shipped hooks own the common paths; when you call the helpers directly (a filtered strip, a
-search box, a form), keep this wiring — it's the bug-prone part:
+## Data shapes (load-bearing — keep this wiring)
 
 ```jsx
 import { queryDataItems, getDataItem, getDataItemBy, countDataItems, insertDataItem } from "@/rest/wix-cms";
+import { wixImage } from "@/lib/wixImage";
 
 // LIST — queryDataItems resolves to { items, nextCursor } (NOT a bare array). Each item is the flat
 // `data` payload and always carries `_id`. Pass nextCursor back as `cursor` for the next page;
-// define filter/sort on the FIRST request only (cursor follow-ups reuse them — pass only the cursor).
+// set filter/sort on the FIRST request only (cursor follow-ups reuse them — pass only the cursor).
 const { items, nextCursor } = await queryDataItems("Recipes", {
-  sort: [{ fieldName: "publishDate", order: "DESC" }],        // array of { fieldName, order } — NOT { field: -1 }
-  filter: { publishDate: { $lte: { "$date": new Date().toISOString() } } }, // date wrapped { "$date": ISO }
+  sort: [{ fieldName: "publishDate", order: "DESC" }],            // array of { fieldName, order } — NOT { field: -1 }
+  filter: { publishDate: { $lte: { "$date": new Date().toISOString() } } }, // dates wrap as { "$date": ISO }
   limit: 24,
 });
 
-// DETAIL — route by the item's `_id` (getDataItem) or a slug field (getDataItemBy); null on miss →
-// show a not-found state, never invent an item. (useItemDetail already does this off collection.config.)
+// DETAIL — by `_id` (getDataItem) or a slug field (getDataItemBy); returns null on miss →
+// show a not-found state, never invent an item.
 const one = await getDataItemBy("Recipes", "slug", slugFromUrl);
 
-// FILTER & SEARCH — operators: $eq $ne $gt $gte $lt $lte $in $nin $startsWith $exists $hasSome $hasAll,
+// FILTER/SEARCH — operators: $eq $ne $gt $gte $lt $lte $in $nin $startsWith $exists $hasSome $hasAll,
 // combined with $and/$or/$not. Simple text search: { title: { $startsWith: term } }.
 
-// MULTI_REFERENCE fields are NOT inline — without asking, item.<field> isn't populated. Pass
-// includeReferences: [{ field: "ingredients", limit: 10 }] to queryDataItems, THEN .map item.<field>.
+// MULTI_REFERENCE fields are NOT inline — pass includeReferences: [{ field: "ingredients", limit: 10 }]
+// to queryDataItems, then read item.<field>.
 
-// PUBLIC FORM — insertDataItem("Reviews", { name, email, message }); needs Insert = "Anyone".
+// IMAGES — a media field comes back as a `wix:image://…` URI the browser can't render. Convert every
+// image with wixImage() before <img src>: <img src={wixImage(item.cover)} />. Never render one raw.
+
+// PUBLIC FORM — insertDataItem("Reviews", { name, email, message }); needs Insert = "Anyone" (or members).
 // Resolves to the flat inserted `data` payload (with _id); throws on failure — never fake success.
 ```
 
-**Images are handled by the shipped `lib/wixImage.js`.** A merchant-uploaded image field comes back
-as a `wix:image://…` media URI the browser can't render; `wixImage()` converts it (and passes
-`https://` / `//` URLs through). The shipped `ItemCard`/`ItemDetail` already run every image through
-it — if you render an image yourself, do the same: `import { wixImage } from "@/lib/wixImage"`.
+## Owned records (CMS × Wix members)
+For user-generated content tied to the logged-in member ("my items"): do the **insert client-side with
+the member's token** (from the **members** vertical) so Wix stamps the row's `_owner` to that member;
+then filter `{ _owner: <member.id> }`. A backend/connector-token insert sets `_owner` to the *app*, not
+the member, so "my items" comes back empty — don't do that. The collection needs **Insert** permission
+for members/anyone. (Fuller recipe lives with the members vertical.)
 
 ## Hard rules
-- Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
-- Point at your collection + map `FIELDS` in `collection.config.js` (STEP 2) — using your seed plan's
-  field keys, not guesses.
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
-- Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped
-  `Collection`/`ItemDetail` to add chrome.
-- The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
-  `Header` is plain in-flow markup (not `position:fixed`).
-- Read/write ONLY through the `wix-cms.js` helpers (they call the official Wix Data endpoints) — never
-  hand-build a Wix Data URL.
-- `queryDataItems` resolves to `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is
-  `[{ fieldName, order }]` (not Mongo `{ field: -1 }`); date comparands wrap as `{ "$date": ISO }`.
-- Convert `wix:image://` URIs (via `lib/wixImage.js`) before `<img src>` — never render one raw.
-- The owner field is `_owner` (Wix Data v2), not `_ownerId`. A "my items" view is
-  `queryDataItems(collectionId, { filter: { _owner: memberId } })`.
-- `updateDataItem` REPLACES the whole item — fetch + merge first (or use Patch Data Item).
-- Render live Wix data or the shipped empty state — never mock items; never invent fields not in the
-  collection.
+- Set `WIX_CLIENT_ID` (in `wix-config`) — not the placeholder.
+- Read/write **only** through the `wix-cms.js` helpers (official Wix Data endpoints) — never hand-build a URL.
+- `queryDataItems` → `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is `[{ fieldName, order }]`; date comparands wrap as `{ "$date": ISO }`.
+- Convert `wix:image://` URIs via `wixImage()` before `<img src>`.
+- Owner field is `_owner` (Wix Data v2), not `_ownerId`; "my items" → `{ filter: { _owner: <member.id> } }` (see above).
+- `updateDataItem` **replaces** the whole item — fetch + merge first (or use Patch Data Item).
+- Render live Wix data or an honest empty state — never mock items or invent fields not in the collection.
 - Treat a 403 as a permissions setup step (tell the user which permission to grant), not a code bug.
 
-## Fallback only — beyond the shipped client
-When you hit an error or need something the shipped client doesn't cover, make the call yourself with
-`wixApiRequest` — but look up the exact endpoint, method, and body in the **official Wix API
-reference** first; never guess. Or read the relevant shipped file under `src/`, or use the
-**`wix-docs`** skill.
-- CMS / Data Items API reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
-- **Partial update**: Patch Data Item — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
-- **Upsert by id**: Save Data Item — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/save-data-item.md
-- **Bulk** insert/update/save/remove: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
-- **Free-text / fuzzy search**: Search Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/search-data-items.md
-- **Aggregations**: Aggregate Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/aggregate-data-items.md
-- **Distinct values** (e.g. a filter menu): Query Distinct Values — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-distinct-values.md
-- **Referenced items** (beyond the inline limit): Query Referenced Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-referenced-data-items.md
-- **Collection schema / field keys**: Get Data Collection — https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection.md
-- **Member-gated & user-generated content** → the **members** vertical (`references/members/INSTRUCTIONS.md`).
-  Keep a feature's data and identity together on one side: for Wix-backed member content, store the row
-  in a Wix collection and key it on the server-stamped `_owner`.
-
-## Point the user to their dashboard
-Provide deep links so the owner can edit content (substitute the site's `metaSiteId`, from the handoff
-/ `ListWixSites`):
-- **Collections & items** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms` (`Dashboard → CMS`)
-  → **Create Collection**, then open a collection to add items.
-- **Permissions** — same CMS area → open the collection → **More Actions → Permissions & Privacy**. For
-  the headless app to read anonymously, set **Show content** to *Everyone*; for a public form, set
-  **Collect content** to *Everyone*. Update/Delete stay admin-only.
+## Fallback — beyond the helpers
+Need something the helpers don't cover? Call it yourself with `wixApiRequest`, but look up the exact
+endpoint/method/body in the official Wix reference first (or use the `wix-docs` skill) — never guess.
+- Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
+- Partial update (Patch): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
+- Upsert by id (Save): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/save-data-item.md
+- Free-text search: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/search-data-items.md
+- Aggregations: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/aggregate-data-items.md
+- Distinct values (filter menus): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-distinct-values.md
+- Referenced items: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-referenced-data-items.md
+- Collection schema / field keys: https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection.md
+- Member-gated / user-generated content → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 
 ## Seeding
-Seed the collection per `seed/SEED.md` (the build-time seed module) — separate from this client build;
-run in parallel.
+Seed the collection per `seed/SEED.md` (the build-time seed module) — separate from this build, run in parallel.
 
-## Verify (before declaring done)
-- [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] `collection.config.js`: `COLLECTION_ID` set to the collection name; `FIELDS` mapped to your
-      real field keys (from the seed plan); unused roles set to `null`.
-- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
-- [ ] **Opened the collection list and an item detail page** (not just the home page) and confirmed the shipped components render themed (surface, text, brand) with images.
-- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all
-      routes; shipped `Collection`/`ItemDetail` untouched; content clears the fixed chrome.
-- [ ] `useCollection` returns live items (destructured from `{ items, nextCursor }`); Load-more paginates.
-- [ ] Detail page resolves by slug (or `_id`) and shows a not-found state on miss — no invented item.
-- [ ] Image fields render (via `lib/wixImage.js`) — `wix:image://` URIs converted, not shown raw.
-- [ ] Empty collection shows the shipped empty state; no mock items anywhere.
-- [ ] Any 403 surfaced to the user as a permissions step; told the user they can keep editing content
-      in the dashboard, with deep links.
+## Point the user to their dashboard
+Substitute the site's `metaSiteId`:
+- **Collections & items** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms` → Create Collection, then add items.
+- **Permissions** — same CMS area → open the collection → More Actions → Permissions & Privacy. Read anonymously → **Show content: Everyone**; public/member form → **Collect content: Everyone/Members**. Update/Delete stay admin-only.
+
+## Verify
+- [ ] `WIX_CLIENT_ID` set (not the placeholder); collection name + field keys correct (from the seed plan).
+- [ ] List renders live items (`{ items, nextCursor }` destructured); pagination works; empty collection → honest empty state (no mock items).
+- [ ] Detail resolves by slug or `_id`, with a not-found state on miss.
+- [ ] Image fields render via `wixImage()` (no raw `wix:image://`).
+- [ ] Any 403 surfaced to the user as a permissions step, with the dashboard deep links.
