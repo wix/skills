@@ -29,6 +29,12 @@ Don't attempt to call `ItemSeoTagsService` endpoints speculatively — they aren
 
 There is no equivalent internal project (as far as this pass found) for the page **content/body-copy** half — that remains a genuine architectural gap with no known API in flight.
 
+## `ResolveStaticPageSeoTags`'s `custom` field is always `false` for classic-Editor pages — don't use it to verify a per-page override
+
+A later report confirmed a specific symptom of the gap above: calling `ResolveStaticPageSeoTags` on a classic-Editor static page that genuinely has a live, published custom title/description override still returns `"custom": false` on every tag. This is **not a hardcoded value** — `custom` is a real computation (`packages/seo-renderer/src/private/tags/custom/update-custom-tags.ts` in `wix-private/promote-seo`, gated on a non-empty `advancedSeoData` payload) — but a direct public-API caller can never supply that payload for a classic-Editor page. The service's only two sources for a per-page override are (a) `seoData` passed directly in the request — how Wix's own internal Thunderbolt renderer gets it right — or (b) a Vibe/Astro-specific `AppItem` KV store (`fetch-vibe-static-page-seo-data.ts`), whose own doc comment says it returns `undefined` for "editor pages." Neither path can see classic-Editor per-page overrides, so `custom: false` on this API is not evidence a page lacks an override — it means "no override visible to this API," which for classic-Editor pages is always true. Don't use this API to confirm whether a per-page SEO edit is live; there's no API that can (see the gap above).
+
+Separately, per-page custom title/description overrides — once set in the Editor — take precedence over later account-level `siteDisplayName`/Site Properties changes (an update to the account name propagates to the homepage and to any page still on auto-generated tags, but not to a page with its own override already set). This matches normal override-precedence semantics but isn't documented anywhere in the Site Properties or SEO Tags API docs.
+
 ## What this means for a request like "update the copy and SEO on my About page"
 
 1. State plainly that no automated path exists today for either the body-copy edit or the SEO-tag edit — don't loop on tool calls searching for one.
