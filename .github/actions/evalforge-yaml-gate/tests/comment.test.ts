@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as c from '../src/utils/comment';
-import { formatLintViolations } from '../src/utils/comment';
+import { formatLintViolations, formatConfirmOnFail } from '../src/utils/comment';
 import type { CompareGroupComplete, ScenarioComparison, ScenarioRunResult } from '../src/utils/eval-pipeline';
 
 function run(over: Partial<ScenarioRunResult> = {}): ScenarioRunResult {
@@ -235,5 +235,29 @@ describe('formatLintViolations', () => {
     expect(out).toContain('blog/create-post');
     expect(out).toContain('max-tokens');
     expect(out).toContain('docs/eval-scenarios.md');
+  });
+});
+
+describe('formatConfirmOnFail', () => {
+  it('separates confirmed failures from recovered flakes', () => {
+    const out = formatConfirmOnFail({
+      verdicts: [
+        { scenarioId: 'a', scenarioName: 'blog/a', attempts: 2, failures: 2, confirmed: true, reasons: ['llm-judge'] },
+        { scenarioId: 'b', scenarioName: 'blog/b', attempts: 3, failures: 1, confirmed: false, reasons: ['llm-judge'] },
+      ],
+      retriesRun: 2,
+      retriesSkipped: false,
+    }, true);
+    expect(out).toContain('blog/a');
+    expect(out).toContain('2/2');
+    expect(out).toContain('blog/b');
+    expect(out).toContain('recovered');
+  });
+
+  it('notes when retries were skipped due to broad failure', () => {
+    const out = formatConfirmOnFail({ verdicts: [
+      { scenarioId: 'a', scenarioName: 'blog/a', attempts: 1, failures: 1, confirmed: true, reasons: ['llm-judge'] },
+    ], retriesRun: 0, retriesSkipped: true }, true);
+    expect(out.toLowerCase()).toContain('retries skipped');
   });
 });
