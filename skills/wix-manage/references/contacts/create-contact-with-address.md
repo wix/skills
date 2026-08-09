@@ -39,6 +39,8 @@ At least one of `name.first`, `name.last`, `email.email`, or `phone.phone` must 
 
 `addresses[].address` takes either `addressLine` as free text, or a structured `streetAddress` object — not both.
 
+`email` is a single object, exactly as above. Send a list instead — `emails: [{ tag: 'MAIN', email: '…' }]` — and the request still returns `200`, but the field is discarded: the contact is created with no email at all. Nothing in the response reports this, so it surfaces only when something later reads the contact back and the email is missing. The same holds for `phone`. Read `contact.email.email` off the create response to confirm it was stored.
+
 ### 2. Write `subdivision` in ISO 3166-2 form
 
 `subdivision` is the 2-letter country code, a hyphen, then 1-3 characters for the state, region, prefecture or province: `US-NY`, `GB-ENG`, `FR-976`. A bare state code is rejected:

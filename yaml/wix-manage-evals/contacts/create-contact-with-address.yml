@@ -49,7 +49,10 @@ assertions:
       request bodies.
 
       Score 4-6: the outcome was reached, but the path cost an avoidable round trip — for example
-      repeated API-spec or schema lookups to resolve the nested address shape, or a redundant read.
+      repeated API-spec or schema lookups to resolve the nested address shape, a redundant read, or
+      a follow-up update to set a field that the create call should already have stored (such as
+      sending the main email as a list, which is accepted and silently discarded, and then patching
+      it in afterwards).
 
       Score 1-3: any create call was REJECTED and then retried. Score here in particular when a
       create was rejected with `subdivision is not a valid subdivision code` (a `FORMAT` violation
