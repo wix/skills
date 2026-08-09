@@ -159,6 +159,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 **Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
 
+### [Connect an External Domain](references/domains/connect-external-domain.md)
+**Technical:** Connect a domain the user already owns elsewhere to a Wix site via pointing or nameservers, using the Connected Domains and DNS Propagation APIs. Covers correctly interpreting DNS propagation status (which does NOT mean the site is actually being served yet) and the safe order of operations for domain migrations, so you don't advise reassigning primary before the new domain is confirmed live.
+
 ---
 
 ## eCommerce
