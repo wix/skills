@@ -40,7 +40,15 @@ When a scenario fails its first attempt, the gate reruns just the failing scenar
 to two retries) and blocks only when a majority of attempts fail. The PR comment lists
 confirmed failures separately from recovered flaky runs. When many scenarios fail at
 once, retries are skipped and the failure is treated as real. A scenario that repeatedly
-recovers on retry is flaky — rewrite it.
+recovers on retry is flaky — rewrite it or quarantine it.
+
+### Quarantine
+
+`yaml/wix-manage-evals/quarantine.yaml` lists scenarios excluded from gating unrelated
+PRs: a quarantined scenario is skipped when it would run only because it covers a
+changed skill doc. A PR that edits the scenario's own YAML still runs it — a rewrite
+must prove itself. Each entry records the reason; remove the entry when the scenario is
+rewritten and stable.
 
 ## wix-app scenarios: the PR eval gate
 
