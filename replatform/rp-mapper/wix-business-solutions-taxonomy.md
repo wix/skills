@@ -32,7 +32,7 @@ Typical `eCommerce` entities:
 
 Use `eCommerce` when the source data is about:
 - cart contents
-- checkout state (maps onto the cart — unified into Cart V2)
+- checkout input state — billing / shipping / coupons (maps onto the cart; unified into Cart V2. Calculated totals are not stored on the cart — see Mapper notes)
 - order lifecycle
 - fulfillment and payment operations
 - cross-vertical commerce operations that are not specific to a single catalog app
@@ -101,7 +101,7 @@ Primary entities:
 | `order-billing` | Payment capture, void, and refund operations for eCommerce orders | [About the Order Billing API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing/introduction) |
 
 Mapper notes:
-- **A source system's separate "checkout" has no distinct Wix target.** Cart V2 unifies cart and checkout into one entity, so map source checkout state (calculated prices, tax, billing, shipping, discounts) onto `cart`, not a separate entity.
+- **A source system's separate "checkout" has no distinct Wix target.** Cart V2 unifies cart and checkout, so map a source checkout's *input* state onto `cart`: billing → `paymentInfo.billingAddress`, shipping/delivery → `deliveryInfo`, applied coupons → cart `coupons`. **Calculated prices, tax, and totals are NOT stored on the cart** — in V2 they're computed on demand via Calculate/Estimate Cart (returned as a `CartSummary`), and the final figures live on the `order` after placement — so don't try to persist a source checkout's computed totals on the cart.
 - If the source platform exposes products and orders in one model, split catalog entities into the vertical app and transaction entities into `ecommerce`.
 - If the source has historical orders but no cart or checkout history, map directly to `order` and document missing pre-purchase state.
 
