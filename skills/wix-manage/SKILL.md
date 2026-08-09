@@ -139,6 +139,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 **Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
 
+### [Create Contact with Address](references/contacts/create-contact-with-address.md)
+**Technical:** Creates a contact with a physical address in one Contacts API call. Covers the minimum identifying fields and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
+
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 **Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
 

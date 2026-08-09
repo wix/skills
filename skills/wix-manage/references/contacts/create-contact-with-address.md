@@ -1,0 +1,64 @@
+---
+name: "Create Contact with Address"
+description: Creates a contact with a physical address using the Contacts API. Covers the minimum identifying fields and the ISO 3166-2 subdivision format required for state, region, and province codes.
+---
+# Create a Contact with an Address
+
+## Description
+Creates a contact and attaches a physical address in the same call.
+
+## API Endpoint
+`POST https://www.wixapis.com/contacts/v5/contacts`
+
+## Steps
+
+### 1. Send the contact with its address
+
+At least one of `name.first`, `name.last`, `email.email`, or `phone.phone` must be present. Copy this body and change the values:
+
+```json
+{
+  "contact": {
+    "name": { "first": "Maria", "last": "Gomez" },
+    "email": { "email": "maria.gomez@example.com" },
+    "addresses": [
+      {
+        "tag": "HOME",
+        "address": {
+          "addressLine": "350 Fifth Avenue",
+          "city": "New York",
+          "subdivision": "US-NY",
+          "postalCode": "10118",
+          "country": "US"
+        }
+      }
+    ]
+  }
+}
+```
+
+`addresses[].address` takes either `addressLine` as free text, or a structured `streetAddress` object — not both.
+
+### 2. Write `subdivision` in ISO 3166-2 form
+
+`subdivision` is the 2-letter country code, a hyphen, then 1-3 characters for the state, region, prefecture or province: `US-NY`, `GB-ENG`, `FR-976`. A bare state code is rejected:
+
+```
+HTTP 400 {"message":"contact is invalid:
+`-- addresses [at index 0] is invalid:
+    `-- address is invalid:
+       `-- subdivision is not a valid subdivision code",
+ "details":{"validationError":{"fieldViolations":[{
+   "field":"contact.addresses[0].address.subdivision",
+   "description":"is not a valid subdivision code","violatedRule":"FORMAT",
+   "data":{"type":"SUBDIVISION"}}]}}}
+```
+
+The Create Contact reference describes this field as a "short code (2 or 3 letters)" and gives `NY` as the example, which the server does not accept. Use the hyphenated form.
+
+`country` is the plain [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) code — `US`, no hyphen. Only `subdivision` carries the country prefix.
+
+## Related
+
+- [Create Contact](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/create-contact)
+- [Update Contact](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/update-contact)
