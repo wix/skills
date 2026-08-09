@@ -6,6 +6,7 @@ import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
+import { loadQuarantine } from './quarantine';
 import {
   EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
   listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
@@ -19,7 +20,7 @@ import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
   comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
-  formatLintViolations,
+  formatLintViolations, formatQuarantineSkipped,
 } from './comment';
 import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 import { lintChangedScenarios } from './scenario-lint';
@@ -33,23 +34,30 @@ function allScenariosRequired(result: ComparisonGroupResult): boolean {
 /**
  * Head scenarios to sync and run: those whose YAML changed, plus those covering a
  * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
+ *
+ * Quarantine only filters coverage-sourced additions — a scenario whose own YAML
+ * changed in this PR always runs, since its fix must prove itself.
  */
 export function scenariosToRun(input: {
   headScenarios: Map<string, LoadedScenario>;
   changedEvalPaths: Set<string>;
   coveredBy: Map<string, string[]>;
-}): Map<string, LoadedScenario> {
-  const result = new Map<string, LoadedScenario>();
+  quarantined: Set<string>;
+}): { selected: Map<string, LoadedScenario>; quarantineSkipped: string[] } {
+  const selected = new Map<string, LoadedScenario>();
+  const skipped = new Set<string>();
   for (const [name, ls] of input.headScenarios) {
-    if (input.changedEvalPaths.has(ls.path)) result.set(name, ls);
+    if (input.changedEvalPaths.has(ls.path)) selected.set(name, ls);
   }
   for (const coveringNames of input.coveredBy.values()) {
     for (const name of coveringNames) {
       const ls = input.headScenarios.get(name);
-      if (ls) result.set(name, ls);
+      if (!ls || selected.has(name)) continue;
+      if (input.quarantined.has(name)) { skipped.add(name); continue; }
+      selected.set(name, ls);
     }
   }
-  return result;
+  return { selected, quarantineSkipped: [...skipped].sort() };
 }
 
 export function scenarioIdsToRun(
@@ -170,7 +178,16 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
+  const quarantine = loadQuarantine(workspace);
+  for (const err of quarantine.errors) core.warning(`Quarantine file issue: ${err}`);
+
+  const { selected: changedHeadScenarios, quarantineSkipped } = scenariosToRun({
+    headScenarios, changedEvalPaths, coveredBy: cov.coveredBy, quarantined: quarantine.names,
+  });
+  if (quarantineSkipped.length > 0) {
+    core.info(`Quarantined scenarios skipped: ${quarantineSkipped.join(', ')}`);
+    await comment(formatQuarantineSkipped(quarantineSkipped));
+  }
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(
