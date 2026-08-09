@@ -10,7 +10,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The Wix docs render two views of the same page. The **bare / REST view shows `id`**; the **`?apiView=SDK` view shows `_id`** — and the SDK is what your frontend calls. Reading the REST view by mistake is the single most common source of the cart-killing `product.id` bug (see the `_id` rule under *Listing products*). Fetch the `.md?apiView=SDK` form directly; don't re-discover these with search.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow (items → delivery/billing/payment → placing the order). This recipe says **"cart"** for that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
+> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow (items → delivery/billing/payment → placing the order). This recipe says **"cart"** for that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to. Migrating an existing Cart V1 / Checkout V1 integration? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
 
 ---
 
@@ -74,7 +74,7 @@ variant = {
   inventoryStatus: { inStock },                   // variant-level stock (boolean)
 }
 
-// currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: wrapped in { cart } (V1 returned the cart directly)
+// currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: returns { cart } — destructure it
 lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
 // price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
@@ -156,7 +156,7 @@ Each `variant` carries `variant.optionChoices[].optionChoiceNames` — `{ option
 
 ```js
 await currentCartV2.addLineItemsToCurrentCart({
-  catalogItems: [{                                // Cart V2: `catalogItems`, NOT V1's `lineItems`
+  catalogItems: [{                                // the write shape uses `catalogItems`
     quantity,
     catalogReference: {
       catalogItemId: product._id,                 // the product's _id (the `_id` rule above)
@@ -177,7 +177,7 @@ Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>
 
 ```js
-const { cart } = await currentCartV2.getCurrentCart();   // NOTE: wrapped in { cart } (V1 returned the cart directly)
+const { cart } = await currentCartV2.getCurrentCart();   // NOTE: returns { cart } — destructure it
 const session = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id — there is no createCheckout call
   callbacks: { postFlowUrl: `${origin}/`, thankYouPageUrl: `${origin}/` },
@@ -185,7 +185,7 @@ const session = await redirects.createRedirectSession({
 window.location.href = session.redirectSession.fullUrl; // the hosted-checkout URL
 ```
 
-**⚠️ There is no `createCheckoutFromCurrentCart` in Cart V2.** The V1 flow created a checkout entity and returned a `checkoutId`; V2 unifies cart + checkout, so you pass the cart's own `_id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` now returns **`{ cart }`** (V1 returned the cart directly) — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
+**⚠️ The cart's `_id` is the checkout id.** There's no separate checkout to create — pass `cart._id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
 
 > **Simpler alternative (see PR note):** `cartV2.getCheckoutUrl(cartId)` returns a hosted-checkout URL directly, letting you drop `@wix/redirects`. It isn't used here because the redirect session is what carries the visitor/member session across domains; whether the plain URL preserves that for a headless storefront is unverified.
 
