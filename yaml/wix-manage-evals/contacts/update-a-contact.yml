@@ -55,9 +55,10 @@ assertions:
       rejected with `Field 'name.first' is not declared as filterable` because the agent filtered a
       contacts query by name instead of using the free-text contacts search, or when a write was
       rejected with `subdivision is not a valid subdivision code` (a `FORMAT` violation on a
-      `subdivision` field) because the subdivision was sent without its country prefix — even
-      though a later call succeeded. Also score here for a wrong endpoint or wrong API version
-      tried first.
+      `subdivision` field) because the subdivision was sent without its country prefix, or when it
+      was rejected for an address `tag` outside the accepted set (`OTHER`, `HOME`, `WORK`,
+      `BILLING`, `SHIPPING`) — even though a later call succeeded. Also score here for a wrong
+      endpoint or wrong API version tried first.
 
       For each issue found, name the likely MCP/docs gap.
 

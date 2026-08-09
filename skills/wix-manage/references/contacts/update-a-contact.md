@@ -67,7 +67,6 @@ the whole contact — the address is appended, so existing addresses survive:
 {
   "revision": "<revision from step 1>",
   "address": {
-    "tag": "WORK",
     "address": {
       "addressLine": "350 Fifth Avenue",
       "city": "New York",
@@ -79,8 +78,17 @@ the whole contact — the address is appended, so existing addresses survive:
 }
 ```
 
-Note the doubled `address` here too: the outer object is the contact's address entry, which carries
-the `tag`, and the inner one is the postal address itself.
+Note the doubled `address` here too: the outer object is the contact's address entry, which can
+carry a `tag`, and the inner one is the postal address itself.
+
+`tag` is one of `OTHER`, `HOME`, `WORK`, `BILLING`, `SHIPPING`, and that list is closed — there is
+no "untagged" or "none" member. When the user did not say what kind of address it is, leave `tag`
+out, exactly as above; inventing a value for that case is rejected:
+
+```
+HTTP 400 {"message":"address is invalid:
+`-- tag enum must be in [UNKNOWN_ADDRESS_TAG(0), OTHER(1), HOME(2), WORK(3), BILLING(4), SHIPPING(5)]"}
+```
 
 ### 4. Write `subdivision` in ISO 3166-2 form
 
