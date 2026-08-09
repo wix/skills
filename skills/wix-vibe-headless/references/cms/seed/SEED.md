@@ -8,12 +8,27 @@ API key; the public `WIX_CLIENT_ID` cannot write — see the platform doc's seed
 **⛔ Additive only — never delete, reset, or overwrite existing content.**
 
 ## Auth (on every call)
-```bash
-API=https://www.wixapis.com
-AUTH=(-H "Authorization: Bearer <TOKEN>" -H "wix-site-id: <METASITE_ID>" -H "Content-Type: application/json")
-#  connector/service-role token → "Authorization: Bearer <TOKEN>"
-#  Wix API key                  → "Authorization: <API_KEY>"   (raw, NO "Bearer")
-```
+The curls below are **request shapes** — endpoint, method, body. **Never inline the raw token/API key**
+into a command: it would end up in the transcript, exec logs, and shell history. Keep the credential in
+a variable and reference it.
+- **On Base44 (and any exec-tool platform): don't shell out to curl — make these calls with `fetch()`**,
+  taking the token from the connector so it's never printed:
+  ```js
+  const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // token stays in memory
+  await fetch(`https://www.wixapis.com/wix-data/v2/collections`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "wix-site-id": METASITE_ID, "Content-Type": "application/json" },
+    body: JSON.stringify({ collection: { /* … */ } }),
+  });
+  ```
+- **On a shell/curl platform:** load the credential into an env var from your secret manager (don't
+  echo it), then reference `$TOKEN` — the literal never appears in the command you write:
+  ```bash
+  API=https://www.wixapis.com
+  # TOKEN comes from your connector / secret manager (e.g. TOKEN="$WIX_TOKEN") — do NOT paste it here.
+  AUTH=(-H "Authorization: Bearer $TOKEN" -H "wix-site-id: $METASITE_ID" -H "Content-Type: application/json")
+  #  Wix API key instead of a token → -H "Authorization: $TOKEN"   (raw, NO "Bearer")
+  ```
 
 ## 0 · Install the Wix Data app — only if a data call returns `WDE0110` (app not installed)
 ```bash
