@@ -14,6 +14,23 @@ function render(icon: string, label: string, body: string[]): string {
   return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
 }
 
+/**
+ * Joins non-empty comment section bodies into a single comment, separated by a
+ * horizontal rule. Only the first body's `COMMENT_MARKER` line is kept — the marker
+ * must appear exactly once so the commenter still recognizes this as a single upsert
+ * target, so it is stripped from every subsequent section.
+ */
+export function composeSections(...bodies: string[]): string {
+  const nonEmpty = bodies.filter(b => b.trim().length > 0);
+  return nonEmpty
+    .map((b, i) => {
+      if (i === 0) return b;
+      const lines = b.split('\n');
+      return lines[0] === COMMENT_MARKER ? lines.slice(1).join('\n') : b;
+    })
+    .join('\n\n---\n\n');
+}
+
 function failIcon(blocking: boolean): { icon: string; label: string } {
   return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
 }
@@ -224,24 +241,24 @@ export function formatTokenBudgetExceeded(violations: TokenBudgetViolation[], pr
 export function formatConfirmOnFail(result: ConfirmResult, blocking: boolean): string {
   const confirmed = result.verdicts.filter(v => v.confirmed);
   const recovered = result.verdicts.filter(v => !v.confirmed);
-  const lines: string[] = [
-    COMMENT_MARKER,
-    `## ${confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅'} ${HEADING}: Confirm-on-Fail`,
-    '',
+  const icon = confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅';
+  const body: string[] = [
     'Failing scenarios are rerun and block only when a majority of attempts fail.',
     '',
   ];
-  if (result.retriesSkipped) {
-    lines.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once, which is treated as a real regression (or the retry infrastructure failed; see the job log).`, '');
+  if (result.skipReason === 'broad-failure') {
+    body.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once — treated as a real regression.`, '');
+  } else if (result.skipReason === 'rerun-error') {
+    body.push('> Retries skipped — the retry infrastructure failed; first-attempt failures stand — see the job log.', '');
   }
   if (confirmed.length > 0) {
-    lines.push('**Confirmed failures:**', '', ...confirmed.map(v =>
+    body.push('**Confirmed failures:**', '', ...confirmed.map(v =>
       `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
   }
   if (recovered.length > 0) {
-    lines.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v =>
+    body.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v =>
       `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
-    lines.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
+    body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
   }
-  return lines.join('\n');
+  return render(icon, 'Confirm-on-Fail', body);
 }

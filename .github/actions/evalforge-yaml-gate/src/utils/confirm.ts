@@ -10,7 +10,13 @@ export type ConfirmVerdict = {
   reasons: string[];
 };
 
-export type ConfirmResult = { verdicts: ConfirmVerdict[]; retriesRun: number; retriesSkipped: boolean };
+/**
+ * 'broad-failure': more scenarios failed initially than MAX_RETRY_SCENARIOS allows to
+ * rerun, so the failures are treated as a real regression rather than noise.
+ * 'rerun-error': the retry infrastructure itself failed; first-attempt failures stand.
+ * Absent: retries ran normally (there may still be zero of them, e.g. nothing failed).
+ */
+export type ConfirmResult = { verdicts: ConfirmVerdict[]; retriesRun: number; skipReason?: 'broad-failure' | 'rerun-error' };
 
 export const MAX_CONFIRM_RETRIES = 2;
 
@@ -22,7 +28,7 @@ export async function confirmOnFail(
   rerun: (scenarioIds: string[]) => Promise<AttemptOutcome[]>,
 ): Promise<ConfirmResult> {
   const failed = initial.filter(o => o.failed);
-  if (failed.length === 0) return { verdicts: [], retriesRun: 0, retriesSkipped: false };
+  if (failed.length === 0) return { verdicts: [], retriesRun: 0 };
 
   const state = new Map(failed.map(o => [o.scenarioId, {
     scenarioId: o.scenarioId,
@@ -36,7 +42,7 @@ export async function confirmOnFail(
     return {
       verdicts: finalize(state, () => true),
       retriesRun: 0,
-      retriesSkipped: true,
+      skipReason: 'broad-failure',
     };
   }
 
@@ -65,7 +71,6 @@ export async function confirmOnFail(
   return {
     verdicts: finalize(state, s => s.failures >= 2),
     retriesRun,
-    retriesSkipped: false,
   };
 }
 

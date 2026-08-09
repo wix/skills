@@ -20,7 +20,7 @@ import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
   formatComparisonResult, formatComparisonTimeout, formatTooManyNewSkills,
-  formatLintViolations, formatQuarantineSkipped,
+  formatLintViolations, formatQuarantineSkipped, composeSections,
   noWinnerReason, formatConfirmOnFail,
 } from './comment';
 import { findTokenBudgetViolations } from './token-budget';
@@ -129,14 +129,6 @@ export async function runGate(): Promise<void> {
   core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
   core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
 
-  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-  const mcpVersion = await guardedCall(
-    () => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo),
-    'Could not create MCP version', comment, config,
-  );
-  if (!mcpVersion) return;
-
   const { scenarios: headScenarios, errors: loadErrors } = loadEvals(workspace);
   if (loadErrors.length > 0) {
     await comment(formatLoadErrors(loadErrors));
@@ -196,15 +188,27 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const quarantine = loadQuarantine(workspace);
+  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+  const mcpVersion = await guardedCall(
+    () => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo),
+    'Could not create MCP version', comment, config,
+  );
+  if (!mcpVersion) return;
+
+  // Quarantine entries are read from the base-branch checkout, never the PR's own
+  // head — otherwise a PR could quarantine its own covering scenario and skip it
+  // in the same run. An entry only takes effect once merged to the base branch.
+  const quarantine = loadQuarantine(baseWorkspace);
   for (const err of quarantine.errors) core.warning(`Quarantine file issue: ${err}`);
 
   const { selected: changedHeadScenarios, quarantineSkipped } = scenariosToRun({
     headScenarios, changedEvalPaths, coveredBy: cov.coveredBy, quarantined: quarantine.names,
   });
-  if (quarantineSkipped.length > 0) {
+  const quarantineSkippedBody = quarantineSkipped.length > 0 ? formatQuarantineSkipped(quarantineSkipped) : '';
+  if (quarantineSkippedBody) {
     core.info(`Quarantined scenarios skipped: ${quarantineSkipped.join(', ')}`);
-    await comment(formatQuarantineSkipped(quarantineSkipped));
+    await comment(quarantineSkippedBody);
   }
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
@@ -276,7 +280,8 @@ export async function runGate(): Promise<void> {
       if (s.with.runId) core.info(`${s.scenarioName} [PR]: ${evalRunUrl(config.projectId, s.with.runId, s.with.name)}`);
       if (s.without.runId) core.info(`${s.scenarioName} [prod]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
     }
-    await comment(formatComparisonResult(done, config.projectId));
+    const comparisonBody = formatComparisonResult(done, config.projectId);
+    await comment(composeSections(comparisonBody, quarantineSkippedBody));
 
     const initialOutcomes = toAttemptOutcomes(done.result.scenarios ?? [], headScenarios);
     const initialFailures = initialOutcomes.filter(o => o.failed);
@@ -299,11 +304,12 @@ export async function runGate(): Promise<void> {
             attempts: 1, failures: 1, confirmed: true, reasons: o.reasons,
           })),
           retriesRun: 0,
-          retriesSkipped: true,
+          skipReason: 'rerun-error',
         };
       }
 
-      await comment(formatConfirmOnFail(confirmResult, config.blocking));
+      const confirmBody = formatConfirmOnFail(confirmResult, config.blocking);
+      await comment(composeSections(comparisonBody, confirmBody, quarantineSkippedBody));
       const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
       if (confirmed.length > 0) {
         fail(`${confirmed.length} scenario(s) failed after confirm-on-fail (${confirmed.map(v => v.scenarioName).join(', ')})`, config.blocking);

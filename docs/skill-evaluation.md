@@ -48,7 +48,8 @@ recovers on retry is flaky — rewrite it or quarantine it.
 PRs: a quarantined scenario is skipped when it would run only because it covers a
 changed skill doc. A PR that edits the scenario's own YAML still runs it — a rewrite
 must prove itself. Each entry records the reason; remove the entry when the scenario is
-rewritten and stable.
+rewritten and stable. Quarantine entries take effect only after their PR merges — a PR
+cannot quarantine scenarios for its own run.
 
 ## wix-app scenarios: the PR eval gate
 
