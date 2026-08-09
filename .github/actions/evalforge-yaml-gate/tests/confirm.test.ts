@@ -60,7 +60,7 @@ describe('confirmOnFail', () => {
     const many = Array.from({ length: MAX_RETRY_SCENARIOS + 1 }, (_, i) => fail(`s${i}`));
     const out = await confirmOnFail(many, rerun);
     expect(rerun).not.toHaveBeenCalled();
-    expect(out.retriesSkipped).toBe(true);
+    expect(out.skipReason).toBe('broad-failure');
     expect(out.verdicts.every(v => v.confirmed && v.attempts === 1)).toBe(true);
   });
 

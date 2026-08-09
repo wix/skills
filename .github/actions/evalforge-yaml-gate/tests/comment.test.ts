@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as c from '../src/utils/comment';
-import { formatLintViolations, formatConfirmOnFail } from '../src/utils/comment';
+import { formatLintViolations, formatConfirmOnFail, composeSections } from '../src/utils/comment';
 import type { CompareGroupComplete, ScenarioComparison, ScenarioRunResult } from '../src/utils/eval-pipeline';
 
 function run(over: Partial<ScenarioRunResult> = {}): ScenarioRunResult {
@@ -246,18 +246,53 @@ describe('formatConfirmOnFail', () => {
         { scenarioId: 'b', scenarioName: 'blog/b', attempts: 3, failures: 1, confirmed: false, reasons: ['llm-judge'] },
       ],
       retriesRun: 2,
-      retriesSkipped: false,
     }, true);
     expect(out).toContain('blog/a');
     expect(out).toContain('2/2');
     expect(out).toContain('blog/b');
     expect(out).toContain('recovered');
+    expect(out).toContain(c.COMMENT_MARKER);
   });
 
-  it('notes when retries were skipped due to broad failure', () => {
+  it('notes a broad-failure skip as a real regression, not an infra note', () => {
     const out = formatConfirmOnFail({ verdicts: [
       { scenarioId: 'a', scenarioName: 'blog/a', attempts: 1, failures: 1, confirmed: true, reasons: ['llm-judge'] },
-    ], retriesRun: 0, retriesSkipped: true }, true);
+    ], retriesRun: 0, skipReason: 'broad-failure' }, true);
     expect(out.toLowerCase()).toContain('retries skipped');
+    expect(out).toContain('treated as a real regression');
+    expect(out).not.toContain('retry infrastructure failed');
+  });
+
+  it('notes a rerun-error skip as an infrastructure failure, not a regression', () => {
+    const out = formatConfirmOnFail({ verdicts: [
+      { scenarioId: 'a', scenarioName: 'blog/a', attempts: 1, failures: 1, confirmed: true, reasons: ['llm-judge'] },
+    ], retriesRun: 0, skipReason: 'rerun-error' }, true);
+    expect(out.toLowerCase()).toContain('retries skipped');
+    expect(out).toContain('retry infrastructure failed');
+    expect(out).not.toContain('treated as a real regression');
+  });
+});
+
+describe('composeSections', () => {
+  it('joins non-empty bodies with a horizontal rule, keeping only the first marker', () => {
+    const a = c.formatNoChanges();
+    const b = c.formatServiceError('boom', true);
+    const out = composeSections(a, b);
+    expect(out.split(c.COMMENT_MARKER).length - 1).toBe(1);
+    expect(out).toContain('---');
+    expect(out).toContain('No Gated Changes');
+    expect(out).toContain('boom');
+    expect(out.indexOf('No Gated Changes')).toBeLessThan(out.indexOf('boom'));
+  });
+
+  it('skips empty bodies entirely', () => {
+    const a = c.formatNoChanges();
+    const out = composeSections(a, '', '');
+    expect(out).toBe(a);
+    expect(out).not.toContain('---');
+  });
+
+  it('returns an empty string when every body is empty', () => {
+    expect(composeSections('', '')).toBe('');
   });
 });
