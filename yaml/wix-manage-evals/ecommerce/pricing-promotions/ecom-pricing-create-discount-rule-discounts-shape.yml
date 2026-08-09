@@ -2,7 +2,7 @@ name: ecommerce/pricing-promotions/create-discount-rule-discounts-shape
 description: Verifies the discount-rule recipe documents the Create Discount Rule wire shape the API actually accepts — discounts as an object with a values array, and discountType/percentage at the entry root — so the agent creates the rule without brute-forcing the payload.
 triggerPrompt: >
   Set up an automatic discount: 10% off any order over $50.
-tags: [ecommerce, aria]
+tags: [ecommerce]
 siteSetup:
   mode: template
   templateId: stores-v3-editor
