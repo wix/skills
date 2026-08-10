@@ -187,8 +187,6 @@ window.location.href = session.redirectSession.fullUrl; // the hosted-checkout U
 
 **⚠️ The cart's `_id` is the checkout id.** There's no separate checkout to create — pass `cart._id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
 
-> **Simpler alternative (see PR note):** `cartV2.getCheckoutUrl(cartId)` returns a hosted-checkout URL directly, letting you drop `@wix/redirects`. It isn't used here because the redirect session is what carries the visitor/member session across domains; whether the plain URL preserves that for a headless storefront is unverified.
-
 **⚠️ CRITICAL: `origin` for `postFlowUrl`/`thankYouPageUrl` MUST be the `https://` published host — derive it from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the site's **`https://`** host and treats **`http://<same host>` as a different, unlisted origin**. When the buyer returns from the hosted checkout (e.g. clicks "Continue Browsing"), the redirect goes through the allowlist — and an `http://` `postFlowUrl` **403s** with *"… isn't listed as an allowed redirect domain."* If you build the redirect session in a **server route** (`src/pages/api/*`), `new URL(request.url).origin` resolves to **`http://`** behind Wix's TLS-terminating proxy → guaranteed 403 on return. So **pass `window.location.origin` from the client** into the route (don't read the origin off the request), or force the scheme to `https`. Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
 
 ### Formatting cart prices (Cart V2 has no preformatted amount)
@@ -229,7 +227,7 @@ function imgSrc(mediaMain, w = 600, h = 600) {
 
 **Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** either — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
 
-**This applies to cart line-item images too, not just product reads.** A cart `lineItem.attributes.image` (Cart V2 nests it under `attributes`) is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
+**This applies to cart line-item images too, not just product reads.** A cart `lineItem.attributes.image` is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
 
 ### Rendering product descriptions
 
