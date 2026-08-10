@@ -14,7 +14,16 @@ This project is the **frontend for a Wix-managed business** — a REST client th
 
 The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
 
-- \`wix-vibe-headless\` — **how the CLIENT is built AND how the site is seeded**: your vertical's UI client + REST scaffolds are already deployed into \`src/\`; one vertical per capability under \`references/<vertical>/\` (storefront, bookings, events, blog, portfolio, restaurants, cms, pricing-plans, members), each with a \`seed/\` module that creates content over the connector.
+- \`wix-vibe-headless\` — **how the CLIENT is built AND how the site is seeded**: your vertical's UI client + REST scaffolds are already deployed into \`src/\`; one vertical per capability under \`references/<vertical>/\`, each with a \`seed/\` module that creates content over the connector:
+  - **storefront** — sell physical or digital products online.
+  - **bookings** — let customers book appointments or services with your business.
+  - **blog** — publish articles for visitors to read.
+  - **cms** — model and serve your own custom, structured content — for anything the other verticals don't cover.
+  - **portfolio** — showcase creative work in collections and project pages.
+  - **pricing-plans** — sell memberships or subscriptions to your service.
+  - **events** — publish events and handle RSVPs or ticket sales.
+  - **members** — let visitors create an account and sign in — this is **auth**.
+  - **restaurants** — publish a menu, take online orders, and manage table reservations.
 - \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
 `;
 
