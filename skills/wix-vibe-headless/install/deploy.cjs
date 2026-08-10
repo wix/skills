@@ -1,12 +1,16 @@
-// Post-install deploy — run by base44.md STEP 1 with the target VERTICAL:
-//   node deploy.cjs <vertical>   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
+// Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
+//   node deploy.cjs <vertical> [<vertical> …]
+//   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
-// wix-config.js) is copied always; then ONLY the chosen vertical's app/ (its UI + app/rest/ helpers).
-// Deploying a single vertical is deliberate: every vertical's app/ has files at the SAME paths
-// (components/…, pages/…), so copying all of them into one src/ would clobber and pile up. Two
-// copies (not one) only because shared stays DRY. paths are the Base44 sandbox's /app. Re-running is
-// non-destructive: it fills in only missing files, never overwriting the agent's edits (see COPY).
-// No vertical arg -> deploys just the shared transport; re-run with the vertical once known.
+// wix-config.js) is copied always; then each named vertical's app/ (its UI + app/rest/ helpers).
+// Deploy every vertical the app actually uses, in one call or across several — an app that needs both
+// members and cms names both, and its CMS helpers then come from the skill instead of being
+// hand-written. Order matters only where two verticals ship a file at the SAME path (both have
+// components/…, pages/…): the first one listed wins, since the copy never overwrites. Verticals whose
+// file sets don't overlap (cms ships utils only, no UI) combine freely.
+// paths are the Base44 sandbox's /app. Re-running is non-destructive: it fills in only missing files,
+// never overwriting the agent's edits (see COPY), so a later call can add a vertical safely.
+// No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
 const { existsSync, cpSync, readFileSync } = require('fs');
@@ -64,21 +68,28 @@ function replaceMembersAuthLeftovers() {
 
 // --- main ---------------------------------------------------------------------------------------
 
-const vertical = process.argv[2];
-const deployed = { vertical: null };
+// Accept one or many: `deploy.cjs members cms`. Duplicates collapse; order is preserved so the
+// first vertical listed wins any same-path file (the copy never overwrites).
+const requested = [...new Set(process.argv.slice(2))];
+const deployed = { verticals: [] };
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
 
-// The chosen vertical ONLY — its app/ (UI + app/rest/ helpers) -> src/.
-if (vertical && VERTICALS.includes(vertical) && existsSync(`${REF}/${vertical}/app`)) {
+// Each named vertical — its app/ (UI + app/rest/ helpers) -> src/.
+const unknown = requested.filter((v) => !VERTICALS.includes(v));
+for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
+  if (!existsSync(`${REF}/${vertical}/app`)) continue;
   cpSync(`${REF}/${vertical}/app`, '/app/src', COPY);
-  deployed.vertical = vertical;
+  deployed.verticals.push(vertical);
   if (vertical === 'members') deployed.authPagesFixed = replaceMembersAuthLeftovers();
-} else if (vertical) {
-  deployed.error = `unknown vertical "${vertical}" — expected one of: ${VERTICALS.join(', ')}`;
-} else {
-  deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical>';
+}
+
+if (unknown.length) {
+  deployed.error = `unknown vertical(s) ${unknown.map((v) => `"${v}"`).join(', ')} — expected: ${VERTICALS.join(', ')}`;
+}
+if (!requested.length) {
+  deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
 }
 
 console.log(JSON.stringify(deployed));
