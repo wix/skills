@@ -9,6 +9,9 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -17,12 +20,13 @@ assertions:
 
       Pass if ALL of these are true:
         1. The agent loaded `shipping-add-free-shipping` (NOT the legacy `flow-add-free-shipping` slug).
-        2. It either loaded `shipping-api-reference` or quoted endpoint details from that inline spec — it did NOT invent shipping API URLs (there is no public dev.wix.com page for the Shipping Options / Delivery Profiles APIs).
+        2. It loaded `shipping-api-reference` for the Shipping Options and Delivery Profiles endpoint details instead of trying to discover public method docs URLs through SearchWixRESTDocumentation or SearchWixAPISpec.
         3. The proposed delivery option uses a cost-based threshold: condition `subtotal >= 50` (or equivalent), `cost: 0`, scoped to a US delivery region/profile.
         4. The agent did NOT confuse this with a Pricing & Promotions discount-rule "free-shipping-promo" flow — this is a shipping rate change, not a coupon/discount-rule.
 
       Fail if ANY of these are true:
         - The agent used the legacy `flow-add-free-shipping` slug or content.
+        - The agent tried to use SearchWixRESTDocumentation or SearchWixAPISpec as the authority for Shipping Options docs URLs instead of loading `shipping-api-reference`.
         - The agent invented a shipping endpoint URL not present in `shipping-api-reference`.
         - The free-shipping rate is unconditional (no $50 threshold) or applies globally instead of US-only.
         - The agent routed to Pricing & Promotions / Discount Rules instead of Shipping.
