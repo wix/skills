@@ -15,7 +15,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-an-event
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-event
   - type: llm_judge          # correctness
     minScore: 7
     maxTokens: 2048
