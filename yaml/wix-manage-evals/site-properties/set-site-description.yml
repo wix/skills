@@ -1,0 +1,61 @@
+name: site-properties/set-site-description
+description: >-
+  Verifies the site-properties recipe is discoverable for a site description — not just for
+  payment currency — and carries a complete request body, so the agent sets the description in
+  one call instead of rediscovering the endpoint and the mandatory fields.paths mask by probing
+  the API spec.
+triggerPrompt: >-
+  Set my site's description to "Freshly baked artisan breads and pastries, made daily."
+tags: [site-properties]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties
+  - type: llm_judge          # outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Set my site's description to "Freshly baked artisan breads
+      and pastries, made daily.""
+
+      Pass only if the trace shows a successful (2xx) call that set the site's description to that
+      text — either `PATCH /site-properties/v4/properties` with the text under
+      `properties.description`, or `POST /site-properties/v4/properties/business-profile` with it
+      under `businessProfile.description` — and the agent confirmed it.
+
+      Fail if every write attempt errored; OR the description set is different text; OR it set a
+      different field (business name, site display name, SEO tags) instead of the description; OR
+      it only described how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # path quality — this is what the recipe change is for
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to a set description. Examine the tool-call
+      trace, including request bodies and any error bodies.
+
+      Score 9-10: the agent loaded the site-properties recipe and issued ONE successful write with
+      the field mask present on the first attempt. Reading the index and reading the recipe are
+      expected and are not wasted calls.
+
+      Score 4-6: the outcome was reached but cost one avoidable round trip — for example a single
+      API-spec lookup for a shape the recipe already gives, or one redundant read-back.
+
+      Score 1-3: any of the following, even if a later call succeeded:
+
+      - a write rejected with `400 Illegal request - No updates on request body`, which means the
+        `fields.paths` mask was omitted or sent under the wrong key such as `fieldMask`;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent locating the
+        endpoint or working out the field mask shape;
+      - a documentation article URL passed to a schema-inspection tool, which cannot resolve it;
+      - a guessed endpoint or field that returned a non-2xx before the working one;
+      - any other non-2xx response.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` —
+      is an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

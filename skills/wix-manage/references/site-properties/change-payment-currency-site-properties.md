@@ -1,15 +1,18 @@
 ---
 name: "RECIPE: Change a Site's Payment (Store) Currency via Site Properties API"
-description: "Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask."
+description: "Updates site-level properties with the Site Properties API — payment currency (store billing currency), site description, business name and site display name — including the required request body shape and the mandatory `fields.paths` field mask."
 ---
 
-# RECIPE: Change a Site's Payment (Store) Currency via Site Properties API
+# RECIPE: Update Site Properties (Currency, Description, Business Name) via Site Properties API
 
 ## Goal
-Update a Wix site's **payment currency** (the ISO-4217 currency code used to bill customers) programmatically.
+Update a Wix site's **site-level properties** — payment currency, site description, business name,
+site display name — programmatically. Every one of them uses the same request, shown below.
 
 ## When to use
+- You need to set or change the **site description**.
 - You need to switch a site's store/payment currency (for example, from `USD` to `EUR`).
+- You need to set the business name or the site display name.
 - You want to automate regional/business setup for sites.
 
 ## Important notes before you start
@@ -48,6 +51,40 @@ A successful call returns an updated Site Properties snapshot version, for examp
 ```json
 { "version": "123" }
 ```
+
+## Step 3 — Update the other site properties with the same call
+
+`paymentCurrency` is not a special case. The same `PATCH /site-properties/v4/properties` with a
+`fields.paths` mask sets the rest of the site's business profile — one entry in `properties` and
+the matching path in the mask, and several fields in one call if you list them all:
+
+| To set | `properties` key | `fields.paths` entry |
+| --- | --- | --- |
+| Site description | `description` | `"description"` |
+| Business name | `businessName` | `"businessName"` |
+| Site display name | `siteDisplayName` | `"siteDisplayName"` |
+| Payment currency | `paymentCurrency` | `"paymentCurrency"` |
+
+```bash
+curl -X PATCH 'https://www.wixapis.com/site-properties/v4/properties' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  --data-binary '{
+    "properties": {
+      "description": "Freshly baked artisan breads and pastries, made daily."
+    },
+    "fields": {
+      "paths": ["description"]
+    }
+  }'
+```
+
+Read the current values back from `GET /site-properties/v4/properties`; the response nests them
+under `properties`.
+
+`POST /site-properties/v4/properties/business-profile`, which takes `businessProfile` plus the
+same `fields.paths` mask, writes the same profile fields. Prefer the `PATCH` above so one request
+shape covers every property.
 
 ## Gotchas & troubleshooting
 - **Always send a field mask**: omitting `fields.paths` will fail with `400` and `"Illegal request - No updates on request body"`.
