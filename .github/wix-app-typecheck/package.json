@@ -10,8 +10,8 @@
     "@types/react-dom": "^18.3.1",
     "@wix/app-management": "^1.0.149",
     "@wix/astro": "^2.57.0",
-    "@wix/auto-patterns": "^1.45.0",
     "@wix/auto_sdk_ecom_shipping-rates": "*",
+    "@wix/auto-patterns": "^1.45.0",
     "@wix/blog": "*",
     "@wix/bookings": "*",
     "@wix/categories": "*",
@@ -34,5 +34,10 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "draft-js": {
+      "immutable": "3.8.3"
+    }
   }
 }
