@@ -25,6 +25,38 @@ import { wixApiRequest } from "./wix-client.js";
  */
 
 /**
+ * Guard: reject `undefined` values inside a filter.
+ *
+ * `JSON.stringify` DELETES undefined values, so a missing or mistyped variable doesn't error —
+ * it silently changes what the query matches, and the server can't flag it either because the
+ * key never arrives:
+ *   { _owner: undefined }          → {}               → matches EVERY item
+ *   { _owner: { $eq: undefined } } → { "_owner": {} }  → matches NO item
+ * The bad value is still visible here, before serialization, so fail loudly instead.
+ *
+ * The classic slip: every CMS data-item field is underscore-prefixed (`_id`, `_owner`,
+ * `_createdDate`), but a Wix MEMBER (a different API) exposes `member.id` — so `member._id`
+ * reads naturally, is `undefined`, and turns "my items" into "everyone's items".
+ */
+function assertDefinedFilterValues(filter, path = "filter") {
+  if (!filter || typeof filter !== "object") return;
+  for (const [key, value] of Object.entries(filter)) {
+    const at = Array.isArray(filter) ? `${path}[${key}]` : `${path}.${key}`;
+    if (value === undefined) {
+      throw new Error(
+        `wix-cms: ${at} is undefined. JSON.stringify drops undefined, so this query would ` +
+          `silently match every item (or none) instead of filtering. Pass a real value, or omit ` +
+          `the key entirely — e.g. \`...(memberId ? { _owner: memberId } : {})\`. ` +
+          `Note: Wix members expose \`member.id\`, not \`member._id\`.`,
+      );
+    }
+    if (value && typeof value === "object" && !(value instanceof Date)) {
+      assertDefinedFilterValues(value, at);
+    }
+  }
+}
+
+/**
  * Query one page of items from a collection.
  * Reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-data-items.md
  *
@@ -44,6 +76,7 @@ import { wixApiRequest } from "./wix-client.js";
  * @returns {Promise<{ items: object[], nextCursor: string|null }>}  items are `data` payloads (each includes `_id`).
  */
 export async function queryDataItems(dataCollectionId, { filter, sort, limit = 100, cursor, fields, includeReferences } = {}) {
+  assertDefinedFilterValues(filter);
   const query = {
     ...(cursor
       ? {}
@@ -115,6 +148,7 @@ export async function getDataItemBy(dataCollectionId, fieldKey, value) {
  * @returns {Promise<number>}
  */
 export async function countDataItems(dataCollectionId, filter) {
+  assertDefinedFilterValues(filter);
   const res = await wixApiRequest("/wix-data/v2/items/count", {
     method: "POST",
     body: { dataCollectionId, ...(filter ? { filter } : {}) },
