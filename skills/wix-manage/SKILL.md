@@ -390,3 +390,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.
+
+---
+
+## Work with Wix APIs
+
+### [Data Retrieval Across Wix APIs](references/work-with-wix-apis/data-retrieval.md)
+**Technical:** In-depth reference for data retrieval across Wix API endpoints: the Wix API Query Language, its operator vocabulary and semantics, how search, query, and list methods differ, and sorting and paging mechanics. Each API implements the language partially or in full.
