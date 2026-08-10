@@ -22,3 +22,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/custom-code-and-page-embeds.md
+      title: Custom Code & Embeds — Sitewide Scripts vs. Per-Page Embed Elements
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/custom-embeds/introduction
+      tags: [sites]

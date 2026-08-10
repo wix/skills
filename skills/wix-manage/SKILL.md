@@ -369,6 +369,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Custom Code & Embeds — Sitewide Scripts vs. Per-Page Embed Elements](references/sites/custom-code-and-page-embeds.md)
+**Technical:** Clarifies that the Custom Embeds API (`/embeds/v1/custom-embeds`) only injects sitewide HTML/JS at `HEAD`/`BODY_START`/`BODY_END` — there is no API to read or write the content of a per-page visual embed element (Editor: Add Elements > Embed > HTML iframe). Use before reaching for the Custom Embeds API to manage per-page embedded HTML/iframe content, and for the `src`-based workaround when the same embed needs to be kept in sync across many pages/languages.
+
 ---
 
 ## Stores
