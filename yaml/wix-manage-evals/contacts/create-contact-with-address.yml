@@ -1,7 +1,7 @@
 name: contacts/create-contact-with-address
 description: >
-  A site owner asks to add a contact with a street address. Verifies the agent loads the Create
-  Contact with Address recipe and sends `subdivision` in ISO 3166-2 form. The Create Contact
+  A site owner asks to add a contact with a street address. Verifies the agent loads the Create a
+  Contact recipe and sends `subdivision` in ISO 3166-2 form. The Create Contact
   reference documents this field with the example `NY`, which the server's SUBDIVISION format
   validator rejects — it requires the country prefix, `US-NY` — so an agent working from the
   generated reference takes a 400 and has to retry.
@@ -11,7 +11,7 @@ tags: [contacts]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/create-contact-with-address
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/create-a-contact
   - type: llm_judge          # correctness — the user's outcome
     minScore: 7
     maxTokens: 2048

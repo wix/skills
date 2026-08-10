@@ -139,8 +139,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 **Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
 
-### [Create Contact with Address](references/contacts/create-contact-with-address.md)
-**Technical:** Creates a contact with a physical address in one Contacts API call. Covers the minimum identifying fields and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
+### [Create a Contact](references/contacts/create-a-contact.md)
+**Technical:** Creates a contact in one Contacts API call. Covers the minimum identifying fields, the single-object shape of `email` and `phone` (a list is accepted and silently discarded), optionally attaching a physical address, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
 
 ### [Update a Contact](references/contacts/update-a-contact.md)
 **Technical:** Updates an existing contact's email, phone, name or address. Covers locating the contact with Search Contacts when the user names it (Query Contacts cannot filter by name), passing the current `revision`, appending an address via the contact's `addresses` sub-resource, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`).
