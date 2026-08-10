@@ -369,6 +369,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Diagnosing: Live Site Not Updating After a Successful Write](references/sites/diagnosing-live-site-not-updating-after-successful-write.md)
+**Technical:** Bisection recipe for when every write (Editor save, Publish Site, Velo deploy, REST call) reports success with real revisions/timestamps but the live-served HTML never changes. Rules out downstream/CDN caching via response headers, then uses a no-publish-required Create Custom Embed probe to isolate a publish-flow issue from a deeper origin serving/cache incident. Use when the user reports changes "not going live" after normal republishing hasn't helped — tells you when to stop retrying write APIs and escalate to Wix Support instead.
+
 ---
 
 ## Stores
