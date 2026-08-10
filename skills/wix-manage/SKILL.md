@@ -205,6 +205,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Generate a Marketing Plan and Schedule Its Posts](references/marketing/generate-and-publish-marketing-plan.md)
 **Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling, and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
 
+### [Custom Embeds API ≠ per-page HTML component editing — Known Gap](references/sites/editing-existing-site-pages-menus-and-homepage.md#same-gap-from-the-per-page-htmlembed-angle-update-the-html-iframe-embed-i-pasted-into-this-page)
+**Technical:** The Custom Embeds API (List/Create/Get/Update/Delete Custom Embed) only injects sitewide HTML/JS at `HEAD`/`BODY_START`/`BODY_END` (15000-char cap, `pageFilter` read-only) — it cannot read or write the HTML content of a specific in-page component added via the Editor's "Add Elements → Embed → HTML iframe". Read this before assuming Custom Embeds covers per-page embed content.
+
 ---
 
 ## Media
