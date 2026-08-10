@@ -63,8 +63,8 @@ Admission at $20 and VIP at $50", that is two calls, each with its own `name`, `
 | Cancel | `POST /events/v3/events/{eventId}/cancel` | `CANCELED` |
 | Delete | `DELETE /events/v3/events/{eventId}` | — |
 
-All three take an empty body. Publishing is irreversible — a published event cannot return to
-`DRAFT`. Cancelling closes registration but keeps the event; deleting removes it.
+Publish and cancel take an empty body. Publishing is irreversible — a published event cannot
+return to `DRAFT`. Cancelling closes registration but keeps the event; deleting removes it.
 
 ## Clone an event
 
@@ -113,8 +113,8 @@ Query Events returns only published events — **drafts are excluded from both t
 total**. Create with `"draft": false`, or publish first, if the count is meant to include the
 event you just made.
 
-`POST /events/v3/events/count-by-status` exists but returns empty `facets` unless the request
-carries filter criteria, so it is not a reliable way to answer "how many events do I have".
+`POST /events/v3/events/count-by-status` exists, but an empty request body returns empty `facets`
+even when the site has events, so it is not the way to answer "how many events do I have".
 
 ## Recurring events
 

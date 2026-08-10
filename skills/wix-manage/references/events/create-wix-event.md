@@ -62,7 +62,8 @@ curl -X POST 'https://www.wixapis.com/events/v3/events' \
 
 `title`, `location`, `dateAndTimeSettings` and `registration.initialType` are all required.
 Drop `"draft": true` to create the event already published; a draft has `status: "DRAFT"` and
-is invisible on the site until published.
+is invisible on the site until published with `POST /events/v3/events/{eventId}/publish`
+(empty body), which moves it to `UPCOMING`.
 
 ## Date and time
 
