@@ -12,9 +12,20 @@ import { wixApiRequest } from "./wix-client.js";
  *
  * Data Item — every read helper returns the item's `data` payload:
  *   _id {string} — GUID (route key, itemId for get/update/remove),
- *   _createdDate, _updatedDate {string} — ISO 8601 (use { "$date": "..." } in filters),
- *   _owner {string}, ...fields — collection field values keyed by field key
+ *   _createdDate, _updatedDate — dates, wrapped (see RETRIEVAL SHAPES below),
+ *   _owner {string} — id of the member who created the row,
+ *   ...fields — collection field values keyed by field key
  * Full reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/data-item-object.md
+ *
+ * RETRIEVAL SHAPES — three field types arrive in a form the UI reads through a converter. Convert on
+ * read; the rest (text, number, boolean, url) come back as plain values:
+ *   date / datetime  → { "$date": "2026-05-05T00:00:00.000Z" }. Read it as
+ *                      `new Date(v?.$date ?? v)` — handing the object itself to `new Date()` produces
+ *                      an Invalid Date, which reaches the page as the text "Invalid Date". Applies to
+ *                      your own date fields AND to _createdDate / _updatedDate. Send it back the same
+ *                      way, `{ "$date": iso }`; a query FILTER accepts either that or a plain ISO string.
+ *   image (media)    → `wix:image://v1/...`. Convert with `wixImage()` from `@/lib/wixImage`.
+ *   MULTI_REFERENCE  → present once you pass `includeReferences` to queryDataItems; read `item.<field>`.
  *
  * FILTERS & SORT (Wix API Query Language):
  *   filter: { field: value } for equality; { field: { $op: value } } for operators:

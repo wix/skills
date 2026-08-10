@@ -60,6 +60,12 @@ const one = await getDataItemBy("Recipes", "slug", slugFromUrl);
 // IMAGES — a media field comes back as a `wix:image://…` URI the browser can't render. Convert every
 // image with wixImage() before <img src>: <img src={wixImage(item.cover)} />. Never render one raw.
 
+// DATES — date/datetime fields (and _createdDate/_updatedDate) come back WRAPPED: { "$date": ISO }.
+// Read through the wrapper — handing the object to `new Date()` yields an Invalid Date, which reaches
+// the page as the text "Invalid Date":
+const when = new Date(item.publishDate?.$date ?? item.publishDate);
+// Write one back in the same shape, { "$date": iso }. A FILTER accepts either that or a plain ISO string.
+
 // PUBLIC FORM — insertDataItem("Reviews", { name, email, message }); needs Insert = "Anyone" (or members).
 // Resolves to the flat inserted `data` payload (with _id); throws on failure — never fake success.
 
@@ -98,6 +104,7 @@ unavailable. For a public list **and** private rows, use **two collections** —
 - Set `WIX_CLIENT_ID` (in `wix-config`) — not the placeholder.
 - Read/write **only** through the `wix-cms.js` helpers (official Wix Data endpoints) — never hand-build a URL.
 - `queryDataItems` → `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is `[{ fieldName, order }]`; date comparands wrap as `{ "$date": ISO }`.
+- Read date fields through the wrapper — `new Date(v?.$date ?? v)`. Dates arrive as `{ "$date": ISO }` (including `_createdDate` / `_updatedDate`), and `new Date(object)` puts the text "Invalid Date" on the page. See RETRIEVAL SHAPES in `rest/wix-cms.js` for the field types that need a converter.
 - Convert `wix:image://` URIs via `wixImage()` before `<img src>`.
 - Owner field is `_owner` (Wix Data v2), not `_ownerId`; the member id lives at `member.id`, so "my items" → `{ filter: { _owner: member.id } }` (see above).
 - **Give every filter key a defined value** — add the key only once you hold one: `...(memberId ? { _owner: memberId } : {})`. `JSON.stringify` drops `undefined`, so an undefined comparand would match every row (`{ _owner: undefined }`) or none (`{ _owner: { $eq: undefined } }`) with no error from the server; the helpers throw so it surfaces at the call site.
