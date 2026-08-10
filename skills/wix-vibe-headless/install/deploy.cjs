@@ -9,7 +9,7 @@
 // No vertical arg -> deploys just the shared transport; re-run with the vertical once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
+const { existsSync, cpSync, readFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members'];
@@ -39,41 +39,26 @@ function isBase44AuthBoilerplate(path) {
   return src.includes('@/api/base44Client') || src.includes('base44.auth.');
 }
 
-const REGISTER_REDIRECT = `import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-
-// The Wix members vertical has no separate registration page — the Login page's LoginForm
-// component already has a "Sign up" tab. Redirect here instead of leaving Base44's own
-// email/password registration flow live.
-export default function Register() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    navigate("/login", { replace: true });
-  }, [navigate]);
-  return null;
-}
-`;
+// Each entry: the src/ file to repair, and the reference file that replaces it.
+// Login.jsx comes from the vertical's shipped pages; Register.jsx from references/members/install/
+// (a repair stub kept OUT of app/ — this vertical ships no /register route, so a fresh app with no
+// Base44 leftover must not receive it).
+const MEMBERS_AUTH_REPAIRS = [
+  { dest: '/app/src/pages/Login.jsx', src: `${REF}/members/app/pages/Login.jsx` },
+  { dest: '/app/src/pages/Register.jsx', src: `${REF}/members/install/Register.jsx` },
+];
 
 function replaceMembersAuthLeftovers() {
   const result = {};
-
-  const loginDest = '/app/src/pages/Login.jsx';
-  const loginSrc = `${REF}/members/app/pages/Login.jsx`;
-  if (existsSync(loginSrc) && isBase44AuthBoilerplate(loginDest)) {
-    cpSync(loginSrc, loginDest, { force: true });
-    result.login = 'replaced_base44_leftover';
-  } else {
-    result.login = 'left_as_is';
+  for (const { dest, src } of MEMBERS_AUTH_REPAIRS) {
+    const name = dest.split('/').pop().replace('.jsx', '').toLowerCase();
+    if (existsSync(src) && isBase44AuthBoilerplate(dest)) {
+      cpSync(src, dest, { force: true });
+      result[name] = 'replaced_base44_leftover';
+    } else {
+      result[name] = 'left_as_is';
+    }
   }
-
-  const registerDest = '/app/src/pages/Register.jsx';
-  if (isBase44AuthBoilerplate(registerDest)) {
-    writeFileSync(registerDest, REGISTER_REDIRECT);
-    result.register = 'replaced_base44_leftover';
-  } else {
-    result.register = 'left_as_is';
-  }
-
   return result;
 }
 
