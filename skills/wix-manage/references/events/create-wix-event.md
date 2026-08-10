@@ -1,9 +1,9 @@
 ---
-name: "RECIPE: Create an Event with the Wix Events API"
+name: "Create an Event with the Wix Events API"
 description: "Creates an event with the Wix Events V3 API — the required request body, ISO-8601 date and time settings, venue/online/TBD location, RSVP vs ticketed registration, guest capacity, and short vs rich-text descriptions. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create an event, set its date, location, description or guest limit, or choose between RSVP and ticketing."
 ---
 
-# RECIPE: Create an Event with the Wix Events API
+# Create an Event with the Wix Events API
 
 ## Goal
 Create an event on a Wix site — one-off or recurring, RSVP or ticketed — with the Wix Events

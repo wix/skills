@@ -1,9 +1,9 @@
 ---
-name: "RECIPE: Manage Wix Events — Tickets, Publishing, Cloning and Recurring Series"
+name: "Manage Wix Events — Tickets, Publishing, Cloning and Recurring Series"
 description: "Manages existing events with the Wix Events V3 API — ticket definitions and pricing (fixed price, free, donation, multiple tiers), publishing a draft, cancelling, deleting, cloning, updating an event's date or details, counting events, and creating a recurring series. Use when the user wants to add or price tickets, publish or cancel an event, duplicate an event, move an event's date, count their events, or set up a repeating event."
 ---
 
-# RECIPE: Manage Wix Events — Tickets, Publishing, Cloning and Recurring Series
+# Manage Wix Events — Tickets, Publishing, Cloning and Recurring Series
 
 ## Goal
 Operate on events that already exist: sell tickets, publish, cancel, delete, clone, update,
