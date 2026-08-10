@@ -10,8 +10,24 @@ Operate on events that already exist: sell tickets, publish, cancel, delete, clo
 count, and build recurring series. To create the event in the first place — including its date,
 location, description and guest limit — see [Create an Event](create-wix-event.md).
 
-All endpoints need the Wix Events app installed, or they return
-`428 WIX_EVENTS_APP_NOT_INSTALLED`. See [Install Wix Apps](../app-installation/install-wix-apps.md).
+## Prerequisite — the Wix Events app must be installed
+
+Every endpoint here returns `428 WIX_EVENTS_APP_NOT_INSTALLED` against a site without the app.
+Install it first — do not guess the install path, which is easy to get wrong:
+
+```bash
+curl -X POST 'https://www.wixapis.com/apps-installer-service/v1/app-instance/install' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  --data-binary '{
+    "tenant": { "tenantType": "SITE", "id": "<SITE_ID>" },
+    "appInstance": { "appDefId": "140603ad-af8d-84a5-2c80-a0f60cb47351" }
+  }'
+```
+
+`appDefId` nests under `appInstance`, not at the root — at the root it fails with
+`400 appInstance must not be empty`. See [Install Wix Apps](../app-installation/install-wix-apps.md)
+for the full flow.
 
 ## Ticket definitions
 
