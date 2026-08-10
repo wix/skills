@@ -175,6 +175,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
 - **Gift cards** ("should I sell gift cards", "add a gift card", "what amounts should my gift card have") → these are recommendations, so they go through [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md), which activates its GIFT_CARDS domain and loads the gift-cards goal itself. Issuing/redeeming an individual gift card is the Gift Cards API, not a recommendation.
+- **Manage an existing gift card product** ("rename my gift card", "change my gift card amounts / denominations", "edit gift card expiration") → [Manage an Existing Gift Card Product](references/ecommerce/gift-cards/ecom-gift-cards-manage-gift-card-product.md) — read the product (Get/Query) for its id + revision, then Update Gift Card Product via the Gift Cards Products API.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
@@ -200,6 +201,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 #### Gift-cards leaf (loaded by the strategy orchestrator when it activates the GIFT_CARDS domain)
 - [Goal: Sell Gift Cards](references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md) — existing-product gate (one per site), eligibility, denomination sizing from AOV / catalog prices, no-expiry-by-default policy, and the mapping onto Create Gift Card Product
+- [Manage an Existing Gift Card Product](references/ecommerce/gift-cards/ecom-gift-cards-manage-gift-card-product.md) — rename, change denominations, or change expiration on an existing gift card product, via Get/Query then Update Gift Card Product
 
 #### Shipping leaves (loaded by the Shipping dispatcher)
 - [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
