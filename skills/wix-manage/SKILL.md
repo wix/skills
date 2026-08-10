@@ -369,6 +369,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Manage Custom Embeds](references/sites/manage-custom-embeds.md)
+**Technical:** Adds, updates, lists, and deletes custom HTML/JS embeds (HEAD, BODY_START, BODY_END) via the Custom Embeds API — the programmatic equivalent of the classic Editor's Settings > Custom Code panel. Covers the `ListCustomEmbeds` type-filtering caveat (only returns `CUSTOM_EMBED` type; other embed types live in the same store but aren't listed here), when to use Marketing Tags API instead, and how to verify a change actually went live.
+
 ---
 
 ## Stores
