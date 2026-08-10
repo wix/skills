@@ -5,7 +5,7 @@ description: >-
   probing calls to discover the field name.
 triggerPrompt: >-
   Change my site's time zone to America/New_York.
-tags: [site-properties, aria]
+tags: [site-properties]
 maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
