@@ -1,0 +1,31 @@
+name: stores/update-product-variants-catalog-v1
+description: >-
+  Verifies the agent reads the Update Product Variants (Catalog V1) skill doc
+  when asked to update a variant's price on a Catalog V1 site, and uses the
+  correct V1 endpoint and request shape rather than a Catalog V3 one.
+triggerPrompt: >-
+  My Wix store is still on the older Stores Catalog V1. How do I update the
+  price of a specific product variant (for example the "Size: S" variant) via
+  the API?
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-variants-catalog-v1
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asks how to update a specific product variant's price on a Wix store that uses
+      Stores Catalog V1.
+      Intent: use the Catalog V1 Update Variants endpoint
+      (PATCH https://www.wixapis.com/stores/v1/products/{id}/variants) with the
+      choices/variantIds + price request shape.
+
+      Pass if the response references the V1 PATCH .../stores/v1/products/{id}/variants endpoint
+      (or names it "Update Variants"/"UpdateProductVariants") and shows targeting a variant via
+      `choices` (e.g. {"Size": "S"}) or `variantIds`, setting a `price` field.
+
+      Fail if the response recommends a Catalog V3 endpoint (e.g. stores/v3/products,
+      products-with-inventory, or bulk/products/update-variants-by-filter) for this V1 site, or
+      fabricates an unrelated API.

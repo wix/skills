@@ -1,0 +1,33 @@
+name: stores/create-product-catalog-v1-scope-diagnosis
+description: >-
+  Verifies the agent reads the Create Product (Catalog V1) skill doc when
+  creating a product on a Catalog V1 site, and correctly names the required
+  OAuth permission scope when diagnosing a 403 error instead of confusing it
+  with the unrelated Catalog V3 scope.
+triggerPrompt: >-
+  My Wix site still uses the older Stores Catalog V1. I called
+  POST stores/v1/products to create a product and got a 403 error saying
+  "the auth identity is not allowed on this resource for this site/account".
+  What permission scope do I actually need for this call?
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v1
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user describes a 403 "the auth identity is not allowed on this resource for this
+      site/account" error on POST stores/v1/products (Catalog V1) and asks what permission
+      scope is needed to fix it.
+      Intent: identify the correct OAuth/API permission scope required for Catalog V1 product
+      writes — SCOPE.DC-STORES.MANAGE-PRODUCTS — which is a distinct, legacy scope from
+      SCOPE.STORES.PRODUCT_WRITE (that scope only gates Catalog V3 endpoints).
+
+      Pass if the response names SCOPE.DC-STORES.MANAGE-PRODUCTS (or the WIX_STORES.MODIFY_PRODUCTS
+      permission) as the scope required for this V1 endpoint, and does not claim
+      SCOPE.STORES.PRODUCT_WRITE is the fix.
+
+      Fail if the response recommends SCOPE.STORES.PRODUCT_WRITE as the fix, doesn't name a
+      specific scope, or fabricates an unrelated scope name.
