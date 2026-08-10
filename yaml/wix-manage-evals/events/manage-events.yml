@@ -11,7 +11,21 @@ tags: [events]
 maxTokens: 30000
 siteSetup:
   mode: template
-  templateId: events-editor
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      # Wix Events is not bundled by any template alias, and every /events/v3 call
+      # against a site without it returns 428. Installing here keeps the app out of
+      # the agent's path, so the run measures the recipe and not an incidental setup step.
+      - label: Install the Wix Events app
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 140603ad-af8d-84a5-2c80-a0f60cb47351
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -67,6 +81,10 @@ assertions:
 
       A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
       an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      Likewise a `403` on draft events (`READ_DRAFT_EVENTS`) is a permission the caller does not
+      hold, not a wrong request: creating the event already published instead of as a draft is a
+      correct recovery. Name it in the reason but do NOT deduct for it.
 
       For each issue found, name the likely MCP/docs gap.
 

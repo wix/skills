@@ -11,7 +11,21 @@ tags: [events]
 maxTokens: 30000
 siteSetup:
   mode: template
-  templateId: events-editor
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      # Wix Events is not bundled by any template alias, and every /events/v3 call
+      # against a site without it returns 428. Installing here keeps the app out of
+      # the agent's path, so the run measures the recipe and not an incidental setup step.
+      - label: Install the Wix Events app
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 140603ad-af8d-84a5-2c80-a0f60cb47351
 assertions:
   - tool: ReadFullDocsArticle
     params:
