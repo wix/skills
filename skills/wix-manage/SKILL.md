@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, marketing, google-ads, analytics, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -211,6 +211,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 </details>
 
 > Dashboard links for eCommerce surfaces (orders, abandoned checkouts, gift cards, shipping, tax, checkout settings) are in [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md).
+
+---
+
+## Events
+
+### [Create Event](references/events/create-wix-event.md)
+**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, and short vs Ricos rich-text descriptions. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoint: /events/v3/events.
+
+### [Manage Events](references/events/manage-wix-events.md)
+**Technical:** Manages existing events with the Wix Events V3 API — ticket definitions and pricing (fixed, free, donation, multiple tiers), publishing a draft, cancelling, deleting, cloning, updating an event's date, counting events, and building recurring series from explicit occurrence dates. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
 
 ---
 
