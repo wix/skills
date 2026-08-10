@@ -9,17 +9,63 @@
 // No vertical arg -> deploys just the shared transport; re-run with the vertical once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { existsSync, cpSync, readFileSync, appendFileSync } = require('fs');
+const { existsSync, cpSync, readFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members'];
-const vertical = process.argv[2];
-const deployed = { vertical: null };
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
 // clobbering the agent's edits (wired App.jsx, home/header components) from the first deploy.
 const COPY = { recursive: true, force: false, errorOnExist: false };
+
+// --- members vertical only: replace leftover Base44 auth pages -------------------------------
+//
+// Base44 seeds src/pages/Login.jsx + src/pages/Register.jsx into every custom-auth-enrolled app
+// at APP CREATION, before any Wix skill ever runs (backend/app/user_apps/auth_templates/_loader.py
+// in the platform repo). The members vertical's own Login.jsx lands at that SAME path via the COPY
+// above, but COPY's force:false skips it because Base44's file is already there — so the Base44-auth
+// page silently survives instead of the Wix-auth one, and the app ends up with two half-wired auth
+// systems. There is no Wix Register.jsx at all (LoginForm's own "Sign up" tab covers registration),
+// so Base44's Register.jsx was never even in contention — it just sits there, wrong, either way.
+//
+// Fix both, but ONLY when the file currently on disk is still recognizably Base44's boilerplate
+// (imports base44Client / calls base44.auth.*). Never touch a file that's already the Wix version
+// or an agent's own customization — same "don't clobber" contract as COPY above, just evaluated on
+// content instead of mere existence.
+function isBase44AuthBoilerplate(path) {
+  if (!existsSync(path)) return false;
+  const src = readFileSync(path, 'utf8');
+  return src.includes('@/api/base44Client') || src.includes('base44.auth.');
+}
+
+// Each entry: the src/ file to repair, and the reference file that replaces it.
+// Login.jsx comes from the vertical's shipped pages; Register.jsx from references/members/install/
+// (a repair stub kept OUT of app/ — this vertical ships no /register route, so a fresh app with no
+// Base44 leftover must not receive it).
+const MEMBERS_AUTH_REPAIRS = [
+  { dest: '/app/src/pages/Login.jsx', src: `${REF}/members/app/pages/Login.jsx` },
+  { dest: '/app/src/pages/Register.jsx', src: `${REF}/members/install/Register.jsx` },
+];
+
+function replaceMembersAuthLeftovers() {
+  const result = {};
+  for (const { dest, src } of MEMBERS_AUTH_REPAIRS) {
+    const name = dest.split('/').pop().replace('.jsx', '').toLowerCase();
+    if (existsSync(src) && isBase44AuthBoilerplate(dest)) {
+      cpSync(src, dest, { force: true });
+      result[name] = 'replaced_base44_leftover';
+    } else {
+      result[name] = 'left_as_is';
+    }
+  }
+  return result;
+}
+
+// --- main ---------------------------------------------------------------------------------------
+
+const vertical = process.argv[2];
+const deployed = { vertical: null };
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
@@ -28,27 +74,11 @@ if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COP
 if (vertical && VERTICALS.includes(vertical) && existsSync(`${REF}/${vertical}/app`)) {
   cpSync(`${REF}/${vertical}/app`, '/app/src', COPY);
   deployed.vertical = vertical;
+  if (vertical === 'members') deployed.authPagesFixed = replaceMembersAuthLeftovers();
 } else if (vertical) {
   deployed.error = `unknown vertical "${vertical}" — expected one of: ${VERTICALS.join(', ')}`;
 } else {
   deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical>';
 }
-
-// Pin the skill location + project facts into AGENTS.md so later turns (after this doc leaves
-// context) still know the rules. Idempotent.
-const NOTE = `
-
-## This app — a Wix-managed headless frontend (built with the Wix skills)
-
-This project is the **frontend for a Wix-managed business** — a REST client that talks directly to a live Wix site over \`WIX_CLIENT_ID\`. The **Wix site is the source of truth** for all content and commerce; build and seed it only through the Wix connector and the skills below. **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
-
-The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from that exact path (ignore stray copies like \`agent/skills/\`).
-
-- \`wix-vibe-headless\` — **how the CLIENT is built AND how the site is seeded**: your vertical's UI client + REST scaffolds are already deployed into \`src/\`; one vertical per capability under \`references/<vertical>/\` (storefront, bookings, events, blog, portfolio, restaurants, cms, pricing-plans, members), each with a \`seed/\` module that creates content over the connector.
-- \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
-`;
-const amd = '/app/AGENTS.md';
-const cur = existsSync(amd) ? readFileSync(amd, 'utf8') : '';
-if (!cur.includes('Wix-managed headless frontend')) { appendFileSync(amd, NOTE); deployed.agentsMdPinned = true; }
 
 console.log(JSON.stringify(deployed));

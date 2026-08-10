@@ -211,6 +211,12 @@ import { wixApiRequest } from "@/rest/wix-client";
 const { orders } = await wixApiRequest("/ecom/v1/orders/query", { body: { query: {} } }); // member's own
 ```
 
+**"My items" in a CMS collection** (member-owned rows) → the **OWNED RECORDS** recipe in
+`references/cms/INSTRUCTIONS.md`. Two facts from this vertical carry over: the member id lives at
+**`member.id`**, and `member` is `null` for a logged-in member whenever the Members Area app is absent
+(see *Identity vs. profile* below). Because of that second one, prefer a collection seeded
+`read: SITE_MEMBER_AUTHOR` — the server scopes reads by the caller's own token, so it works in both states.
+
 ## Extending the client — the auth helper's exports (copy as-is, do NOT re-derive)
 Building auth UI beyond the shipped pages? Call these exports (from `@/rest/wix-members-auth`) — the
 same ones the shipped hook/pages use:

@@ -12,9 +12,20 @@ import { wixApiRequest } from "./wix-client.js";
  *
  * Data Item — every read helper returns the item's `data` payload:
  *   _id {string} — GUID (route key, itemId for get/update/remove),
- *   _createdDate, _updatedDate {string} — ISO 8601 (use { "$date": "..." } in filters),
- *   _owner {string}, ...fields — collection field values keyed by field key
+ *   _createdDate, _updatedDate — dates, wrapped (see RETRIEVAL SHAPES below),
+ *   _owner {string} — id of the member who created the row,
+ *   ...fields — collection field values keyed by field key
  * Full reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/data-item-object.md
+ *
+ * RETRIEVAL SHAPES — three field types arrive in a form the UI reads through a converter. Convert on
+ * read; the rest (text, number, boolean, url) come back as plain values:
+ *   date / datetime  → { "$date": "2026-05-05T00:00:00.000Z" }. Read it as
+ *                      `new Date(v?.$date ?? v)` — handing the object itself to `new Date()` produces
+ *                      an Invalid Date, which reaches the page as the text "Invalid Date". Applies to
+ *                      your own date fields AND to _createdDate / _updatedDate. Send it back the same
+ *                      way, `{ "$date": iso }`; a query FILTER accepts either that or a plain ISO string.
+ *   image (media)    → `wix:image://v1/...`. Convert with `wixImage()` from `@/lib/wixImage`.
+ *   MULTI_REFERENCE  → present once you pass `includeReferences` to queryDataItems; read `item.<field>`.
  *
  * FILTERS & SORT (Wix API Query Language):
  *   filter: { field: value } for equality; { field: { $op: value } } for operators:
@@ -23,6 +34,38 @@ import { wixApiRequest } from "./wix-client.js";
  *   sort: [{ fieldName: "publishDate", order: "DESC" }]
  * Full reference: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/data-retrieval/about-the-wix-api-query-language.md
  */
+
+/**
+ * Guard: reject `undefined` values inside a filter.
+ *
+ * `JSON.stringify` DELETES undefined values, so a missing or mistyped variable doesn't error —
+ * it silently changes what the query matches, and the server can't flag it either because the
+ * key never arrives:
+ *   { _owner: undefined }          → {}               → matches EVERY item
+ *   { _owner: { $eq: undefined } } → { "_owner": {} }  → matches NO item
+ * The bad value is still visible here, before serialization, so fail loudly instead.
+ *
+ * The classic slip: every CMS data-item field is underscore-prefixed (`_id`, `_owner`,
+ * `_createdDate`), but a Wix MEMBER (a different API) exposes `member.id` — so `member._id`
+ * reads naturally, is `undefined`, and turns "my items" into "everyone's items".
+ */
+function assertDefinedFilterValues(filter, path = "filter") {
+  if (!filter || typeof filter !== "object") return;
+  for (const [key, value] of Object.entries(filter)) {
+    const at = Array.isArray(filter) ? `${path}[${key}]` : `${path}.${key}`;
+    if (value === undefined) {
+      throw new Error(
+        `wix-cms: ${at} is undefined. JSON.stringify drops undefined, so this query would ` +
+          `silently match every item (or none) instead of filtering. Pass a real value, or omit ` +
+          `the key entirely — e.g. \`...(memberId ? { _owner: memberId } : {})\`. ` +
+          `Note: Wix members expose \`member.id\`, not \`member._id\`.`,
+      );
+    }
+    if (value && typeof value === "object" && !(value instanceof Date)) {
+      assertDefinedFilterValues(value, at);
+    }
+  }
+}
 
 /**
  * Query one page of items from a collection.
@@ -44,6 +87,7 @@ import { wixApiRequest } from "./wix-client.js";
  * @returns {Promise<{ items: object[], nextCursor: string|null }>}  items are `data` payloads (each includes `_id`).
  */
 export async function queryDataItems(dataCollectionId, { filter, sort, limit = 100, cursor, fields, includeReferences } = {}) {
+  assertDefinedFilterValues(filter);
   const query = {
     ...(cursor
       ? {}
@@ -115,6 +159,7 @@ export async function getDataItemBy(dataCollectionId, fieldKey, value) {
  * @returns {Promise<number>}
  */
 export async function countDataItems(dataCollectionId, filter) {
+  assertDefinedFilterValues(filter);
   const res = await wixApiRequest("/wix-data/v2/items/count", {
     method: "POST",
     body: { dataCollectionId, ...(filter ? { filter } : {}) },

@@ -60,23 +60,55 @@ const one = await getDataItemBy("Recipes", "slug", slugFromUrl);
 // IMAGES — a media field comes back as a `wix:image://…` URI the browser can't render. Convert every
 // image with wixImage() before <img src>: <img src={wixImage(item.cover)} />. Never render one raw.
 
+// DATES — date/datetime fields (and _createdDate/_updatedDate) come back WRAPPED: { "$date": ISO }.
+// Read through the wrapper — handing the object to `new Date()` yields an Invalid Date, which reaches
+// the page as the text "Invalid Date":
+const when = new Date(item.publishDate?.$date ?? item.publishDate);
+// Write one back in the same shape, { "$date": iso }. A FILTER accepts either that or a plain ISO string.
+
 // PUBLIC FORM — insertDataItem("Reviews", { name, email, message }); needs Insert = "Anyone" (or members).
 // Resolves to the flat inserted `data` payload (with _id); throws on failure — never fake success.
+
+// OWNED RECORDS ("my items") — insert from the CLIENT while the member is logged in, so Wix stamps
+// `_owner` with THEIR id. (An insert carrying a connector/backend token stamps the app instead, and
+// "my items" then reads back empty.)
+const { member } = useMember();                      // from the members vertical (@/context/MemberContext)
+await insertDataItem("Drawings", { title });         // member token in play → _owner = that member
+const { items: mine } = await queryDataItems("Drawings", { filter: { _owner: member.id } });
+// The member id lives at `member.id`: row fields carry a leading underscore (_id, _owner, _createdDate)
+// while the member object uses plain `id`. Give the filter a real value — `member._id` evaluates to
+// undefined, JSON.stringify drops it, and the query would match every row (or none), so the helpers
+// throw first. For rows that must stay private, seed `read: SITE_MEMBER_AUTHOR` and skip the filter:
+// the server scopes each read to its caller, and that keeps working when `member` is null (see below).
 ```
 
 ## Owned records (CMS × Wix members)
-For user-generated content tied to the logged-in member ("my items"): do the **insert client-side with
-the member's token** (from the **members** vertical) so Wix stamps the row's `_owner` to that member;
-then filter `{ _owner: <member.id> }`. A backend/connector-token insert sets `_owner` to the *app*, not
-the member, so "my items" comes back empty — don't do that. The collection needs **Insert** permission
-for members/anyone. (Fuller recipe lives with the members vertical.)
+Runnable recipe: see **OWNED RECORDS** in the code block above. Requires the **members** vertical (it
+supplies `useMember()`); the collection needs **Insert** for members. Always insert **client-side while
+the member is logged in** — a backend/connector-token insert stamps `_owner` with the *app*, so "my
+items" comes back empty forever.
+
+**Decide which of these you're building — the choice is a collection permission, set at seed time:**
+
+| goal | seed the collection with | how you read "mine" |
+|---|---|---|
+| public list + a personal *view* of it (e.g. a public gallery plus "my submissions") | `read: ANYONE` | `filter: { _owner: member.id }` — a **view** filter: it selects what to show, while every row stays readable by anyone |
+| rows only their owner may ever see | `read: SITE_MEMBER_AUTHOR` (the **member-private** preset in `seed/SEED.md`) | query with **no filter** — the server scopes every read to the caller |
+
+Reach for `SITE_MEMBER_AUTHOR` whenever the data is genuinely per-member: the server enforces it, and it
+holds up when `useMember().member` is `null` — which is the state a logged-in member is in whenever the
+Members Area app is absent (see the members vertical's "Identity vs. profile"), where a client-side id is
+unavailable. For a public list **and** private rows, use **two collections** — permissions are per-collection.
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (in `wix-config`) — not the placeholder.
 - Read/write **only** through the `wix-cms.js` helpers (official Wix Data endpoints) — never hand-build a URL.
 - `queryDataItems` → `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is `[{ fieldName, order }]`; date comparands wrap as `{ "$date": ISO }`.
+- Read date fields through the wrapper — `new Date(v?.$date ?? v)`. Dates arrive as `{ "$date": ISO }` (including `_createdDate` / `_updatedDate`), and `new Date(object)` puts the text "Invalid Date" on the page. See RETRIEVAL SHAPES in `rest/wix-cms.js` for the field types that need a converter.
 - Convert `wix:image://` URIs via `wixImage()` before `<img src>`.
-- Owner field is `_owner` (Wix Data v2), not `_ownerId`; "my items" → `{ filter: { _owner: <member.id> } }` (see above).
+- Owner field is `_owner` (Wix Data v2), not `_ownerId`; the member id lives at `member.id`, so "my items" → `{ filter: { _owner: member.id } }` (see above).
+- **Give every filter key a defined value** — add the key only once you hold one: `...(memberId ? { _owner: memberId } : {})`. `JSON.stringify` drops `undefined`, so an undefined comparand would match every row (`{ _owner: undefined }`) or none (`{ _owner: { $eq: undefined } }`) with no error from the server; the helpers throw so it surfaces at the call site.
+- **Let the query do the scoping** (a `filter`, or `read: SITE_MEMBER_AUTHOR` for privacy) so the server returns exactly the rows to show. A wrong result means the filter or the permission needs fixing — a client-side `.filter()` over rows the browser already holds only hides the symptom.
 - `updateDataItem` **replaces** the whole item — fetch + merge first (or use Patch Data Item).
 - Render live Wix data or an honest empty state — never mock items or invent fields not in the collection.
 - Treat a 403 as a permissions setup step (tell the user which permission to grant), not a code bug.
@@ -110,3 +142,4 @@ Substitute the site's `metaSiteId`:
 - [ ] Detail resolves by slug or `_id`, with a not-found state on miss.
 - [ ] Image fields render via `wixImage()` (no raw `wix:image://`).
 - [ ] Any 403 surfaced to the user as a permissions step, with the dashboard deep links.
+- [ ] Built "my items"? Signed in as **two different members** and confirmed each one sees their own rows and only those. Use two accounts: an owner filter can fail silently in either direction — every row, or zero rows — and both look plausible from a single account.

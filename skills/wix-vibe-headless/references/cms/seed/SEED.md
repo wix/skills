@@ -61,6 +61,23 @@ curl -sS -X POST "$API/wix-data/v2/collections" "${AUTH[@]}" -d '{
   | **collaborative** | `ANYONE` / `ANYONE` / `ANYONE` / `ANYONE` | visitor-written shared board (anonymous, unscoped) |
   | **member-private** | `SITE_MEMBER_AUTHOR` / `SITE_MEMBER` / `SITE_MEMBER_AUTHOR` / `SITE_MEMBER_AUTHOR` | per-user "my…" rows (`_owner`-matched); **create it EMPTY** — members populate it from the client with their **member token** so Wix stamps `_owner` |
   | **member-shared-read-only** | `SITE_MEMBER` / `ADMIN` / `ADMIN` / `ADMIN` | gated: any member reads, seed/admin writes |
+  | **public-wall** | `ANYONE` / `SITE_MEMBER` / `SITE_MEMBER_AUTHOR` / `SITE_MEMBER_AUTHOR` | members post, **everyone** reads (public gallery/feed); authors edit only their own |
+
+- **The values are Wix user *roles*, and they're a hierarchy** — a role can do anything the roles below it can. Pick per action (`read` / `insert` / `update` / `remove`):
+
+  | role | who, for that action |
+  |---|---|
+  | `ANYONE` | any visitor, logged in or not |
+  | `SITE_MEMBER` | any logged-in member — **all** rows |
+  | `SITE_MEMBER_AUTHOR` | logged-in members, but **only rows they created** (Wix matches `_owner`) — this is how "only mine" is enforced, server-side |
+  | `CMS_EDITOR` | Wix users holding a CMS role |
+  | `PRIVILEGED` / `ADMIN` | site admins + special permissions only |
+
+  So **`read` is the privacy decision**: `SITE_MEMBER_AUTHOR` scopes each read to its caller on the
+  server, so a member receives only their own rows and the client needs no filter; `ANYONE` publishes
+  every row, and a `_owner` filter then selects a view of public data. Set it here, at create time —
+  the client inherits whichever you choose.
+  Reference: [Data Permissions](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-permissions/introduction.md)
 
 - **MULTI_REFERENCE fields:** `typeMetadata.multiReference.referencedCollectionId` is mandatory (NOT `referencedCollection` — the docs' stale key stores an empty target and every later link is dead), and the **target collection must be created first**.
 - `409 WDE0104` = "collection already exists" — fine (additive); skip and move on.
