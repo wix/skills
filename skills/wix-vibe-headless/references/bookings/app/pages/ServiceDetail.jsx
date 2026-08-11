@@ -45,7 +45,7 @@ export default function ServiceDetail() {
         </dl>
       </div>
 
-      <div className="bg-card border border-border rounded-lg p-5 lg:sticky lg:top-4">
+      <div className="min-w-0 bg-card border border-border rounded-lg p-5 lg:sticky lg:top-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
           <h2 className="font-display text-lg m-0">Choose a time</h2>
           {/* The zone the API returned the times in — not a locally guessed one, so the label and
