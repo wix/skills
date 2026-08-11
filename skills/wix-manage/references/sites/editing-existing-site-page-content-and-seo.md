@@ -19,13 +19,23 @@ This is one of the most common "update my website" requests ("change the wording
 
 The underlying reason content-write is missing: classic Editor / Studio page body content lives in the Editor's own internal document model, which has no public write API — the same root cause as **[[editing-existing-site-pages-menus-and-homepage.md]]** (that doc covers adding/removing whole pages, menus, and homepage layout; this one covers editing the *text already on* an existing page). Don't keep searching REST docs or trying `CallWixSiteAPI`/`ManageWixSite` variations for "update page", "set page content", "update page SEO" — it isn't there.
 
-## An internal API for the SEO half already exists — but isn't callable yet
+## Update (2026-08): the SEO half is now public — use the Item SEO Tags API, but read the caveat below first
 
-Unlike the page-content gap (fully architectural), the **SEO tags** half is not a "never built" gap — it's a **not-yet-public** one. Wix's `promote-seo` team has an internal `ItemSeoTagsService` (`wix.promote.seo.metatags.v1`, project "site-migration-apis") that is **fully built and in production** with complete get/list/set/reset/bulk/publish support for the `STATIC_PAGE` item type — exactly classic-Editor page SEO tags (title/description/OG via meta tags), including a separate draft/publish revision split.
+The `ItemSeoTagsService` described in the rest of this section (`wix.promote.seo.metatags.v1`) has since **graduated to `service_maturity = BETA`, `service_exposure = PUBLIC`**, with the WIXSEO-4395 REST-gateway exposure work now shipped. It is documented, callable through this MCP (`SearchWixRESTDocumentation` for "item seo tags" finds it), and confirmed live-reachable via `CallWixSiteAPI`:
 
-It is not usable by this MCP or any external caller today: the proto marks it `service_maturity = ALPHA`, `service_exposure = INTERNAL`, and its audience config sets `uou: NOT_ALLOWED` (the exact calling context an agent acting on a user's behalf uses). The team's own design log records the graduation condition explicitly: *"INTERNAL + ALPHA at birth → graduate to PUBLIC when external consumers materialize"* — and separately tracks the REST-gateway exposure work under **WIXSEO-4395**. An AI agent connected via the public Wix MCP hitting exactly this wall, on behalf of a real site owner, is the external-consumer signal that condition is waiting for — worth flagging to the `promote-seo` team (contacts: Yehonatan Zaritsky, primary author of the ItemSeoTagsService implementation; Omer Burshtein, team lead) rather than something fixable from this repo.
+- [Get Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/get-item-seo-tags) — `GET /seo-metatags-server/v1/item-seo-tags/{itemType}/{itemId}`
+- [List Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/list-item-seo-tags) — `GET /seo-metatags-server/v1/item-seo-tags/{itemType}`
+- [Set Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/set-item-seo-tags) — `PATCH /seo-metatags-server/v1/item-seo-tags/{itemType}/{itemId}`, `itemType: STATIC_PAGE` for a classic-Editor/Studio page
 
-Don't attempt to call `ItemSeoTagsService` endpoints speculatively — they aren't in the public REST docs or `lightIndex`, aren't reachable through this MCP's auth context, and guessing at internal paths wastes tool calls for no chance of success.
+So for the **SEO-tag** half of "update the copy and SEO on my page" ("update the title/description of an existing page's SEO tags"), this now IS achievable via API — do not tell the user it's a dead end for SEO tags specifically. The page **body-copy** half below remains a full gap with no API in flight.
+
+### Caveat — `publish: true` on a static page and a follow-up Get/List can disagree
+
+`SetItemSeoTags(itemType: STATIC_PAGE, publish: true)` writes the **published** revision. `GetItemSeoTags`/`ListItemSeoTags` always read the **saved (draft)** revision — there is no way to read the published revision back through this API. Before a fix landed (`wix-private/promote-seo` PR #14969), this made `SetItemSeoTags` itself echo stale, pre-write data in its own PATCH response when `publish: true` was set — indistinguishable from the write silently failing. That part is fixed: the PATCH response now reflects what was just written. But a **separate**, later `GetItemSeoTags`/`ListItemSeoTags` call still only sees the draft revision, so it can keep showing the pre-write text indefinitely after a `publish: true` call — this is a real, currently-open gap (see `wix-private/promote-seo` PR #14972 for the doc note), not a bug in your own call. Don't burn tool calls re-trying `SetItemSeoTags` if a follow-up `GetItemSeoTags` looks unchanged right after a `publish: true` write — check the **live page** (or the Set response itself) instead of trusting a subsequent Get/List for verification.
+
+### Background: how this was discovered internal-only
+
+Wix's `promote-seo` team originally built this service (project "site-migration-apis") gated `service_maturity = ALPHA`, `service_exposure = INTERNAL`, `uou: NOT_ALLOWED`. The team's own design log recorded the graduation condition explicitly: *"INTERNAL + ALPHA at birth → graduate to PUBLIC when external consumers materialize"*. An earlier pass through this exact wall (an AI agent hitting `uou: NOT_ALLOWED` on behalf of a real site owner) was flagged to the team as that external-consumer signal (contacts: Yehonatan Zaritsky, primary author of the `ItemSeoTagsService` implementation; Omer Burshtein, team lead) — it has since shipped.
 
 There is no equivalent internal project (as far as this pass found) for the page **content/body-copy** half — that remains a genuine architectural gap with no known API in flight.
 
@@ -37,8 +47,8 @@ Separately, per-page custom title/description overrides — once set in the Edit
 
 ## What this means for a request like "update the copy and SEO on my About page"
 
-1. State plainly that no automated path exists today for either the body-copy edit or the SEO-tag edit — don't loop on tool calls searching for one.
-2. The only real option is the manual Editor: log into the classic Editor/Studio Editor (desktop browser — the mobile Editor and Wix Owner app support in-place edits on already-editable text but not all component types reliably) and edit the text and the page's SEO panel (Page Info / SEO settings) directly, then publish.
-3. If the user only wants help *drafting* the new copy or SEO title/description, that part (LLM text generation) has nothing to do with this gap — the gap is purely about *persisting* it to the live page without human hands in the Editor.
+1. For the **SEO tags** (title/description/OG), use the Item SEO Tags API above (`SetItemSeoTags` with `itemType: STATIC_PAGE`, `publish: true`) — no need to fall back to the manual Editor for this part, but see the caveat above about verifying the result.
+2. For the **body copy** (text inside existing components/sections), state plainly that no automated path exists today — don't loop on tool calls searching for one. The only real option is the manual Editor: log into the classic Editor/Studio Editor (desktop browser — the mobile Editor and Wix Owner app support in-place edits on already-editable text but not all component types reliably) and edit the text directly, then publish.
+3. If the user only wants help *drafting* the new copy (LLM text generation), that part has nothing to do with the body-copy gap — the gap is purely about *persisting* it to the live page without human hands in the Editor.
 
 See also **[[editing-existing-site-pages-menus-and-homepage.md]]** for the sibling gap (structural edits: adding pages, menus, homepage layout, dynamic pages) — same root cause, different edit surface.
