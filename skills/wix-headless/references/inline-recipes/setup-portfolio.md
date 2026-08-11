@@ -1,6 +1,6 @@
 ---
 name: "Setup Portfolio"
-description: Initializes a Wix Portfolio backend — cleans the install's default sample collection + projects, then creates collections and creates projects assigned to them via collectionIds (collections before projects). Specifies the *how* (calls + format); the collection/project counts and names come from the request.
+description: Initializes a Wix Portfolio backend — creates collections and projects assigned to them via collectionIds (collections before projects). Specifies the *how* (calls + format); the collection/project counts and names come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Portfolio
 
@@ -20,21 +20,9 @@ A concise checklist for preparing any new Wix site that uses the Wix Portfolio a
 ---
 
 ## Article: Steps for Setting Up Wix Portfolio
-**YOU MUST** complete all the following steps **in the given order** (0-2, plus 3 when imagery is on) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete all the following steps **in the given order** (1-2, plus 3 when imagery is on) without skipping any and **without requiring additional user input**.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: create the COLLECTIONS first (STEP 1), then the PROJECTS (STEP 2).** A project is assigned to collections by a `collectionIds` array, and **that array is NOT validated on create** — a wrong or nonexistent collection id is **silently accepted**, producing an orphan project that appears under no collection. The only way to assign correctly is to create the collections first, read back their real ids, and thread those exact ids into each project. (There is **no** shared-revision `409` race — creating collections/projects concurrently is safe — but the id dependency still forces collections-before-projects.)
-
-### STEP 0: Clean the portfolio — remove the default sample data
-
-A freshly installed Wix Portfolio app comes pre-seeded with **one sample collection ("My Portfolio") and several sample projects** ("Editorial Portraits", "Seasonal Lookbook", …), all assigned to that collection. **Only remove data that is obviously the install's own sample content on a fresh install** (that "My Portfolio" collection and its sample projects). Do **not** assume existing collections/projects are samples: the site may already hold the owner's **real content** (a connect/iterate run, or an owner-populated portfolio). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When it clearly is the install's samples, remove it **before** creating yours so the site shows only the intended content.
-
-**Delete children before the parent — projects first, then collections.** (Deleting a collection does not clean up the projects that reference it.)
-
-1. **List the projects** — `GET https://www.wixapis.com/portfolio/v1/projects`. The projects are under `response.projects[]` (count at `response.metadata.count`). Collect every `project.id`.
-2. **Delete each project** — `DELETE https://www.wixapis.com/portfolio/v1/projects/{projectId}`, one call per id (there is **no** bulk-delete for projects). Each returns `200`.
-3. **List the collections** — `GET https://www.wixapis.com/portfolio/v1/collections` (`response.collections[]`); collect every `collection.id`.
-4. **Delete each collection** — `DELETE https://www.wixapis.com/portfolio/v1/collections/{collectionId}`, one call per id. Each returns `200`.
-5. **Verify** both lists now return `metadata.count: 0` before proceeding.
 
 ### STEP 1: Create the collections
 
@@ -149,7 +137,7 @@ curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items
 
 ## Conclusion
 Following these steps **in order** sets up a new Wix Portfolio site:
-- Starts from a **clean portfolio** — the install's default sample collection and projects are all removed first (projects before collections).
+- Adds the requested collections and projects without changing existing portfolio data.
 - Contains the collections and projects called for by the request, with **collections created first** so each project's `collectionIds` holds a real, verified collection id (the array is not validated, so a wrong id would silently orphan the project).
 - Every collection and project is **shown** (`hidden` defaults to `false`) — nothing needs setting to be visible.
 - Cover images are attached only when `imagery` is on; otherwise everything stays text-only. All calls use the Portfolio **v1** API.

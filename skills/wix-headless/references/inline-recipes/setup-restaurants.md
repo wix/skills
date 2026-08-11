@@ -1,6 +1,6 @@
 ---
 name: "Setup Restaurants"
-description: Initializes a Wix Restaurants Menus backend — cleans the install's default sample menu, then bulk-creates items, bulk-creates sections (referencing item ids), and creates the menu (referencing section ids), all visible. Specifies the *how* (calls + format); the menu/section/item counts and names come from the request.
+description: Initializes a Wix Restaurants Menus backend — bulk-creates items, bulk-creates sections (referencing item ids), and creates the menu (referencing section ids), all visible. Specifies the *how* (calls + format); the menu/section/item counts and names come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Restaurants (Menus API)
 
@@ -20,17 +20,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Restaurants
 ## Article: Steps for Setting Up Wix Restaurants Menus
 **YOU MUST** complete all the following steps **in the given order** (0-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
 
-**⚠️ CRITICAL ORDER REQUIREMENT: build the hierarchy BOTTOM-UP — items (STEP 1) → sections (STEP 2) → menu (STEP 3).** A section is created with the **`itemIds`** of the items it contains, and a menu is created with the **`sectionIds`** of the sections it contains. So the child ids must exist before you create the parent. Do the cleanup (STEP 0) first of all, so the ids you delete are provably the install's samples.
-
-### STEP 0: Clean the install — remove the default sample menu
-
-**A freshly installed Wix Restaurants Menus app ships a fully populated default "Dinner Menu"** (roughly one menu, ~4 sections, ~21 items). **Only remove the menu when it's obviously the install's own default "Dinner Menu" on a fresh install.** Do **not** assume an existing menu is a sample: the site may already hold the owner's **real menu** (a connect/iterate run, or an owner-populated site). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When it clearly is the install's sample, remove it **before** creating yours so the storefront shows only the intended menu (children before parents: items → sections → menus):
-
-1. **Bulk-delete items** — `GET https://www.wixapis.com/restaurants/menus/v1/items` (collect every `items[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/items/delete` with body `{"ids": ["<id>", …]}`.
-2. **Bulk-delete sections** — `GET https://www.wixapis.com/restaurants/menus/v1/sections` (collect every `sections[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/sections/delete` with body `{"ids": ["<id>", …]}`.
-3. **Delete menus** — `GET https://www.wixapis.com/restaurants/menus/v1/menus` (collect every `menus[].id`), then delete each one with `DELETE https://www.wixapis.com/restaurants/menus/v1/menus/{menuId}` (**no bulk-delete endpoint for menus** — one DELETE per menu; there is normally just the single default menu). Single delete takes only the path id — **no `revision` needed**.
-
-The bulk-delete responses carry per-id `results[].itemMetadata.success`; a menu delete returns `200 {}`. If the lists come back empty, this is a safe no-op — continue.
+**⚠️ CRITICAL ORDER REQUIREMENT: build the hierarchy BOTTOM-UP — items (STEP 1) → sections (STEP 2) → menu (STEP 3).** A section is created with the **`itemIds`** of the items it contains, and a menu is created with the **`sectionIds`** of the sections it contains. So the child ids must exist before you create the parent. Seeding is additive: leave every existing menu, section, and item untouched.
 
 ### STEP 1: Bulk-create the items
 
@@ -145,7 +135,7 @@ curl -X PATCH 'https://www.wixapis.com/restaurants/menus/v1/items/<itemId>' \
 
 ## Conclusion
 Following these steps **in order** sets up a new Wix Restaurants Menus site:
-- Starts from a **clean menu** — the install's default sample "Dinner Menu", its sections, and its items are all removed first.
+- Adds the requested menu, sections, and items without changing existing restaurant data.
 - Contains the menu, sections, and items called for by the request, built **bottom-up** (items → sections → menu) so every parent references real child ids.
 - Every item, section, and menu is created **`visible: true`** so it appears on the live site.
 - Prices are decimal strings under `priceInfo.price`; currency is the site's own. All calls use the Restaurants **Menus V1** API.

@@ -146,7 +146,7 @@ Use **Bulk Insert Data Items**: `POST https://www.wixapis.com/wix-data/v2/bulk/i
 
 A POST without an error does **not** prove the content persisted. After inserting, **query each collection once** and confirm every field you sent is present in the stored items.
 
-Use **Query Data Items**: `POST https://www.wixapis.com/wix-data/v2/items/query` with body `{ "dataCollectionId": "<collection>" }`. For every returned item, confirm its `data` carries every field you POSTed. If a field is missing, re-insert that item once (DELETE then insert is safest — a PUT replaces the whole record) and re-verify; if it still fails, surface the missing-field error verbatim rather than reporting success.
+Use **Query Data Items**: `POST https://www.wixapis.com/wix-data/v2/items/query` with body `{ "dataCollectionId": "<collection>" }`. For every returned item, confirm its `data` carries every field you POSTed. If a field is missing, surface the missing-field error verbatim rather than changing or replacing an existing item.
 
 ### STEP 4: Wire multi-references (only if collections relate)
 
