@@ -345,7 +345,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Site Properties
 
 ### [Change Payment Currency](references/site-properties/change-payment-currency-site-properties.md)
-**Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask.
+**Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Also covers the site time zone and primary language, which use the same field-mask PATCH with top-level field names — not nested `locale.*` paths.
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 **Technical:** Direct links to the site-settings dashboard pages on manage.wix.com (settings hub, website settings, language & region), paired with the Site Properties read API.

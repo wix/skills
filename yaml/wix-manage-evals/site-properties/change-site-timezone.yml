@@ -1,0 +1,49 @@
+name: site-properties/change-site-timezone
+description: >-
+  Verifies the agent reads the Site Properties regional-properties recipe and updates the
+  site's time zone in one direct field-mask PATCH, without a rejected mask path or a run of
+  probing calls to discover the field name.
+triggerPrompt: >-
+  Change my site's time zone to America/New_York.
+tags: [site-properties]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Change my site's time zone to America/New_York."
+
+      Pass only if the trace shows the agent successfully (2xx) updated the site's time zone to
+      America/New_York and confirmed it in its final answer.
+
+      Fail if it set a different time zone; OR the update call errored (non-2xx) and was never
+      corrected; OR it only described how to do it without doing it; OR it asked platform-level
+      clarifying questions instead of acting.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent reached the outcome. Examine the tool-call trace.
+      Score 0-10 (10 = direct: read the recipe, then one successful update call).
+
+      Penalize and LIST any of:
+      - an update call rejected because the field mask named a nested path (for example
+        `locale.timezone`) instead of the top-level `timeZone` field;
+      - an update call rejected for a missing field mask;
+      - API-spec or schema lookups made *after* a failed update in order to discover the correct
+        field name or endpoint;
+      - more than one attempt at the update call;
+      - probing calls that the recipe's content would have made unnecessary.
+
+      For each issue, name the likely docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor
