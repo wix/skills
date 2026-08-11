@@ -67,6 +67,8 @@ export default function ServiceDetail() {
               maxParticipants={d.maxParticipants} participants={d.participants} setParticipants={d.setParticipants}
               onSubmit={d.submit} submitting={d.submitting} canSubmit={d.canSubmit} error={d.error}
               needsApproval={needsApproval}
+              timeLabel={new Date(d.selectedSlot.localStartDate).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+              priceLabel={price}
             />
             <p className="m-0 mt-3 text-[13px] text-muted-foreground text-center">
               You'll pay on the next screen.{rescheduleNote ? ` ${rescheduleNote}` : ""}

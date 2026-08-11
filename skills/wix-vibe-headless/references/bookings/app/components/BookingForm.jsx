@@ -8,8 +8,11 @@ const labelCls = "block mb-1.5 text-[11px] uppercase tracking-wide text-muted-fo
 
 export default function BookingForm({
   contact, setContactField, maxParticipants, participants, setParticipants,
-  onSubmit, submitting, canSubmit, error, needsApproval,
+  onSubmit, submitting, canSubmit, error, needsApproval, timeLabel, priceLabel,
 }) {
+  // Naming the time and price on the button is the last confirmation before payment, so what the
+  // buyer clicks states exactly what they're committing to.
+  const what = [timeLabel, priceLabel].filter(Boolean).join(" · ");
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="flex flex-col gap-4">
       <div className="flex gap-3">
@@ -53,7 +56,9 @@ export default function BookingForm({
         className="px-6 py-3 cursor-pointer bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
         {submitting
           ? (needsApproval ? "Requesting…" : "Booking…")
-          : (needsApproval ? "Request appointment" : "Book appointment")}
+          : needsApproval
+            ? (what ? `Request ${what}` : "Request appointment")
+            : (what ? `Book ${what}` : "Book appointment")}
       </button>
     </form>
   );
