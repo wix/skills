@@ -3,6 +3,7 @@
 //
 // The price shown follows the selection: once options resolve to a variant the hook returns that
 // variant's price, so a picked size can cost more than the "from" figure the grid tile showed.
+import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProductDetail } from "@/hooks/useProductDetail";
 import { productGallery } from "@/lib/storeImage";
@@ -12,6 +13,8 @@ import VariantPicker from "@/components/VariantPicker";
 export default function ProductDetail() {
   const { slug } = useParams();
   const d = useProductDetail(slug);
+  // Memoised so the gallery keeps its selected image across re-renders (see ProductGallery).
+  const images = useMemo(() => productGallery(d.product), [d.product]);
 
   if (d.error) {
     return (
@@ -31,7 +34,6 @@ export default function ProductDetail() {
   }
   if (!d.product) return <ProductDetailSkeleton />;
 
-  const images = productGallery(d.product);
   const compareAt = d.product?.compareAtPriceRange?.minValue?.formattedAmount;
 
   return (
@@ -43,7 +45,7 @@ export default function ProductDetail() {
       </nav>
 
       <div className="grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
-        <ProductGallery images={images} name={d.product.name} />
+        <ProductGallery images={images} name={d.product.name} focusUrl={d.focusMediaUrl} />
 
         <div>
           <h1 className="font-display m-0 mb-2">{d.product.name}</h1>

@@ -4,10 +4,19 @@
 // Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
 
-export default function ProductGallery({ images, name }) {
+export default function ProductGallery({ images, name, focusUrl }) {
   const [index, setIndex] = useState(0);
   // Reset when navigating between products — the component stays mounted across a slug change.
+  // `images` must keep a stable identity per product (the PDP memoises it), or every parent render —
+  // a quantity bump, an option click — would land here and throw away the image the buyer picked.
   useEffect(() => { setIndex(0); }, [images]);
+
+  // Picking a colour swatch shows that colour: focusUrl is the choice's linked photo. Runs after the
+  // reset effect, so a first paint with a colour pre-selected opens on the right image.
+  useEffect(() => {
+    const i = images?.findIndex((img) => img.url === focusUrl) ?? -1;
+    if (i >= 0) setIndex(i);
+  }, [focusUrl, images]);
 
   const current = images?.[index];
 

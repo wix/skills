@@ -13,10 +13,29 @@ import { wixApiRequest } from "./wix-client.js";
  *   actualPriceRange.minValue.formattedAmount {string} — lowest price with currency symbol,
  *   actualPriceRange.maxValue.formattedAmount {string} — highest price with currency symbol,
  *   compareAtPriceRange.minValue.formattedAmount {string} — strikethrough price (present when on sale),
+ *   actualPriceRange/compareAtPriceRange .minValue.amount {string} — the same figures unformatted
+ *     ("129.00"). Use these for arithmetic: a percent-off badge can't be computed from "€129.00",
  *   inventory.availabilityStatus {string} — "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
+ *   inventory.preorderStatus {string} — "ENABLED"|"DISABLED". ENABLED + OUT_OF_STOCK is a pre-order,
+ *     which is buyable — label it "Pre-order" rather than "Sold out",
+ *     NB: inventory carries no stock COUNT. "Limited stock" (from PARTIALLY_OUT_OF_STOCK) is the most
+ *     precise scarcity signal a tile can show; "Only 2 left" needs per-variant inventory, i.e. a
+ *     getProductBySlug call per product,
+ *   ribbon {object} — { id, name } merchant-set badge: "New", "Sale", "Best Seller". This is the
+ *     catalogue's own label, so prefer it over anything derived — a "new" badge computed from
+ *     createdDate flags every product at once right after seeding,
+ *   additionalRibbons {array} — further { id, name } badges,
+ *   createdDate / updatedDate {string} — ISO timestamps,
+ *   variantSummary.variantCount {number} — how many variants exist, without fetching them,
  *   options {array} — product options e.g. Size, Color:
  *     [{ id, name, optionRenderType "TEXT_CHOICES"|"COLOR_CHOICES"|"SWATCH_CHOICES",
- *        choicesSettings.choices [{ choiceId, key, name, inStock, visible, linkedMedia }] }],
+ *        choicesSettings.choices [{ choiceId, key, name, inStock, visible, choiceType, colorCode,
+ *                                   linkedMedia }] }],
+ *     A COLOR/SWATCH option's choices carry choiceType "ONE_COLOR" and colorCode "#395E55" — render
+ *     those as real colour swatches, not text pills. linkedMedia [{ image.url }] holds that colour's
+ *     photos, so selecting a swatch can move the gallery to the matching shot. visible false is a
+ *     retired choice the merchant no longer sells: filter it out. (TEXT_CHOICES choices are
+ *     choiceType "CHOICE_TEXT" with no colorCode.)
  *   modifiers {array} — non-variant customizations (engraving, gift wrap):
  *     [{ id, name, mandatory, modifierRenderType "TEXT_CHOICES"|"FREE_TEXT",
  *        key, choicesSettings.choices, freeTextSettings.key }],
