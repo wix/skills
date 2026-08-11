@@ -4,6 +4,9 @@ triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for a paragr
 tags: [rich-content]
 maxTokens: 450000
 assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
   - type: llm_judge
     minScore: 9
     maxTokens: 2048
