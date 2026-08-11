@@ -1,6 +1,6 @@
 ---
 name: "Flow: Upsell Boost"
-description: UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
+description: "UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README."
 ---
 # Flow: Upsell Boost Campaign
 
