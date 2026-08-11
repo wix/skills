@@ -21,10 +21,10 @@ const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
-  // Retry the catalog-V1 provisioning race: right after a fresh Stores install the V3 WRITE path
-  // clears CATALOG_V1 a bit later than the V3 read path, so even once waitForCatalogV3 (a read probe)
-  // returns, the first bulk-create can still 428 with CATALOG_V1_SITE_CALLING_CATALOG_V3_API. Wait it
-  // out on that code only (~80s budget); every other error throws on the first try as before.
+  // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
+  // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
+  // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
+  // error throws on the first try as before.
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(API + path, {
       method,
@@ -37,7 +37,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok) return json;
-    if (json?.details?.applicationError?.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" && attempt < 40) {
+    if (isProvisioning(res.status, json) && attempt < 40) {
       await sleep(2000);
       continue;
     }
@@ -47,11 +47,23 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// A freshly installed Stores catalog transiently reports CATALOG_V1: V3 calls 428 with
-// applicationError.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" until provisioning settles to
-// V3. Poll a cheap V3 read until that code clears (bounded ~80s), so we don't fire the expensive
-// bulk-create repeatedly during the window. This is a cheap pre-gate on the READ path; the WRITE path
-// clears slightly later, so the real guarantee is req()'s retry on the same code — this just minimizes
+// A freshly installed catalog isn't writable yet, and Wix has signalled that with two different
+// 428s: the older CATALOG_V1_SITE_CALLING_CATALOG_V3_API (site still reports V1) and the current
+// CATALOG_V3_SITE_PROVISIONING ("Site is currently being provisioned for CATALOG_V3"). Sites exist
+// on both behaviours, so match either. The message check catches a further rename: on this endpoint
+// a 428 means "not ready, retry", and treating an unknown one as fatal turns a wait into a failed
+// seed — which is exactly how the V3 code slipped through when only the V1 code was matched.
+const PROVISIONING_CODES = new Set(["CATALOG_V1_SITE_CALLING_CATALOG_V3_API", "CATALOG_V3_SITE_PROVISIONING"]);
+
+function isProvisioning(status, json) {
+  if (PROVISIONING_CODES.has(json?.details?.applicationError?.code)) return true;
+  return status === 428 && /provision/i.test(json?.message || "");
+}
+
+// A freshly installed Stores catalog 428s on V3 calls until provisioning settles (see
+// isProvisioning for the codes). Poll a cheap V3 read until that clears (bounded ~80s), so we don't
+// fire the expensive bulk-create repeatedly during the window. This is a pre-gate on the READ path;
+// the WRITE path clears slightly later, so the real guarantee is req()'s retry — this just minimizes
 // how many times the actual write has to retry.
 async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
@@ -62,7 +74,10 @@ async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
     });
     if (res.ok) return;
     const json = await res.json().catch(() => ({}));
-    if (json?.details?.applicationError?.code !== "CATALOG_V1_SITE_CALLING_CATALOG_V3_API") return;
+    // Anything that isn't a provisioning signal is a real error — return and let the caller's own
+    // request surface it. Matching only one of the two codes here made this exit the wait on the
+    // other one, handing the caller straight to a write that then 428'd.
+    if (!isProvisioning(res.status, json)) return;
     await sleep(delayMs);
   }
 }
