@@ -1,0 +1,27 @@
+name: stores/create-product-with-three-images
+description: Verifies that one Catalog V3 product can be created with exactly three ordered, ready images and no inventory.
+triggerPrompt: >-
+  Create one physical product named "Three Photo Sample" for $49 with SKU 3IMG-001 and no inventory.
+  Attach these three images in this exact order: https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800,
+  https://images.unsplash.com/photo-1552053831-71594a27632d?w=800, and
+  https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800. Create it now.
+tags: [stores, media]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the agent loads the unified Create Product recipe, detects Catalog V3, uploads all three supplied images together when batch upload is available (or uses the documented Media Manager fallback), waits until every exact asset is READY, and creates exactly one PHYSICAL product through /stores/v3/products or a compatible one-product /stores/v3/bulk/products/create call. The product must keep name "Three Photo Sample", price 49, SKU "3IMG-001", product- and variant-level physicalProperties, and no inventoryItem. media.itemsInfo.items must contain exactly three distinct ready wixstatic.com URLs mapped to the three supplied assets in the same order, without media.main. The agent must inspect the create result and report image attachment as verified only when the response proves it; otherwise it must label the three images submitted rather than verified. If any exact asset remains unavailable, it should not create this required-three-image product and must report it blocked.
+      Fail if the agent uploads images separately when batch upload is available, creates before every image is READY, uses an original external URL or a PENDING/FAILED file URL or thumbnail, substitutes, duplicates, drops, or reorders an image, creates more than one product, uses an inventory endpoint or adds inventory, writes media.main, loses the price or SKU, or claims all three images were verified without response evidence.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: |
+      Rate the execution path from 0-10. A 10 is direct: load the unified Create Product recipe, use existing V3 site context or one version check, batch-upload the three images once, wait for all three exact assets to become READY, make one compatible no-inventory product-create mutation, and validate the documented response without overstating verification. Penalize and list redundant recipe reads, speculative schema probes, per-image uploads when batch is available, recovered media/API errors, use of non-READY media, image substitution or reordering, wrong inventory mode, multiple product mutations, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

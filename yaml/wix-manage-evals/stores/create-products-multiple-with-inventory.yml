@@ -1,0 +1,25 @@
+name: stores/create-products-multiple-with-inventory
+description: Verifies that multiple Catalog V3 products with inventory use the inventory-aware bulk endpoint and validate both product and inventory results.
+triggerPrompt: >-
+  Create two physical products with no images: "Organic Green Tea" at $20, SKU TEA-001, quantity 50;
+  and "Herbal Shampoo" at $15, SKU SHAMPOO-001, marked in stock. Create both now.
+tags: [stores]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the agent loads the unified Catalog V3 create-product skill and makes one POST to /stores/v3/bulk/products-with-inventory/create with returnEntity true and exactly two PHYSICAL products. Organic Green Tea's only variant must keep price 20, SKU TEA-001, and inventoryItem.quantity 50 together. Herbal Shampoo's only variant must keep price 15, SKU SHAMPOO-001, and inventoryItem.inStock true together. Both products and variants need physicalProperties and neither product should have media. The agent must inspect every productResults and inventoryResults entry plus both bulk metadata objects before reporting success.
+      Fail if it makes repeated single calls, calls /bulk/products/create without inventory, uses the suppliers-hub API, drops or swaps price/SKU/inventory values, invents images, or claims success after inspecting only product results.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: |
+      Rate the execution path from 0-10. A 10 is direct: load the unified Create Product recipe, use existing V3 site context or one version check, batch-upload supplied images once when supported, choose an inventory-compatible V3 create endpoint immediately, make one product mutation, and validate the documented response. Both single and bulk endpoints are valid for one product; multiple products should use bulk. Penalize and list redundant or tangential recipe reads, speculative schema probes, guessed type names, wrong inventory mode, recovered non-2xx errors, per-image uploads when batch upload is available, repeated single creates for a multi-product request, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.
