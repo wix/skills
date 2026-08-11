@@ -67,7 +67,7 @@ export default function SlotPicker({ slots, cursor, onLoadMore, selectedSlot, on
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="group" aria-label="Choose a day">
+      <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Choose a day">
         {days.map((d) => {
           const active = d.key === current.key;
           return (
