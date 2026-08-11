@@ -121,7 +121,7 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 
 - **Show the `importId` once, right after Start succeeds** — e.g. "Your import
   ID is `abc123` — keep it handy." Never show raw JSON, HTTP codes, artifact
-  ids, or `sourcePlatform`/`sourceConfidence` values.
+  ids, or `sourcePlatform`/`sourceConfidence`/`destinationSiteId` values.
 - **Write for a non-technical audience.** No jargon: no "endpoint", "API",
   "poll", "HTTP", "rate limit", "JSON". Translate events into plain outcomes —
   "the source store limits how fast it can be read" not "hit rate limit (429)".
@@ -181,9 +181,11 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
      is rejected with `INVALID_FILE_URL` (nothing is silently dropped).
    - A request with neither `source_url` nor a URL/site identifiable in
      `request`, and no `fileUrls`, is rejected with `SITE_UNIDENTIFIED`.
-   Returns: `importId`, `sourcePlatform`, `sourceConfidence`. `sourcePlatform`
-   comes back as `CSV` for a FILE run (no site was probed, so
-   `sourceConfidence` is meaningless there).
+   Returns: `importId`, `sourcePlatform`, `sourceConfidence`, `destinationSiteId`.
+   `sourcePlatform` comes back as `CSV` for a FILE run (no site was probed, so
+   `sourceConfidence` is meaningless there). `destinationSiteId` is the id of
+   the Wix site being imported into — returned as soon as Start succeeds,
+   even before a source is confirmed.
    **One import per store at a time, keyed on `source_url`** (or the file set
    when there's no `source_url`): re-starting with the same identity continues
    the SAME migration (server returns the existing `importId`, no new import
