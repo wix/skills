@@ -5,6 +5,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getService, listSlotsForService, getAvailableSlot } from "@/rest/wix-bookings-services";
 import { bookAndCheckout } from "@/rest/wix-bookings-checkout";
+import {
+  serviceCapacityLabel, serviceDuration, serviceLocationLabel, servicePriceLabel, serviceRescheduleNote,
+} from "@/lib/serviceFacts";
 
 // Local wall-clock "YYYY-MM-DDThh:mm:ss" (NO zone / Z) — the slot APIs interpret it in the
 // visitor's timeZone. Sending a UTC `Z` timestamp to the slot APIs is wrong.
@@ -20,6 +23,7 @@ export function useServiceDetail(serviceId) {
   const [notFound, setNotFound] = useState(false);
   const [slots, setSlots] = useState([]);
   const [cursor, setCursor] = useState(null);
+  const [timeZone, setTimeZone] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [contact, setContact] = useState({ firstName: "", lastName: "", email: "", phone: "" });
   const [participants, setParticipants] = useState(1);
@@ -37,7 +41,7 @@ export function useServiceDetail(serviceId) {
     // returns { slots, nextCursor }. The LIST call takes fromLocalDate / toLocalDate — a different
     // arg naming than the single-slot re-validate call (getAvailableSlot: localStartDate/localEndDate).
     listSlotsForService(service, { fromLocalDate: localMidnight(0), toLocalDate: localMidnight(14) })
-      .then(({ slots, nextCursor }) => { setSlots(slots); setCursor(nextCursor); });
+      .then(({ slots, nextCursor, timeZone }) => { setSlots(slots); setCursor(nextCursor); setTimeZone(timeZone); });
   }, [service]);
 
   const loadMoreSlots = useCallback(() => {
@@ -53,12 +57,15 @@ export function useServiceDetail(serviceId) {
   // createBooking fail.
   const maxParticipants = service?.bookingPolicy?.participantsPolicy?.maxParticipantsPerBooking ?? 1;
 
-  const price = useMemo(() => {
-    const p = service?.payment?.fixed?.price;
-    if (!p) return "";                                     // free / custom-priced
-    return p.formattedValue                                // formattedValue is OPTIONAL — build from value+currency when missing
-      || new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency }).format(Number(p.value));
-  }, [service]);
+  const facts = useMemo(() => ({
+    price: servicePriceLabel(service),
+    minutes: serviceDuration(service),
+    capacity: serviceCapacityLabel(service),
+    location: serviceLocationLabel(service),
+    rescheduleNote: serviceRescheduleNote(service),
+    // Manual approval means the business confirms afterwards, so the CTA must not promise a booking.
+    needsApproval: service?.onlineBooking?.requireManualApproval === true,
+  }), [service]);
 
   const setContactField = (k) => (e) => setContact((c) => ({ ...c, [k]: e.target.value }));
   const canSubmit = Boolean(selectedSlot && contact.email && !submitting);
@@ -91,7 +98,7 @@ export function useServiceDetail(serviceId) {
   }, [service, selectedSlot, contact, participants]);
 
   return {
-    service, notFound, price,
+    service, notFound, facts, timeZone,
     slots, cursor, loadMoreSlots,
     selectedSlot, pickSlot: setSelectedSlot,
     contact, setContactField,

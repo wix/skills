@@ -4,9 +4,15 @@
 // calendar instead of a flat wall of repeated "Mon, Aug 10, 1:30 PM". Each chip's key combines the
 // start time with its schedule/event id so appointment and class slots stay distinct. Styled with
 // base44 design tokens (shadcn Tailwind classes).
-const chipCls = "px-3 py-2 cursor-pointer text-sm font-body border rounded-sm";
-const chipIdle = "border-border bg-card text-foreground";
+import { useState } from "react";
+
+const chipCls = "px-4 py-2 cursor-pointer text-sm font-body border rounded-full transition-colors";
+const chipIdle = "border-border bg-card text-foreground hover:border-foreground/40";
 const chipActiveCls = "border-primary bg-primary text-primary-foreground";
+
+// A two-week window on a busy calendar is well over a hundred slots; showing every one buries the
+// booking form under thousands of pixels. Reveal a few days at a time instead.
+const DAYS_STEP = 3;
 
 // Group slots by their local day, preserving order. localStartDate is "YYYY-MM-DDThh:mm:ss" (no zone),
 // so the first 10 chars are the day key.
@@ -21,16 +27,30 @@ function groupByDay(slots) {
 }
 
 export default function SlotPicker({ slots, cursor, onLoadMore, selectedSlot, onPick }) {
+  const [visibleDays, setVisibleDays] = useState(DAYS_STEP);
+
   if (!slots?.length) {
     return <p className="text-muted-foreground">No available times in this range — try later.</p>;
   }
+
+  const days = groupByDay(slots);
+  const shown = days.slice(0, visibleDays);
+  // More to reveal from what's already loaded, or another page to fetch — either way there are later
+  // dates to show, so one control covers both.
+  const hasMore = days.length > visibleDays || !!cursor;
+
+  const showLater = () => {
+    if (days.length > visibleDays) setVisibleDays((n) => n + DAYS_STEP);
+    else onLoadMore?.();
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      {groupByDay(slots).map((daySlots) => (
+      {shown.map((daySlots) => (
         <div key={daySlots[0].localStartDate.slice(0, 10)}>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+          <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-2">
             {new Date(daySlots[0].localStartDate).toLocaleDateString(undefined, {
-              weekday: "short", month: "short", day: "numeric",
+              weekday: "long", month: "short", day: "numeric",
             })}
           </h3>
           <div className="flex flex-wrap gap-2">
@@ -49,10 +69,11 @@ export default function SlotPicker({ slots, cursor, onLoadMore, selectedSlot, on
           </div>
         </div>
       ))}
-      {cursor && (
-        <button onClick={onLoadMore}
-          className="px-4 py-2 cursor-pointer bg-card text-foreground border border-border rounded-sm">
-          Load more times
+
+      {hasMore && (
+        <button onClick={showLater}
+          className="self-start text-sm text-primary bg-transparent border-none p-0 cursor-pointer hover:underline">
+          Show later dates →
         </button>
       )}
     </div>
