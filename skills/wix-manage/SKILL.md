@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -146,6 +146,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 **Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
 
+### [Create a Contact](references/contacts/create-a-contact.md)
+**Technical:** Creates a contact in one Contacts API call. Covers the minimum identifying fields, the single-object shape of `email` and `phone` (a list is accepted and silently discarded), optionally attaching a physical address, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
+
+### [Update a Contact](references/contacts/update-a-contact.md)
+**Technical:** Updates an existing contact's email, phone, name or address. Covers locating the contact with Search Contacts when the user names it (Query Contacts cannot filter by name), passing the current `revision`, appending an address via the contact's `addresses` sub-resource, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`).
+
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 **Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
 
@@ -218,6 +224,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 </details>
 
 > Dashboard links for eCommerce surfaces (orders, abandoned checkouts, gift cards, shipping, tax, checkout settings) are in [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md).
+
+---
+
+## Events
+
+### [Create Event](references/events/create-wix-event.md)
+**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, and short vs Ricos rich-text descriptions. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoint: /events/v3/events.
+
+### [Manage Events](references/events/manage-wix-events.md)
+**Technical:** Manages existing events with the Wix Events V3 API — ticket definitions and pricing (fixed, free, donation, multiple tiers), publishing a draft, cancelling, deleting, cloning, updating an event's date, counting events, and building recurring series from explicit occurrence dates. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
 
 ---
 
@@ -336,7 +352,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Site Properties
 
 ### [Change Payment Currency](references/site-properties/change-payment-currency-site-properties.md)
-**Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask.
+**Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Also covers the site time zone and primary language, which use the same field-mask PATCH with top-level field names — not nested `locale.*` paths.
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 **Technical:** Direct links to the site-settings dashboard pages on manage.wix.com (settings hub, website settings, language & region), paired with the Site Properties read API.

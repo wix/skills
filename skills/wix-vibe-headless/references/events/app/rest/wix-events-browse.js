@@ -31,7 +31,7 @@ import { wixApiRequest } from "./wix-client.js";
  *   form {object} — registration form controls (FORM fieldset),
  *   calendarUrls {object} — { google, ics } (DETAILS fieldset)
  *
- * Category: { id, label, slug, counts.assignedEventsCount }
+ * Category: { id, name, counts.assignedEventsCount }
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories
  */
 

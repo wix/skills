@@ -9,8 +9,10 @@ import { wixApiRequest } from "./wix-client.js";
  *
  *   id {string}, type "APPOINTMENT"|"CLASS"|"COURSE", name {string}, tagLine {string},
  *   description {string}, hidden {boolean},
- *   media.items {array} — [{ image: { id, url, width, height, altText } }]
- *     (url may be a bare Wix media handle — pass through mediaUrl() before rendering),
+ *   media.mainMedia.image { id, url, width, height, altText } — the PRIMARY service image (what the
+ *     seed sets and the card shows); media.items {array} is the gallery, media.coverMedia the cover.
+ *     Read mainMedia first, fall back to items[0]/coverMedia. url may be a bare Wix media handle —
+ *     pass through mediaUrl() before rendering,
  *   payment.rateType "FIXED"|"CUSTOM"|"VARIED"|"NO_FEE"|"SUBSCRIPTION",
  *   payment.fixed.price { value, currency, formattedValue } — value + currency are always
  *     present; formattedValue is optional (may be missing), so format the price from

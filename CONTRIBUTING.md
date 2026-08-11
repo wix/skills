@@ -59,9 +59,15 @@ The best source for a skill is often a real agent conversation where the agent s
 
 Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill only when those sources are correct but still do not connect the dots for an agent. Keep the skill minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
 
-### Orchestration, not API shape
+### Orchestration and worked examples
 
-A skill's job is orchestration: which APIs to call, in what order, what to decide between calls, and what to confirm with the user. Request and response shapes belong in the Wix docs, which the agent reads on demand — so write *"create the product first, then add options and choices to it; variants are generated from those, not passed in"* and let the agent look up the fields. Restating field names, enum values, or full request bodies creates a second source of truth that drifts as the API evolves; do it only when a detail is genuinely non-discoverable and the task fails without it.
+A skill starts with orchestration: which APIs to call, in what order, what to decide between calls, and what to confirm with the user — *"create the product first, then add options and choices to it; variants are generated from those, not passed in"*.
+
+Orchestration on its own, though, still leaves the agent to go find the request body. That costs a round trip to the docs on every run, and it leaves room to guess wrong. So show the call too: the endpoint and HTTP method, a minimal request body for the common path, the response fields the next step reads, and any wrapper, enum value, or ID format that the field name alone doesn't reveal. An agent that can copy a working call finishes the task faster and more reliably than one that has to reconstruct it.
+
+Verify every example. Run it against a real site, or confirm it against the official reference and method schema — and when live behavior contradicts the reference, document what the API actually does. A plausible but wrong example is worse than no example, because the agent will trust it.
+
+Keep examples minimal and current. Show the fields the task needs, not the whole schema: exhaustive field lists, every optional field, and full enum tables belong in the linked reference, which stays accurate as the API evolves. Link that page alongside the example so the agent can go deeper when a task falls outside the common path. Use placeholder IDs rather than values from a real site.
 
 ### Stay agnostic to agent and client
 
@@ -81,7 +87,7 @@ Before opening a PR, confirm:
 - Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
 - The [wix-app eval gate](docs/skill-evaluation.md#wix-app-scenarios-the-pr-eval-gate) comment has been read: no uncovered tags, and any scenario you added or edited has at least 3 assertions including an `llm_judge`.
 - Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
-- The skill describes [orchestration](#orchestration-not-api-shape), leaving request/response shapes to the Wix docs.
+- The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
 - The skill names no MCP tool, client, or provider — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.

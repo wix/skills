@@ -1,125 +1,121 @@
-# Wix Managed Headless — build instructions
+# Wix Managed Headless — build instructions (any stack)
 
-You are building a **Wix Managed** headless site. The business to build, and your Wix client id
-and metasite id, are given in your initial prompt. Follow the steps below:
+You are building a **Wix Managed** headless site — the business, your `WIX_CLIENT_ID`, and metasite
+id are in your prompt. This skill is **client-only REST** over the public `WIX_CLIENT_ID`
+(visitor-facing, safe in the browser) — no `@wix/sdk`, no backend, no build step.
 
-1. **Install the Wix skills locally**
-2. **(optional) Brief doesn't say what to build? Ask, or read the site**
-3. **Build the client**
-4. **Seed and manage the business** (run in parallel with 3)
-5. **When done** (required: mount the dev-only manage banner + point the user to the Wix dashboard)
+## What you've got in the skill
 
-## STEP 1 — Install the Wix skills locally
+The docs were authored for **one host stack** (Vite + react-router, `.jsx`, files pre-copied into
+`src/`) — you may be on another, so **adapt these assets to your stack; don't copy the host's setup.**
+Everything is under `.agents/skills/wix-vibe-headless/references/`.
 
-Install three skills — they land under `.agents/skills/` as:
-- **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
-  APIs. This is your main source of truth (STEP 3).
-- **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
-  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
-  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 4. **Ignore
-  everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
-  "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
-  That is **not** how auth works here — auth is handled per STEP 4 below.
-- **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
-  the seeding recipes above don't cover.
+**Shared transport — both files, used by every vertical (`shared/app/rest/`):**
 
-Install them so you can read them from files as you go (fetching skill docs over the web
-truncates or summarises large files).
+| file | what's in it |
+|---|---|
+| `wix-client.js` | The transport: exchanges `WIX_CLIENT_ID` for an anonymous **visitor token**, persists + refreshes it (that token *is* the cart/session identity), and exposes `wixApiRequest(path, {method, body, query})` — plus the member-session swap (`setSessionTokens` / `clearSession` / `isMember`). Plain `fetch`; SSR-guards `window`/`localStorage`; maps 402 + error bodies. |
+| `wix-config.js` | Holds `WIX_CLIENT_ID` + `WIX_METASITE_ID` — the only values to fill in. |
 
-**Run the Skills CLI** — this is the install path to use:
+**Every `references/<vertical>/` holds the same four things:**
+
+- `app/rest/wix-*.js` — the vertical's **data layer**: named calls carrying the exact request/response
+  **shapes**, fieldsets, and paging.
+- `app/{components,pages,hooks,context}/…` — a **reference UI** (+ hooks/providers) built on that data
+  layer; the field shapes and route patterns it uses (e.g. `/product/:slug`) are the data contract.
+- `seed/seed-*.js` — build-time **seeding functions** that create content.
+- `INSTRUCTIONS.md` — the vertical's build guide + field-shape snippets; `seed/SEED.md` — how the seed
+  module is run.
+
+**The nine verticals — data layer (`app/rest/`) + seed module (`seed/`):**
+
+| vertical | `app/rest/` data layer | seed module |
+|---|---|---|
+| storefront | `wix-store-catalog.js`, `wix-store-cart.js` — products & variants; server cart + checkout redirect | `seed-store.js` |
+| bookings | `wix-bookings-services.js`, `wix-bookings-checkout.js` — services/categories/slots; booking + checkout | `seed-bookings.js` |
+| blog | `wix-blog.js` — posts (list + by-slug), categories, tags | `seed-blog.js` |
+| events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.js` |
+| portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.js` |
+| restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.js` |
+| cms | `wix-cms.js` — Wix Data collections: list / detail / filter + form CRUD | `seed-cms.js` |
+| pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.js` |
+| members | `wix-members-auth.js` — custom login/signup (email+password, social, SSO), session, account | *(none — members sign up at runtime; nothing to seed)* |
+
+Anything in the docs about the **host's own setup** — copying files into `src/`, its `@/` alias, its
+`import.meta.env` flags, a theming file, its build/exec/connector tooling — is that host's, not a
+rule: **adapt it to your stack or ignore it.** The `SKILL.md` **"shared model"** (public-client-id
+auth, money = objects → render `formattedValue`, visitor token = cart identity, member login swaps
+the token set) is **universal — follow it as-is**.
+
+## The flow — install → build client → seed → done
+
+Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work within each.
+
+### 1 · Install the skills
+
+Two skills, into `.agents/skills/`: **`wix-vibe-headless`** (this build guide + the seed modules —
+self-contained) and **`wix-docs`** (fallback to search/read the Wix API reference).
+
 ```bash
-CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
 CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 ```
 
-**Only if the CLI above actually errors** (not on a guess), fall back to curl + gzip — download
-each bundle and extract it into `.agents/skills/wix-<name>/`:
-```bash
-for s in headless vibe-headless docs; do
-  mkdir -p ".agents/skills/wix-$s"
-  curl -s "https://www.wix.com/skills/$s.tgz" | tar xz -C ".agents/skills/wix-$s" --strip-components=1
-done
-```
+### 2 · Build the client
 
-## STEP 2 (optional) — Brief doesn't say what to build? Ask, or read the site
-
-Only needed when the business description in your prompt is vague or missing — otherwise skip
-to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
-portfolio, restaurants, CMS, pricing plans, members, etc..): **ask the user** one short
-question (what do they offer?), or — with an admin-grade Wix credential (connector token or
-API key, per STEP 4; the public `WIX_CLIENT_ID` is not enough) — **read the site in one call**:
+Pull the whole client reference into context in two reads — **this is basically your prompt: it's all
+the client code you need.** Build the client from it in your own stack's idiom (your router, file
+extensions, design tokens), and set `WIX_CLIENT_ID` + `WIX_METASITE_ID` in `wix-config`.
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
-  -H 'Authorization: Bearer <admin token>' -H 'Content-Type: application/json' \
-  -d '{"siteId": "<metasite id from your prompt>"}'
+V=<vertical>   # the vertical you're building
+
+# utils — transport + data layer (plain fetch, already SSR-guarded; use ~as-is)
+find .agents/skills/wix-vibe-headless/references/shared/app/rest \
+     .agents/skills/wix-vibe-headless/references/$V/app/rest \
+     -type f -name '*.js' -exec tail -n +1 {} +
+
+# components/pages — a reference UI (rebuild for your framework; keep the field shapes + route patterns)
+find .agents/skills/wix-vibe-headless/references/$V/app \
+     -type f \( -name '*.jsx' -o -name '*.js' \) -not -path '*/rest/*' -exec tail -n +1 {} +
 ```
 
-It returns a markdown report of the site — installed apps (by name), status, URL, locale, and
-CMS collections
-([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md);
-with an API key send it raw as the `Authorization` value, no `Bearer`). Build for the solutions
-whose apps are installed (several → prioritize by the user's words and by which holds real,
-non-sample content); the same set drives STEP 4's seeding — never seed guessed ones.
+### 3 · Seed the content
 
-## STEP 3 — Build the client
+**⛔ NO CLEANUP — EVER.** Strictly **additive**: never delete, reset, or overwrite anything on the
+user's live site — not even apparent sample/demo content. If something looks wrong, leave it and tell
+the user.
 
-Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **exactly** — it is the single
-source of truth for how the client app is built against the Wix APIs (over the public
-`WIX_CLIENT_ID`, which is a buyer/visitor-facing credential, safe in the frontend).
+**Auth** (the public client id won't do): if your platform has a **built-in Wix connector**, use it
+(it holds the credential). Otherwise take a **Wix API key** into your secrets manager (never hardcode
+or commit) — create one at **[account API keys → Add key](https://manage.wix.com/account/api-keys/addkey)**
+([how-to](https://dev.wix.com/docs/api-reference/articles/authentication/api-keys/generate-an-api-key)) —
+and send it **raw as `Authorization` (no `Bearer`)** with a **`wix-site-id`** header (`wix-account-id`
+only for account-level APIs — one, not both):
 
-## STEP 4 — Seed and manage the business
+```bash
+curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
+  -H 'Authorization: <API_KEY>' -H 'wix-site-id: <METASITE_ID>' \
+  -H 'Content-Type: application/json' -d '{"query":{"cursorPaging":{"limit":10}}}'
+```
 
-**⛔ Never delete or clean up anything on the user's site — seeding is additive only.** Ignore any
-cleanup/reset step in the `wix-headless` seed recipes: it's a live user-owned business, so never
-delete or overwrite existing content, even apparent sample data. If a cleanup truly seems needed,
-ask the user first.
+Pull the seed code into context — **this is your seeding prompt: it's all the code you need.** Run
+these functions (adapting the exec + auth to your platform) to create the content:
 
-Seed the site with real content by following the `wix-headless` skill's `references/SEED.md`
-(`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes don't cover what you
-need, fall back to the `wix-docs` skill to search and read the relevant Wix API docs.
+```bash
+V=<vertical>
+find .agents/skills/wix-vibe-headless/references/$V/seed -name '*.js' -exec tail -n +1 {} +
+```
 
-These management/admin calls need **elevated Wix credentials** — the public client id is not
-enough. If you don't already have a way to authenticate them, either **connect your platform's
-Wix connector** (if it has one) or **ask the user for a Wix API key / token** and store it in your
-platform's built-in **connector / secrets (env) manager** — never hardcode or commit it. **Once
-the connector is connected (or the API key is in place), you can make Wix REST admin calls
-directly** — authenticate each call with that credential (the `wix-docs` skill covers Wix API-key
-auth). Or, if the user prefers, tell them they can add this content themselves in the Wix
-dashboard instead.
+They encode the Wix API sequences (incl. app-install + provisioning-race handling); use `wix-docs`
+for anything they don't cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
+installed + seeded (expected; the seed modules install it first). Image seeding = two Wix Media calls
+(`generate-upload-url` → `PUT` the bytes) before attaching.
 
-Authenticate admin calls with **only** that connector/API key. Do **not** install or run the Wix
-CLI (`@wix/cli`), do a device-login, or follow `wix-headless`'s `references/managed/AUTHENTICATION.md`
-— that managed-project auth flow does not apply here.
+### 4 · Done
 
-Management/admin operations (seeding, `wix-headless`, `wix-docs`) are **separate from the
-client** — the client is built solely per the `wix-vibe-headless` skill.
-
-If possible, run STEP 3 and STEP 4 in parallel — building the client and seeding the business
-are independent. Within each, also parallelize independent work (API calls, seeding multiple
-entities) to finish faster.
-
-## Later admin requests
-
-For any later admin/management request, work the same way as STEP 4: check the `wix-headless`
-skill's inline recipes first (`.agents/skills/wix-headless/references/inline-recipes/`) and fall
-back to the `wix-docs` skill where the operation isn't documented there.
-
-## When done
-
-After the site is built and seeded:
-
-1. **Add the dev-only manage banner** (required) (links the app to its Wix back office): from the
-   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js`, set `WIX_METASITE_ID` to
-   your metasite id and call `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
-   builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
-   guarantee: verify the gate actually holds in this stack, and that a production build never
-   shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
-   down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
-   banner — offset such a header by the banner's height.
-2. **Ask the user to open** this URL to complete the setup in Wix (required; substitute the
-   metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}` — and, since
-   the banner from step 1 is mounted, also tell them: *in dev builds the site shows a slim
-   banner at the top linking straight to this Wix dashboard (dismissible; never shown in
-   production).*
+Mount the dev-only manage banner (regenerate `WixManageBanner` for your stack — it reads
+`WIX_METASITE_ID` from `wix-config`, already set in step 2, and self-hides while it's still the
+placeholder; mount above the header, SSR-safe, portable dev-gate, **never in production**), then tell
+the user to open `https://manage.wix.com/dashboard/{metaSiteId}` to finish setup in Wix (payments,
+content).

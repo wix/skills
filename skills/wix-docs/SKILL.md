@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) **or by browsing** the docs tree as a menu from the `llms.txt` root (append `.md` to any docs path), then read the page by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) **or by browsing** the docs tree as a menu — a structured, typed, counted browse of the REST API reference (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any portal — then read the page by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -54,8 +54,40 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
 # no jq? → python3 -c 'import sys,json;[print(r["title"],r["url"]) for r in json.load(sys.stdin)["results"] if r.get("url")]'
 ```
 
-**B. Browse the tree from the root, like a menu.** Every docs path has a `.md` twin, so you can
-navigate the docs as a menu tree — no search needed. `curl https://dev.wix.com/docs/llms.txt` is the
+**B. Browse the docs tree as a menu.** Two ways: the **structured browse endpoint** for the REST
+API reference (preferred there — typed, counted, filterable), and the **`.md` menu tree** for every
+portal and for reading pages.
+
+**B1. Structured browse — REST API reference (`api-reference`).** `POST
+/mcp-docs-search/v1/docs/menu/browse` walks the tree and returns each child with its **kind**, its
+**HTTP verb** (for methods), and **subtree counts** ("Catalog V3 — 121 methods, 32 articles"), so
+you pick the right area by shape — in ~2 KB, not a ~40 KB menu page you have to `grep`. `include`,
+`name_filter`, and `depth` jump straight to what you want. Body: `menu_url?` (absolute docs URL;
+omit for the portal root — the top-level verticals), `document_type?` (`REST`, default), `depth?`
+(1, max 6), `include?` (`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`),
+`deprecated?` (`HIDE` default·`SHOW`·`ONLY`), `name_filter?`, `format?` (`MARKDOWN` default →
+`content` string; `STRUCTURED` → JSON tree with `url`/`http_method`/`resource_id`/`child_counts`).
+
+```bash
+# a vertical's structure, with per-child subtree counts
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"menu_url":"https://dev.wix.com/docs/api-reference/business-solutions/stores"}' \
+  | jq -r '.content'
+
+# jump straight to a method by name — no multi-level grep
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"menu_url":"https://dev.wix.com/docs/api-reference/business-solutions/bookings","include":["METHOD"],"name_filter":"cancel","depth":4}' \
+  | jq -r '.content'
+```
+
+REST (`api-reference`) only, and browse-only: it hands you the page **URL** — read it by appending
+`.md` (§2), and get the exact schema from §C.
+
+**B2. `.md` menu tree — every portal, and how you read pages.** Every docs path has a `.md` twin, so
+you can navigate any portal with zero dependencies; use it for the **non-REST portals** (SDK, Velo,
+Headless, CLI) and to read leaves. `curl https://dev.wix.com/docs/llms.txt` is the
 top-level map; the portals under it:
 
 | Portal | Start here for |
