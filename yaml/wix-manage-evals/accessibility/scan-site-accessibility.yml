@@ -7,6 +7,8 @@ triggerPrompt: >-
   Scan all product pages on my Wix site for accessibility issues. Tell me which pages failed,
   prioritize the critical issues, and explain what I can fix.
 tags: [aria, stores]
+# Intentionally no top-level token cap: this live scenario includes asynchronous
+# scan polling and paginated result retrieval.
 assertions:
   - tool: ReadFullDocsArticle
     params:
