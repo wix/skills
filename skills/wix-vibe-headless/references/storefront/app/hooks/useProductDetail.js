@@ -76,7 +76,9 @@ export function useProductDetail(slug) {
     try {
       // addToCart reports its own failures through the cart context (it opens the drawer with the
       // reason), so nothing is swallowed by leaving this unguarded beyond resetting the button.
-      await addToCart(product.id, variant?.id, quantity, {
+      // Coerce the quantity: the shipped stepper lets the field sit empty mid-edit, and a keyboard
+      // submit from that state would otherwise post "" as the quantity.
+      await addToCart(product.id, variant?.id, Math.max(1, Number(quantity) || 1), {
         modifierChoices: Object.keys(modifierChoices).length ? modifierChoices : undefined,
         customTextFields: Object.keys(customTextFields).length ? customTextFields : undefined,
       });
