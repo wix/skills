@@ -369,6 +369,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Manage Custom Embeds — Sitewide HTML/JS Injection (Head/Body)](references/sites/manage-custom-embeds.md)
+**Technical:** Create/List/Get/Update/Delete sitewide HTML/JS injections at `HEAD`/`BODY_START`/`BODY_END` via the Custom Embeds API (`/embeds/v1/custom-embeds`). Covers the undocumented premium-plan precondition (`428 NOT_A_PREMIUM_SITE`), the required `revision` on updates, and the consent-gating `embedData.category` behavior (non-`ESSENTIAL` embeds may not appear in a plain fetch even though the write succeeded). Use for tracking/analytics scripts, chat widgets, and sitewide banners — not for per-page visual HTML embeds.
+
 ---
 
 ## Stores
