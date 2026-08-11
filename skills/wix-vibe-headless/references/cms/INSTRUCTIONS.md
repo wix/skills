@@ -100,12 +100,43 @@ holds up when `useMember().member` is `null` — which is the state a logged-in 
 Members Area app is absent (see the members vertical's "Identity vs. profile"), where a client-side id is
 unavailable. For a public list **and** private rows, use **two collections** — permissions are per-collection.
 
+## Images in a collection
+Reading one goes through `wixImage()` (see the code block). Writing one has two shapes, because
+**uploading to Wix Media takes a Manage-scope credential**: `generate-file-upload-url` and
+`import-file` each require `SCOPE.DC-MEDIA.MANAGE-MEDIAMANAGER`, which a member or visitor token
+never carries — a client-side upload answers **403 with an HTML body**. Pick by how the image is used:
+
+| shape | field type | reach for it when |
+|---|---|---|
+| **data URL in the item** — `canvas.toDataURL()`, or any base64 string, written straight into the row | `TEXT` | small images: canvases, signatures, thumbnails, prototypes. An item caps at **500 KB** and base64 adds about a third, so keep the source under ~350 KB. Wix's own visitor-upload tutorial takes this route. |
+| **real Wix Media asset** — a backend route uploads with an elevated credential and returns the CDN URL for the client to store | `IMAGE` | production images: CDN delivery, `wixImage()` transforms, reuse across the site, anything past that size cap |
+
+**On base44 the elevated route is a backend function** — it holds the credential the client lacks:
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // admin-level
+// → POST /site-media/v1/files/generate-upload-url, PUT the bytes to it, return the file URL
+```
+That's the same Wix connector the seed step uses, and it's the supported way to reach a Manage-scope
+API at runtime — a different thing from the Base44 solution kits the build rules exclude. Keep the
+asset on Wix: `base44.integrations.Core.UploadFile` parks the file on Base44 instead, which splits the
+source of truth away from the site.
+
+**Authorize that function against the Wix member**, using the member token the client sends.
+`base44.auth.me()` resolves the *Base44* account — you, the builder — so a function gated on it turns
+real visitors away, while a `test_backend_function` run passes on your own token and reads as working.
+Validate the mime type and the size there as well.
+
+- Tutorial, data URL + elevated route: https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/feature-guides/upload-images-to-cms.md
+- Generate File Upload Url: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-upload-url.md
+- Import File: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+
 ## Hard rules
 - Set `WIX_CLIENT_ID` (in `wix-config`) — not the placeholder.
 - Read/write **only** through the `wix-cms.js` helpers (official Wix Data endpoints) — never hand-build a URL.
 - `queryDataItems` → `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is `[{ fieldName, order }]`; date comparands wrap as `{ "$date": ISO }`.
 - Read date fields through the wrapper — `new Date(v?.$date ?? v)`. Dates arrive as `{ "$date": ISO }` (including `_createdDate` / `_updatedDate`), and `new Date(object)` puts the text "Invalid Date" on the page. See RETRIEVAL SHAPES in `rest/wix-cms.js` for the field types that need a converter.
 - Convert `wix:image://` URIs via `wixImage()` before `<img src>`.
+- Upload images from a backend route holding an elevated credential, and keep a member-submitted image under the 500 KB item cap when storing it as a data URL — a client-side Wix Media upload answers 403 (see **Images in a collection**).
 - Owner field is `_owner` (Wix Data v2), not `_ownerId`; the member id lives at `member.id`, so "my items" → `{ filter: { _owner: member.id } }` (see above).
 - **Give every filter key a defined value** — add the key only once you hold one: `...(memberId ? { _owner: memberId } : {})`. `JSON.stringify` drops `undefined`, so an undefined comparand would match every row (`{ _owner: undefined }`) or none (`{ _owner: { $eq: undefined } }`) with no error from the server; the helpers throw so it surfaces at the call site.
 - **Let the query do the scoping** (a `filter`, or `read: SITE_MEMBER_AUTHOR` for privacy) so the server returns exactly the rows to show. A wrong result means the filter or the permission needs fixing — a client-side `.filter()` over rows the browser already holds only hides the symptom.
