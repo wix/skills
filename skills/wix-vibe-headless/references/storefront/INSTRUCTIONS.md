@@ -22,8 +22,11 @@ so you don't need to open them:**
 | file | what it is |
 |---|---|
 | `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
-| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug |
-| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, with empty state) |
+| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
+| `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
+| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state) |
+| `components/ProductGallery.jsx` | PDP main image + thumbnails |
+| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
 | `components/VariantPicker.jsx` | option/variant selector used on the PDP |
@@ -151,10 +154,14 @@ export function Header() {                                  // in your nav
   );
 }
 export function Featured() {                                // on your home page
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(null);           // null → ProductGrid shows skeletons
   // NB: queryProducts returns { products, nextCursor } — destructure the array.
-  useEffect(() => { queryProducts({ limit: 8 }).then(({ products }) => setProducts(products)); }, []);
-  return <ProductGrid products={products} empty="Products coming soon." />;
+  useEffect(() => {
+    queryProducts({ limit: 8 })
+      .then(({ products }) => setProducts(products))
+      .catch(() => setProducts([]));                        // land on the empty state, not a spinner
+  }, []);
+  return <ProductGrid products={products} loading={products === null} empty="Products coming soon." />;
 }
 ```
 Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages
@@ -172,9 +179,19 @@ import { Link } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 
 // useCart() gives:
-// { cart, itemCount, isOpen, setIsOpen, loading,
+// { cart, itemCount, isOpen, setIsOpen, loading, error, clearError(),
 //   addToCart(productId, variantId?, qty=1, { modifierChoices?, customTextFields? }?),
 //   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
+// Every mutation catches its own failure into `error` (the shipped CartDrawer renders it), so a
+// refusal — an empty cart, or a line item that stopped being AVAILABLE — reaches the buyer instead
+// of becoming an unhandled rejection.
+//
+// Cart money: every amount is { amount, convertedAmount, formattedAmount, formattedConvertedAmount } —
+// show a formatted one so the currency symbol and grouping come from Wix. Read
+// `cart.subtotalAfterDiscounts` rather than `cart.subtotal`: the two match until a cart-level coupon
+// applies, and then `subtotal` is the pre-discount figure. `cart.discount` + `cart.appliedDiscounts`
+// carry the reduction. Never sum line items yourself — tax and shipping resolve at checkout.
+// `lineItems[].availability.quantityAvailable` is the stock cap for a quantity control.
 
 function CartCount() {                                   // header badge
   const { itemCount, setIsOpen } = useCart();
@@ -191,12 +208,15 @@ async function quickAdd(addToCart, product) {
   try { await addToCart(product.id); } catch (e) { alert(e.message); }
 }
 
-// An image you render yourself (hero / custom card): make the url https + keep a token bg so a
-// just-generated url that 404s for a second reads as a surface, not a blank block.
+// An image you render yourself (hero / custom card): normalise the url through lib/storeImage — Wix
+// returns these protocol-relative — and keep a token bg so a just-generated url that 404s for a
+// second reads as a surface, not a blank block.
+import { storeImage, productImage, productGallery } from "@/lib/storeImage";
 function BrandImage({ url, alt }) {
-  const src = url?.startsWith("//") ? `https:${url}` : url;      // ProductCard already does this
-  return <div className="bg-card"><img src={src} alt={alt} /></div>;
+  return <div className="bg-card"><img src={storeImage(url)} alt={alt} /></div>;
 }
+// productImage(product) → the catalog image · productGallery(product) → every image, main first,
+// de-duplicated (media.itemsInfo.items repeats the main one and video items carry no image url).
 ```
 
 ## Extending the client
@@ -244,5 +264,7 @@ client build; run in parallel.
 - [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
 - [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
-- [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects.
+- [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects; the drawer shows a **subtotal**.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
+- [ ] A product with several images shows **thumbnails** on the PDP, and one with per-variant prices shows a **range** on its card.
+- [ ] Categories seeded? The `/shop` menu lists them (minus the auto-created `all-products`) and filters; a catalog past one page shows **Load more**.

@@ -11,22 +11,35 @@ export function useProductDetail(slug) {
   const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  // A missing product (notFound) and a failed request (error) need different pages: one is a dead
+  // link, the other is worth retrying. Without the split, a network blip reads as "product deleted".
+  const [error, setError] = useState(null);
+  const [adding, setAdding] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [modifierValues, setModifierValues] = useState({});
   const [quantity, setQuantity] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    getProductBySlug(slug).then((p) => {
-      if (!p) return setNotFound(true);
-      setProduct(p);
-      const initial = {};
-      (p.options || []).forEach((o) => {
-        const first = o.choicesSettings?.choices?.find((c) => c.inStock !== false);
-        if (first) initial[o.id] = first.choiceId;
-      });
-      setSelectedOptions(initial);
-    });
-  }, [slug]);
+    let cancelled = false;
+    setProduct(null);
+    setNotFound(false);
+    setError(null);
+    getProductBySlug(slug)
+      .then((p) => {
+        if (cancelled) return;
+        if (!p) return setNotFound(true);
+        setProduct(p);
+        const initial = {};
+        (p.options || []).forEach((o) => {
+          const first = o.choicesSettings?.choices?.find((c) => c.inStock !== false);
+          if (first) initial[o.id] = first.choiceId;
+        });
+        setSelectedOptions(initial);
+      })
+      .catch((e) => { if (!cancelled) setError(e?.message || "Couldn't load this product."); });
+    return () => { cancelled = true; };
+  }, [slug, reloadKey]);
 
   const options = product?.options || [];
   const modifiers = product?.modifiers || [];
@@ -59,15 +72,23 @@ export function useProductDetail(slug) {
       if (!k || !modifierValues[k]) return;
       (m.modifierRenderType === "FREE_TEXT" ? customTextFields : modifierChoices)[k] = modifierValues[k];
     });
-    await addToCart(product.id, variant?.id, quantity, {
-      modifierChoices: Object.keys(modifierChoices).length ? modifierChoices : undefined,
-      customTextFields: Object.keys(customTextFields).length ? customTextFields : undefined,
-    });
+    setAdding(true);
+    try {
+      // addToCart reports its own failures through the cart context (it opens the drawer with the
+      // reason), so nothing is swallowed by leaving this unguarded beyond resetting the button.
+      await addToCart(product.id, variant?.id, quantity, {
+        modifierChoices: Object.keys(modifierChoices).length ? modifierChoices : undefined,
+        customTextFields: Object.keys(customTextFields).length ? customTextFields : undefined,
+      });
+    } finally {
+      setAdding(false);
+    }
   }
 
   return {
-    product, notFound, options, modifiers,
+    product, notFound, error, retry: () => setReloadKey((k) => k + 1),
+    options, modifiers,
     selectedOptions, selectOption, modifierValues, setModifier,
-    quantity, setQuantity, variant, inStock, canAdd, price, submit,
+    quantity, setQuantity, variant, inStock, canAdd, adding, price, submit,
   };
 }
