@@ -65,6 +65,8 @@ The pass-2 **write shape is per-entity earned knowledge and lives in each capabi
 
 Brand-contextual, never generic. Include: subject; the brand aesthetic/mood; the palette (real tones, e.g. "warm cream and forest green"); style/lighting; and always **"no text, no watermarks"** (AI-rendered text is garbled). Pull context from the brand + the entity (product name/description, post topic, page purpose).
 
+**At least one image per page must show the real subject of the business** — the actual service/product/space, not just abstract or decorative art; decorative visuals layer in *addition* to that, never *instead of* it (`CONTENT.md` § Images has the full rule + the fillable-slot fallback for when only the user's own real photos will do).
+
 ## Credits, cost & the not-generating fallback
 
 Each generated image costs **1 Wix AI credit**, billed at the account level regardless of project type (the account behind the metasite must have credits). Volume is bounded in `DISCOVERY.md` §4 — carry those two values through:
