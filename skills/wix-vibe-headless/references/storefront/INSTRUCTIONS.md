@@ -216,7 +216,11 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 
 Fallback only — when you hit an error or need something not shown here (coupons, members, a field
 these snippets don't have): read the relevant shipped file under `src/`, or look it up via the
-**`wix-docs`** skill.
+**`wix-docs`** skill. Each helper in `wix-store-catalog.js` / `wix-store-cart.js` links its own
+reference page inline; these are the areas they sit in:
+- Stores catalog (products, categories, inventory): https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3.md
+- eCommerce (cart, checkout, orders): https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md
+- Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.

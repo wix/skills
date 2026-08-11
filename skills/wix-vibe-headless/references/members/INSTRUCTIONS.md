@@ -241,6 +241,13 @@ const callbackUri = new URL("/callback", window.location.origin).href;   // must
 startSocialLogin(IDP.GOOGLE, callbackUri, window.location.pathname);      // custom SSO: pass a connectionId as idp
 ```
 
+Every export in `wix-members-auth.js` links its own reference page inline. The two areas they sit in
+map onto the identity / profile split below — auth is the headless OAuth app, the profile is the
+Members Area app:
+- Headless authentication (login, register, verify, tokens): https://dev.wix.com/docs/api-reference/business-management/headless/authentication.md
+- Headless redirects (social/SSO + logout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
+- Members (the member profile, needs the Members Area app): https://dev.wix.com/docs/api-reference/crm/members-contacts/members.md
+
 ## Identity vs. profile — don't conflate them
 - **Identity / auth** — sign up, log in, log out, "is this caller a member?". Native to the headless
   OAuth app. **No app install needed** — every login mechanism here runs on this layer alone.
