@@ -20,11 +20,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Bo
 
 **⚠️ CRITICAL ORDER REQUIREMENT: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE creating services (STEP 3).** An APPOINTMENT service is rejected (`MISSING_APPOINTMENT_RESOURCES`) unless `staffMemberIds` is non-empty, and **any service without a `category.id` is invisible on the live site** (see STEP 3). For CLASS services, sessions are created **after** the service (STEP 4) because they need the service's returned `schedule.id`.
 
-**Check for pre-existing services first.** A freshly provisioned Wix Bookings app may ship demo/sample services (e.g. "Sample service" rows) that would otherwise appear in the live storefront alongside yours — so before STEP 1, check and clean up only if needed:
-1. **List** — `POST https://www.wixapis.com/bookings/v2/services/query` `<AUTH>` with body `{"query": {"paging": {"limit": 100}}}`; collect every `service.id`.
-2. **If any come back, delete them** — `DELETE https://www.wixapis.com/bookings/v2/services/<serviceId>` `<AUTH>` for each. If the list is empty, there's nothing to clean — move on.
-
-Clean the install's **own demo services** yourself via the API — that's part of this setup, so don't leave obvious sample services in place or push that work onto the user. But do **not** assume every existing service is a sample: the site may already hold the owner's **real services** (a connect/iterate run, or an owner-populated site). If what's there isn't obviously the install's demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are install samples, delete them before creating yours. (The default **"Business Owner" staff resource** is a resource, **not** a service — leave it; you reuse it in STEP 1.)
+**Seeding is additive.** Leave every existing service untouched, including any install-default data. The default **"Business Owner" staff resource** is a resource, not a service; reuse it in STEP 1.
 
 ### STEP 1: Resolve a staff resource (REQUIRED for APPOINTMENT)
 

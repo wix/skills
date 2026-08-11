@@ -1,6 +1,6 @@
 ---
 name: "Setup Online Store"
-description: Initializes a Stores catalog with Catalog V3 — cleans default sample products, then bulk-creates products with options/variants/inventory (visible), and creates + assigns categories. Specifies the *how* (calls + format); counts and the specific products/categories come from the request being fulfilled.
+description: Initializes a Stores catalog with Catalog V3 — bulk-creates products with options/variants/inventory (visible), then creates + assigns categories. Specifies the *how* (calls + format); counts and the specific products/categories come from the request being fulfilled.
 ---
 **RECIPE**: Business Recipe – Initial Setup for a Wix Online Store (Catalog V3)
 
@@ -16,18 +16,11 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete the following steps **in the given order** (1-3) and **without requiring additional user input**. One conditional: **the category steps (2-3) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (step 1) always run; the **Attach images** step runs last, only when `imagery` is on.
 
-**⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
+**⚠️ CRITICAL ORDER REQUIREMENT: Create products first, then categories. Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations. Seeding is additive: leave every existing product untouched.**
 
-### STEP 1: Clean the store — remove the default sample products
-
-A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. **Only remove products that are obviously the install's own demo/sample data on a fresh install.** Do **not** assume the existing products are samples: the site may already hold the owner's **real catalog** (a connect/iterate run, or an owner-populated store). If what's there isn't obviously install demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are the install's samples, remove them **before** creating yours so the storefront shows only the intended catalog.
-
-1. **List the existing products** — `POST https://www.wixapis.com/stores/v3/products/query` with body `{"query": {"paging": {"limit": 50}}}`. Collect every `product.id` from the response.
-2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). On a fresh install the query returns only the install's sample products — delete those. **If it returns anything that could be the owner's real catalog, stop and ask first** (above).
-
-### STEP 2: Bulk-create the products (with options)
+### STEP 1: Bulk-create the products (with options)
 
 Create the products in a **single bulk request** to `POST https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create`. **How many products, and which are in or out of stock, are set by the request you're fulfilling — this step only gives the call and the required format.** Each product needs a real web image URL relevant to it, and `price` via `actualPrice` (+ optional `compareAtPrice`).
 
@@ -110,9 +103,9 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 ] } }
 ```
 
-Read each product's **`id`** (→ the `catalogItemId` you'll assign to categories in STEP 4 and the frontend will use) and **`slug`** from `productResults.results[].item`. There is **no** top-level `results` key — reading `response.results` finds nothing and makes a successful create look like it returned zero products. Check `productResults.results` first; **do not re-create on an empty top-level `results`**.
+Read each product's **`id`** (→ the `catalogItemId` you'll assign to categories in STEP 3 and the frontend will use) and **`slug`** from `productResults.results[].item`. There is **no** top-level `results` key — reading `response.results` finds nothing and makes a successful create look like it returned zero products. Check `productResults.results` first; **do not re-create on an empty top-level `results`**.
 
-### STEP 3: Create the store's categories
+### STEP 2: Create the store's categories
 
 Create the categories for the store — **the categories that fit the user's request.** Which categories (and how many) are set by the request you're fulfilling; this step only gives the call and format.
 
@@ -136,9 +129,9 @@ The request body must include a top-level `treeReference` field — it must **no
 }
 ```
 
-### STEP 4: Add Each Product to a Category
+### STEP 3: Add Each Product to a Category
 
-Add each product to the category it belongs to (per the request you're fulfilling). Acquire the product ids (from STEP 2's response) first. Use the **Bulk Add Items To Category** endpoint — products are the `items`: `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items` (one call per `categoryId` — the path parameter is single).
+Add each product to the category it belongs to (per the request you're fulfilling). Acquire the product ids (from STEP 1's response) first. Use the **Bulk Add Items To Category** endpoint — products are the `items`: `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items` (one call per `categoryId` — the path parameter is single).
 
 **Issue these add-items calls SEQUENTIALLY too** — one call at a time, waiting for each response before the next. They mutate the same shared `@wix/stores` tree as the creates above, so concurrent calls risk the same `409 INVALID_REVISION` race. Serial is the safe, deterministic choice (the category count is small).
 
@@ -195,7 +188,7 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
 
 ## Conclusion
 Following these steps **in order** sets up a new V3 Wix Online Store site:
-- Starts from a **clean catalog** — the install's default sample products are removed first.
+- Adds the requested products without changing any existing catalog data.
 - Contains the products and categories called for by the request, all created **`visible: true`** so they appear on the live site.
 - Each product is connected to the category it belongs to.
-- All products follow the correct Catalog V3 API format specified in STEP 2.
+- All products follow the correct Catalog V3 API format specified in STEP 1.
