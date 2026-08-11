@@ -42,6 +42,24 @@ const result = await seed.setupBookings(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
+## What the shipped UI renders from this
+
+Pass these and the catalog reads like a real one; omit them and the pages have visible holes:
+
+- **`sessions` on every CLASS.** A class's bookable times ARE its sessions, so a class seeded without
+  them shows "No available times in this range" — which reads as broken, not empty. Schedule a few
+  weeks out. An APPOINTMENT needs none: its slots come from staff working hours, which a fresh
+  install's owner already has.
+- **`duration`** (APPOINTMENT, minutes) → the card's `60 min · 1-to-1` line and the DURATION cell on
+  the service page. A class has no service-level duration and shows CAPACITY instead, so pass
+  `capacity` there.
+- **`tagLine`** → the card's second line. One line about the service, not a copy of `description`.
+- **`price`**, or **`free: true`** for a no-fee service, which the UI labels "Free".
+
+Two things this module can't set, so don't try: **varied pricing** (a "From €85" service needs
+`payment.varied`) and **`conferencing`** (the UI's "Online" location label reads that flag — seeded
+services all sit at the business location, which shows as "In person").
+
 ## Escape hatch — individual functions
 Reach for the functions below only when the one-call `setupBookings` doesn't fit (partial re-seed,
 custom staff/ordering). `setupBookings` is built from them, in this order:

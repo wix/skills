@@ -55,16 +55,25 @@ export function serviceCapacityLabel(service) {
 }
 
 /**
- * Where the service happens. Sourced from payment.options because the service's own `locations[]`
- * carries only { id, type } — no name — and the account-level location list is often empty.
+ * Where the service happens, from locations[].type — NOT from payment.options, which says how a
+ * customer may *pay* (`online` there means "can pay online", not "happens online"). A video service
+ * is flagged by conferencing.enabled. `calculatedAddress` is present on BUSINESS/CUSTOM locations
+ * and empty for CUSTOMER; when it's there, prefer the actual place name.
+ *   BUSINESS -> the business's address ("At Serene Spa" / "In person")
+ *   CUSTOMER -> the customer's address ("At your location")
+ *   CUSTOM   -> a specific address for this service
  * @param {object} service
  * @returns {string}
  */
 export function serviceLocationLabel(service) {
-  const { inPerson, online } = service?.payment?.options || {};
-  if (inPerson && online) return "In person or online";
-  if (online) return "Online";
-  if (inPerson) return "In person";
+  if (service?.conferencing?.enabled) return "Online";
+  const types = new Set((service?.locations || []).map((l) => l?.type).filter(Boolean));
+  const named = (service?.locations || [])
+    .map((l) => l?.calculatedAddress?.formatted || l?.business?.name)
+    .find(Boolean);
+  if (named) return named;
+  if (types.has("CUSTOMER")) return "At your location";
+  if (types.has("BUSINESS") || types.has("CUSTOM")) return "In person";
   return "";
 }
 

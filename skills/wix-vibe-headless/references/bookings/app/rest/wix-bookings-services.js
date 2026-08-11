@@ -23,8 +23,10 @@ import { wixApiRequest } from "./wix-client.js";
  *     present; formattedValue is optional (may be missing), so format the price from
  *     value+currency and use formattedValue only when present,
  *   payment.varied { defaultPrice, minPrice, maxPrice } — Money each, same shape as fixed.price,
- *   payment.options { online, inPerson, deposit, pricingPlan } — the usable "where" signal; see
- *     serviceLocationLabel(),
+ *   payment.options { online, inPerson, deposit, pricingPlan } — how a customer may PAY. `online`
+ *     here means "can pay online", NOT that the service happens online; don't build a location
+ *     label from it,
+ *   conferencing.enabled {boolean} — a video service; this is the real "online" signal,
  *   schedule.id {string},
  *   schedule.availabilityConstraints.sessionDurations {number[]} — session minutes for an
  *     APPOINTMENT, empty for CLASS/COURSE; see serviceDuration(),
@@ -32,7 +34,9 @@ import { wixApiRequest } from "./wix-client.js";
  *     confirms the booking after the fact, so the CTA is a request, not a confirmation,
  *   category { id, name } — a service with no category is not visible on the live site,
  *   staffMemberIds {string[]},
- *   locations {array} — only { id, type } per entry, no name or address,
+ *   locations {array} — [{ id, type "BUSINESS"|"CUSTOMER"|"CUSTOM", calculatedAddress }]. The type is
+ *     where the service happens; calculatedAddress is empty for CUSTOMER and often absent until the
+ *     business configures a location. See serviceLocationLabel(),
  *   bookingPolicy.participantsPolicy { enabled {boolean}, maxParticipantsPerBooking {number} }
  *     — the MOST participants a single booking may reserve. Cap the participant selector at this
  *     value (for a CLASS, also bound by the slot's remainingCapacity). It is commonly 1, in which
