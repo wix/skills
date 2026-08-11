@@ -1,6 +1,9 @@
 // Responsive product grid, with the two states a fresh store spends most of its life in: loading and
 // empty. Styled with base44 design tokens (shadcn Tailwind classes).
 //
+// Two columns on phones — a 220px minmax leaves room for only one, and a one-up catalog scrolls
+// forever — then auto-fill from md up.
+//
 // The empty state carries weight here — a catalog is seeded separately from the build, so it is
 // routinely empty when the merchant first opens the page. Say why, rather than showing a bare line.
 import ProductCard from "./ProductCard";
@@ -9,13 +12,16 @@ import ProductCard from "./ProductCard";
 // products land.
 export function ProductGridSkeleton({ count = 8 }) {
   return (
-    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]" aria-hidden="true">
+    <div className="grid gap-4 grid-cols-2 md:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]" aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="aspect-square bg-muted animate-pulse" />
           <div className="p-3 flex flex-col gap-2">
-            <div className="h-3.5 w-3/4 bg-muted rounded-sm animate-pulse" />
-            <div className="h-3.5 w-1/3 bg-muted rounded-sm animate-pulse" />
+            <div className="flex justify-between gap-3">
+              <div className="h-3.5 w-1/2 bg-muted rounded-sm animate-pulse" />
+              <div className="h-3.5 w-1/5 bg-muted rounded-sm animate-pulse" />
+            </div>
+            <div className="h-3 w-1/3 bg-muted rounded-sm animate-pulse" />
           </div>
         </div>
       ))}
@@ -41,7 +47,7 @@ export default function ProductGrid({ products, loading, empty = "No products ye
   }
 
   return (
-    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
+    <div className="grid gap-4 grid-cols-2 md:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
       {products.map((p) => <ProductCard key={p.id} product={p} />)}
     </div>
   );

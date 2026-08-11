@@ -24,12 +24,12 @@ so you don't need to open them:**
 | `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
 | `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
 | `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
-| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state) |
+| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state). The tile carries quick add for single-variant products, colour dots + an option summary, and pre-order / sold-out / limited-stock / percent-off / merchant-ribbon badges — all from the list query, no extra request |
 | `components/ProductGallery.jsx` | PDP main image + thumbnails |
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
-| `components/VariantPicker.jsx` | option/variant selector used on the PDP |
+| `components/VariantPicker.jsx` | option/variant selector used on the PDP — colour options render as real swatches, and picking one moves the gallery to that colour's photo |
 | `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
