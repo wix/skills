@@ -16,14 +16,18 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
-// to attach its image; omit it to skip images. options ONLY for real buyer choices (Size/Color); default none.
+// to attach its image; omit it to skip images.
 // imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
 // result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
   products: [
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
-    // …just the catalog data
+    // a product with buyer choices — see "Options, variants and sale prices" below
+    { name: "The Understudy", description: "…", price: 245, quantity: 8, imageUrl: imageUrls[1],
+      options: [{ name: "Color", type: "color", choices: [{ name: "Ink", colorCode: "#1B1B2F" }, { name: "Bone", colorCode: "#EDE6D6" }] }] },
+    // a product on sale — compareAtPrice drives the strikethrough + the tile's percent-off badge
+    { name: "Encore Jacket", description: "…", price: 68, compareAtPrice: 129, quantity: 5, imageUrl: imageUrls[2] },
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
@@ -32,6 +36,37 @@ const result = await seed.setupStore(ctx, {
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
+
+## Options, variants and sale prices
+
+The shipped storefront renders colour options as real swatches, shows a size/colour summary on each
+tile, and puts a percent-off badge on a discounted product. A catalog of plain single-price products
+leaves all of that invisible, so **seed a catalog that exercises it**: unless the brief says
+otherwise, give at least one product a colour option and put one product on sale. Keep it truthful
+to the business — a ceramics studio has glaze colours, a bakery does not.
+
+```js
+options: [
+  { name: "Color", type: "color", choices: [{ name: "Ink", colorCode: "#1B1B2F" }, { name: "Bone", colorCode: "#EDE6D6" }] },
+  { name: "Size",  type: "text",  choices: ["Small", "Medium", "Large"] },   // or [{ name: "Small" }, …]
+]
+```
+
+- `type: "color"` → `SWATCH_CHOICES` with each choice's `colorCode`, which the PDP draws as a swatch.
+  Any other `type` → text pills. Give every colour choice a `colorCode`.
+- Variants are expanded for you: the full cross-product of the options, each carrying the product's
+  `price`, `compareAtPrice` and `quantity`. Two options with 2 and 3 choices means 6 variants — keep
+  option counts small.
+- `compareAtPrice` (> `price`) is the "was" price: strikethrough on the PDP and a `−N%` badge on the
+  tile, computed from the two amounts. It works with or without options.
+
+Two things this module does **not** seed, so don't try:
+
+- **Ribbons** ("New", "Best Seller"). The tile renders `product.ribbon` when it's there, but ribbons
+  are set in the Wix dashboard — tell the merchant that's where to add them.
+- **Per-choice linked media** (`linkedMedia`), which is what makes picking a colour swap the gallery
+  photo. Seeded swatches select and price correctly; the gallery just doesn't follow the colour until
+  the merchant links photos to choices in the dashboard.
 
 ## Escape hatch — individual functions
 Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom
