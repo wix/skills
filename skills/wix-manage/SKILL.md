@@ -341,7 +341,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Rich Content
 
-> **Routing rule (READ FIRST).** Any request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS → load [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md) from this skill before `SearchWixAPISpec`, convert/validate APIs, or answering from memory.
+> **Routing rule (READ FIRST).** Any request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS → load [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md) from this skill before using API schema search or convert/validate APIs, or answering from memory.
 
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
 **Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.

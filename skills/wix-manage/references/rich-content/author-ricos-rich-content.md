@@ -5,7 +5,7 @@ description: Hand-authoring valid Ricos rich-content JSON (the richContent/nodes
 
 # Author Ricos Rich Content
 
-> **Routing rule (READ FIRST).** When hand-authoring or returning Ricos / `richContent` JSON, use **this recipe** — the shapes, nesting rules, spacer paragraphs, and plugin nodes below. Do not rely on `SearchWixAPISpec` alone; it misses those details. When the user only wants JSON output, **do not** call Ricos convert/validate APIs — compose the `nodes` tree from this file.
+> **Routing rule (READ FIRST).** When hand-authoring or returning Ricos / `richContent` JSON, use **this recipe** — the shapes, nesting rules, spacer paragraphs, and plugin nodes below. Do not rely on API schema search alone; it misses those details. When the user only wants JSON output, **do not** call Ricos convert/validate APIs — compose the `nodes` tree from this file.
 
 Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON. The same structure is embedded by many products: a Blog post's `draftPost.richContent`, a Store product's rich description, an Events description, and CMS rich-text fields all expect a Ricos document. This recipe is the **authoring reference for that node tree**: the valid shape of each node, how nodes nest, and how to format text. It is intentionally product-agnostic — the consuming API decides *where* the document goes; this recipe governs *what a valid document looks like*.
 
