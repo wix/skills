@@ -5,10 +5,12 @@
 // • prices come from the SERVER cart — `price` is post-discount, `fullPrice` is before it, so the
 //   two together are the strikethrough. Never compute a total in the client: tax, shipping and
 //   promotions are resolved server-side, so `subtotal` is the only figure safe to show pre-checkout.
-//   It's read defensively: the published cart schema types `subtotal` as ConvertedMoney
-//   (`amount`/`convertedAmount`), while the v1 response this helper calls also carries formatted
-//   variants — the same money object as `lineItems[].price.formattedAmount`. The row hides itself if
-//   no formatted field is present, so a shape change costs the line rather than showing a raw decimal.
+//   Money objects carry { amount, convertedAmount, formattedAmount, formattedConvertedAmount }; use a
+//   formatted one so the currency symbol and grouping come from Wix. Prefer `subtotalAfterDiscounts`
+//   over `subtotal` — the two are equal until a cart-level coupon applies, and then `subtotal` is the
+//   pre-discount figure, which would quote the buyer more than they'll pay.
+// • `availability.quantityAvailable` caps the stepper, so exceeding stock is refused here rather than
+//   at checkout.
 // • `availability.status` is flagged per line here because checkout() refuses the whole cart when
 //   any item isn't AVAILABLE — showing it on the row is what makes that refusal understandable.
 import { useEffect } from "react";
@@ -18,7 +20,10 @@ import { storeImage } from "@/lib/storeImage";
 export default function CartDrawer() {
   const { cart, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading, error, clearError } = useCart();
   const lineItems = cart?.lineItems ?? [];
-  const subtotal = cart?.subtotal?.formattedConvertedAmount || cart?.subtotal?.formattedAmount;
+  const money = (m) => m?.formattedConvertedAmount || m?.formattedAmount;
+  const subtotal = money(cart?.subtotalAfterDiscounts) || money(cart?.subtotal);
+  const discount = money(cart?.discount);
+  const hasDiscount = (cart?.appliedDiscounts?.length || 0) > 0 && Number(cart?.discount?.amount) > 0;
   const unavailable = lineItems.filter((li) => li.availability?.status && li.availability.status !== "AVAILABLE");
 
   // Escape closes the drawer while it's open — expected of anything modal, and the only way out for
@@ -69,6 +74,8 @@ export default function CartDrawer() {
             const struck = item.fullPrice?.formattedAmount;
             const paid = item.price?.formattedAmount;
             const isOut = item.availability?.status && item.availability.status !== "AVAILABLE";
+            const stock = item.availability?.quantityAvailable;
+            const atStockLimit = Number.isFinite(stock) && item.quantity >= stock;
             return (
               <div key={item.id} className="flex gap-3 py-3 px-0 border-b border-border">
                 <div className="w-16 h-16 shrink-0 rounded-sm bg-card overflow-hidden">
@@ -81,16 +88,18 @@ export default function CartDrawer() {
                       {dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}
                     </small>
                   ))}
-                  {isOut && (
+                  {isOut ? (
                     <small className="text-destructive">
                       {item.availability.status === "NOT_AVAILABLE" ? "No longer available" : "Not enough stock"}
                     </small>
-                  )}
+                  ) : atStockLimit ? (
+                    <small className="text-muted-foreground">Only {stock} left</small>
+                  ) : null}
                   <div className="flex items-center gap-2 mt-1">
                     <QtyButton disabled={loading || item.quantity <= 1} label="Decrease quantity"
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</QtyButton>
                     <span className="min-w-5 text-center" aria-label={`Quantity ${item.quantity}`}>{item.quantity}</span>
-                    <QtyButton disabled={loading} label="Increase quantity"
+                    <QtyButton disabled={loading || atStockLimit} label="Increase quantity"
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</QtyButton>
                     <button onClick={() => removeItem(item.id)} disabled={loading}
                       className="ml-auto border-none bg-transparent cursor-pointer text-muted-foreground text-[13px] underline disabled:opacity-50">Remove</button>
@@ -109,6 +118,12 @@ export default function CartDrawer() {
 
         {lineItems.length > 0 && (
           <footer className="p-4 border-t border-border flex flex-col gap-3">
+            {hasDiscount && (
+              <div className="flex justify-between items-baseline text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span>−{discount}</span>
+              </div>
+            )}
             {subtotal && (
               <div className="flex justify-between items-baseline">
                 <span className="text-muted-foreground">Subtotal</span>

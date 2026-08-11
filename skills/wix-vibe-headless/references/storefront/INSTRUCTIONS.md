@@ -184,8 +184,14 @@ import { useCart } from "@/context/CartContext";
 //   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
 // Every mutation catches its own failure into `error` (the shipped CartDrawer renders it), so a
 // refusal — an empty cart, or a line item that stopped being AVAILABLE — reaches the buyer instead
-// of becoming an unhandled rejection. Read `cart.subtotal` for the total; never sum line items
-// yourself, since tax, shipping and promotions resolve server-side.
+// of becoming an unhandled rejection.
+//
+// Cart money: every amount is { amount, convertedAmount, formattedAmount, formattedConvertedAmount } —
+// show a formatted one so the currency symbol and grouping come from Wix. Read
+// `cart.subtotalAfterDiscounts` rather than `cart.subtotal`: the two match until a cart-level coupon
+// applies, and then `subtotal` is the pre-discount figure. `cart.discount` + `cart.appliedDiscounts`
+// carry the reduction. Never sum line items yourself — tax and shipping resolve at checkout.
+// `lineItems[].availability.quantityAvailable` is the stock cap for a quantity control.
 
 function CartCount() {                                   // header badge
   const { itemCount, setIsOpen } = useCart();
