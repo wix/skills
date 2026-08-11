@@ -5,7 +5,7 @@
 import { useLoginForm } from "@/hooks/useLoginForm";
 
 const inputCls =
-  "w-full py-[11px] px-3 box-border text-[15px] border border-border rounded-sm bg-background text-foreground";
+  "w-full py-[11px] px-3 box-border text-[15px] border border-input rounded-sm bg-background text-foreground";
 const labelCls = "block text-[13px] text-muted-foreground mb-1.5";
 
 export default function LoginForm({ onSuccess }) {

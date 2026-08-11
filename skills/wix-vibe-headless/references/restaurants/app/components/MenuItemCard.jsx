@@ -27,13 +27,15 @@ export default function MenuItemCard({ item, onOpen }) {
           <img src={image} alt={item.name} loading="lazy"
             className="w-full h-full object-cover" />
           {soldOut && (
-            <span className="absolute top-2 left-2 py-0.5 px-2 text-xs bg-destructive text-white rounded-sm">Sold out</span>
+            <span className="absolute top-2 left-2 py-0.5 px-2 text-xs bg-destructive text-destructive-foreground rounded-sm">Sold out</span>
           )}
         </div>
       )}
       <div className="p-3 flex flex-col gap-1.5">
         <div className="flex justify-between items-baseline gap-2">
-          <h3 className="m-0 font-display text-base font-semibold">
+          {/* Clamped like the storefront tile: the same title-beside-price row turns a long name
+              into three ragged lines. */}
+          <h3 className="m-0 font-display text-base font-semibold line-clamp-2">
             {item.name}{item.featured && <span className="text-primary"> ★</span>}
           </h3>
           {/* price: single string, OR one-of variants — render one label per variant */}

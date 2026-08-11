@@ -3,7 +3,7 @@
 // selector shows ONLY when maxParticipants > 1 (commonly 1 → no selector, book exactly one).
 // Styled with base44 design tokens (shadcn Tailwind classes).
 const fieldCls =
-  "px-3 py-2.5 box-border font-body border border-border rounded-sm bg-background text-foreground";
+  "px-3 py-2.5 box-border font-body border border-input rounded-sm bg-background text-foreground";
 
 export default function BookingForm({
   contact, setContactField, maxParticipants, participants, setParticipants,

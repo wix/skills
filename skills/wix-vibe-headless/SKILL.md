@@ -153,7 +153,9 @@ installed, not what the business is about. Never default to store/bookings on si
 4. **Wire the shipped client** following the vertical's INSTRUCTIONS: the components are themed by
    base44's design tokens (`src/index.css` — shadcn palette, already set by the design phase), so
    there's no re-skin step; just wire routes + header/footer through the Layout. The UI ships as
-   files — you compose the home page and wire it, you don't rebuild the client.
+   files — you compose the home page and wire it, you don't rebuild the client. Style what you add
+   from the same tokens: every background paired with its own foreground (`bg-primary` with
+   `text-primary-foreground`), `border-input` on form controls, `border-border` on cards and dividers.
 5. **Verify** against the vertical's checklist before declaring done: token persists across
    reload, live data renders (or a real empty state), and purchases go through the Wix redirect.
 

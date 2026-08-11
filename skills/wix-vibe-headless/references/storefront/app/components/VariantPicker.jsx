@@ -87,7 +87,7 @@ function ModifierSelector({ modifier, value, onChange }) {
       <div className="mb-4">
         <label className={label}>{modifier.name}{modifier.mandatory && " *"}</label>
         <input value={value || ""} onChange={(e) => onChange(key, e.target.value)}
-          className="w-full py-2 px-3 font-body border border-border rounded-sm bg-background text-foreground" />
+          className="w-full py-2 px-3 font-body border border-input rounded-sm bg-background text-foreground" />
       </div>
     );
   }

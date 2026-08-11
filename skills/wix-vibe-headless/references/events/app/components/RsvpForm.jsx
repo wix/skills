@@ -3,7 +3,7 @@
 // "YES_AND_NO"; a WAITLIST result (event full) is surfaced distinctly from a confirmed YES.
 import { useRsvpForm } from "@/hooks/useRsvpForm";
 
-const input = "w-full px-3 py-2.5 box-border font-body border border-border rounded-sm bg-background text-foreground";
+const input = "w-full px-3 py-2.5 box-border font-body border border-input rounded-sm bg-background text-foreground";
 const label = "block mb-1.5 text-[13px] font-semibold text-muted-foreground";
 const field = "mb-4";
 

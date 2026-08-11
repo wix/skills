@@ -16,7 +16,7 @@ export default function Shop() {
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             Sort
             <select value={s.sort} onChange={(e) => s.setSort(e.target.value)}
-              className="py-1.5 px-2 border border-border rounded-sm bg-background text-foreground text-sm">
+              className="py-1.5 px-2 border border-input rounded-sm bg-background text-foreground text-sm">
               {Object.entries(SORTS).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
             </select>
           </label>

@@ -95,14 +95,14 @@ function QuantityStepper({ value, onChange, disabled }) {
   const set = (n) => onChange(Math.max(1, n));
   return (
     <div data-disabled={disabled || undefined}
-      className="inline-flex items-stretch h-12 rounded-md border border-border bg-background overflow-hidden data-[disabled]:opacity-50">
+      className="inline-flex items-stretch h-12 rounded-md border border-input bg-background overflow-hidden data-[disabled]:opacity-50">
       <StepButton label="Decrease quantity" disabled={disabled || value <= 1} onClick={() => set(value - 1)}>−</StepButton>
       <label className="sr-only" htmlFor="pdp-qty">Quantity</label>
       <input id="pdp-qty" type="text" inputMode="numeric" autoComplete="off" disabled={disabled}
         value={value} aria-live="polite"
         onChange={(e) => { const n = e.target.value.replace(/\D/g, ""); onChange(n === "" ? "" : Math.max(1, Number(n))); }}
         onBlur={(e) => { if (!e.target.value) set(1); }}
-        className="w-12 text-center bg-transparent text-foreground font-semibold tabular-nums border-x border-border outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed" />
+        className="w-12 text-center bg-transparent text-foreground font-semibold tabular-nums border-x border-input outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed" />
       <StepButton label="Increase quantity" disabled={disabled} onClick={() => set(Number(value || 0) + 1)}>+</StepButton>
     </div>
   );

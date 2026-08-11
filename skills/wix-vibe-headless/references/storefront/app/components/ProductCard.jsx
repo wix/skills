@@ -35,7 +35,13 @@ function optionsPreview(product) {
   return { label: labels.join(" · "), colors };
 }
 
+// One rule for every chip on the tile, so a new badge has an obvious home instead of a fresh colour:
+// promotional shouts in the brand colour, informational sits quietly on a card surface, and only a
+// blocking state is destructive. Each background travels with its own foreground token.
 const badge = "px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-full";
+const badgePromo = `${badge} bg-primary text-primary-foreground`;
+const badgeInfo = `${badge} bg-card text-foreground border border-border`;
+const badgeBlocked = `${badge} bg-destructive text-destructive-foreground`;
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -93,26 +99,29 @@ export default function ProductCard({ product }) {
         </Link>
 
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
-          {soldOut && preorder && <span className={`${badge} bg-foreground text-background`}>Pre-order</span>}
-          {soldOut && !preorder && <span className={`${badge} bg-destructive text-white`}>Sold out</span>}
-          {status === "PARTIALLY_OUT_OF_STOCK" && <span className={`${badge} bg-muted text-foreground`}>Limited stock</span>}
+          {soldOut && preorder && <span className={badgeInfo}>Pre-order</span>}
+          {soldOut && !preorder && <span className={badgeBlocked}>Sold out</span>}
+          {status === "PARTIALLY_OUT_OF_STOCK" && <span className={badgeInfo}>Limited stock</span>}
         </div>
+        {/* Discount and ribbon are mutually exclusive, so both can claim the promotional slot. */}
         <div className="absolute top-2 right-2 pointer-events-none">
-          {discount ? <span className={`${badge} bg-primary text-primary-foreground`}>−{discount}%</span>
-            : ribbon ? <span className={`${badge} bg-foreground text-background`}>{ribbon}</span> : null}
+          {discount ? <span className={badgePromo}>−{discount}%</span>
+            : ribbon ? <span className={badgePromo}>{ribbon}</span> : null}
         </div>
 
         {/* Sold out with no pre-order has nothing to offer, so no control appears at all. */}
         {(!soldOut || preorder) && (
           <div className="absolute inset-x-2 bottom-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+            {/* Same tokens as the PDP's Add-to-cart button: one action, one treatment, so the tile's
+                CTA is the brand colour rather than "whatever the text colour is". */}
             {hasOptions || soldOut ? (
               <Link to={`/product/${product.slug}`}
-                className="block w-full text-center py-2.5 px-4 rounded-full bg-foreground text-background no-underline text-sm font-semibold">
+                className="block w-full text-center py-2.5 px-4 rounded-full bg-primary text-primary-foreground no-underline text-sm font-semibold">
                 {soldOut ? "Pre-order" : "Choose options"}
               </Link>
             ) : (
               <button onClick={quickAdd} disabled={adding}
-                className="w-full py-2.5 px-4 rounded-full bg-foreground text-background border-none text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-wait">
+                className="w-full py-2.5 px-4 rounded-full bg-primary text-primary-foreground border-none text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-wait">
                 {adding ? "Adding…" : "Quick add"}
               </button>
             )}
@@ -124,7 +133,9 @@ export default function ProductCard({ product }) {
         {/* Side by side once the tile is wide enough; stacked on a phone's two-up grid, where a long
             name wrapping to three lines against a top-right price reads as broken. */}
         <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between md:gap-3">
-          <h3 className="m-0 font-display text-[15px] font-semibold">
+          {/* Clamped to two lines: a 220px tile turns a long product name into three or four ragged
+              lines beside a top-right price. The full name is on the tile's link and the PDP. */}
+          <h3 className="m-0 font-display text-[15px] font-semibold line-clamp-2">
             <Link to={`/product/${product.slug}`} className="no-underline text-foreground">{product.name}</Link>
           </h3>
           <div className="flex gap-2 items-baseline flex-wrap md:justify-end">

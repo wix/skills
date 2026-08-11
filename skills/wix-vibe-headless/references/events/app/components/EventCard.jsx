@@ -22,7 +22,7 @@ export default function EventCard({ event }) {
           ? <img src={image} alt={event.title} loading="lazy" className="w-full h-full object-cover" />
           : <div className="w-full h-full bg-muted flex items-center justify-center" aria-hidden="true"><svg viewBox="0 0 24 24" className="w-8 h-8 text-muted-foreground/40" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg></div>}
         {isTicketing && soldOut && (
-          <span className="absolute top-2 left-2 py-0.5 px-2 text-xs bg-destructive text-white rounded-sm">Sold out</span>
+          <span className="absolute top-2 left-2 py-0.5 px-2 text-xs bg-destructive text-destructive-foreground rounded-sm">Sold out</span>
         )}
       </div>
       <div className="p-3 flex flex-col gap-1">
