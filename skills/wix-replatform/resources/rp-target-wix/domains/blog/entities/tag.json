@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "entity": "tag",
+  "displayName": "Blog Tag",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Blog Tag",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "tag", "routes": ["/wp/v2/tags"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "blogTag", "routes": ["Blog Tags"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Blog Tags",
+    "endpoint": "POST /blog/v3/tags",
+    "writerId": "createBlogTag",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "slug-derived", "severity": "warning", "summary": "Blog tag slug is derived; dedupe by label/language." }
+  ],
+  "mappingGuidance": ["Create tags before posts and crosswalk created or existing tag IDs."],
+  "setupRequirements": ["Wix Blog app"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}

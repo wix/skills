@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "category",
+  "displayName": "Stores Category",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Category",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "product_category", "routes": ["/wc/v3/products/categories"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "storesCategory", "routes": ["Catalog V3 Categories", "V1 collections"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Categories",
+    "endpoint": "POST /categories/v1/categories",
+    "writerId": "createStoresCategory",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use only for source taxonomy metadata or hierarchy details not represented by Stores categories." }
+  ],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "tree-reference-top-level", "severity": "blocker", "summary": "Pass Stores treeReference as a top-level sibling of category." }
+  ],
+  "mappingGuidance": ["Preserve hierarchy where the target category tree supports it; create before products."],
+  "setupRequirements": ["Wix Stores app"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" }
+  ]
+}

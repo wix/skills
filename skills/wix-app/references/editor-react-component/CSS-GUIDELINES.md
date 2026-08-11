@@ -19,7 +19,7 @@ There are two kinds of classes, determined by whether the element is a named par
 | Named part | `classNames('profile-card-heading', styles.heading)` | Global string → zeroConfig creates an editor element; module class → applies the component's own CSS |
 | Non-part (layout/structural) | `styles.contentWrapper` | Module class only — invisible to zeroConfig, no spurious editor element created |
 
-**Named parts** get both a global plain string and a module class. The global string is what zeroConfig scans: use `'<component-name>'` for the root and **`'<component-name>-<part-name>'` for every inner part** (kebab-case) — always prefix inner parts with the component name. The module class is what carries the component's structural CSS for that element; it stays short (`styles.heading`) because module classes are hashed and scoped, so they never need the prefix.
+**Named parts** get both a global plain string and a module class. The global string is what zeroConfig scans: use `'<component-name>'` for the root and **`'<component-name>-<part-name>'` for every inner part** (kebab-case) — always prefix inner parts with the component name. The root here is the element elected per [`PARTS.md`](PARTS.md) Step 0, which is the component's own semantic element (`<button>`, `<a>`, `<ul>`) when the component reduces to one. The module class is what carries the component's structural CSS for that element; it stays short (`styles.heading`) because module classes are hashed and scoped, so they never need the prefix.
 
 **Why prefix inner parts:** the global string is a literal class that ends up on the live page, and its design-state variants are derived from it (`<component-name>-<part>--<state>`, e.g. `profile-card-cta--hover`). Those state classes are applied at runtime as global literals, so they must be unique across every component that can share a page — a bare `cta--hover` would collide between two different components. Prefixing with the component name guarantees uniqueness.
 
@@ -27,17 +27,23 @@ There are two kinds of classes, determined by whether the element is a named par
 
 The root also merges the consumer-provided `className` prop via the `classnames` helper.
 
-**Why:** zeroConfig creates one editor element per global class. A global class on a non-part produces a spurious editor element with no meaningful surface.
+**Why:** zeroConfig creates one editor element per global class. A global class on a non-part produces a spurious editor element with no meaningful surface. The root's global class is unavoidable, which is why the root must be an element that deserves it.
 
 ```tsx
 import classNames from 'classnames';
 import styles from './ProfileCard.module.css';
 
 // ✅ Root: global string + module class + consumer className
+// (a <div> here only because this component lays out several sibling parts)
 <div className={classNames(className, 'profile-card', styles.root)} id={id}>
 
   {/* ✅ Named part: prefixed global string + short module class */}
   <h2 className={classNames('profile-card-heading', styles.heading)}>{heading}</h2>
+
+  {/* ✅ Named part: interactive elements always get both classes */}
+  <button type="button" className={classNames('profile-card-cta', styles.cta)}>
+    {ctaLabel}
+  </button>
 
   {/* ✅ Non-part layout wrapper: module class only */}
   <div className={styles.contentWrapper}>
@@ -49,6 +55,25 @@ import styles from './ProfileCard.module.css';
 <CardHeader className={classNames('profile-card-header', styles.header)}>
   <CardTitle className={classNames('profile-card-title', styles.title)}>{title}</CardTitle>
 </CardHeader>
+```
+
+A component that reduces to one control is the other shape, and it has exactly one
+part — its root ([`PARTS.md`](PARTS.md) Step 0). The text it renders and any decoration
+stay inside that root, on module classes:
+
+```tsx
+// ✅ The <button> is the root: unprefixed global string, no elementProps entry
+<button
+  type="button"
+  id={id}
+  dir={direction}
+  className={classNames('like-button', styles.root, className, styles.fallbackDirection)}
+>
+  {label}
+
+  {/* ✅ Decoration: module class only, out of the a11y tree, not a part */}
+  <span className={styles.burst} aria-hidden="true" />
+</button>
 ```
 
 ### Use single-class selectors

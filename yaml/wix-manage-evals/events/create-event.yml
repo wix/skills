@@ -1,0 +1,75 @@
+name: events/create-event-with-capacity-and-description
+description: >-
+  Verifies the create-an-event recipe carries the field shapes the Events API actually accepts,
+  so the agent sets the date, guest limit and description in one call — rather than discovering
+  by rejection that dates are ISO strings, that timeZoneId is required, that the guest limit
+  belongs under registration.rsvp, and that description is rich content rather than a string.
+triggerPrompt: >-
+  Create an event called Autumn Gala next month at 7pm at the Grand Hall, limit it to 40 guests,
+  and give it the description "An evening of music and food."
+tags: [events]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428 until the agent
+  # installs it — an incidental setup step this scenario is not measuring.
+  templateId: events-studio
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-event
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create an event called Autumn Gala next month at 7pm at the
+      Grand Hall, limit it to 40 guests, and give it the description "An evening of music and food.""
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if a successful (2xx) `POST /events/v3/events` created an event where ALL of these hold:
+      - the title is "Autumn Gala";
+      - it starts about a month from now at 7pm, with a `timeZoneId` set;
+      - the location names the Grand Hall;
+      - a guest limit of 40 is in effect — it must sit at `registration.rsvp.limit`, NOT at
+        `registration.limit`, which the API accepts and silently ignores;
+      - the description text was stored, either as `shortDescription` (plain string) or as
+        `description` (a Ricos rich-content object).
+
+      Fail if any of those is missing; OR the guest limit was sent at `registration.limit` and so
+      never applied; OR every write attempt errored; OR the agent only explained how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to a created event. Examine the tool-call
+      trace, including request bodies and any error bodies. 10 = no wasted calls and no errors.
+
+      Reading the recipe is expected and is never a wasted call.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - any non-2xx response, in particular:
+        - `400 Expected a string.` — a date sent as a `{seconds, nanos}` object instead of ISO-8601;
+        - `400 getTimeZoneId is not supported` — which means `timeZoneId` was omitted, not that it
+          is unsupported;
+        - `400 initialType is unexpected` — `registration.initialType` missing, nested wrongly, or
+          set to `TICKETS` rather than `TICKETING`;
+        - `400 Expected an object` — a plain string sent to `description`;
+        - `400 Location address must not be a blank`;
+      - a guest limit written to `registration.limit` instead of `registration.rsvp.limit` — this
+        returns 2xx and applies no limit, so treat it as a silent failure, not a clean path;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out a shape
+        the recipe already gives;
+      - a documentation article URL passed to a schema-inspection tool, which cannot resolve it;
+      - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
