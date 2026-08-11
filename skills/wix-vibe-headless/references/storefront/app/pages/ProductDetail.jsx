@@ -71,19 +71,47 @@ export default function ProductDetail() {
             <p className="text-[13px] text-muted-foreground m-0 mt-1">Pick an option from each list to continue.</p>
           )}
 
-          <div className="flex items-center gap-3 mt-4">
-            <label className="sr-only" htmlFor="pdp-qty">Quantity</label>
-            <input id="pdp-qty" type="number" min={1} value={d.quantity}
-              onChange={(e) => d.setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              className="w-[72px] p-2.5 text-center border border-border rounded-sm bg-background text-foreground" />
+          <div className="flex items-stretch gap-3 mt-4">
+            <QuantityStepper value={d.quantity} onChange={d.setQuantity} disabled={!d.inStock} />
             <button disabled={!d.canAdd || d.adding} onClick={d.submit}
-              className="flex-1 py-3 px-6 bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              className="flex-1 h-12 px-6 bg-primary text-primary-foreground border-none rounded-md text-[15px] font-semibold cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {d.adding ? "Adding…" : d.inStock ? "Add to cart" : "Out of stock"}
             </button>
           </div>
         </div>
       </div>
     </main>
+  );
+}
+
+// Segmented −/+ stepper, height-matched to the Add-to-cart button so the row reads as one control.
+// A native number input is avoided on purpose: its spinners are ~10px, OS-rendered (so they ignore
+// the app's tokens), effectively untappable, and they accept "e"/"+"/"1e5" plus scroll-wheel edits.
+// The value stays typeable — inputMode="numeric" brings up a keypad — but only digits survive, and
+// blur restores 1 when the field is left empty. `tabular-nums` keeps the width steady across digits.
+function QuantityStepper({ value, onChange, disabled }) {
+  const set = (n) => onChange(Math.max(1, n));
+  return (
+    <div data-disabled={disabled || undefined}
+      className="inline-flex items-stretch h-12 rounded-md border border-border bg-background overflow-hidden data-[disabled]:opacity-50">
+      <StepButton label="Decrease quantity" disabled={disabled || value <= 1} onClick={() => set(value - 1)}>−</StepButton>
+      <label className="sr-only" htmlFor="pdp-qty">Quantity</label>
+      <input id="pdp-qty" type="text" inputMode="numeric" autoComplete="off" disabled={disabled}
+        value={value} aria-live="polite"
+        onChange={(e) => { const n = e.target.value.replace(/\D/g, ""); onChange(n === "" ? "" : Math.max(1, Number(n))); }}
+        onBlur={(e) => { if (!e.target.value) set(1); }}
+        className="w-12 text-center bg-transparent text-foreground font-semibold tabular-nums border-x border-border outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed" />
+      <StepButton label="Increase quantity" disabled={disabled} onClick={() => set(Number(value || 0) + 1)}>+</StepButton>
+    </div>
+  );
+}
+
+function StepButton({ children, label, onClick, disabled }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label}
+      className="w-11 grid place-items-center text-lg leading-none text-muted-foreground bg-transparent border-none cursor-pointer transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+      {children}
+    </button>
   );
 }
 
