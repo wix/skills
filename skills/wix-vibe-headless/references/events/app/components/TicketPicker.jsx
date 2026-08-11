@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useTicketing } from "@/hooks/useTicketing";
 
-const input = "px-3 py-2.5 box-border font-body border border-border rounded-sm bg-background text-foreground";
+const input = "px-3 py-2.5 box-border font-body border border-input rounded-sm bg-background text-foreground";
 
 function ticketPrice(def) {
   if (def.free) return "Free";

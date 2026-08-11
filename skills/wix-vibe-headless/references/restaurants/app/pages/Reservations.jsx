@@ -4,7 +4,7 @@
 // approval (pending). Styled with base44 design tokens (shadcn Tailwind classes).
 import { useReservation } from "@/hooks/useReservation";
 
-const field = "w-full py-2.5 px-3 box-border border border-border rounded-sm bg-background text-foreground font-body";
+const field = "w-full py-2.5 px-3 box-border border border-input rounded-sm bg-background text-foreground font-body";
 const primaryBtn = "py-3 px-6 cursor-pointer border-none rounded-sm bg-primary text-primary-foreground text-[15px] font-semibold";
 
 function slotLabel(iso) {

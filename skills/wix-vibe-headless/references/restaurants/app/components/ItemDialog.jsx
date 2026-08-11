@@ -67,7 +67,7 @@ export default function ItemDialog({ item, menuId, sectionId, onClose }) {
           <div className="flex items-center gap-3 mt-1">
             <input type="number" min={1} value={d.quantity}
               onChange={(e) => d.setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              className="w-[72px] p-2.5 text-center border border-border rounded-sm bg-background text-foreground" />
+              className="w-[72px] p-2.5 text-center border border-input rounded-sm bg-background text-foreground" />
             <button disabled={!d.canAdd} onClick={d.submit}
               className="flex-1 py-3 px-6 cursor-pointer bg-primary text-primary-foreground border-none rounded-sm text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
               {!d.ordering ? "Ordering unavailable" : d.inStock ? (d.adding ? "Adding…" : "Add to order") : "Sold out"}
