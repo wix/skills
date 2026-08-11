@@ -8,7 +8,7 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 /**
  * Wix eCom Cart — key fields for building a cart UI.
- * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/get-cart.md
+ * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
  *
  *   id {string}, currency {string},
  *   lineItems[].id {string} — lineItemId for update/remove (NOT catalogItemId),
