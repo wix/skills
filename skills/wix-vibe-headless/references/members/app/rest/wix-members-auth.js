@@ -41,9 +41,12 @@ import {
  * Members Area app or they're silently dropped. Social (B) can't collect any of
  * these — that's the reason to pick direct-credential.
  *
- * Docs (curl the .md): custom login <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md>
- * · external/social login <https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session>
- * · Retrieve Tokens <https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens>
+ * Docs (curl the .md): Login https://dev.wix.com/docs/api-reference/business-management/headless/authentication/login-v-2.md
+ * · Register https://dev.wix.com/docs/api-reference/business-management/headless/authentication/register-v-2.md
+ * · Logout https://dev.wix.com/docs/api-reference/business-management/headless/authentication/logout.md
+ * · Change Password https://dev.wix.com/docs/api-reference/business-management/headless/authentication/change-password.md
+ * · Retrieve Tokens https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md
+ * · external/social login https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
  */
 
 const AUTH_BASE = "/_api/iam/authentication/v2";

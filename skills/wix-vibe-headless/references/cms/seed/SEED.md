@@ -132,6 +132,14 @@ curl -sS -X PUT "$API/wix-data/v2/items/<itemId>" "${AUTH[@]}" -d '{
 - Verify with a query; a non-error POST is not proof of persistence.
 
 ## Reference
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Data Collection: https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/create-data-collection.md
+- Bulk Insert Data Items: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-items.md
+- Bulk Insert Data Item References: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
 - Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
 - Collections: https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections.md
+- Anything not covered → use the `wix-docs` skill (search + read the live reference); never guess.
 - Anything not covered → use the `wix-docs` skill (search + read the live reference); never guess.

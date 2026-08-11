@@ -213,7 +213,13 @@ in the **`wix-docs`** skill first (never guess):
   them see their own appointments.
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped
-file under `src/`, or look it up via the **`wix-docs`** skill.
+file under `src/`, or look it up via the **`wix-docs`** skill. Each helper in
+`wix-bookings-services.js` / `wix-bookings-checkout.js` links its own reference page inline; these are
+the areas they sit in:
+- Bookings (services, categories, bookings): https://dev.wix.com/docs/api-reference/business-solutions/bookings.md
+- Availability time slots: https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots.md
+- eCommerce checkout (paid bookings): https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md
+- Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
 
 ## Hard rules
 - Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.

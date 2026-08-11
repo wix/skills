@@ -153,9 +153,28 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 - **Booking an experience** is premium-gated the same way (create works on a free site; booking needs
   premium + online reservations enabled).
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover, use the
 **`wix-docs`** skill to search + read the live Wix API reference — never guess. The **Experiences** create
 payload especially lives in the docs (fields evolve). The authoritative source recipes are
 `wix-headless/references/inline-recipes/setup-restaurants.md`, `setup-restaurant-orders.md`,
 `setup-restaurant-reservations.md`, and `setup-restaurant-experiences.md`.
+
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Menu: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu.md
+- Create Section: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/create-section.md
+- Bulk Create Sections: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-create-sections.md
+- Create Item: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/create-item.md
+- Bulk Create Items: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-create-items.md
+- List Operations: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
+- Update Operation: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/update-operation.md
+- Create Fulfillment Method: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/create-fulfillment-method.md
+- Create Location: https://dev.wix.com/docs/api-reference/business-management/locations/create-location.md
+- List Reservation Locations: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/list-reservation-locations.md
+- Update Reservation Location: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/update-reservation-location.md
+- Query Menu Ordering Settings: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/query-menu-ordering-settings.md
+- Upsert Menu Ordering Settings By Menu Id: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/upsert-menu-ordering-settings-by-menu-id.md
+- Create Experience: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/create-experience.md

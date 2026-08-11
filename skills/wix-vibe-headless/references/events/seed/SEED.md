@@ -92,7 +92,16 @@ Free/RSVP events need neither.
 | `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); the main image binds by this file id |
 | `setEventMainImage(ctx, {eventId,id,url,height,width,altText})` | optional — PATCH `mainImage` (no revision); `id` = a Wix Media file id from `importImage` |
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-events.md`.
+
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Event: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event.md
+- Create Ticket Definition: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/create-ticket-definition.md
+- Create Category: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/create-category.md
+- Get Site Properties (timezone / currency): https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties.md
