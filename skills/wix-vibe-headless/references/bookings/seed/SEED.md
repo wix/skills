@@ -87,3 +87,14 @@ same body; don't loop and don't re-create the ones that already succeeded.
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-bookings.md`.
+
+## Reference — the admin methods this seed calls
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Bulk Create Services: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services.md
+- Create Category: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category.md
+- Create Staff Member: https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member.md
+- Query Staff Members: https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members.md
+- Bulk Create Event (calendar sessions): https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event.md

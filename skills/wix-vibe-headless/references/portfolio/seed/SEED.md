@@ -84,3 +84,12 @@ authoritative source recipe is `wix-headless/references/inline-recipes/setup-por
 
 **Transcribed from the recipe — NOT yet live-verified.** The endpoints/fields mirror
 `setup-portfolio.md`; confirm against a real run or the Wix docs before trusting edge shapes.
+
+## Reference — the admin methods this seed calls
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Collection: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/create-collection.md
+- Create Project: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/create-project.md
+- Create Project Item: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/create-project-item.md

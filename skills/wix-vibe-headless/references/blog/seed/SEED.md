@@ -90,3 +90,15 @@ first** (`installBlogApp`, idempotent), so seeding works even if the site doesn'
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix Blog API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-blog.md`.
+
+## Reference — the admin methods this seed calls
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Bulk Create Draft Posts: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts.md
+- Create Draft Post: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post.md
+- Publish Draft Post: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/publish-draft-post.md
+- Create Category: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/create-category.md
+- Create Tag: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/create-tag.md
+- Create Member (post authors): https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/create-member.md

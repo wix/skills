@@ -62,3 +62,16 @@ await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: ima
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-online-store.md`.
+
+## Reference — the admin methods this seed calls
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Category: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
+- Bulk Update Categories: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-update-categories.md
+- Bulk Add Items To Category: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md
+- Bulk Create Products With Inventory: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
+- Bulk Update Products: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products.md
+- Bulk Create Inventory Items: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items.md
+- Query Products: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
