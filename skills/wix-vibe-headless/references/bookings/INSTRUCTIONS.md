@@ -30,16 +30,17 @@ so you don't need to open them:**
 
 | file | what it is |
 |---|---|
-| `hooks/useServices.js` | services-list data — one page + `loadMore` paging; `total === 0` → empty state |
+| `hooks/useServices.js` | services-list data — one page + `loadMore` paging, plus the category menu (`categories` / `activeCategory` / `setActiveCategory`); `total === 0` → empty state |
 | `hooks/useServiceDetail.js` | detail + booking flow — load service, list slots, hold slot/contact/participants, re-validate + book + checkout |
-| `components/ServiceCard.jsx`, `ServiceGrid.jsx` | service listing UI (grid + card, with empty state) |
+| `lib/serviceFacts.js` | price / duration / capacity / where / reschedule labels, derived from a service — rateType-aware, so VARIED and NO_FEE services still show a price |
+| `components/ServiceCard.jsx`, `ServiceGrid.jsx` | service listing UI (grid + card, with empty state); the card shows price, tagline and a `60 min · 1-to-1` meta row |
 | `components/SlotPicker.jsx` | bookable-slot chips + paging (pure UI, driven by `useServiceDetail`) |
 | `components/BookingForm.jsx` | contact + participant form (pure UI, driven by `useServiceDetail`) |
 | `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
-| `pages/Services.jsx`, `pages/ServiceDetail.jsx` | the two shipped routes (`/services`, `/service/:serviceId`) |
+| `pages/Services.jsx`, `pages/ServiceDetail.jsx` | the two shipped routes (`/services`, `/service/:serviceId`); the detail page is two-column — service + a duration/price/where strip on the left, the sticky booking panel on the right |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
 | `rest/wix-client.js` | REST transport — mints/persists the anonymous visitor token |
-| `rest/wix-bookings-services.js` | services + availability: `queryServices`, `getService`, `countServices`, `listSlotsForService`, `listAvailableSlots`, `listEventTimeSlots`, `getAvailableSlot`, `mediaUrl` |
+| `rest/wix-bookings-services.js` | services + availability: `queryServices`, `queryServicesByCategory`, `categoriesOf`, `getService`, `countServices`, `listSlotsForService`, `listAvailableSlots`, `listEventTimeSlots`, `getAvailableSlot`, `mediaUrl` |
 | `rest/wix-bookings-checkout.js` | booking + checkout: `createBooking`, `checkoutBooking`, `bookAndCheckout` |
 
 They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
@@ -175,10 +176,12 @@ if ((await countServices()) === 0) { /* show the empty state — never invent se
 // DETAIL — getService(id) is keyed off the route param; returns null on a miss (not-found, never invent):
 const service = await getService(serviceId);
 
-// PRICE — payment.fixed.price.formattedValue is OPTIONAL; build from value+currency when missing:
-const p = service.payment?.fixed?.price;
-const price = p && (p.formattedValue
-  || new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency }).format(Number(p.value)));
+// FACTS (price / duration / capacity / where / reschedule note) — lib/serviceFacts.js branches on
+// payment.rateType and on APPOINTMENT-vs-CLASS for you. Reading payment.fixed.price yourself renders
+// NOTHING for a VARIED or NO_FEE service, and duration is empty on a class:
+const price = servicePriceLabel(service);      // "€95.00" · "From €85.00" · "Free" · "" for CUSTOM
+const minutes = serviceDuration(service);      // 60 for an appointment; null for a class/course
+const where = serviceLocationLabel(service);   // from payment.options — service.locations has no name
 
 // IMAGE — the primary image is media.mainMedia; resolve through mediaUrl (Wix media can be a bare
 // handle, not a full URL). Fall back to the gallery/cover:
@@ -188,7 +191,9 @@ const img = mediaUrl(service.media?.mainMedia?.image ?? service.media?.items?.[0
 // Dates are LOCAL wall-clock "YYYY-MM-DDThh:mm:ss" (NO zone / Z). The LIST call takes
 // fromLocalDate/toLocalDate — the single-slot re-validate (getAvailableSlot) takes
 // localStartDate/localEndDate. They are NOT interchangeable.
-const { slots, nextCursor } = await listSlotsForService(service, { fromLocalDate, toLocalDate });
+// It also returns `timeZone` — the zone those localStartDate strings are in. Label the picker with
+// that value rather than a locally guessed zone, so the times and the label can't disagree.
+const { slots, nextCursor, timeZone } = await listSlotsForService(service, { fromLocalDate, toLocalDate });
 
 // BOOK — re-validate the picked slot (getAvailableSlot returns the slot or NULL — guard it), then
 // book + check out and redirect. Participants: cap at

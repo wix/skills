@@ -6,7 +6,7 @@ export default function ServiceGrid({ services, empty = "No services yet." }) {
     return <p className="text-muted-foreground p-4 text-center">{empty}</p>;
   }
   return (
-    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
+    <div className="grid gap-4 grid-cols-2 md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
       {services.map((s) => <ServiceCard key={s.id} service={s} />)}
     </div>
   );
