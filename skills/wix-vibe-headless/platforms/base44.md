@@ -23,16 +23,31 @@ skills, then runs `deploy.cjs <vertical…>` (lays the shared transport + **each
 REST scaffolds and UI client into `src/`) and `pin-agents-md.cjs` (pins the project's AGENTS.md
 note so later turns keep the rules).
 
-**Set `VERTICALS`** to what the prompt asks for, from `storefront`, `bookings`, `blog`, `cms`,
-`portfolio`, `pricing-plans`, `events`, `members` (too vague to tell? do STEP 2 first, then set it).
+**Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
+
+| vertical | pick it when the app needs to |
+|---|---|
+| `storefront` | sell products |
+| `bookings` | take appointments or service bookings |
+| `blog` | publish articles |
+| `events` | publish events with RSVPs or ticket sales |
+| `portfolio` | showcase creative work |
+| `pricing-plans` | sell memberships or subscriptions |
+| `restaurants` | show a menu, take orders, book tables |
+| `members` | let visitors sign in — this is **auth** |
+| `cms` | keep its own structured content — user submissions, galleries, listings, anything the rows above don't already cover |
+
 **List every vertical the app actually uses** — one is the common case, and name more when the intent
-spans them, so all their scaffolds come from the skill rather than being written by hand. Adding one
-later is fine too: re-run with the extra name (the copy only fills in missing files).
+spans them, so all their scaffolds come from the skill rather than being written by hand. Anything the
+app stores itself needs `cms`, and anything where visitors sign in needs `members`, so those two often
+join whichever vertical is the main one. Adding one later is fine too: re-run with the extra name (the
+copy only fills in missing files).
 
 ```js
 const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
-const VERTICALS = ['storefront']; // ← set from the prompt; list every vertical the app uses
+const VERTICALS = ['storefront'];        // ← set from the prompt; list every vertical the app uses
+// const VERTICALS = ['members', 'cms']; // ← e.g. visitors sign in AND the app stores what they submit
 const results = {};
 for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   try {
