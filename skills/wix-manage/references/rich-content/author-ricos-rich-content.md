@@ -199,7 +199,7 @@ Do **not** rely on `\n` inside `textData.text` for spacing — that does not cre
 }
 ```
 
-**AUDIO** — uploaded audio via Wix Media `src.id`, or an embed variant whose `audioData.html` holds an iframe (SoundCloud, Spotify). Optional `coverImage` (`src.id`, `width`, `height`), `name`, `authorName`, `disableDownload`:
+**AUDIO** — uploaded audio via Wix Media `src.id`, or an embed variant whose `audioData.html` holds an iframe (SoundCloud, Spotify). Include `audioData.containerData` with `alignment` and width settings, and use an empty `nodes: []` array because AUDIO has no child nodes. Optional fields include `coverImage` (`src.id`, `width`, `height`), `name`, `authorName`, and `disableDownload`:
 
 ```json
 {
