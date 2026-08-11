@@ -153,14 +153,13 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 - **Booking an experience** is premium-gated the same way (create works on a free site; booking needs
   premium + online reservations enabled).
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover, use the
 **`wix-docs`** skill to search + read the live Wix API reference — never guess. The **Experiences** create
 payload especially lives in the docs (fields evolve). The authoritative source recipes are
 `wix-headless/references/inline-recipes/setup-restaurants.md`, `setup-restaurant-orders.md`,
 `setup-restaurant-reservations.md`, and `setup-restaurant-experiences.md`.
 
-## Reference — the admin methods this seed calls
 Read a method's page before writing its call: it carries the exact body shape, the required
 permission scope, and the response envelope.
 - Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md

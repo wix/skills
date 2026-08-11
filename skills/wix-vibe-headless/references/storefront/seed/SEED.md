@@ -58,12 +58,11 @@ await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: ima
 | `addProductsToCategories(ctx, {catId:[pid]})` | sequential add-items |
 | `attachProductImages(ctx, [{id,url,altText}])` | one bulk media attach; no revision to pass. Wix re-hosts each url server-side; the media can take a little while to appear on read-back (propagation) — normal, not a failure |
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-online-store.md`.
 
-## Reference — the admin methods this seed calls
 Read a method's page before writing its call: it carries the exact body shape, the required
 permission scope, and the response envelope.
 - Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md

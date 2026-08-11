@@ -83,12 +83,11 @@ await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: servic
 Both bulk calls report per-item `success`/`error` — retry only the failed items **once** with the
 same body; don't loop and don't re-create the ones that already succeeded.
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-bookings.md`.
 
-## Reference — the admin methods this seed calls
 Read a method's page before writing its call: it carries the exact body shape, the required
 permission scope, and the response envelope.
 - Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
