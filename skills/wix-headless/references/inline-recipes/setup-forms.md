@@ -84,11 +84,31 @@ reference each field by `fieldId` in the same request.
 **Assemble the request** from the closest Create Form example, building each `formFields[]` entry —
 including the `SUBMIT_BUTTON` — per
 **[About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields)**,
-which owns every field-level rule, including placing every field in the layout.
+which owns every field-level rule, including placing every field in the layout — **with one
+documented gap: where `required` goes (next paragraph). The guide never says, so don't infer it from
+its "Validation" section.**
 **Geometry (`row`/`column`/`width`) does not matter on headless** — the frontend renders its own
 layout from `formFields[]` and never reads `steps[].layout` (`how-to-code-forms.md`) — so the layout
 is a *correctness* requirement, not a design one: assert presence and coverage only. Use a single
 step unless the request needs multiple pages.
+
+**⚠️ `required` goes at `inputOptions.required` — NOT inside the field's `validation` block.** It sits
+beside `target`/`inputType`:
+
+```jsonc
+"inputOptions": { "target": "full_name", "required": true, "inputType": "STRING",
+  "stringOptions": { "validation": {}, "componentType": "TEXT_INPUT",
+                     "textInputOptions": { "label": "Full Name", "showLabel": true } } }
+```
+
+A `required` key inside `stringOptions.validation` — or any `<inputType>Options.validation`, since no
+input type's validation object defines it — is **accepted at create and then silently discarded**:
+`200`, the form lists, the summary returns every field, and every field still reads back
+`required: false`. The form ships publicly with nothing mandatory and **no error anywhere in the
+response**, so STEP 3's read-back diff is the only signal. `validation` carries value constraints
+only (`format`, `enum`, `minimum`, `minLength`, `items`). The lone exception is the multi-line address
+field, whose per-subfield flags genuinely live at
+`addressOptions.validation.fields.<sub>.required`.
 
 **⚠️ A `200` proves nothing: always run STEP 3.** Most mistakes here are accepted at create and only
 surface in the dashboard or on the first real submission.
@@ -129,7 +149,11 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
    — **`formIds` narrows the list to exactly the forms you just created**, so you assert against them
    directly instead of filtering a whole-namespace listing. For each form, confirm its `id` appears,
    its **`formFields[]`** covers every field you sent, and its **`steps` is non-empty and places
-   every field** (per About Form Fields).
+   every field** (per About Form Fields). **Also diff every field's `inputOptions.required` against
+   what you sent** — a misplaced `required` is dropped silently (STEP 2), and this read-back is the
+   only signal. If a flag came back `false`, fix it with STEP 4's `PATCH` (moving the flag to
+   `inputOptions.required`) rather than deleting and re-creating: the `formId` survives and it costs
+   no extra slot against the form cap.
 2. **⚠️ Then verify the dashboard will actually render —
    `GET https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary` and assert
    `formSummary.fields` is NON-EMPTY**, with a count equal to **every input field you sent** (i.e.
