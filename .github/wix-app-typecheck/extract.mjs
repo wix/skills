@@ -74,7 +74,7 @@ const BASE_COMPILER_OPTIONS = {
 
 function runTsc(args = '') {
   try {
-    execSync(`node_modules/.bin/tsc --noEmit ${args}`, { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'] });
+    execSync(`npx tsc --noEmit ${args}`, { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'] });
     return '';
   } catch (err) {
     return (err.stdout ?? '').toString() + (err.stderr ?? '').toString();
