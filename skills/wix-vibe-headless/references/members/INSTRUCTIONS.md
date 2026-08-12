@@ -52,10 +52,10 @@ so you don't need to open them:**
 | `components/SocialButtons.jsx` | "Continue with Google/Facebook" buttons (kick off the redirect) |
 | `components/MemberMenu.jsx` | header account control — "Log in" vs. member name + log-out (like a cart button) |
 | `components/RequireAuth.jsx` | route gate: renders children for a member, else redirects to `/login` |
-| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Login.jsx`, `pages/Account.jsx` | the shipped login + account routes (`/login`, `/account`) |
 | `pages/Callback.jsx` | social/SSO return route — mount at **exactly** `/callback` |
-| `rest/wix-config.js` | **you set the ids here** (STEP 2) |
+| `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` + `rest/wix-members-auth.js` | REST transport + the auth helper (copy verbatim) |
 
 They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
@@ -71,16 +71,8 @@ fallback — a runtime error, or a field the snippets don't cover (see "Fallback
 > *calling* the exports, never by editing them. Its full JSDoc (state machine, `profile`, errors) is at
 > the top of the file — read that, not the whole body, if you need the contract.
 
-## STEP 2 — Credentials
-`src/rest/wix-config.js` was already written by the install step (`deploy.cjs --client-id …
---metasite-id …`), which also proved the client id mints a visitor token. Nothing to do here.
 
-If it still holds `<YOUR-CLIENT-ID>` placeholders, re-run that command with both ids from the prompt
-rather than editing the file — retyping a uuid is how a build ships with a dead client id. And if the
-install reported `Wix rejected WIX_CLIENT_ID`, that is a wrong value, not pending Wix-side setup:
-re-read the id from the prompt and re-run.
-
-## STEP 3 — Theme (nothing to style on the shipped components)
+## STEP 2 — Theme (nothing to style on the shipped components)
 The shipped components carry **no palette of their own** — they render from base44's design tokens
 in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
 `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
@@ -88,10 +80,10 @@ in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `
 are **already set to the brand by the design phase**, so the shipped auth surfaces are themed with
 zero work here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way;
 **never add a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the
-Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it matches automatically. A
+Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it matches automatically. A
 dark brand is just base44's dark palette in `index.css` — no per-component work.
 
-## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`, the **Base44 builder
 account**) — edit it in, don't replace it. The Wix member session is separate and ships under its own
@@ -157,7 +149,7 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<MemberMenu/>` in it) and a **`Footer`** — the
-two you drop into the `Layout` (STEP 4) so they wrap every route — plus the overall brand story,
+two you drop into the `Layout` (STEP 3) so they wrap every route — plus the overall brand story,
 styled from the same base44 tokens/classes. The nav's account control is a `<MemberMenu/>` (shows
 "Log in" for a visitor, the member's name + log-out once signed in — render it as-is, don't wrap it in
 your own auth text button):
@@ -265,13 +257,12 @@ connection ids, a profile field these snippets don't have): read the relevant sh
 `src/rest/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
-- Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - **Custom login only** — the member logs in on **your** UI; never redirect them to a Wix-hosted login page.
 - **One shared client** — login swaps the token set on `wix-client.js`; reuse it for everything so the
   member identity carries across the app. Never mint a second client or re-mint anonymously after login.
 - Copy `wix-members-auth.js` verbatim; extend by *calling* its exports, never by editing them.
-- Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Login`/`Account`/`Callback` to add chrome; the fixed top region owns positioning (`<WixManageBanner/>` above a plain in-flow `<Header/>`).
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Login`/`Account`/`Callback` to add chrome; the fixed top region owns positioning (`<WixManageBanner/>` above a plain in-flow `<Header/>`).
 - **Never fake a member** — no mock logged-in state, invented profile, or roles. Render the real member or the real logged-out state.
 - **Fail loudly** — the helper throws `MemberAuthError`; surface `.message`, don't swallow it.
 - No `elevate` / admin scope, and no headless MFA/TOTP — those security layers are dashboard-governed.
