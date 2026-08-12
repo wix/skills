@@ -160,31 +160,17 @@ through the `portal:` link, and CI runs `yarn install --immutable`. Regenerate i
 <a id="regenerating-lockfiles"></a>
 ### Regenerating a lockfile
 
-Every project here carries the wix-private cooldown standard in its `.yarnrc.yml` —
-`npmMinimalAgeGate: "14d"` with `@wix/*` exempt. After a plain `yarn install`, strip the
-mirror URLs before committing:
+Resolving through the Wix mirror bakes `__archiveUrl=…npm.dev.wixpress.com…` into every
+resolution, and CI runs on GitHub-hosted runners that cannot reach that host — so strip
+them, then check `yarn install --immutable` leaves the lock alone:
 
 ```bash
 yarn install
 sed -i '' -e 's|::__archiveUrl=[^"]*||' -e 's|%3A%3A__archiveUrl=[^#]*||' yarn.lock
 ```
 
-Resolving through the internal mirror bakes `::__archiveUrl=https%3A%2F%2Fnpm.dev…` into
-each resolution, and this repo's CI runs on GitHub-hosted runners that cannot reach that
-host — so an un-normalized lock breaks the build. (The second pattern catches the
-double-encoded form inside yarn's `patch:` protocol.) `yarn install --immutable` must then
-pass leaving `yarn.lock` untouched.
-
-Installing at all needs `npmRegistryServer: "https://npm.dev.wixpress.com/"` in your
-`~/.yarnrc.yml` — `registry.npmjs.org` and `registry.yarnpkg.com` are both unreachable
-from a Wix machine. The two evalforge gate actions pin `registry.npmjs.org` in their own
-`.yarnrc.yml`, and project config outranks your home config, so for those two prefix the
-command with `YARN_NPM_REGISTRY_SERVER=https://npm.dev.wixpress.com/`.
-
-Stay on yarn **4.12.0**: on 4.10.0 the gate fails on large trees with
-`YN0082: No candidates found`, and 4.15+ rewrites `.yarnrc.yml`, writing
-`npmMinimalAgeGate: 0` into any file that omits the key — which disables the gate while
-leaving it looking configured.
+Stay on yarn 4.12.0: 4.15+ rewrites `.yarnrc.yml` and writes `npmMinimalAgeGate: 0` into
+any file that omits the key, disabling the cooldown while leaving it looking configured.
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
 asserts the wiring of the gate, cleanup and re-eval workflows, and
