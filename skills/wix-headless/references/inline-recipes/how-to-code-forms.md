@@ -454,7 +454,7 @@ NOT `createSubmission({ submission })`.** The first argument **is** the submissi
 against the SDK.
 
 **The `submissions` map is keyed by each field's `target`** — see
-[Submission values](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction#submission-values)
+[About Submission Values](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values)
 for the keys and the per-`inputType` value shapes. This is why the render step binds **`name` =
 `target`** from the projected schema: collecting `FormData` then yields the right keys by
 construction, with no hand-maintained list to drift.
