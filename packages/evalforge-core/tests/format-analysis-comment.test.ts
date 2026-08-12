@@ -129,6 +129,13 @@ describe('formatAnalysisComment', () => {
     expect(body).toMatch(/further findings? omitted/);
   });
 
+  it('keeps the body within budget when many short findings all survive the fold', () => {
+    const body = render({
+      findings: Array.from({ length: 600 }, () => finding({ severity: 'HIGH', description: 'y'.repeat(80) })),
+    });
+    expect(body.length).toBeLessThanOrEqual(MAX_COMMENT_BODY_LENGTH);
+  });
+
   it('keeps the marker, tally and run link even when truncating', () => {
     const body = render({
       summary: 'x'.repeat(100_000),

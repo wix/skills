@@ -123,7 +123,7 @@ function foldedDetail(summary: string, findings: RunAnalysisFinding[], fixedLeng
   let dropped = 0;
   for (const candidate of findings) {
     const block = findingBlock(candidate);
-    const cost = lengthOf(block);
+    const cost = lengthOf(block) + 1;
     if (cost > budget) { dropped += 1; continue; }
     budget -= cost;
     kept.push(...block);
