@@ -33,7 +33,6 @@ concurrency:
 # Setting it here gets both — runners use npmjs, developers keep the mirror.
 env:
   YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org
-  YARN_NPM_PREAPPROVED_PACKAGES: __none__
 
 jobs:
   # Computed once and shared, so the detection rules live in exactly one place.
