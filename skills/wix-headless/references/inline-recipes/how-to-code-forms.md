@@ -16,24 +16,17 @@ how the page looks, and the framework are decided by the request you're fulfilli
 > says nothing about creating forms — only how to read, render, and submit them from frontend code.
 
 > **Render schema-driven by default — read the schema and generate the inputs.** This is the
-> standard path for **every** forms site and what this section documents: render inputs from the
-> live form schema (field set, order, labels, `required`, format→type, length/pattern constraints,
-> dropdown options) so an owner edit in the Wix dashboard reflects on the site with no code change,
-> and so the submit map can never desync from the schema. **A form with a dropdown/enum field, or a
-> site with more than one form, is NOT a reason to hardcode — it's the opposite:** dropdown options
-> and per-field validation come *from* the schema, so hardcoding them is strictly more code and more
-> drift. Each form simply reads its own schema by `formId`.
+> standard path for **every** forms site and what this section documents: an owner edit in the Wix
+> dashboard reflects on the site with no code change, and the submit map can never desync from the
+> schema. A dropdown, non-trivial validation, or several forms on one site are **not** reasons to
+> hardcode — those are exactly what the schema carries, so hardcoding them is strictly more code and
+> more drift. Each form simply reads its own schema by `formId`.
 >
-> **The ONLY exception is a brief that is explicitly design-led** — where the visual design is the
-> whole point, the form is a small fixed part of a hand-crafted layout, and dashboard-editability is
+> **The ONLY exception is a brief that is explicitly design-led** — the visual design is the whole
+> point, the form is a small fixed part of a hand-crafted layout, and dashboard-editability is
 > explicitly not a goal (e.g. the `inquiry-design` wedding-photographer brief). There you may
-> hardcode `<input name="<target>">` from the known field set — the `target`s are still the contract
-> (see "Submitting"). **But read the actual targets from the schema — never guess or derive
-> them from labels.** A `target` is whatever the seed authored (`setup-forms.md`); a key that
-> isn't an exact schema `target` 400s the whole submission. Even then, prefer schema-driven if the
-> form has a dropdown or non-trivial validation. **If the brief doesn't call out design as the
-> priority, render schema-driven.** "It has two forms" / "it has a dropdown" / "it's a simple
-> contact form" are all still schema-driven.
+> hardcode `<input name="<target>">`, but **read the actual `target`s from the schema — never guess or
+> derive them from labels**: a key that isn't an exact schema `target` 400s the whole submission.
 
 > **⚠️ Reading rule — always append `?apiView=SDK` to every doc link below.** The Wix docs render
 > two views of the same page. The **bare / REST view** shows the wrapped REST body
@@ -54,11 +47,6 @@ how the page looks, and the framework are decided by the request you're fulfilli
 
 (The frontend **reads** schemas and **writes** submissions; it never *creates* schemas — that's the
 seed.)
-
-| Need                                   | Package      | Module / export |
-|----------------------------------------|--------------|-----------------|
-| Read a form schema (render its fields) | `@wix/forms` | `forms`         |
-| Submit a form (create a submission)    | `@wix/forms` | `submissions`   |
 
 **⚠️ CRITICAL: a plain anonymous visitor token reads the form schema — NO `auth.elevate`, no
 backend, no owner creds.** `forms.getForm(formId)` / `forms.listForms("wix.form_app.form")` return
@@ -150,9 +138,8 @@ const { forms: all } = await forms.listForms('wix.form_app.form');
 **2 · Project `form.formFields` into a render model.**
 
 ```js
-// Field order lives in steps[], NOT in formFields[] (whose order is arbitrary — the SUBMIT_BUTTON
-// can be first). A breakpoint is only present when the form defines a layout for it, so fall back
-// rather than assuming `large` exists.
+// Display order comes from steps[], not from formFields[] (About Form Fields, "Field order comes
+// from the layout") — including the breakpoint fallback below.
 const order = new Map(
   (form.steps ?? [])
     .flatMap((s) => s.layout?.large?.items ?? s.layout?.medium?.items ?? s.layout?.small?.items ?? [])
@@ -160,50 +147,65 @@ const order = new Map(
     .map((item, i) => [item.fieldId, i]),
 );
 
+const camel = (e) => (e ?? '').toLowerCase().replace(/_(.)/g, (_, c) => c.toUpperCase());
+
+// The input types THIS renderer handles. BOOLEAN (checkbox), WIX_FILE (file upload / signature),
+// PAYMENT and SCHEDULING need their own controls — a checkbox's label is a Ricos rich-content
+// OBJECT, not a string, so letting one fall through to the text branch prints `[object Object]`
+// (or throws in React). Skip them explicitly; add a branch when a brief needs one.
+// ⚠️ A skipped field that is `required` makes the form UNSUBMITTABLE (the server will demand it), so
+// log that case loudly and write the branch — a consent CHECKBOX is the one you'll hit first.
+const RENDERABLE = new Set(['STRING', 'NUMBER', 'ARRAY', 'ADDRESS']);
+
 const inputs = (form.formFields ?? [])
-  .filter((f) => f.fieldType === 'INPUT' && !f.hidden)   // the submit button is fieldType: 'DISPLAY'
+  .filter((f) => f.fieldType === 'INPUT' && !f.hidden   // the submit button is fieldType: 'DISPLAY'
+    && RENDERABLE.has(f.inputOptions?.inputType))
   .map((f) => {
     const io = f.inputOptions ?? {};
-    // Both nesting levels follow one rule (About Form Fields): camelCase the enum value and append
-    // `Options` — `inputType` names the outer block, `componentType` the sub-block inside it.
-    const so = io.stringOptions ?? {};
-    const no = io.numberOptions;                         // inputType === 'NUMBER'
-    const ao = io.addressOptions;                        // inputType === 'ADDRESS'
-    const aro = io.arrayOptions;                         // inputType === 'ARRAY' (CHECKBOX_GROUP, TAGS, …)
-    const comp = so.dropdownOptions ?? so.radioGroupOptions ?? so.textInputOptions ?? so.phoneInputOptions
-               ?? so.dateInputOptions ?? so.datePickerOptions ?? no?.numberInputOptions
-               ?? ao?.multilineAddressOptions ?? aro?.checkboxGroupOptions ?? aro?.tagsOptions ?? {};
+    // ONE naming rule for BOTH nesting levels (About Form Fields, "How a field is composed"):
+    // camelCase the enum value and append `Options` — `inputType` names the outer block,
+    // `componentType` the sub-block inside it. DERIVE both; a hardcoded `??` chain of block names
+    // silently misses types (TIME_INPUT, DATE_TIME, RATING_INPUT, …) and reads back no label.
+    const to = io[`${camel(io.inputType)}Options`] ?? {};        // stringOptions / arrayOptions / …
+    const comp = to[`${camel(to.componentType)}Options`] ?? {};  // textInputOptions / dropdownOptions / …
+    const val = to.validation ?? {};
     return {
       id: f.id,                                          // used only to order by steps[] below
       target: io.target,                                 // → input `name` (THE submission key)
+      inputType: io.inputType,
       label: comp.label ?? io.target,
       placeholder: comp.placeholder ?? '',
+      defaultValue: comp.default,                        // owner-set prefill; undefined → none
       required: io.required ?? false,                    // NOTE: on inputOptions, not inside validation
-      format: so.validation?.format,                     // EMAIL | PHONE | URL | UNKNOWN_FORMAT | …
-      minLength: so.validation?.minLength,               // owner-set length/pattern constraints —
-      maxLength: so.validation?.maxLength,               // carry them so the client validates them too,
-      pattern: so.validation?.pattern,                   // not just the server (see "validation" below)
-      identifier: f.identifier,                          // CONTACTS_* | TEXT_INPUT | TEXT_AREA | DROPDOWN | RADIO_GROUP | CHECKBOX_GROUP | MULTILINE_ADDRESS
-      componentType: so.componentType ?? no?.componentType ?? ao?.componentType ?? aro?.componentType,
-      multiple: io.inputType === 'ARRAY',                // multi-choice (CHECKBOX_GROUP/TAGS) → submits an ARRAY
-      // choice options live under dropdown/radio (STRING) or checkbox/tags (ARRAY):
-      options: (so.dropdownOptions ?? so.radioGroupOptions ?? aro?.checkboxGroupOptions ?? aro?.tagsOptions)
-        ?.options?.map((o) => ({ value: o.value ?? o.label ?? '', label: o.label ?? o.value ?? '' })),
+      format: val.format,                                // EMAIL | PHONE | URL | UNKNOWN_FORMAT | …
+      minLength: val.minLength,                          // owner-set length/pattern constraints —
+      maxLength: val.maxLength,                          // carry them so the client validates them too,
+      pattern: val.pattern,                              // not just the server (see "validation" below)
+      identifier: f.identifier,                          // per the field table in About Form Fields
+      componentType: to.componentType,
+      multiple: io.inputType === 'ARRAY',                // multi-choice → submits an ARRAY
+      options: comp.options?.map((o) => ({ value: o.value, label: o.label ?? o.value })),
+      // PHONE may narrow or preselect the country (both ISO-3166 alpha-2):
+      allowedCountryCodes: val.phoneOptions?.allowedCountryCodes,
+      defaultCountryCode: comp.defaultCountryCode,
       // ADDRESS fields submit a NESTED OBJECT, not a string. validation.fields lists the subfields
       // and their required-ness; only addressLine2 has a visibility setting, so the filter below
-      // hides just that one. undefined for every non-address field.
-      addressParts: ao && Object.entries(ao.validation?.fields ?? {})
-        .filter(([sub]) => ao.multilineAddressOptions?.fieldSettings?.[sub]?.show !== false)
+      // hides just that one. `false` for every non-address field.
+      addressParts: io.inputType === 'ADDRESS' && Object.entries(val.fields ?? {})
+        .filter(([sub]) => comp.fieldSettings?.[sub]?.show !== false)
         .map(([sub, cfg]) => ({ sub, required: cfg?.required ?? false })),
+      allowedCountries: val.allowedCountries,            // ADDRESS: narrows the country <select>
     };
   })
-  .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  // A field the owner never placed in the layout sorts LAST, not first — it still stores values.
+  .sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
 ```
 
 [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields)
-documents which `identifier` pairs with which component and what each field submits. That is why the
-projection reads all four outer blocks, and why a number, address, or multi-choice field's
-`format`/`minLength` are `undefined`: those live only on `stringOptions`.
+documents which `identifier` pairs with which component, which options block each combination nests
+in, and what each field submits — read it rather than guessing a block name. A number, address or
+multi-choice field's `format`/`minLength` come back `undefined`: those constraints exist only on a
+`STRING` field's validation.
 
 **⚠️ Two paths the projection gets wrong most often:** `required` is at **`inputOptions.required`**,
 *not* inside the validation block; and unconstrained text reads back as **`UNKNOWN_FORMAT`**, so
@@ -218,7 +220,9 @@ inputs.map((field) => {
   // Name each sub-input `${target}/${sub}` — that is EXACTLY the server's error path for a nested
   // field (e.g. "address/subdivision"), so the submit step nests them back AND a per-subfield
   // server error maps straight onto the right control (see "Submitting" and the error mapping below).
-  // NB: `country` and `subdivision` are country-dependent enums, not free text (see the ⚠️ note).
+  // NB: `country` and `subdivision` are country-dependent enums, not free text (see the ⚠️ note) —
+  // render `country` as a <select> (your own, over an ISO-3166 alpha-2 list, narrowed to
+  // field.allowedCountries when that's non-empty) rather than a free-text input.
   if (field.addressParts) {
     return (
       <fieldset key={field.target}>
@@ -227,7 +231,9 @@ inputs.map((field) => {
           const name = `${field.target}/${sub}`;            // == the server errorPath for this subfield
           return (
             <label key={sub}>{sub}{required && ' *'}         {/* humanize `sub` for display as you like */}
-              <input name={name} required={required} />
+              {sub === 'country'
+                ? <CountrySelect name={name} required={required} allowed={field.allowedCountries} />
+                : <input name={name} required={required} />}
               {fieldErrors[name] && <small className="field-error">{fieldErrors[name]}</small>}
             </label>
           );
@@ -240,7 +246,8 @@ inputs.map((field) => {
     return (
       <fieldset key={field.target}><legend>{field.label}{field.required && ' *'}</legend>
         {field.options.map((o) => (
-          <label key={o.value}><input type="radio" name={field.target} value={o.value} required={field.required} /> {o.label}</label>
+          <label key={o.value}><input type="radio" name={field.target} value={o.value}
+            defaultChecked={o.value === field.defaultValue} required={field.required} /> {o.label}</label>
         ))}
       </fieldset>
     );
@@ -259,7 +266,7 @@ inputs.map((field) => {
   if (field.componentType === 'DROPDOWN') {
     return (
       <label key={field.target}>{field.label}{field.required && ' *'}
-        <select name={field.target} required={field.required} defaultValue="">
+        <select name={field.target} required={field.required} defaultValue={field.defaultValue ?? ''}>
           <option value="" disabled>{field.placeholder || 'Select…'}</option>
           {field.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -270,7 +277,7 @@ inputs.map((field) => {
   if (field.identifier === 'TEXT_AREA') {
     return (
       <label key={field.target}>{field.label}{field.required && ' *'}
-        <textarea name={field.target} required={field.required} rows={4}
+        <textarea name={field.target} required={field.required} rows={4} defaultValue={field.defaultValue}
           minLength={field.minLength} maxLength={field.maxLength} />
       </label>
     );
@@ -292,11 +299,12 @@ inputs.map((field) => {
     type === 'tel' ? 'tel' :
     type === 'email' ? 'email' :
     type === 'url' ? 'url' : undefined;
+  // `defaultValue` is the owner's prefill from the schema — dropping it loses a dashboard setting.
   return (
     <label key={field.target}>{field.label}{field.required && ' *'}
       <input name={field.target} type={type} inputMode={inputMode} required={field.required}
-        placeholder={field.placeholder} minLength={field.minLength} maxLength={field.maxLength}
-        pattern={field.pattern} />
+        defaultValue={field.defaultValue} placeholder={field.placeholder}
+        minLength={field.minLength} maxLength={field.maxLength} pattern={field.pattern} />
     </label>
   );
 });
@@ -306,38 +314,27 @@ inputs.map((field) => {
 a constrained field wants, so surface an example up front — but reuse the `placeholder` the render
 already passes rather than adding a separate hint element that just duplicates the inline error. When
 the schema's `placeholder` is empty for a constrained field, synthesize one from `format` (PHONE →
-the reserved example for the site's country, `PHONE_EG` — see the `PHONE_EXAMPLE` map under
+`phoneExample(field)`, the reserved example for the field's own country — see `PHONE_EXAMPLE` under
 Validation; URL → `https://…`). The example prevents the `must match format "phone"` error
 without a redundant help line under every field.
 
-**⚠️ Detection signals — `identifier` and `componentType` are INDEPENDENT axes.** Several fields
-share one general-purpose component
-([About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields)),
-so switch on whichever axis actually distinguishes the control you're rendering:
+**⚠️ Detection signals — `identifier` and `componentType` are INDEPENDENT axes**, because several
+fields share one general-purpose component
+([About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields),
+"Some component types serve several fields"). Switch on whichever axis distinguishes the control you
+are rendering — and **never on the `target` name**: a rename silently breaks name-based detection,
+while `identifier` and `componentType` stay authoritative. Three that bite in practice:
 
-- **`<textarea>` → `f.identifier === "TEXT_AREA"`, NEVER `componentType`** (which is `TEXT_INPUT`
-  for short *and* long answer). Keying off `componentType` renders every long-text field
-  single-line. Don't fall back to matching the `target` either — a rename silently breaks name-based
-  detection, and `identifier` is already authoritative.
-- **`<select>` → `so.componentType === "DROPDOWN"`; radios → `"RADIO_GROUP"`.** Both are `STRING`
-  fields submitting a single string; options sit under the matching sub-block.
-- **Checkbox group → `io.inputType === "ARRAY"`** (`CHECKBOX_GROUP` / `TAGS`) — options under
-  **`arrayOptions`**, and it **submits an array**. Render checkboxes sharing `name = target` and
-  collect the checked values (see "Submitting").
-- **Sub-input group → `io.inputType === "ADDRESS"`** — one input per
-  `addressOptions.validation.fields` entry, hiding `addressLine2` when
-  `multilineAddressOptions.fieldSettings.addressLine2.show === false`, and **submits an object**.
-  The single-line `CONTACTS_ADDRESS` is just a `TEXT_INPUT` and needs none of this.
-  - **⚠️ The schema does not carry the `country` / `subdivision` enum lists**, so a plain `<input>`
-    invites a rejection. Render **`country` as a `<select>`** (narrow to
-    `addressOptions.validation.allowedCountries` when non-empty) and, ideally, **`subdivision` as a
-    country-dependent `<select>`** sourced from an ISO-3166-2 / Wix subdivision dataset. If you must
-    keep them text, **leave `subdivision` optional** and rely on the mapped inline error.
-- **Input `type` → `so.validation.format`** (`EMAIL`/`PHONE`/`URL`/`DATE`/`TIME`/`DATE_TIME`), which
-  reads back as **`"UNKNOWN_FORMAT"`** — never `UNDEFINED` — for unconstrained text. A `NUMBER`
-  field carries no format at all, so detect that one on `componentType === "NUMBER_INPUT"`.
-- **Length / pattern → `so.validation.minLength` / `.maxLength` / `.pattern`**, alongside `format` in
-  the same block — this is where `setup-forms.md` writes them.
+- **`<textarea>` → `identifier === "TEXT_AREA"`.** `componentType` is `TEXT_INPUT` for short *and*
+  long answer, so keying off it renders every long-text field single-line.
+- **`country` / `subdivision` are country-dependent enums the schema does not enumerate**, so a plain
+  `<input>` invites a rejection. Render **`country` as a `<select>`** (narrowed to
+  `allowedCountries` when non-empty) and, ideally, **`subdivision` as a country-dependent
+  `<select>`** from an ISO-3166-2 / Wix subdivision dataset. If you must keep them text, **leave
+  `subdivision` optional** and rely on the mapped inline error.
+- **`IMAGE_CHOICE` looks exactly like multi-choice** (`ARRAY` + `CHECKBOX_GROUP`), so it renders as
+  plain checkboxes here. Only `identifier` distinguishes it — branch on that if the brief wants the
+  images.
 
 ### Validation — schema-driven on the client, authoritative on the server
 
@@ -372,7 +369,12 @@ const PHONE_EXAMPLE = {
   SE: '+46 70 174 06 05',                        // PTS reserved 070 174 06xx
   KR: '+82 2 540 0000',                          // Seoul 02-540-xxxx reserved
 };
-const PHONE_EG = PHONE_EXAMPLE[SITE_COUNTRY] ?? PHONE_EXAMPLE.US; // fallback = US (the Discovery default)
+// A PHONE field may narrow or preselect its country (`allowedCountryCodes` / `defaultCountryCode`,
+// both projected above). Prefer the FIELD's country over the site's, so the example shown is one the
+// field would actually accept; fall back to the site's, then to US (the Discovery default).
+const phoneCountry = (field) =>
+  field.defaultCountryCode ?? field.allowedCountryCodes?.[0] ?? SITE_COUNTRY;
+const phoneExample = (field) => PHONE_EXAMPLE[phoneCountry(field)] ?? PHONE_EXAMPLE.US;
 
 function fieldError(field, raw) {
   const v = (raw ?? '').trim();
@@ -387,7 +389,7 @@ function fieldError(field, raw) {
   // Submit the NORMALIZED value, not the raw one.
   const phone = v.replace(/[\s()\-.]/g, '');
   if (field.format === 'PHONE' && !/^\+[1-9]\d{6,14}$/.test(phone))
-    return `Use international format, e.g. ${PHONE_EG}.`;
+    return `Use international format, e.g. ${phoneExample(field)}.`;
   if (field.pattern && !new RegExp(field.pattern).test(v)) return `${field.label} is not in the expected format.`;
   return '';
 }
@@ -408,22 +410,14 @@ effect on the site with no code change.
 > **`PHONE` is E.164, validated in two layers.** First the shape — leading `+`, country code, digits
 > only; spaces, dashes, parens and a national leading `0` all fail with `must match format "phone"`.
 > Then a per-country length/prefix check — `+99889899889` returns `Phone number for the country code
-> provided is invalid`. A number in a country's *reserved* range — including the fictional `PHONE_EG`
-> we show as the example — is rejected with the misleading `Phone number's country code must
-> correspond to one from allowed countries`; the country is fine, the number isn't, so don't chase an
-> allow-list setting that doesn't exist (and never submit the example — it's display-only).
+> provided is invalid`. A number in a country's *reserved* range — including the fictional example we
+> show — is rejected with the misleading `Phone number's country code must correspond to one from
+> allowed countries`; **the country is fine, the number isn't.** An allow-list *does* exist
+> (`validation.phoneOptions.allowedCountryCodes`, projected as `allowedCountryCodes`), but it is not
+> what fires here — widening or clearing it won't help. Never submit the example: it's display-only.
 
-**Take only the ORDER from `steps[]`, not the geometry.** The projection above sorts by `row` then
-`column`, matched on `fieldId`; the geometry itself (`width`, multi-column, multi-page) is a Phase-2
-concern the frontend's own layout replaces.
-
-**Drift-safety — why schema-driven closes the desync.** Because every input is generated from the
-live schema, the submit map is built from the *same* `target`s the form actually declares, so an
-owner-side field add/remove/relabel in the dashboard **cannot** desync the frontend from the schema:
-a new field renders and submits, a removed field disappears, and there is no hand-maintained
-`target` list to drift out of sync. The "unseeded/misspelled target → `400 additional properties`"
-foot-gun (below) therefore disappears for owner edits — a mismatched key can now only come from the
-*seed* omitting a field's `validation` block, not from stale frontend markup.
+**Take only the ORDER from `steps[]`, not the geometry** — `width`, multi-column and multi-page are a
+Phase-2 concern the frontend's own layout replaces.
 
 ### Submitting (create a submission)
 
@@ -445,11 +439,11 @@ async function submitContact(formEl) {
     if (arrayTargets.has(name)) (values[name] ??= []).push(value); // multi-choice → ARRAY of checked values
     else values[name] = value;                                     // single value: text / dropdown / radio / …
   }
-  const { _id } = await submissions.createSubmission({
+  const { _id, status } = await submissions.createSubmission({
     formId: SEEDED_FORM_ID,          // from seeded.forms[].formId
     submissions: values,             // map of target -> value (or -> nested object, for an address)
   });
-  return _id;                        // success signal; then render a thank-you
+  return { _id, status };            // CONFIRMED → render a thank-you (see the status note below)
 }
 ```
 
@@ -465,36 +459,38 @@ for the keys and the per-`inputType` value shapes. This is why the render step b
 `target`** from the projected schema: collecting `FormData` then yields the right keys by
 construction, with no hand-maintained list to drift.
 
-**⚠️ A rejected target you're sure you're spelling right is a SEED bug, not a frontend bug.** An
-`UNKNOWN_VALUE_ERROR` on a key that *is* in the schema means the field was seeded without a
-`validation` block — that block is what registers the target as an accepted value (About Form Fields,
-"Validation"). Fix the **seed** (`setup-forms.md` STEP 2); don't mangle the frontend key. It only
-surfaces once someone actually fills that field in, since an empty value is dropped before
-validation.
+**⚠️ Two rejections that are SEED bugs, not frontend bugs** — don't mangle the frontend key or value:
+- An `UNKNOWN_VALUE_ERROR` on a key that *is* in the schema means the field was seeded without a
+  `validation` block, and that block is what registers the target as an accepted value (About Form
+  Fields, "Validation"). It only surfaces once someone actually fills that field in, since an empty
+  value is dropped before validation.
+- A `NOT_ALLOWED_VALUE_ERROR` on a choice field means the seed's `options[].value` and its validation
+  enum disagree — the two declarations must match (About Form Fields, "Choice fields").
 
-**⚠️ The result id is `_id`, not `id`.** The SDK normalizes the created submission to `_id` (the REST
-view shows `id`). Read `result._id` if you need it; for most forms you just need the promise to
-resolve, then show a thank-you / success state.
+Both are fixed in `setup-forms.md` STEP 2.
+
+**⚠️ A resolved promise is not always a recorded submission.** Read `status` from the result: for the
+Wix Forms namespace it is `CONFIRMED` (recorded — show the thank-you), but a form that collects
+payment returns `PAYMENT_WAITING` and some namespaces return `PENDING`, neither of which is recorded
+or visible to the owner yet
+([Submission status](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction#submission-status)).
+Since this renderer skips `PAYMENT` fields, treat anything other than `CONFIRMED` as "not done yet"
+rather than showing a success state.
 
 **⚠️ Per-field validation errors — the SDK buries them two levels deeper than the docs' shape.** The
-documented error entries (`errorPath`, `errorType`, `errorMessage`, `params` — see
+documented entries (`errorPath`, `errorType`, `errorMessage`, `params` — see
 [Validation errors](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction#validation-errors))
 arrive under **`err.details.validationError.fieldViolations[]`, each with its own `data.errors[]`
-array**. Flatten that, and **name each input by its `errorPath`** so the message lands on the right
-control instead of only a form-level banner. That is why the address render above names its
-sub-inputs `${target}/${sub}` — the same `/` convention the server uses for nested values, so
-`address/subdivision` matches a real control. A `.`-separated name, or keying by `target` alone,
-leaves the user staring at "check the highlighted fields" with nothing highlighted.
-
-**⚠️ Write the copy from `errorType`. NEVER parse or display `errorMessage`** — it's the schema
-validator's own wording, unlocalized and free to change, so it belongs in `console.debug` only.
-Derive each message from `errorType` plus the field's projected schema (`label`, `format`,
-`minLength`/`maxLength`), which you already have:
+array**. Flatten that and **name each input by its `errorPath`** so the message lands on the right
+control instead of only a form-level banner — that is why the address render names its sub-inputs
+`${target}/${sub}`, matching the server's own nested path. Then write every message from `errorType`
+plus the field's projected schema (`label`, `format`, `minLength`/`maxLength`); the docs' rule against
+showing `errorMessage` is hard here — it goes to `console.debug` only:
 
 ```js
 const FORMAT_COPY = {           // used for FORMAT_ERROR, keyed by the field's validation format
   EMAIL: () => 'Enter a valid email address.',
-  PHONE: () => `Use international format, e.g. ${PHONE_EG}.`,  // country-derived; see PHONE_EXAMPLE
+  PHONE: (f) => `Use international format, e.g. ${phoneExample(f)}.`,  // field/site-derived country
   URL:   () => 'Enter a full URL starting with https://',
   DATE:  () => 'Choose a valid date.',
 };
@@ -504,7 +500,7 @@ const COPY = {                  // errorType → visitor-facing copy
   MAX_LENGTH_ERROR:       (f) => `${f.label} must be at most ${f.maxLength} characters.`,
   FORMAT_ERROR:           (f) => FORMAT_COPY[f.format]?.(f) ?? `Please check ${f.label}.`,
   PATTERN_ERROR:          (f) => `${f.label} is not in the expected format.`,
-  NOT_ALLOWED_VALUE_ERROR:(f) => `Choose one of the listed options for ${f.label}.`,
+  NOT_ALLOWED_VALUE_ERROR:(f) => `Choose one of the listed options for ${f.label}.`, // seed gap — see above
   TYPE_ERROR:             (f) => `Please check ${f.label}.`,
   UNKNOWN_VALUE_ERROR:    (f) => `Please check ${f.label}.`,   // usually a seed gap — see above
 };
@@ -633,47 +629,39 @@ plumbing speculatively — the default path needs none.
 ## Conclusion
 A correct Wix Forms frontend:
 - **reads the live schema** with the **`forms`** export of **`@wix/forms`**
-  (`getForm`/`listForms`/`queryForms`) on the **plain visitor token — NO `auth.elevate`** (the
-  schema read is visitor-accessible on every framework incl. pure SPA, despite the docs marking it
-  owner-scoped), and renders **schema-driven**: projects **`form.formFields`** →
-  `{ target, label, placeholder, required, format, minLength, maxLength, pattern, identifier, componentType, options }`
-  and generates one input per field, ordered by `steps[]` (falling back across breakpoints rather
-  than assuming `large`), so a dashboard field add/remove/relabel — or a changed constraint —
-  reflects with no code change;
-- derives the control from `formFields[]` — a **subfield group** when the field is an address
-  (`inputType === "ADDRESS"`, options under `addressOptions`, submitted as a nested object),
-  **radios** for `RADIO_GROUP` and **checkboxes** for a multi-choice `inputType === "ARRAY"`
-  (`CHECKBOX_GROUP` / `TAGS`, options under `arrayOptions`, submitted as an array),
-  **`<select>`** when `stringOptions.componentType === "DROPDOWN"` (options at
-  `stringOptions.dropdownOptions.options`), **`<textarea>`** when `identifier === "TEXT_AREA"`
-  (**never** off `componentType`, which is `TEXT_INPUT` for a textarea, and **never** off the field
-  name), else an `<input>` whose `type` comes from `stringOptions.validation.format`
-  (`UNKNOWN_FORMAT` when unconstrained — not `UNDEFINED`), with `minLength`/`maxLength`/`pattern`
-  stamped on;
+  (`getForm`/`listForms`/`queryForms`) on the **plain visitor token — NO `auth.elevate`**: the schema
+  read is visitor-accessible on every framework incl. a pure SPA, despite the docs marking it
+  owner-scoped;
+- renders **schema-driven** — projects `form.formFields` into a render model and generates one input
+  per field, ordered by `steps[]`, so a dashboard field add/remove/relabel or a tightened constraint
+  reflects with no code change. **Derives both options-block names** from the `inputType` /
+  `componentType` enums rather than hardcoding a fallback chain, carries the owner's `default`
+  prefill, and **skips the input types it has no control for** (`BOOLEAN`, `WIX_FILE`, `PAYMENT`,
+  `SCHEDULING`) instead of letting them fall through to a text input;
 - **validates schema-driven on the client and treats the server as authoritative**: pre-checks
   `required` + `minLength`/`maxLength`/`pattern` + format **keyed off `field.format`, never the
   field name**, with each client rule **at least as strict as the server's** and the **normalized**
   value (e.g. E.164 phone) submitted — never the raw one; always maps `createSubmission`'s
-  `fieldViolations[].data.errors[].errorPath` back to per-input errors as the backstop, and writes
-  every visitor-facing message from **`errorType`** plus the field's projected schema — **never
-  parsing or displaying the validator's `errorMessage`**, and defaulting an unrecognized `errorType`
-  to safe generic copy;
+  `fieldViolations[].data.errors[].errorPath` back to per-input errors as the backstop, writes every
+  visitor-facing message from **`errorType`** plus the field's projected schema (**never** parsing or
+  displaying the validator's `errorMessage`), and defaults an unrecognized `errorType` to safe copy;
+- shows any user-visible example — a phone number above all — for the **field's own** country
+  (`allowedCountryCodes` / `defaultCountryCode`, else the site's), always from that country's
+  regulator-reserved fictional range, and never submits it;
 - imports the **`submissions`** export of **`@wix/forms`** and calls
   **`submissions.createSubmission(submission, options)`** — **positional args**, the submission
-  object first (never `{ submission }`-wrapped);
-- binds each input's **`name` = the schema's `target`** and builds the **`submissions` map keyed by
-  `target`** — a key that isn't a field target fails the whole submission as `UNKNOWN_VALUE_ERROR`;
-- **only writes submissions** — reading *submissions* back is owner-only, so the resolved promise is
-  the success signal (show a thank-you);
+  object first (never `{ submission }`-wrapped) — binding each input's **`name` = the schema's
+  `target`** so the `submissions` map is keyed by `target` by construction;
 - submits on the **plain visitor token with NO `auth.elevate`** (anonymous submit works; a pure SPA
   can't elevate anyway) and, at the default `ADVANCED` protection, **no captcha**;
-- reads the created id as **`result._id`**, never `result.id`;
+- **only writes submissions** — reading them back is owner-only — and treats
+  **`status === "CONFIRMED"`**, not a resolved promise, as the signal to show the thank-you; reads
+  the created id as **`result._id`**, never `result.id`;
 - is **accessible by construction** (the inputs are generated, so a slip repeats on every field):
   each error carries a deterministic id from its `errorPath` and is referenced by `aria-describedby`
   + `role="alert"` and persisted (not conditionally unmounted); a choice group's error and
   `aria-invalid` attach to the `<fieldset>` (mind the `RadioNodeList` from `form.elements.namedItem`);
   a blocked submit **focuses** the first invalid control; `required` is programmatic, not just `*`;
   and the success state is announced (`role="status"`);
-- treats an `UNKNOWN_VALUE_ERROR` on a correctly-spelled target as a **seed** gap (the field lacks a
-  `validation` block — fix `setup-forms.md`), not a frontend bug — and because inputs are
-  schema-generated, this can no longer be caused by stale frontend markup.
+- treats an `UNKNOWN_VALUE_ERROR` on a correctly-spelled target, or a `NOT_ALLOWED_VALUE_ERROR` on a
+  choice field, as a **seed** gap to fix in `setup-forms.md` — not a frontend bug.
