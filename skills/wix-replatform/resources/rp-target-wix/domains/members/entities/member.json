@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "entity": "member",
+  "displayName": "Site Member",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Member",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "user", "routes": ["/wp/v2/users"], "confidence": "medium" },
+    { "sourceSystem": "woocommerce", "sourceEntity": "customer", "routes": ["/wc/v3/customers"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "member", "routes": ["Members APIs"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Members V1",
+    "endpoint": "POST /members/v1/members",
+    "writerId": "createMember",
+    "verification": "verified-live",
+    "importSafe": false,
+    "bulk": false
+  },
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "member.loginEmail",
+      "source": "target-schema",
+      "notes": "Members V1 login email in the create-member request body."
+    }
+  ],
+  "fallbacks": [
+    { "classification": "crm", "when": "Use Contacts for person records that do not need login identity." },
+    { "classification": "cms", "when": "Use for author profiles or member metadata not represented by Members APIs." }
+  ],
+  "reliability": { "status": "unreliable", "flags": ["IMPORT_UNRELIABLE"] },
+  "pitfalls": [
+    { "code": "passwords-never-imported", "severity": "warning", "summary": "Passwords are NOT imported — project decision (2026-08-03), not just an API gap. Members keep account/profile/contact linkage; they set a new password via reset. Never propose hash import." },
+    { "code": "activation-via-forgot-password", "severity": "warning", "summary": "Activation (decided 2026-08-03): passwordless members complete the standard forgot-password flow (confirmed). Delivery = post-import automation (label-added trigger, owner-branded email, label applied in API waves). Never mass-send Send Set Password Email — its link dies in 3h." },
+    { "code": "serial-create-only", "severity": "warning", "summary": "No bulk member create; documented >=1s spacing per Create Member call (10k members ~ 3h serial floor). Plan throughput and resume via loginEmail crosswalk." },
+    { "code": "chronology-server-controlled", "severity": "warning", "summary": "Original createdDate and lastLoginDate are not writable as native member chronology." }
+  ],
+  "mappingGuidance": [
+    "Split author, customer, contact, and login-member roles before selecting targets.",
+    "Create Member sends no email and does not fire the signup automations trigger (source-confirmed) — silent import is the default; the only member-facing email is the explicit Send Set Password Email call, which is per-member, interactive-mode, owner-approved only."
+  ],
+  "setupRequirements": ["Activation is decided end-to-end: no credential import; post-import the owner creates ONE dashboard automation (label-added trigger → branded email directing members to Log in → Forgot password), then the importer applies the label in API waves for rate control and re-targeting. Enable the automation only after the import window (AUTO-02 pause choreography)."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" }
+  ]
+}

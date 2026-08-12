@@ -102,7 +102,7 @@ exists because the element is a named part.
 
 ### What Qualifies as a Part
 
-See [`PARTS.md`](PARTS.md) for the mandatory filter and full rules.
+See [`PARTS.md`](PARTS.md) for root election (Step 0), the mandatory filter, and full rules. The root gets no `elementProps` entry — its `className`, `a11y`, and `direction` arrive as top-level props.
 
 ### Derived values are not props
 

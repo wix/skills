@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product",
+  "displayName": "Stores Product",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Stores Product",
+    "verifiedFqdn": "wix.stores.catalog.v3.product",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "product", "routes": ["/wc/v3/products"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "storesProduct", "routes": ["Stores Catalog V1 Products", "Stores Catalog V3 Products"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Products",
+    "endpoint": "POST /stores/v3/products",
+    "writerId": "createStoresProduct",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fieldContracts": [
+    {
+      "domain": "stores",
+      "entity": "product",
+      "surface": "catalog-v3",
+      "operation": "createProduct",
+      "path": "product.subscriptionDetails",
+      "verificationLevel": "live-create-and-readback",
+      "lastVerified": "2026-07-26",
+      "verifiedBy": "migration-20260726-01",
+      "requiredPaths": [
+        "product.subscriptionDetails.allowOneTimePurchases",
+        "product.subscriptionDetails.subscriptions[]",
+        "product.subscriptionDetails.subscriptions[].title",
+        "product.subscriptionDetails.subscriptions[].description",
+        "product.subscriptionDetails.subscriptions[].frequency",
+        "product.subscriptionDetails.subscriptions[].interval",
+        "product.subscriptionDetails.subscriptions[].autoRenewal"
+      ],
+      "constraints": [
+        {
+          "path": "product.subscriptionDetails.subscriptions[].description",
+          "maxLength": 60,
+          "source": "live-validation"
+        },
+        {
+          "path": "product.subscriptionDetails.subscriptions[].frequency",
+          "enum": ["DAY", "WEEK", "MONTH", "YEAR"],
+          "source": "live-create"
+        },
+        {
+          "path": "product.subscriptionDetails.subscriptions[].interval",
+          "minimum": 1,
+          "integer": true,
+          "source": "live-create"
+        }
+      ],
+      "readback": {
+        "product.subscriptionDetails": "returned-after-create",
+        "product.subscriptionDetails.subscriptions[].id": "server-assigned",
+        "product.subscriptionDetails.subscriptions[].title": "preserved",
+        "product.subscriptionDetails.subscriptions[].description": "preserved",
+        "product.subscriptionDetails.subscriptions[].frequency": "preserved",
+        "product.subscriptionDetails.subscriptions[].interval": "preserved",
+        "product.subscriptionDetails.subscriptions[].autoRenewal": "preserved"
+      }
+    }
+  ],
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for plugin rules, source-only metadata, or catalog semantics that do not fit product extended fields." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "catalog-v3-normalization", "severity": "blocker", "summary": "Normalize V1/simple product fields into Catalog V3 product and variant shapes before create." },
+    { "code": "variant-matrix-two-pass", "severity": "warning", "summary": "Full variable product matrices require a post-create option-choice and variant pass." }
+  ],
+  "mappingGuidance": [
+    "Create categories, tags, and media references before products when the source uses them.",
+    "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified."
+  ],
+  "setupRequirements": ["Wix Stores app", "Product data extension schema when source-only product fields are preserved natively."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" },
+    { "type": "repo-research", "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md" }
+  ]
+}

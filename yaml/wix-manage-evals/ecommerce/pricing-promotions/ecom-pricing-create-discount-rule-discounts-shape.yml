@@ -1,0 +1,54 @@
+name: ecommerce/pricing-promotions/create-discount-rule-discounts-shape
+description: Verifies the discount-rule recipe documents the Create Discount Rule wire shape the API actually accepts — discounts as an object with a values array, and discountType/percentage at the entry root — so the agent creates the rule without brute-forcing the payload.
+triggerPrompt: >
+  Set up an automatic discount: 10% off any order over $50.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Set up an automatic discount: 10% off any order over $50."
+
+      Intent: create a Wix eCommerce automatic discount rule giving 10% off once the cart/order
+      subtotal reaches $50.
+
+      Pass only if ALL of these are true:
+        1. The agent created the rule with a successful (2xx) `POST https://www.wixapis.com/ecom/v1/discount-rules`.
+        2. The discount is 10% (PERCENTAGE) and the trigger is a subtotal threshold of 50.
+        3. It is an automatic rule — NOT a coupon, and no discount code was involved.
+        4. The agent confirmed the created rule in its final answer.
+
+      Fail if ANY of these are true:
+        - The percentage or the $50 threshold is wrong or missing.
+        - It created a coupon (code-based) instead of an automatic discount rule.
+        - Every create attempt errored, or it never issued a create call.
+        - It only described how to do it without doing it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how cleanly the agent got to a created automatic discount rule. Examine the tool-call
+      trace, not just the final answer. Score 0-10, where 10 = it built a correct
+      `POST /ecom/v1/discount-rules` body on the FIRST attempt with no rejected calls.
+
+      Penalize and LIST each of these, naming the recipe/docs gap behind it:
+        - Any `POST /ecom/v1/discount-rules` attempt rejected with a non-2xx, even if later recovered.
+        - Specifically, `400 {"message":"Expected an object"}` — caused by sending `discounts` as a
+          bare array instead of an object wrapping a `values` array.
+        - Specifically, `400 Validation failed: … Discount value type does not match discount value`
+          (`DISCOUNT_TYPE_AND_DISCOUNT_VALUE_MISMATCH`) — caused by nesting `discountType` and
+          `percentage` inside a `discount` object rather than placing them at the discount entry root.
+        - Repeated schema-probing calls (`SearchWixAPISpec` / `getResourceSchemaByUrl` /
+          `ReadFullDocsMethodSchema`) issued only to work out the `discounts` shape after a rejection.
+
+      A run that reads the recipe and creates the rule on its first create call scores 10.
+      Each rejected create attempt is a substantial penalty.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + the recipe/docs gap behind each, or 'clean path' if none>"}.
