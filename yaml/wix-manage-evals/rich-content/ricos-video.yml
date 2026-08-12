@@ -1,6 +1,6 @@
 name: rich-content/ricos-video
 description: Sharp-edge check on the Author Ricos Rich Content recipe — a VIDEO block with duration and thumbnail metadata.
-triggerPrompt: Give me the Wix Ricos rich-content JSON (the nodes tree) for a VIDEO block using placeholder Wix media ids — include video src, duration in seconds, and a thumbnail with width and height. Output only the richContent JSON.
+triggerPrompt: Create Ricos rich content with a VIDEO block using placeholder Wix media ids — include video src, duration in seconds, and a thumbnail with width and height. Output only the richContent JSON.
 tags: [rich-content]
 maxTokens: 450000
 assertions:
