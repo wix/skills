@@ -1,4 +1,3 @@
-
 # Wix CLI Backend Event Extension
 
 Event extensions run custom logic when something happens on a site — a contact is created, an order is placed, a booking is confirmed, a blog post is published. Each extension is built on a Wix JavaScript SDK webhook; the CLI subscribes your project to it.
