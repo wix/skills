@@ -154,9 +154,57 @@ invoking it from the repo root can silently run the wrong yarn. See
 [`packages/evalforge-core/README.md`](../packages/evalforge-core/README.md) for details.
 
 Adding a dependency to `evalforge-core` also changes both consuming actions' lockfiles
-through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
-`yarn install` in `evalforge-core` **and** in both actions, then commit all three
-`yarn.lock` files.
+through the `portal:` link, and CI runs `yarn install --immutable`. Regenerate in
+`evalforge-core` **and** in both actions, then commit all three `yarn.lock` files.
+
+<a id="regenerating-lockfiles"></a>
+### Regenerating a lockfile
+
+Every project here enforces a 7-day dependency cooldown (`npmMinimalAgeGate` in its
+`.yarnrc.yml`). A plain `yarn install` on a Wix machine quietly defeats it in two ways,
+so use this instead — from the project directory:
+
+```bash
+YARN_NPM_PREAPPROVED_PACKAGES=__none__ yarn install
+sed -i '' -e 's|::__archiveUrl=[^"]*||' -e 's|%3A%3A__archiveUrl=[^#]*||' yarn.lock
+```
+
+1. **The env var.** If your `~/.yarnrc.yml` has `npmPreapprovedPackages: ["@wix/*"]` — a
+   common Wix-wide setting — those patterns apply in every project here, because yarn
+   *concatenates* array settings across rc files. A project file cannot remove them;
+   only an env var replaces the list. Without this, `@wix/*` skips the cooldown, and
+   that is not theoretical: `@wix/data@1.0.504`, one day old, drops the `items` export
+   and breaks the wix-app typecheck.
+2. **The `sed`.** Resolving through the internal mirror bakes
+   `::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2F…` into each resolution. CI
+   cannot reach that host, so an un-normalized lock breaks the build. Stripping it
+   leaves `pkg@npm:1.2.3` plus a content checksum, which resolves against either
+   registry. The second pattern catches the double-encoded form inside yarn's `patch:`
+   protocol (typescript).
+
+`yarn install --immutable` afterwards must pass and must leave `yarn.lock` untouched;
+if it rewrites the file, something above was skipped. Installing at all needs
+`npmRegistryServer: "https://npm.dev.wixpress.com/"` in your `~/.yarnrc.yml` —
+`registry.npmjs.org` and `registry.yarnpkg.com` are both unreachable from Wix machines.
+
+### Don't let the gate quietly switch itself off
+
+`npmMinimalAgeGate` defaults to `1d` in yarn 4.15+, and yarn preserves pre-4.15
+behaviour by writing an explicit **`npmMinimalAgeGate: 0`** into any `.yarnrc.yml` that
+doesn't declare the key. That is how a project ends up looking configured while doing
+nothing, and it is what happened here mid-upgrade. All five `.yarnrc.yml` files set it
+explicitly for that reason — don't remove the line, and if you see a `0` appear, yarn
+put it there.
+
+Yarn only rewrites `.yarnrc.yml` when a setting it cares about is missing altogether, so
+keeping `npmMinimalAgeGate` and `enableScripts` declared also stops it reformatting the
+file and stripping these comments.
+
+To check a project is actually gated:
+
+```bash
+yarn config get npmMinimalAgeGate    # 10080, not 0
+```
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
 asserts the wiring of the gate, cleanup and re-eval workflows, and

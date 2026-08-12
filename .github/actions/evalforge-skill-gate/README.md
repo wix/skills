@@ -300,6 +300,9 @@ Corepack, `--cwd` resolves the yarn *version* from the real process cwd, so invo
 from the repo root can silently run the wrong yarn.
 
 Adding a dependency to `evalforge-core` also changes both consuming actions' lockfiles
-through the `portal:` link. CI runs `yarn install --immutable`, so run a plain
-`yarn install` in `evalforge-core` **and** in both actions, then commit all three
-`yarn.lock` files.
+through the `portal:` link. CI runs `yarn install --immutable`, so regenerate in
+`evalforge-core` **and** in both actions, then commit all three `yarn.lock` files.
+
+Do **not** use a plain `yarn install` for that — a 7-day dependency cooldown is in force
+here, and a plain install on a Wix machine defeats it silently. Follow
+[Regenerating a lockfile](../../../docs/skill-evaluation.md#regenerating-lockfiles).
