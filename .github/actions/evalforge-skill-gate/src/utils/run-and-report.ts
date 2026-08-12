@@ -69,6 +69,15 @@ export async function runAndReport(
       runsPerScenario: config.runsPerScenario,
     }));
 
+    // The analyze job's entire trigger condition: emitted only when there is something to
+    // investigate, so a green run starts no runner and adds no second comment. Set before `fail`
+    // so a blocking failure still hands the run over — a failing run is the one most worth
+    // investigating.
+    const { failed, errors } = prStatus.aggregateMetrics;
+    if (failed > 0 || errors > 0) {
+      core.setOutput('analyze-run-id', arms.value.prRunId);
+    }
+
     if (!verdict.passed) {
       fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
     }

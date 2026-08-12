@@ -77,6 +77,12 @@ inputs:
       itself still completes server-side.
     required: false
     default: '60'
+outputs:
+  analyze-run-id:
+    description: >-
+      The PR arm's eval run id, set in gate mode only when that run has failed or errored
+      assertions. Empty means there is nothing to investigate, so a consuming job can treat its
+      emptiness as the whole trigger condition.
 runs:
   using: 'node20'
   main: 'dist/index.js'

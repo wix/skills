@@ -8,7 +8,12 @@ import {
 } from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
-type ActionYml = { name: string; inputs: Record<string, ActionInput>; runs: { main: string } };
+type ActionYml = {
+  name: string;
+  inputs: Record<string, ActionInput>;
+  outputs: Record<string, { description: string }>;
+  runs: { main: string };
+};
 
 const action = yaml.load(readFileSync(join(__dirname, '../action.yml'), 'utf8')) as ActionYml;
 
@@ -58,5 +63,9 @@ describe('action.yml', () => {
 
   it('runs the committed bundle', () => {
     expect(action.runs.main).toBe('dist/index.js');
+  });
+
+  it('declares the analyze-run-id output the analyze job triggers on', () => {
+    expect(Object.keys(action.outputs)).toContain('analyze-run-id');
   });
 });

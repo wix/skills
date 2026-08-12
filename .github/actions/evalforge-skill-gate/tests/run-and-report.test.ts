@@ -117,6 +117,24 @@ const partialRun = (): EvalRunStatus => runStatus([partialRow], { totalAssertion
 /** No rows at all for the requested scenario — the "requested but never measured" case. */
 const emptyRun = (): EvalRunStatus => runStatus([], { totalAssertions: 0, passed: 0, passRate: 0 });
 
+const statusWith = (
+  metrics: { passed: number; failed: number; errors: number },
+): EvalRunStatus => ({
+  status: 'completed',
+  progress: 100,
+  aggregateMetrics: {
+    totalAssertions: metrics.passed + metrics.failed + metrics.errors,
+    passed: metrics.passed,
+    failed: metrics.failed,
+    skipped: 0,
+    errors: metrics.errors,
+    passRate: 0,
+    avgDuration: 0,
+    totalDuration: 0,
+  },
+  results: [assertionRow(metrics.failed > 0 ? 'FAILED' : 'PASSED')],
+});
+
 /** Never settles — models a base arm that the grace period must not wait out. */
 const NEVER_SETTLES = new Promise<EvalRunStatus>(() => {});
 
@@ -374,5 +392,42 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     expect(impact?.scenarios).toHaveLength(1);
     expect(impact?.scenarios[0]).toMatchObject({ scenarioId: 'remote-id', impact: 'unattributed' });
     expect(lastComment()).not.toContain('newly-broken');
+  });
+
+  it('emits analyze-run-id when the PR arm has failed assertions', async () => {
+    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 2, errors: 0 }));
+
+    await run();
+
+    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+  });
+
+  it('emits analyze-run-id when assertions errored but none failed', async () => {
+    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 0, errors: 1 }));
+
+    await run();
+
+    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+  });
+
+  it('emits no analyze-run-id for a fully green run', async () => {
+    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));
+
+    await run();
+
+    expect(setOutput).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
+  });
+
+  it('still emits analyze-run-id when the verdict fails the check', async () => {
+    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
+    vi.spyOn(core, 'setFailed').mockImplementation(() => undefined);
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 0, failed: 3, errors: 0 }));
+
+    await run({ ...CONFIG, isBlocking: true });
+
+    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
   });
 });

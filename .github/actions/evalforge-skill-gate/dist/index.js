@@ -30526,6 +30526,10 @@ const MAX_QUERY_CONCURRENCY = 8;
 // API base (the internal `/_api/evalforge-backend` gateway). The token is minted
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
 const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
+const DEFAULT_TIMEOUT_MS = 15_000;
+// The server's own analysis budget is 57s, so the default would abort every analysis client-side
+// moments before it returned.
+const ANALYZE_TIMEOUT_MS = 75_000;
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 function contentBody(content) {
     if (content.kind === 'skill')
@@ -30634,6 +30638,30 @@ function toAssertionStatus(rawStatus) {
         : rawStatus;
     return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
 }
+const RUN_ANALYSIS_CATEGORIES = [
+    'FAILURE_PATTERN', 'COST_WASTE', 'FLAKINESS', 'INEFFICIENCY', 'POSITIVE',
+    'WRONG_TOOL_CALL', 'TOOL_OUTPUT_ERROR', 'DOCS_ERROR', 'SKILL_MISGUIDANCE',
+];
+const RUN_ANALYSIS_SEVERITIES = ['HIGH', 'MEDIUM', 'LOW'];
+// These are nested proto enums, so unlike AssertionResultStatus their members carry no enum-name
+// prefix and the wire value is bare. proto3 omits a zero-valued enum, making an absent field as
+// ordinary as the explicit UNKNOWN_CATEGORY / UNKNOWN_SEVERITY members — both, and any future or
+// malformed value, land on UNKNOWN so nothing is invented as HIGH.
+function toEnumMember(raw, members) {
+    if (typeof raw !== 'string')
+        return 'UNKNOWN';
+    return members.find(candidate => candidate === raw) ?? 'UNKNOWN';
+}
+function toRunAnalysisFinding(raw) {
+    return {
+        category: toEnumMember(raw?.category, RUN_ANALYSIS_CATEGORIES),
+        severity: toEnumMember(raw?.severity, RUN_ANALYSIS_SEVERITIES),
+        description: raw?.description ?? '',
+        affectedScenarios: toRowArray(raw?.affectedScenarios)
+            .filter((scenario) => typeof scenario === 'string'),
+        ...(raw?.recommendation === undefined ? {} : { recommendation: raw.recommendation }),
+    };
+}
 function toAssertionOutcome(rawAssertionResult) {
     return {
         assertionName: rawAssertionResult?.assertionName ?? '(unnamed)',
@@ -30682,7 +30710,7 @@ class EvalForgeClient {
         // Token is minted at the fixed public endpoint, NOT under `baseUrl`.
         this.tokens = new auth_1.TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
     }
-    send(method, path, body, token) {
+    send(method, path, body, token, timeoutMs) {
         return fetch(`${this.baseUrl}/v1${path}`, {
             method,
             headers: {
@@ -30690,15 +30718,15 @@ class EvalForgeClient {
                 Authorization: `Bearer ${token}`,
             },
             body: body !== undefined ? JSON.stringify(body) : undefined,
-            signal: AbortSignal.timeout(15_000),
+            signal: AbortSignal.timeout(timeoutMs),
         });
     }
-    async request(method, path, body) {
+    async request(method, path, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
         const token = await this.tokens.getToken();
-        let res = await this.send(method, path, body, token);
+        let res = await this.send(method, path, body, token, timeoutMs);
         if (res.status === 401) {
             // Token rejected before its computed expiry — mint a fresh one and retry once.
-            res = await this.send(method, path, body, await this.tokens.forceRefresh(token));
+            res = await this.send(method, path, body, await this.tokens.forceRefresh(token), timeoutMs);
         }
         if (!res.ok) {
             const err = (await res.json().catch(() => ({})));
@@ -30854,6 +30882,17 @@ class EvalForgeClient {
             results: toRowArray(r.results).map(toResultRow),
         };
     }
+    // --- Analysis ---
+    /** Requires a COMPLETED run; anything else is a 400. The result is persisted on the run. */
+    async analyzeEvalRun(projectId, runId) {
+        const res = await this.request('POST', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}/analyze`, {}, ANALYZE_TIMEOUT_MS);
+        const raw = res.runAnalysis ?? {};
+        return {
+            ...(raw.generatedAt === undefined ? {} : { generatedAt: raw.generatedAt }),
+            summary: raw.summary ?? '',
+            findings: toRowArray(raw.findings).map(toRunAnalysisFinding),
+        };
+    }
     async deleteCapabilityVersion(capabilityId, projectId, versionId) {
         await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions/${enc(versionId)}`);
     }
@@ -30971,6 +31010,164 @@ function foldScenarioIterations(rows) {
         });
     }
     return outcomes;
+}
+
+
+/***/ }),
+
+/***/ 9131:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_COMMENT_BODY_LENGTH = exports.ANALYSIS_COMMENT_MARKER = void 0;
+exports.formatAnalysisComment = formatAnalysisComment;
+exports.formatAnalysisUnavailable = formatAnalysisUnavailable;
+exports.ANALYSIS_COMMENT_MARKER = '<!-- evalforge-skill-analysis-action -->';
+/**
+ * Budget for the rendered body. GitHub rejects a comment over 65536 characters with a 422, and
+ * `makeCommenter` degrades that to the job summary — so an unbudgeted body does not fail the job,
+ * it silently loses the PR comment. The margin absorbs the fixed scaffolding.
+ */
+exports.MAX_COMMENT_BODY_LENGTH = 60_000;
+/** One 100k narrative must not be able to crowd out every finding. */
+const MAX_SUMMARY_LENGTH = 12_000;
+const TEASER_LENGTH = 300;
+/** Room for the omission notice, so trimming findings can never itself overflow the budget. */
+const OMISSION_NOTICE_RESERVE = 160;
+const HEADING = 'EvalForge: AI Investigation';
+const CATEGORY_LABELS = {
+    FAILURE_PATTERN: 'Failure pattern',
+    COST_WASTE: 'Cost waste',
+    FLAKINESS: 'Flakiness',
+    INEFFICIENCY: 'Inefficiency',
+    POSITIVE: 'Strength',
+    WRONG_TOOL_CALL: 'Wrong tool call',
+    TOOL_OUTPUT_ERROR: 'Tool output error',
+    DOCS_ERROR: 'Docs error',
+    SKILL_MISGUIDANCE: 'Skill misguidance',
+    UNKNOWN: 'Uncategorised',
+};
+const SEVERITY_LABELS = {
+    HIGH: '🔴 High',
+    MEDIUM: '🟠 Medium',
+    LOW: '🟡 Low',
+    UNKNOWN: '',
+};
+const SEVERITY_RANK = {
+    HIGH: 0, MEDIUM: 1, LOW: 2, UNKNOWN: 3,
+};
+function render(body) {
+    return [exports.ANALYSIS_COMMENT_MARKER, `## 🔍 ${HEADING}`, '', ...body].join('\n');
+}
+function runLine(runId, runUrl) {
+    return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a></sub>`;
+}
+/** Positives last: a reader opening this comment is here for what broke. */
+function sortFindings(findings) {
+    return [...findings].sort((left, right) => {
+        const positive = Number(left.category === 'POSITIVE') - Number(right.category === 'POSITIVE');
+        return positive !== 0 ? positive : SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity];
+    });
+}
+function tally(findings) {
+    const problems = findings.filter(candidate => candidate.category !== 'POSITIVE');
+    const counts = [
+        ['high', problems.filter(candidate => candidate.severity === 'HIGH').length],
+        ['medium', problems.filter(candidate => candidate.severity === 'MEDIUM').length],
+        ['low', problems.filter(candidate => candidate.severity === 'LOW').length],
+        ['positive', findings.length - problems.length],
+    ];
+    const parts = counts.filter(([, count]) => count > 0).map(([label, count]) => `${count} ${label}`);
+    const noun = findings.length === 1 ? 'finding' : 'findings';
+    return `**${findings.length} ${noun}**${parts.length > 0 ? ` — ${parts.join(', ')}.` : '.'}`;
+}
+/** Cuts at a word boundary so a truncated string never ends mid-word. */
+function truncateWords(text, limit) {
+    if (text.length <= limit)
+        return text;
+    const cut = text.slice(0, limit);
+    const lastSpace = cut.lastIndexOf(' ');
+    return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+function teaser(summary) {
+    const firstParagraph = summary.trim().split('\n\n')[0]?.trim() ?? '';
+    return firstParagraph === '' ? [] : ['', truncateWords(firstParagraph, TEASER_LENGTH)];
+}
+function findingBlock(finding) {
+    const severity = SEVERITY_LABELS[finding.severity];
+    const category = CATEGORY_LABELS[finding.category];
+    const lines = [
+        '',
+        `### ${severity === '' ? category : `${severity} · ${category}`}`,
+        '',
+        finding.description,
+    ];
+    if (finding.affectedScenarios.length > 0) {
+        lines.push('', `**Scenarios:** ${finding.affectedScenarios.map(name => `\`${name}\``).join(', ')}`);
+    }
+    if (finding.recommendation !== undefined && finding.recommendation !== '') {
+        lines.push('', `**Recommendation:** ${finding.recommendation}`);
+    }
+    return lines;
+}
+/**
+ * Drops whole findings from the tail until the body fits. The sort puts the most serious first, so
+ * what survives truncation is the material worth reading; the tally and run link sit outside the
+ * fold and are never dropped, which is what keeps a truncated comment actionable.
+ */
+function foldedDetail(summary, findings, fixedLength) {
+    const cappedSummary = truncateWords(summary.trim(), MAX_SUMMARY_LENGTH);
+    const header = ['', '<details>', '<summary>Full investigation</summary>', ''];
+    const footer = ['', '</details>'];
+    const lengthOf = (lines) => lines.join('\n').length;
+    let budget = exports.MAX_COMMENT_BODY_LENGTH
+        - fixedLength
+        - lengthOf([...header, cappedSummary, ...footer])
+        - OMISSION_NOTICE_RESERVE;
+    const kept = [];
+    let dropped = 0;
+    for (const candidate of findings) {
+        const block = findingBlock(candidate);
+        const cost = lengthOf(block) + 1;
+        if (cost > budget) {
+            dropped += 1;
+            continue;
+        }
+        budget -= cost;
+        kept.push(...block);
+    }
+    const notice = dropped === 0 ? [] : [
+        '',
+        `_${dropped} further finding${dropped === 1 ? '' : 's'} omitted — `
+            + 'see the full analysis in EvalForge._',
+    ];
+    return [...header, cappedSummary, ...kept, ...notice, ...footer];
+}
+function formatAnalysisComment(input) {
+    const { analysis, runId, runUrl } = input;
+    const findings = sortFindings(analysis.findings);
+    const footer = ['', runLine(runId, runUrl)];
+    if (findings.length === 0) {
+        return render([
+            'No findings — the investigation surfaced nothing to act on.',
+            ...teaser(analysis.summary),
+            ...footer,
+        ]);
+    }
+    const above = [tally(findings), ...teaser(analysis.summary)];
+    const fixedLength = render([...above, ...footer]).length;
+    return render([...above, ...foldedDetail(analysis.summary, findings, fixedLength), ...footer]);
+}
+function formatAnalysisUnavailable(input) {
+    return render([
+        `The AI investigation could not be generated: ${input.reason}.`,
+        '',
+        'This does not affect the gate verdict.',
+        '',
+        runLine(input.runId, input.runUrl),
+    ]);
 }
 
 
@@ -31413,6 +31610,7 @@ __exportStar(__nccwpck_require__(3308), exports);
 __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
+__exportStar(__nccwpck_require__(9131), exports);
 __exportStar(__nccwpck_require__(1985), exports);
 __exportStar(__nccwpck_require__(1372), exports);
 
@@ -63119,6 +63317,14 @@ versionId, comment) {
             impact,
             runsPerScenario: config.runsPerScenario,
         }));
+        // The analyze job's entire trigger condition: emitted only when there is something to
+        // investigate, so a green run starts no runner and adds no second comment. Set before `fail`
+        // so a blocking failure still hands the run over — a failing run is the one most worth
+        // investigating.
+        const { failed, errors } = prStatus.aggregateMetrics;
+        if (failed > 0 || errors > 0) {
+            core.setOutput('analyze-run-id', arms.value.prRunId);
+        }
         if (!verdict.passed) {
             (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
         }
