@@ -1,0 +1,33 @@
+name: domains/domain-buy-flow
+description: >-
+  Verifies the agent reads the domain-search-and-purchase recipe on a buy
+  request, reports availability in plain language, and carries on into the
+  purchase path instead of stopping at the availability answer.
+triggerPrompt: >-
+  I want to buy mybakery.com for my Wix site.
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to buy mybakery.com for their Wix site. Their request: "I want to buy mybakery.com for my Wix site."
+
+      Per Part A of the recipe, the availability check runs silently and the result is stated plainly;
+      per Part P the conversation then continues toward the purchase (site and plan outcome, registration
+      period, contact details, checkout) rather than ending on the availability answer.
+
+      Pass if the response:
+      - states whether mybakery.com is available in plain language, AND
+      - moves on toward the purchase — registration period, contact details, or a checkout link — or,
+        if the domain is taken, offers alternative domains, AND
+      - quotes a price only if one was actually retrieved.
+
+      Fail if the response:
+      - narrates internal mechanics to the user — API or tool names, endpoint paths, error codes, cart
+        or line-item operations, or filler like "let me check", "one moment", "the request failed", OR
+      - stops after answering availability without a next step, OR
+      - asserts availability or a price it never retrieved.
