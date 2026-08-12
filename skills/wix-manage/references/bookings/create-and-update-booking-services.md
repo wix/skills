@@ -57,7 +57,7 @@ When unsure, refer to [About Service Types](https://dev.wix.com/docs/api-referen
 
 - **Staff assignment IGNORED**: Setting `staffMemberIds` has no effect on service creation
 - **Behavior**: Service uses its own schedule (`service.schedule`), not staff schedules
-- **Workaround**: Staff association must be handled separately through calendar events or other mechanisms
+- **Workaround**: Assign staff per session through `event.resources` when creating calendar events (see Step 3), not on the service
 - **Example**: Yoga class where any qualified instructor can teach
 
 This is a critical API limitation that affects service planning and staff resource management.
@@ -362,9 +362,38 @@ Once the service and staff member are available, you can define when the service
 
 **Event requirements**:
 
-- `event.resources` array **must include at least one resource** (a staff member/room/etc.) using the `resourceId`. CLASS and COURSE events will fail with a 400 error if no resources are provided.
-- `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE.
+- `event.resources` array **must include at least one resource** (a staff member/room/etc.). CLASS and COURSE events will fail with a 400 error if no resources are provided. Each entry needs **both** fields:
+  - `id` — the staff member's `resourceId` from Step 1, **not** the staff member `id`. Using the staff member `id` returns a 404 `"Resource with <id> ID not found"`.
+  - `permissionRole` — `WRITER` or `COMMENTER`. Omitting it fails with a 400 `"resources.permissionRole must not be UNKNOWN_ROLE"`.
+- `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE. Passing a staff member's schedule ID for a CLASS/COURSE session returns 200 but creates the session on that staff member's personal schedule, where it has no capacity or location and customers can't book it.
 - `event.type` — set to `WORKING_HOURS` for staff availability, `CLASS` for class sessions, or `COURSE` for course sessions.
+- `start.localDate` / `end.localDate` — ISO 8601 local datetime (`YYYY-MM-DDTHH:mm:ss`). Seconds are ignored. Don't set `timeZone` inside `start` or `end`; use `event.timeZone` instead.
+
+`bulkCreateEvents` validates every event before creating any of them, so if one session is missing `resources`, the whole call fails with a 400 and no sessions are created.
+
+**Create COURSE session events:**
+
+```bash
+curl -X POST 'https://www.wixapis.com/calendar/v3/bulk/events/create' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "events": [{
+      "event": {
+        "scheduleId": "<SERVICE_SCHEDULE_ID_FROM_STEP_2>",
+        "type": "COURSE",
+        "start": { "localDate": "2026-09-15T10:00:00" },
+        "end": { "localDate": "2026-09-15T11:30:00" },
+        "resources": [{
+          "id": "<RESOURCE_ID_FROM_STEP_1>",
+          "permissionRole": "WRITER"
+        }]
+      }
+    }]
+  }'
+```
+
+Each event is wrapped in its own `event` object inside the `events` array. Use `"type": "CLASS"` for class sessions.
 
 ### Troubleshooting Common Issues
 
