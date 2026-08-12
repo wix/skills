@@ -60,20 +60,16 @@ installs ship it and others don't, so it appears provisioning/timing-dependent. 
 is empty.
 
 1. **List the existing forms** —
-   `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA`.
-   Collect every `form.id` from the response (`forms[].id`).
-   **⚠️ Then list a second time with `&enabled=false` and clean both results** — a disabled form is
-   invisible in the default listing while still counting toward the form cap.
+   `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA`,
+   then again with `&enabled=false`. Collect every `form.id` from both responses (`forms[].id`).
 2. **Delete each** — `DELETE https://www.wixapis.com/form-schema-service/v4/forms/{formId}` (one
    call per id; returns `200 {}`). Because the list ran **before** any create, every id returned is
    a pre-existing form — safe to delete. If the list was empty, issue no DELETE (a correct no-op).
 
-**⚠️ Why clean even though it's often a no-op — two reasons.** **(1) The form cap.** Leftovers plus
-your new forms can exhaust the site's form allowance (read it from
+**⚠️ Why clean even though it's often a no-op — the form cap.** Leftovers plus your new forms can
+exhaust the site's form allowance (read it from
 [List Forms Providers Configs](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs)),
-which is also why you must **never create throwaway forms to probe the shape.** **(2) Name
-collision.** A taken name is silently auto-suffixed rather than rejected, so your form quietly
-diverges from the name the handoff reports.
+which is also why you must **never create throwaway forms to probe the shape.**
 
 ### STEP 2: Create each form schema
 
@@ -88,8 +84,7 @@ reference each field by `fieldId` in the same request.
 **Assemble the request** from the closest Create Form example, building each `formFields[]` entry —
 including the `SUBMIT_BUTTON` — per
 **[About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields)**,
-which owns every field-level rule. **Place every field in the layout**: one
-`steps[].layout.large.items[]` entry per `formFields[].id`, INPUTs and the `SUBMIT_BUTTON` alike.
+which owns every field-level rule, including placing every field in the layout.
 **Geometry (`row`/`column`/`width`) does not matter on headless** — the frontend renders its own
 layout from `formFields[]` and never reads `steps[].layout` (`how-to-code-forms.md`) — so the layout
 is a *correctness* requirement, not a design one: assert presence and coverage only. Use a single
@@ -134,10 +129,7 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
    — **`formIds` narrows the list to exactly the forms you just created**, so you assert against them
    directly instead of filtering a whole-namespace listing. For each form, confirm its `id` appears,
    its **`formFields[]`** covers every field you sent, and its **`steps` is non-empty and places
-   every field** — a `steps: []`, or any `formFields[].id` missing from
-   `steps[].layout.large.items[].fieldId`, is malformed. For a form with a dropdown, also assert its
-   **`dropdownOptions.options`** is non-empty and that every option `value` is listed in
-   **`stringOptions.validation.enum`**.
+   every field** (per About Form Fields).
 2. **⚠️ Then verify the dashboard will actually render —
    `GET https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary` and assert
    `formSummary.fields` is NON-EMPTY**, with a count equal to **every input field you sent** (i.e.
@@ -172,22 +164,12 @@ once and re-verify; if it still fails, surface the response verbatim rather than
 
 ### STEP 4 (when revising): update an existing form
 
-To change a form the request has since revised — add a field, relabel one, tighten a rule:
+To change a form the request has since revised — add a field, relabel one, tighten a rule — follow
+[Update Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form):
 
 ```
 PATCH https://www.wixapis.com/form-schema-service/v4/forms/{formId}
 ```
-
-The safe sequence is **GET → mutate → PATCH**: read the form (STEP 3's list, or
-`GET .../forms/{formId}`), apply the change to the returned object, and send it back under `form`
-with its current `revision`.
-
-```jsonc
-{ "form": { "id": "<formId>", "revision": "1", "formFields": [ /* … */ ], "steps": [ /* … */ ] } }
-```
-
-**Reuse the existing ids** for every field, step and dropdown option you are keeping; generate fresh
-lowercase GUIDs only for fields you are adding (plus their layout entries).
 
 **Prefer updating over delete-and-recreate.** An update keeps the `formId` the handoff already
 carries and consumes no additional slot against the site's form cap. **Re-run STEP 3 after any update**
@@ -200,11 +182,11 @@ carries and consumes no additional slot against the site's form cap. **Re-run ST
 **Per form: the `formId` + each form's field `target` keys.**
 
 The `target`s are *structural* — the frontend binds each input's `name` to a field's `target` to
-submit, and they are **immutable**, so they don't go stale when an owner relabels a field (the same
-carve-out shape as cms's `collectionId` + field keys). Everything else — the field set, order,
-labels, `required` flags, validation formats and dropdown options — is **read live from the schema
-at render time** (visitor token, no `auth.elevate` — `how-to-code-forms.md`), so a field the owner
-adds, removes or relabels reflects on the site with no code change. See `SDK_HANDOFF.md` §4.
+submit (the same carve-out shape as cms's `collectionId` + field keys). Everything else — the field
+set, order, labels, `required` flags, validation formats and dropdown options — is **read live from
+the schema at render time** (visitor token, no `auth.elevate` — `how-to-code-forms.md`), so a field
+the owner adds, removes or relabels reflects on the site with no code change. See
+`SDK_HANDOFF.md` §4.
 
 ---
 
@@ -213,8 +195,7 @@ adds, removes or relabels reflects on the site with no code change. See `SDK_HAN
 Following these steps **in order** sets up a Wix Forms backend:
 
 - Starts from a **clean form list** — pre-existing forms are listed-then-deleted first (a safe no-op
-  when none exist), across **both** the default listing and `&enabled=false`, keeping clear of the
-  site's form cap and the silent name-collision auto-suffix.
+  when none exist), keeping clear of the site's form cap.
 - Contains exactly the forms the request calls for, created on **Form Schemas v4** in the
   **`wix.form_app.form`** namespace, each field built per **About Form Fields**, with lowercase GUID
   ids and a `steps` layout placing every field plus a `SUBMIT_BUTTON`.
