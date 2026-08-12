@@ -81,15 +81,9 @@ diverges from the name the handoff reports.
 each form's fields and labels, come from the request you're fulfilling; this step gives the call and
 the required format. Forms are independent (no shared revision), so concurrent creates are safe.
 
-**⚠️ Generate every field `id` in the shell as a LOWERCASE GUID — never type one from memory.** One
-per INPUT field, plus one for the submit button and one for the layout step:
-
-```bash
-lc() { uuidgen 2>/dev/null | tr 'A-Z' 'a-z' || python3 -c 'import uuid;print(uuid.uuid4())' || node -e 'console.log(crypto.randomUUID())'; }
-F1=$(lc); F2=$(lc); F3=$(lc); F4=$(lc)   # one per INPUT field
-SUBMIT=$(lc)                             # the submit-button (DISPLAY) field
-STEP=$(lc)                               # the layout step (page)
-```
+**⚠️ Generate every `id` in the shell as a lowercase UUID v4 — never type one from memory**
+(`uuidgen | tr 'A-Z' 'a-z'`). Supply them at create rather than omitting them: `steps` must
+reference each field by `fieldId` in the same request.
 
 **Assemble the request** from the closest Create Form example, building each `formFields[]` entry —
 including the `SUBMIT_BUTTON` — per
