@@ -5,7 +5,8 @@ description: >-
   an asset group that meets Google's minimum asset counts.
 triggerPrompt: >-
   How do I create a Performance Max lead-generation campaign on my Wix site with
-  the Google Ads API, including generating the ad assets? Reference the endpoints.
+  the Google Ads API, targeting Israel, including generating the ad assets and
+  resolving the location? Reference the endpoints.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -23,9 +24,15 @@ assertions:
       - uses campaignType PERFORMANCE_MAX_LEADS (or PERFORMANCE_MAX) via
         POST /v1/campaigns with a performanceMaxCampaign asset group, AND
       - generates assets via text-asset-suggestions and image-asset-suggestions
-        (and search-theme-suggestions for Leads), AND
+        (including a LOGO, and search-theme-suggestions for Leads) BEFORE the
+        create call, and treats generated images as a prerequisite for creating
+        (don't create if a required image/logo is missing), AND
       - notes the asset group must meet minimum asset counts (e.g. multiple
-        headlines, at least two descriptions, a business name, images), AND
+        headlines, at least two descriptions, a business name, marketing images,
+        a logo), AND
+      - resolves the target location ("Israel") to a geoTargetConstant via
+        GET /v1/geo-options rather than guessing/hardcoding a geo id, and notes
+        that a country-level lookup can fail (fall back to a specific city), AND
       - gets a budget via POST /v1/budget-recommendation (not the Smart
         budget-suggestions endpoint), AND
       - does NOT set the bidding strategy manually (it is server-enforced).
@@ -34,4 +41,6 @@ assertions:
       - hand-sets a bidding strategy, OR
       - uses Smart-campaign fields (keywordThemes/smartCampaign) for PMAX, OR
       - omits the asset-group minimums, OR
+      - hardcodes/guesses a geoTargetConstant instead of resolving it via
+        geo-options, OR
       - hallucinates endpoints.

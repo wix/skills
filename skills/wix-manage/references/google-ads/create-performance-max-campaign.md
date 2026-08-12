@@ -1,6 +1,6 @@
 ---
 name: "Create and Launch a Performance Max Campaign"
-description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
+description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets (headlines, descriptions, marketing images, logo), generating search themes, resolving target locations to geoTargetConstants via geo-options, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
 ---
 # RECIPE: Create and Launch a Performance Max Campaign
 
@@ -12,11 +12,13 @@ A **Performance Max (PMAX)** campaign runs across every Google channel from a si
 
 Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. The bidding strategy is server-enforced to `MAXIMIZE_CONVERSIONS` — never set it yourself.
 
-> **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 5). Create in `PAUSED` first — nothing serves until Launch.
+> **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 6). Create in `PAUSED` first — nothing serves until Launch.
 
 **Prerequisite:** a Google Ads account (`ACCOUNT_NOT_FOUND` → run [install-and-create-account](install-and-create-account.md)). You need `account.id` as `campaign.accountId`.
 
-**Flow:** STEP 1 text assets → STEP 2 image assets → STEP 3 (leads) search themes → STEP 4 budget recommendation → assemble & create PAUSED → **show & approve** → STEP 5 launch.
+**Flow:** STEP 1 text assets → STEP 2 image assets (incl. logo) → STEP 3 (leads) search themes → STEP 4 resolve target locations → STEP 5 budget recommendation → **pre-flight gate** → assemble & create PAUSED → **show & approve** → STEP 6 launch.
+
+> **Gather every input *before* the create call — never build the campaign optimistically and let Create fail.** The generation/suggestion endpoints (images, geo lookup) can fail independently and Create validates PMAX Leads assets and locations synchronously, so one missing image or an unresolved location makes the whole billable-path create call fail. Generate and **verify** all assets (STEP 2) and resolve **every** location to a real `geoTargetConstant` (STEP 4) first; the pre-flight gate below is the checkpoint that all of them succeeded before you assemble anything.
 
 ---
 
@@ -41,22 +43,30 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/text-asset-suggestions' \
 ] }
 ```
 
-## STEP 2: Generate image assets
+## STEP 2: Generate image assets (do this *before* creating — it's the asset gate)
 
-Images are generated with AI and **automatically uploaded to the site's Wix Media Manager** — the returned `url` is a `static.wixstatic.com` link you can use directly in the asset group. `suggestionInfo.landingPageUrl` is required.
+PMAX Leads **requires** at least one landscape marketing image, one square marketing image, and one square logo (see the asset table below). These are generated with AI here, so **generate them up front and confirm they came back** — never start the create call assuming the images exist. Images are **automatically uploaded to the site's Wix Media Manager**, so the returned `url` is a `static.wixstatic.com` link you can drop straight into the asset group. `suggestionInfo.landingPageUrl` is required. Request all three required types (including `LOGO`) in one call:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/google-ads/v1/image-asset-suggestions' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
-  -d '{ "suggestionInfo": { "landingPageUrl": "https://www.example.com", "assetTypes": ["MARKETING_IMAGE", "SQUARE_MARKETING_IMAGE"] } }'
+  -d '{ "suggestionInfo": { "landingPageUrl": "https://www.example.com", "assetTypes": ["MARKETING_IMAGE", "SQUARE_MARKETING_IMAGE", "LOGO"] } }'
 ```
 
 ```json
 { "assetSuggestions": [
   { "assetType": "MARKETING_IMAGE", "imageAsset": { "name": "storefront-banner", "url": "https://static.wixstatic.com/media/abc123.jpg" } },
-  { "assetType": "SQUARE_MARKETING_IMAGE", "imageAsset": { "name": "product-square", "url": "https://static.wixstatic.com/media/def456.jpg" } }
+  { "assetType": "SQUARE_MARKETING_IMAGE", "imageAsset": { "name": "product-square", "url": "https://static.wixstatic.com/media/def456.jpg" } },
+  { "assetType": "LOGO", "imageAsset": { "name": "brand-logo", "url": "https://static.wixstatic.com/media/ghi789.jpg" } }
 ] }
 ```
+
+**Verify the response before moving on.** Confirm you got a `static.wixstatic.com` `url` for **each** required `assetType` (`MARKETING_IMAGE`, `SQUARE_MARKETING_IMAGE`, `LOGO`). If generation returns an error or is missing a type:
+
+- **Retry once** — generation is AI-backed and can fail transiently.
+- If it still fails, **do not attempt the create call** (it would fail with `NOT_ENOUGH_ASSETS`). Ask the user to upload the missing images (at least 1 landscape marketing image, 1 square image, 1 square logo) via the [Media Manager](../media/upload-media-to-wix.md) and use those `static.wixstatic.com` URLs instead.
+
+Only proceed once every required image type has a usable URL.
 
 ## STEP 3 (PMAX Leads only): Generate search themes
 
@@ -74,7 +84,38 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/search-theme-suggestions' \
 
 Each string becomes a `{ "searchTheme": { "text": "…" } }` signal in the asset group (max 25).
 
-## STEP 4: Get a budget recommendation
+## STEP 4: Resolve target locations (geo-options)
+
+`campaign.locations[]` needs a real `geoTargetConstants/{id}` for every place you target — **you cannot guess or hardcode these ids**. Whenever the user names a location ("Israel", "Tel Aviv", "New York"), call the Suggestions **geo-options** endpoint to resolve the name into Google's geo-target id, then wrap it as `geoTargetConstants/{id}`.
+
+```bash
+curl -X GET 'https://www.wixapis.com/google-ads/v1/geo-options?queryLocation=Tel%20Aviv&languageCode=en&countryCode=IL' \
+  -H 'Authorization: <AUTH>'
+```
+
+```json
+{ "googleSuggestion": { "geoTargetsSuggestions": { "geoTargets": [
+  { "id": "1007754", "displayName": "Tel Aviv-Yafo, Tel Aviv, Israel", "countryCode": "IL" }
+] } } }
+```
+
+Take the matching `geoTargets[].id`, wrap it as `geoTargetConstants/{id}`, and use the `displayName` for the `locations[].displayName` field:
+
+```json
+"locations": [
+  { "location": { "geoTargetConstant": "geoTargetConstants/1007754" }, "displayName": "Tel Aviv-Yafo, Tel Aviv, Israel" }
+]
+```
+
+**If the geo lookup fails or returns no match** (a whole-country query like `queryLocation=Israel` can return a Google Ads internal error / `GOOGLE_ADS_API_ERROR`):
+
+- **Retry once**, passing `countryCode` (ISO 3166-1 alpha-2, e.g. `IL`) to bias the search.
+- If a **country-level** query keeps failing, ask the user to name a **specific city** in that country (e.g. Tel Aviv / Jerusalem / Haifa) and resolve that instead — a city query almost always succeeds where the bare country fails.
+- **Never fall back to a hardcoded or guessed id, and never skip resolution and pass a raw name** — an unresolved location makes the create call fail. If no location resolves, stop and ask the user rather than creating with a bad target.
+
+Do this for **every** location the user asked for before assembling the campaign.
+
+## STEP 5: Get a budget recommendation
 
 PMAX uses **Generate Budget Recommendation** (not the Smart-campaign budget-suggestions endpoint). `campaignType`, `assetGroupInfo` (with a `finalUrl`), and `currency` are required.
 
@@ -107,6 +148,16 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/budget-recommendation' \
 Use `recommendedBudgetAmountMicros` as `budget.amountMicros`, or present the `budgetOptions` with their projected impact and let the user pick. `budgetRecommendation` is absent when Google has too little data — fall back to a manual budget within `GET /v1/campaign/daily-budget-boundaries`.
 
 ---
+
+## Pre-flight gate — confirm every input resolved before you assemble
+
+Do not build the request body until all of these are true. If any is missing, fix that step first (or ask the user) — assembling with a gap just produces a create call that fails on the billable path:
+
+- [ ] **Text assets** — enough headlines/descriptions for the minimums (STEP 1).
+- [ ] **Images** — a usable `static.wixstatic.com` URL for **each** required type: `MARKETING_IMAGE`, `SQUARE_MARKETING_IMAGE`, `LOGO` (STEP 2).
+- [ ] **Search themes** (PMAX Leads only) — at least one (STEP 3).
+- [ ] **Locations** — **every** targeted place resolved to a `geoTargetConstants/{id}` via geo-options (STEP 4). No raw names, no guessed ids.
+- [ ] **Budget** — a `budget.amountMicros` value (STEP 5 recommendation or a manual amount within the daily-budget boundaries).
 
 ## Assemble & create the campaign (in PAUSED)
 
@@ -155,6 +206,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns' \
             { "businessNameAsset": { "text": "Sunrise Bakery" }, "assetFieldType": "BUSINESS_NAME" },
             { "imageAsset": { "name": "storefront-banner", "url": "https://static.wixstatic.com/media/abc123.jpg" }, "assetFieldType": "MARKETING_IMAGE" },
             { "imageAsset": { "name": "product-square",    "url": "https://static.wixstatic.com/media/def456.jpg" }, "assetFieldType": "SQUARE_MARKETING_IMAGE" },
+            { "imageAsset": { "name": "brand-logo",        "url": "https://static.wixstatic.com/media/ghi789.jpg" }, "assetFieldType": "LOGO" },
             { "callToActionSelectionAsset": { "callToAction": "SHOP_NOW" }, "assetFieldType": "CALL_TO_ACTION_SELECTION" }
           ] },
           "assetGroupSignals": { "signals": [
@@ -175,7 +227,7 @@ Save the returned `campaign.id` and `resourceName`. `status` is read-only and sy
 
 ---
 
-## STEP 5: Launch the campaign
+## STEP 6: Launch the campaign
 
 ```bash
 curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/launch' \
@@ -191,7 +243,9 @@ Returns the campaign with an updated `status`. Ads begin serving across Google c
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `ACCOUNT_NOT_FOUND` | No Google Ads account | Run [install-and-create-account](install-and-create-account.md) |
-| `INVALID_ARGUMENT` / `NOT_ENOUGH_ASSETS` | Asset group below minimums | Add assets to meet the per-type counts in the table |
+| `INVALID_ARGUMENT` / `NOT_ENOUGH_ASSETS` | Asset group below minimums (often a missing generated image/logo) | Meet the per-type counts; regenerate via STEP 2 or have the user upload the missing image/logo — don't create until all are present |
+| image-asset-suggestions errors or omits a required type | AI image/logo generation failed | Retry once; if still failing, have the user upload a landscape image, square image, and square logo (STEP 2) before creating |
+| `GOOGLE_ADS_API_ERROR` / internal error on **geo-options** | Whole-country geo lookup (e.g. "Israel") can fail internally | Retry with `countryCode`; if a country query keeps failing, resolve a **specific city** (e.g. Tel Aviv / Jerusalem / Haifa) instead (STEP 4) |
 | `INVALID_ARGUMENT` / `INVALID_ASSET_GROUP_ASSETS` | An asset is malformed or violates Google requirements | Fix the offending asset (length, type, url) |
 | `INVALID_ARGUMENT` / `INVALID_IMAGE_FORMAT` | Image format/dimensions unsupported | Use a supported ratio/size; regenerate via image-asset-suggestions |
 | `INVALID_ARGUMENT` / `DUPLICATE_IMAGE_ASSETS` / `DUPLICATE_ASSET` | Same asset provided twice | Deduplicate the asset group |
@@ -209,4 +263,5 @@ Returns the campaign with an updated `status`. Ads begin serving across Google c
 - [Get Text Asset Suggestions](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-text-asset-suggestions)
 - [Get Image Asset Suggestions](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-image-asset-suggestions)
 - [Get Search Theme Suggestions](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-search-theme-suggestions)
+- [Get Geo Options](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-geo-options)
 - [Generate Budget Recommendation](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/generate-budget-recommendation)
