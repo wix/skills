@@ -173,8 +173,13 @@ Resolving through the internal mirror bakes `::__archiveUrl=https%3A%2F%2Fnpm.de
 each resolution, and this repo's CI runs on GitHub-hosted runners that cannot reach that
 host — so an un-normalized lock breaks the build. (The second pattern catches the
 double-encoded form inside yarn's `patch:` protocol.) `yarn install --immutable` must then
-pass leaving `yarn.lock` untouched. Installing at all needs
-`npmRegistryServer: "https://npm.dev.wixpress.com/"` in your `~/.yarnrc.yml`.
+pass leaving `yarn.lock` untouched.
+
+Installing at all needs `npmRegistryServer: "https://npm.dev.wixpress.com/"` in your
+`~/.yarnrc.yml` — `registry.npmjs.org` and `registry.yarnpkg.com` are both unreachable
+from a Wix machine. The two evalforge gate actions pin `registry.npmjs.org` in their own
+`.yarnrc.yml`, and project config outranks your home config, so for those two prefix the
+command with `YARN_NPM_REGISTRY_SERVER=https://npm.dev.wixpress.com/`.
 
 Stay on yarn **4.12.0**: on 4.10.0 the gate fails on large trees with
 `YN0082: No candidates found`, and 4.15+ rewrites `.yarnrc.yml`, writing

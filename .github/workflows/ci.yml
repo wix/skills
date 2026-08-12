@@ -114,7 +114,7 @@ jobs:
         run: node extract.mjs
 
       # ── evalforge: typecheck the shared package and both actions ────────────────────
-      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.10.0 via
+      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.12.0 via
       # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
       # process cwd — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)`.
       #
