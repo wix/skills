@@ -30136,23 +30136,55 @@ function classifyOne(prPassed, basePassed) {
         return basePassed ? 'still-passing' : 'fixed';
     return basePassed ? 'newly-broken' : 'still-failing';
 }
-function classifyChangeImpact(prOutcomes, baseOutcomes) {
+function classifyChangeImpact(prOutcomes, baseOutcomes, 
+/**
+ * Ids the gate requested for this run, with their names. A requested scenario that produced no
+ * scored iteration (every row `partial`, or none at all) is absent from `prOutcomes` — without
+ * this list that absence is silent, so the comment reads as "not selected" instead of
+ * "not measured". Each one absent from `prOutcomes` is appended below as `unattributed`.
+ */
+expectedScenarios) {
     const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
-    const scenarios = prOutcomes.map(prOutcome => {
-        const prPassed = scenarioPassed(prOutcome);
+    // Authoritative names come from the repo YAML the gate requested, keyed by id — the same source
+    // `unmeasured` below already uses. A measured row can still carry an empty wire `scenarioName`
+    // (see `toResultRow`'s default), and this is the only chance to replace it before it reaches the
+    // comment as a nameless blocking table row.
+    const expectedNameById = new Map((expectedScenarios ?? []).map(scenario => [scenario.id, scenario.name]));
+    const measured = prOutcomes.map(prOutcome => {
+        const prMeasuredNothing = prOutcome.totalAssertions === 0;
         const baseOutcome = baseById.get(prOutcome.scenarioId);
         return {
             scenarioId: prOutcome.scenarioId,
-            scenarioName: prOutcome.scenarioName,
-            // A base scenario with zero assertions was not measured, so it is not evidence the
-            // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
-            impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+            scenarioName: expectedNameById.get(prOutcome.scenarioId) || prOutcome.scenarioName || prOutcome.scenarioId,
+            // A base or PR scenario with zero assertions was not measured, so it is not evidence the
+            // scenario was broken (base) or that this change broke it (PR) — scoring either as a
+            // failure would manufacture a false `fixed` or `newly-broken` for a scenario nothing
+            // actually verified (e.g. every assertion SKIPPED, so scenarioPassed is false but nothing
+            // failed either).
+            impact: prMeasuredNothing || baseOutcome === undefined || baseOutcome.totalAssertions === 0
                 ? 'unattributed'
-                : classifyOne(prPassed, scenarioPassed(baseOutcome)),
-            prPassed,
-            failingAssertionNames: [...prOutcome.failingAssertionNames],
+                : classifyOne(scenarioPassed(prOutcome), scenarioPassed(baseOutcome)),
+            // Absent, not `false`, when the PR arm scored nothing — same reasoning as the unmeasured
+            // scenarios below: a `false` here would state the PR failed a scenario nothing verified.
+            ...(prMeasuredNothing ? {} : { prPassed: scenarioPassed(prOutcome) }),
+            ...(prOutcome.failingAssertionNames === undefined
+                ? {}
+                : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
         };
     });
+    const measuredIds = new Set(prOutcomes.map(outcome => outcome.scenarioId));
+    // Deduped: a caller that requested the same id twice would otherwise get the same scenario
+    // listed twice in the comment and counted twice in `unattributed`.
+    const appendedIds = new Set();
+    const unmeasured = [];
+    for (const expected of expectedScenarios ?? []) {
+        if (measuredIds.has(expected.id) || appendedIds.has(expected.id))
+            continue;
+        appendedIds.add(expected.id);
+        // No `prPassed`: nothing was measured, so neither value is a true statement about this run.
+        unmeasured.push({ scenarioId: expected.id, scenarioName: expected.name, impact: 'unattributed' });
+    }
+    const scenarios = [...measured, ...unmeasured];
     const countOf = (impact) => scenarios.filter(scenario => scenario.impact === impact).length;
     const fixed = countOf('fixed');
     const newlyBroken = countOf('newly-broken');
@@ -30574,6 +30606,54 @@ function assertNotTruncated(received, meta, path) {
         `Reconciling against a partial list would re-create the scenarios it could not see. ` +
         `Add cursor paging to listTestScenarios before syncing this project.`);
 }
+// Guards against a wire array field being absent, null, or (in a malformed
+// response) present but not actually an array — any of which would otherwise
+// crash `.map` mid-poll rather than degrade to an empty result.
+function toRowArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'];
+// The real API sends the proto enum's full name (e.g. ASSERTION_RESULT_STATUS_PASSED),
+// not the bare literal — strip that prefix before matching so both forms resolve.
+const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
+// Validates against the known enum rather than casting, so a typo'd or novel
+// wire value doesn't silently type-check as one of the five literals and
+// defeat an exhaustive switch over AssertionOutcome['status'].
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
+function toAssertionStatus(rawStatus) {
+    if (typeof rawStatus !== 'string')
+        return 'UNKNOWN';
+    const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+        ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
+        : rawStatus;
+    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
+}
+function toAssertionOutcome(rawAssertionResult) {
+    return {
+        assertionName: rawAssertionResult?.assertionName ?? '(unnamed)',
+        assertionType: rawAssertionResult?.assertionType ?? 'unknown',
+        status: toAssertionStatus(rawAssertionResult?.status),
+        ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+        ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
+    };
+}
+function toResultRow(rawResult) {
+    return {
+        scenarioId: rawResult?.scenarioId ?? '',
+        scenarioName: rawResult?.scenarioName ?? '',
+        passed: rawResult?.passed ?? 0,
+        failed: rawResult?.failed ?? 0,
+        partial: rawResult?.partial ?? false,
+        iterationIndex: rawResult?.iterationIndex ?? 0,
+        assertions: toRowArray(rawResult?.assertionResults).map(toAssertionOutcome),
+    };
+}
 // V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
 // works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
 function normalizeStatus(s) {
@@ -30742,6 +30822,9 @@ class EvalForgeClient {
                 filter: input.filter,
                 capabilityIds: input.capabilityIds,
                 capabilityVersions: input.capabilityVersions,
+                comparisonGroupId: input.comparisonGroupId,
+                comparisonLabel: input.comparisonLabel,
+                runsPerScenario: input.runsPerScenario,
             },
         });
         return { id: res.evalRun.id, status: normalizeStatus(res.evalRun.status) };
@@ -30768,6 +30851,7 @@ class EvalForgeClient {
                 avgDuration: m.avgDuration ?? 0,
                 totalDuration: m.totalDuration ?? 0,
             },
+            results: toRowArray(r.results).map(toResultRow),
         };
     }
     async deleteCapabilityVersion(capabilityId, projectId, versionId) {
@@ -30814,6 +30898,84 @@ function evaluateRunResult(status) {
 
 /***/ }),
 
+/***/ 1372:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.foldScenarioIterations = foldScenarioIterations;
+const NOT_PASSED = new Set(['FAILED', 'ERROR']);
+/**
+ * `assertionName` is not a unique key: a real run can carry two distinct assertions sharing one
+ * name (e.g. two `skill_was_called` checks against different reference files, distinguished only
+ * by `assertionId`). Deduping the failing set on identity — `assertionId` where the wire sent one,
+ * the name otherwise — keeps two such failures from collapsing into a single, silently-dropped
+ * entry. Ambiguity is checked against every assertion in the scenario, not just the failing ones:
+ * a name shared with a *passing* sibling is exactly as unidentifiable to the reader as one shared
+ * with another failure, so both get the identity suffix that lets the reader tell which is which.
+ */
+function dedupeFailingAssertionNames(iterations) {
+    const identitiesByName = new Map();
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            const identities = identitiesByName.get(assertion.assertionName) ?? new Set();
+            identities.add(assertion.assertionId ?? assertion.assertionName);
+            identitiesByName.set(assertion.assertionName, identities);
+        }
+    }
+    const firstSeenByIdentity = new Map(); // identity → assertionName
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            if (!NOT_PASSED.has(assertion.status))
+                continue;
+            const identity = assertion.assertionId ?? assertion.assertionName;
+            if (!firstSeenByIdentity.has(identity))
+                firstSeenByIdentity.set(identity, assertion.assertionName);
+        }
+    }
+    return [...firstSeenByIdentity.entries()].map(([identity, name]) => {
+        const ambiguous = (identitiesByName.get(name)?.size ?? 1) > 1;
+        return ambiguous ? `${name} [${identity}]` : name;
+    });
+}
+/**
+ * One outcome per scenario, from that scenario's iterations. `partial` rows are reconstructed
+ * at cancel and never scored, so they are dropped before scoring — a scenario with nothing left
+ * is omitted, which the classifier reads as unattributed rather than as a failure. A row with an
+ * empty `scenarioId` is unidentifiable rather than unscored, but the same reasoning applies: it is
+ * dropped rather than folded into a synthetic `''`-keyed outcome that would blame a scenario that
+ * does not exist.
+ */
+function foldScenarioIterations(rows) {
+    const byScenario = new Map();
+    for (const scoredRow of rows.filter(candidate => !candidate.partial && candidate.scenarioId !== '')) {
+        const existing = byScenario.get(scoredRow.scenarioId);
+        if (existing === undefined)
+            byScenario.set(scoredRow.scenarioId, [scoredRow]);
+        else
+            existing.push(scoredRow);
+    }
+    const outcomes = [];
+    for (const [scenarioId, iterations] of byScenario) {
+        const failingNames = dedupeFailingAssertionNames(iterations);
+        const errors = iterations.reduce((total, iteration) => total + iteration.assertions.filter(assertion => assertion.status === 'ERROR').length, 0);
+        const sumOf = (field) => iterations.reduce((total, iteration) => total + iteration[field], 0);
+        outcomes.push({
+            scenarioId,
+            scenarioName: iterations[0].scenarioName,
+            totalAssertions: sumOf('passed') + sumOf('failed'),
+            failed: sumOf('failed'),
+            errors,
+            ...(failingNames.length === 0 ? {} : { failingAssertionNames: failingNames }),
+        });
+    }
+    return outcomes;
+}
+
+
+/***/ }),
+
 /***/ 5970:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30851,9 +31013,24 @@ function runLine(runId, runUrl) {
     return `**Run:** [${runId}](${runUrl})`;
 }
 /**
+ * Only rendered above the default of 1: at 1, "ran once per arm" is the assumption a reader
+ * already makes, and saying so on every comment would be noise. Above 1, it is exactly the
+ * context that makes `newly-broken` interpretable — a reader cannot otherwise tell whether they
+ * are looking at one execution or five, or that a single flaky iteration is enough to block.
+ */
+function runsPerScenarioNote(runsPerScenario) {
+    if (runsPerScenario === undefined || runsPerScenario <= 1)
+        return [];
+    return [
+        '',
+        `**Runs per scenario:** ${runsPerScenario} — each scenario ran ${runsPerScenario} times per arm, `
+            + 'and any failing iteration counts as a failure.',
+    ];
+}
+/**
  * The three outcomes where nothing was verified and retrying is the answer. These are live-system
- * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
- * without asking for a commit the PR does not need.
+ * flakes rather than PR problems, so `/re-eval` is listed first: it re-runs the gate without
+ * asking for a commit the PR does not need.
  */
 function retryNote() {
     return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
@@ -30951,6 +31128,91 @@ function formatForeignDraftConflicts(errors, blocking) {
         ...soakNote(blocking),
     ]);
 }
+/**
+ * Two `Record<ImpactClass, string>` maps rather than a switch: a new `ImpactClass` then fails to
+ * compile here until it is given both an icon and a meaning, instead of silently rendering nothing.
+ */
+const IMPACT_ICON = {
+    fixed: '✅',
+    'newly-broken': '❌',
+    'still-passing': '➖',
+    'still-failing': '⚠️',
+    unattributed: '❔',
+};
+const IMPACT_MEANING = {
+    fixed: 'Failed against `main`, passes on this PR — this change fixed it.',
+    'newly-broken': 'Passed against `main`, fails on this PR — caused by this change.',
+    'still-passing': 'Passed on both `main` and this PR — unaffected by this change.',
+    'still-failing': 'Fails on both `main` and this PR — pre-existing, not caused by this change.',
+    unattributed: 'No comparable result from `main` to classify against.',
+};
+/** Assertion names come from the API and scenario names from repo YAML — neither is safe to render into a table cell unescaped. */
+function escapeTableCell(text) {
+    return text.replace(/\|/g, '\\|');
+}
+function failingAssertionsNote(failingAssertionNames) {
+    if (failingAssertionNames === undefined || failingAssertionNames.length === 0)
+        return '';
+    return ` Failing: ${failingAssertionNames.map(name => `\`${escapeTableCell(name)}\``).join(', ')}.`;
+}
+/**
+ * Whether every scenario in an unavailable-attribution result came back with no `prPassed` at
+ * all — i.e. the PR arm itself scored nothing, rather than the base arm being the gap. Built from
+ * `ChangeImpact.scenarios`, which is already on hand at the call site, so this needs no new field.
+ */
+function prArmMeasuredNothing(scenarios) {
+    return scenarios.every(scenario => scenario.prPassed === undefined);
+}
+/**
+ * The section that reports the fixed/newly-broken/still-failing delta against `main`. Absent
+ * `impact` means an old caller that has no comparison to offer — the section is skipped so its
+ * output stays byte-identical to before this field existed. Once a caller does pass `impact`, a
+ * failed base arm (`attributionAvailable: false`) still gets an explicit "unavailable" line rather
+ * than silence, so it reads as "no comparison was attempted" rather than "nothing happened".
+ */
+function impactSection(impact) {
+    if (impact === undefined)
+        return [];
+    if (!impact.attributionAvailable) {
+        // Whichever side produced nothing is named directly rather than defaulting to "the base run":
+        // `attributionAvailable` is also false when the PR arm itself scored nothing, and blaming the
+        // base run on a blocking comment sends the contributor to investigate the wrong side.
+        const reason = prArmMeasuredNothing(impact.scenarios)
+            ? 'this run produced no comparable results'
+            : 'the base run produced no comparable results';
+        return [
+            '',
+            `**Impact vs \`main\`:** unavailable — ${reason}, so scenarios could not be classified as fixed, newly broken, or pre-existing.`,
+        ];
+    }
+    const summary = `**Impact vs \`main\`:** ${count(impact.fixed, 'scenario')} fixed, `
+        + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillPassing, 'scenario')} still passing, `
+        + `${count(impact.stillFailing, 'scenario')} still failing, ${count(impact.unattributed, 'scenario')} unattributed`
+        + ` — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
+    const allStillPassing = impact.scenarios.length > 0 && impact.stillPassing === impact.scenarios.length;
+    if (allStillPassing) {
+        return [
+            '',
+            summary,
+            '',
+            'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
+                + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
+                + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
+        ];
+    }
+    return [
+        '',
+        summary,
+        '',
+        '| Scenario | Impact | Meaning |',
+        '|---|---|---|',
+        ...impact.scenarios.map(scenario => {
+            const icon = IMPACT_ICON[scenario.impact];
+            const meaning = IMPACT_MEANING[scenario.impact];
+            return `| ${icon} \`${escapeTableCell(scenario.scenarioName)}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
+        }),
+    ];
+}
 function formatGateResult(input) {
     const { metrics, verdict, selection } = input;
     const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
@@ -30959,6 +31221,7 @@ function formatGateResult(input) {
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
         runLine(input.runId, input.runUrl),
+        ...runsPerScenarioNote(input.runsPerScenario),
     ];
     if (!verdict.passed) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
@@ -30972,7 +31235,7 @@ function formatGateResult(input) {
     if (selection.missingIds.length > 0) {
         body.push('', '**Not run — no EvalForge scenario found for these names.** They are in the repo YAML but not in EvalForge, which points at a sync gap:', ...selection.missingIds.map(name => `- \`${name}\``));
     }
-    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped), ...impactSection(input.impact));
     if (!verdict.passed)
         body.push(...soakNote(input.blocking));
     return render(icon, label, body);
@@ -31151,6 +31414,7 @@ __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
 __exportStar(__nccwpck_require__(1985), exports);
+__exportStar(__nccwpck_require__(1372), exports);
 
 
 /***/ }),
@@ -31849,13 +32113,17 @@ function describeIssues(error) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_MAX_SCENARIOS = void 0;
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
 exports.selectScenarios = selectScenarios;
 /**
  * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
  * money and wall-clock, not test runtime. Single home for the default — see DEFAULT_REFERENCE_DIR.
  */
 exports.DEFAULT_MAX_SCENARIOS = 25;
+/** Default number of times each scenario runs in each arm. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_RUNS_PER_SCENARIO = 1;
+/** Default base-arm grace period, in seconds. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = 60;
 /**
  * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
  * results and the tag query, so a slow tag index cannot silently shrink the run.
@@ -61766,6 +62034,173 @@ async function applySyncPlan(client, config, actions, nameToId, comment) {
 
 /***/ }),
 
+/***/ 3500:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.startBaseAttribution = startBaseAttribution;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * The PR arm's own poll deadline. The base poll's ceiling (below) adds the configured grace to
+ * this, independent of cancellation, so a base poll that somehow outlives cancellation still
+ * cannot outlive that.
+ */
+const PR_ARM_POLL_TIMEOUT_MS = 30 * 60_000;
+class BaseArmCancelledError extends Error {
+    constructor() {
+        super('cancelled — the verdict was already decided without it');
+        this.name = 'BaseArmCancelledError';
+    }
+}
+/**
+ * Real cancellation for the base arm's poll, injected as `PollOptions.sleep`.
+ *
+ * `pollUntilDone` awaits this between attempts, so a rejection here propagates out of the poll and
+ * ends it. Merely stopping the *wait* on the poll is not enough: nothing else stops the loop, and
+ * it would keep issuing `getEvalRun` calls and logging progress against its own deadline long after
+ * the gate has published its verdict — holding the job step open, and the runner's Node process
+ * with it, for a result nobody will read.
+ */
+function createCancellation() {
+    let isCancelled = false;
+    const pendingWakeups = new Set();
+    const cancel = () => {
+        isCancelled = true;
+        const wakeups = [...pendingWakeups];
+        pendingWakeups.clear();
+        for (const wakeUp of wakeups)
+            wakeUp();
+    };
+    const sleep = (ms) => {
+        if (isCancelled)
+            return Promise.reject(new BaseArmCancelledError());
+        return new Promise((resolve, reject) => {
+            let timer;
+            const wakeUp = () => {
+                clearTimeout(timer);
+                reject(new BaseArmCancelledError());
+            };
+            timer = setTimeout(() => {
+                pendingWakeups.delete(wakeUp);
+                resolve();
+            }, Math.max(0, ms));
+            // Belt and braces: a cancel that never arrives still must not keep Node alive for the base
+            // arm, so this timer never counts towards the event loop staying open.
+            timer.unref?.();
+            pendingWakeups.add(wakeUp);
+        });
+    };
+    return { cancel, cancelled: () => isCancelled, sleep };
+}
+/**
+ * Resolves with whatever `promise` settles to, or `undefined` once `graceMs` elapses — whichever
+ * comes first. Clears its timer either way, and absorbs a rejection: this helper exists so the
+ * base arm cannot reach the verdict, and an unhandled rejection would fail the job by the back
+ * door.
+ */
+function withGracePeriod(promise, graceMs) {
+    return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(undefined), graceMs);
+        const settle = (value) => {
+            clearTimeout(timer);
+            resolve(value);
+        };
+        promise.then(settle, () => settle(undefined));
+    });
+}
+/**
+ * Polls the base comparison arm to completion without ever commenting on the PR or failing the
+ * gate — unlike `pollToCompletion`, whose job is exactly that. Any failure, including a timeout or
+ * cancellation, degrades to `undefined` rather than propagating.
+ */
+async function pollBaseArmSilently(client, config, baseRun, cancellation) {
+    try {
+        const baseRunId = await baseRun;
+        if (baseRunId === undefined || cancellation.cancelled())
+            return undefined;
+        return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, baseRunId, {
+            log: (message) => core.info(`Base comparison arm: ${message}`),
+            warn: (message) => core.warning(`Base comparison arm: ${message}`),
+            timeoutMs: PR_ARM_POLL_TIMEOUT_MS + config.baseArmGraceMs,
+            sleep: cancellation.sleep,
+        });
+    }
+    catch (error) {
+        // Cancellation at grace expiry is the expected path whenever the base arm runs more than the
+        // configured grace behind the PR arm — it decorates every such PR with a warning annotation
+        // for normal behaviour, so it is `info`. A genuine failure (the base arm erroring, or never
+        // starting) still warrants `warning`.
+        if (error instanceof BaseArmCancelledError) {
+            core.info(`Base comparison arm: ${(0, report_1.describeError)(error)}`);
+        }
+        else {
+            core.warning(`Base comparison arm did not complete: ${(0, report_1.describeError)(error)}`);
+        }
+        return undefined;
+    }
+}
+/**
+ * Owns the base arm end to end: awaiting its creation, polling it, bounding that poll, and
+ * cancelling it. Start it before the PR arm's poll so both arms run concurrently; `cancel` it on
+ * every exit path so no part of the base arm can outlive the verdict.
+ */
+function startBaseAttribution(client, config, baseRun) {
+    const cancellation = createCancellation();
+    // `.catch` at creation, not just at `collect` time: on an early-return path (a PR-arm timeout or
+    // poll failure) `collect` is never called, and an unattached promise rejecting under Node's
+    // default unhandled-rejection behaviour would kill the process. `pollBaseArmSilently` already
+    // absorbs every failure internally, so this is a local invariant rather than a live bug.
+    const basePoll = pollBaseArmSilently(client, config, baseRun, cancellation).catch(() => undefined);
+    return {
+        collect: async () => {
+            const status = await withGracePeriod(basePoll, config.baseArmGraceMs);
+            cancellation.cancel();
+            return status;
+        },
+        cancel: cancellation.cancel,
+    };
+}
+
+
+/***/ }),
+
 /***/ 5717:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -61868,6 +62303,97 @@ async function execute(client, projectId, action) {
 
 /***/ }),
 
+/***/ 6430:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.startComparisonArms = startComparisonArms;
+const core = __importStar(__nccwpck_require__(7484));
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Starts the two runs of a change-impact comparison: the PR arm pins the skill to
+ * `prVersionId`, the base arm omits `capabilityVersions` entirely so the evaluator
+ * live-fetches the git-linked capability at `main`. Both share `comparisonGroupId`
+ * and `scenarioIds` so EvalForge can label each scenario fixed/newly-broken/etc.
+ *
+ * The PR arm's failure is the verdict: it is reported on the PR and halts the gate through the
+ * usual guarded path. The base arm is annotation only — its creation is neither awaited nor
+ * allowed to fail the gate, so a slow or broken base create cannot delay the PR arm's first poll.
+ */
+async function startComparisonArms(client, config, scenarioIds, prVersionId, comment) {
+    const runLabel = `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`;
+    const shared = {
+        projectId: config.projectId,
+        agentId: config.agentId,
+        scenarioIds,
+        capabilityIds: [config.capabilityId],
+        comparisonGroupId: config.comparisonGroupId,
+        runsPerScenario: config.runsPerScenario,
+    };
+    const prRun = await (0, report_1.guardedCall)(() => client.createAndRunEvalRun(config.projectId, {
+        ...shared,
+        name: `${runLabel} — pr arm`,
+        description: `Change-impact PR arm: skill pinned to ${config.versionLabel}`,
+        comparisonLabel: 'pr',
+        capabilityVersions: { [config.capabilityId]: prVersionId },
+    }), { message: 'Could not start the eval run', label: 'Run Not Started' }, comment, config.isBlocking);
+    if (!prRun.ok)
+        return report_1.HALTED;
+    const baseRun = client.createAndRunEvalRun(config.projectId, {
+        ...shared,
+        name: `${runLabel} — base arm`,
+        // The base arm pins no version, so this description is the only place that records what
+        // "main" actually meant at run time — the base arm's own EvalForge page is where an operator
+        // comparing the two arms will look for it.
+        description: `Change-impact base arm: skill unpinned, evaluated live at main (base commit ${config.baseSha.slice(0, 7)})`,
+        comparisonLabel: 'base',
+    })
+        .then(created => created.id)
+        .catch((error) => {
+        core.warning(`Base comparison arm: could not be started: ${(0, report_1.describeError)(error)}`);
+        return undefined;
+    });
+    return { ok: true, value: { prRunId: prRun.value.id, baseRun } };
+}
+
+
+/***/ }),
+
 /***/ 7799:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -61907,17 +62433,39 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
+exports.MAX_TOTAL_SCENARIO_EXECUTIONS = exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getCleanupConfig = getCleanupConfig;
+const node_crypto_1 = __nccwpck_require__(7598);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
-/** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
+/**
+ * Per-input ceiling for `max-scenarios`. On its own this does not bound total cost: each scenario
+ * execution is multiplied by `runs-per-scenario` and by the unconditional second (base) arm — see
+ * `MAX_TOTAL_SCENARIO_EXECUTIONS` for the ceiling on that product.
+ */
 exports.MAX_SCENARIOS_CEILING = 100;
+/** EvalForge's documented maximum for runsPerScenario. */
+exports.MAX_RUNS_PER_SCENARIO = 20;
+/**
+ * A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm
+ * attribution. Lowered from 900 to 300: a live run measured the base arm landing 124s after the PR
+ * arm, so 300s covers the observed lag with headroom while leaving the job's `timeout-minutes: 60`
+ * margin intact (see `PR_ARM_POLL_TIMEOUT_MS` + this ceiling vs. the workflow timeout).
+ */
+exports.MAX_BASE_ARM_GRACE_SECONDS = 300;
+/**
+ * Ceiling on `maxScenarios × runsPerScenario × 2` (the two comparison arms) — the actual number of
+ * live agent builds a gated PR can trigger. `MAX_SCENARIOS_CEILING` and `MAX_RUNS_PER_SCENARIO`
+ * each bound their own input, but neither bounds their product: at both ceilings that product is
+ * 100 × 20 × 2 = 4000. 1000 stays comfortably above the current defaults (25 × 1 × 2 = 50, 20x
+ * headroom) while still cutting the unclamped worst case by 4x.
+ */
+exports.MAX_TOTAL_SCENARIO_EXECUTIONS = 1000;
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -61944,6 +62492,27 @@ function getPositiveIntegerInput(name, fallback) {
     return value;
 }
 /**
+ * Never throws, unlike `getPositiveIntegerInput`: `getGateConfig` runs before `isBlocking` is
+ * known, so a throw here would fail the check even during the soak period. A blank input falls
+ * back silently (the normal unset case); anything else that fails to parse as an integer `>=
+ * floor` — a typo'd repo variable, most likely — falls back with a `core.warning` instead of
+ * failing the run outright. Exceeding `ceiling` clamps the same way `getMaxScenarios` does.
+ */
+function getClampedIntegerInput(name, fallback, ceiling, floor = 1) {
+    const raw = core.getInput(name);
+    if (raw === '')
+        return fallback;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < floor) {
+        core.warning(`${name}: "${raw}" is not an integer >= ${floor}, using the default of ${fallback}.`);
+        return fallback;
+    }
+    if (value <= ceiling)
+        return value;
+    core.warning(`${name}: ${value} exceeds the ceiling of ${ceiling}, using ${ceiling}.`);
+    return ceiling;
+}
+/**
  * Clamps rather than throws. `getGateConfig` runs before `isBlocking` is known, so a throw here
  * would fail the check even during the soak period, when the gate promises it cannot — the same
  * bug the author gate had. A clamp keeps the cost bounded and stays visible: `selectScenarios`
@@ -61968,6 +62537,37 @@ function getHeadSha() {
     if (!head?.sha)
         throw new Error('PR payload missing head.sha');
     return head.sha;
+}
+function getBaseSha() {
+    const base = github.context.payload.pull_request?.base;
+    if (!base?.sha)
+        throw new Error('PR payload missing base.sha');
+    return base.sha;
+}
+function getRunsPerScenario() {
+    return getClampedIntegerInput('runs-per-scenario', evalforge_core_1.DEFAULT_RUNS_PER_SCENARIO, exports.MAX_RUNS_PER_SCENARIO);
+}
+/**
+ * Bounds `maxScenarios × runsPerScenario × 2` (see `MAX_TOTAL_SCENARIO_EXECUTIONS`) by clamping
+ * `runsPerScenario` down — `maxScenarios` stays as configured, since it is what the author actually
+ * asked to run; `runsPerScenario` is the flakiness-detection multiplier and the one meant to give
+ * ground first.
+ */
+function clampTotalScenarioExecutions(maxScenarios, runsPerScenario) {
+    const executions = maxScenarios * runsPerScenario * 2;
+    if (executions <= exports.MAX_TOTAL_SCENARIO_EXECUTIONS)
+        return runsPerScenario;
+    const clamped = Math.max(1, Math.floor(exports.MAX_TOTAL_SCENARIO_EXECUTIONS / (maxScenarios * 2)));
+    core.warning(`runs-per-scenario: ${maxScenarios} scenarios × ${runsPerScenario} runs × 2 arms = ${executions} `
+        + `executions exceeds the ceiling of ${exports.MAX_TOTAL_SCENARIO_EXECUTIONS}, clamping runs-per-scenario `
+        + `to ${clamped}.`);
+    return clamped;
+}
+/** `0` is a legitimate value here, not an error: it means "don't wait for the base arm at all" —
+ * collect whatever has already resolved and move straight to the verdict comment. That is why the
+ * floor is 0, unlike every other clamped input. */
+function getBaseArmGraceSeconds() {
+    return getClampedIntegerInput('base-arm-grace-seconds', evalforge_core_1.DEFAULT_BASE_ARM_GRACE_SECONDS, exports.MAX_BASE_ARM_GRACE_SECONDS, 0);
 }
 /**
  * The commit the version label is content-addressed to. It must be the commit actually checked out,
@@ -62000,7 +62600,10 @@ function getGateConfig() {
     const repo = github.context.repo.repo;
     const prNumber = (0, evalforge_core_1.getPrNumber)(github.context.payload);
     const headSha = getHeadSha();
+    const baseSha = getBaseSha();
     const evaluatedSha = getEvaluatedSha();
+    const maxScenarios = getMaxScenarios();
+    const runsPerScenario = clampTotalScenarioExecutions(maxScenarios, getRunsPerScenario());
     return {
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -62014,7 +62617,7 @@ function getGateConfig() {
         referenceDir: core.getInput('reference-dir') || evalforge_core_1.DEFAULT_REFERENCE_DIR,
         ignoreGlobs: getMultilineList('ignore-globs', evalforge_core_1.DEFAULT_IGNORE_GLOBS),
         broadImpactGlobs: getMultilineList('broad-impact-globs', evalforge_core_1.DEFAULT_BROAD_IMPACT_GLOBS),
-        maxScenarios: getMaxScenarios(),
+        maxScenarios,
         isBlocking: core.getInput('blocking') === 'true',
         owner,
         repo,
@@ -62023,6 +62626,12 @@ function getGateConfig() {
         headSha,
         evaluatedSha,
         versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+        baseSha,
+        /** Fresh per gate execution: EvalForge's comparison-group read returns the group whole with no
+         * paging, so a stable id would accumulate runs across re-runs of the same PR. */
+        comparisonGroupId: (0, node_crypto_1.randomUUID)(),
+        runsPerScenario,
+        baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
     };
 }
 function getCleanupConfig() {
@@ -62110,7 +62719,8 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
     core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
-        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`);
+        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} `
+        + `into base ${config.baseSha.slice(0, 7)})`);
     const scope = await (0, gate_scope_1.resolveGateScope)(octokit, config, workspace, comment);
     if (!scope.ok)
         return;
@@ -62463,6 +63073,8 @@ const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
 const run_eval_1 = __nccwpck_require__(1943);
+const comparison_arms_1 = __nccwpck_require__(6430);
+const base_attribution_1 = __nccwpck_require__(3500);
 async function runAndReport(client, config, scope, nameToId, 
 /** The version's **id**, not its label. */
 versionId, comment) {
@@ -62470,29 +63082,49 @@ versionId, comment) {
     if (!selected.ok)
         return;
     const selection = selected.value;
-    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, versionId, comment);
-    if (!run.ok)
+    const arms = await (0, comparison_arms_1.startComparisonArms)(client, config, selection.ids, versionId, comment);
+    if (!arms.ok)
         return;
-    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.value.id);
+    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, arms.value.prRunId);
     core.info(`Eval run started: ${runUrl}`);
-    const status = await (0, run_eval_1.pollToCompletion)(client, config, run.value.id, runUrl, comment);
-    if (!status.ok)
-        return;
-    const verdict = (0, evalforge_core_1.evaluateRunResult)(status.value);
-    await comment((0, evalforge_core_1.formatGateResult)({
-        metrics: status.value.aggregateMetrics,
-        verdict,
-        runId: run.value.id,
-        runUrl,
-        selection,
-        maxScenarios: config.maxScenarios,
-        warnings: scope.guard.warnings,
-        unmapped: scope.derived.unmapped,
-        broadImpact: scope.derived.broadImpact,
-        blocking: config.isBlocking,
-    }));
-    if (!verdict.passed) {
-        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
+    // Runs concurrently with the PR arm's own poll below rather than adding a wait after it. The
+    // `finally` is what keeps the base arm from outliving the verdict on the paths that return
+    // early — a PR-arm timeout or poll failure never reaches `collect`.
+    const attribution = (0, base_attribution_1.startBaseAttribution)(client, config, arms.value.baseRun);
+    try {
+        const prStatusGuard = await (0, run_eval_1.pollToCompletion)(client, config, arms.value.prRunId, runUrl, comment);
+        if (!prStatusGuard.ok)
+            return;
+        const prStatus = prStatusGuard.value;
+        const baseStatus = await attribution.collect();
+        // The verdict comes from the PR arm alone — unchanged from before comparison existed.
+        const verdict = (0, evalforge_core_1.evaluateRunResult)(prStatus);
+        const prOutcomes = (0, evalforge_core_1.foldScenarioIterations)(prStatus.results);
+        const baseOutcomes = baseStatus === undefined ? undefined : (0, evalforge_core_1.foldScenarioIterations)(baseStatus.results);
+        // Never undefined: a base arm that produced nothing still classifies against `undefined`,
+        // which comes back fully unattributed — that is what makes the comment say so out loud instead
+        // of silently omitting the whole section.
+        const impact = (0, evalforge_core_1.classifyChangeImpact)(prOutcomes, baseOutcomes, selection.ids.map((id, index) => ({ id, name: selection.selected[index] ?? id })));
+        await comment((0, evalforge_core_1.formatGateResult)({
+            metrics: prStatus.aggregateMetrics,
+            verdict,
+            runId: arms.value.prRunId,
+            runUrl,
+            selection,
+            maxScenarios: config.maxScenarios,
+            warnings: scope.guard.warnings,
+            unmapped: scope.derived.unmapped,
+            broadImpact: scope.derived.broadImpact,
+            blocking: config.isBlocking,
+            impact,
+            runsPerScenario: config.runsPerScenario,
+        }));
+        if (!verdict.passed) {
+            (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
+        }
+    }
+    finally {
+        attribution.cancel();
     }
 }
 async function resolveScenarioIds(config, scope, nameToId, comment) {
@@ -62558,24 +63190,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.startEvalRun = startEvalRun;
 exports.pollToCompletion = pollToCompletion;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
-function startEvalRun(client, config, scenarioIds, 
-/** The version's **id**, not its label — the evaluator resolves capabilityVersions by id. */
-versionId, comment) {
-    return (0, report_1.guardedCall)(() => client.createAndRunEvalRun(config.projectId, {
-        name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
-        description: `Skill gate run for PR #${config.prNumber}`,
-        projectId: config.projectId,
-        agentId: config.agentId,
-        scenarioIds,
-        capabilityIds: [config.capabilityId],
-        capabilityVersions: { [config.capabilityId]: versionId },
-    }), { message: 'Could not start the eval run', label: 'Run Not Started' }, comment, config.isBlocking);
-}
 /** Timeout gets its own comment; anything else is a generic service failure. */
 async function pollToCompletion(client, config, runId, runUrl, comment) {
     try {

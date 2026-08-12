@@ -34250,23 +34250,55 @@ function classifyOne(prPassed, basePassed) {
         return basePassed ? 'still-passing' : 'fixed';
     return basePassed ? 'newly-broken' : 'still-failing';
 }
-function classifyChangeImpact(prOutcomes, baseOutcomes) {
+function classifyChangeImpact(prOutcomes, baseOutcomes, 
+/**
+ * Ids the gate requested for this run, with their names. A requested scenario that produced no
+ * scored iteration (every row `partial`, or none at all) is absent from `prOutcomes` — without
+ * this list that absence is silent, so the comment reads as "not selected" instead of
+ * "not measured". Each one absent from `prOutcomes` is appended below as `unattributed`.
+ */
+expectedScenarios) {
     const baseById = new Map((baseOutcomes ?? []).map(outcome => [outcome.scenarioId, outcome]));
-    const scenarios = prOutcomes.map(prOutcome => {
-        const prPassed = scenarioPassed(prOutcome);
+    // Authoritative names come from the repo YAML the gate requested, keyed by id — the same source
+    // `unmeasured` below already uses. A measured row can still carry an empty wire `scenarioName`
+    // (see `toResultRow`'s default), and this is the only chance to replace it before it reaches the
+    // comment as a nameless blocking table row.
+    const expectedNameById = new Map((expectedScenarios ?? []).map(scenario => [scenario.id, scenario.name]));
+    const measured = prOutcomes.map(prOutcome => {
+        const prMeasuredNothing = prOutcome.totalAssertions === 0;
         const baseOutcome = baseById.get(prOutcome.scenarioId);
         return {
             scenarioId: prOutcome.scenarioId,
-            scenarioName: prOutcome.scenarioName,
-            // A base scenario with zero assertions was not measured, so it is not evidence the
-            // scenario was broken — scoring it as a base failure would manufacture a false `fixed`.
-            impact: baseOutcome === undefined || baseOutcome.totalAssertions === 0
+            scenarioName: expectedNameById.get(prOutcome.scenarioId) || prOutcome.scenarioName || prOutcome.scenarioId,
+            // A base or PR scenario with zero assertions was not measured, so it is not evidence the
+            // scenario was broken (base) or that this change broke it (PR) — scoring either as a
+            // failure would manufacture a false `fixed` or `newly-broken` for a scenario nothing
+            // actually verified (e.g. every assertion SKIPPED, so scenarioPassed is false but nothing
+            // failed either).
+            impact: prMeasuredNothing || baseOutcome === undefined || baseOutcome.totalAssertions === 0
                 ? 'unattributed'
-                : classifyOne(prPassed, scenarioPassed(baseOutcome)),
-            prPassed,
-            failingAssertionNames: [...prOutcome.failingAssertionNames],
+                : classifyOne(scenarioPassed(prOutcome), scenarioPassed(baseOutcome)),
+            // Absent, not `false`, when the PR arm scored nothing — same reasoning as the unmeasured
+            // scenarios below: a `false` here would state the PR failed a scenario nothing verified.
+            ...(prMeasuredNothing ? {} : { prPassed: scenarioPassed(prOutcome) }),
+            ...(prOutcome.failingAssertionNames === undefined
+                ? {}
+                : { failingAssertionNames: [...prOutcome.failingAssertionNames] }),
         };
     });
+    const measuredIds = new Set(prOutcomes.map(outcome => outcome.scenarioId));
+    // Deduped: a caller that requested the same id twice would otherwise get the same scenario
+    // listed twice in the comment and counted twice in `unattributed`.
+    const appendedIds = new Set();
+    const unmeasured = [];
+    for (const expected of expectedScenarios ?? []) {
+        if (measuredIds.has(expected.id) || appendedIds.has(expected.id))
+            continue;
+        appendedIds.add(expected.id);
+        // No `prPassed`: nothing was measured, so neither value is a true statement about this run.
+        unmeasured.push({ scenarioId: expected.id, scenarioName: expected.name, impact: 'unattributed' });
+    }
+    const scenarios = [...measured, ...unmeasured];
     const countOf = (impact) => scenarios.filter(scenario => scenario.impact === impact).length;
     const fixed = countOf('fixed');
     const newlyBroken = countOf('newly-broken');
@@ -34688,6 +34720,54 @@ function assertNotTruncated(received, meta, path) {
         `Reconciling against a partial list would re-create the scenarios it could not see. ` +
         `Add cursor paging to listTestScenarios before syncing this project.`);
 }
+// Guards against a wire array field being absent, null, or (in a malformed
+// response) present but not actually an array — any of which would otherwise
+// crash `.map` mid-poll rather than degrade to an empty result.
+function toRowArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'];
+// The real API sends the proto enum's full name (e.g. ASSERTION_RESULT_STATUS_PASSED),
+// not the bare literal — strip that prefix before matching so both forms resolve.
+const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
+// Validates against the known enum rather than casting, so a typo'd or novel
+// wire value doesn't silently type-check as one of the five literals and
+// defeat an exhaustive switch over AssertionOutcome['status'].
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
+function toAssertionStatus(rawStatus) {
+    if (typeof rawStatus !== 'string')
+        return 'UNKNOWN';
+    const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+        ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
+        : rawStatus;
+    return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
+}
+function toAssertionOutcome(rawAssertionResult) {
+    return {
+        assertionName: rawAssertionResult?.assertionName ?? '(unnamed)',
+        assertionType: rawAssertionResult?.assertionType ?? 'unknown',
+        status: toAssertionStatus(rawAssertionResult?.status),
+        ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+        ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
+    };
+}
+function toResultRow(rawResult) {
+    return {
+        scenarioId: rawResult?.scenarioId ?? '',
+        scenarioName: rawResult?.scenarioName ?? '',
+        passed: rawResult?.passed ?? 0,
+        failed: rawResult?.failed ?? 0,
+        partial: rawResult?.partial ?? false,
+        iterationIndex: rawResult?.iterationIndex ?? 0,
+        assertions: toRowArray(rawResult?.assertionResults).map(toAssertionOutcome),
+    };
+}
 // V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
 // works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
 function normalizeStatus(s) {
@@ -34856,6 +34936,9 @@ class EvalForgeClient {
                 filter: input.filter,
                 capabilityIds: input.capabilityIds,
                 capabilityVersions: input.capabilityVersions,
+                comparisonGroupId: input.comparisonGroupId,
+                comparisonLabel: input.comparisonLabel,
+                runsPerScenario: input.runsPerScenario,
             },
         });
         return { id: res.evalRun.id, status: normalizeStatus(res.evalRun.status) };
@@ -34882,6 +34965,7 @@ class EvalForgeClient {
                 avgDuration: m.avgDuration ?? 0,
                 totalDuration: m.totalDuration ?? 0,
             },
+            results: toRowArray(r.results).map(toResultRow),
         };
     }
     async deleteCapabilityVersion(capabilityId, projectId, versionId) {
@@ -34928,6 +35012,84 @@ function evaluateRunResult(status) {
 
 /***/ }),
 
+/***/ 1372:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.foldScenarioIterations = foldScenarioIterations;
+const NOT_PASSED = new Set(['FAILED', 'ERROR']);
+/**
+ * `assertionName` is not a unique key: a real run can carry two distinct assertions sharing one
+ * name (e.g. two `skill_was_called` checks against different reference files, distinguished only
+ * by `assertionId`). Deduping the failing set on identity — `assertionId` where the wire sent one,
+ * the name otherwise — keeps two such failures from collapsing into a single, silently-dropped
+ * entry. Ambiguity is checked against every assertion in the scenario, not just the failing ones:
+ * a name shared with a *passing* sibling is exactly as unidentifiable to the reader as one shared
+ * with another failure, so both get the identity suffix that lets the reader tell which is which.
+ */
+function dedupeFailingAssertionNames(iterations) {
+    const identitiesByName = new Map();
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            const identities = identitiesByName.get(assertion.assertionName) ?? new Set();
+            identities.add(assertion.assertionId ?? assertion.assertionName);
+            identitiesByName.set(assertion.assertionName, identities);
+        }
+    }
+    const firstSeenByIdentity = new Map(); // identity → assertionName
+    for (const iteration of iterations) {
+        for (const assertion of iteration.assertions) {
+            if (!NOT_PASSED.has(assertion.status))
+                continue;
+            const identity = assertion.assertionId ?? assertion.assertionName;
+            if (!firstSeenByIdentity.has(identity))
+                firstSeenByIdentity.set(identity, assertion.assertionName);
+        }
+    }
+    return [...firstSeenByIdentity.entries()].map(([identity, name]) => {
+        const ambiguous = (identitiesByName.get(name)?.size ?? 1) > 1;
+        return ambiguous ? `${name} [${identity}]` : name;
+    });
+}
+/**
+ * One outcome per scenario, from that scenario's iterations. `partial` rows are reconstructed
+ * at cancel and never scored, so they are dropped before scoring — a scenario with nothing left
+ * is omitted, which the classifier reads as unattributed rather than as a failure. A row with an
+ * empty `scenarioId` is unidentifiable rather than unscored, but the same reasoning applies: it is
+ * dropped rather than folded into a synthetic `''`-keyed outcome that would blame a scenario that
+ * does not exist.
+ */
+function foldScenarioIterations(rows) {
+    const byScenario = new Map();
+    for (const scoredRow of rows.filter(candidate => !candidate.partial && candidate.scenarioId !== '')) {
+        const existing = byScenario.get(scoredRow.scenarioId);
+        if (existing === undefined)
+            byScenario.set(scoredRow.scenarioId, [scoredRow]);
+        else
+            existing.push(scoredRow);
+    }
+    const outcomes = [];
+    for (const [scenarioId, iterations] of byScenario) {
+        const failingNames = dedupeFailingAssertionNames(iterations);
+        const errors = iterations.reduce((total, iteration) => total + iteration.assertions.filter(assertion => assertion.status === 'ERROR').length, 0);
+        const sumOf = (field) => iterations.reduce((total, iteration) => total + iteration[field], 0);
+        outcomes.push({
+            scenarioId,
+            scenarioName: iterations[0].scenarioName,
+            totalAssertions: sumOf('passed') + sumOf('failed'),
+            failed: sumOf('failed'),
+            errors,
+            ...(failingNames.length === 0 ? {} : { failingAssertionNames: failingNames }),
+        });
+    }
+    return outcomes;
+}
+
+
+/***/ }),
+
 /***/ 5970:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -34965,9 +35127,24 @@ function runLine(runId, runUrl) {
     return `**Run:** [${runId}](${runUrl})`;
 }
 /**
+ * Only rendered above the default of 1: at 1, "ran once per arm" is the assumption a reader
+ * already makes, and saying so on every comment would be noise. Above 1, it is exactly the
+ * context that makes `newly-broken` interpretable — a reader cannot otherwise tell whether they
+ * are looking at one execution or five, or that a single flaky iteration is enough to block.
+ */
+function runsPerScenarioNote(runsPerScenario) {
+    if (runsPerScenario === undefined || runsPerScenario <= 1)
+        return [];
+    return [
+        '',
+        `**Runs per scenario:** ${runsPerScenario} — each scenario ran ${runsPerScenario} times per arm, `
+            + 'and any failing iteration counts as a failure.',
+    ];
+}
+/**
  * The three outcomes where nothing was verified and retrying is the answer. These are live-system
- * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
- * without asking for a commit the PR does not need.
+ * flakes rather than PR problems, so `/re-eval` is listed first: it re-runs the gate without
+ * asking for a commit the PR does not need.
  */
 function retryNote() {
     return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
@@ -35065,6 +35242,91 @@ function formatForeignDraftConflicts(errors, blocking) {
         ...soakNote(blocking),
     ]);
 }
+/**
+ * Two `Record<ImpactClass, string>` maps rather than a switch: a new `ImpactClass` then fails to
+ * compile here until it is given both an icon and a meaning, instead of silently rendering nothing.
+ */
+const IMPACT_ICON = {
+    fixed: '✅',
+    'newly-broken': '❌',
+    'still-passing': '➖',
+    'still-failing': '⚠️',
+    unattributed: '❔',
+};
+const IMPACT_MEANING = {
+    fixed: 'Failed against `main`, passes on this PR — this change fixed it.',
+    'newly-broken': 'Passed against `main`, fails on this PR — caused by this change.',
+    'still-passing': 'Passed on both `main` and this PR — unaffected by this change.',
+    'still-failing': 'Fails on both `main` and this PR — pre-existing, not caused by this change.',
+    unattributed: 'No comparable result from `main` to classify against.',
+};
+/** Assertion names come from the API and scenario names from repo YAML — neither is safe to render into a table cell unescaped. */
+function escapeTableCell(text) {
+    return text.replace(/\|/g, '\\|');
+}
+function failingAssertionsNote(failingAssertionNames) {
+    if (failingAssertionNames === undefined || failingAssertionNames.length === 0)
+        return '';
+    return ` Failing: ${failingAssertionNames.map(name => `\`${escapeTableCell(name)}\``).join(', ')}.`;
+}
+/**
+ * Whether every scenario in an unavailable-attribution result came back with no `prPassed` at
+ * all — i.e. the PR arm itself scored nothing, rather than the base arm being the gap. Built from
+ * `ChangeImpact.scenarios`, which is already on hand at the call site, so this needs no new field.
+ */
+function prArmMeasuredNothing(scenarios) {
+    return scenarios.every(scenario => scenario.prPassed === undefined);
+}
+/**
+ * The section that reports the fixed/newly-broken/still-failing delta against `main`. Absent
+ * `impact` means an old caller that has no comparison to offer — the section is skipped so its
+ * output stays byte-identical to before this field existed. Once a caller does pass `impact`, a
+ * failed base arm (`attributionAvailable: false`) still gets an explicit "unavailable" line rather
+ * than silence, so it reads as "no comparison was attempted" rather than "nothing happened".
+ */
+function impactSection(impact) {
+    if (impact === undefined)
+        return [];
+    if (!impact.attributionAvailable) {
+        // Whichever side produced nothing is named directly rather than defaulting to "the base run":
+        // `attributionAvailable` is also false when the PR arm itself scored nothing, and blaming the
+        // base run on a blocking comment sends the contributor to investigate the wrong side.
+        const reason = prArmMeasuredNothing(impact.scenarios)
+            ? 'this run produced no comparable results'
+            : 'the base run produced no comparable results';
+        return [
+            '',
+            `**Impact vs \`main\`:** unavailable — ${reason}, so scenarios could not be classified as fixed, newly broken, or pre-existing.`,
+        ];
+    }
+    const summary = `**Impact vs \`main\`:** ${count(impact.fixed, 'scenario')} fixed, `
+        + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillPassing, 'scenario')} still passing, `
+        + `${count(impact.stillFailing, 'scenario')} still failing, ${count(impact.unattributed, 'scenario')} unattributed`
+        + ` — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
+    const allStillPassing = impact.scenarios.length > 0 && impact.stillPassing === impact.scenarios.length;
+    if (allStillPassing) {
+        return [
+            '',
+            summary,
+            '',
+            'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
+                + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
+                + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
+        ];
+    }
+    return [
+        '',
+        summary,
+        '',
+        '| Scenario | Impact | Meaning |',
+        '|---|---|---|',
+        ...impact.scenarios.map(scenario => {
+            const icon = IMPACT_ICON[scenario.impact];
+            const meaning = IMPACT_MEANING[scenario.impact];
+            return `| ${icon} \`${escapeTableCell(scenario.scenarioName)}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
+        }),
+    ];
+}
 function formatGateResult(input) {
     const { metrics, verdict, selection } = input;
     const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
@@ -35073,6 +35335,7 @@ function formatGateResult(input) {
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
         runLine(input.runId, input.runUrl),
+        ...runsPerScenarioNote(input.runsPerScenario),
     ];
     if (!verdict.passed) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
@@ -35086,7 +35349,7 @@ function formatGateResult(input) {
     if (selection.missingIds.length > 0) {
         body.push('', '**Not run — no EvalForge scenario found for these names.** They are in the repo YAML but not in EvalForge, which points at a sync gap:', ...selection.missingIds.map(name => `- \`${name}\``));
     }
-    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped), ...impactSection(input.impact));
     if (!verdict.passed)
         body.push(...soakNote(input.blocking));
     return render(icon, label, body);
@@ -35265,6 +35528,7 @@ __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
 __exportStar(__nccwpck_require__(1985), exports);
+__exportStar(__nccwpck_require__(1372), exports);
 
 
 /***/ }),
@@ -35963,13 +36227,17 @@ function describeIssues(error) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_MAX_SCENARIOS = void 0;
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = exports.DEFAULT_RUNS_PER_SCENARIO = exports.DEFAULT_MAX_SCENARIOS = void 0;
 exports.selectScenarios = selectScenarios;
 /**
  * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
  * money and wall-clock, not test runtime. Single home for the default — see DEFAULT_REFERENCE_DIR.
  */
 exports.DEFAULT_MAX_SCENARIOS = 25;
+/** Default number of times each scenario runs in each arm. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_RUNS_PER_SCENARIO = 1;
+/** Default base-arm grace period, in seconds. Single home for the default — see DEFAULT_MAX_SCENARIOS. */
+exports.DEFAULT_BASE_ARM_GRACE_SECONDS = 60;
 /**
  * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
  * results and the tag query, so a slow tag index cannot silently shrink the run.

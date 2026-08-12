@@ -1,15 +1,40 @@
+import { randomUUID } from 'node:crypto';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
-  DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
-  ensureHttps, safeGetSecret, getPrNumber,
+  DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
+  DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
 export const BASE_WORKSPACE_SUBDIR = '.action-src';
 
-/** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
+/**
+ * Per-input ceiling for `max-scenarios`. On its own this does not bound total cost: each scenario
+ * execution is multiplied by `runs-per-scenario` and by the unconditional second (base) arm — see
+ * `MAX_TOTAL_SCENARIO_EXECUTIONS` for the ceiling on that product.
+ */
 export const MAX_SCENARIOS_CEILING = 100;
+
+/** EvalForge's documented maximum for runsPerScenario. */
+export const MAX_RUNS_PER_SCENARIO = 20;
+
+/**
+ * A misconfigured repo variable should not hold the job open indefinitely waiting on base-arm
+ * attribution. Lowered from 900 to 300: a live run measured the base arm landing 124s after the PR
+ * arm, so 300s covers the observed lag with headroom while leaving the job's `timeout-minutes: 60`
+ * margin intact (see `PR_ARM_POLL_TIMEOUT_MS` + this ceiling vs. the workflow timeout).
+ */
+export const MAX_BASE_ARM_GRACE_SECONDS = 300;
+
+/**
+ * Ceiling on `maxScenarios × runsPerScenario × 2` (the two comparison arms) — the actual number of
+ * live agent builds a gated PR can trigger. `MAX_SCENARIOS_CEILING` and `MAX_RUNS_PER_SCENARIO`
+ * each bound their own input, but neither bounds their product: at both ceilings that product is
+ * 100 × 20 × 2 = 4000. 1000 stays comfortably above the current defaults (25 × 1 × 2 = 50, 20x
+ * headroom) while still cutting the unclamped worst case by 4x.
+ */
+export const MAX_TOTAL_SCENARIO_EXECUTIONS = 1000;
 
 export type SyncConfig = {
   evalforgeUrl: string;
@@ -60,6 +85,13 @@ export type GateConfig = {
   /** The commit actually uploaded and evaluated. */
   evaluatedSha: string;
   versionLabel: string;
+  /** The base arm pins no version, so this is the only record of what it actually compared
+   * against; surfaced in the startup log and the base arm's own run description. */
+  baseSha: string;
+  comparisonGroupId: string;
+  runsPerScenario: number;
+  /** Milliseconds, converted once here from the `base-arm-grace-seconds` input — see `getBaseArmGraceSeconds`. */
+  baseArmGraceMs: number;
 };
 
 /** No `githubToken`, `owner` or `repo`: cleanup makes no GitHub API call — `getPrNumber` reads the event payload. */
@@ -90,6 +122,26 @@ function getPositiveIntegerInput(name: string, fallback: number): number {
 }
 
 /**
+ * Never throws, unlike `getPositiveIntegerInput`: `getGateConfig` runs before `isBlocking` is
+ * known, so a throw here would fail the check even during the soak period. A blank input falls
+ * back silently (the normal unset case); anything else that fails to parse as an integer `>=
+ * floor` — a typo'd repo variable, most likely — falls back with a `core.warning` instead of
+ * failing the run outright. Exceeding `ceiling` clamps the same way `getMaxScenarios` does.
+ */
+function getClampedIntegerInput(name: string, fallback: number, ceiling: number, floor = 1): number {
+  const raw = core.getInput(name);
+  if (raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < floor) {
+    core.warning(`${name}: "${raw}" is not an integer >= ${floor}, using the default of ${fallback}.`);
+    return fallback;
+  }
+  if (value <= ceiling) return value;
+  core.warning(`${name}: ${value} exceeds the ceiling of ${ceiling}, using ${ceiling}.`);
+  return ceiling;
+}
+
+/**
  * Clamps rather than throws. `getGateConfig` runs before `isBlocking` is known, so a throw here
  * would fail the check even during the soak period, when the gate promises it cannot — the same
  * bug the author gate had. A clamp keeps the cost bounded and stays visible: `selectScenarios`
@@ -115,6 +167,43 @@ function getHeadSha(): string {
   const head = github.context.payload.pull_request?.head as { sha?: string } | undefined;
   if (!head?.sha) throw new Error('PR payload missing head.sha');
   return head.sha;
+}
+
+function getBaseSha(): string {
+  const base = github.context.payload.pull_request?.base as { sha?: string } | undefined;
+  if (!base?.sha) throw new Error('PR payload missing base.sha');
+  return base.sha;
+}
+
+function getRunsPerScenario(): number {
+  return getClampedIntegerInput('runs-per-scenario', DEFAULT_RUNS_PER_SCENARIO, MAX_RUNS_PER_SCENARIO);
+}
+
+/**
+ * Bounds `maxScenarios × runsPerScenario × 2` (see `MAX_TOTAL_SCENARIO_EXECUTIONS`) by clamping
+ * `runsPerScenario` down — `maxScenarios` stays as configured, since it is what the author actually
+ * asked to run; `runsPerScenario` is the flakiness-detection multiplier and the one meant to give
+ * ground first.
+ */
+function clampTotalScenarioExecutions(maxScenarios: number, runsPerScenario: number): number {
+  const executions = maxScenarios * runsPerScenario * 2;
+  if (executions <= MAX_TOTAL_SCENARIO_EXECUTIONS) return runsPerScenario;
+  const clamped = Math.max(1, Math.floor(MAX_TOTAL_SCENARIO_EXECUTIONS / (maxScenarios * 2)));
+  core.warning(
+    `runs-per-scenario: ${maxScenarios} scenarios × ${runsPerScenario} runs × 2 arms = ${executions} `
+    + `executions exceeds the ceiling of ${MAX_TOTAL_SCENARIO_EXECUTIONS}, clamping runs-per-scenario `
+    + `to ${clamped}.`,
+  );
+  return clamped;
+}
+
+/** `0` is a legitimate value here, not an error: it means "don't wait for the base arm at all" —
+ * collect whatever has already resolved and move straight to the verdict comment. That is why the
+ * floor is 0, unlike every other clamped input. */
+function getBaseArmGraceSeconds(): number {
+  return getClampedIntegerInput(
+    'base-arm-grace-seconds', DEFAULT_BASE_ARM_GRACE_SECONDS, MAX_BASE_ARM_GRACE_SECONDS, 0,
+  );
 }
 
 /**
@@ -153,7 +242,10 @@ export function getGateConfig(): GateConfig {
   const repo = github.context.repo.repo;
   const prNumber = getPrNumber(github.context.payload);
   const headSha = getHeadSha();
+  const baseSha = getBaseSha();
   const evaluatedSha = getEvaluatedSha();
+  const maxScenarios = getMaxScenarios();
+  const runsPerScenario = clampTotalScenarioExecutions(maxScenarios, getRunsPerScenario());
 
   return {
     githubToken: safeGetSecret(core, 'github-token'),
@@ -168,7 +260,7 @@ export function getGateConfig(): GateConfig {
     referenceDir: core.getInput('reference-dir') || DEFAULT_REFERENCE_DIR,
     ignoreGlobs: getMultilineList('ignore-globs', DEFAULT_IGNORE_GLOBS),
     broadImpactGlobs: getMultilineList('broad-impact-globs', DEFAULT_BROAD_IMPACT_GLOBS),
-    maxScenarios: getMaxScenarios(),
+    maxScenarios,
     isBlocking: core.getInput('blocking') === 'true',
     owner,
     repo,
@@ -177,6 +269,12 @@ export function getGateConfig(): GateConfig {
     headSha,
     evaluatedSha,
     versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    baseSha,
+    /** Fresh per gate execution: EvalForge's comparison-group read returns the group whole with no
+     * paging, so a stable id would accumulate runs across re-runs of the same PR. */
+    comparisonGroupId: randomUUID(),
+    runsPerScenario,
+    baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
   };
 }
 

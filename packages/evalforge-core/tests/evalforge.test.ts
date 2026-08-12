@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { EvalForgeClient, CODE_TAG, repoTagFor, managedTagsFor, withManagedTags } from '../src/evalforge';
+
+// Captured verbatim (then trimmed of unused bulky fields — conversation/llmTrace/files/
+// templateFiles/fileDiffs) from a real EvalForge run against the live API. This is what
+// caught the ASSERTION_RESULT_STATUS_ prefix bug: every invented fixture in this file uses
+// bare statuses ('PASSED'), which the real API never sends.
+const LIVE_PR_ARM_BODY = JSON.parse(
+  readFileSync(join(__dirname, 'fixtures/live-eval-run-pr-arm.json'), 'utf8'),
+);
+const LIVE_BASE_ARM_BODY = JSON.parse(
+  readFileSync(join(__dirname, 'fixtures/live-eval-run-base-arm.json'), 'utf8'),
+);
 
 const CLIENT_ID = 'cid';
 const CLIENT_SECRET = 'csec';
@@ -254,6 +267,35 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
   });
 
+  it('carries the comparison group, label and runsPerScenario on the run', async () => {
+    mockFetch(({ body }) => {
+      expect((body as { evalRun?: unknown }).evalRun).toMatchObject({
+        comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'pr', runsPerScenario: 3,
+      });
+      return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createAndRunEvalRun('P', {
+      name: 'n', description: 'd', projectId: 'P', agentId: 'agent-1',
+      scenarioIds: ['sc-1'], capabilityIds: ['cap-1'],
+      capabilityVersions: { 'cap-1': 'ver-pr' },
+      comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'pr', runsPerScenario: 3,
+    });
+  });
+
+  it('omits capabilityVersions entirely when no version is pinned', async () => {
+    mockFetch(({ body }) => {
+      expect('capabilityVersions' in (body as { evalRun: object }).evalRun).toBe(false);
+      return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createAndRunEvalRun('P', {
+      name: 'n', description: 'd', projectId: 'P', agentId: 'agent-1',
+      scenarioIds: ['sc-1'], capabilityIds: ['cap-1'],
+      comparisonGroupId: 'pr-42-abc1234', comparisonLabel: 'base',
+    });
+  });
+
   it('triggerEvalRun is a no-op returning the run id (no network call)', async () => {
     mockFetch(() => ({ status: 500 })); // would fail if called
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
@@ -274,6 +316,246 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     expect(r.status).toBe('completed');
     expect(r.aggregateMetrics.passRate).toBe(75);
     expect(r.aggregateMetrics.passed).toBe(3);
+  });
+});
+
+describe('getEvalRun — per-scenario results', () => {
+  const resultsBody = {
+    evalRun: {
+      id: 'run-1',
+      status: 'COMPLETED',
+      aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1 },
+      results: [
+        {
+          scenarioId: 'sc-1', scenarioName: 'creates a page', passed: 2, failed: 0,
+          iterationIndex: 0,
+          assertionResults: [
+            { assertionName: 'skill called', assertionType: 'skill_was_called', status: 'PASSED' },
+            { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+          ],
+        },
+        {
+          scenarioId: 'sc-2', scenarioName: 'skips the plugin', passed: 1, failed: 1,
+          iterationIndex: 0,
+          assertionResults: [
+            { assertionName: 'build', assertionType: 'build_passed', status: 'FAILED', message: 'tsc failed' },
+            { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+          ],
+        },
+        {
+          scenarioId: 'sc-3', scenarioName: 'cancelled midway', passed: 0, failed: 0,
+          iterationIndex: 0, partial: true, assertionResults: [],
+        },
+      ],
+    },
+  };
+
+  it('surfaces one row per scenario result', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results.map(row => row.scenarioId)).toEqual(['sc-1', 'sc-2', 'sc-3']);
+  });
+
+  it('carries assertion names and statuses', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[1].assertions).toEqual([
+      { assertionName: 'build', assertionType: 'build_passed', status: 'FAILED', message: 'tsc failed' },
+      { assertionName: 'judge', assertionType: 'llm_judge', status: 'PASSED' },
+    ]);
+  });
+
+  // Finding 5: `assertionId` is the only field that disambiguates two assertions sharing a name
+  // (see the live fixture used in `fold-scenario-iterations.test.ts`), so it must survive the
+  // wire mapping rather than being dropped like the trimmed fields never were.
+  it('carries assertionId through when the wire row sends one', async () => {
+    const withAssertionId = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{
+            assertionName: 'Skill was called', assertionType: 'skill_was_called', status: 'PASSED',
+            assertionId: 'aid-123',
+          }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withAssertionId }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].assertionId).toBe('aid-123');
+  });
+
+  it('omits assertionId rather than a synthetic default when the wire row does not send one', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect('assertionId' in status.results[0].assertions[0]).toBe(false);
+  });
+
+  it('marks a partial row, and defaults partial to false when absent', async () => {
+    mockFetch(() => ({ status: 200, body: resultsBody }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[2].partial).toBe(true);
+    expect(status.results[0].partial).toBe(false);
+  });
+
+  it('defaults iterationIndex to 0 when absent, and assertions to [] when assertionResults is absent', async () => {
+    const withoutIndex = { evalRun: { ...resultsBody.evalRun, results: [{ scenarioId: 'sc-1', scenarioName: 'x' }] } };
+    mockFetch(() => ({ status: 200, body: withoutIndex }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].iterationIndex).toBe(0);
+    expect(status.results[0].assertions).toEqual([]);
+  });
+
+  it('tolerates a response with no results array at all', async () => {
+    const withoutResults = { evalRun: { id: 'run-1', status: 'RUNNING' } };
+    mockFetch(() => ({ status: 200, body: withoutResults }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([]);
+    expect(status.aggregateMetrics.totalAssertions).toBe(0);
+  });
+
+  it('tolerates a null entry inside results, yielding a safe empty row', async () => {
+    const withNullEntry = { evalRun: { ...resultsBody.evalRun, results: [null] } };
+    mockFetch(() => ({ status: 200, body: withNullEntry }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([
+      { scenarioId: '', scenarioName: '', passed: 0, failed: 0, partial: false, iterationIndex: 0, assertions: [] },
+    ]);
+  });
+
+  // Finding 4: a null entry has no `status` at all — the same "absent" case a real proto3 payload
+  // reaches whenever the wire omits a zero-valued enum field. That must not read as `ERROR` (a
+  // genuine wire status this action did not see), so it maps to `UNKNOWN` instead.
+  it('tolerates a null entry inside assertionResults, yielding a safe empty assertion outcome', async () => {
+    const withNullAssertion = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{ scenarioId: 'sc-1', scenarioName: 'x', assertionResults: [null] }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNullAssertion }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions).toEqual([
+      { assertionName: '(unnamed)', assertionType: 'unknown', status: 'UNKNOWN' },
+    ]);
+  });
+
+  it('tolerates assertionResults arriving as a non-array', async () => {
+    const withNonArrayAssertions = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{ scenarioId: 'sc-1', scenarioName: 'x', assertionResults: {} }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNonArrayAssertions }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions).toEqual([]);
+  });
+
+  it('tolerates results arriving as a non-array', async () => {
+    const withNonArrayResults = { evalRun: { id: 'run-1', status: 'RUNNING', results: {} } };
+    mockFetch(() => ({ status: 200, body: withNonArrayResults }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results).toEqual([]);
+  });
+
+  it('maps the real API\'s ASSERTION_RESULT_STATUS_-prefixed statuses to PASSED/FAILED, not ERROR', async () => {
+    mockFetch(() => ({ status: 200, body: LIVE_PR_ARM_BODY }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    const statuses = status.results[0].assertions.map(assertion => assertion.status);
+    expect(statuses).toEqual(['FAILED', 'PASSED', 'PASSED', 'FAILED', 'PASSED', 'FAILED', 'FAILED']);
+    expect(statuses).not.toContain('ERROR');
+  });
+
+  // Finding 4: an unrecognised status — whether a typo or a genuinely new future enum member —
+  // is not evidence the assertion errored. Folding it into `ERROR` would manufacture a failure
+  // (`foldScenarioIterations` counts every `ERROR` toward `errors`) for a value this action simply
+  // does not know how to read, so it maps to `UNKNOWN` instead.
+  it('maps an unrecognised assertion status to UNKNOWN, not ERROR', async () => {
+    const withUnknownStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't', status: 'BOGUS' }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withUnknownStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  it('maps ASSERTION_RESULT_STATUS_UNSPECIFIED to UNKNOWN, not ERROR', async () => {
+    const withUnspecified = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{
+            assertionName: 'a', assertionType: 't', status: 'ASSERTION_RESULT_STATUS_UNSPECIFIED',
+          }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withUnspecified }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  it('maps a wholly absent status to UNKNOWN — the proto3 zero-value-omitted case', async () => {
+    const withAbsentStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't' }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withAbsentStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
+  });
+
+  // Finding 3: `status` is untrusted wire data, not necessarily a string — a proto enum can arrive
+  // as a number, or (in a malformed response) as anything else. Calling `.startsWith` on it without
+  // a `typeof` guard threw, which previously surfaced as a poll failure for a run that had actually
+  // completed.
+  it.each([
+    ['a numeric proto enum', 1],
+    ['an object', { code: 1 }],
+    ['an array', [1]],
+  ])('does not throw when status arrives as %s, mapping it to UNKNOWN', async (_label, wireStatus) => {
+    const withNonStringStatus = {
+      evalRun: {
+        ...resultsBody.evalRun,
+        results: [{
+          scenarioId: 'sc-1', scenarioName: 'x',
+          assertionResults: [{ assertionName: 'a', assertionType: 't', status: wireStatus }],
+        }],
+      },
+    };
+    mockFetch(() => ({ status: 200, body: withNonStringStatus }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const status = await c.getEvalRun('proj-1', 'run-1');
+    expect(status.results[0].assertions[0].status).toBe('UNKNOWN');
   });
 });
 

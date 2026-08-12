@@ -14,6 +14,7 @@ const runStatus = (
       errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
       ...metrics,
     },
+    results: [],
   };
 };
 
