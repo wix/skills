@@ -220,7 +220,7 @@ describe('comment formatters', () => {
     });
 
     expect(out).toContain('## ⚠️ EvalForge YAML Gate: Eval Comparison');
-    expect(out).toContain('| bookings/diagnose-availability-issues | — | - |');
+    expect(out).toContain('| bookings/diagnose-availability-issues | ❌ | - |');
     expect(out).toContain('**No winner:** both runs failed the LLM judge.');
     expect(out).not.toContain('⬆️ with (high)');
   });
