@@ -110,6 +110,14 @@ only (`format`, `enum`, `minimum`, `minLength`, `items`). The lone exception is 
 field, whose per-subfield flags genuinely live at
 `addressOptions.validation.fields.<sub>.required`.
 
+**⚠️ Any example value you author into the schema follows the site's country, not your default.** A
+`placeholder` (or label/hint) carrying a phone number, postcode, currency or date is **visible to
+every visitor**, so a `+44`- or US-shaped example on a site in another market is a locale bug. Resolve
+the site's country and, for an illustrative phone number, take it from that country's
+regulator-reserved fictional range — the resolution order and the vetted per-country map live in
+`how-to-code-forms.md` ("Validation"). Leaving a constrained field's `placeholder` empty is fine: the
+frontend synthesizes the example from the field's `format` at render time.
+
 **⚠️ A `200` proves nothing: always run STEP 3.** Most mistakes here are accepted at create and only
 surface in the dashboard or on the first real submission.
 

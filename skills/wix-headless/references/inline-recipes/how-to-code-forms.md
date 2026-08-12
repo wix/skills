@@ -352,13 +352,26 @@ inline feedback before a round-trip — and **derive every check from the schema
 name.** ⚠️ The common mistake (seen in practice) is keying the email check on `target === "email"`;
 do it off `format` so an owner-added PHONE/URL/length rule is honored with no code change:
 
+**⚠️ No user-visible example value may be hardcoded to one locale.** Phone, postcode/ZIP, currency,
+date or address examples in placeholders, hint text and error copy all derive from the **site's
+country** — a `+44`- or US-only example shipped to every site is a locale bug, not a default. And an
+illustrative *phone* number must come from that country's **regulator-reserved fictional range**,
+never a plausible-looking one: a real number risks reaching a real person.
+
+**Resolve `SITE_COUNTRY` once** (ISO-3166 alpha-2), in this order, and reuse it:
+
+1. the site context you already hold, if the run fetched one — `sites[].properties.locale.country`;
+2. else the Site Properties API — `GET https://www.wixapis.com/site-properties/v4/properties` →
+   `properties.locale.country` (SDK: `@wix/business-tools` `siteProperties.getSiteProperties()`);
+3. else infer from the brief (a stated location, an address, a phone dialling code);
+4. else **default `US`**.
+
 ```js
-// Phone example shown to visitors (placeholder + error copy), derived from the site's country —
-// NEVER hardcoded to one locale. `SITE_COUNTRY` is the resolved country from Discovery scratch
-// (ISO-3166 alpha-2, default 'US'; DISCOVERY.md §5). Every value is a regulator-RESERVED fictional
-// number for that country, so no real subscriber is ever printed — and being display-only it needn't
-// pass Wix's E.164 check (submitting one would 400; see the sidebar). Add a market only after
-// verifying its reserved range in the national numbering plan — never invent a number.
+// Phone example shown to visitors (placeholder + error copy), derived from SITE_COUNTRY — NEVER
+// hardcoded to one locale. Every value is a regulator-RESERVED fictional number for that country, so
+// no real subscriber is ever printed — and being display-only it needn't pass Wix's E.164 check
+// (submitting one would 400; see the sidebar). Add a market only after verifying its reserved range
+// in the national numbering plan — never invent a number.
 const PHONE_EXAMPLE = {
   US: '+1 201 555 0123', CA: '+1 416 555 0123', // NANP 555-0100–0199 reserved for fiction
   GB: '+44 7700 900123',                         // Ofcom drama range 07700 900xxx
@@ -371,7 +384,7 @@ const PHONE_EXAMPLE = {
 };
 // A PHONE field may narrow or preselect its country (`allowedCountryCodes` / `defaultCountryCode`,
 // both projected above). Prefer the FIELD's country over the site's, so the example shown is one the
-// field would actually accept; fall back to the site's, then to US (the Discovery default).
+// field would actually accept; fall back to the site's, then to US (the default above).
 const phoneCountry = (field) =>
   field.defaultCountryCode ?? field.allowedCountryCodes?.[0] ?? SITE_COUNTRY;
 const phoneExample = (field) => PHONE_EXAMPLE[phoneCountry(field)] ?? PHONE_EXAMPLE.US;

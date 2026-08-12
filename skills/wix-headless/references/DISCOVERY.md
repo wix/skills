@@ -10,8 +10,7 @@ Discovery is pure inference — it needs **no authentication** and is **agnostic
 > run points at a site that already exists (connect/iterate, a funnel-created site) and an
 > elevated credential is already available, one documented call returns the site's context —
 > installed apps by name (including the Stores catalog version), status, URL,
-> locale/currency/timezone (the site `country` is at `sites[].properties.locale.country`, ISO-3166
-> alpha-2), and CMS collections — as an agent-ready markdown report:
+> locale/currency/timezone, and CMS collections — as an agent-ready markdown report:
 >
 > ```bash
 > curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
@@ -76,6 +75,4 @@ When `imagery` is on, `SEED.md` attaches images to seeded entities and `IMAGE_GE
 
 ## 5 · Hold the contract, proceed
 
-**Resolve the site `country`** (ISO-3166 alpha-2) — it drives locale-correct seeded content and the frontend's example values (phone, address, currency). Take it from the Dynamic Context call in §1 (`sites[].properties.locale.country`) when a credential is already at hand; else the Site Properties API (`GET /site-properties/v4/properties` → `properties.locale.country`, or `@wix/business-tools` `siteProperties.getSiteProperties()`); else infer from the brand/intent text (a stated location, an address, a phone code). **Default `US`** when nothing resolves.
-
-Hold in scratch: `verticals[]`, `brand`, `country`, `intent.<cap>` per capability, and `imagery`. The metasite id (`SITE_ID`) and the token are obtained at Setup via the provided authentication mechanism. Then **continue to `SETUP.md`** and install the apps — this is the start of the actual work, not a separate decision. A brief plain-prose line stating what will be set up is fine.
+Hold in scratch: `verticals[]`, `brand`, `intent.<cap>` per capability, and `imagery`. The metasite id (`SITE_ID`) and the token are obtained at Setup via the provided authentication mechanism. Then **continue to `SETUP.md`** and install the apps — this is the start of the actual work, not a separate decision. A brief plain-prose line stating what will be set up is fine.
