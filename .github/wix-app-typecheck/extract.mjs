@@ -72,9 +72,6 @@ const BASE_COMPILER_OPTIONS = {
   noEmit: true,
 };
 
-// `node_modules/.bin/tsc`, not `npx tsc`: typescript is a declared dependency, so npx
-// resolves it locally anyway — but if the install were ever incomplete, npx would
-// silently fetch tsc from the registry, dodging the cooldown gate in .yarnrc.yml.
 function runTsc(args = '') {
   try {
     execSync(`node_modules/.bin/tsc --noEmit ${args}`, { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'] });
