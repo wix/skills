@@ -33,13 +33,14 @@ assertions:
       - resolves the target location ("Israel") to a geoTargetConstant via
         GET /v1/geo-options rather than guessing/hardcoding a geo id, and notes
         that a country-level lookup can fail (fall back to a specific city), AND
-      - gets a budget via POST /v1/budget-recommendation (not the Smart
-        budget-suggestions endpoint), AND
+      - gets a budget via POST /v1/budget-recommendation (the PMAX budget
+        endpoint, not budget-suggestions), AND
       - does NOT set the bidding strategy manually (it is server-enforced).
 
       Fail if the response:
       - hand-sets a bidding strategy, OR
-      - uses Smart-campaign fields (keywordThemes/smartCampaign) for PMAX, OR
+      - proposes or mentions a Smart campaign, or uses non-PMAX campaign fields
+        (keywordThemes/smartCampaign), OR
       - omits the asset-group minimums, OR
       - hardcodes/guesses a geoTargetConstant instead of resolving it via
         geo-options, OR

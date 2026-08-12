@@ -20,7 +20,7 @@ Both come from Get/List Campaign (see [Manage Campaign Lifecycle](manage-campaig
 | --- | --- | --- | --- |
 | Daily impressions/clicks/CTR/cost/leads | `POST /v1/performance-metrics` | all | `campaignResourceName` |
 | Orders / revenue / ROAS (from Wix) | `POST /v1/conversion-metrics` | all | `campaignId` |
-| Which search queries triggered ads | `POST /v2/search-term-metrics` | Smart + PMAX Leads | `campaignId` |
+| Which search queries triggered ads | `POST /v2/search-term-metrics` | PMAX Leads | `campaignId` |
 | Per-product performance | `POST /v1/shopping-performance-metrics` | Shopping / retail PMAX | `campaignId` |
 | Per-asset (headline/description/image) | `POST /v1/asset-performance-metrics` | PMAX Leads only | `campaignId` |
 
@@ -71,7 +71,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/conversion-metrics' \
 
 ## Search terms that triggered ads
 
-The actual queries users typed. Use **V2** (`/v2/search-term-metrics`, keyed by `campaignId`) — it supports both Smart and PMAX Leads. Optional `searchTermText` (contains-match) and `searchTermTextsFilter` (`{ type: "MATCH" | "NOT_MATCH", searchTermTexts: [...] }`). Sortable by `COST`/`CLICKS`/`IMPRESSIONS`; paged with `nextPageToken`.
+The actual queries users typed. Use **V2** (`/v2/search-term-metrics`, keyed by `campaignId`) for PMAX Leads. Optional `searchTermText` (contains-match) and `searchTermTextsFilter` (`{ type: "MATCH" | "NOT_MATCH", searchTermTexts: [...] }`). Sortable by `COST`/`CLICKS`/`IMPRESSIONS`; paged with `nextPageToken`.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/google-ads/v2/search-term-metrics' \
@@ -92,8 +92,6 @@ curl -X POST 'https://www.wixapis.com/google-ads/v2/search-term-metrics' \
   "nextPageToken": "CAoQAA"
 }
 ```
-
-(The v1 `/v1/search-term-metrics` variant exists but takes `campaignResourceName` and is Smart-only — prefer V2.)
 
 ## Per-product shopping performance (retail / Shopping PMAX)
 

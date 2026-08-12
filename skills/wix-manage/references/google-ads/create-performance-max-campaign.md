@@ -12,6 +12,8 @@ A **Performance Max (PMAX)** campaign runs across every Google channel from a si
 
 Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. The bidding strategy is server-enforced to `MAXIMIZE_CONVERSIONS` — never set it yourself.
 
+> **Performance Max is the only supported campaign type for creation. Smart campaign creation is no longer supported** — never propose, build, or mention a Smart campaign to the user. If someone asks to "create a Google Ads campaign" or specifically asks for a Smart campaign, create a Performance Max campaign with this recipe instead; don't surface Smart as an option.
+
 > **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 6). Create in `PAUSED` first — nothing serves until Launch.
 
 **Prerequisite:** a Google Ads account (`ACCOUNT_NOT_FOUND` → run [install-and-create-account](install-and-create-account.md)). You need `account.id` as `campaign.accountId`.
@@ -117,7 +119,7 @@ Do this for **every** location the user asked for before assembling the campaign
 
 ## STEP 5: Get a budget recommendation
 
-PMAX uses **Generate Budget Recommendation** (not the Smart-campaign budget-suggestions endpoint). `campaignType`, `assetGroupInfo` (with a `finalUrl`), and `currency` are required.
+PMAX uses **Generate Budget Recommendation** (`POST /v1/budget-recommendation`). `campaignType`, `assetGroupInfo` (with a `finalUrl`), and `currency` are required.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/google-ads/v1/budget-recommendation' \
