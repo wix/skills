@@ -6,6 +6,7 @@ description: >-
 triggerPrompt: >-
   I already have mybakery.com registered somewhere else. How do I connect it to my Wix site?
 tags: [domains]
+maxTokens: 600000
 assertions:
   - tool: ReadFullDocsArticle
     params:
