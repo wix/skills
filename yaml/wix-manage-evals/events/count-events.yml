@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   How many events do I have on my site?
 tags: [events]
-maxTokens: 30000
+maxTokens: 300000
 siteSetup:
   mode: template
   # events-studio, not events-editor: the Editor events dev-site template ships

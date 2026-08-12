@@ -8,7 +8,7 @@ triggerPrompt: >-
   Create a ticketed event called Winter Fest next month with two ticket types — General Admission
   at $20 and VIP at $60.
 tags: [events]
-maxTokens: 30000
+maxTokens: 300000
 siteSetup:
   mode: template
   # events-studio, not events-editor: the Editor events dev-site template ships
