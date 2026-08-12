@@ -2148,6 +2148,22 @@ about §R4.3 applies to it unchanged — including the exact-match rule (a `filt
 scoped to one site but its `primary` and `redirects[]` still have to be compared to `{domain}`
 exactly), and the rule that nothing but the match and the site name comes out of the response.
 
+#### ⛔ One lookup, one retry — never re-authenticate
+
+`subject is missing` (HTTP 400) has been observed from the `assigned` endpoint while `unassigned`
+answered normally in the same breath. **It does not mean you got the auth wrong**, and §R4.1's
+*"remove the headers and retry"* rule does not apply to it — that one is about `403` on the **public**
+endpoints.
+
+So do not go hunting for a second auth shape. Not `scope: "account"` in place of `scope: "site"`, not a
+different `siteId`, not `ManageWixSite` after the same 400 came back from `ExecuteWixAPI`. **Two calls,
+one silent retry, and this lookup is finished** — apply the table below and carry on with whatever the
+surviving call returned.
+
+This lookup is an enrichment, not a gate: everything downstream works without it, and §A4b-C's copy
+already hedges for exactly this case. Four attempts at the same question is the observed failure mode,
+and it buys the user nothing.
+
 #### When the check cannot run
 
 | Situation | Do |
