@@ -169,6 +169,13 @@ yarn install
 sed -i '' -e 's|::__archiveUrl=[^"]*||' -e 's|%3A%3A__archiveUrl=[^#]*||' yarn.lock
 ```
 
+If it fails with `YN0082: No candidates found` on an obviously old package, that is the
+internal mirror, not your change: the abbreviated packument it serves yarn sometimes omits
+the `time` field the cooldown needs (and occasionally the version itself), so the gate
+cannot date the package and rejects it. Which package is affected moves with the mirror's
+cache. Set `npmMinimalAgeGate: 0` for the one regenerate, then restore it — and note that
+this is the only moment the gate actually applies, since CI never re-resolves.
+
 Stay on yarn 4.12.0: 4.15+ rewrites `.yarnrc.yml` and writes `npmMinimalAgeGate: 0` into
 any file that omits the key, disabling the cooldown while leaving it looking configured.
 
