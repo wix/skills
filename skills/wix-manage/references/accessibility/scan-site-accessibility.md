@@ -9,6 +9,10 @@ Use the public **Accessibility Scans API** to scan the authenticated Wix site an
 turn the results into an actionable accessibility report. The API selects the
 site from the caller's authorization context; never ask for or send a site ID.
 
+Starting a scan requires the **Manage Accessibility Scans** permission. Reading
+collections or previous results does not prove that the caller can start new
+work.
+
 ## Choose the target
 
 Match the user's words to one target:
@@ -71,6 +75,11 @@ same target again with a **new** idempotency key and compare the results.
 
 ## Recovery rules
 
+- **Permission denied when starting a scan:** stop after the first `403` or
+  `PERMISSION_DENIED`. Do not retry with another URL, request shape, target, or
+  site. Explain that the current Wix identity cannot start accessibility scans
+  and must be reconnected or authorized with **Manage Accessibility Scans**.
+  Never imply that collection discovery means the scan ran.
 - **Scan already in progress:** poll the existing scan ID returned by the error;
   do not start a duplicate.
 - **Scan state unknown:** read the returned scan ID until its state is known;
