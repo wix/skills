@@ -145,9 +145,9 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
    (missing `itemType`, or an empty/omitted `items`) still lists fine and still counts in the
    summary, so steps 1–2 pass while **every** submission to the form `400`s form-wide (see "Choice
    fields"). The only proof is a live submission:
-   `POST https://www.wixapis.com/v4/submissions` with the standard call shape (`<AUTH>`,
-   `Content-Type`, `wix-site-id`) and a minimal valid body — `formId` plus a `submissions` map keyed
-   by each field's `target`, the ARRAY field as an **array** of enum values:
+   `POST https://www.wixapis.com/form-submission-service/v4/submissions` with the standard call
+   shape (`<AUTH>`, `Content-Type`, `wix-site-id`) and a minimal valid body — `formId` plus a
+   `submissions` map keyed by each field's `target`, the ARRAY field as an **array** of enum values:
 
    ```jsonc
    { "submission": { "formId": "<formId>",
@@ -156,7 +156,8 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
 
    Assert it returns `200`, not `400 SUBMISSION_VALIDATION`. A `400` here means the ARRAY `items`
    shape is wrong — fix it (both `itemType` and `stringOptions.enum`) and re-create. Delete the test
-   submission afterward (`DELETE https://www.wixapis.com/v4/submissions/{submissionId}`, the `_id`
+   submission afterward
+   (`DELETE https://www.wixapis.com/form-submission-service/v4/submissions/{submissionId}`, the `_id`
    from the response) so the owner's dashboard stays clean.
 
 If a form is missing, its layout didn't persist, or its summary is unexpectedly empty, re-create it
