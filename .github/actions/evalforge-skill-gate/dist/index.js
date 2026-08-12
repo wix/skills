@@ -63317,10 +63317,10 @@ versionId, comment) {
             impact,
             runsPerScenario: config.runsPerScenario,
         }));
-        // The analyze job's entire trigger condition: emitted only when there is something to
-        // investigate, so a green run starts no runner and adds no second comment. Set before `fail`
-        // so a blocking failure still hands the run over — a failing run is the one most worth
-        // investigating.
+        // The analyze job's whole trigger condition. Emitted only when there is something to
+        // investigate, so a green run starts no runner and adds no second comment. Keyed on the
+        // assertion counts rather than the verdict: in soak mode a run with real failures still
+        // passes, and those are the runs most worth investigating.
         const { failed, errors } = prStatus.aggregateMetrics;
         if (failed > 0 || errors > 0) {
             core.setOutput('analyze-run-id', arms.value.prRunId);

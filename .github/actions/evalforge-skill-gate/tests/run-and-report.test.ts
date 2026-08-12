@@ -148,6 +148,10 @@ const lastComment = (): string => upsertComment.mock.calls.at(-1)?.[0] as string
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  // Installed once here rather than per-test: `redRun()` now has a failed assertion, so every
+  // test that reaches the emit calls the real `core.setOutput` unless it is always mocked —
+  // otherwise it falls back to printing the deprecated `::set-output` workflow command.
+  vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
   // Loaded before any test installs fake timers: a dynamic import that first has to reach the
   // loader mid-test cannot make progress while the clock is frozen.
   await import('../src/utils/run-and-report');
@@ -395,39 +399,34 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
   });
 
   it('emits analyze-run-id when the PR arm has failed assertions', async () => {
-    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
     pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 2, errors: 0 }));
 
     await run();
 
-    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
   });
 
   it('emits analyze-run-id when assertions errored but none failed', async () => {
-    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
     pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 0, errors: 1 }));
 
     await run();
 
-    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
   });
 
   it('emits no analyze-run-id for a fully green run', async () => {
-    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
     pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));
 
     await run();
 
-    expect(setOutput).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
+    expect(vi.mocked(core.setOutput)).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
   });
 
-  it('still emits analyze-run-id when the verdict fails the check', async () => {
-    const setOutput = vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
-    vi.spyOn(core, 'setFailed').mockImplementation(() => undefined);
+  it('still emits analyze-run-id in soak mode, where a run with real failures still passes', async () => {
     pollUntilDone.mockResolvedValue(statusWith({ passed: 0, failed: 3, errors: 0 }));
 
-    await run({ ...CONFIG, isBlocking: true });
+    await run({ ...CONFIG, isBlocking: false });
 
-    expect(setOutput).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
   });
 });
