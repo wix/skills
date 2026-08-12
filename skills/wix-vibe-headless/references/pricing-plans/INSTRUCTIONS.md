@@ -36,7 +36,7 @@ map, so you don't need to open them:**
 | `components/PlanCard.jsx` | plan card — name, description, price, perks, Subscribe (when `buyable`) |
 | `components/PlanGrid.jsx` | responsive plans grid + empty state |
 | `components/OrderCard.jsx` | one member order row for the "my plans" list |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Plans.jsx` | the plans-table route (`/plans`) — grid + paging + checkout |
 | `pages/PlanDetail.jsx` | the plan-detail route (`/plans/:slug`) — perks, terms, checkout |
 | `pages/MyPlans.jsx` | the member's memberships + post-checkout confirmation (`/my-plans`) |
@@ -74,7 +74,7 @@ state) — so unlike the storefront there's no `<CartProvider>` to wrap.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every**
   page — including the shipped `Plans` / `PlanDetail` / `MyPlans` — so you **never edit the shipped
   pages to add a header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's **ResizeObserver-measured** height so it clears the chrome and
@@ -85,7 +85,7 @@ state) — so unlike the storefront there's no `<CartProvider>` to wrap.
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Plans from "@/pages/Plans";                     // shipped · default export, no props
 import PlanDetail from "@/pages/PlanDetail";           // shipped · default export, no props
 import MyPlans from "@/pages/MyPlans";                 // shipped · default export, no props
@@ -103,7 +103,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

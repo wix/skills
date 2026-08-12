@@ -29,7 +29,7 @@ using the official Wix Data endpoints — never hand-build a Wix Data URL, never
 ## Build the UI from the utils
 Generate whatever the app needs — a list/grid, a detail page, a home page, a submit form — with your
 framework, your router, and your design tokens. Wire the data with the helpers below (the shapes are
-the bug-prone part). Mount the shared `WixManageBanner` (dev-only) in your Layout. Route conventions
+the bug-prone part). Mount the shared `WixManageBanner` (preview-only) in your Layout. Route conventions
 are yours (e.g. a list path + `/item/:slugOrId` detail).
 
 ## Data shapes (load-bearing — keep this wiring)

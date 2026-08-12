@@ -25,7 +25,7 @@ don't need to open them:**
 | `hooks/usePostDetail.js` | post-detail data — load by slug, not-found state, resolved category/tag chips, body paragraphs |
 | `components/PostCard.jsx`, `PostGrid.jsx` | post listing UI (grid + card, with cover image + empty state) |
 | `components/PostChips.jsx` | category/tag chips for a post (resolves ids via the taxonomy, routes by slug) |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Blog.jsx` | the feed route (`/blog`) — lists posts, paginates, empty state |
 | `pages/PostDetail.jsx` | the post route (`/blog/:slug`) |
 | `pages/CategoryPage.jsx`, `TagPage.jsx` | the taxonomy landing routes (`/blog/category/:slug`, `/blog/tag/:slug`) |
@@ -64,7 +64,7 @@ replace it.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Blog` / `PostDetail` / category / tag pages — so you **never edit the
   shipped pages to add a header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
@@ -76,7 +76,7 @@ replace it.
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { TaxonomyProvider } from "@/context/TaxonomyContext";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Blog from "@/pages/Blog";                       // shipped · default export, no props
 import PostDetail from "@/pages/PostDetail";           // shipped · default export, no props
 import CategoryPage from "@/pages/CategoryPage";       // shipped · default export, no props
@@ -95,7 +95,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

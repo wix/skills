@@ -30,7 +30,7 @@ so you don't need to open them:**
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
 | `components/VariantPicker.jsx` | option/variant selector used on the PDP — colour options render as real swatches, and picking one moves the gallery to that colour's photo |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
 | `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
@@ -66,7 +66,7 @@ replace it.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
   header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
@@ -79,7 +79,7 @@ import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Shop from "@/pages/Shop";                       // shipped · default export, no props
 import ProductDetail from "@/pages/ProductDetail";     // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
@@ -96,7 +96,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

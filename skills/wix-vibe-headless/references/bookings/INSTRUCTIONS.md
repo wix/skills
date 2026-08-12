@@ -36,7 +36,7 @@ so you don't need to open them:**
 | `components/ServiceCard.jsx`, `ServiceGrid.jsx` | service listing UI (grid + card, with empty state); the card shows price, tagline and a `60 min · 1-to-1` meta row |
 | `components/SlotPicker.jsx` | bookable-slot chips + paging (pure UI, driven by `useServiceDetail`) |
 | `components/BookingForm.jsx` | contact + participant form (pure UI, driven by `useServiceDetail`) |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Services.jsx`, `pages/ServiceDetail.jsx` | the two shipped routes (`/services`, `/service/:serviceId`); the detail page is two-column — service + a duration/price/where strip on the left, the sticky booking panel on the right |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
 | `rest/wix-client.js` | REST transport — mints/persists the anonymous visitor token |
@@ -74,7 +74,7 @@ its own detail page), so there's nothing to wrap the tree in.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Services` / `ServiceDetail` — so you **never edit the shipped pages to add
   a header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's **ResizeObserver-measured** height so it clears the chrome and
@@ -85,7 +85,7 @@ its own detail page), so there's nothing to wrap the tree in.
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Services from "@/pages/Services";               // shipped · default export, no props
 import ServiceDetail from "@/pages/ServiceDetail";     // shipped · default export, no props
 import Home from "@/pages/Home";           // YOU build
@@ -102,7 +102,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

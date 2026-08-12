@@ -33,7 +33,7 @@ so you don't need to open them:**
 | `components/CollectionCard.jsx`, `CollectionGrid.jsx` | collections listing UI (grid + card, with empty state) |
 | `components/ProjectCard.jsx`, `ProjectGrid.jsx` | projects listing UI (grid + card, with empty state) |
 | `components/ProjectMedia.jsx` | one gallery item — branches on `item.type` (IMAGE / VIDEO) |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Portfolio.jsx` | collections gallery route (`/portfolio`) |
 | `pages/CollectionPage.jsx` | collection page route (`/collection/:slug`) |
 | `pages/ProjectDetail.jsx` | project detail route (`/project/:slug`) |
@@ -71,7 +71,7 @@ cart equivalent) — just the Layout and the routes.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Portfolio` / `CollectionPage` / `ProjectDetail` — so you **never edit the
   shipped pages to add a header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
@@ -82,7 +82,7 @@ cart equivalent) — just the Layout and the routes.
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Portfolio from "@/pages/Portfolio";             // shipped · default export, no props
 import CollectionPage from "@/pages/CollectionPage";   // shipped · default export, no props
 import ProjectDetail from "@/pages/ProjectDetail";     // shipped · default export, no props
@@ -100,7 +100,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
