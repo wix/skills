@@ -160,9 +160,11 @@ through the `portal:` link, and CI runs `yarn install --immutable`. Regenerate i
 <a id="regenerating-lockfiles"></a>
 ### Regenerating a lockfile
 
-Every project here enforces a 7-day dependency cooldown (`npmMinimalAgeGate` in its
-`.yarnrc.yml`). A plain `yarn install` on a Wix machine quietly defeats it in two ways,
-so use this instead — from the project directory:
+Every project here enforces a dependency cooldown via `npmMinimalAgeGate` in its
+`.yarnrc.yml`: **`"14d"`** in the evalforge projects, matching the wix-private house
+standard, and **`"7d"`** in `.github/wix-app-typecheck` for a reason documented in that
+file. A plain `yarn install` on a Wix machine quietly defeats it in two ways, so use
+this instead — from the project directory:
 
 ```bash
 YARN_NPM_PREAPPROVED_PACKAGES=__none__ yarn install
@@ -176,34 +178,34 @@ sed -i '' -e 's|::__archiveUrl=[^"]*||' -e 's|%3A%3A__archiveUrl=[^#]*||' yarn.l
    that is not theoretical: `@wix/data@1.0.504`, one day old, drops the `items` export
    and breaks the wix-app typecheck.
 2. **The `sed`.** Resolving through the internal mirror bakes
-   `::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2F…` into each resolution. CI
-   cannot reach that host, so an un-normalized lock breaks the build. Stripping it
-   leaves `pkg@npm:1.2.3` plus a content checksum, which resolves against either
-   registry. The second pattern catches the double-encoded form inside yarn's `patch:`
-   protocol (typescript).
+   `::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2F…` into each resolution. This is
+   the one place we cannot copy wix-private, which pins the mirror as its
+   `npmRegistryServer`: this repo is public and its CI runs on GitHub-hosted runners,
+   which cannot reach that host, so a lock carrying mirror URLs breaks the build.
+   Stripping them leaves `pkg@npm:1.2.3` plus a content checksum, which resolves against
+   either registry. The second pattern catches the double-encoded form inside yarn's
+   `patch:` protocol (typescript).
 
 `yarn install --immutable` afterwards must pass and must leave `yarn.lock` untouched;
 if it rewrites the file, something above was skipped. Installing at all needs
 `npmRegistryServer: "https://npm.dev.wixpress.com/"` in your `~/.yarnrc.yml` —
 `registry.npmjs.org` and `registry.yarnpkg.com` are both unreachable from Wix machines.
 
-### Don't let the gate quietly switch itself off
+### Why yarn 4.12.0 specifically
 
-`npmMinimalAgeGate` defaults to `1d` in yarn 4.15+, and yarn preserves pre-4.15
-behaviour by writing an explicit **`npmMinimalAgeGate: 0`** into any `.yarnrc.yml` that
-doesn't declare the key. That is how a project ends up looking configured while doing
-nothing, and it is what happened here mid-upgrade. All five `.yarnrc.yml` files set it
-explicitly for that reason — don't remove the line, and if you see a `0` appear, yarn
-put it there.
-
-Yarn only rewrites `.yarnrc.yml` when a setting it cares about is missing altogether, so
-keeping `npmMinimalAgeGate` and `enableScripts` declared also stops it reformatting the
-file and stripping these comments.
+`npmMinimalAgeGate` exists in 4.10.0 and gates correctly on small trees, but on the
+881-package wix-app-typecheck tree it fails reproducibly with
+`YN0082: No candidates found` on a different old, exact-pinned transitive each run. It
+fails loudly rather than skipping the gate, but it fails. 4.12.0 is the first version
+that handles it, and is also the version pinned across wix-private. Avoid 4.15+ here
+unless you want its migration behaviour: it rewrites `.yarnrc.yml`, stripping comments,
+and writes an explicit `npmMinimalAgeGate: 0` into any file that omits the key — which
+disables the gate while leaving it looking configured.
 
 To check a project is actually gated:
 
 ```bash
-yarn config get npmMinimalAgeGate    # 10080, not 0
+yarn config get npmMinimalAgeGate    # 20160 (14d) or 10080 (7d), never 0
 ```
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
