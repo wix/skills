@@ -118,6 +118,13 @@ to reduce or upgrade.**
   slot (STEP 1's list-then-delete — but only delete forms that are clearly install sample data; ask
   before deleting anything that could be the owner's real form).
 
+**⚠️ A plan gate is a HARD BLOCK on the run — not a soft "record it and continue" precondition like
+paid tickets or online reservations.** Those leave a working schema and fail only at runtime; here the
+schema doesn't exist, so its `formId`/field `target`s don't either. **Put the choice to the user
+(reduce, or upgrade — with the MSID + dashboard link), wait for their confirmation, then create and
+verify the schema (STEP 2 → STEP 3) BEFORE any frontend work.** Do **not** build the frontend "in the
+meantime": its inputs bind to those targets, so every binding would be a guess to rewrite.
+
 Read `form.id` from the response as the `formId` to keep.
 
 If a create fails transiently on a fresh site (`5xx`, or an identity/propagation error right after
