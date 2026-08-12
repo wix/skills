@@ -114,8 +114,9 @@ installed + seeded (expected; the seed modules install it first). Image seeding 
 
 ### 4 · Done
 
-Mount the dev-only manage banner (regenerate `WixManageBanner` for your stack — it reads
+Mount the preview-only manage banner (regenerate `WixManageBanner` for your stack — it reads
 `WIX_METASITE_ID` from `wix-config`, already set in step 2, and self-hides while it's still the
-placeholder; mount above the header, SSR-safe, portable dev-gate, **never in production**), then tell
+placeholder; mount above the header, SSR-safe, portable preview-gate, **never on the published
+site**), then tell
 the user to open `https://manage.wix.com/dashboard/{metaSiteId}` to finish setup in Wix (payments,
 content).

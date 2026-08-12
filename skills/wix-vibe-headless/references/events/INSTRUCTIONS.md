@@ -32,7 +32,7 @@ don't need to open them:**
 | `components/EventRegistration.jsx` | branches on `registration.type` (RSVP / TICKETING / EXTERNAL / NONE) |
 | `components/RsvpForm.jsx` | RSVP form UI over `useRsvpForm` |
 | `components/TicketPicker.jsx` | ticket list + quantity + checkout UI over `useTicketing` |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Events.jsx`, `pages/EventDetail.jsx` | the two shipped routes (`/events`, `/events/:slug`) |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
 | `rest/wix-client.js` | visitor-token mint/refresh + REST transport (reads `wix-config.js`) |
@@ -71,7 +71,7 @@ to the detail page.)
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Events` / `EventDetail` — so you **never edit the shipped pages to add a
   header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's **ResizeObserver-measured** height so it clears the chrome and
@@ -82,7 +82,7 @@ to the detail page.)
 ```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Events from "@/pages/Events";                   // shipped · default export, no props
 import EventDetail from "@/pages/EventDetail";         // shipped · default export, no props
 import Home from "@/pages/Home";       // YOU build
@@ -99,7 +99,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

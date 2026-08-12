@@ -52,7 +52,7 @@ so you don't need to open them:**
 | `components/SocialButtons.jsx` | "Continue with Google/Facebook" buttons (kick off the redirect) |
 | `components/MemberMenu.jsx` | header account control — "Log in" vs. member name + log-out (like a cart button) |
 | `components/RequireAuth.jsx` | route gate: renders children for a member, else redirects to `/login` |
-| `components/WixManageBanner.jsx` | dev-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
 | `pages/Login.jsx`, `pages/Account.jsx` | the shipped login + account routes (`/login`, `/account`) |
 | `pages/Callback.jsx` | social/SSO return route — mount at **exactly** `/callback` |
 | `rest/wix-config.js` | **you set the ids here** (STEP 2) |
@@ -96,7 +96,7 @@ name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename 
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Login`/`Account`/`Callback` — so you **never edit the shipped pages to add
   a header/footer** (they render inside `<Outlet/>` as-is).
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, dev-only) **above**
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
@@ -109,7 +109,7 @@ name, **`MemberProvider`/`useMember`**, so the two never collide (do NOT rename 
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { MemberProvider } from "@/context/MemberContext";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, dev-only · default export, no props
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import RequireAuth from "@/components/RequireAuth";           // shipped route gate
 import Login from "@/pages/Login";                     // shipped · default export, no props
 import Account from "@/pages/Account";                 // shipped · default export, no props
@@ -128,7 +128,7 @@ function Layout() {
   }, []);
   return (<>
     <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null in prod / when dismissed */}
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}

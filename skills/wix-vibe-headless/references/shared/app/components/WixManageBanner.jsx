@@ -1,5 +1,6 @@
-// Dev-only banner linking the running app to its Wix Business Manager (the back office).
-// Renders ONLY in a dev build (never in production) and is dismissible (persisted per site).
+// Preview-only banner linking the running app to its Wix Business Manager (the back office).
+// Renders while the app is previewed or run locally, never on the published site, and is
+// dismissible (persisted per site).
 // Mount it at the top of your Layout's fixed region, ABOVE <Header/> (see INSTRUCTIONS STEP 4) —
 // banner + header ride together as one fixed block, so nothing drifts or gaps on scroll.
 import { useState } from "react";
@@ -7,14 +8,25 @@ import { WIX_METASITE_ID } from "@/rest/wix-config";
 
 const DASHBOARD_URL = `https://manage.wix.com/dashboard/${WIX_METASITE_ID}`;
 const DISMISS_KEY = `wix-manage-banner-dismissed-${WIX_METASITE_ID}`;
-const IS_DEV = (() => { try { return Boolean(import.meta.env?.DEV); } catch { return false; } })();
+
+// Base44 serves the preview from a dev server (DEV true) or a prebuilt bundle (DEV false) and swaps
+// between them mid-session, so its hostname and injected marker are what hold the banner steady;
+// DEV is the best-effort signal elsewhere. Unrecognized host on a built bundle → hidden.
+const PREVIEW_HOST = /^(preview|preview-sandbox|checkpoint)--/;
+const IN_PREVIEW = (() => {
+  try {
+    return Boolean(import.meta.env?.DEV)
+      || PREVIEW_HOST.test(window.location.hostname)
+      || Boolean(document.querySelector("script[data-preview-inject]"));
+  } catch { return false; }
+})();
 
 export default function WixManageBanner() {
   const [dismissed, setDismissed] = useState(() => {
     try { return Boolean(window.localStorage.getItem(DISMISS_KEY)); } catch { return false; }
   });
-  // No flag → no banner. Never renders in prod, once dismissed, or before the id is filled in.
-  if (!IS_DEV || dismissed || WIX_METASITE_ID.startsWith("<")) return null;
+  // Never renders on the published site, once dismissed, or before the id is filled in.
+  if (!IN_PREVIEW || dismissed || WIX_METASITE_ID.startsWith("<")) return null;
 
   const dismiss = () => {
     setDismissed(true);

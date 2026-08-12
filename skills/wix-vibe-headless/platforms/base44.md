@@ -156,11 +156,11 @@ parallelize independent work (API calls, multiple entities).
 
 Once the site is built and seeded:
 
-1. **Mount the dev-only manage banner** (required; links the app to its Wix back office; shipped,
-   self-gates to dev builds, never in production): render the `<WixManageBanner/>` component in your
-   Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS STEP 4.
+1. **Mount the preview-only manage banner** (required; links the app to its Wix back office; shipped,
+   self-gates to the preview, never on the published site): render the `<WixManageBanner/>` component
+   in your Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS STEP 4.
 2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute your
-   metasite id) to complete setup in Wix (required), and mention that dev builds show a dismissible
+   metasite id) to complete setup in Wix (required), and mention that the preview shows a dismissible
    top banner linking to this same dashboard.
 
 **Preview briefly, don't chase images.** A quick render check is enough. Generated images show as
