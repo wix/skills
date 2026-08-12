@@ -19,8 +19,9 @@ Install two skills — they land under `.agents/skills/`:
   doesn't cover.
 
 Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
-skills, then runs `deploy.cjs <vertical…>` (lays the shared transport + **each** listed vertical's
-REST scaffolds and UI client into `src/`) and `pin-agents-md.cjs` (pins the project's AGENTS.md
+skills, then runs `deploy.cjs <vertical…> --client-id … --metasite-id …` (lays the shared transport +
+**each** listed vertical's REST scaffolds and UI client into `src/`, writes `wix-config.js` from
+those two ids and proves the client id against Wix) and `pin-agents-md.cjs` (pins the project's AGENTS.md
 note so later turns keep the rules).
 
 **Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
@@ -48,6 +49,10 @@ const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
 const VERTICALS = ['storefront'];        // ← set from the prompt; list every vertical the app uses
 // const VERTICALS = ['members', 'cms']; // ← e.g. visitors sign in AND the app stores what they submit
+// COPY these two straight from the prompt — deploy writes them into src/rest/wix-config.js and proves
+// the client id against Wix, so never retype either one into a file by hand afterwards.
+const WIX_CLIENT_ID = '<client id from the prompt>';
+const WIX_METASITE_ID = '<site id from the prompt>';
 const results = {};
 for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   try {
@@ -57,8 +62,9 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-// Deploy the shared transport + each listed vertical's scaffolds/UI into src/.
-const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')}`, { cwd: '/app' }).toString();
+// Deploy the shared transport + each listed vertical's scaffolds/UI into src/, and write+verify
+// wix-config.js. A rejected client id exits non-zero here — fix the id, don't carry on.
+const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')} --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
 // Pin the project's AGENTS.md note (idempotent) so the rules survive after this doc leaves context.
 const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
@@ -96,9 +102,8 @@ fails or shows nothing relevant, ask the user what they offer.
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
 
-**REST scaffolds are already in `src/rest/`** (STEP 1). Write `src/rest/wix-config.js` with your
-`WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the one place both ids live (a single write,
-nothing to read). Some
+**REST scaffolds are already in `src/rest/`** (STEP 1), `wix-config.js` among them — STEP 1 wrote both
+ids into it and proved the client id, so there is nothing to write or re-check here. Some
 verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
 `INSTRUCTIONS.md`, don't rebuild. STEP 1 already deployed these files — **don't `read_file` the
 deployed component/page source to inspect them**; every field shape is in `INSTRUCTIONS.md`. Read a

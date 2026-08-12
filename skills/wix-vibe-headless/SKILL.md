@@ -149,7 +149,8 @@ installed, not what the business is about. Never default to store/bookings on si
    `INSTRUCTIONS.md`.
 3. **Ensure the vertical's files are in place** — copy `references/<vertical>/app/` and
    `references/shared/app/` into the app's `src/`, and set `WIX_CLIENT_ID` in `wix-config.js`. (Where
-   and how they get there is your platform's call — see its instructions.)
+   and how they get there is your platform's call — see its instructions. On base44 the install step
+   writes and verifies `wix-config.js` for you, so there's nothing to set by hand.)
 4. **Wire the shipped client** following the vertical's INSTRUCTIONS: the components are themed by
    base44's design tokens (`src/index.css` — shadcn palette, already set by the design phase), so
    there's no re-skin step; just wire routes + header/footer through the Layout. The UI ships as

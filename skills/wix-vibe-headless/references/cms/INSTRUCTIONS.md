@@ -13,7 +13,7 @@ using the official Wix Data endpoints — never hand-build a Wix Data URL, never
 | `rest/wix-cms.js` | Wix Data helpers over the official endpoints: `queryDataItems`, `getDataItem`, `getDataItemBy`, `countDataItems`, `insertDataItem`, `updateDataItem`, `removeDataItem`. |
 | `lib/wixImage.js` | `wixImage(uri)` — converts a `wix:image://…` media field into a renderable URL (passes `https://` / `//` through). |
 | `collection.config.js` | Optional one-file mapping: `COLLECTION_ID` (your collection's **name**, not a GUID) + `FIELDS` (map `title`/`image`/`summary`/`body`/`date`/`slug` to your field keys). Keeps field mapping in one place; skip it and pass field keys inline if you prefer. |
-| `wix-config.js` *(shared)* | Set `WIX_CLIENT_ID` + `WIX_METASITE_ID` here (the one place both ids live). |
+| `wix-config.js` *(shared)* | the two ids, written by the install step. |
 | `WixManageBanner` *(shared)* | Dev-only manage banner — mount it in your Layout (see the platform doc's "Done" step). |
 
 ## Prerequisites
@@ -131,7 +131,6 @@ Validate the mime type and the size there as well.
 - Import File: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
 
 ## Hard rules
-- Set `WIX_CLIENT_ID` (in `wix-config`) — not the placeholder.
 - Read/write **only** through the `wix-cms.js` helpers (official Wix Data endpoints) — never hand-build a URL.
 - `queryDataItems` → `{ items, nextCursor }` (destructure, iterate `.items`); `sort` is `[{ fieldName, order }]`; date comparands wrap as `{ "$date": ISO }`.
 - Read date fields through the wrapper — `new Date(v?.$date ?? v)`. Dates arrive as `{ "$date": ISO }` (including `_createdDate` / `_updatedDate`), and `new Date(object)` puts the text "Invalid Date" on the page. See RETRIEVAL SHAPES in `rest/wix-cms.js` for the field types that need a converter.

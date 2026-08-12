@@ -1,7 +1,7 @@
 // Preview-only banner linking the running app to its Wix Business Manager (the back office).
 // Renders while the app is previewed or run locally, never on the published site, and is
 // dismissible (persisted per site).
-// Mount it at the top of your Layout's fixed region, ABOVE <Header/> (see INSTRUCTIONS STEP 4) —
+// Mount it at the top of your Layout's fixed region, ABOVE <Header/> (see INSTRUCTIONS STEP 3) —
 // banner + header ride together as one fixed block, so nothing drifts or gaps on scroll.
 import { useState } from "react";
 import { WIX_METASITE_ID } from "@/rest/wix-config";

@@ -36,9 +36,9 @@ so you don't need to open them:**
 | `components/ServiceCard.jsx`, `ServiceGrid.jsx` | service listing UI (grid + card, with empty state); the card shows price, tagline and a `60 min · 1-to-1` meta row |
 | `components/SlotPicker.jsx` | bookable-slot chips + paging (pure UI, driven by `useServiceDetail`) |
 | `components/BookingForm.jsx` | contact + participant form (pure UI, driven by `useServiceDetail`) |
-| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Services.jsx`, `pages/ServiceDetail.jsx` | the two shipped routes (`/services`, `/service/:serviceId`); the detail page is two-column — service + a duration/price/where strip on the left, the sticky booking panel on the right |
-| `rest/wix-config.js` | **you set the ids here** (STEP 2) |
+| `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` | REST transport — mints/persists the anonymous visitor token |
 | `rest/wix-bookings-services.js` | services + availability: `queryServices`, `queryServicesByCategory`, `categoriesOf`, `getService`, `countServices`, `listSlotsForService`, `listAvailableSlots`, `listEventTimeSlots`, `getAvailableSlot`, `mediaUrl` |
 | `rest/wix-bookings-checkout.js` | booking + checkout: `createBooking`, `checkoutBooking`, `bookAndCheckout` |
@@ -50,11 +50,8 @@ on a real fallback — a runtime error, or a field the snippets don't cover (see
 the end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/bookings/app/` → `src/`.)
 
-## STEP 2 — Credentials
-Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
-one place both ids live.
 
-## STEP 3 — Theme (nothing to style on the shipped components)
+## STEP 2 — Theme (nothing to style on the shipped components)
 The shipped components carry **no palette of their own** — they render from base44's design tokens
 in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
 `--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
@@ -62,10 +59,10 @@ in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `
 `font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
 pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
 `.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
-shipped JSX.** Build the Home/Header you add (STEP 4) from the **same** base44 tokens/classes so it
+shipped JSX.** Build the Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it
 matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
-## STEP 4 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## STEP 3 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Bookings needs **no cross-page provider** (there's no cart — each booking completes on
@@ -123,7 +120,7 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the
-`Layout` (STEP 4) so they wrap every route — plus the overall brand story, styled with the same
+`Layout` (STEP 3) so they wrap every route — plus the overall brand story, styled with the same
 base44 tokens/classes. **Compose the shipped pieces** — a "featured services" strip is just
 `queryServices` + the shipped `ServiceGrid`; the nav is a link to `/services`:
 
@@ -227,9 +224,8 @@ the areas they sit in:
 - Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
 
 ## Hard rules
-- Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
-- Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped
   `Services`/`ServiceDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
   `Header` is plain in-flow markup (not `position:fixed`).

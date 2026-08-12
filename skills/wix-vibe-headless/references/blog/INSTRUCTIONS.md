@@ -25,11 +25,11 @@ don't need to open them:**
 | `hooks/usePostDetail.js` | post-detail data — load by slug, not-found state, resolved category/tag chips, body paragraphs |
 | `components/PostCard.jsx`, `PostGrid.jsx` | post listing UI (grid + card, with cover image + empty state) |
 | `components/PostChips.jsx` | category/tag chips for a post (resolves ids via the taxonomy, routes by slug) |
-| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 4) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Blog.jsx` | the feed route (`/blog`) — lists posts, paginates, empty state |
 | `pages/PostDetail.jsx` | the post route (`/blog/:slug`) |
 | `pages/CategoryPage.jsx`, `TagPage.jsx` | the taxonomy landing routes (`/blog/category/:slug`, `/blog/tag/:slug`) |
-| `rest/wix-config.js` | **you set the ids here** (STEP 2) |
+| `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` + `rest/wix-blog.js` | REST transport + blog helpers (posts/categories/tags) |
 
 They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
@@ -39,11 +39,8 @@ real fallback — a runtime error, or a field the snippets don't cover (see "Fal
 end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/blog/app/` → `src/`.)
 
-## STEP 2 — Credentials
-Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
-one place both ids live.
 
-## STEP 3 — Theme (nothing to style on the shipped components)
+## STEP 2 — Theme (nothing to style on the shipped components)
 The shipped components carry **no palette of their own** — they render from base44's design tokens in
 `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
 `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
@@ -51,10 +48,10 @@ The shipped components carry **no palette of their own** — they render from ba
 are **already set to the brand by the design phase**, so the shipped pages are themed with zero work
 here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way; **never add
 a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the Home/Header you add
-(STEP 4) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
+(STEP 3) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
 base44's dark palette in `index.css` — no per-component work.
 
-## STEP 4 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
@@ -120,7 +117,7 @@ function Layout() {
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`
-(STEP 4) so they wrap every route — plus the overall brand story, styled with the same base44
+(STEP 3) so they wrap every route — plus the overall brand story, styled with the same base44
 tokens/classes. **Compose the shipped pieces** — a "latest posts" strip is just `queryPosts` + the shipped
 `PostGrid`; a category nav is `useTaxonomy()` + links to `/blog/category/:slug`:
 
@@ -212,9 +209,8 @@ Fallback only — when you hit an error or need something not shown here: read t
 under `src/`, or look it up via the **`wix-docs`** skill.
 
 ## Hard rules
-- Set `WIX_CLIENT_ID` (STEP 2) — not the placeholder.
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
-- Header/footer live in a `Layout` around `<Outlet/>` (STEP 4) — never edit the shipped `Blog`/`PostDetail`/category/tag pages to add chrome.
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Blog`/`PostDetail`/category/tag pages to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Route by `slug` through the shipped helpers — never hand-build a post/category/tag URL. Display categories/tags by `.label` (not `.name`).
 - Render live Wix data or the shipped empty state — never mock posts, authors, comments, likes, or view counts; never use a stock/placeholder cover image.
