@@ -154,30 +154,9 @@ invoking it from the repo root can silently run the wrong yarn. See
 [`packages/evalforge-core/README.md`](../packages/evalforge-core/README.md) for details.
 
 Adding a dependency to `evalforge-core` also changes both consuming actions' lockfiles
-through the `portal:` link, and CI runs `yarn install --immutable`. Regenerate in
-`evalforge-core` **and** in both actions, then commit all three `yarn.lock` files.
-
-<a id="regenerating-lockfiles"></a>
-### Regenerating a lockfile
-
-Resolving through the Wix mirror bakes `__archiveUrl=…npm.dev.wixpress.com…` into every
-resolution, and CI runs on GitHub-hosted runners that cannot reach that host — so strip
-them, then check `yarn install --immutable` leaves the lock alone:
-
-```bash
-yarn install
-sed -i '' -e 's|::__archiveUrl=[^"]*||' -e 's|%3A%3A__archiveUrl=[^#]*||' yarn.lock
-```
-
-If it fails with `YN0082: No candidates found` on an obviously old package, that is the
-internal mirror, not your change: the abbreviated packument it serves yarn sometimes omits
-the `time` field the cooldown needs (and occasionally the version itself), so the gate
-cannot date the package and rejects it. Which package is affected moves with the mirror's
-cache. Set `npmMinimalAgeGate: 0` for the one regenerate, then restore it — and note that
-this is the only moment the gate actually applies, since CI never re-resolves.
-
-Stay on yarn 4.12.0: 4.15+ rewrites `.yarnrc.yml` and writes `npmMinimalAgeGate: 0` into
-any file that omits the key, disabling the cooldown while leaving it looking configured.
+through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
+`yarn install` in `evalforge-core` **and** in both actions, then commit all three
+`yarn.lock` files.
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
 asserts the wiring of the gate, cleanup and re-eval workflows, and
