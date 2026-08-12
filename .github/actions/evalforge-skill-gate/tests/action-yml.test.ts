@@ -27,7 +27,7 @@ describe('action.yml', () => {
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
       'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
-      'base-arm-grace-seconds',
+      'base-arm-grace-seconds', 'eval-run-id',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);
     }
@@ -67,5 +67,11 @@ describe('action.yml', () => {
 
   it('declares the analyze-run-id output the analyze job triggers on', () => {
     expect(Object.keys(action.outputs)).toContain('analyze-run-id');
+  });
+
+  it('documents every mode the action dispatches', () => {
+    for (const mode of ['gate', 'analyze', 'cleanup', 'sync']) {
+      expect(action.inputs.mode.description).toContain(`"${mode}"`);
+    }
   });
 });

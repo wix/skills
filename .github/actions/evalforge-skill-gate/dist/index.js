@@ -62132,12 +62132,14 @@ const core = __importStar(__nccwpck_require__(7484));
 const sync_run_1 = __nccwpck_require__(5466);
 const gate_run_1 = __nccwpck_require__(4734);
 const cleanup_run_1 = __nccwpck_require__(5717);
-// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, and
-// merge-time scenario sync. See README.md for the full flow of each.
+const analyze_run_1 = __nccwpck_require__(1869);
+// Modes for the wix-app skill flows: the per-PR eval gate, its post-gate AI investigation,
+// its PR-close cleanup, and merge-time scenario sync. See README.md for the full flow of each.
 const modes = {
     sync: sync_run_1.runSync,
     gate: gate_run_1.runGate,
     cleanup: cleanup_run_1.runCleanup,
+    analyze: analyze_run_1.runAnalyze,
 };
 const mode = core.getInput('mode') || 'sync';
 const handler = modes[mode];
@@ -62146,6 +62148,92 @@ if (!handler) {
 }
 else {
     handler().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+
+
+/***/ }),
+
+/***/ 1869:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runAnalyze = runAnalyze;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Posts EvalForge's AI investigation of a completed run to its own PR comment.
+ *
+ * Nothing here calls `core.setFailed`. The investigation is advisory and runs in its own job, so a
+ * red check beside a green gate would misrepresent the PR.
+ */
+async function runAnalyze() {
+    const config = (0, config_1.getAnalyzeConfig)();
+    const octokit = github.getOctokit(config.githubToken);
+    const comment = (0, report_1.makeAnalysisCommenter)(octokit, config);
+    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, config.evalRunId);
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const body = await buildBody(client, config, runUrl);
+    try {
+        await comment(body);
+    }
+    catch (error) {
+        // `makeCommenter` already degrades to the job summary; this catches anything it cannot.
+        core.warning(`Could not post the AI investigation comment: ${(0, report_1.describeError)(error)}`);
+    }
+}
+async function buildBody(client, config, runUrl) {
+    const unavailable = (reason) => (0, evalforge_core_1.formatAnalysisUnavailable)({ reason, runId: config.evalRunId, runUrl });
+    try {
+        const analysis = await client.analyzeEvalRun(config.projectId, config.evalRunId);
+        if (analysis.summary.trim() === '' && analysis.findings.length === 0) {
+            core.warning('EvalForge returned an empty analysis for this run.');
+            return unavailable('EvalForge returned an empty analysis');
+        }
+        return (0, evalforge_core_1.formatAnalysisComment)({ analysis, runId: config.evalRunId, runUrl });
+    }
+    catch (error) {
+        const detail = (0, report_1.describeError)(error);
+        core.warning(`The AI investigation failed: ${detail}`);
+        return unavailable(detail);
+    }
 }
 
 
@@ -62634,6 +62722,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MAX_TOTAL_SCENARIO_EXECUTIONS = exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
+exports.getAnalyzeConfig = getAnalyzeConfig;
 exports.getCleanupConfig = getCleanupConfig;
 const node_crypto_1 = __nccwpck_require__(7598);
 const core = __importStar(__nccwpck_require__(7484));
@@ -62830,6 +62919,21 @@ function getGateConfig() {
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
         runsPerScenario,
         baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
+    };
+}
+function getAnalyzeConfig() {
+    const owner = github.context.repo.owner;
+    const repo = github.context.repo.repo;
+    return {
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        owner,
+        repo,
+        prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+        evalRunId: core.getInput('eval-run-id', { required: true }),
     };
 }
 function getCleanupConfig() {
@@ -63187,6 +63291,7 @@ exports.describeError = describeError;
 exports.fail = fail;
 exports.guardedCall = guardedCall;
 exports.makeGateCommenter = makeGateCommenter;
+exports.makeAnalysisCommenter = makeAnalysisCommenter;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 function describeError(error) {
@@ -63219,6 +63324,12 @@ async function guardedCall(operation, failure, comment, blocking) {
 }
 function makeGateCommenter(octokit, target) {
     return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.GATE_COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+}
+function makeAnalysisCommenter(octokit, target) {
+    return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.ANALYSIS_COMMENT_MARKER }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });

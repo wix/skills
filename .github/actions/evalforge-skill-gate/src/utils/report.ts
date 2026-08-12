@@ -1,6 +1,8 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { GATE_COMMENT_MARKER, formatGateServiceError, makeCommenter, type Commenter } from '@wix/evalforge-core';
+import {
+  ANALYSIS_COMMENT_MARKER, GATE_COMMENT_MARKER, formatGateServiceError, makeCommenter, type Commenter,
+} from '@wix/evalforge-core';
 
 export function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -51,6 +53,16 @@ export function makeGateCommenter(
   target: { owner: string; repo: string; prNumber: number },
 ): Commenter {
   return makeCommenter(octokit, { ...target, marker: GATE_COMMENT_MARKER }, {
+    warn: core.warning,
+    writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
+  });
+}
+
+export function makeAnalysisCommenter(
+  octokit: ReturnType<typeof github.getOctokit>,
+  target: { owner: string; repo: string; prNumber: number },
+): Commenter {
+  return makeCommenter(octokit, { ...target, marker: ANALYSIS_COMMENT_MARKER }, {
     warn: core.warning,
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
   });

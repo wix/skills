@@ -380,3 +380,36 @@ describe('getGateConfig — total scenario execution ceiling (Finding 8)', () =>
     expect(getGateConfig().runsPerScenario).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('getAnalyzeConfig', () => {
+  const REQUIRED_ANALYZE_INPUTS = {
+    'github-token': 'gh-token',
+    'evalforge-url': 'https://evalforge.example.com',
+    'evalforge-project-id': 'proj',
+    'evalforge-app-id': 'app',
+    'evalforge-app-secret': 'secret',
+    'eval-run-id': 'run-123',
+  };
+
+  it('reads only what the analyze mode needs', async () => {
+    setInputs(REQUIRED_ANALYZE_INPUTS);
+    const { getAnalyzeConfig } = await import('../src/utils/config');
+    expect(getAnalyzeConfig()).toEqual({
+      githubToken: 'gh-token',
+      evalforgeUrl: 'https://evalforge.example.com',
+      projectId: 'proj',
+      appId: 'app',
+      appSecret: 'secret',
+      owner: 'wix',
+      repo: 'skills',
+      prNumber: 42,
+      evalRunId: 'run-123',
+    });
+  });
+
+  it('throws when eval-run-id is missing, since there would be nothing to analyse', async () => {
+    setInputs({ ...REQUIRED_ANALYZE_INPUTS, 'eval-run-id': '' });
+    const { getAnalyzeConfig } = await import('../src/utils/config');
+    expect(() => getAnalyzeConfig()).toThrow();
+  });
+});

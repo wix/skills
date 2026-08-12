@@ -3,11 +3,12 @@
 EvalForge flows for file-based skills — the skill's own files become the capability
 content, so an eval run can evaluate *this PR's* version of a skill.
 
-Three modes, in one action so they share one committed bundle:
+Four modes, in one action so they share one committed bundle:
 
 | Mode | Trigger | What it does |
 |---|---|---|
 | `gate` | `pull_request` opened / synchronize / reopened / ready_for_review | Derives which eval tags the PR affects, enforces coverage, creates a PR skill version, runs the covering scenarios against it, comments the result |
+| `analyze` | after `gate`, when it emits `analyze-run-id` | Requests EvalForge's AI investigation of that completed run and posts it as its own PR comment |
 | `cleanup` | `pull_request` closed | Deletes the PR's capability versions and restores or removes its draft scenarios |
 | `sync` | `pull_request` closed **and merged** | Reconciles the repo's scenario YAML into EvalForge, so EvalForge mirrors `main` |
 
@@ -182,6 +183,27 @@ pinning both, so the delta attributes to *the PR*, not to either entity — sepa
 need one arm per subset. The comment would name which entities an arm pinned, so the ambiguity
 stays visible rather than implied.
 
+## `analyze` flow
+
+```mermaid
+flowchart TD
+    GATE([gate emits analyze-run-id<br/>only on failed/errored assertions]) --> RUN[analyze mode: analyzeEvalRun]
+    RUN --> OK{COMPLETED run,<br/>non-empty result?}
+    OK -->|yes| POST([comment findings<br/>under its own marker])
+    OK -->|"no — wrong status, timeout,<br/>5xx, or empty analysis"| UNAVAIL([comment "could not be<br/>generated" note])
+    POST --> DONE([never calls setFailed])
+    UNAVAIL --> DONE
+```
+
+`analyze` takes `eval-run-id` — the `gate` job's `analyze-run-id` output — and asks EvalForge
+to investigate that run. EvalForge requires the run to be `COMPLETED`; any other status is a
+400. This mode never fails the check: the investigation is advisory and runs in its own job,
+so a red check beside a green gate would misrepresent the PR. Every failure path — a bad
+status, a timeout, a 5xx, or an empty analysis — still posts a short "could not be generated"
+note rather than staying silent, since to someone waiting on it an absent comment is
+indistinguishable from a bug. The comment lives under its own sticky marker, separate from
+`gate`'s, so the two never overwrite each other.
+
 ## `cleanup` flow
 
 ```mermaid
@@ -246,7 +268,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 
 | Input | Modes | Default | Notes |
 |---|---|---|---|
-| `mode` | all | `sync` | `gate` · `cleanup` · `sync` |
+| `mode` | all | `sync` | `gate` · `analyze` · `cleanup` · `sync` |
 | `github-token` | all | — | Author gate, changed files, PR comment |
 | `evalforge-url` | all | — | Upgraded to HTTPS with a warning if it is not |
 | `evalforge-project-id` | all | — | |
@@ -254,6 +276,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `evals-glob` | all | — | e.g. `yaml/wix-app-evals/**/*.{yml,yaml}` |
 | `capability-id` | `gate`, `cleanup` | — | The capability the PR skill version is created under |
 | `agent-id` | `gate` | — | Preset agent the run uses |
+| `eval-run-id` | `analyze` | — | Eval run to investigate — the `gate` job's `analyze-run-id` output |
 | `skill-dir` | `gate` | — | e.g. `skills/wix-app` |
 | `reference-dir` | `gate` | `references` | Relative to `skill-dir` |
 | `ignore-globs` | `gate` | `scripts/**` | Newline-separated, relative to `skill-dir` |
