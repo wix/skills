@@ -72,8 +72,13 @@ fallback — a runtime error, or a field the snippets don't cover (see "Fallback
 > the top of the file — read that, not the whole body, if you need the contract.
 
 ## STEP 2 — Credentials
-Write `src/rest/wix-config.js` with your `WIX_CLIENT_ID` and `WIX_METASITE_ID` from the prompt — the
-one place both ids live.
+`src/rest/wix-config.js` was already written by the install step (`deploy.cjs --client-id …
+--metasite-id …`), which also proved the client id mints a visitor token. Nothing to do here.
+
+If it still holds `<YOUR-CLIENT-ID>` placeholders, re-run that command with both ids from the prompt
+rather than editing the file — retyping a uuid is how a build ships with a dead client id. And if the
+install reported `Wix rejected WIX_CLIENT_ID`, that is a wrong value, not pending Wix-side setup:
+re-read the id from the prompt and re-run.
 
 ## STEP 3 — Theme (nothing to style on the shipped components)
 The shipped components carry **no palette of their own** — they render from base44's design tokens
