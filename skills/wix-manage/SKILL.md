@@ -230,10 +230,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Events
 
 ### [Create Event](references/events/create-wix-event.md)
-**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, and short vs Ricos rich-text descriptions. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoint: /events/v3/events.
+**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, short vs Ricos rich-text descriptions, ticket tiers and pricing, and recurring series from explicit occurrence dates. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
 
 ### [Manage Events](references/events/manage-wix-events.md)
-**Technical:** Manages existing events with the Wix Events V3 API — ticket definitions and pricing (fixed, free, donation, multiple tiers), publishing a draft, cancelling, deleting, cloning, updating an event's date, counting events, and building recurring series from explicit occurrence dates. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
+**Technical:** Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date, and counting events, plus the draft-event permission that makes those calls fail with 403. Key endpoint: /events/v3/events.
 
 ---
 
