@@ -1,6 +1,6 @@
 ---
 name: "Site Import"
-description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Also use it when the user has CSV/TSV product or data export files they want imported, even with no source site to crawl. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
+description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 ---
 
 # Site Import
