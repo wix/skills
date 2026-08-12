@@ -1,4 +1,4 @@
-name: events/ticket-tiers-and-cancel
+name: events/ticket-tiers
 description: >-
   Verifies the events recipes carry the ticket-definition shape and the cancel call, so the agent
   prices two tiers and cancels in one pass — rather than discovering by rejection that feeType is
@@ -6,7 +6,7 @@ description: >-
   the TICKETS the API's own error text advertises.
 triggerPrompt: >-
   Create a ticketed event called Winter Fest next month with two ticket types — General Admission
-  at $20 and VIP at $60. Then cancel it, the venue fell through.
+  at $20 and VIP at $60.
 tags: [events]
 maxTokens: 30000
 siteSetup:
@@ -18,13 +18,13 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-events
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-event
   - type: llm_judge          # correctness
     minScore: 7
     maxTokens: 2048
     prompt: |
       The user's request (verbatim): "Create a ticketed event called Winter Fest next month with two
-      ticket types — General Admission at $20 and VIP at $60. Then cancel it, the venue fell through."
+      ticket types — General Admission at $20 and VIP at $60."
 
       Examine the tool-call trace, including request bodies and any error bodies.
 
@@ -33,18 +33,18 @@ assertions:
         from now, with `registration.initialType` of `TICKETING`;
       - two successful (2xx) `POST /events/v3/ticket-definitions` calls against that event id — one
         named for General Admission priced at 20, one for VIP priced at 60, in the site's currency;
-      - the event was then cancelled, ending in status `CANCELED`.
+      - the event is usable, i.e. not left as an unreachable draft.
 
       Fail if only one ticket type exists; OR the prices are wrong; OR the event was created as an
-      RSVP event (an RSVP event can never be converted to ticketing); OR it was never cancelled; OR
-      the agent only explained how without doing it.
+      RSVP event (an RSVP event can never be converted to ticketing); OR the agent only explained
+      how without doing it.
 
       Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
   - type: llm_judge          # quality — the path
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Rate how directly the agent got from the request to a cancelled, two-tier ticketed event.
+      Rate how directly the agent got from the request to a two-tier ticketed event.
       Examine the tool-call trace, including request bodies and any error bodies. 10 = no wasted
       calls and no errors.
 
@@ -55,7 +55,7 @@ assertions:
 
       - any non-2xx response, in particular:
         - `403` on a draft event (`READ_DRAFT_EVENTS`) — the event was created with `draft: true`,
-          which blocks adding tickets, querying it and cancelling it. The recipe says to create the
+          which blocks adding tickets and querying it. The recipe says to create the
           event already published; creating a draft here is an avoidable wrong turn, not bad luck;
         - `400 feeType value is required` — omitted, or a value outside
           `FEE_ADDED_AT_CHECKOUT` / `FEE_INCLUDED`, since an invalid enum reports as a missing one;

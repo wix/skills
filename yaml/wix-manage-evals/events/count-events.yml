@@ -1,0 +1,91 @@
+name: events/count-events
+description: >-
+  Verifies the manage-events recipe answers "how many events do I have" directly, so the agent
+  reads the total off Query Events rather than reaching for count-by-status, whose empty facets
+  for an empty request body make it look as though the site has none.
+triggerPrompt: >-
+  How many events do I have on my site?
+tags: [events]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428.
+  templateId: events-studio
+  bootstrap:
+    steps:
+      - label: seed the first event
+        method: post
+        url: https://www.wixapis.com/events/v3/events
+        body:
+          event:
+            title: Spring Fair
+            location: { name: Main Hall, type: VENUE }
+            dateAndTimeSettings:
+              startDate: "2026-11-05T18:00:00.000Z"
+              endDate: "2026-11-05T21:00:00.000Z"
+              timeZoneId: America/New_York
+            registration: { initialType: RSVP }
+      - label: seed the second event
+        method: post
+        url: https://www.wixapis.com/events/v3/events
+        body:
+          event:
+            title: Winter Market
+            location: { name: Main Hall, type: VENUE }
+            dateAndTimeSettings:
+              startDate: "2026-12-10T18:00:00.000Z"
+              endDate: "2026-12-10T21:00:00.000Z"
+              timeZoneId: America/New_York
+            registration: { initialType: RSVP }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-events
+  - type: llm_judge          # correctness — judged on grounding, not on a fixed number
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked: "How many events do I have on my site?"
+
+      Examine the tool-call trace, including request bodies and responses.
+
+      The site is seeded with two events before the run, but seeding can race site provisioning,
+      so do NOT require the answer to be exactly 2. Judge whether the answer is *grounded*:
+
+      Pass if the agent made a successful (2xx) call that counts events — `POST
+      /events/v3/events/query`, reading `pagingMetadata.total` — and reported a number consistent
+      with what that call actually returned.
+
+      Fail if the agent reported a number no call returned; OR reported "none"/"0" while a
+      successful query returned events; OR relied on `count-by-status` facets that came back empty
+      and reported that as the answer; OR only described how to count without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence, quoting the number reported and the number returned>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the question to a grounded count. Examine the tool-call
+      trace. 10 = no wasted calls and no errors.
+
+      Reading the recipe is expected and is never a wasted call.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - `POST /events/v3/events/count-by-status` sent with an empty request body — it returns empty
+        `facets` even when the site has events, so it cannot answer this question and any call to it
+        is a detour the recipe warns against;
+      - any non-2xx response, in particular `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did
+        not anticipate;
+      - enumerating events page by page, or fetching them individually, to arrive at a count that
+        `pagingMetadata.total` already gives;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent locating the query
+        endpoint or its response shape, which the recipe already gives.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
