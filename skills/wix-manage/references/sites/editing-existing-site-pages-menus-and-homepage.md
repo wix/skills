@@ -59,3 +59,13 @@ The API that looks like it should solve this is the **[Custom Embeds API](https:
 In short: Custom Embeds is built for sitewide tracking/marketing script injection (analytics tags, consent-gated pixels), not for authoring or updating visual page content. **There is no REST/MCP API to read or write the HTML content of a specific in-page HTML/embed component** — it lives in the same Editor internal document model as pages/menus/layout described above, with the same lack of a public write API.
 
 **Practical workaround to suggest:** since the component in question is an `<iframe>`, the user doesn't need a Wix API to fix the multi-page copy-paste problem — they can host the shared HTML/CSS/JS at a single external URL (any static host) and point the iframe's `src` at that URL instead of pasting the code inline into each page's embed box. Future edits then happen once at the external URL and propagate to every page/language variant automatically. This sidesteps the gap entirely and is the recommended answer rather than waiting on a Wix API.
+
+## Same gap from the URL-slug angle: "rename this page's URL / fix a mismatched canonical URL"
+
+A distinct request that hits the same wall: the user wants to change an existing classic-Editor or Studio page's URL path (e.g. a page renamed in the Editor without updating its slug, so it still serves at a stale or wrong-looking path like `/privacy-policy` for a page now called "Wheeled Tiny Homes"). This looks like a pure SEO/metadata edit, so it's easy to assume the [Item SEO Tags API](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/introduction) covers it — it doesn't:
+
+- A page's URL path (`pageUriSEO` in the Editor's internal document model) is a **structural** property of the page, not an SEO **tag**. The Item SEO Tags API's `tags` field covers title/description/robots/custom meta tags/JSON-LD — it has no field for the page's own URL path.
+- There is no other REST/MCP API for it either: Members have `Update My Slug`/`Update Member Slug`, Bookings services have `Set Custom Slug`, Blog posts take their slug via `Update Draft Post` — but classic-Editor/Studio **static pages** have no equivalent. The Editor's own **SEO Basics tab → URL/slug field** is the only place this can be changed.
+- Same underlying reason as the rest of this doc: the page's URI lives in the Editor's internal document model, which has no public write API — this isn't a gap specific to SEO tooling.
+
+Treat this the same as the other cases above: state plainly that no API can rename a static page's URL, and that the fix requires a human with desktop-browser Editor access to open Page Settings → SEO Basics → URL and change the slug there.
