@@ -799,3 +799,112 @@ describe('createOrReuseCapabilityVersion', () => {
     expect(version.id).toBe('v-existing');
   });
 });
+
+describe('EvalForgeClient — analyzeEvalRun', () => {
+  it('POSTs to the analyze path with an empty body and maps the analysis', async () => {
+    mockFetch(({ url, method, body, headers }) => {
+      expect(method).toBe('POST');
+      expect(url).toBe(`${URL_BASE}/v1/projects/P/eval-runs/R/analyze`);
+      expect(headers.Authorization).toBe('Bearer tok-123');
+      expect(body).toEqual({});
+      return {
+        status: 200,
+        body: {
+          runAnalysis: {
+            generatedAt: '2026-08-12T14:03:00.000Z',
+            summary: 'Three failures share one cause.',
+            findings: [{
+              category: 'SKILL_MISGUIDANCE',
+              severity: 'HIGH',
+              description: 'The reference orders the steps wrongly.',
+              affectedScenarios: ['create-dashboard-page', 'add-menu-item'],
+              recommendation: 'Reorder the steps.',
+            }],
+          },
+        },
+      };
+    });
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const analysis = await client.analyzeEvalRun('P', 'R');
+    expect(analysis).toEqual({
+      generatedAt: '2026-08-12T14:03:00.000Z',
+      summary: 'Three failures share one cause.',
+      findings: [{
+        category: 'SKILL_MISGUIDANCE',
+        severity: 'HIGH',
+        description: 'The reference orders the steps wrongly.',
+        affectedScenarios: ['create-dashboard-page', 'add-menu-item'],
+        recommendation: 'Reorder the steps.',
+      }],
+    });
+  });
+
+  it('maps absent, UNKNOWN_, malformed and future enums to UNKNOWN rather than a real severity', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: {
+        runAnalysis: {
+          summary: 's',
+          findings: [
+            { description: 'no enums at all' },
+            { category: 'UNKNOWN_CATEGORY', severity: 'UNKNOWN_SEVERITY', description: 'explicit zeroes' },
+            { category: 7, severity: [], description: 'malformed' },
+            { category: 'NEWLY_INVENTED', severity: 'CRITICAL', description: 'future members' },
+          ],
+        },
+      },
+    }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const analysis = await client.analyzeEvalRun('P', 'R');
+    expect(analysis.findings.map(finding => [finding.category, finding.severity])).toEqual([
+      ['UNKNOWN', 'UNKNOWN'],
+      ['UNKNOWN', 'UNKNOWN'],
+      ['UNKNOWN', 'UNKNOWN'],
+      ['UNKNOWN', 'UNKNOWN'],
+    ]);
+  });
+
+  it('defaults absent summary and findings instead of throwing', async () => {
+    mockFetch(() => ({ status: 200, body: { runAnalysis: {} } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.analyzeEvalRun('P', 'R')).resolves.toEqual({ summary: '', findings: [] });
+  });
+
+  it('tolerates a findings field that is not an array', async () => {
+    mockFetch(() => ({ status: 200, body: { runAnalysis: { summary: 's', findings: 'nope' } } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.analyzeEvalRun('P', 'R')).resolves.toEqual({ summary: 's', findings: [] });
+  });
+
+  it('drops non-string entries from affectedScenarios', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { runAnalysis: { summary: 's', findings: [{ description: 'd', affectedScenarios: ['ok', 3, null] }] } },
+    }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const analysis = await client.analyzeEvalRun('P', 'R');
+    expect(analysis.findings[0].affectedScenarios).toEqual(['ok']);
+  });
+
+  it('throws an HttpError carrying the status when the run is not COMPLETED', async () => {
+    mockFetch(() => ({ status: 400, body: { message: 'Run analysis is only available for completed runs' } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.analyzeEvalRun('P', 'R')).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('allows the analyze call 75s, well past the 15s the other calls use', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    mockFetch(() => ({ status: 200, body: { runAnalysis: { summary: 's', findings: [] } } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await client.analyzeEvalRun('P', 'R');
+    expect(timeoutSpy).toHaveBeenCalledWith(75_000);
+  });
+
+  it('leaves the other calls on the 15s timeout', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    mockFetch(() => ({ status: 200, body: { testScenarios: [] } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await client.listTestScenarios('P');
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+  });
+});
