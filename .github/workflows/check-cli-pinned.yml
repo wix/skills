@@ -16,4 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      # First: a green repo scan proves nothing if the matcher itself is broken.
+      - run: bash .github/scripts/check-cli-pinned.sh --self-test
       - run: bash .github/scripts/check-cli-pinned.sh

@@ -8,16 +8,51 @@
 # the @wix/cli surface grows.
 #
 # Run locally:   bash .github/scripts/check-cli-pinned.sh
+# Self-test:     bash .github/scripts/check-cli-pinned.sh --self-test
 # CI:            invoked by .github/workflows/check-cli-pinned.yml on PRs
 
 set -euo pipefail
 
 SUBCMDS="token|whoami|login|env|build|release|preview|dev"
 
-bare=$(grep -rnE "npx @wix/cli (${SUBCMDS})([[:space:]]|$)" \
-  --include='*.md' --include='*.sh' --include='*.mjs' --include='*.js' --include='*.ts' \
-  --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist \
-  . 2>/dev/null || true)
+# The second grep drops matches sitting on a comment line in source files —
+# prose about the CLI, not a call. Markdown keeps every match: `#` opens a
+# heading there, and an unpinned command in docs is one a reader will copy.
+scan() {
+  grep -rnE "npx @wix/cli (${SUBCMDS})([[:space:]]|$)" \
+    --include='*.md' --include='*.sh' --include='*.mjs' --include='*.js' --include='*.ts' \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist \
+    "$1" 2>/dev/null | grep -vE '\.(sh|mjs|js|ts):[0-9]+:[[:space:]]*(//|/\*|\*|#)' || true
+}
+
+# Guards both directions: that real invocations are still caught, and that
+# prose about the CLI is not. Without it, "still catches everything it used to"
+# is only ever checked by hand, once, by whoever last edited the matcher.
+if [[ "${1:-}" == "--self-test" ]]; then
+  dir=$(mktemp -d); trap 'rm -rf "$dir"' EXIT
+  # Built from $cli so this file never contains a literal match and cannot
+  # flag its own fixtures when the check scans the repo.
+  cli="npx @wix/cli"
+  printf 'Run `%s token --site x`\n'           "$cli" > "$dir/doc.md"
+  printf '%s login\n'                          "$cli" > "$dir/run.sh"
+  printf 'execSync("%s build --prod") // note\n' "$cli" > "$dir/call.js"
+  printf '// e.g. `%s token --site x`\n'       "$cli" > "$dir/line-comment.js"
+  printf ' * see `%s token --site x`\n'        "$cli" > "$dir/block-comment.js"
+  printf '# example: %s login\n'               "$cli" > "$dir/comment.sh"
+  printf 'run("%s@latest build --prod")\n'     "$cli" > "$dir/pinned.js"
+
+  found=$(scan "$dir"); rc=0
+  for f in doc.md run.sh call.js; do
+    grep -q "/$f:" <<<"$found" || { echo "FAIL: $f should be flagged" >&2; rc=1; }
+  done
+  for f in line-comment.js block-comment.js comment.sh pinned.js; do
+    grep -q "/$f:" <<<"$found" && { echo "FAIL: $f should be ignored" >&2; rc=1; }
+  done
+  [[ $rc -eq 0 ]] && echo "Self-test passed ✓"
+  exit $rc
+fi
+
+bare=$(scan .)
 
 if [[ -n "$bare" ]]; then
   echo "ERROR: unpinned 'npx @wix/cli <subcmd>' occurrences found." >&2
