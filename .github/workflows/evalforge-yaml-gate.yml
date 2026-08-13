@@ -2,7 +2,9 @@ name: EvalForge YAML Gate
 
 on:
   pull_request:
-    branches: [main]
+    # NOTE: test/gate-live-base is a temporary addition for a live smoke-test of PR
+    # #935's scenario lint; this branch is disposable and this line is never merged.
+    branches: [main, test/gate-live-base]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'skills/wix-manage/references/**'
