@@ -49,8 +49,9 @@ The user wants to:
 - Connect a domain they already own to their Wix site
 - Get a custom domain for their Wix site
 
-Typical openers: *"buy me a domain"*, *"I want to purchase a domain"*, *"get me mybusiness.com"*,
-*"I have coolbrand.com and want to connect it"*, *"I need a domain for my pancakes restaurant"*.
+Typical openers: *"buy me a domain"*, *"I want to purchase a domain"*, *"get me mybusiness.com"*, 
+*"I need to connect coolbrand.com to my site"*, *"I need to connect a domain mybakery.net to my Wix site"*,
+*"I have coolbrand.com and want to connect it"*, *"I need a domain for my pancakes restaurant"*."
 
 **If the user mentions anything domain-related, this is the right flow.** Asking a clarifying
 question is expected behaviour, not a dead end — stay here and ask. Only leave for requests that are
