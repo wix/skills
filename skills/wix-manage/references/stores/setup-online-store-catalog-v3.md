@@ -56,7 +56,8 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
   - **Fashion** → Men, Women, Kids
   - **Other industries** → any logical grouping that fits the catalog.
 4. Use the Categories API to create each category. **YOU MUST USE** the endpoint: [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category) based on the example below. Endpoint path: `POST https://www.wixapis.com/categories/v1/categories`. **There is no bulk-create endpoint for `/categories/v1/`** (the `events/v1/bulk/categories/create` URL is for the Events product, not Stores).
-5. **Fire all N category-create calls as a single concurrent batch.** Each call is independent (creates a different category), so issue them as siblings in one assistant message — do not serialize. For 3 categories this saves ~6–8 s of wall vs. sequential calls.
+5. **Create categories sequentially, one request at a time.** Do **not** use `Promise.all`, parallel tool calls, or any other concurrent batch for `POST /categories/v1/categories`. These calls mutate the same Wix Stores category tree (`treeReference.appNamespace: "@wix/stores"`) and concurrent creates can fail with `409 INVALID_REVISION` / `Outdated revision for entity id "@wix/stores"` after one request succeeds. Wait for each create response before starting the next category.
+6. If a category create returns `409 INVALID_REVISION`, retry only the failed category after a short delay, still sequentially. Do not re-create categories that already succeeded.
 
 When calling the endpoint, make sure the request body includes a top-level `treeReference` field. It must **not** be nested inside the `category` object.
 
