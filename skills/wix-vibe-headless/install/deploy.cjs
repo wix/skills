@@ -74,12 +74,23 @@ function replaceMembersAuthLeftovers() {
 // The two ids arrive as flags so this script writes them once, character-for-character, instead of a
 // later hand-edit of the placeholder file.
 //
-// Only ever writes a config that still holds the placeholders. A file already carrying values is
-// left exactly as it is: on hosts that write it themselves at app creation (Base44) those values
-// came straight from the host and never passed through a prompt, and elsewhere they are the agent's
-// own edit. Either way this script has nothing better to put there.
-function wixConfigHasValues() {
-  return existsSync(WIX_CONFIG) && !readFileSync(WIX_CONFIG, 'utf8').includes('<YOUR-');
+// Precedence differs per id, because the two are not equally trustworthy when a host writes this
+// file itself at app creation:
+//
+//   WIX_METASITE_ID — the flag WINS. A host can derive this one indirectly (Base44 resolves it from
+//     the launch instance) and get a different site than the business, and a wrong site id is sent
+//     as the `wix-site-id` header on every catalog read, so the storefront returns nothing. The id
+//     in the prompt is the site the user is looking at, so prefer it and overwrite.
+//   WIX_CLIENT_ID — an existing value wins. It reaches a host as an exact value on the launch
+//     request, so its copy is at least as good as one retyped into a command.
+function readWixConfig() {
+  if (!existsSync(WIX_CONFIG)) return {};
+  const src = readFileSync(WIX_CONFIG, 'utf8');
+  const pick = (name) => {
+    const v = (src.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`)) || [])[1] || '';
+    return v.startsWith('<') ? '' : v;   // the shipped file's `<YOUR-…>` placeholders count as unset
+  };
+  return { clientId: pick('WIX_CLIENT_ID'), metaSiteId: pick('WIX_METASITE_ID') };
 }
 
 function writeWixConfig(clientId, metaSiteId) {
@@ -129,14 +140,19 @@ if (!requested.length) {
   deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
 }
 
-if (wixConfigHasValues()) {
-  deployed.wixConfig = 'already_set';
-} else if (clientId && metaSiteId) {
-  writeWixConfig(clientId, metaSiteId);
-  deployed.wixConfig = 'written';
-} else {
-  deployed.wixConfig = 'no_ids_given — src/rest/wix-config.js still holds placeholders; re-run with '
+const onDisk = readWixConfig();
+const finalClientId = onDisk.clientId || clientId;
+const finalMetaSiteId = metaSiteId || onDisk.metaSiteId;
+
+if (!finalClientId || !finalMetaSiteId) {
+  deployed.wixConfig = 'missing_ids — src/rest/wix-config.js is not configured; re-run with '
     + '--client-id and --metasite-id rather than editing the file by hand';
+} else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
+  deployed.wixConfig = 'already_set';
+} else {
+  const replaced = onDisk.metaSiteId && onDisk.metaSiteId !== finalMetaSiteId;
+  writeWixConfig(finalClientId, finalMetaSiteId);
+  deployed.wixConfig = replaced ? 'written — replaced a different WIX_METASITE_ID' : 'written';
 }
 
 console.log(JSON.stringify(deployed));
