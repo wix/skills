@@ -82,14 +82,51 @@ async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   }
 }
 
-// plain string -> Wix rich-text description node tree (plainDescription is HTML/nodes, not text)
+// description string -> Wix rich-text node tree.
+//
+// Descriptions arrive as HTML as often as not: asked to describe a product, a model writes
+// <p>…</p><strong>Care:</strong><br/>. The writable field is `description` (Ricos nodes) — the HTML
+// `plainDescription` the storefront renders is read-only, derived from them. So markup dropped into
+// a single TEXT node is stored as literal text, comes back escaped, and the PDP shows the tags to
+// the buyer. Convert the tags a model actually emits; a string with no tags stays one paragraph.
+const HTML_ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+
+function decodeEntities(s) {
+  return s.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (m) => HTML_ENTITIES[m] ?? m);
+}
+
+// One paragraph's inner HTML -> TEXT nodes, carrying bold/italic as Ricos decorations.
+function mkTextNodes(html) {
+  const nodes = [];
+  let bold = 0, italic = 0, last = 0, m;
+  const tag = /<(\/?)(strong|b|em|i)\s*\/?>/gi;
+  const push = (raw) => {
+    const text = decodeEntities(raw.replace(/<[^>]*>/g, ""));
+    if (!text) return;
+    const decorations = [];
+    if (bold > 0) decorations.push({ type: "BOLD" });
+    if (italic > 0) decorations.push({ type: "ITALIC" });
+    nodes.push({ type: "TEXT", textData: { text, decorations } });
+  };
+  while ((m = tag.exec(html)) !== null) {
+    push(html.slice(last, m.index));
+    const step = m[1] ? -1 : 1;
+    if (/^(strong|b)$/i.test(m[2])) bold = Math.max(0, bold + step);
+    else italic = Math.max(0, italic + step);
+    last = tag.lastIndex;
+  }
+  push(html.slice(last));
+  return nodes.length ? nodes : [{ type: "TEXT", textData: { text: "", decorations: [] } }];
+}
+
 function mkDesc(text, i) {
+  const blocks = String(text ?? "").split(/<\/p\s*>|<br\s*\/?>/i).map((b) => b.trim()).filter(Boolean);
   return {
-    nodes: [{
-      type: "PARAGRAPH", id: `desc-${i}`,
-      nodes: [{ type: "TEXT", textData: { text: text || "" } }],
+    nodes: (blocks.length ? blocks : [""]).map((block, n) => ({
+      type: "PARAGRAPH", id: `desc-${i}-${n}`,
+      nodes: mkTextNodes(block),
       paragraphData: { textStyle: { textAlignment: "AUTO" } },
-    }],
+    })),
     metadata: { version: 1, id: `desc-meta-${i}` },
   };
 }
@@ -157,6 +194,8 @@ async function listProducts(ctx) {
  * Bulk-create products.
  * @param products [{ name, description, price, compareAtPrice?, quantity,
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
+ *   description: plain text, or simple HTML (`<p>`, `<br/>`, `<strong>`, `<em>`) — converted to
+ *   Wix rich text here, so the storefront renders paragraphs and bold rather than tag text.
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
  *   visible/physicalProperties/variant-expansion handled here. `quantity` is the stock created.
