@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import {
   classifyChangeImpact, EvalForgeClient, evalRunUrl, evaluateRunResult, foldScenarioIterations,
-  formatGateResult, formatGateServiceError, selectScenarios,
+  formatAnalysisSuperseded, formatGateResult, formatGateServiceError, selectScenarios,
   type Commenter, type ScenarioSelection,
 } from '@wix/evalforge-core';
 import { HALTED, fail, type Guarded } from './report';
@@ -19,6 +19,8 @@ export async function runAndReport(
   /** The version's **id**, not its label. */
   versionId: string,
   comment: Commenter,
+  /** Update-only, so a PR that never failed gets no investigation comment to retract. */
+  supersedeAnalysis: Commenter,
 ): Promise<void> {
   const selected = await resolveScenarioIds(config, scope, nameToId, comment);
   if (!selected.ok) return;
@@ -68,6 +70,24 @@ export async function runAndReport(
       impact,
       runsPerScenario: config.runsPerScenario,
     }));
+
+    // The analyze job's whole trigger condition. Emitted only when there is something to
+    // investigate, so a green run starts no runner and adds no second comment. Keyed on the
+    // assertion counts rather than the verdict: in soak mode a run with real failures still
+    // passes, and those are the runs most worth investigating.
+    const { failed, errors } = prStatus.aggregateMetrics;
+    if (failed > 0 || errors > 0) {
+      core.setOutput('analyze-run-id', arms.value.prRunId);
+    } else if (verdict.passed) {
+      // Nothing else clears the investigation: it is only ever written on failure, and its job does
+      // not start for a clean run. Without this the fixing push leaves a green verdict sitting above
+      // the findings of the run it fixed.
+      //
+      // Guarded on the verdict, not just the counts: a cancelled run and a run that produced no
+      // assertions both fail the verdict with `failed` and `errors` at zero. Retracting there would
+      // claim the failures were gone beside a red check, and delete the findings that still apply.
+      await supersedeAnalysis(formatAnalysisSuperseded({ runId: arms.value.prRunId, runUrl }));
+    }
 
     if (!verdict.passed) {
       fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);

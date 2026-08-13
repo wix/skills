@@ -94,3 +94,50 @@ describe('makeCommenter', () => {
     expect(writeSummary).toHaveBeenCalledWith('body text');
   });
 });
+
+describe('makeCommenter with createIfMissing: false', () => {
+  const updateOnly = (octokit: Parameters<typeof makeCommenter>[0], io = { warn: vi.fn(), writeSummary: vi.fn() }) =>
+    makeCommenter(octokit, TARGET, io, { createIfMissing: false });
+
+  it('updates the existing marked comment', async () => {
+    const { octokit, updateComment, createComment } = commentOctokit([
+      { id: 7, body: `${MARKER}\nold body` },
+    ]);
+
+    await updateOnly(octokit)('fresh');
+
+    expect(updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7, body: 'fresh' }));
+    expect(createComment).not.toHaveBeenCalled();
+  });
+
+  it('creates nothing when no marked comment exists', async () => {
+    const { octokit, createComment, updateComment } = commentOctokit([]);
+
+    await expect(updateOnly(octokit)('fresh')).resolves.toBeUndefined();
+
+    expect(createComment).not.toHaveBeenCalled();
+    expect(updateComment).not.toHaveBeenCalled();
+  });
+
+  it('ignores a comment carrying a different marker', async () => {
+    const { octokit, createComment, updateComment } = commentOctokit([
+      { id: 7, body: '<!-- other-action -->' },
+    ]);
+
+    await updateOnly(octokit)('fresh');
+
+    expect(createComment).not.toHaveBeenCalled();
+    expect(updateComment).not.toHaveBeenCalled();
+  });
+
+  it('warns without throwing when the update fails', async () => {
+    const { octokit } = commentOctokit([{ id: 7, body: `${MARKER}\nold body` }]);
+    octokit.rest.issues.updateComment = vi.fn().mockRejectedValue(new Error('403 forbidden'));
+    const warn = vi.fn();
+    const writeSummary = vi.fn().mockResolvedValue(undefined);
+
+    await expect(updateOnly(octokit, { warn, writeSummary })('fresh')).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('403 forbidden'));
+  });
+});

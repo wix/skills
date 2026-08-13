@@ -1,8 +1,8 @@
 name: 'EvalForge Skill Gate'
-description: 'EvalForge flows for file-based skills: per-PR eval gate, PR-close cleanup, and merge-time scenario sync'
+description: 'EvalForge flows for file-based skills: per-PR eval gate, AI investigation of a failing run, PR-close cleanup, and merge-time scenario sync'
 inputs:
   mode:
-    description: 'Action mode: "gate" (per-PR eval run), "cleanup" (PR close), or "sync" (merge-time reconcile, the default)'
+    description: 'Action mode: "gate" (per-PR eval run), "analyze" (AI investigation of a completed run), "cleanup" (PR close), or "sync" (merge-time reconcile, the default)'
     required: false
     default: 'sync'
   evaluated-sha:
@@ -28,6 +28,9 @@ inputs:
     required: true
   capability-id:
     description: 'EvalForge capability ID the PR skill version is created under (gate and cleanup modes)'
+    required: false
+  eval-run-id:
+    description: 'EvalForge eval run to investigate — the gate job''s analyze-run-id output (analyze mode)'
     required: false
   agent-id:
     description: 'EvalForge preset agent ID the eval run uses (gate mode)'
@@ -77,6 +80,12 @@ inputs:
       itself still completes server-side.
     required: false
     default: '60'
+outputs:
+  analyze-run-id:
+    description: >-
+      The PR arm's eval run id, set in gate mode only when that run has failed or errored
+      assertions. Empty means there is nothing to investigate, so a consuming job can treat its
+      emptiness as the whole trigger condition.
 runs:
   using: 'node20'
   main: 'dist/index.js'
