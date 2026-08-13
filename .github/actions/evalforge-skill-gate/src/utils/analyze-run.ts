@@ -6,11 +6,16 @@ import {
 import { getAnalyzeConfig } from './config';
 import { describeError, makeAnalysisCommenter } from './report';
 
+/** Caps the reason echoed into the public comment; the full detail still reaches the log via `core.warning`. */
+const MAX_COMMENT_REASON_LENGTH = 500;
+
 /**
  * Posts EvalForge's AI investigation of a completed run to its own PR comment.
  *
- * Nothing here calls `core.setFailed`. The investigation is advisory and runs in its own job, so a
- * red check beside a green gate would misrepresent the PR.
+ * Past the config read, nothing here calls `core.setFailed`: the investigation is advisory and
+ * runs in its own job, so a red check beside a green gate would misrepresent the PR. A missing
+ * input is the exception — it leaves no comment channel to report through, so it fails loudly
+ * rather than going silently green.
  */
 export async function runAnalyze(): Promise<void> {
   const config = getAnalyzeConfig();
@@ -46,6 +51,6 @@ async function buildBody(
   } catch (error) {
     const detail = describeError(error);
     core.warning(`The AI investigation failed: ${detail}`);
-    return unavailable(detail);
+    return unavailable(detail.slice(0, MAX_COMMENT_REASON_LENGTH));
   }
 }

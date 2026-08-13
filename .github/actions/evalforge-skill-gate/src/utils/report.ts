@@ -48,22 +48,15 @@ export async function guardedCall<T>(
   }
 }
 
-export function makeGateCommenter(
-  octokit: ReturnType<typeof github.getOctokit>,
-  target: { owner: string; repo: string; prNumber: number },
-): Commenter {
-  return makeCommenter(octokit, { ...target, marker: GATE_COMMENT_MARKER }, {
+function commenterFor(marker: string) {
+  return (
+    octokit: ReturnType<typeof github.getOctokit>,
+    target: { owner: string; repo: string; prNumber: number },
+  ): Commenter => makeCommenter(octokit, { ...target, marker }, {
     warn: core.warning,
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
   });
 }
 
-export function makeAnalysisCommenter(
-  octokit: ReturnType<typeof github.getOctokit>,
-  target: { owner: string; repo: string; prNumber: number },
-): Commenter {
-  return makeCommenter(octokit, { ...target, marker: ANALYSIS_COMMENT_MARKER }, {
-    warn: core.warning,
-    writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
-  });
-}
+export const makeGateCommenter = commenterFor(GATE_COMMENT_MARKER);
+export const makeAnalysisCommenter = commenterFor(ANALYSIS_COMMENT_MARKER);

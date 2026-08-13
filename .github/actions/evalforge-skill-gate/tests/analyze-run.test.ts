@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as core from '@actions/core';
 import { ANALYSIS_COMMENT_MARKER } from '@wix/evalforge-core';
 import type { RunAnalysis } from '@wix/evalforge-core';
@@ -32,6 +32,9 @@ const ANALYZE_INPUTS: Record<string, string> = {
   'INPUT_EVAL-RUN-ID': 'run-123',
 };
 
+let setFailed: ReturnType<typeof vi.spyOn>;
+let warning: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   vi.clearAllMocks();
   upsert.mockResolvedValue(undefined);
@@ -40,6 +43,16 @@ beforeEach(() => {
   }
   process.env.INPUT_MODE = 'analyze';
   for (const [key, value] of Object.entries(ANALYZE_INPUTS)) process.env[key] = value;
+
+  setFailed = vi.spyOn(core, 'setFailed').mockImplementation(() => {});
+  warning = vi.spyOn(core, 'warning').mockImplementation(() => undefined as never);
+  // getAnalyzeConfig runs for real here, so safeGetSecret's core.setSecret calls would otherwise
+  // print ::add-mask:: lines to the test output.
+  vi.spyOn(core, 'setSecret').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 const analysis = (over: Partial<RunAnalysis> = {}): RunAnalysis => ({
@@ -67,8 +80,6 @@ describe('runAnalyze', () => {
   });
 
   it('posts an unavailable note and never fails the job when the call throws', async () => {
-    const setFailed = vi.spyOn(core, 'setFailed').mockImplementation(() => {});
-    const warning = vi.spyOn(core, 'warning').mockImplementation(() => undefined as never);
     analyzeEvalRun.mockRejectedValue(
       Object.assign(new Error('EvalForge POST → 400: only available for completed runs'), { status: 400 }),
     );
@@ -81,9 +92,16 @@ describe('runAnalyze', () => {
     expect(upsert.mock.calls[0][0]).toContain('could not be generated');
   });
 
+  it('caps a very long error detail so the comment stays well under GitHub\'s comment length limit', async () => {
+    analyzeEvalRun.mockRejectedValue(new Error('x'.repeat(100_000)));
+    const { runAnalyze } = await import('../src/utils/analyze-run');
+
+    await runAnalyze();
+
+    expect(upsert.mock.calls[0][0].length).toBeLessThan(1_000);
+  });
+
   it('posts an unavailable note when the analysis is empty', async () => {
-    const setFailed = vi.spyOn(core, 'setFailed').mockImplementation(() => {});
-    vi.spyOn(core, 'warning').mockImplementation(() => undefined as never);
     analyzeEvalRun.mockResolvedValue({ summary: '   ', findings: [] });
     const { runAnalyze } = await import('../src/utils/analyze-run');
 
@@ -94,8 +112,6 @@ describe('runAnalyze', () => {
   });
 
   it('never fails the job even when posting the comment throws', async () => {
-    const setFailed = vi.spyOn(core, 'setFailed').mockImplementation(() => {});
-    vi.spyOn(core, 'warning').mockImplementation(() => undefined as never);
     analyzeEvalRun.mockResolvedValue(analysis());
     upsert.mockRejectedValue(new Error('comment API down'));
     const { runAnalyze } = await import('../src/utils/analyze-run');

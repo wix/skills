@@ -62198,11 +62198,15 @@ const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const report_1 = __nccwpck_require__(7267);
+/** Caps the reason echoed into the public comment; the full detail still reaches the log via `core.warning`. */
+const MAX_COMMENT_REASON_LENGTH = 500;
 /**
  * Posts EvalForge's AI investigation of a completed run to its own PR comment.
  *
- * Nothing here calls `core.setFailed`. The investigation is advisory and runs in its own job, so a
- * red check beside a green gate would misrepresent the PR.
+ * Past the config read, nothing here calls `core.setFailed`: the investigation is advisory and
+ * runs in its own job, so a red check beside a green gate would misrepresent the PR. A missing
+ * input is the exception — it leaves no comment channel to report through, so it fails loudly
+ * rather than going silently green.
  */
 async function runAnalyze() {
     const config = (0, config_1.getAnalyzeConfig)();
@@ -62232,7 +62236,7 @@ async function buildBody(client, config, runUrl) {
     catch (error) {
         const detail = (0, report_1.describeError)(error);
         core.warning(`The AI investigation failed: ${detail}`);
-        return unavailable(detail);
+        return unavailable(detail.slice(0, MAX_COMMENT_REASON_LENGTH));
     }
 }
 
@@ -63286,12 +63290,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.HALTED = void 0;
+exports.makeAnalysisCommenter = exports.makeGateCommenter = exports.HALTED = void 0;
 exports.describeError = describeError;
 exports.fail = fail;
 exports.guardedCall = guardedCall;
-exports.makeGateCommenter = makeGateCommenter;
-exports.makeAnalysisCommenter = makeAnalysisCommenter;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 function describeError(error) {
@@ -63322,18 +63324,14 @@ async function guardedCall(operation, failure, comment, blocking) {
         return exports.HALTED;
     }
 }
-function makeGateCommenter(octokit, target) {
-    return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.GATE_COMMENT_MARKER }, {
+function commenterFor(marker) {
+    return (octokit, target) => (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
 }
-function makeAnalysisCommenter(octokit, target) {
-    return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.ANALYSIS_COMMENT_MARKER }, {
-        warn: core.warning,
-        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
-    });
-}
+exports.makeGateCommenter = commenterFor(evalforge_core_1.GATE_COMMENT_MARKER);
+exports.makeAnalysisCommenter = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER);
 
 
 /***/ }),
