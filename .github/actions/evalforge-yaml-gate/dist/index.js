@@ -36220,8 +36220,9 @@ function makeCommenter(octokit, target, io, options = {}) {
                 });
             }
             else {
-                if (options.createIfMissing === false)
+                if (options.createIfMissing === false) {
                     return;
+                }
                 const created = await octokit.rest.issues.createComment({
                     owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
                 });

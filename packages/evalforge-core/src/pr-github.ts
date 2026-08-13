@@ -102,7 +102,9 @@ export function makeCommenter(
           owner: target.owner, repo: target.repo, comment_id: id, body,
         });
       } else {
-        if (options.createIfMissing === false) return;
+        if (options.createIfMissing === false) {
+          return;
+        }
         const created = await octokit.rest.issues.createComment({
           owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
         });
