@@ -167,7 +167,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Domains
 
 ### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
-**Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
+**Technical:** Purchase domains, connect domains to Wix sites, search for available domains and get domain suggestions. Covers availability checks, TLD filtering, purchase flow and connecting domains to Wix sites.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 **Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
