@@ -26,6 +26,7 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 > - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
 > - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
 > - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
+> - [Linked new skill repro](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-linked-new-skill-repro) — tags: `[intent:repro-new-linked-skill]` · priority 0 · *reproduction-only link to a skill added in the same PR*
 
 ### Business flows — the orchestrator
 
