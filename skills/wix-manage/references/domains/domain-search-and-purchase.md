@@ -1334,6 +1334,13 @@ Connecting a domain **requires** a Wix site. Apply §R3:
 Do all of this silently, **Case R excepted**. The user should see one message at the end of this path,
 not a play-by-play.
 
+⛔ **When this section asks which site, no link goes in that message.** Every connect URL carries a
+`siteId` (§R6), so a link answers the question on the user's behalf and then asks it. A placeholder in
+place of the id — `{siteId}`, `{your-site-id}`, "your site ID here" — is the same failure wearing a
+disguise: it hands over a URL the user cannot use and still leaves the site unresolved. This binds
+Case B's numbered list exactly as it binds Case R. The link goes out with §C3's opening, once a site
+is chosen.
+
 **After a Case C login, run the ownership check** (§R4.3) before continuing — it
 could not run while they were logged out. A match changes the answer: `assigned` sends you to §C0,
 `unassigned` upgrades ownership to **confirmed**, which is what opens the door to §C3.1 – §C3.4.
@@ -1756,6 +1763,9 @@ If a re-check ever shows the domain is available, the user does not own it. Say:
   the subdomain belongs — §C1's Case R offers it and waits for a yes. Since every connect URL carries
   a `siteId`, sending the link first decides for the user and presents it as an answer. *"I used that
   site rather than asking"* is not a defence; it is the bug.
+- **Send a connect link in the message that asks which site.** §C1 Case B lists the sites and waits; a
+  link carries a `siteId`, so it answers the question being asked. A placeholder standing in for the id
+  is not an escape — the URL is unusable and the site is still unresolved. Ask, then link.
 - **Blend the root sentence with the hedge.** *"sits under {root displayName}, which is in your Wix
   account. If it's yours —"* states a fact and then doubts it. The three openings above are three,
   not ingredients.
