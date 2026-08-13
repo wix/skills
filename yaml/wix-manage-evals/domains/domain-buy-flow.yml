@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   I want to buy mybakery.com for my Wix site.
 tags: [domains]
-maxTokens: 600000
+maxTokens: 800000
 assertions:
   - tool: ReadFullDocsArticle
     params:
