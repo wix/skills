@@ -4,7 +4,7 @@ description: >-
   treats it as a connect rather than a purchase, and resolves the target site per Part C Case B —
   asking which site when the account holds several, without handing over a connect link first.
 triggerPrompt: >-
-  I want to connect my domain nike.com to my Wix site.
+  I want to connect a domain I already own to my Wix site.
 tags: [domains]
 maxTokens: 600000
 assertions:
@@ -15,7 +15,7 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user already owns nike.com and wants it on their Wix site. Their request: "I want to connect my domain nike.com to my Wix site."
+      The user already owns a domain and wants it on their Wix site. Their request: "I want to connect a domain I already own to my Wix site."
 
       Per Part C of the recipe this is the connect path, and the request names no site. Case B of §C1
       applies: with several sites on the account, the agent lists them and asks which one. Connecting
@@ -25,7 +25,7 @@ assertions:
 
       Pass if the response:
       - asks which site to connect it to, presenting the sites on the account, rather than answering
-        for a site it never established, AND
+        for a site it never established, OR
       - puts no site-specific connect URL in that message.
 
       Fail if the response:
