@@ -194,7 +194,32 @@ The first is for single endpoints; the second is for bulk endpoints. If the user
 | Single, no inventory | Require `product.id`; report only response-backed fields as verified. |
 | Single, with inventory | Require `product.id`; inspect `inventoryResults.results`, item metadata, and top-level error. |
 | Bulk, no inventory | Inspect every `results[].itemMetadata`; with `returnEntity: true`, the created entity is `results[].item`, not `results[].product`. Reconcile `bulkActionMetadata.totalSuccesses` and `totalFailures` with the requested count. |
-| Bulk, with inventory | Inspect every product and inventory result, both bulk metadata objects, item metadata, and any inventory error. Returned entities are under each result's `item`. |
+| Bulk, with inventory | Use the exact two-sibling response paths below. Inspect every product and inventory result, both bulk metadata objects, item metadata, and the inventory error before reporting success. |
+
+`POST /stores/v3/bulk/products-with-inventory/create` does **not** return the same flat envelope as `/stores/v3/bulk/products/create`. Its response has two top-level sibling objects:
+
+```json
+{
+  "productResults": {
+    "results": [{"itemMetadata": {}, "item": {}}],
+    "bulkActionMetadata": {}
+  },
+  "inventoryResults": {
+    "results": [{"itemMetadata": {}, "item": {}}],
+    "bulkActionMetadata": {},
+    "error": null
+  }
+}
+```
+
+Before claiming that an inventory-aware bulk create succeeded:
+
+1. Inspect every `productResults.results[]` entry and require `itemMetadata.success`; with `returnEntity: true`, read the product from `item`.
+2. Reconcile `productResults.bulkActionMetadata.totalSuccesses`, `totalFailures`, and `undetailedFailures` with the requested product count.
+3. Separately inspect every top-level `inventoryResults.results[]` entry and require `itemMetadata.success`; with `returnEntity: true`, read the inventory entity from `item`.
+4. Reconcile `inventoryResults.bulkActionMetadata.totalSuccesses`, `totalFailures`, and `undetailedFailures` with the expected inventory-item count, and inspect `inventoryResults.error`.
+
+Never read `productResults.inventoryResults`: that path does not exist. A successful product result or HTTP 200 does not prove inventory creation succeeded.
 
 Retry only failed transient items, not successful products. If a requested field is absent from the response, call it submitted rather than API-verified; never echo the request as proof that it was stored.
 
