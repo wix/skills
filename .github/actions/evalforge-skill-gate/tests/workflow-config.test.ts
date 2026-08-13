@@ -17,6 +17,8 @@ type Workflow = {
     'timeout-minutes': number;
     permissions: Record<string, string>;
     if?: string;
+    needs?: string | string[];
+    outputs?: Record<string, string>;
     // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
     // typechecks — the gate gained one to capture the checked-out merge commit.
     steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
@@ -105,6 +107,58 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(gateStep.with?.['evaluated-sha']).toContain('steps.merge.outputs.sha');
     const mergeStep = workflow.jobs.gate.steps.find(step => step.id === 'merge');
     expect(mergeStep?.run).toContain('git rev-parse HEAD');
+  });
+});
+
+describe('EvalForge wix-app gate workflow — analyze job', () => {
+  const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
+  const analyze = workflow.jobs.analyze;
+  const analyzeStep = analyze.steps[analyze.steps.length - 1];
+
+  it('exposes the gate job output the analyze job triggers on', () => {
+    expect(workflow.jobs.gate.outputs?.['analyze-run-id'])
+      .toContain('steps.gate.outputs.analyze-run-id');
+  });
+
+  it('gives the gate step the id its output reference needs', () => {
+    expect(workflow.jobs.gate.steps.some(step => step.id === 'gate')).toBe(true);
+  });
+
+  it('runs after the gate', () => {
+    expect(analyze.needs).toBe('gate');
+  });
+
+  it('still runs when the gate job went red, so a blocking failure is investigated', () => {
+    expect(analyze.if).toContain('!cancelled()');
+    expect(analyze.if).not.toMatch(/success\(\)/);
+  });
+
+  it('does nothing when the gate emitted no run id', () => {
+    expect(analyze.if).toContain("needs.gate.outputs.analyze-run-id != ''");
+  });
+
+  it('can be switched off with a repo variable', () => {
+    expect(analyze.if).toContain("vars.WIX_APP_EVAL_ANALYZE != 'false'");
+  });
+
+  it('can comment on the PR and read the repo', () => {
+    expect(analyze.permissions['pull-requests']).toBe('write');
+    expect(analyze.permissions.contents).toBe('read');
+  });
+
+  it('is bounded well under the gate job timeout', () => {
+    expect(analyze['timeout-minutes']).toBeLessThanOrEqual(10);
+  });
+
+  it('runs the action in analyze mode on the gate output', () => {
+    expect(analyzeStep.uses).toBe('./.github/actions/evalforge-skill-gate');
+    expect(analyzeStep.with?.mode).toBe('analyze');
+    expect(analyzeStep.with?.['eval-run-id']).toContain('needs.gate.outputs.analyze-run-id');
+  });
+
+  it('checks out once — nothing in analyze mode reads scenarios', () => {
+    const checkouts = analyze.steps.filter(step => step.uses?.startsWith('actions/checkout'));
+    expect(checkouts).toHaveLength(1);
   });
 });
 
