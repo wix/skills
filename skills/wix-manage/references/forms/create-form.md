@@ -231,6 +231,7 @@ Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/for
 | `SUBMIT_BUTTON` | N/A (`DISPLAY` field) | N/A | Submit button |
 | `TEXT_INPUT` | `RADIO_GROUP` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (radio buttons) — see § "Choice fields" |
 | `TEXT_INPUT` | `DROPDOWN` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (dropdown) — same shape as RADIO_GROUP |
+| `FILE_UPLOAD` | `FILE_UPLOAD` | `WIX_FILE` | File or photo upload — see § "File upload fields" |
 
 > **Note:** `LONG_TEXT_INPUT` is not supported as a `componentType` via REST — it throws `INVALID_ARGUMENT`. Use `TEXT_INPUT` for all text fields.
 
@@ -277,6 +278,50 @@ A single-choice field (radio buttons or a dropdown — e.g. an RSVP "Will you at
 
 `numberOfColumns` is a string enum (`"ONE"`, `"TWO"`, `"THREE"`) controlling the radio layout — omit it and the field still works (defaults to one column).
 
+### File upload fields (WIX_FILE)
+
+A file or photo upload field is a **`WIX_FILE` input field**. Use `identifier: "FILE_UPLOAD"`, `inputType: "WIX_FILE"`, and set the file component details inside `wixFileOptions`.
+
+The complete shape needs all of these parts:
+
+1. `wixFileOptions.componentType: "FILE_UPLOAD"`.
+2. `wixFileOptions.fileUploadOptions` with the rendered field settings.
+3. `wixFileOptions.validation.fileLimit` and `wixFileOptions.validation.uploadFileFormats`. Keep these values aligned with any `fileLimit` / `uploadFileFormats` you put inside `fileUploadOptions`.
+
+Do not omit `componentType`, and do not move `fileUploadOptions` under `stringOptions`, `arrayOptions`, or an extra `inputTypeOptions` wrapper.
+
+```json
+{
+  "id": "a1b2c3d4-1003-4e00-8001-000000000003",
+  "hidden": false,
+  "identifier": "FILE_UPLOAD",
+  "fieldType": "INPUT",
+  "inputOptions": {
+    "target": "photos_0003",
+    "pii": false,
+    "required": false,
+    "inputType": "WIX_FILE",
+    "readOnly": false,
+    "wixFileOptions": {
+      "componentType": "FILE_UPLOAD",
+      "fileUploadOptions": {
+        "label": "Upload photos",
+        "showLabel": true,
+        "buttonText": "Upload files",
+        "fileLimit": 5,
+        "uploadFileFormats": ["IMAGE", "DOCUMENT"]
+      },
+      "validation": {
+        "fileLimit": 5,
+        "uploadFileFormats": ["IMAGE", "DOCUMENT"]
+      }
+    }
+  }
+}
+```
+
+`uploadFileFormats` values are string enums such as `"IMAGE"`, `"DOCUMENT"`, `"VIDEO"`, `"AUDIO"`, `"ARCHIVE"`, and `"MODEL_3D"`. If you only need photo uploads, use `["IMAGE"]`.
+
 ### Layout
 
 The `steps[].layout.large.items` array controls how fields are positioned:
@@ -299,6 +344,7 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | `Unrecognized value passed for enum` | Invalid `componentType` value (e.g., `LONG_TEXT_INPUT`) | Use only `componentType` values from the schema: `TEXT_INPUT`, `RADIO_GROUP`, `DROPDOWN`, `DATE_TIME`, `PHONE_INPUT`, `DATE_INPUT`, `TIME_INPUT`, `DATE_PICKER`, `PASSWORD` |
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
+| `ONE_OF_ALIGNMENT` or `componentType and the corresponding file_upload_options field must be passed together` for a file field | Incomplete `WIX_FILE` shape: missing `componentType`, missing `fileUploadOptions`, or missing `wixFileOptions.validation` | Match the § "File upload fields" shape exactly: `inputType: "WIX_FILE"`, `wixFileOptions.componentType: "FILE_UPLOAD"`, `fileUploadOptions`, and `validation.fileLimit` |
 | `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
 | `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
