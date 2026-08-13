@@ -25,7 +25,6 @@ assertions:
 
       Pass if the response:
       - reads this as connecting a domain the user already owns, not as a purchase, AND
-      - asks if user wants to connect it by POINTING or NAMESERVERS (aka DNS) OR
       - asks which site to connect it to, presenting the sites on the account, rather than answering
         for a site it never established, AND
       - puts no site-specific connect URL in that message.
