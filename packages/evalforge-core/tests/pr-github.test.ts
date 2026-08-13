@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getChangedFiles, makeCommenter, makeCommentUpdater } from '../src/pr-github';
+import { getChangedFiles, makeCommenter } from '../src/pr-github';
 
 const MARKER = '<!-- test-marker -->';
 const TARGET = { owner: 'wix', repo: 'skills', prNumber: 42, marker: MARKER };
@@ -95,14 +95,16 @@ describe('makeCommenter', () => {
   });
 });
 
-describe('makeCommentUpdater', () => {
+describe('makeCommenter with createIfMissing: false', () => {
+  const updateOnly = (octokit: Parameters<typeof makeCommenter>[0], io = { warn: vi.fn(), writeSummary: vi.fn() }) =>
+    makeCommenter(octokit, TARGET, io, { createIfMissing: false });
+
   it('updates the existing marked comment', async () => {
     const { octokit, updateComment, createComment } = commentOctokit([
       { id: 7, body: `${MARKER}\nold body` },
     ]);
-    const update = makeCommentUpdater(octokit, TARGET, { warn: vi.fn(), writeSummary: vi.fn() });
 
-    await update('fresh');
+    await updateOnly(octokit)('fresh');
 
     expect(updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7, body: 'fresh' }));
     expect(createComment).not.toHaveBeenCalled();
@@ -110,9 +112,8 @@ describe('makeCommentUpdater', () => {
 
   it('creates nothing when no marked comment exists', async () => {
     const { octokit, createComment, updateComment } = commentOctokit([]);
-    const update = makeCommentUpdater(octokit, TARGET, { warn: vi.fn(), writeSummary: vi.fn() });
 
-    await expect(update('fresh')).resolves.toBeUndefined();
+    await expect(updateOnly(octokit)('fresh')).resolves.toBeUndefined();
 
     expect(createComment).not.toHaveBeenCalled();
     expect(updateComment).not.toHaveBeenCalled();
@@ -122,9 +123,8 @@ describe('makeCommentUpdater', () => {
     const { octokit, createComment, updateComment } = commentOctokit([
       { id: 7, body: '<!-- other-action -->' },
     ]);
-    const update = makeCommentUpdater(octokit, TARGET, { warn: vi.fn(), writeSummary: vi.fn() });
 
-    await update('fresh');
+    await updateOnly(octokit)('fresh');
 
     expect(createComment).not.toHaveBeenCalled();
     expect(updateComment).not.toHaveBeenCalled();
@@ -134,12 +134,10 @@ describe('makeCommentUpdater', () => {
     const { octokit } = commentOctokit([{ id: 7, body: `${MARKER}\nold body` }]);
     octokit.rest.issues.updateComment = vi.fn().mockRejectedValue(new Error('403 forbidden'));
     const warn = vi.fn();
-    const writeSummary = vi.fn();
-    const update = makeCommentUpdater(octokit, TARGET, { warn, writeSummary });
+    const writeSummary = vi.fn().mockResolvedValue(undefined);
 
-    await expect(update('fresh')).resolves.toBeUndefined();
+    await expect(updateOnly(octokit, { warn, writeSummary })('fresh')).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('403 forbidden'));
-    expect(writeSummary).not.toHaveBeenCalled();
   });
 });

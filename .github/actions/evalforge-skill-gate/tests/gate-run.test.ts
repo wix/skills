@@ -33,8 +33,14 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
     ...actual,
     getFirstCommitAuthorEmail: vi.fn(),
     getChangedFiles: vi.fn(),
-    makeCommenter: vi.fn(() => upsertComment),
-    makeCommentUpdater: vi.fn(() => supersedeAnalysisComment),
+    // Routed on the option so the retract path keeps its own spy: sharing one would let a
+    // superseded note land in `upsertComment.mock.calls.at(-1)` and be read as the gate comment.
+    makeCommenter: vi.fn((
+      _octokit: unknown,
+      _target: unknown,
+      _io: unknown,
+      options?: { createIfMissing?: boolean },
+    ) => (options?.createIfMissing === false ? supersedeAnalysisComment : upsertComment)),
     loadScenarios: vi.fn(),
     collectSkillFiles: vi.fn(),
     pollUntilDone: vi.fn(),

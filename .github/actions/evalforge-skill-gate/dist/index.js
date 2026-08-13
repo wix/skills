@@ -32056,7 +32056,6 @@ async function pollUntilDone(client, projectId, runId, options = {}) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getChangedFiles = getChangedFiles;
 exports.makeCommenter = makeCommenter;
-exports.makeCommentUpdater = makeCommentUpdater;
 /**
  * The PR's cumulative diff against its base — not the last commit. A gate keyed on the
  * newest commit alone would miss files an earlier commit in the same PR changed.
@@ -32071,83 +32070,54 @@ async function getChangedFiles(octokit, owner, repo, prNumber) {
         previousFilename: file.previous_filename,
     }));
 }
-/** Resolves the marked comment's id at most once per run, whether or not one exists. */
-function commentIdCache(octokit, target) {
-    let cachedId;
-    let resolved = false;
-    return {
-        async find() {
-            if (resolved)
-                return cachedId;
-            for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-                owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
-            })) {
-                const hit = page.data.find(comment => comment.body?.includes(target.marker));
-                if (hit) {
-                    cachedId = hit.id;
-                    break;
-                }
-            }
-            resolved = true;
-            return cachedId;
-        },
-        remember(id) {
-            cachedId = id;
-            resolved = true;
-        },
-    };
-}
-function describeCommentError(error) {
-    return error instanceof Error ? error.message : String(error);
-}
 /**
  * Upserts a single marked PR comment, so repeated runs edit one comment rather than
  * spamming the thread. Never throws: a comment is a report, and losing it must not fail
  * the gate — the body goes to the job summary instead.
+ *
+ * `createIfMissing: false` makes it update-only: it retracts or rewrites a comment already on the
+ * PR and does nothing when there is none, so a body that only makes sense as a replacement cannot
+ * introduce itself.
  */
-function makeCommenter(octokit, target, io) {
-    const ids = commentIdCache(octokit, target);
+function makeCommenter(octokit, target, io, options = {}) {
+    let cachedId;
+    let resolved = false;
+    async function findExistingId() {
+        if (resolved)
+            return cachedId;
+        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+            owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
+        })) {
+            const hit = page.data.find(comment => comment.body?.includes(target.marker));
+            if (hit) {
+                cachedId = hit.id;
+                break;
+            }
+        }
+        resolved = true;
+        return cachedId;
+    }
     return async function upsert(body) {
         try {
-            const id = await ids.find();
+            const id = await findExistingId();
             if (id !== undefined) {
                 await octokit.rest.issues.updateComment({
                     owner: target.owner, repo: target.repo, comment_id: id, body,
                 });
             }
             else {
+                if (options.createIfMissing === false)
+                    return;
                 const created = await octokit.rest.issues.createComment({
                     owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
                 });
-                ids.remember(created.data.id);
+                cachedId = created.data.id;
+                resolved = true;
             }
         }
         catch (error) {
-            io.warn(`Failed to post PR comment: ${describeCommentError(error)}`);
+            io.warn(`Failed to post PR comment: ${error instanceof Error ? error.message : String(error)}`);
             await io.writeSummary(body);
-        }
-    };
-}
-/**
- * Replaces a marked comment that is already on the PR, and does nothing when there is none — so a
- * run can retract a report it posted earlier without a run that never posted one adding noise.
- *
- * Never throws, on the same reasoning as `makeCommenter`. No job-summary fallback: the body only
- * means anything as a replacement for a comment the reader can already see.
- */
-function makeCommentUpdater(octokit, target, io) {
-    const ids = commentIdCache(octokit, target);
-    return async function updateIfPresent(body) {
-        try {
-            const id = await ids.find();
-            if (id === undefined)
-                return;
-            await octokit.rest.issues.updateComment({
-                owner: target.owner, repo: target.repo, comment_id: id, body,
-            });
-        }
-        catch (error) {
-            io.warn(`Failed to update PR comment: ${describeCommentError(error)}`);
         }
     };
 }
@@ -63431,16 +63401,16 @@ async function guardedCall(operation, failure, comment, blocking) {
         return exports.HALTED;
     }
 }
-function commenterFor(marker, make) {
-    return (octokit, target) => make(octokit, { ...target, marker }, {
+function commenterFor(marker, options = {}) {
+    return (octokit, target) => (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
-    });
+    }, options);
 }
-exports.makeGateCommenter = commenterFor(evalforge_core_1.GATE_COMMENT_MARKER, evalforge_core_1.makeCommenter);
-exports.makeAnalysisCommenter = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER, evalforge_core_1.makeCommenter);
+exports.makeGateCommenter = commenterFor(evalforge_core_1.GATE_COMMENT_MARKER);
+exports.makeAnalysisCommenter = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER);
 /** For the gate, which retracts a superseded investigation but must never open one. */
-exports.makeAnalysisUpdater = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER, evalforge_core_1.makeCommentUpdater);
+exports.makeAnalysisUpdater = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER, { createIfMissing: false });
 
 
 /***/ }),
