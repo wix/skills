@@ -4,7 +4,7 @@ description: >-
   treats it as a connect rather than a purchase, and resolves the target site per Part C Case B —
   asking which site when the account holds several, without handing over a connect link first.
 triggerPrompt: >-
-  I need a domain for my Wix site — I already have nike.com registered somewhere else.
+  I need to connect a domain for my Wix site — I already have nike.com registered somewhere else.
 tags: [domains]
 maxTokens: 600000
 assertions:
