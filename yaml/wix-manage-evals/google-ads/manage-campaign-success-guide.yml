@@ -1,0 +1,46 @@
+name: google-ads/manage-campaign-success-guide
+description: >-
+  Verifies the agent distinguishes an existing campaign success guide from
+  pre-campaign suggestions, uses the two public endpoints correctly, handles
+  long generation safely, and requires confirmation before changing status.
+triggerPrompt: >-
+  I already have a Google Ads Performance Max Leads campaign. How do I retrieve
+  its prioritized success guide and then mark the CLEAR_CTA_COPY recommendation
+  completed? Give me the exact REST flow and the safety behavior I should expect.
+tags: [marketing]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-a-campaign-success-guide
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response:
+      - distinguishes this existing-campaign guide from pre-campaign asset,
+        keyword, budget, or targeting suggestions;
+      - uses POST /pa-platform/suggestions/v1/campaign-success-guides/get-or-create
+        with campaignId and platformType GOOGLE;
+      - preserves the returned suggestion order as priority order;
+      - says first generation can take up to 120 seconds and must not be retried
+        prematurely;
+      - uses POST /pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
+        with type CLEAR_CTA_COPY and status COMPLETED;
+      - identifies the update by suggestion type rather than suggestion id; and
+      - requires user confirmation before executing the status mutation.
+
+      Fail if it invents endpoints, claims the recommendation itself is
+      automatically implemented, mutates without confirmation, recommends
+      premature retries, or routes to the pre-campaign Suggestions API.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path with the correct skill and
+      public documentation, no non-2xx calls, no guessed request shapes, no
+      redundant probing, no live mutation for this explanatory request, and no
+      internal service or tool names in the user-facing answer. Penalize each
+      detour and name the likely recipe/docs gap. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.
