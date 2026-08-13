@@ -98,18 +98,18 @@ const labelDirection = elementProps?.label?.direction;
 
 ### Runtime Direction Checking
 
-**Environment Service (for site direction):**
+**Site direction hook:**
 
-Use service when direction drives JavaScript behavior (keyboard navigation, animation logic, conditional rendering).
+Use the hook **only** when direction drives JavaScript behavior (keyboard navigation, animation logic, conditional rendering). For purely visual RTL, use logical CSS properties instead — see below.
 
 ```typescript
-import { useService } from '@wix/services-manager-react';
-import { EnvironmentDefinition } from '@wix/environment-service/definition';
+import { useLanguageDirection } from '@wix/react-component-utils';
 
-const environmentService = useService(EnvironmentDefinition);
-const siteDirection = environmentService.getLanguageDirection();
+const siteDirection = useLanguageDirection();
 const isRTL = siteDirection === 'rtl';
 ```
+
+See [`SITE-CONTEXT-HOOKS.md`](SITE-CONTEXT-HOOKS.md) for the full set of site context hooks.
 
 **Fallback chain (for child components):**
 
