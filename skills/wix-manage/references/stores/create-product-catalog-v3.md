@@ -165,7 +165,13 @@ A digital product uses the smaller shape below. Add the supplied variant-level d
 
 ## Add images
 
-Skip this step when no image was supplied. Upload all attachments and public image URLs together through the available Wix image-upload capability; otherwise use `POST /site-media/v1/files/import`. A successful upload that returns the matching `wixstatic.com` URL may be used in product media while asynchronous processing is `PENDING`; do not treat `PENDING` alone as a failure. Stop if the upload reports `FAILED`. Poll `GET /site-media/v1/files/get-file-by-id?fileId=<FILE_ID>` until `file.operationStatus` is `READY` only when the workflow needs guaranteed processing, image metadata, transformations, or independent proof that the asset is ready. A pending URL proves submission, not completed processing, so do not describe it as ready or fully verified unless a later response proves that. Do not use a thumbnail URL or reuse the original external URL after upload.
+Skip this step when no image was supplied. Prefer the available dedicated Wix image-upload capability and upload all attachments and public image URLs together. Do not reconstruct that capability inside a general API-execution call. When no dedicated uploader is available, use `POST /site-media/v1/files/import` with the external URL in the body field named exactly `url`—not `importUrl`:
+
+```json
+{"url":"https://example.com/product.jpg","mimeType":"image/jpeg","displayName":"Product.jpg","mediaType":"IMAGE"}
+```
+
+A successful upload that returns the matching `wixstatic.com` URL may be used in product media while asynchronous processing is `PENDING`; do not treat `PENDING` alone as a failure. Stop if the upload reports `FAILED`. Poll `GET /site-media/v1/files/get-file-by-id?fileId=<FILE_ID>` until `file.operationStatus` is `READY` only when the workflow needs guaranteed processing, image metadata, transformations, or independent proof that the asset is ready. A pending URL proves submission, not completed processing, so do not describe it as ready or fully verified unless a later response proves that. Do not use a thumbnail URL or reuse the original external URL after upload.
 
 Track every upload as its own product-to-file record. A poll or timeout fallback may return only that file's URL—never another product's URL. If an upload fails, retry the same asset through another supported transfer method when possible; never silently replace it with a different image. If the exact asset cannot be preserved, create only products whose requested images uploaded successfully and report every blocked product and failed source exactly; for a single required-image product, make no product-create call.
 
@@ -249,7 +255,7 @@ Before claiming that an inventory-aware bulk create succeeded:
 
 The inventory error check is mandatory even when every item and metadata count succeeded. Explicitly read the sibling field—for example, normalize `inventoryResults.error ?? null`—and report success only when it is absent or null. Do not infer that value from HTTP 200, item metadata, or bulk metadata.
 
-For `POST /stores/v3/products-with-inventory`, inspect the returned `product.id`, every `inventoryResults.results[].itemMetadata`, and top-level `inventoryResults.error` directly from the create response. Do not issue inventory queries, product searches, Get Product calls, or PATCH calls merely to reconfirm values already proven by that response. The only allowed extra read on this happy path is the single projected media verification described above when requested images are not present in the projected create result.
+For `POST /stores/v3/products-with-inventory`, inspect the returned `product.id`, every `inventoryResults.results[].itemMetadata`, and top-level `inventoryResults.error` directly from the create response. Do not issue inventory queries, product searches, Get Product calls, or PATCH calls merely to reconfirm values already proven by that response. If item success proves the inventory write but the response omits the requested quantity, report the quantity as submitted; if the user needs it independently verified, make one targeted inventory read using the returned product ID without first fetching the product again. The only other allowed extra read is the single projected media verification described above when requested images are not present in the projected create result. GET and HEAD requests must not include a request body.
 
 Never read `productResults.inventoryResults`: that path does not exist. A successful product result or HTTP 200 does not prove inventory creation succeeded.
 

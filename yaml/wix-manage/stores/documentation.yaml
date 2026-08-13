@@ -13,7 +13,7 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/stores/create-product-catalog-v3.md
       title: Create Product (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
-      tags: [stores, media]
+      tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-catalog-v1.md
       title: Create Product (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
