@@ -45,8 +45,9 @@ The user wants to:
 
 - Buy / purchase / register / get a domain
 - Search for an available domain, or check if one is available
-- Brainstorm a domain from a business idea
-- Connect a domain they already own to their Wix site
+- Brainstorm a domain name from a business idea
+- Connect / assign / add a domain to their Wix site
+- Connect / assign / add a sub domain to their Wix site
 - Get a custom domain for their Wix site
 
 Typical openers: *"buy me a domain"*, *"I want to purchase a domain"*, *"get me mybusiness.com"*, 
