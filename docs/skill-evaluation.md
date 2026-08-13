@@ -106,21 +106,21 @@ cannot see. See [`.github/workflows/evalforge-re-eval.yml`](../.github/workflows
 
 When the PR's eval run has failing or errored assertions, a second job asks EvalForge to
 investigate that run and posts what it found as its own PR comment, separate from the
-verdict above it and collapsed by default — open **Full investigation** to read it. Above
-the fold sit a tally of findings and a one-paragraph summary; inside, findings are listed
-by severity, each naming the scenarios it affects and, where EvalForge has one, a suggested
-fix.
+verdict above it. If EvalForge found nothing to flag, the comment says so plainly;
+otherwise it opens with a tally and a short extract of the summary, with the findings
+themselves folded behind **Full investigation** — each listed by severity, with a
+description and, where it has them, the scenarios it affects and a suggested fix.
 
 It runs in a separate job on purpose: a check does not finalise until its job ends, so
 running the investigation alongside the verdict would hold the gate's check open longer
 than the verdict itself needs. The verdict lands — and the PR blocks or unblocks — without
 waiting for it, and the second comment follows shortly after.
 
-A run with nothing failing gets no investigation and no second comment. The investigation
-never fails a check, so this job stays green even when the gate is red; if the analysis
-cannot be generated, the comment says why instead of going missing. Set the
-`WIX_APP_EVAL_ANALYZE` repo variable to `false` to switch it off. Re-running the `analyze`
-job regenerates the analysis rather than re-showing the stored one.
+A run with nothing failing gets no investigation and no second comment. A failed
+investigation never fails a check: if the analysis cannot be generated, the comment says
+why instead of going missing. Set the `WIX_APP_EVAL_ANALYZE` repo variable to `false` to
+switch it off. Re-running the `analyze` job regenerates the analysis rather than
+re-showing the stored one.
 
 **During the soak period** the gate posts its comment but does not block: it runs with
 `blocking: false` until there is enough real-PR signal to turn it on. Read the comment

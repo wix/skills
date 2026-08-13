@@ -197,12 +197,14 @@ flowchart TD
 
 `analyze` takes `eval-run-id` — the `gate` job's `analyze-run-id` output — and asks EvalForge
 to investigate that run. EvalForge requires the run to be `COMPLETED`; any other status is a
-400. This mode never fails the check: the investigation is advisory and runs in its own job,
-so a red check beside a green gate would misrepresent the PR. Every failure path — a bad
-status, a timeout, a 5xx, or an empty analysis — still posts a short "could not be generated"
-note rather than staying silent, since to someone waiting on it an absent comment is
-indistinguishable from a bug. The comment lives under its own sticky marker, separate from
-`gate`'s, so the two never overwrite each other.
+400. A failed investigation never fails the check: it is advisory and runs in its own job,
+so a red check beside a green gate would misrepresent the PR. Every failure path in the
+investigation — a bad status, a timeout, a 5xx, or an empty analysis — still posts a short
+"could not be generated" note rather than staying silent, since to someone waiting on it an
+absent comment is indistinguishable from a bug. (The one exception is a missing input or
+absent PR payload, which fails the job via `core.setFailed` — there is no comment channel to
+report through.) The comment lives under its own sticky marker, separate from `gate`'s, so
+the two never overwrite each other.
 
 ## `cleanup` flow
 
