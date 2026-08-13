@@ -2,7 +2,7 @@ name: stores/create-product-digital-no-image-sku
 description: Verifies that a digital V3 product uses ordinary Create Product without physical or inventory fields while retaining price and SKU.
 triggerPrompt: >-
   Create a digital product named "Focus Planner PDF" for $9.99 with SKU PDF-FOCUS-01. It has no product image and I am not supplying a download file yet.
-  Create it now.
+  It has no options or variations. Do not generate an SEO description or info sections. Create it now.
 tags: [stores]
 maxTokens: 20000
 siteSetup:
