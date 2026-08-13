@@ -133,11 +133,6 @@ build the client, so the urls are ready by the time you seed.
 The connector + seeding are **admin-only** (STEP 4) — **not** part of the client, which is built
 solely per the `wix-vibe-headless` skill.
 
-## Parallelism
-
-Run STEP 3 and STEP 4 in parallel — building and seeding are independent. Within each, also
-parallelize independent work (API calls, multiple entities).
-
 ## STEP 5 — Wrap up
 
 Once the site is built and seeded:
