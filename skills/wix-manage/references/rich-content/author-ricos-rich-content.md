@@ -5,7 +5,7 @@ description: Authoritative recipe for hand-authoring valid Ricos rich-content JS
 
 # Author Ricos Rich Content
 
-> **Routing rule (READ FIRST).** When hand-authoring or returning Ricos / `richContent` JSON, use **this recipe** — the shapes, nesting rules, spacer paragraphs, and plugin nodes below. Do not rely on API schema search alone; it misses those details. When the user only wants JSON output, **do not** call Ricos convert/validate APIs — compose the `nodes` tree from this file.
+> **Routing rule (READ FIRST).** When hand-authoring or returning Ricos / `richContent` JSON, use **this recipe** — the shapes, nesting rules, spacer paragraphs, and plugin nodes below. Do not rely on API schema search alone; it misses those details. After this recipe loads, do not perform additional schema or documentation searches for node types covered here; compose and self-audit the JSON from this file. When the user only wants JSON output, **do not** call Ricos convert/validate APIs.
 
 Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON. The same structure is embedded by many products: a Blog post's `draftPost.richContent`, a Store product's rich description, an Events description, and CMS rich-text fields all expect a Ricos document. This recipe is the **authoring reference for that node tree**: the valid shape of each node, how nodes nest, and how to format text. It is intentionally product-agnostic — the consuming API decides *where* the document goes; this recipe governs *what a valid document looks like*.
 
@@ -18,6 +18,17 @@ Ricos is Wix's rich-content format — a tree of typed nodes serialized as JSON.
 - **TEXT is a leaf.** A TEXT node only ever lives inside a `PARAGRAPH`, `HEADING`, or `CODE_BLOCK`. It must **never** sit directly in the root `nodes` array or inside a `LIST_ITEM`, `BLOCKQUOTE`, or `TABLE_CELL` — those must contain a `PARAGRAPH` (or `HEADING`) that then contains the TEXT. See [Nesting rules](#nesting-rules).
 - Failing to wrap TEXT correctly produces the parse error **"Expected a paragraph node but found TEXT"**.
 - **Block nodes do not get automatic vertical gap when rendered** — insert empty `PARAGRAPH` spacer nodes between sibling blocks when you need breathing room. See [Vertical spacing between blocks](#vertical-spacing-between-blocks).
+
+## Required plugin shape checklist
+
+Use this checklist while composing and again before returning JSON. Treat every path below as required for the described request:
+
+- **Button CTA:** emit a root-level `BUTTON`, never a `PARAGRAPH` with an inline `LINK`. Include `buttonData.type: "LINK"`, `buttonData.text`, `buttonData.link.url`, `buttonData.link.target`, and `buttonData.containerData`.
+- **Hosted audio:** emit `{ "type": "AUDIO", "nodes": [], "audioData": { ... } }`. The empty `nodes` array is on the AUDIO node beside `audioData` — never inside `audioData`. Include `audioData.containerData.alignment`, `width`, and `textWrap`, plus `audioData.audio.src.id`.
+- **Video with thumbnail:** place `videoData.video.src` and `videoData.video.duration` inside `video`; place `videoData.thumbnail` beside `video`, with `src.id`, `width`, and `height`.
+- **Gallery:** emit one root-level `GALLERY`. Put images in `galleryData.items`, not as child IMAGE nodes. Every item uses `image.media` with `src`, `width`, and `height`; include `galleryData.options.layout.type` and `numberOfColumns`.
+- **Collapsible FAQ:** use `COLLAPSIBLE_LIST → COLLAPSIBLE_ITEM → COLLAPSIBLE_ITEM_TITLE | COLLAPSIBLE_ITEM_BODY → PARAGRAPH → TEXT`. Every PARAGRAPH includes `paragraphData`, and every item includes both title and body.
+- **HTML embed:** emit a root-level `HTML` with `htmlData.source`, either `url` or `html`, and `htmlData.containerData.width`, `height`, and `alignment`.
 
 ## Vertical spacing between blocks
 
@@ -408,8 +419,8 @@ All decidable from the JSON itself — check before handing the document to a co
 6. **Images** use a Wix Media `id` (not a raw URL), with `width`, `height`, and meaningful `altText`.
 7. **Links** — every `LINK` decoration has a valid `url` and `target`. Use a `BUTTON` block with `buttonData.type: "LINK"` for CTAs — not an inline `LINK` decoration styled to look like a button.
 8. **Buttons** — every BUTTON includes **`buttonData.type`** (`LINK` requires `link.url`; `ACTION` has no URL). Omitting `type` is invalid even when `link` is set. `LINK` buttons and inline `LINK` decorations serve different purposes.
-9. **Media blocks** — `AUDIO`/`VIDEO` use Wix Media `src.id` with required metadata (`duration` on video; optional `thumbnail`, `coverImage` on audio). `GALLERY` items each carry `image.media.src` plus `width`/`height`.
-10. **Collapsible lists** — every item has both `_TITLE` and `_BODY`, each wrapping content through `PARAGRAPH → TEXT` at minimum.
-11. **HTML embeds** — `htmlData` includes `containerData` sizing and either `url` or `html` (not both empty).
+9. **Media blocks** — AUDIO has root-level `nodes: []` and `audioData.containerData`; VIDEO keeps `thumbnail` beside `video` under `videoData`; every GALLERY item is under `galleryData.items` and carries `image.media.src`, `width`, and `height`.
+10. **Collapsible lists** — every item has both `_TITLE` and `_BODY`, each wrapping content through `PARAGRAPH → TEXT`, and every PARAGRAPH has `paragraphData`.
+11. **HTML embeds** — `htmlData` includes `source`, `containerData.width`, `containerData.height`, and either `url` or `html` (not both empty).
 12. **Spoiler** — `SPOILER` is a decoration on `TEXT` (or `containerData.spoiler` on some block plugins in editor output); preserve it verbatim on edit.
 13. **Vertical spacing** — stacked block nodes that should not appear cramped are separated by empty `{ "type": "PARAGRAPH" }` spacers — especially after images, videos, tables, collapsible lists, galleries, buttons, and between consecutive paragraphs. Missing spacers produce a wall-of-blocks layout with no renderer-added margin.
