@@ -198,11 +198,39 @@ Use the chosen product object directly in either envelope:
 
 The first is for single endpoints; the second is for bulk endpoints. If the user supplies only a SKU pattern for variants, generate a stable unique SKU per combination and preserve the mapping in the result.
 
+### Request projected media when validating images
+
+`media.itemsInfo.items` is a projected response field. Creating a product with media does not guarantee that the create response—or an ordinary Get Product call—returns the gallery. To receive it, pass `"MEDIA_ITEMS_INFO"` in the request-level `fields` array.
+
+For a single create with images:
+
+```json
+{"product": PRODUCT_WITH_MEDIA, "fields": ["MEDIA_ITEMS_INFO"]}
+```
+
+For a bulk create with images:
+
+```json
+{
+  "products": [PRODUCT_1, PRODUCT_2],
+  "returnEntity": true,
+  "fields": ["MEDIA_ITEMS_INFO"]
+}
+```
+
+If the create result still does not prove the stored gallery, make at most one read-only verification call:
+
+```http
+GET /stores/v3/products/<PRODUCT_ID>?fields=MEDIA_ITEMS_INFO
+```
+
+Inspect `product.media.itemsInfo.items` from that projected response. Do not interpret an omitted `itemsInfo` as lost media, search the Update Product schema, or PATCH the same media merely to retrieve it. A PATCH is appropriate only when a projected response proves the stored media is actually wrong.
+
 ## Validate before reporting success
 
 | Endpoint result | Required checks |
 |---|---|
-| Single, no inventory | Require `product.id`; report only response-backed fields as verified. |
+| Single, no inventory | Require `product.id`; report only response-backed fields as verified. For images, request `MEDIA_ITEMS_INFO` on create or use one projected Get Product verification call. |
 | Single, with inventory | Require `product.id`; inspect `inventoryResults.results`, item metadata, and top-level error. |
 | Bulk, no inventory | Inspect every `results[].itemMetadata`; with `returnEntity: true`, the created entity is `results[].item`, not `results[].product`. Reconcile `bulkActionMetadata.totalSuccesses` and `totalFailures` with the requested count. |
 | Bulk, with inventory | Use the exact two-sibling response paths below. Inspect every product and inventory result, both bulk metadata objects, item metadata, and the inventory error before reporting success. |

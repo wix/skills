@@ -21,4 +21,5 @@ assertions:
     minScore: 7
     maxTokens: 1024
     prompt: |
-      Rate the interaction path from 0-10. A 10 loads only the unified Create Product recipe, then gives one concise response asking what product to create and offering both supported starting paths: upload up to 3 images for generated product information, or describe the product in text. Score below 7 if the agent reads tangential docs, makes any site/API call, asks for structured fields, presents a form/checklist/questionnaire, or omits either starting path. Return ONLY {"score":<0-10>,"reason":"<terse friction or clean path>"}.
+      Rate the interaction path from 0-10. A 10 loads the unified Create Product recipe, resolves any missing context needed for the requested site, then gives one concise response asking what product to create and offering both supported starting paths: upload up to 3 images for generated product information, or describe the product in text.
+      Penalize unrelated or redundant documentation and API calls, asking for structured fields, presenting a form/checklist/questionnaire, or omitting either starting path. Do not penalize a relevant read-only call needed to resolve missing site context. Return ONLY {"score":<0-10>,"reason":"<terse friction or clean path>"}.
