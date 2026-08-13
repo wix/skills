@@ -23,9 +23,7 @@ assertions:
 
       Pass if the response:
       - states whether bestbakery-in-tel-aviv.com is available in plain language, AND
-      - moves on toward the purchase — registration period, contact details, or a checkout link — or,
-        if the domain is taken, offers alternative domains, AND
-      - quotes a price only if one was actually retrieved.
+      - proposes the user to choose between connect it to Wix site (with showing the list of sites) or to purchase it standalone
 
       Fail if the response:
       - narrates internal mechanics to the user — API or tool names, endpoint paths, error codes, cart
