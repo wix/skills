@@ -1,0 +1,34 @@
+name: app-installation/list-installed-apps-diagnose-403-scope
+description: >-
+  Verifies the agent reads the list-installed-apps skill and, when an app is
+  confirmed installed but the API still returns 403, correctly diagnoses it as
+  a missing permission scope rather than a missing-app problem.
+triggerPrompt: >-
+  I confirmed the Wix Blog app is installed on my site, but every call to the Blog API
+  still returns "403 Forbidden: the auth identity is not allowed on this resource for
+  this site/account". What's going on and how do I fix it?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/list-installed-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already confirmed the required app is installed, and is still getting a 403
+      "auth identity not allowed" error.
+      Intent: distinguish app-not-installed (401) from missing-permission-scope (403) failure modes,
+      and explain that reinstalling the app will not fix a 403 caused by a missing scope.
+
+      Pass if the response:
+      - explains that this 403 is a permission/scope issue on the caller's token, not a missing-app issue, AND
+      - does NOT tell the user to (re)install the app as the fix, AND
+      - gives at least one concrete next step matched to how the caller authenticates (e.g. checking an API
+        key's assigned permissions, an OAuth app's granted scopes, or noting that reconnecting an MCP/OAuth
+        connector does not add scopes on its own).
+
+      Fail if the response:
+      - tells the user to install or reinstall the app as the fix, OR
+      - treats this the same as the "app not installed" 401 case, OR
+      - gives no actionable next step beyond "check your permissions".
