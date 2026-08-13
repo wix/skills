@@ -125,9 +125,8 @@ export async function checkout() {
 
 /**
  * Update the quantity of a cart line. lineItemId is cart.lineItems[].id, not catalogItemId.
- * In Cart V2 a quantity above remaining stock is rejected with an explicit error — V2 no longer
- * silently reduces it to the available amount (the V1 behavior), so handle the throw and show
- * the buyer what's in stock.
+ * In Cart V2 a quantity above remaining stock is rejected with an explicit error rather than
+ * silently reduced to the available amount, so handle the throw and show the buyer what's in stock.
  * @returns {Promise<object>} Updated cart.
  */
 export async function updateCartItemQuantity(lineItemId, quantity) {

@@ -54,7 +54,7 @@ export async function getDefaultOperation() {
  * Add a restaurant menu item to the visitor's current eCom cart.
  *
  * Requires operationId (from listOperations/getDefaultOperation), menuId, and sectionId.
- * Throws if any is missing, or if the added line is not AVAILABLE.
+ * Throws if any is missing, or if the added line's status is not IN_STOCK.
  *
  * Variant selection and modifier up-charges on the cart line are not covered here — the
  * restaurants catalogReference.options shape for those is not documented for client add-to-cart.
