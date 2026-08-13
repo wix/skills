@@ -22,6 +22,7 @@ Run every post request through these steps, in this order. The principle is **va
 5. **Show it and get approval.** Present the tool's actual output — the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final post **before** any delivery step.
 6. **Only now, check delivery — just-in-time.** After the user approves, confirm the channel is connected (STEP 4; connect if needed) and check the plan for publish vs. schedule (STEP 5). This is where connection/plan problems surface — never lead with them. If `SCHEDULE_POST` is disabled, never present scheduling. A positive `quotaInfo.limit` with `remainingUsage: 0` means that action's quota is used up (offer the other action if enabled — a near-future schedule works like publish-now); `limit: 0` means unmetered, so treat the action as available. AI generation is **never** plan-gated; never tell the user it is.
 7. **Publish exactly what was approved.** Create the draft (STEP 6) from the approved content plus the account's IDs, then publish or schedule (STEP 7). For a scheduled time, verify the resolved `scheduledDate` is **strictly in the future** right before the call (a "today at 9am"-style time can resolve to the past). Reuse the approved caption, image, and draft on any retry; never regenerate after approval.
+8. **Publish at most once — and report what the API actually returned.** Give the draft a stable `referenceId` (STEP 6) and reuse it on every attempt for this post. The moment a `publish-by-id` returns `PUBLISHED` (or `SCHEDULED`/`PROCESSING`), the job is done: say so and stop. Never create or publish a **second** item for the same approved content in this conversation — not to switch the page/account (that's Update Account Settings in STEP 4b; a settings change never requires re-posting), not to "make sure it went through" (the returned `status` already told you), and not because the conversation got confusing (if unsure whether it posted, check the item's status — don't post again). Your reply must state this turn's tool results as they are: after a `VALID` token status, never tell the user the channel is disconnected; after a successful publish, report the success — never claim a failure that didn't happen, and never re-send a connect link from an earlier turn (a connect link is only ever the `connectUrl` from a fresh STEP 4c call in the current turn).
 
 The rest of this recipe is the reference for executing each step.
 
@@ -284,6 +285,8 @@ Here `channel.accountId` = `facebook.id` (`1022334455667788`) and `facebookPost.
   - Google Business Profile → `{ "gbp": { "defaultLocationId": "<id>" } }`
   - TikTok → `{ "tiktok": { "defaultAccountId": "<id>" } }`
   - LinkedIn → `{ "linkedin": { "defaultChannelId": "<id>" } }`
+
+  Changing the default is a **settings change only** — it never requires re-creating or re-publishing a post. If the post was already published, changing the default afterward is bookkeeping for *future* posts; don't post again because of it.
 - **`accounts` is empty (or `NO_PAGES_FOR_USER`) even though STEP 4a returned `VALID`** → the token exists but no postable page/account was granted during authorization (e.g. no Facebook Page with a linked Instagram **Business/Creator** account). Treat it as "not connected": re-run STEP 4c and tell the user to grant the Page.
 - **A `400 USER_NOT_EXIST_FOR_CHANNEL` error** (shouldn't happen after a `VALID` status, but possible if the channel was disconnected between calls) → treat exactly like "not connected" for **this channel only** and offer STEP 4c.
 
@@ -299,7 +302,7 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
 
    A `428 INELIGIBLE_FOR_FEATURE` here means the site has hit its plan's cap on **how many** channels it can connect (free plans allow one), not that this channel is blocked. Since the cap is full, another channel is already connected — offer only two options: **upgrade the plan**, or **post to the already-connected channel** (find it via `List Accounts` on the other channels, or ask). Don't suggest connecting a different new channel (same cap, same 428) or disconnecting the existing one.
 
-2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side.
+2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side. Each `connectUrl` is for the turn you fetched it in — if the user comes back later saying they've connected, re-check the status (step 3 below) and, only if it still isn't `VALID`, fetch a **fresh** connect URL; never re-send a link from an earlier turn.
 
 3. **Poll the connection status** — `GET https://www.wixapis.com/social-publisher/v1/INSTAGRAM/long-lived-token-status` every few seconds, for up to ~2 minutes, until `status` is `VALID`:
 
@@ -359,7 +362,7 @@ Build the request from `item.channel` (`name` + the `accountId` from STEP 4b), `
 - Otherwise, build it from the STEP 3 table row for your channel + `type`: the text field (`caption` for Instagram/Facebook/LinkedIn/X, `description` for YouTube/Pinterest/GBP/TikTok), the media (`mediaWrapper`, or `imageUrl`/`videoUrl` for a single item), and any channel-specific IDs from the STEP 4b account object, plus `title` where the channel uses one.
 - Instagram and story types require media.
 
-**Idempotency (retry safety).** Set a stable, caller-defined `item.referenceId` on the draft. The Publisher enforces its uniqueness — a second item created/published with the same `referenceId` is rejected with `REFERENCE_ID_ALREADY_EXIST` instead of posting a duplicate. So if a create or publish call times out, retry with the **same** `referenceId` rather than risk double-posting.
+**Idempotency (mandatory — always set `referenceId`).** Set a stable, caller-defined `item.referenceId` on every draft: mint **one** value when the user approves the post (a UUID works) and reuse it on **every** create/publish attempt for that content — across retries, and across later turns of the same conversation. The Publisher enforces its uniqueness — a second item created/published with the same `referenceId` is rejected with `REFERENCE_ID_ALREADY_EXIST` instead of posting a duplicate. So if a create or publish call times out, errors ambiguously, or the conversation loses track of whether it posted, retry with the **same** `referenceId`; never mint a new one for content that may already be live (that's how the same post ends up on the page twice).
 
 **Example — Instagram image post:**
 
@@ -444,7 +447,7 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 
 Only offer scheduling if `SCHEDULE_POST` was `enabled: true` in STEP 5 (per that step's decision point); otherwise publish now is the only option.
 
-The user already approved this exact content in STEP 3, so publish what was approved — don't regenerate. Publishing immediately is public and can't be undone (you can only delete the post afterward); if anything about the content changed since the STEP 3 approval, re-confirm before this call.
+The user already approved this exact content in STEP 3, so publish what was approved — don't regenerate, and don't re-publish: if an earlier `publish-by-id` in this conversation already returned `PUBLISHED` (or `SCHEDULED`/`PROCESSING`) for this content, that **is** the outcome — report it instead of publishing again (PROTOCOL rule 8). Publishing immediately is public and can't be undone (you can only delete the post afterward); if anything about the content changed since the STEP 3 approval, re-confirm before this call.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/publish-by-id`
 

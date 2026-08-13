@@ -1,0 +1,68 @@
+name: marketing/create-and-publish-social-post-publish-once
+description: >-
+  Advisory scenario for the "Create and Publish a Social Media Post" skill: the
+  agent is asked how to behave after a connect-then-publish flow where the token
+  status now returns VALID and publish-by-id already returned PUBLISHED, and the
+  user then changes the default page. The correct behavior is to trust and report
+  the tool results (VALID means connected, PUBLISHED means done), reuse one stable
+  referenceId per approved post, treat a default-page change as a settings-only
+  update, and never create or publish a second item for the same content.
+triggerPrompt: >-
+  I am building an assistant on the Wix Social Publisher REST API. In one
+  conversation my flow was: long-lived-token-status returned DISCONNECTED, I gave
+  the user the connect link, and later the user said they completed the
+  connection. My next status check returned VALID and my publish-by-id call
+  returned status PUBLISHED. I am not fully sure the connection really worked
+  though - should I tell the user it still looks disconnected and send them the
+  earlier connect link again, and publish the post one more time to be safe? The
+  user also picked a different default Facebook page right after - do I need to
+  re-create and re-publish the post for that? How should referenceId be used
+  across these attempts?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They did NOT ask the assistant to
+      create, publish, or schedule an actual post. The stated facts are: the
+      latest long-lived-token-status returned VALID, and publish-by-id already
+      returned status PUBLISHED for the approved content. The user then changed
+      the default Facebook page.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - says a VALID token status means the channel IS connected, so the
+        assistant must not tell the user it looks disconnected or send any
+        connect link after a VALID check, AND
+      - says connect links must always come from a fresh Get Connect Url call in
+        the current turn, never re-sent from an earlier turn, AND
+      - says a publish-by-id result of PUBLISHED (or SCHEDULED/PROCESSING) means
+        the job is done: report that outcome and do not publish again "to be
+        safe" - if unsure, check the item's status instead of re-posting, AND
+      - says changing the default page is a settings-only change (Update Account
+        Settings) that never requires re-creating or re-publishing an already
+        published post, AND
+      - says to mint ONE stable referenceId when the post is approved and reuse
+        that same referenceId on every create/publish attempt for that content,
+        so a duplicate attempt is rejected with REFERENCE_ID_ALREADY_EXIST
+        instead of double-posting, AND
+      - does not perform any mutating API calls.
+
+      Fail if the response:
+      - suggests telling the user the channel is disconnected despite the VALID
+        status, OR
+      - suggests re-sending the earlier connect link, OR
+      - suggests publishing the same approved content again (for safety, after a
+        settings change, or otherwise), OR
+      - suggests minting a new referenceId for content that may already be
+        published, OR
+      - attempts Create Draft Item, Publish Item By ID, Update Account Settings,
+        or any other mutating API call, OR
+      - falls back to searching the REST docs instead of using the skill.
