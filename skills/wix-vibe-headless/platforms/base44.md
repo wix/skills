@@ -144,13 +144,7 @@ Once the site is built and seeded:
    metasite id) to complete setup in Wix (required), and mention that the preview shows a dismissible
    top banner linking to this same dashboard.
 
-**Preview briefly, don't chase images.** A quick render check is enough. Generated images show as
-alt-text/broken in this preview because `generate_image` returns a `/__generating__/…` placeholder —
-the platform swaps every placeholder for the final url **automatically at the end of the turn**
-(failed ones get a stock fallback), in your own components and the seeded data alike. So a broken
-image in the preview is expected and already handled: **do NOT swap, re-seed, re-attach, or debug
-image urls.** Hand-editing a placeholder `src` is wasted work and just risks find_replace errors on
-urls that are about to be replaced anyway. Leave them and finish.
+**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit, re-seed, or debug image urls.** Leave them and finish.
 
 ## Later admin requests
 
