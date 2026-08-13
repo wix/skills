@@ -1,0 +1,18 @@
+name: 'Headless Skill Eval'
+description: 'Advisory: runs the EvalForge scenarios mapped to a wix-headless PR''s changed files, against a branch-pinned entry skill.'
+inputs:
+  github-token:           { required: true,  description: 'Token for posting the PR comment' }
+  evalforge-url:          { required: true,  description: 'EvalForge API base (e.g. https://bo.wix.com/_api/evalforge-backend)' }
+  evalforge-project-id:   { required: true }
+  evalforge-agent-id:     { required: true }
+  evalforge-entry-cap-id: { required: true,  description: 'The wix-headless-entry SKILL capability id' }
+  evalforge-app-id:       { required: true }
+  evalforge-app-secret:   { required: true }
+  skills-repo:            { required: false, default: '', description: 'owner/repo for the branch install URL (defaults to this repo)' }
+  poll-timeout-min:       { required: false, default: '45' }
+outputs:
+  eval-failed:
+    description: 'true if any selected scenario did not pass (advisory)'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
