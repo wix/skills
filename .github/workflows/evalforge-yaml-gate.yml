@@ -2,7 +2,10 @@ name: EvalForge YAML Gate
 
 on:
   pull_request:
-    branches: [main]
+    # NOTE: test/confirm-live-base is a temporary addition for a live smoke-test
+    # of PR #935's confirm-on-fail; this branch is disposable and this line is
+    # never merged.
+    branches: [main, test/confirm-live-base]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'skills/wix-manage/references/**'
