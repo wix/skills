@@ -1,6 +1,6 @@
 ---
 name: "Create Product (Catalog V3)"
-description: Mandatory first recipe for every Wix Stores Catalog V3 create-product request. Before any mutation, require an explicit name and price for every product; an absent price is never 0. If no product is identified, offer both image-upload and text-description paths and stop. If name or price is missing, ask or offer a suggestion and stop. If enrichment is unresolved, ask one bundled question and stop. Covers single/bulk creation, inventory, physical/digital products, images, options, variants, SKUs, and validation.
+description: Mandatory first recipe for every Wix Stores Catalog V3 create-product request. Before any mutation, require an explicit name and price for every product; an absent price is never 0. If no product is identified, offer both image-upload and text-description paths and stop. If name or price is missing, ask or offer a suggestion and stop. When both are present, create from the supplied details without requiring optional enrichment. Covers single/bulk creation, inventory, physical/digital products, images, options, variants, SKUs, and validation.
 ---
 
 # Create Product (Catalog V3)
@@ -14,43 +14,28 @@ Use this recipe for one or multiple Catalog V3 products. Catalog V1 remains supp
 >
 > Then end the turn. Do not ask for name, price, product type, options, SEO, inventory, or any other structured field yet. Do not replace the image-or-text choice with a checklist, form, or questionnaire. Reading this recipe must be the final tool call in that turn.
 
-> [!IMPORTANT]
-> **A create request is not permission to create a bare product.** When the user has supplied a name and price but has not addressed enrichment, the first response must be exactly one bundled question and then the turn must end:
->
-> **“Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?”**
->
-> Reading this recipe is the only tool call allowed in that turn. Do not detect the catalog version, inspect the site, upload media, or call any product endpoint until the user answers or explicitly declines both parts of the question.
-
 Canonical example:
 
 - User: “For my Wix store, I’d like to add a new product.”
 - Assistant: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.”
 - Result: **Stop. Do not request structured product fields yet.**
 
-- User: “For my Wix store, create a product called ‘Handmade Ceramic Mug’ priced at $24.”
-- Assistant: “Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?”
-- Result: **Stop. No product has been created yet.**
-
 ## Preflight: respond and return before mutation
 
 Name and price are mandatory **workflow inputs for every product**, even when the API schema accepts an omitted price or initializes it to zero. Evaluate the cases below in order. When a case says **RETURN**, end the turn immediately: do not call a create endpoint, do not continue to examples, and do not create first and ask afterward.
 
 1. **No product identified:** Respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” **RETURN.** Do not replace the two paths with a form, checklist, questionnaire, text-only prompt, or requests for name, price, type, options, SEO, or inventory.
-2. **Any product lacks an explicit name or price:** Ask for all missing mandatory values in one question and offer to suggest them. When only price is missing, respond only: “What price should I set for [product name]? I can suggest one if you’d like.” **RETURN.** Do not ask about enrichment in this turn.
-3. **Every name and price is known, but enrichment is unresolved:** This includes direct commands such as “create a product called X priced at Y.” Respond only: “Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?” **RETURN.** The docs read must be the turn's final tool call. Treat enrichment as resolved only when the user supplies preferences or explicitly declines both options/choices and generated content.
-4. **Every name, price, and enrichment choice is resolved:** Creation may continue. Optional type, description, SKU, inventory, and images are not required.
+2. **Any product lacks an explicit name or price:** Ask for all missing mandatory values in one question and offer to suggest them. When only price is missing, respond only: “What price should I set for [product name]? I can suggest one if you’d like.” **RETURN.**
+3. **Every name and price is known:** Creation may continue. Options, variations, description, SEO, info sections, type, SKU, inventory, and images are optional. Use them when supplied or requested; do not ask the user to resolve them before creation.
 
-“Create it,” “create it now,” “for my store, create,” or similar mutation language does not satisfy a missing price or enrichment choice. A usable price must be either explicitly supplied by the user or a suggestion the user accepted. Treat `0` as supplied only when the user explicitly requests a free or zero-priced product.
+“Create it,” “create it now,” “for my store, create,” or similar mutation language does not satisfy a missing price. A usable price must be either explicitly supplied by the user or a suggestion the user accepted. Treat `0` as supplied only when the user explicitly requests a free or zero-priced product.
 
-Before every create call, assert all three conditions:
+Before every create call, assert both conditions:
 
 - Every product has a non-empty name from the user or an accepted suggestion.
 - Every variant has a price from the user or an accepted suggestion; no price came from an API default, placeholder, example, or assumption.
-- Enrichment was answered or explicitly declined in the conversation; a create-now instruction, absent answer, or internal assumption is not an enrichment decision.
 
 If any product is missing a price, **do not call the API**. Ask for the missing price, using the product's supplied name when available, and offer to suggest one. Never put `"amount": "0"` in the request unless the user explicitly chose a zero price.
-
-For any request where every product has a name and price but enrichment is unresolved, ask the single bundled enrichment question from preflight step 3 and **RETURN**. Adapt singular or plural wording to the request. Do not call a create endpoint, treat omitted options or content as a decline, or postpone the enrichment offer until after creation.
 
 ## Core flow
 
@@ -67,7 +52,7 @@ For any request where every product has a name and price but enrichment is unres
    ```
 
    Continue here only for `V3_CATALOG`; use the V1 recipe for `V1_CATALOG`.
-4. Resolve each product's supplied type, variants, SKUs, inventory intent, and images only after its mandatory name, variant price, and enrichment choice are known.
+4. Resolve each product's supplied type, variants, SKUs, inventory intent, and images after its mandatory name and variant price are known. Do not invent optional attributes the user did not supply or request.
 5. Choose the endpoint, build the products, upload any images, create, and validate every result. Continue until all requested products succeed or report the exact failed items.
 
 ## Choose the endpoint
@@ -160,7 +145,7 @@ A digital product uses the smaller shape below. Add the supplied variant-level d
 
 ### Generated descriptions and SEO
 
-- When copy is generated from an image, state only user-supplied or visually supported facts. Do not present material, dimensions, capacity, care instructions, compatibility, or other non-visible attributes as facts.
+- When copy is generated from an image, every factual claim must be user-supplied or directly visible. Preserve user-supplied facts such as a stated material; do not reject them merely because the image alone cannot prove them. Color, shape, and visible decoration may come from the image. Dimensions, capacity, care instructions, durability, compatibility, performance, and any material the user did not identify must be omitted. For example, never write “dishwasher safe” or “microwave safe” unless the user supplied that fact. Omit uncertain claims instead of turning them into marketing language.
 - Use `plainDescription` unless formatting is required. SEO tags use `seoData.tags`.
 - For formatted bullets, the Ricos node is `BULLETED_LIST`, not `BULLET_LIST`, and its data field is `bulletedListData`:
 
@@ -197,6 +182,10 @@ Use the chosen product object directly in either envelope:
 ```
 
 The first is for single endpoints; the second is for bulk endpoints. If the user supplies only a SKU pattern for variants, generate a stable unique SKU per combination and preserve the mapping in the result.
+
+For one product when the user supplied no quantity, stock state, or inventory-tracking request, the complete direct path is `POST /stores/v3/products` with `{"product": PRODUCT}`. Do not infer `inStock: true`, add `inventoryItem`, or choose `/products-with-inventory`; physical product type does not imply inventory. If it has ready images, add `"fields": ["MEDIA_ITEMS_INFO"]` to the same no-inventory request.
+
+For one physical product with inventory, the complete direct path is one `POST /stores/v3/products-with-inventory` call with `{"product": PRODUCT}`. Put `inventoryItem` on its priced variant. If it has ready images, add `"fields": ["MEDIA_ITEMS_INFO"]` to that same request. The product shape, envelope, endpoint, and validation paths are complete here: do not search another recipe or schema, probe an alternate endpoint, or make a post-create read unless the projected create response does not prove requested media.
 
 ### Request projected media when validating images
 
@@ -257,6 +246,10 @@ Before claiming that an inventory-aware bulk create succeeded:
 2. Reconcile `productResults.bulkActionMetadata.totalSuccesses`, `totalFailures`, and `undetailedFailures` with the requested product count.
 3. Separately inspect every top-level `inventoryResults.results[]` entry and require `itemMetadata.success`; with `returnEntity: true`, read the inventory entity from `item`.
 4. Reconcile `inventoryResults.bulkActionMetadata.totalSuccesses`, `totalFailures`, and `undetailedFailures` with the expected inventory-item count, and inspect `inventoryResults.error`.
+
+The inventory error check is mandatory even when every item and metadata count succeeded. Explicitly read the sibling field—for example, normalize `inventoryResults.error ?? null`—and report success only when it is absent or null. Do not infer that value from HTTP 200, item metadata, or bulk metadata.
+
+For `POST /stores/v3/products-with-inventory`, inspect the returned `product.id`, every `inventoryResults.results[].itemMetadata`, and top-level `inventoryResults.error` directly from the create response. Do not issue inventory queries, product searches, Get Product calls, or PATCH calls merely to reconfirm values already proven by that response. The only allowed extra read on this happy path is the single projected media verification described above when requested images are not present in the projected create result.
 
 Never read `productResults.inventoryResults`: that path does not exist. A successful product result or HTTP 200 does not prove inventory creation succeeded.
 
