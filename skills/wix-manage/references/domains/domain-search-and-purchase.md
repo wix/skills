@@ -151,15 +151,25 @@ and answers it without a turn of conversation.
 
 ## A3. Do We Have a Domain? (US-03, US-04)
 
+**Take the first row that matches, reading top-down.** A domain the user named wins over everything
+else in this table — including a site they named in the same breath.
+
 | Situation | Action |
 |-----------|--------|
-| User named a specific domain | Normalize it (§R1). A **subdomain** → §A3.1. Anything else → §A4 |
+| User named a specific domain — **even if they named a site too** | Normalize it (§R1). A **subdomain** → §A3.1. Anything else → §A4, **first**, before any site work |
 | User gave brand/business context but no domain — *"My business is called Green Sprout Bakery"*, *"I need a domain for my pancakes restaurant"* | **Do not ask.** Build a query from that context → §A5 |
 | **No domain, but they pointed at a site** — *"I want a domain for my wix site"*, *"I need a domain for my site"* | **Do not ask for a domain yet.** The site is the context → §A3.2 |
 | Nothing at all — *"I want to buy a domain"*, *"help me get a domain"* | Ask, verbatim: **"What domain do you have in mind?"** Then take the answer as either a specific domain (→ §A4) or a description (→ §A5). |
 
 The user answering with a description rather than a domain (*"Something with 'cozycuts' in it"*) is
 normal — treat it as a query and go to §A5.
+
+⚠️ **A named domain is checked before anything else happens, and the answer is the first thing the user
+hears.** No site resolution, no `ListWixSites`, no plan check and no list of sites comes in front of
+it. *"I want to buy mybakery.com for my Wix site"* names a site, and the site waits its turn: §A4
+runs, the user is told *"mybakery.com is available!"* or *"mybakery.com is already registered."*, and
+only then does §P1 resolve the site. Asking which of ninety-three sites to use before saying whether
+the domain can even be bought answers a question the user has not reached yet.
 
 ### A3.1 The Domain Is a Subdomain (US-48, US-49, US-50)
 
@@ -234,6 +244,10 @@ pitch — §R9.
 
 ### A3.2 The User Pointed at a Site but Named No Domain
 
+**This section is only for a message that named no domain.** If a domain was named as well —
+*"buy mybakery.com for my wix site"* — row 1 owns it: §A4 runs first, and the site is resolved
+afterwards by §P1. Resolving a site here would put a list in front of the availability answer.
+
 *"I want a domain for my wix site"* names no domain, and it is **not** nothing. Two things arrive with
 it, and the old reading of this row threw both away:
 
@@ -295,6 +309,16 @@ Then:
   *"{displayName} isn't registered yet — did you mean you'd like to purchase it?"*
     - Yes → **go to §P1 and follow it.**
     - No → *"Do you own a different domain you'd like to connect?"* → back to §A4 with the new domain.
+
+When no `siteId` is in context but the user did ask for a site, the availability answer and §P1's
+site question belong in the **same** message — the answer first, the question behind it:
+
+> mybakery.com is available! You have 93 Wix sites. Which one should it go on?
+>
+> 1. {site name}
+> 2. … *(§R3 Case B's forms decide how many)*
+
+One turn instead of two, and the ordering is still answer-then-question.
 
 ⚠️ **Suppressing the standalone line is a merge, never a deletion.** The user is told in plain
 language that the domain can be bought — exactly once, in the first message that follows the check.
@@ -2153,9 +2177,9 @@ it reaches a link.
 
 ```json
 { "sites": [ { "site":      { "siteId": "…", "siteName": "…", "connectedDomain": "…" },
-               "primary":   { "domainName": "…", "siteId": "…" },
-               "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
-               "transfers": [] } ],
+  "primary":   { "domainName": "…", "siteId": "…" },
+  "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
+  "transfers": [] } ],
   "isAllDataReturned": true }
 ```
 
