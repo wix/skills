@@ -31,7 +31,7 @@ Per-business-solution overviews also exist at `analytics/overviews/{solution}` (
 
 ## Pairing Data with Its Read API
 
-Answer the question with the [Query Site Analytics](../analytics/query-site-analytics.md) recipe (Semantic Model API — `GET /analytics/semantic-model/v3/semantic-models`, `POST .../semantic-models/query-data`), then link the matching overview page.
+Answer the question with the [Query Site Analytics](./query-site-analytics.md) recipe (Semantic Model API — `GET /analytics/semantic-model/v3/semantic-models`, `POST .../semantic-models/query-data`), then link the matching overview page.
 
 Example:
 
