@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 
@@ -235,7 +235,21 @@ describe('EvalForge re-eval workflow', () => {
   // a re-run that was already triggered.
   it('neither shares a gate concurrency group nor cancels itself', () => {
     expect(workflow.concurrency.group).not.toContain('evalforge-wix-app-gate-pr');
+    expect(workflow.concurrency.group).not.toContain('evalforge-yaml-gate-pr');
     expect(workflow.concurrency['cancel-in-progress']).toBe(false);
+  });
+
+  // A workflow id that names no file finds no run, and the command then declines as if the gate
+  // had never run for the commit — a silent scope loss no behavioural test can see.
+  it('names gate workflows that exist', () => {
+    const gates = step.with?.script?.match(/const GATES = \[([^\]]*)\]/)?.[1];
+    expect(gates).toBeDefined();
+    const files = [...gates!.matchAll(/'([^']+)'/g)].map(match => match[1]);
+
+    expect(files).toEqual(['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml']);
+    for (const file of files) {
+      expect(existsSync(join(__dirname, '../../../workflows', file))).toBe(true);
+    }
   });
 
   it('grants exactly what it needs and no more', () => {

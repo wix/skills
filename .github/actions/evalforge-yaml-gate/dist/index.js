@@ -66567,7 +66567,7 @@ function formatComparisonResult(result, projectId) {
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
         const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_core_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
         const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_core_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '❌'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
         const reason = noWinnerReason(s);
