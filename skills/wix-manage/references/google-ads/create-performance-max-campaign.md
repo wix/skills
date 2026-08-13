@@ -101,6 +101,11 @@ curl -X GET 'https://www.wixapis.com/google-ads/v1/geo-options?queryLocation=Tel
 ] } } }
 ```
 
+**Full endpoint reference** (everything you need — no need to look up the spec):
+
+- **`GET /v1/geo-options`** — query params (all optional, but pass one of the first two): `queryLocation` (a single partial location name), `queryLocations` (multiple names, `;`-separated), `languageCode` (BCP-47, localizes `displayName`), `countryCode` (ISO 3166-1 alpha-2 — biases results to that country).
+- **Response** → `googleSuggestion.geoTargetsSuggestions.geoTargets[]`, each `{ "id": string (Google geo GUID), "displayName": string, "countryCode": string }`. May include restricted countries (rejected at create).
+
 Take the matching `geoTargets[].id`, wrap it as `geoTargetConstants/{id}`, and use the `displayName` for the `locations[].displayName` field:
 
 ```json
@@ -147,7 +152,12 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/budget-recommendation' \
 } }
 ```
 
-Use `recommendedBudgetAmountMicros` as `budget.amountMicros`, or present the `budgetOptions` with their projected impact and let the user pick. `budgetRecommendation` is absent when Google has too little data — fall back to a manual budget within `GET /v1/campaign/daily-budget-boundaries`.
+**Full endpoint reference** (everything you need — no need to look up the spec):
+
+- **`POST /v1/budget-recommendation`** — required: `campaignType` (`PERFORMANCE_MAX` | `PERFORMANCE_MAX_LEADS`), `assetGroupInfo[]` (each needs `finalUrl`; optional `headlines[]`, `descriptions[]`), `currency` (ISO 4217). Optional context that sharpens the number: `countryCodes[]` (ISO 3166-1 alpha-2), `languageCodes[]` (ISO 639-1), `positiveLocationIds[]` / `negativeLocationIds[]` (Google geo GUIDs — the bare `id` from geo-options, not the wrapped `geoTargetConstants/…`), `currentBudgetMicros`, `isNewCustomer` (true when the account has no campaigns), `targetContentNetwork`, `targetPartnerSearchNetwork`, `merchantCenterAccountId` (retail).
+- **Response** → `budgetRecommendation` (absent when Google has too little data) with `recommendedBudgetAmountMicros`, optional `currentBudgetAmountMicros`, and `budgetOptions[]` — each `{ "budgetAmountMicros", "impact": { "baseMetrics", "potentialMetrics" } }` where a metrics object is `{ impressions, clicks, costMicros, conversions, conversionsValue }`.
+
+Use `recommendedBudgetAmountMicros` as `budget.amountMicros`, or present the `budgetOptions` with their projected impact and let the user pick. When `budgetRecommendation` is absent, fall back to a manual budget within `GET /v1/campaign/daily-budget-boundaries`.
 
 ---
 
