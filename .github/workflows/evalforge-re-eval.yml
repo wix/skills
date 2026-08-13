@@ -4,7 +4,7 @@ name: EvalForge Re-eval
 # report an unverified result for reasons that have nothing to do with the PR; without this the
 # only remedy is an empty commit.
 #
-# Scoped to the wix-app skill gate for now. See GATES below to extend it.
+# Covers both eval gates. See GATES below to extend it.
 #
 # It re-runs the PR's own `pull_request` run rather than evaluating here, because an issue_comment
 # run is associated with the default branch's commit while required checks are evaluated on the PR
@@ -117,14 +117,11 @@ jobs:
               return decline('only the PR author or a collaborator with write access can trigger this');
             }
 
-            // The wix-app skill gate only, for now.
-            //
-            // The wix-manage YAML gate (`evalforge-yaml-gate.yml`) works exactly the same way and
-            // wants this more, since `EVAL_BLOCK_MERGE` is already true there while wix-app is
-            // still soaking. Adding it is one entry in this array — the loop below re-runs every
-            // gate that has a run for the commit, so a PR touching both skills would re-run both.
-            // Left out deliberately until the wix-app flow has been exercised in anger.
-            const GATES = ['evalforge-wix-app-gate.yml'];
+            // Every gate that re-runs safely: both take their evaluated commit from the PR
+            // payload, so a replayed event evaluates the same thing the original did. The loop
+            // below re-runs each gate that has a run for this commit, so a PR touching both
+            // skills re-runs both and one touching neither is declined.
+            const GATES = ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'];
             const notes = [];
             // Counted, not inferred from `notes`: three of the four branches below add a note
             // without having re-run anything, and a heading that claims otherwise is a lie the
@@ -177,12 +174,12 @@ jobs:
             }
 
             if (notes.length === 0) {
-              // Named precisely: on a wix-manage PR a gate run does exist, it is just not one this
-              // command covers yet, and "no gate run exists" would read as a bug.
+              // The gates only run on their own paths, so the likeliest reason is a PR that
+              // touches neither skill. Name the paths rather than leaving the requester to guess.
               return decline(
-                'no wix-app gate run exists for this commit — push a commit touching '
-                + '`skills/wix-app` or `yaml/wix-app-evals` and the gate runs automatically. '
-                + 'This command does not cover the wix-manage gate yet'
+                'no eval gate run exists for this commit — the gates only run on PRs touching '
+                + '`skills/wix-app`, `yaml/wix-app-evals`, `skills/wix-manage/references`, '
+                + '`yaml/wix-manage` or `yaml/wix-manage-evals`'
               );
             }
 
