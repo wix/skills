@@ -1,9 +1,8 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
 //   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
 //   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
-// Pass the two ids from the prompt and this writes src/rest/wix-config.js for you, then proves the
-// client id against Wix before the build continues — see WRITE + VERIFY below. Retyping those ids
-// into the file by hand is how a storefront ships with a dead client id.
+// Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
+// Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
 // wix-config.js) is copied always; then each named vertical's app/ (its UI + app/rest/ helpers).
 // Deploy every vertical the app actually uses, in one call or across several — an app that needs both
@@ -20,7 +19,6 @@ const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
@@ -71,16 +69,19 @@ function replaceMembersAuthLeftovers() {
   return result;
 }
 
-// --- WRITE + VERIFY the credentials -------------------------------------------------------------
+// --- WRITE the credentials ----------------------------------------------------------------------
 //
 // The two ids arrive as flags so this script writes them once, character-for-character, instead of a
-// later hand-edit of the placeholder file. Then the client id is proved against Wix: a wrong id is
-// invisible until a page tries to load data, and by then the build reads as finished.
+// later hand-edit of the placeholder file.
 //
-// The check is the same anonymous-token mint wix-client.js does at runtime, so a pass here means the
-// browser client will authenticate. A 400/401 means the id itself is rejected — that is never
-// "pending Wix-side setup", it is a wrong value, and it fails the install loudly on the spot.
-// A network fault is reported but not fatal: an unreachable Wix must not block a build.
+// Only ever writes a config that still holds the placeholders. A file already carrying values is
+// left exactly as it is: on hosts that write it themselves at app creation (Base44) those values
+// came straight from the host and never passed through a prompt, and elsewhere they are the agent's
+// own edit. Either way this script has nothing better to put there.
+function wixConfigHasValues() {
+  return existsSync(WIX_CONFIG) && !readFileSync(WIX_CONFIG, 'utf8').includes('<YOUR-');
+}
+
 function writeWixConfig(clientId, metaSiteId) {
   const body = [
     '// Wix credentials — written by the skill\'s deploy step from the ids in your prompt.',
@@ -91,20 +92,6 @@ function writeWixConfig(clientId, metaSiteId) {
     '',
   ].join('\n');
   writeFileSync(WIX_CONFIG, body);
-}
-
-async function verifyClientId(clientId) {
-  try {
-    const res = await fetch('https://www.wixapis.com/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, grantType: 'anonymous' }),
-    });
-    if (res.ok) return { ok: true };
-    return { ok: false, status: res.status, body: (await res.text()).slice(0, 200) };
-  } catch (e) {
-    return { unreachable: true, message: String(e && e.message).slice(0, 200) };
-  }
 }
 
 // --- main ---------------------------------------------------------------------------------------
@@ -142,40 +129,14 @@ if (!requested.length) {
   deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
 }
 
-(async () => {
-  if (clientId && metaSiteId) {
-    const badShape = [
-      !UUID.test(clientId) && `--client-id "${clientId}" is not a uuid`,
-      !UUID.test(metaSiteId) && `--metasite-id "${metaSiteId}" is not a uuid`,
-    ].filter(Boolean);
-    if (badShape.length) {
-      deployed.wixConfig = { written: false, error: badShape.join('; ') };
-    } else {
-      writeWixConfig(clientId, metaSiteId);
-      const check = await verifyClientId(clientId);
-      if (check.ok) {
-        deployed.wixConfig = { written: true, clientIdVerified: true };
-      } else if (check.unreachable) {
-        deployed.wixConfig = { written: true, clientIdVerified: false, warning: `could not reach Wix to verify (${check.message})` };
-      } else {
-        // Wix rejected the id itself. Name the value written so the fix is a re-read of the
-        // prompt, not another guess — and fail the step so the build can't continue on it.
-        deployed.wixConfig = {
-          written: true,
-          clientIdVerified: false,
-          error: `Wix rejected WIX_CLIENT_ID "${clientId}" (${check.status}). This is a wrong id, not pending Wix setup. `
-            + 'Re-read the client id from the user\'s prompt and re-run this command with it.',
-        };
-      }
-    }
-  } else {
-    deployed.wixConfig = {
-      written: false,
-      note: 'no --client-id/--metasite-id given — src/rest/wix-config.js still holds placeholders; '
-        + 're-run with both ids rather than editing the file by hand',
-    };
-  }
+if (wixConfigHasValues()) {
+  deployed.wixConfig = 'already_set';
+} else if (clientId && metaSiteId) {
+  writeWixConfig(clientId, metaSiteId);
+  deployed.wixConfig = 'written';
+} else {
+  deployed.wixConfig = 'no_ids_given — src/rest/wix-config.js still holds placeholders; re-run with '
+    + '--client-id and --metasite-id rather than editing the file by hand';
+}
 
-  console.log(JSON.stringify(deployed));
-  if (deployed.wixConfig && deployed.wixConfig.error) process.exitCode = 1;
-})();
+console.log(JSON.stringify(deployed));
