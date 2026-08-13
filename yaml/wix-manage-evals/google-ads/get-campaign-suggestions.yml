@@ -4,9 +4,9 @@ description: >-
   geo/budget/asset suggestions for a Performance Max campaign and picks the
   right endpoint per need, without mentioning Smart campaigns.
 triggerPrompt: >-
-  Before I build a Performance Max campaign on my Wix site with Google Ads, how
-  does Wix suggest target locations and a recommended daily budget, and which
-  suggestion API endpoints return them?
+  For a Performance Max campaign on my Wix site with Google Ads, which suggestion
+  API endpoints does Wix provide for target locations and a recommended daily
+  budget, and what do they return?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle

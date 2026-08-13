@@ -258,9 +258,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Google Ads
 
-**Routing — Google paid-advertising campaigns for a site (Smart & Performance Max).** All flows require a Google Ads account, created once via the setup recipe. Budgets are in micros (1,000,000 = 1 currency unit). REST base: `https://www.wixapis.com/google-ads/v1`.
+**Routing — Google paid-advertising campaigns for a site (Performance Max).** All flows require a Google Ads account, created once via the setup recipe. Performance Max is the only supported campaign type for creation — never propose or mention a Smart campaign. Budgets are in micros (1,000,000 = 1 currency unit). REST base: `https://www.wixapis.com/google-ads/v1`.
 - **First-time setup / "connect Google Ads" / `ACCOUNT_NOT_FOUND`** → [Install and Create an Account](references/google-ads/install-and-create-account.md) (do this before anything else).
-- **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
+- **Suggested geo targets / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
 - **Pause / resume / launch / update budget / delete / history** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
 - **Performance, conversions, search terms, per-product / per-asset metrics** → [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md).
@@ -270,10 +270,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
 
 ### [Get AI Campaign Suggestions for Google Ads](references/google-ads/get-campaign-suggestions.md)
-**Technical:** Read-only Suggestions API reference — keyword themes, geo options, Smart budget tiers, PMAX budget recommendations, text/image assets, search themes, full AI campaign configs from a campaign brief (`POST /v1/campaign-suggestions`), and promotional incentive offers. Budgets in micros; generation endpoints have 60–120s SLAs.
+**Technical:** Read-only Suggestions API reference (Performance Max only) — geo options, PMAX budget recommendations, text/image assets, search themes, a full AI PMAX Leads campaign config (`POST /v1/campaign-suggestions`), and promotional incentive offers. Geo results become `geoTargetConstants`; budgets in micros; generation endpoints have 60–120s SLAs.
 
 ### [Create and Launch a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md)
-**Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping. Generates AI text/image assets and search themes, gets a Google budget recommendation, assembles an asset group meeting Google's minimum asset counts (headlines/descriptions/images), creates in `PAUSED`, then launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
+**Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping (Smart creation is not supported). Generates AI text/image assets (incl. logo) and search themes, resolves target locations to `geoTargetConstants` via `geo-options`, gets a Google budget recommendation, then (after a pre-flight gate that every asset and location resolved) assembles an asset group meeting Google's minimum asset counts, creates in `PAUSED`, and launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
 
 ### [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md)
 **Technical:** Lists/gets campaigns and runs lifecycle actions: launch (first activation) vs resume (reactivate after pause), pause (with optional `scheduledResumeDate`/reminder), partial `UpdateCampaign` (name, budget, targeting), delete (irreversible), and read the change log / status history. Covers the 5-live-campaign cap and budget-boundary validation.
