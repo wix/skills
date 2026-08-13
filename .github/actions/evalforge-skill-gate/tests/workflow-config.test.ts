@@ -17,6 +17,8 @@ type Workflow = {
     'timeout-minutes': number;
     permissions: Record<string, string>;
     if?: string;
+    needs?: string | string[];
+    outputs?: Record<string, string>;
     // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
     // typechecks — the gate gained one to capture the checked-out merge commit.
     steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
@@ -105,6 +107,73 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(gateStep.with?.['evaluated-sha']).toContain('steps.merge.outputs.sha');
     const mergeStep = workflow.jobs.gate.steps.find(step => step.id === 'merge');
     expect(mergeStep?.run).toContain('git rev-parse HEAD');
+  });
+});
+
+describe('EvalForge wix-app gate workflow — analyze job', () => {
+  const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
+  const analyze = workflow.jobs.analyze;
+  const analyzeStep = analyze.steps[analyze.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
+
+  it('exposes the gate job output the analyze job triggers on', () => {
+    expect(workflow.jobs.gate.outputs?.['analyze-run-id'])
+      .toContain('steps.gate.outputs.analyze-run-id');
+  });
+
+  it('gives the step that produces analyze-run-id the id its output reference needs', () => {
+    expect(gateStep.id).toBe('gate');
+  });
+
+  it('runs after the gate', () => {
+    expect(analyze.needs).toBe('gate');
+  });
+
+  it('still runs when the gate job went red, so a blocking failure is investigated', () => {
+    expect(analyze.if).toContain('!cancelled()');
+    expect(analyze.if).not.toMatch(/success\(\)/);
+  });
+
+  it('does nothing when the gate emitted no run id', () => {
+    expect(analyze.if).toContain("needs.gate.outputs.analyze-run-id != ''");
+  });
+
+  it('can be switched off with a repo variable', () => {
+    expect(analyze.if).toContain("vars.WIX_APP_EVAL_ANALYZE != 'false'");
+  });
+
+  it('can comment on the PR and read the repo', () => {
+    expect(analyze.permissions['pull-requests']).toBe('write');
+    expect(analyze.permissions.contents).toBe('read');
+  });
+
+  it('is bounded to 5 minutes, well over the 57-second analysis budget', () => {
+    expect(analyze['timeout-minutes']).toBe(5);
+  });
+
+  it('runs the action in analyze mode on the gate output', () => {
+    expect(analyzeStep.uses).toBe('./.github/actions/evalforge-skill-gate');
+    expect(analyzeStep.with?.mode).toBe('analyze');
+    expect(analyzeStep.with?.['eval-run-id']).toContain('needs.gate.outputs.analyze-run-id');
+  });
+
+  it('passes every credential the action needs, none of them empty', () => {
+    const credentialInputs = [
+      'github-token',
+      'evalforge-url',
+      'evalforge-project-id',
+      'evalforge-app-id',
+      'evalforge-app-secret',
+    ];
+    for (const input of credentialInputs) {
+      expect(analyzeStep.with?.[input]).toBeTruthy();
+    }
+  });
+
+  it('checks out once, pinned to the same sha as the gate job — nothing in analyze mode reads scenarios', () => {
+    const checkouts = analyze.steps.filter(step => step.uses?.startsWith('actions/checkout'));
+    expect(checkouts).toHaveLength(1);
+    expect(checkouts[0].uses).toBe('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5');
   });
 });
 

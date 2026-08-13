@@ -109,6 +109,29 @@ cannot see. See [`.github/workflows/evalforge-re-eval.yml`](../.github/workflows
 - It cannot help where a re-run would change nothing: a draft or closed PR, a fork branch, a
   commit the gate never ran for, or a gate job that was skipped. Push a commit instead.
 
+**The AI investigation comment**
+
+When the PR's eval run has failing or errored assertions, a second job asks EvalForge to
+investigate that run and posts what it found as its own PR comment, separate from the
+verdict above it. If EvalForge found nothing to flag, the comment says so plainly;
+otherwise it opens with a tally and a short extract of the summary, with the findings
+themselves folded behind **Full investigation** — each listed by severity, with a
+description and, where it has them, the scenarios it affects and a suggested fix.
+
+It runs in a separate job on purpose: a check does not finalise until its job ends, so
+running the investigation alongside the verdict would hold the gate's check open longer
+than the verdict itself needs. The verdict lands — and the PR blocks or unblocks — without
+waiting for it, and the second comment follows shortly after.
+
+A run with nothing failing gets no investigation and no second comment — and if an earlier
+push left one, the gate replaces it with a note saying it no longer applies, so a green
+verdict never sits above the findings of the run you just fixed. A blocked PR still gets
+its investigation: the analysis runs even when the gate itself goes red, which is when it
+is most worth reading. A failed investigation never fails a check: if the analysis cannot
+be generated, the comment says why instead of going missing. Set the `WIX_APP_EVAL_ANALYZE`
+repo variable to `false` to switch it off. Re-running the `analyze` job regenerates the analysis rather than
+re-showing the stored one.
+
 **During the soak period** the gate posts its comment but does not block: it runs with
 `blocking: false` until there is enough real-PR signal to turn it on. Read the comment
 anyway — it is telling you what will block once it flips.
@@ -166,9 +189,11 @@ through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
 `yarn.lock` files.
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
-asserts the wiring of the gate, cleanup and re-eval workflows, and
-`tests/re-eval-script.test.ts` runs the re-eval `github-script` body the way the action
-does — it compiles that exact string with stubbed `github`/`context`/`core`, so the guards
-that decide whether money is spent have real tests despite living inside a YAML string.
-That is why `ci.yml`'s change detection counts `.github/workflows/evalforge-*` as an
-evalforge change: editing only a workflow must still run the tests written to cover it.
+asserts the wiring of the gate workflow — including the `analyze` job that follows it,
+dispatched off the gate job's output rather than run inside it — plus the cleanup and
+re-eval workflows, and `tests/re-eval-script.test.ts` runs the re-eval `github-script` body
+the way the action does — it compiles that exact string with stubbed
+`github`/`context`/`core`, so the guards that decide whether money is spent have real tests
+despite living inside a YAML string. That is why `ci.yml`'s change detection counts
+`.github/workflows/evalforge-*` as an evalforge change: editing only a workflow must still
+run the tests written to cover it.

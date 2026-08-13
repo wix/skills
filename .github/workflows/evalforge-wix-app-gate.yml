@@ -29,6 +29,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    outputs:
+      analyze-run-id: ${{ steps.gate.outputs.analyze-run-id }}
     steps:
       # Two checkouts, as the yaml-gate workflows do:
       # 1) PR merge ref — the skill files and head scenario YAML, and the action source.
@@ -46,7 +48,8 @@ jobs:
       - name: Resolve the checked-out merge commit
         id: merge
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - uses: ./.github/actions/evalforge-skill-gate
+      - id: gate
+        uses: ./.github/actions/evalforge-skill-gate
         with:
           mode: gate
           evaluated-sha: ${{ steps.merge.outputs.sha }}
@@ -69,3 +72,37 @@ jobs:
           blocking: ${{ vars.WIX_APP_EVAL_BLOCK_MERGE || 'false' }}
           runs-per-scenario: ${{ vars.WIX_APP_EVAL_RUNS_PER_SCENARIO }}
           base-arm-grace-seconds: ${{ vars.WIX_APP_EVAL_BASE_GRACE_SECONDS }}
+
+  # The investigation runs here rather than in the gate job because a check finalises when its job
+  # ends, not when a comment posts — sharing the job would hold the required check open for the
+  # analysis's 57-second budget. Its own job also means an analysis failure cannot reach the gate's
+  # check at all.
+  analyze:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    # `!cancelled()` rather than the default success-only behaviour: once `blocking` is true a
+    # failing verdict makes the gate job red, and a plain `needs` would then skip precisely the
+    # analysis that failure warrants. The empty-output check is the rest of the condition — the gate
+    # emits a run id only when there is something to investigate.
+    if: >-
+      ${{ !cancelled()
+          && vars.WIX_APP_EVAL_ANALYZE != 'false'
+          && needs.gate.outputs.analyze-run-id != '' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # One checkout, for the action source. No base-SHA checkout: analyze mode reads no scenarios.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: ./.github/actions/evalforge-skill-gate
+        with:
+          mode: analyze
+          eval-run-id: ${{ needs.gate.outputs.analyze-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
