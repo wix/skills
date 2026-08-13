@@ -114,14 +114,15 @@ describe('EvalForge wix-app gate workflow — analyze job', () => {
   const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
   const analyze = workflow.jobs.analyze;
   const analyzeStep = analyze.steps[analyze.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
 
   it('exposes the gate job output the analyze job triggers on', () => {
     expect(workflow.jobs.gate.outputs?.['analyze-run-id'])
       .toContain('steps.gate.outputs.analyze-run-id');
   });
 
-  it('gives the gate step the id its output reference needs', () => {
-    expect(workflow.jobs.gate.steps.some(step => step.id === 'gate')).toBe(true);
+  it('gives the step that produces analyze-run-id the id its output reference needs', () => {
+    expect(gateStep.id).toBe('gate');
   });
 
   it('runs after the gate', () => {
@@ -146,8 +147,8 @@ describe('EvalForge wix-app gate workflow — analyze job', () => {
     expect(analyze.permissions.contents).toBe('read');
   });
 
-  it('is bounded well under the gate job timeout', () => {
-    expect(analyze['timeout-minutes']).toBeLessThanOrEqual(10);
+  it('is bounded to 5 minutes, well over the 57-second analysis budget', () => {
+    expect(analyze['timeout-minutes']).toBe(5);
   });
 
   it('runs the action in analyze mode on the gate output', () => {
@@ -156,9 +157,23 @@ describe('EvalForge wix-app gate workflow — analyze job', () => {
     expect(analyzeStep.with?.['eval-run-id']).toContain('needs.gate.outputs.analyze-run-id');
   });
 
-  it('checks out once — nothing in analyze mode reads scenarios', () => {
+  it('passes every credential the action needs, none of them empty', () => {
+    const credentialInputs = [
+      'github-token',
+      'evalforge-url',
+      'evalforge-project-id',
+      'evalforge-app-id',
+      'evalforge-app-secret',
+    ];
+    for (const input of credentialInputs) {
+      expect(analyzeStep.with?.[input]).toBeTruthy();
+    }
+  });
+
+  it('checks out once, pinned to the same sha as the gate job — nothing in analyze mode reads scenarios', () => {
     const checkouts = analyze.steps.filter(step => step.uses?.startsWith('actions/checkout'));
     expect(checkouts).toHaveLength(1);
+    expect(checkouts[0].uses).toBe('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5');
   });
 });
 
