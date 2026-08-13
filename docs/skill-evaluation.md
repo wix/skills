@@ -27,6 +27,12 @@ That PR override makes the Wix MCP load skill content from the pull request inst
 
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
+When a run ends without a verdict for reasons that have nothing to do with your change — a
+timeout, a poll failure — comment `/re-eval` on the PR to re-run this gate rather than
+pushing an empty commit. This gate's own comment does not mention the command; the rules
+are the same for both gates and are listed under
+[the wix-app PR eval gate](#wix-app-scenarios-the-pr-eval-gate).
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs
@@ -98,7 +104,8 @@ cannot see. See [`.github/workflows/evalforge-re-eval.yml`](../.github/workflows
   nothing, so discussing it or quoting someone who used it cannot start a paid run.
 - The **PR author**, or a collaborator with **write access**, may use it. Each scenario is a
   live agent build, and this repo is public, so it is a spend gate.
-- It covers the **wix-app gate only** for now. On a wix-manage PR it refuses and says so.
+- It covers **both gates** — the wix-app gate and the wix-manage YAML gate. A PR touching
+  both skills re-runs both; one touching neither has nothing to re-run and is refused.
 - It cannot help where a re-run would change nothing: a draft or closed PR, a fork branch, a
   commit the gate never ran for, or a gate job that was skipped. Push a commit instead.
 

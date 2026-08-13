@@ -37,10 +37,23 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 - **Required site features:** an index/list view of the collection; a detail page per item. (Visitor reads are public; visitor writes go through a form.) **(Opt-in, with members)** when the brief asks for per-user-private data ("my saved items", a personal list) or member-only content **and** members login is in the run, a collection can instead be **member-scoped** — each member sees/edits only their own rows, or any logged-in member reads shared member-only content. Added only on that intent, never by default; see the members cross-cutting entry and `setup-cms.md`.
 - **Implementation checklist:** show each item's main fields with clear labels; link the list to each item's detail page; show a sensible empty state when there are no items yet.
 
-### forms — capture leads
-- **Intent:** contact / lead / signup / waitlist / "let people reach me" / generic custom data capture / nothing dynamic named. **Not for RSVP** — confirming attendance to an event or occasion (a wedding, party, or gathering) is the **events** vertical, which has a built-in RSVP registration form; route there even when it's a single occasion with no tickets. Use `forms` only when no event is involved.
+### forms — any visitor-fillable form
+- **Intent:** contact / enquiry / lead / signup / waitlist / application / feedback / survey /
+  questionnaire / quote request / intake or registration form / "let people reach me" / generic custom
+  data capture — plus the **floor** when nothing dynamic is named. Lead capture is the most common
+  case, **not the boundary**: any form a visitor fills in and submits is this vertical, and whether
+  the submission also becomes a CRM contact is an optional per-field mapping.
+- **Not forms — an RSVP is `events`:** confirming attendance to an event or occasion (a wedding,
+  party, or gathering) is the **events** vertical, which ships a built-in RSVP registration form —
+  route there even for a single occasion with no tickets.
+- **Not forms — a per-service booking form is `bookings`:** the form attached to a bookable service
+  belongs to **bookings**. Use `forms` only when neither an event nor a bookable service is
+  involved.
 - **Required site features:** a visible form; a confirmation after submitting; basic field validation.
-- **Implementation checklist:** render every field with a clear label; mark which fields are required; a clear submit button; show a thank-you / success state after sending; show a friendly message if the submit fails.
+  A site may have **more than one** form, each with its own purpose and field set.
+- **Implementation checklist:** render every field with a clear label; mark which fields are required;
+  a clear submit button; show a thank-you / success state after sending; show a friendly message if
+  the submit fails.
 
 ### events — events and registration
 - **Intent:** event / ticket / RSVP / registration / attendees / "confirm attendance" / a wedding, party, or gathering people respond to. **Covers RSVP to a single occasion** (one wedding, one party) — not only multi-event listings, and not only ticketed events. An invitation with an RSVP is this vertical, not `forms`.

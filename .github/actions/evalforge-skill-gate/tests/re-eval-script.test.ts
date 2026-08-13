@@ -53,6 +53,15 @@ const FAILED_RUN: WorkflowRun = {
   html_url: 'https://github.com/wix/skills/actions/runs/900',
 };
 
+const MANAGE_RUN: WorkflowRun = {
+  id: 901,
+  status: 'completed',
+  conclusion: 'failure',
+  html_url: 'https://github.com/wix/skills/actions/runs/901',
+};
+
+const YAML_GATE = 'evalforge-yaml-gate.yml';
+
 const run = (overrides: Partial<WorkflowRun>): WorkflowRun => ({ ...FAILED_RUN, ...overrides });
 
 function harness(options: {
@@ -61,7 +70,10 @@ function harness(options: {
   pull?: Partial<PullRequest>;
   level?: { permission: string; role_name: string };
   levelError?: Error;
+  /** The wix-app gate's runs. */
   runs?: WorkflowRun[];
+  /** The wix-manage gate's runs — none by default, so a PR touching one skill is the base case. */
+  manageRuns?: WorkflowRun[];
   rerunError?: Error;
 } = {}) {
   const comments: string[] = [];
@@ -77,7 +89,10 @@ function harness(options: {
   });
   const listWorkflowRuns = vi.fn(async (query: Record<string, unknown>) => {
     runQueries.push(query);
-    return { data: { workflow_runs: options.runs ?? [FAILED_RUN] } };
+    const workflowRuns = query.workflow_id === YAML_GATE
+      ? options.manageRuns ?? []
+      : options.runs ?? [FAILED_RUN];
+    return { data: { workflow_runs: workflowRuns } };
   });
   const reRunWorkflow = vi.fn(async ({ run_id }: { run_id: number }) => {
     if (options.rerunError) throw options.rerunError;
@@ -239,7 +254,7 @@ describe('who may spend', () => {
 });
 
 describe('finding the run to re-run', () => {
-  it('asks only for the wix-app gate, the PR trigger, and this head sha', async () => {
+  it('asks for both gates, the PR trigger, and this head sha', async () => {
     const test = harness();
     await test.execute();
 
@@ -250,15 +265,38 @@ describe('finding the run to re-run', () => {
         head_sha: OPEN_PR.head.sha,
         per_page: 1,
       }),
+      expect.objectContaining({
+        workflow_id: YAML_GATE,
+        event: 'pull_request',
+        head_sha: OPEN_PR.head.sha,
+        per_page: 1,
+      }),
     ]);
   });
 
-  it('declines when no gate run exists, naming the wix-manage scope gap', async () => {
+  it('re-runs the wix-manage gate on a PR that only touches that skill', async () => {
+    const test = harness({ runs: [], manageRuns: [MANAGE_RUN] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([MANAGE_RUN.id]);
+    expect(test.comments[0]).toContain(YAML_GATE);
+  });
+
+  it('re-runs both gates when a PR touches both skills', async () => {
+    const test = harness({ manageRuns: [MANAGE_RUN] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([FAILED_RUN.id, MANAGE_RUN.id]);
+  });
+
+  // A gate only runs on its own paths, so a PR touching neither skill has nothing to re-run.
+  it('declines when no gate run exists, naming the paths that would produce one', async () => {
     const test = harness({ runs: [] });
     await test.execute();
 
-    expect(test.comments[0]).toContain('no wix-app gate run exists');
-    expect(test.comments[0]).toContain('wix-manage');
+    expect(test.comments[0]).toContain('no eval gate run exists');
+    expect(test.comments[0]).toContain('skills/wix-app');
+    expect(test.comments[0]).toContain('yaml/wix-manage-evals');
     expect(test.rerunIds).toEqual([]);
   });
 });

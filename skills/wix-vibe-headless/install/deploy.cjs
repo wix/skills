@@ -1,6 +1,8 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
-//   node deploy.cjs <vertical> [<vertical> …]
+//   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
 //   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
+// Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
+// Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
 // wix-config.js) is copied always; then each named vertical's app/ (its UI + app/rest/ helpers).
 // Deploy every vertical the app actually uses, in one call or across several — an app that needs both
@@ -13,9 +15,10 @@
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { existsSync, cpSync, readFileSync } = require('fs');
+const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
+const WIX_CONFIG = '/app/src/rest/wix-config.js';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
@@ -66,11 +69,45 @@ function replaceMembersAuthLeftovers() {
   return result;
 }
 
+// --- WRITE the credentials ----------------------------------------------------------------------
+//
+// The two ids arrive as flags so this script writes them once, character-for-character, instead of a
+// later hand-edit of the placeholder file.
+//
+// Only ever writes a config that still holds the placeholders. A file already carrying values is
+// left exactly as it is: on hosts that write it themselves at app creation (Base44) those values
+// came straight from the host and never passed through a prompt, and elsewhere they are the agent's
+// own edit. Either way this script has nothing better to put there.
+function wixConfigHasValues() {
+  return existsSync(WIX_CONFIG) && !readFileSync(WIX_CONFIG, 'utf8').includes('<YOUR-');
+}
+
+function writeWixConfig(clientId, metaSiteId) {
+  const body = [
+    '// Wix credentials — written by the skill\'s deploy step from the ids in your prompt.',
+    '// Safe to commit: WIX_CLIENT_ID is a public, buyer-facing id (it only mints anonymous visitor',
+    '// tokens); WIX_METASITE_ID just identifies the site.',
+    `export const WIX_CLIENT_ID = "${clientId}";`,
+    `export const WIX_METASITE_ID = "${metaSiteId}";`,
+    '',
+  ].join('\n');
+  writeFileSync(WIX_CONFIG, body);
+}
+
 // --- main ---------------------------------------------------------------------------------------
 
 // Accept one or many: `deploy.cjs members cms`. Duplicates collapse; order is preserved so the
 // first vertical listed wins any same-path file (the copy never overwrites).
-const requested = [...new Set(process.argv.slice(2))];
+const argv = process.argv.slice(2);
+const flag = (name) => {
+  const i = argv.indexOf(`--${name}`);
+  return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+};
+const clientId = flag('client-id');
+const metaSiteId = flag('metasite-id');
+// Verticals are the positional args — drop the flags and their values.
+const flagArgs = new Set(['--client-id', '--metasite-id', clientId, metaSiteId].filter(Boolean));
+const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
 const deployed = { verticals: [] };
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
@@ -90,6 +127,16 @@ if (unknown.length) {
 }
 if (!requested.length) {
   deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
+}
+
+if (wixConfigHasValues()) {
+  deployed.wixConfig = 'already_set';
+} else if (clientId && metaSiteId) {
+  writeWixConfig(clientId, metaSiteId);
+  deployed.wixConfig = 'written';
+} else {
+  deployed.wixConfig = 'no_ids_given — src/rest/wix-config.js still holds placeholders; re-run with '
+    + '--client-id and --metasite-id rather than editing the file by hand';
 }
 
 console.log(JSON.stringify(deployed));
