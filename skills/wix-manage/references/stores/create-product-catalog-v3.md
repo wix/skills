@@ -7,16 +7,29 @@ description: Mandatory first recipe for every Wix Stores Catalog V3 create-produ
 
 Use this recipe for one or multiple Catalog V3 products. Catalog V1 remains supported through [Create Product (Catalog V1)](create-product-catalog-v1.md).
 
+> [!IMPORTANT]
+> **A create request is not permission to create a bare product.** When the user has supplied a name and price but has not addressed enrichment, the first response must be exactly one bundled question and then the turn must end:
+>
+> **“Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?”**
+>
+> Reading this recipe is the only tool call allowed in that turn. Do not detect the catalog version, inspect the site, upload media, or call any product endpoint until the user answers or explicitly declines both parts of the question.
+
+Canonical example:
+
+- User: “For my Wix store, create a product called ‘Handmade Ceramic Mug’ priced at $24.”
+- Assistant: “Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?”
+- Result: **Stop. No product has been created yet.**
+
 ## Preflight: respond and return before mutation
 
 Name and price are mandatory **workflow inputs for every product**, even when the API schema accepts an omitted price or initializes it to zero. Evaluate the cases below in order. When a case says **RETURN**, end the turn immediately: do not call a create endpoint, do not continue to examples, and do not create first and ask afterward.
 
 1. **No product identified:** Respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” **RETURN.** Do not replace the two paths with a form or a text-only prompt.
 2. **Any product lacks an explicit name or price:** Ask for all missing mandatory values in one question and offer to suggest them. When only price is missing, respond only: “What price should I set for [product name]? I can suggest one if you’d like.” **RETURN.** Do not ask about enrichment in this turn.
-3. **Every name and price is known, but enrichment is unresolved:** Respond only: “Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?” **RETURN.** Treat enrichment as resolved only when the user supplies preferences or explicitly declines it.
+3. **Every name and price is known, but enrichment is unresolved:** This includes direct commands such as “create a product called X priced at Y.” Respond only: “Does this product come in different sizes or colors, and would you like me to generate an SEO description or info sections for it?” **RETURN.** The docs read must be the turn's final tool call. Treat enrichment as resolved only when the user supplies preferences or explicitly declines both options/choices and generated content.
 4. **Every name, price, and enrichment choice is resolved:** Creation may continue. Optional type, description, SKU, inventory, and images are not required.
 
-“Create it,” “create it now,” or similar mutation language does not satisfy a missing price or enrichment choice. A usable price must be either explicitly supplied by the user or a suggestion the user accepted. Treat `0` as supplied only when the user explicitly requests a free or zero-priced product.
+“Create it,” “create it now,” “for my store, create,” or similar mutation language does not satisfy a missing price or enrichment choice. A usable price must be either explicitly supplied by the user or a suggestion the user accepted. Treat `0` as supplied only when the user explicitly requests a free or zero-priced product.
 
 Before every create call, assert all three conditions:
 
