@@ -155,7 +155,8 @@ and answers it without a turn of conversation.
 |-----------|--------|
 | User named a specific domain | Normalize it (§R1). A **subdomain** → §A3.1. Anything else → §A4 |
 | User gave brand/business context but no domain — *"My business is called Green Sprout Bakery"*, *"I need a domain for my pancakes restaurant"* | **Do not ask.** Build a query from that context → §A5 |
-| User gave nothing — *"I want a domain for my site"* | Ask, verbatim: **"What domain do you have in mind?"** Then take the answer as either a specific domain (→ §A4) or a description (→ §A5). |
+| **No domain, but they pointed at a site** — *"I want a domain for my wix site"*, *"I need a domain for my site"* | **Do not ask for a domain yet.** The site is the context → §A3.2 |
+| Nothing at all — *"I want to buy a domain"*, *"help me get a domain"* | Ask, verbatim: **"What domain do you have in mind?"** Then take the answer as either a specific domain (→ §A4) or a description (→ §A5). |
 
 The user answering with a description rather than a domain (*"Something with 'cozycuts' in it"*) is
 normal — treat it as a query and go to §A5.
@@ -230,6 +231,47 @@ Then leave the offer open and say nothing more about it.
 ⛔ **State the recommendation once.** A user who has declined twice has decided. The subdomain link is
 a working answer without the root, and repeating the case for it turns a recommendation into a
 pitch — §R9.
+
+### A3.2 The User Pointed at a Site but Named No Domain
+
+*"I want a domain for my wix site"* names no domain, and it is **not** nothing. Two things arrive with
+it, and the old reading of this row threw both away:
+
+- **The site question is already answered.** They want the domain on a site, so §R3's Case D
+  question — *"Would you like to connect this domain to one of your Wix sites?"* — must **not** be
+  asked. Asking it back is asking them to repeat themselves.
+- **The site's name is brand context.** §A5 takes free text, and a site called *Green Sprout Bakery*
+  is exactly the query it wants. Never make the user type a business name the account already knows.
+
+So resolve the site **now**, before the domain, and let it do both jobs:
+
+| Site resolution (§R3) | Then |
+|------------------------|------|
+| Case A — a `siteId` is in context | Take the site's name as the §A5 query. Suggestions and the site named, one message. |
+| Case B — exactly one site | Same. Name the site so a wrong guess is visible. |
+| Case B — several sites | Ask which one, with §R3 Case B's copy. That question has to be asked anyway, and its answer is also the query — §A5 runs on the reply. |
+| Case C — not logged in | No account, so no site name to read. **Do not front-load the login prompt** — fall through to the *"What domain do you have in mind?"* row above. The site intent is remembered, so §R3's Case C prompt lands at its normal time, once a domain is in hand. |
+| Case B — no sites at all | Nothing to name and nothing to connect to. Fall through to the bare *"What domain do you have in mind?"* row above, and treat the purchase as standalone. |
+
+Copy when a single site is resolved — §A5's list with its own opening:
+
+> Here are a few available options for **{site name}**:
+> - greensproutbakery.com
+> - greensproutco.com
+> - sproutbakery.com
+>
+> Want one of these, or do you have something else in mind? I can also show more options if none feel right.
+
+⚠️ **A site name is not always a business name.** Auto-generated names (`Evl 99faa20b7b2b`,
+`My Site 3`, a bare hex string) and placeholders carry no brand signal, and querying §A5 on one
+returns noise. When the name has no real words in it, treat it as **no context**: keep the resolved
+`siteId`, then ask *"What domain do you have in mind?"* — the site still gets used for the plan check
+and the auto-connect line, just not for suggestions.
+
+⚠️ **This is the one place the purchase path resolves a site before the domain**, and only because the
+user put the site in the request. §P1.1's rule — do not call `ListWixSites` unless the user asked
+about a site — is **satisfied here, not bypassed**. Carry the resolved `siteId` into §P1; the site is
+already settled, so the plan check is the next step and the question is never re-asked.
 
 ---
 
@@ -990,13 +1032,13 @@ Three calls, in order, **silently**:
   "lineItems": [
     {
       "productInfo": { "productId": "<products[0].productId from §P3>",
-                       "productTypeId": "72af0602-1321-4897-8299-f507480b2bb8" },
+        "productTypeId": "72af0602-1321-4897-8299-f507480b2bb8" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
       "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>", "core": "true" }
     },
     {
       "productInfo": { "productId": "<addon product ID from §P6>",
-                       "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1" },
+        "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
       "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>" }
     }
@@ -1953,7 +1995,7 @@ GET https://www.wixapis.com/domain-search/v2/check-domain-availability?domain={d
 ```json
 { "message": "Unsupported TLD for domain name myshop.ws",
   "details": { "applicationError": { "code": "DOMAINS_UNSUPPORTED_TLD",
-                                     "description": "Unsupported TLD for domain name myshop.ws" } } }
+    "description": "Unsupported TLD for domain name myshop.ws" } } }
 ```
 
 Detect it at `details.applicationError.code === "DOMAINS_UNSUPPORTED_TLD"`. Do **not** look for
@@ -1976,8 +2018,8 @@ Accepts free text — business descriptions, keywords and brand concepts, not ju
 
 ```json
 { "suggestions": [ { "domain": "cozycookuts.com", "premium": false },
-                   { "domain": "cozycuts.net", "premium": false },
-                   { "domain": "cozycutstudio.com", "premium": false } ],
+  { "domain": "cozycuts.net", "premium": false },
+  { "domain": "cozycutstudio.com", "premium": false } ],
   "pagingMetadata": { "count": 3, "cursors": { "next": "eyJxdWVyeSI6…" }, "hasNext": true } }
 ```
 
@@ -2064,9 +2106,9 @@ it reaches a link.
 
 ```json
 { "sites": [ { "site":      { "siteId": "…", "siteName": "…", "connectedDomain": "…" },
-               "primary":   { "domainName": "…", "siteId": "…" },
-               "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
-               "transfers": [] } ],
+  "primary":   { "domainName": "…", "siteId": "…" },
+  "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
+  "transfers": [] } ],
   "isAllDataReturned": true }
 ```
 
