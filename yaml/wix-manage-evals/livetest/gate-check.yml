@@ -1,0 +1,24 @@
+name: livetest/gate-check
+description: >-
+  Scratch scenario used to smoke-test the evalforge-yaml-gate scenario lint
+  end-to-end. Not a real skill eval — safe to delete, part of a throwaway PR.
+triggerPrompt: >-
+  Create a blog post titled "Live Gate Check" with the body
+  "Testing the scenario lint end-to-end."
+tags:
+  - livetest
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/blog/skills/create-post
+  - type: llm_judge
+    minScore: 7
+    prompt: >-
+      Pass if a blog post was created with the given title and body.
+      Fail if the title or body differs, or no post exists.
+  - type: llm_judge
+    minScore: 7
+    prompt: >-
+      Rate the tool-call path taken. Fail (score below 7) if the agent
+      made wasted calls, retried errors, or asked unnecessary clarifying
+      questions.
