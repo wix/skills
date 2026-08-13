@@ -403,6 +403,14 @@ Do exactly two things: call `suggest-domains` with the SLD only for 3 alternativ
 no broker or outreach option, no TLDs you thought of yourself. If your answer to a taken domain is
 longer than the block above, you have left this skill — see §A1.1.
 
+⛔ **The order is the rule: suggestions first, then the one message.** *"{displayName} is already
+registered…"* is the opening of that message, not a verdict to send the moment the availability call
+comes back. Sending it early splits this branch across two messages and strands the alternatives in a
+second one with nothing to introduce them — the user's answer then reads as a bare list that never says
+what happened to the domain they asked for. Hold the whole block until `suggest-domains` has returned,
+and send it once. (§A4a's *"do not send '…is available!' on its own"* is the same rule on the other
+branch.)
+
 The *"If it's yours"* hedge is correct **here and only here** — either the ownership check found
 nothing, or it could not run. Ownership is a guess in this branch, and the copy says so honestly.
 
