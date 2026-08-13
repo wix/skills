@@ -16,9 +16,18 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete the following steps **in the given order** (0-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
+
+### STEP 0: Confirm the catalog version — don't discover it by trial and error
+
+**Immediately after installing Stores, the catalog version is still settling — don't assume V3 and don't discover the version by calling a product endpoint and branching on a `428`.** Reproduced behavior on a freshly-installed site: the version-check endpoint itself reports `V1_CATALOG` for several seconds post-install, then hits a brief window where product *enforcement* has already switched to V3 while the version-check call still reports the stale `V1_CATALOG` value, before both agree. Querying/deleting reactively during this window is exactly what produces alternating `428 CATALOG_V1_SITE_CALLING_CATALOG_V3_API` / `428 CATALOG_V3_CALLING_CATALOG_V1_API` errors on the same site seconds apart.
+
+1. **Check the version once** — `GET https://www.wixapis.com/stores/v3/provision/version` → `{"catalogVersion": "V1_CATALOG" | "V3_CATALOG"}`.
+2. **Settle it** — re-check after ~3s; if the two reads disagree, wait ~3s more and take a third read. Cap the whole settle at ~15s total and go with the last reading — don't poll indefinitely.
+3. **Commit to that version for the rest of this run.** Every call in Steps 1-2 below is V3 (this recipe's format is V3-only). If a settled `V3_CATALOG` read is still followed by a `428` on a Steps 1-2 call, treat it as a genuine, rare mid-run version change: re-run this STEP 0 once, then retry — don't silently swap to the V1 endpoint family to "make it work."
+4. **If it settles to `V1_CATALOG`** — this recipe doesn't cover V1 (its product write shape in Step 2 is V3-only). This should not happen on a freshly-provisioned managed-headless site; if it does (e.g. an existing/connected site on the legacy catalog), stop and surface it rather than mixing V1 and V3 product calls — V1 request/response shapes differ (lower-case `productType`, `priceData.price`, no `visible` gate, etc.) from everything below.
 
 ### STEP 1: Clean the store — remove the default sample products
 
