@@ -10,6 +10,10 @@ apiDoc:
       title: Query Products (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+    - file: ../../../skills/wix-manage/references/stores/delete-product-catalog-v1.md
+      title: Delete Product (Catalog V1)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-with-options-catalog-v3.md
       title: Create Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
