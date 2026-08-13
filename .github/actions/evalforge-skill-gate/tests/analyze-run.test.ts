@@ -131,6 +131,21 @@ describe('runAnalyze', () => {
     expect(upsert.mock.calls[0][0]).not.toContain('upstream unavailable');
   });
 
+  // Observed against the live API: the gateway rejects an unpermitted app with an HTML error page,
+  // so the client's own message carries nothing usable and the generic sentence would leave an
+  // operator with no idea the grant was the problem.
+  it.each([401, 403])('names the missing permission on a %i, and echoes no HTML', async (status) => {
+    analyzeEvalRun.mockRejectedValue(
+      Object.assign(new Error(`EvalForge POST /v1/... → ${status}: <!DOCTYPE html><html>...`), { status }),
+    );
+    const { runAnalyze } = await import('../src/utils/analyze-run');
+
+    await runAnalyze();
+
+    expect(upsert.mock.calls[0][0]).toContain('analyze_eval_run');
+    expect(upsert.mock.calls[0][0]).not.toContain('DOCTYPE');
+  });
+
   it('never echoes an unrecognised error into the comment, however long it is', async () => {
     analyzeEvalRun.mockRejectedValue(new Error(`leaked-secret ${'x'.repeat(100_000)}`));
     const { runAnalyze } = await import('../src/utils/analyze-run');

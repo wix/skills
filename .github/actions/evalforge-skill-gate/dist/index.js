@@ -62306,6 +62306,13 @@ function describeUnavailable(error) {
     if ((0, evalforge_core_1.isHttpError)(error)) {
         if (error.status === 400)
             return 'the eval run had not finished when the investigation ran';
+        // Named rather than folded into the generic case: a permission the app was never granted is
+        // the one failure that makes every run report the same thing forever, and the gateway rejects
+        // it with an HTML page carrying no usable message of its own.
+        if (error.status === 401 || error.status === 403) {
+            return 'EvalForge refused the request — the pipeline app may be missing the '
+                + '`evalforge:v1:eval_run:analyze_eval_run` permission';
+        }
         if (error.status === 408 || error.status === 504)
             return 'EvalForge timed out';
         if (error.status >= 500)
