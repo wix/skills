@@ -4,11 +4,12 @@ description: >-
   pre-campaign suggestions, uses the two public endpoints correctly, handles
   long generation safely, and requires confirmation before changing status.
 triggerPrompt: >-
-  I already have a Google Ads Performance Max Leads campaign. How do I retrieve
-  its prioritized success guide and then mark the CLEAR_CTA_COPY recommendation
-  completed? Give me the exact REST flow and the safety behavior I should expect.
+  I already have a Google Ads Performance Max Leads campaign on my Wix site.
+  Using the Wix API, show me how to retrieve its prioritized Campaign Success
+  Guide and how you would mark the CLEAR_CTA_COPY recommendation completed after
+  I confirm. Give me the exact REST calls and timeout behavior, but don't change
+  anything on my site yet.
 tags: [marketing]
-maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
