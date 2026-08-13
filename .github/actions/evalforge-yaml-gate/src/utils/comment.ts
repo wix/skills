@@ -96,15 +96,6 @@ export function formatTooManyNewSkills(count: number, limit: number, files: stri
   ]);
 }
 
-export function formatQuarantineSkipped(names: string[]): string {
-  return render('⚠️', 'Quarantined Scenarios Skipped', [
-    'These covering scenarios are quarantined as flaky and were not run against this PR',
-    '(see `yaml/wix-manage-evals/quarantine.yaml`):',
-    '',
-    ...names.map(n => `- \`${n}\``),
-  ]);
-}
-
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -258,7 +249,7 @@ export function formatConfirmOnFail(result: ConfirmResult, blocking: boolean): s
   if (recovered.length > 0) {
     body.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v =>
       `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
-    body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite or a `quarantine.yaml` entry.', '');
+    body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite.', '');
   }
   return render(icon, 'Confirm-on-Fail', body);
 }
