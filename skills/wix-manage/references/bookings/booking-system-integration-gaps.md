@@ -264,7 +264,9 @@ Create calendar events using `POST https://www.wixapis.com/calendar/v3/bulk/even
 
 ### 6. Process Payment Through Universal Ecom Integration
 
-**MAJOR DISCOVERY**: ALL booking payments use identical ecommerce integration pattern.
+**MAJOR DISCOVERY**: ALL booking payments use identical ecommerce integration pattern — **except Pricing Plan redemption, which bypasses ecom entirely.**
+
+**Gap this section doesn't cover**: if the service has `payment.options.pricingPlan: true`, a member with an eligible plan should never reach eCom checkout at all — the dashboard Booking Calendar redeems the plan directly (Benefit Programs `RedeemBenefit`) and confirms the booking with `paymentStatus: EXEMPT`, producing a $0 order. Nothing in the public `Create Booking` API (`selectedPaymentOption` only supports `ONLINE`/`OFFLINE`) or in this checkout flow checks Pricing Plan eligibility before defaulting to a card charge. If you're building a booking UI for members, call Benefit Programs' `GetEligibleBenefits`/`CheckBenefitEligibility` first and only fall through to steps 6A/6B when no plan credit applies. See [Pricing Plans Bookings Integration](../pricing-plans/pricing-plans-bookings-integration.md).
 
 **Step 6A: Create Checkout with Booking ID as Catalog Item**
 

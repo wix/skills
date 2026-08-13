@@ -47,18 +47,15 @@ Integrating Pricing Plans with Bookings allows businesses to offer:
 
 The integration requires coordination between three APIs:
 
-1. **Pricing Plans API** - Creates the plan structure and pricing
-2. **Benefit Programs API** - Creates the bridge between plans and services
-3. **Bookings API** - Services automatically support pricing plan payments
+1. **Pricing Plans API (V3)** - Creates the plan structure and pricing
+2. **Benefit Programs API** - Creates the bridge between the plan and the booking service, and enrolls individual members
+3. **Bookings API** - Services automatically support pricing plan payments once wired up
 
 ### IMPORTANT NOTES
 
 - The integration requires using all three APIs in sequence - there's no direct connection between Pricing Plans and Bookings
 - This is a complex integration that requires careful error handling and state management
-- Service `payment.options.pricingPlan` automatically becomes `true` when benefit programs are properly connected
-- The benefit program `externalId` must exactly match the pricing plan `id` for the connection to work
-- **Minimum Duration Requirements**: Plans must have minimum 7-day validity periods - cannot create 1-day plans
-- **Revision Number Management**: The Benefit Programs API uses revision numbers that can conflict with concurrent operations
+- **Revision Number Management**: The Benefit Programs API uses revision numbers on `Update*` calls that can conflict with concurrent operations
 
 ---
 
@@ -66,52 +63,67 @@ The integration requires coordination between three APIs:
 
 ### 1. Create the Pricing Plan
 
-Create the pricing plan first using the Pricing Plans API. You can create either:
+Create the pricing plan using the [Plans V3 API](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan) — `POST https://www.wixapis.com/pricing-plans/v3/plans`.
 
-- **Package plans** using `singlePaymentForDuration` pricing model with `"type": "bookings-package"` in `clientData`
-- **Membership plans** using `subscription` pricing model with `"type": "bookings-membership"` in `clientData`
+> **Note:** Older Pricing Plans material (Velo `wix-pricing-plans-backend`, and the deprecated Plans V2 REST API) describes plans using `pricing.singlePaymentForDuration`, `validity.duration`, and a `clientData` object. Those fields belong to the **deprecated** Plans API, not Plans V3. The V3 request body below is `plan.pricingVariants[]`, each with `pricingStrategies[].flatRate.amount` and `billingTerms`, not `singlePaymentForDuration`/`validity`. Sending V2-shaped fields to the V3 endpoint fails validation.
 
-**Important Validation Requirements:**
-
-- `validity.duration` must be minimum 7 days (`P7D` format)
-- Cannot use `P1D` or shorter periods due to API validation
-- For subscription plans, billing cycles have similar minimum requirements
+- **Package plans** (fixed session count, e.g. "10 sessions valid for 30 days"): create a one-time plan — set `billingTerms.endType` to `CYCLES_COMPLETED` with `cyclesCompletedDetails.billingCycleCount: 1`, and set `billingTerms.billingCycle` to the desired validity period (e.g. `{"period": "MONTH", "count": 1}`).
+- **Membership plans** (recurring, e.g. "10 sessions a month"): create a recurring plan — set `billingTerms.endType` to `UNTIL_CANCELLED` (or `CYCLES_COMPLETED` with more than 1 cycle), with `billingTerms.billingCycle` as the recurrence period.
+- The session count/credit limit itself isn't set on the plan — it's configured later in the pool definition's `details.benefits[].price` / `details.creditConfiguration` (see step 3).
 
 Keep the returned `plan.id` for the next step.
 
-### 2. Create Benefit Program Definition
+### 2. Create a Program Definition
 
-Use the Benefit Programs API to create the program definition that links to your pricing plan. The `externalId` must exactly match the pricing plan `id` from step 1, and use `"@wix/pricing-plans"` as the namespace.
+Use the Benefit Programs API to create a program definition. Call [Create Program Definition](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/program-definitions/create-program-definition) — `POST https://www.wixapis.com/_api/benefit-programs/v1/program-definitions` — with:
+- `namespace`: a namespace you control for this integration (1–20 characters). Pick something specific to your app/site (e.g. `bookings_pricing_plans`) — this is **your own** namespace, not a fixed platform constant.
+- `externalId`: set this to the pricing plan's `id` from step 1, so you can look the program definition back up by plan ID later via [Get Program Definition By External Id And Namespace](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/program-definitions/get-program-definition-by-external-id-and-namespace).
+- `displayName`: a human-readable name for the program.
 
-**Error Handling Note**: If you receive "Entity already exists" errors, the program definition may already exist from a previous attempt. Query existing programs first or handle the error gracefully.
+Save the returned `programDefinition.id`.
 
-### 3. Create Benefit Definition for Bookings Service
+**Error Handling Note**: If you receive "Entity already exists" errors, the program definition may already exist from a previous attempt. Query existing program definitions first (or look it up by `externalId`/`namespace`) and handle the error gracefully.
 
-Create the benefit definition that connects the program to your specific booking service:
+### 3. Create a Pool Definition and register the booking service as a redeemable item
 
-- For **packages with session limits**: Include `creditAmount` set to the desired session count
-- For **unlimited memberships**: Omit the `creditAmount` field entirely
-- Always use the correct `serviceId` from your bookings service and `"@wix/pricing-plans"` namespace
+There is no single "benefit definition" call that takes a `serviceId` and `creditAmount` directly — linking a service requires 2 separate API calls:
 
-**Revision Number Handling**: The Benefit Programs API requires revision numbers. If operations fail due to revision conflicts, retrieve the current revision number and retry.
+**3a. Create the pool definition** with the credit/session configuration.
 
-### 4. Verify Service Integration
+Call [Create Pool Definition](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pool-definitions/create-pool-definition) — `POST https://www.wixapis.com/_api/benefit-programs/v1/pool-definitions` — with:
+- `programDefinitionIds`: `[<programDefinition.id from step 2>]`
+- `namespace`: the same namespace used in step 2
+- `details.benefits`: an array with 1 entry per bookable service you want this plan to cover. Each entry needs a unique `benefitKey` (any string you choose), `providerAppId` set to the Wix Bookings app ID (`13d21c63-b5ec-5912-8397-c3a5ddb27a97`), and `price` — the number of credits 1 redemption (1 session) costs (usually `1`).
+- `details.creditConfiguration.amount`: for **packages**, the total session count for the plan's validity period (e.g. `10`). For **unlimited memberships**, omit `creditConfiguration` (or use a very high effective amount) — unlimited access isn't a "no credit configuration" flag on the benefit itself.
 
-Query the service to confirm integration is working. The service should now show `payment.options.pricingPlan: true` and the plan should appear in the booking UI as a payment option.
+The response includes each benefit's `itemSetId` — save it for the next step.
 
-### IMPORTANT NOTES
+**3b. Register the booking service as an item under that benefit.**
 
-- **Sequence matters**: Create pricing plan → benefit program definition → benefit definition. Wrong order will cause "Plan not found" errors
-- **Complex State Management**: This integration involves multiple APIs with different revision systems and error handling patterns
-- **ID relationships**:
-  - Pricing Plan `id` → Benefit Program Definition `externalId`
-  - Service `id` → Benefit Definition `serviceId`
-  - Program Definition `id` → Benefit Definition `programDefinitionId`
-- **Session behavior**:
-  - With `creditAmount`: Users consume credits per session
-  - Without `creditAmount`: Users get unlimited access during subscription
-- **Namespace requirement**: Always use `"@wix/pricing-plans"` as namespace for pricing plan integrations
-- **Service updates**: Services automatically update when benefit programs are connected - no manual service modification needed
+Call [Bulk Create Items](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/items/bulk-create-items) — `POST https://www.wixapis.com/benefit-programs/v1/bulk/items/create` — with 1 entry per service:
+- `externalId`: the Bookings service's `id`
+- `itemSetId`: the benefit's `itemSetId` from step 3a
+- `providerAppId`: `13d21c63-b5ec-5912-8397-c3a5ddb27a97` (Wix Bookings)
+- `namespace`: the same namespace used above
+
+### 4. Enroll the buying member (provision their program)
+
+Creating the program/pool *definitions* above only builds the template — it does **not** grant any member access by itself, and it does **not** by itself flip anything on the Bookings service. A live pool is created per member when their plan purchase is fulfilled.
+
+Call [Provision Program](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/programs/provision-program) — `POST https://www.wixapis.com/benefit-programs/v1/programs/provision` — with:
+- `poolDefinitionReference.programDefinitionId` (or `poolDefinitionId`): the ID from step 2/3a
+- `beneficiary.identityType: "MEMBER"` and `beneficiary.memberId`: the buyer's site member ID
+- `namespace`: the same namespace used above
+
+This is normally triggered from your Pricing Plans order webhook/event handler (e.g. on order paid), not from a one-time setup script — do this once per purchase, not once per plan.
+
+### 5. Verify the integration
+
+- Call [Query Pools](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/introduction) filtered by the member's `beneficiary.memberId` and `namespace` to confirm they have an `ACTIVE` pool with balance.
+- Call [Get Eligible Benefits](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/get-eligible-benefits) or [Check Benefit Eligibility](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/check-benefit-eligibility) with the service's `id` as `itemReference.externalId` and `providerAppId` `13d21c63-b5ec-5912-8397-c3a5ddb27a97` to confirm the member can redeem a session against that service.
+- To actually charge a session against the plan (what the dashboard Booking Calendar does when redeeming a plan on a member's behalf), call [Redeem Benefit](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/redeem-benefit) with the `poolId`, `itemReference`, and `benefitKey` — this deducts 1 credit from the pool's balance. You're still responsible for confirming the booking (e.g. `Confirm Or Decline Booking` with `paymentStatus: EXEMPT`) after redeeming.
+
+> **Known gap:** none of the above wires a "pay with my plan" option into the customer-facing online booking/checkout flow automatically — the public [Create Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking) API's `selectedPaymentOption` only supports `ONLINE`/`OFFLINE`, and the documented [Single-Service Booking flow](https://dev.wix.com/docs/api-reference/business-solutions/bookings/flow-single-service-booking) always routes paid bookings through eCommerce checkout (card payment) with no step that checks plan eligibility first. If you need "pay with plan" support in a custom booking UI, check eligibility yourself (this step) and redeem + confirm directly instead of creating an eCommerce checkout for members with an eligible plan.
 
 ### Troubleshooting Common Issues
 
@@ -120,46 +132,35 @@ Query the service to confirm integration is working. The service should now show
 - Install Pricing Plans app using Apps Installer API
 - Verify installation before proceeding with plan creation
 
-**"Plan not found" Error:**
-
-- Verify `externalId` exactly matches pricing plan `id`
-- Ensure pricing plan was created successfully before creating benefit program
-- Check that the plan hasn't been deleted or modified
-
 **"Entity already exists" Error:**
 
-- Query existing benefit program definitions to check for duplicates
+- Query existing benefit program/pool definitions to check for duplicates
 - Consider updating existing programs instead of creating new ones
 - Implement proper error handling for idempotent operations
 
-**Service doesn't show pricing plan option:**
+**Member isn't eligible / has no pool:**
 
-- Check that benefit definition has correct `serviceId`
-- Verify all three entities (plan, program definition, benefit definition) were created successfully
-- Confirm service query shows `payment.options.pricingPlan: true`
+- Confirm step 4 (Provision Program) actually ran for this member — creating the definitions in steps 2–3 alone grants nothing
+- Query Pools filtered by the member to confirm an `ACTIVE` pool exists with balance > 0
 
 **Credits not working correctly:**
 
-- For packages: Ensure `creditAmount` is set to desired session count
-- For unlimited: Ensure `creditAmount` is omitted entirely
-- Verify the benefit definition is properly linked to the correct program definition
-
-**Minimum Duration Validation Errors:**
-
-- Ensure `validity.duration` is at least `P7D` (7 days)
-- Adjust single-session plans to weekly validity instead of daily
-- For subscription plans, use appropriate billing cycle minimums
+- For packages: ensure `details.creditConfiguration.amount` on the pool definition matches the intended session count
+- Verify the service was registered as an item under the correct benefit's `itemSetId` (step 3b)
 
 **Revision Number Conflicts:**
 
-- Implement retry logic with fresh revision number retrieval
-- Handle concurrent operations gracefully
-- Consider queuing operations if dealing with high-frequency updates
+- `Update*` calls (e.g. Update Pool Definition) require the current `revision` — fetch it fresh and retry on conflict
 
 ## API Documentation References
 
-- [Create Plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan) — `POST https://www.wixapis.com/pricing-plans/v3/plans`
+- [Create Plan (V3)](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan) — `POST https://www.wixapis.com/pricing-plans/v3/plans`
 - [Create Program Definition](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/program-definitions/create-program-definition) — `POST https://www.wixapis.com/_api/benefit-programs/v1/program-definitions`
+- [Create Pool Definition](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pool-definitions/create-pool-definition) — `POST https://www.wixapis.com/_api/benefit-programs/v1/pool-definitions`
+- [Bulk Create Items](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/items/bulk-create-items) — `POST https://www.wixapis.com/benefit-programs/v1/bulk/items/create`
+- [Provision Program](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/programs/provision-program) — `POST https://www.wixapis.com/benefit-programs/v1/programs/provision`
+- [Get Eligible Benefits](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/get-eligible-benefits) — `POST https://www.wixapis.com/benefit-programs/v1/pools/eligible-pools`
+- [Redeem Benefit](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/redeem-benefit) — `POST https://www.wixapis.com/benefit-programs/v1/benefits/redeem`
 - [Pricing Plans API](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/introduction)
 - [Benefit Programs API](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/introduction)
 - [Bookings Services API](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/introduction)
