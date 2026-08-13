@@ -4,7 +4,7 @@ description: >-
   already owns a domain, treats it as a connect rather than a purchase, and
   gates the connection on the site's Premium plan.
 triggerPrompt: >-
-  I already have mybakery.com registered somewhere else. How do I connect it to my Wix site?
+  I already have mybakery.com registered somewhere else. How do I connect it to my Wix site? Its meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914.
 tags: [domains]
 maxTokens: 600000
 assertions:
@@ -15,17 +15,19 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user already owns mybakery.com and wants it on their Wix site. Their request: "I already have mybakery.com registered somewhere else. How do I connect it to my Wix site?"
+      The user already owns mybakery.com and wants it on their Wix site. Their request: "I already have mybakery.com registered somewhere else. How do I connect it to my Wix site? Its meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914."
 
       Per Part C of the recipe this is the connect path: the site's plan decides the outcome. A Premium
       site gets a dashboard connect link; a Free site gets the connect link plus an upgrade block,
-      because connecting a domain is a Premium feature.
+      because connecting a domain is a Premium feature. The site is named in the request, so there is
+      nothing to disambiguate — the answer should be about that site.
 
       Pass if the response:
       - treats this as connecting a domain the user already owns, not as a purchase, AND
       - either gives a manage.wix.com connect link for a Premium site, or explains that connecting
         requires a Premium plan and offers an upgrade link, AND
-      - accounts for the site's plan rather than handing over a connect link unconditionally.
+      - answers for the site the user named, having established that site's plan, rather than handing
+        over a connect link unconditionally or asking which site they meant.
 
       Fail if the response:
       - walks the user through buying a domain, or offers alternative domains to register instead, OR
