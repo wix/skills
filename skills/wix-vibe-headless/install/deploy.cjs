@@ -74,15 +74,14 @@ function replaceMembersAuthLeftovers() {
 // The two ids arrive as flags so this script writes them once, character-for-character, instead of a
 // later hand-edit of the placeholder file.
 //
-// Precedence differs per id, because the two are not equally trustworthy when a host writes this
-// file itself at app creation:
+// An id already in the file wins; the flags only fill what is unset. A host that writes this file
+// at app creation (Base44) has each id as an exact value rather than a copy read out of a prompt.
+// Per id, so a host that resolved one but not the other still gets the gap filled.
 //
-//   WIX_METASITE_ID — the flag WINS. A host can derive this one indirectly (Base44 resolves it from
-//     the launch instance) and get a different site than the business, and a wrong site id is sent
-//     as the `wix-site-id` header on every catalog read, so the storefront returns nothing. The id
-//     in the prompt is the site the user is looking at, so prefer it and overwrite.
-//   WIX_CLIENT_ID — an existing value wins. It reaches a host as an exact value on the launch
-//     request, so its copy is at least as good as one retyped into a command.
+// This briefly worked the other way round for WIX_METASITE_ID, while Base44 could write a different
+// site than the business: it shared one field between the launch and a metasite it provisions per
+// app, and the launch's id lost. Fixed on that side, and the ids it stores now verify against the
+// site each launch came from, so the file is trusted again.
 function readWixConfig() {
   if (!existsSync(WIX_CONFIG)) return {};
   const src = readFileSync(WIX_CONFIG, 'utf8');
@@ -142,7 +141,7 @@ if (!requested.length) {
 
 const onDisk = readWixConfig();
 const finalClientId = onDisk.clientId || clientId;
-const finalMetaSiteId = metaSiteId || onDisk.metaSiteId;
+const finalMetaSiteId = onDisk.metaSiteId || metaSiteId;
 
 if (!finalClientId || !finalMetaSiteId) {
   deployed.wixConfig = 'missing_ids — src/rest/wix-config.js is not configured; re-run with '
@@ -150,9 +149,8 @@ if (!finalClientId || !finalMetaSiteId) {
 } else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
   deployed.wixConfig = 'already_set';
 } else {
-  const replaced = onDisk.metaSiteId && onDisk.metaSiteId !== finalMetaSiteId;
   writeWixConfig(finalClientId, finalMetaSiteId);
-  deployed.wixConfig = replaced ? 'written — replaced a different WIX_METASITE_ID' : 'written';
+  deployed.wixConfig = 'written';
 }
 
 console.log(JSON.stringify(deployed));
