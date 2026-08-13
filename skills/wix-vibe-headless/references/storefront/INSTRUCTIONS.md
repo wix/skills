@@ -12,11 +12,9 @@ Builds a real, client-only Wix storefront. The browser talks to Wix directly ove
 public `WIX_CLIENT_ID`. Never mock products; never hand-build `/checkout` URLs — always
 go through the eCom cart + redirect-session.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
-> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
-> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
-> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
-> Migrating from Cart V1 / Checkout V1? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
+> **One entity.** A single **cart** carries the whole purchase flow (items →
+> delivery/billing/payment → placing the order). These instructions say **"cart"** for that
+> entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
 
 ## When to use
 - User wants a Wix eCommerce store or asks to "connect Wix".
@@ -50,6 +48,8 @@ however the project wants; wire it to these two snippets. Copy them into the app
 - `src/rest/wix-store-cart.js` — **Cart & checkout:**
   `addToCart`, `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
 
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
+
 The Product and Cart shapes are documented as JSDoc comments at the top of each helper file.
 Read them before building the UI — they describe the key fields and link to the full API
 reference for anything not shown.
@@ -70,8 +70,8 @@ reference for anything not shown.
   `product.modifiers` (TEXT_CHOICES → choice buttons/select; FREE_TEXT → a text input); render
   neither when the arrays are empty. Skipping modifiers is a common miss — a product with a
   **mandatory** modifier (e.g. "gift wrap?") whose control isn't rendered can never be added: the
-  buyer can't satisfy the requirement, so `add-line-items` returns 200 with an **empty** `lineItems`
-  and the add silently no-ops.
+  buyer can't supply the required value, the catalog can't resolve the line, and Cart V2 **rejects
+  the add** (the `add-line-items` call errors) rather than silently accepting an invalid line.
   Render `product.plainDescription` as **HTML** — despite the name it contains markup (`<p>`,
   `<br>`, `<strong>`), so `dangerouslySetInnerHTML={{ __html: product.plainDescription }}` (React)
   or `el.innerHTML = product.plainDescription`, never as a plain text node (that shows raw `<p>`
@@ -119,7 +119,7 @@ reference for anything not shown.
 
 ## Hard rules (do not violate)
 - ✅ Checkout ONLY via `checkout()` (current cart id → `/headless/v1/redirect-session`
-  `fullUrl`), then redirect. Cart V2 has no `create-checkout` step — the cart id is the checkout id.
+  `fullUrl`), then redirect. The cart id is the checkout id — pass it straight to the redirect session.
 - ❌ Never hand-build `/checkout`, cart-add, or product permalinks for purchase.
 - ❌ Never mock products — render live Wix data or the empty state.
 - ❌ Never generate fake reviews, ratings, or testimonials. Empty review UI only.
@@ -128,7 +128,7 @@ reference for anything not shown.
 - ✅ On the PDP, render a control for **every** `product.options` entry **and** every `product.modifiers`
   entry — never only variants. Keep Add-to-cart disabled until a variant resolves and every
   `modifier.mandatory === true` has a value; a mandatory modifier with no rendered control makes the
-  product unbuyable (add-line-items returns 200 with empty `lineItems`).
+  product unbuyable — Cart V2 rejects the add (the call errors) rather than accepting an invalid line.
 - ✅ Pass `addToCart`'s `variantId` (`variantsInfo.variants[].id`) for products with variants; omit for products without.
 - ✅ Pass `modifierChoices` (`{ [modifier.key]: choiceKey }`) for TEXT_CHOICES modifiers; pass `customTextFields`
   (`{ [modifier.freeTextSettings.key]: userInput }`) for FREE_TEXT modifiers. Include mandatory modifiers.

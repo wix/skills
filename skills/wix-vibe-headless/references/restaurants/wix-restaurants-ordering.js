@@ -128,9 +128,9 @@ export async function removeFromCart(lineItemId) {
  * Throws on empty cart, unavailable lines, or a missing redirect URL.
  * Redirect with: window.location.href = await checkout()
  *
- * Cart V2 has no separate checkout entity — the cart id IS the checkout id, so there is no
- * "create checkout" step. We still create a redirect session so the visitor/member session
- * carries across to the Wix-hosted checkout page on its own domain.
+ * The cart id is the checkout id — pass it as ecomCheckout.checkoutId to the redirect session.
+ * We create a redirect session so the visitor/member session carries across to the Wix-hosted
+ * checkout page on its own domain.
  * @returns {Promise<string>}
  */
 export async function checkout() {

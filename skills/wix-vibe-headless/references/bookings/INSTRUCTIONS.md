@@ -12,11 +12,9 @@ Builds a real, client-only Wix Bookings front end. The browser talks to Wix dire
 public `WIX_CLIENT_ID`. Never mock services or slots; never hand-build a `/checkout` URL —
 always create the booking through the API and complete it via the eCom checkout + redirect-session.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
-> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
-> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
-> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
-> Migrating from Cart V1 / Checkout V1? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
+> **One entity.** A single **cart** carries the whole purchase flow (items →
+> delivery/billing/payment → placing the order). These instructions say **"cart"** for that
+> entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
 
 This skill ships the single-service booking flow for **APPOINTMENT and CLASS** services: browse
 services → pick a service → pick an available slot → enter details → book → hosted checkout.
@@ -56,6 +54,8 @@ adjust import paths:
   `mediaUrl` (resolve a service image to an absolute URL)
 - `src/rest/wix-bookings-checkout.js` — **Booking & checkout:**
   `createBooking`, `checkoutBooking`, `bookAndCheckout`
+
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
 
 The `Service`, `TimeSlot`, and `Booking` shapes are documented as JSDoc comments at the top of
 each helper file. Read them before building the UI — they describe the key fields and link to

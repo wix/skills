@@ -13,11 +13,9 @@ Builds a real, client-only Wix restaurant experience. The browser talks to Wix d
 public `WIX_CLIENT_ID`. Never mock the menu; never hand-build `/checkout` or reservation URLs —
 always go through the official cart + redirect-session and the reservations hold/reserve flow.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a
-> separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow
-> (items → delivery/billing/payment → placing the order). These instructions say **"cart"** for
-> that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
-> Migrating from Cart V1 / Checkout V1? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
+> **One entity.** A single **cart** carries the whole purchase flow (items →
+> delivery/billing/payment → placing the order). These instructions say **"cart"** for that
+> entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to.
 
 ## When to use
 - User wants a Wix restaurant site, an online food-ordering page, or a table-reservation page.
@@ -55,6 +53,8 @@ adjust import paths:
   `updateCartItemQuantity`, `removeFromCart`, `checkout`
 - `src/rest/wix-restaurants-reservations.js` — **Reservations:**
   `listReservationLocations`, `getTimeSlots`, `createHeldReservation`, `reserveReservation`
+
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
 
 The Menu, Item, ModifierGroup, Operation, Cart, ReservationLocation, TimeSlot, and Reservation
 shapes are documented as JSDoc at the top of each helper file. Read the relevant file(s) before

@@ -64,9 +64,9 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
   const line = (res?.cart?.lineItems ?? []).find(
     (l) => l.source?.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.source?.catalogReference?.options?.variantId === variantId),
   );
-  // Cart V2 reports invalid items as explicit errors, but partial stock still returns a
-  // reduced confirmedQuantity — guard both signals:
-  // 1. status set to something other than IN_STOCK
+  // Cart V2 rejects an invalid add with an explicit error (so wixApiRequest throws above).
+  // As a backstop, inspect the returned line and fail loudly on either signal:
+  // 1. a status other than IN_STOCK (OUT_OF_STOCK / PARTIALLY_IN_STOCK / REMOVED_FROM_CATALOG)
   // 2. no matching line at all (confirmedQuantity 0 / line absent)
   if (line?.status && line.status !== "IN_STOCK") {
     throw new Error(`Item not available for sale (status: ${line.status}). Is it in stock?`);
@@ -99,9 +99,9 @@ export async function getCurrentCart() {
  * Throws on empty cart, unavailable lines, or a missing redirect URL.
  * Usage: window.location.href = await checkout()
  *
- * Cart V2 has no separate checkout entity — the cart id IS the checkout id, so there is no
- * "create checkout" step. We still create a redirect session so the visitor/member session
- * carries across to the Wix-hosted checkout page on its own domain.
+ * The cart id is the checkout id — pass it as ecomCheckout.checkoutId to the redirect session.
+ * We create a redirect session so the visitor/member session carries across to the Wix-hosted
+ * checkout page on its own domain.
  * @returns {Promise<string>}
  */
 export async function checkout() {
@@ -125,7 +125,9 @@ export async function checkout() {
 
 /**
  * Update the quantity of a cart line. lineItemId is cart.lineItems[].id, not catalogItemId.
- * Wix caps the result at remaining stock — returned confirmedQuantity may be lower than requested.
+ * In Cart V2 a quantity above remaining stock is rejected with an explicit error — V2 no longer
+ * silently reduces it to the available amount (the V1 behavior), so handle the throw and show
+ * the buyer what's in stock.
  * @returns {Promise<object>} Updated cart.
  */
 export async function updateCartItemQuantity(lineItemId, quantity) {

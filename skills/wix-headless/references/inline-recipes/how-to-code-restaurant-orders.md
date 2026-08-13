@@ -12,8 +12,6 @@ A contract for the **frontend code** that lets a visitor **order** from a Wix Re
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The Wix docs render two views of the same page. The **bare / REST view shows `id`**; the **`?apiView=SDK` view shows `_id`** — and the SDK is what your frontend calls. Reading the REST view by mistake is the most common source of the `entity.id`-is-`undefined` cart bug. Fetch the `.md?apiView=SDK` form directly; don't re-discover these with search.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow (items → delivery/billing/payment → placing the order). This recipe says **"cart"** for that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to. Migrating an existing Cart V1 / Checkout V1 integration? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
-
 ---
 
 ## The modules and the client (read this first)
@@ -30,6 +28,8 @@ A contract for the **frontend code** that lets a visitor **order** from a Wix Re
 | Fulfillment methods (pickup/delivery to show) | `@wix/restaurants` | `fulfillmentMethods` |
 | Cart (add / get / checkout) | `@wix/ecom` | `currentCartV2` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
+
+> Migrating from Cart V1 / Checkout V1? The code below is V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
 
 **Auth / client — framework split:**
 - **Astro (Wix-managed):** authentication is ambient. Call `operations` / `fulfillmentMethods` / `currentCartV2` directly from server components and backend routes (`src/pages/api/*.ts`) — **no `createClient`, no `OAuthStrategy`, no `clientId`.**
@@ -85,7 +85,7 @@ item = { _id, name, priceInfo: { price } }   // price is a decimal STRING; _id �
 lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
 // price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
-// Cart V2 has NO checkout entity — the cart's _id IS the checkout id; there is no createCheckout call:
+// the cart's _id is the checkout id → pass to the redirect session:
 // redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks })  →  { redirectSession: { fullUrl } }
 ```
 
@@ -146,7 +146,7 @@ await currentCartV2.addLineItemsToCurrentCart({
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md?apiView=SDK>
 
-**⚠️ CRITICAL: `options` MUST carry `operationId`, `menuId`, AND `sectionId` — all three.** A restaurant line item is identified by *where in the menu it was ordered from*, not by a variant. Omitting any of the three makes eCommerce unable to resolve the item against the Restaurants catalog — the add fails or the line can't be checked out. This is the restaurant analog of the store's mandatory `variantId`, and it fails the same quiet way.
+**⚠️ CRITICAL: `options` MUST carry `operationId`, `menuId`, AND `sectionId` — all three.** A restaurant line item is identified by *where in the menu it was ordered from*, not by a variant. Omitting any of the three makes eCommerce unable to resolve the item against the Restaurants catalog — Cart V2 rejects the add with an explicit error rather than accepting an invalid line. This is the restaurant analog of the store's mandatory `variantId`.
 
 **⚠️ CRITICAL: there is NO `variantId` here.** `options.variantId` is a **Stores** concept — menu items have no variants in this flow. Don't copy the store recipe's `variantId` resolution; a restaurant line uses `operationId`/`menuId`/`sectionId` instead. (Menu item *modifiers* — "extra cheese" — are a separate concern and out of scope for the basic order flow.)
 
@@ -156,19 +156,19 @@ Optional: `options.onlineOrderingPageUrl` (e.g. `"/online-ordering"`) lets the b
 
 ### Checkout — redirect to the hosted checkout page
 
-Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout id. Read the current cart, then hand its id to a redirect session (identical to the storefront flow — restaurant orders ride on the same eCommerce checkout).
+The cart's `_id` **is** the checkout id — pass it into the redirect session's `ecomCheckout.checkoutId`. Read the current cart, then hand its id to a redirect session (identical to the storefront flow — restaurant orders ride on the same eCommerce checkout).
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>
 
 ```js
 const { cart } = await currentCartV2.getCurrentCart();   // NOTE: returns { cart } — destructure it
 const session = await redirects.createRedirectSession({
-  ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id — there is no createCheckout call
+  ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id
   callbacks: { postFlowUrl: `${origin}/`, thankYouPageUrl: `${origin}/` },
 });
 window.location.href = session.redirectSession.fullUrl; // the hosted-checkout URL (fulfillment + time slot chosen here)
 ```
 
-**⚠️ The cart's `_id` is the checkout id.** There's no separate checkout to create — pass `cart._id` into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
+**⚠️ The cart's `_id` is the checkout id.** Pass `cart._id` into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
 
 **⚠️ CRITICAL: `origin` for `postFlowUrl`/`thankYouPageUrl` MUST be the `https://` published host — derive it from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the site's **`https://`** host and treats `http://<same host>` as a different, unlisted origin. If you build the redirect session in a **server route** (`src/pages/api/*`), `new URL(request.url).origin` resolves to `http://` behind Wix's TLS-terminating proxy → the buyer's return redirect **403s** with *"… isn't listed as an allowed redirect domain."* Pass `window.location.origin` from the client into the route (or force the scheme to `https`). Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
 
@@ -176,7 +176,7 @@ window.location.href = session.redirectSession.fullUrl; // the hosted-checkout U
 
 ### Reading the price and the cart
 
-Menu item price is **`item.priceInfo.price`** — a decimal **string** with no currency symbol (see `how-to-code-restaurants.md`; the SDK `PriceInfo` type has only `price`, no `formattedPrice`). A cart line's price is **`lineItem.pricing.unitPrice`** / **`pricing.totalPrice`** — a `ConvertedMoney` `{ amount, convertedAmount }`; Cart V2 dropped the preformatted line-item price, so format it yourself. The currency lives on the cart, not the money object — format from `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode` (see the *Formatting cart prices* section of `how-to-code-a-store.md` for the exact `Intl.NumberFormat` helper), e.g. `new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(pricing.totalPrice.convertedAmount ?? pricing.totalPrice.amount))`. Cart line images are `wix:image://` identifiers — resolve them with `media.getScaledToFillImageUrl(id, w, h, {})` (4 args), never raw (see the store/menu recipes' image callout).
+Menu item price is **`item.priceInfo.price`** — a decimal **string** with no currency symbol (see `how-to-code-restaurants.md`; the SDK `PriceInfo` type has only `price`, no `formattedPrice`). A cart line's price is **`lineItem.pricing.unitPrice`** / **`pricing.totalPrice`** — a `ConvertedMoney` `{ amount, convertedAmount }`; Cart V2 line items carry no preformatted price, so format it yourself. The currency lives on the cart, not the money object — format from `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode` (see the *Formatting cart prices* section of `how-to-code-a-store.md` for the exact `Intl.NumberFormat` helper), e.g. `new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(pricing.totalPrice.convertedAmount ?? pricing.totalPrice.amount))`. Cart line images are `wix:image://` identifiers — resolve them with `media.getScaledToFillImageUrl(id, w, h, {})` (4 args), never raw (see the store/menu recipes' image callout).
 
 ---
 

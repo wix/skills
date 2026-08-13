@@ -10,8 +10,6 @@ A concise contract for writing the **frontend code** of a storefront against a C
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The Wix docs render two views of the same page. The **bare / REST view shows `id`**; the **`?apiView=SDK` view shows `_id`** — and the SDK is what your frontend calls. Reading the REST view by mistake is the single most common source of the cart-killing `product.id` bug (see the `_id` rule under *Listing products*). Fetch the `.md?apiView=SDK` form directly; don't re-discover these with search.
 
-> **One entity now.** Cart V2 is the evolution of the old two-entity model — what used to be a separate *cart* and *checkout* is now a single **cart** that carries the whole purchase flow (items → delivery/billing/payment → placing the order). This recipe says **"cart"** for that entity; **"checkout"** appears only for the hosted checkout *page* the buyer is sent to. Migrating an existing Cart V1 / Checkout V1 integration? See the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
-
 ---
 
 ## The modules and the client (read this first)
@@ -28,6 +26,8 @@ A concise contract for writing the **frontend code** of a storefront against a C
 | Categories | `@wix/stores` | `categories` |
 | Cart (add / get / checkout) | `@wix/ecom` | `currentCartV2` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
+
+> Migrating from Cart V1 / Checkout V1? The code below is V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
 
 **Never** import the V1 `products` or `collections` modules from `@wix/stores`.
 
@@ -78,7 +78,7 @@ variant = {
 lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
 // price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
-// Cart V2 has NO checkout entity — the cart's _id IS the checkout id; there is no createCheckout call:
+// the cart's _id is the checkout id → pass to the redirect session:
 // redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks })  →  { redirectSession: { fullUrl } }
 ```
 
@@ -167,29 +167,29 @@ await currentCartV2.addLineItemsToCurrentCart({
 });
 ```
 
-**⚠️ CRITICAL: `options.variantId` is MANDATORY for any product that has variants.** Adding by `catalogItemId` alone returns **HTTP 200 but adds nothing** — the silent empty cart. The cart method's required-params list omits `variantId`, so this fails quietly and looks like success. Always resolve and include it (part 1 above).
+**⚠️ CRITICAL: `options.variantId` is MANDATORY for any product that has variants.** Adding by `catalogItemId` alone **fails** — the catalog can't resolve a variant-bearing product without it, and Cart V2 **rejects the add with an explicit error** rather than accepting an invalid line. The cart method's required-params list omits `variantId`, so it's an easy one to miss. Always resolve and include it (part 1 above).
 
-**⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug (`200` + empty cart).
+**⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug: the variant never resolves, so Cart V2 rejects the add with an explicit error.
 
 ### Checkout — redirect to the hosted checkout page
 
-Cart V2 has no separate checkout entity — the cart's `_id` **is** the checkout id. Read the current cart, then hand its id to a redirect session, which carries the visitor/member session across to the hosted checkout on its own domain.
+The cart's `_id` **is** the checkout id — pass it into the redirect session's `ecomCheckout.checkoutId`. Read the current cart, then hand its id to a redirect session, which carries the visitor/member session across to the hosted checkout on its own domain.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md?apiView=SDK>
 
 ```js
 const { cart } = await currentCartV2.getCurrentCart();   // NOTE: returns { cart } — destructure it
 const session = await redirects.createRedirectSession({
-  ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id — there is no createCheckout call
+  ecomCheckout: { checkoutId: cart._id },   // the cart's _id IS the checkout id
   callbacks: { postFlowUrl: `${origin}/`, thankYouPageUrl: `${origin}/` },
 });
 window.location.href = session.redirectSession.fullUrl; // the hosted-checkout URL
 ```
 
-**⚠️ The cart's `_id` is the checkout id.** There's no separate checkout to create — pass `cart._id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
+**⚠️ The cart's `_id` is the checkout id.** Pass `cart._id` straight into the redirect session's `ecomCheckout.checkoutId`. And `getCurrentCart()` returns **`{ cart }`** — destructure it, or `cart` is `undefined` and `cart._id` throws *"Cannot read properties of undefined (reading '_id')"*.
 
 **⚠️ CRITICAL: `origin` for `postFlowUrl`/`thankYouPageUrl` MUST be the `https://` published host — derive it from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the site's **`https://`** host and treats **`http://<same host>` as a different, unlisted origin**. When the buyer returns from the hosted checkout (e.g. clicks "Continue Browsing"), the redirect goes through the allowlist — and an `http://` `postFlowUrl` **403s** with *"… isn't listed as an allowed redirect domain."* If you build the redirect session in a **server route** (`src/pages/api/*`), `new URL(request.url).origin` resolves to **`http://`** behind Wix's TLS-terminating proxy → guaranteed 403 on return. So **pass `window.location.origin` from the client** into the route (don't read the origin off the request), or force the scheme to `https`. Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
 
-### Formatting cart prices (Cart V2 has no preformatted amount)
+### Formatting cart prices
 
 **Product** prices from `productsV3` still carry a ready-to-show `actualPriceRange.minValue.formattedAmount` — use it directly. But **Cart V2 money does not**: every cart amount — line-item `pricing.unitPrice` / `pricing.totalPrice` **and** the `estimateCurrentCart`/`calculateCurrentCart` `summary.priceSummary.*` — is a `ConvertedMoney` `{ amount, convertedAmount }` with **no** formatted string. So once items are in the cart, you format the price yourself. The currency isn't on the money object; read it from the cart (`cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`), and use `convertedAmount` (buyer's display currency) when present, else `amount` (site currency):
 
