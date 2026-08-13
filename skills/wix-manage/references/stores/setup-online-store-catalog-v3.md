@@ -34,18 +34,14 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
 `https://www.wixapis.com/categories/v1/categories`
 
 
-### STEP 2: Create 5 new products based on the format specified in the Bulk Create Products with Options recipe (4 in stock, 1 out of stock)
-1. First *YOU MUST* pull up the [Bulk Create Wix Store Products with Options](bulk-create-products-with-options.md) recipe to understand the exact format required for creating products.
-2. Create 5 products according to this format using bulk creation (use a single bulk request). 4 of the created products **MUST** have ALL there variants in-stock, and the last (5th) product **MUST** have all its variants be out-of-stock.
-3. **Make sure** to add in image (using media) using  a url from the web that matches each product.
-4. **YOU MUST** use the price formatting as seen in the example, meaning using actualPrice and compareAtPrice.
-5. **ALL** products **MUST** be created **EXACTLY** from the same format as the full example in the Bulk Create Wix Store Products with Options recipe. **ONLY** information within the strings of the given fields may differ based on the products.
-
-
-**⚠️ CRITICAL: EXACT FORMAT REQUIREMENTS**
-**YOU MUST** use the following recipe to create ALL products with the EXACT same format:
-- **Bulk Create Wix Store Products with Options**
- [Recipe: Bulk Create Products with Options](bulk-create-products-with-options.md)
+### STEP 2: Create the requested products with the right Catalog V3 shape
+1. Determine the product list from the user request. If the user provided product names, prices, descriptions, quantities, or a product count, **honor that exact catalog**. Do not cap the request at 5 products. The Catalog V3 bulk products endpoint supports up to 100 products per request; split into multiple bulk requests only if the requested catalog exceeds that limit.
+2. If the user did not provide a product list or count, create a small starter catalog of 5 relevant sample products. Treat 5 products as the fallback default only, not as a maximum or mandatory count.
+3. Use [Bulk Create Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products) for simple products. Use [Bulk Create Products With Inventory](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory) or the [Bulk Create Wix Store Products with Options](bulk-create-products-with-options.md) recipe only when the user requested options, variants, or inventory quantities.
+4. Media is optional. Include `media` only when the user provided image URLs, uploaded media, or an existing Wix media reference. **Do not invent, search for, or use external image URLs just to satisfy this recipe.** If no reliable media is available, omit the `media` field and create the products as text-only.
+5. Product descriptions are rich-content objects, not plain strings. If adding a description, send a valid rich-content paragraph object; do **not** send `description: "plain text"` because Catalog V3 can reject it with `Expected an object`. If you cannot safely format a description, omit `description` and keep the product name/price.
+6. Use `variantsInfo.variants[].price.actualPrice.amount` for prices. Add `compareAtPrice` only when the user provided a sale/list price relationship or explicitly requested compare-at pricing.
+7. Do not force an in-stock/out-of-stock mix unless the user requested stock status or quantities. When inventory is not part of the request, create the products first and leave inventory setup for a follow-up user-confirmed step.
 
 
 ### STEP 3: Prepare Three Store Categories
@@ -101,6 +97,8 @@ If you keep the verification (e.g., for high-stakes catalogs):
 ## Conclusion
 Following these steps **in order** guarantees the creation flow for new V3 Wix Online Store sites:
 - Contains exactly **3** categories
-- Contains exactly **5** products (unless the user explicitly requests fewer)
+- Contains the user-requested products, or 5 relevant sample products only when the user did not provide a catalog
 - Each product is connected to at least one category.
-- All products follow the correct Catalog V3 API format as specified in the referenced recipe.
+- Product media and compare-at pricing are included only when supported by user-provided data.
+- Product descriptions use Catalog V3 rich-content objects, or are omitted when only plain text is available.
+- All products follow the correct Catalog V3 API format for the requested catalog complexity.
