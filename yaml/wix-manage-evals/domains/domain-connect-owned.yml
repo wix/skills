@@ -24,7 +24,6 @@ assertions:
       §C1 forbids putting one in the question itself.
 
       Pass if the response:
-      - reads this as connecting a domain the user already owns, not as a purchase, AND
       - asks which site to connect it to, presenting the sites on the account, rather than answering
         for a site it never established, AND
       - puts no site-specific connect URL in that message.
