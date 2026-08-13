@@ -1,0 +1,32 @@
+name: sites/site-import-file-run
+description: >-
+  Verifies the agent knows Wix Site Import can start a FILE run from CSV/TSV export URLs via
+  fileUrls alone, with no source site to crawl and no source credentials needed, and that the
+  file URL(s) themselves become the migration identity when no source_url is given.
+triggerPrompt: >-
+  I don't have a live store to point Wix Site Import at — I only have a product export file at
+  https://example.com/exports/products.csv. Can Site Import work from just that file? Using the
+  actual Wix Site Import API, tell me exactly which field carries the file, whether it needs my
+  source store's login, and what identifies this as "the same import" if I send that request again.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has no source site, only a CSV/TSV export file URL, and asked whether Wix Site
+      Import can run from that alone, which request field carries it, whether source credentials
+      are needed, and what makes a re-sent request "the same" import.
+
+      Pass: names the `fileUrls` field on Start (POST /v1/imports) as how to pass the export
+      file URL(s); states this is a "FILE run" that does not crawl/probe a source site and does
+      not need source-site login/credentials; and explains that with no `source_url` given, the
+      file URL(s) themselves are the identity — sending the same file URL(s) again continues the
+      same import/migration, while different files would start a separate one.
+
+      Fail: says Site Import requires a live source site/URL and can't work from a file alone,
+      never names `fileUrls`, claims source credentials are still required for a file-only
+      import, or gives no account of what makes a repeat request resume vs. start a new import.
