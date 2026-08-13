@@ -35227,9 +35227,13 @@ function truncateWords(text, limit) {
     const lastSpace = cut.lastIndexOf(' ');
     return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
-function teaser(summary) {
+/** The above-fold extract: the summary's first paragraph, cut to the teaser budget. */
+function teaserText(summary) {
     const firstParagraph = summary.trim().split('\n\n')[0]?.trim() ?? '';
-    return firstParagraph === '' ? [] : ['', neutraliseFoldEnd(truncateWords(firstParagraph, TEASER_LENGTH))];
+    return firstParagraph === '' ? '' : neutraliseFoldEnd(truncateWords(firstParagraph, TEASER_LENGTH));
+}
+function teaserLines(teaser) {
+    return teaser === '' ? [] : ['', teaser];
 }
 function findingBlock(finding) {
     // A positive finding sits outside the severity counts in the tally, so labelling it "🔴 High"
@@ -35255,14 +35259,22 @@ function findingBlock(finding) {
  * what survives truncation is the material worth reading; the tally and run link sit outside the
  * fold and are never dropped, which is what keeps a truncated comment actionable.
  */
-function foldedDetail(summary, findings, fixedLength) {
+function foldedDetail(summary, findings, fixedLength, teaser) {
     const cappedSummary = neutraliseFoldEnd(truncateWords(summary.trim(), MAX_SUMMARY_LENGTH));
-    const header = ['', '<details>', '<summary>Full investigation</summary>', ''];
+    // A single short paragraph is shown whole by the teaser, so repeating it here reads as a
+    // rendering bug. Compared as rendered strings rather than by re-deriving the two budgets, so the
+    // rule cannot drift if either changes. A truncated teaser still overlaps the full text below,
+    // which is intended — an excerpt, then the narrative.
+    const summaryLines = cappedSummary === teaser ? [] : ['', cappedSummary];
+    // The blank line after `</summary>` is required, or GitHub renders the enclosed markdown
+    // literally. It comes from `summaryLines`, the first finding block, the notice or the footer —
+    // every one of them opens with one.
+    const header = ['', '<details>', '<summary>Full investigation</summary>'];
     const footer = ['', '</details>'];
     const lengthOf = (lines) => lines.join('\n').length;
     let budget = exports.MAX_COMMENT_BODY_LENGTH
         - fixedLength
-        - lengthOf([...header, cappedSummary, ...footer])
+        - lengthOf([...header, ...summaryLines, ...footer])
         - OMISSION_NOTICE_RESERVE;
     const kept = [];
     let dropped = 0;
@@ -35281,22 +35293,27 @@ function foldedDetail(summary, findings, fixedLength) {
         `_${dropped} finding${dropped === 1 ? '' : 's'} omitted — `
             + 'see the full analysis in EvalForge._',
     ];
-    return [...header, cappedSummary, ...kept, ...notice, ...footer];
+    return [...header, ...summaryLines, ...kept, ...notice, ...footer];
 }
 function formatAnalysisComment(input) {
     const { analysis, runId, runUrl } = input;
     const findings = sortFindings(analysis.findings);
     const footer = ['', runLine(runId, runUrl, analysis.generatedAt)];
+    const teaser = teaserText(analysis.summary);
     if (findings.length === 0) {
         return render([
             'No findings — the investigation surfaced nothing to act on.',
-            ...teaser(analysis.summary),
+            ...teaserLines(teaser),
             ...footer,
         ]);
     }
-    const above = [tally(findings), ...teaser(analysis.summary)];
+    const above = [tally(findings), ...teaserLines(teaser)];
     const fixedLength = render([...above, ...footer]).length;
-    return render([...above, ...foldedDetail(analysis.summary, findings, fixedLength), ...footer]);
+    return render([
+        ...above,
+        ...foldedDetail(analysis.summary, findings, fixedLength, teaser),
+        ...footer,
+    ]);
 }
 function formatAnalysisUnavailable(input) {
     return render([

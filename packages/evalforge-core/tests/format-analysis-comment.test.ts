@@ -26,6 +26,8 @@ const analysis = (over: Partial<RunAnalysis> = {}): RunAnalysis => ({
 const render = (over: Partial<RunAnalysis> = {}) =>
   formatAnalysisComment({ analysis: analysis(over), runId: RUN_ID, runUrl: RUN_URL });
 
+const occurrences = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
 describe('formatAnalysisComment', () => {
   it('carries its own marker, distinct from the gate comment', () => {
     const body = render();
@@ -157,6 +159,41 @@ describe('formatAnalysisComment', () => {
     expect(body).not.toContain('UNKNOWN');
     expect(body).not.toContain('High');
     expect(body).toContain('Uncategorised');
+  });
+
+  // Every other assertion in this file is satisfied by either copy, which is how the duplicate
+  // survived review — so count, never `toContain`.
+  it('prints a short summary once, not again inside the fold', () => {
+    const summary = 'All three failures trace to the same reordered step in DASHBOARD_PAGE.md.';
+
+    expect(occurrences(render({ summary }), summary)).toBe(1);
+  });
+
+  it('prints a short summary once on the findings-free path too', () => {
+    const summary = 'Nothing of note.';
+
+    expect(occurrences(render({ summary, findings: [] }), summary)).toBe(1);
+  });
+
+  it('still carries the whole summary in the fold when the teaser showed only its first paragraph', () => {
+    const body = render({ summary: 'The first paragraph.\n\nA second paragraph with the detail.' });
+    const [above, folded] = body.split('<details>');
+
+    expect(above).toContain('The first paragraph.');
+    expect(above).not.toContain('A second paragraph');
+    expect(folded).toContain('The first paragraph.');
+    expect(folded).toContain('A second paragraph with the detail.');
+  });
+
+  // The overlap here is intended: an excerpt above, the full narrative inside, like an article
+  // preview. Only the exact duplicate is a defect.
+  it('excerpts a long summary above the fold and keeps the full narrative inside', () => {
+    const body = render({ summary: `${'word '.repeat(200)}the-tail-word` });
+    const [above, folded] = body.split('<details>');
+
+    expect(above).toContain('…');
+    expect(above).not.toContain('the-tail-word');
+    expect(folded).toContain('the-tail-word');
   });
 
   it('leaves a short summary intact', () => {
