@@ -23,6 +23,5 @@ assertions:
       Fail if it calls a no-inventory endpoint, uploads or invents an image, omits an option/combination, loses or swaps any price/SKU/quantity, uses a non-Ricos V3 description, or reports success without checking inventory results. The inventory-aware bulk endpoint with exactly this one product is valid if both product and inventory results are checked.
   - type: llm_judge
     minScore: 7
-    maxTokens: 1024
     prompt: |
       Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, the correct inventory endpoint, one mutation, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

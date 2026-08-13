@@ -19,6 +19,5 @@ assertions:
       Fail if it uploads or invents media, creates inventory, uses an inventory-aware endpoint, changes the SKU, or omits required physicalProperties. The no-inventory bulk endpoint with exactly this one product is valid.
   - type: llm_judge
     minScore: 7
-    maxTokens: 1024
     prompt: |
       Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, the no-inventory endpoint, one mutation, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.
