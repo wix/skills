@@ -92,13 +92,54 @@ describe('runAnalyze', () => {
     expect(upsert.mock.calls[0][0]).toContain('could not be generated');
   });
 
-  it('caps a very long error detail so the comment stays well under GitHub\'s comment length limit', async () => {
-    analyzeEvalRun.mockRejectedValue(new Error('x'.repeat(100_000)));
+  // The client's message can fold in an upstream OAuth response body, and `core.setSecret` masks
+  // logs but not comment bodies. The operator keeps the raw detail; the public comment does not.
+  it('states a 400 in plain words, keeping the raw client message out of the comment', async () => {
+    analyzeEvalRun.mockRejectedValue(
+      Object.assign(new Error('EvalForge POST /v1/... → 400: only available for completed runs'), { status: 400 }),
+    );
+    const { runAnalyze } = await import('../src/utils/analyze-run');
+
+    await runAnalyze();
+
+    expect(upsert.mock.calls[0][0]).toContain('had not finished');
+    expect(upsert.mock.calls[0][0]).not.toContain('EvalForge POST');
+    expect(upsert.mock.calls[0][0]).not.toContain('400');
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('only available for completed runs'));
+  });
+
+  it('names a timeout as a timeout', async () => {
+    analyzeEvalRun.mockRejectedValue(
+      Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }),
+    );
+    const { runAnalyze } = await import('../src/utils/analyze-run');
+
+    await runAnalyze();
+
+    expect(upsert.mock.calls[0][0]).toContain('timed out');
+  });
+
+  it('reports a 5xx as an unexpected EvalForge error', async () => {
+    analyzeEvalRun.mockRejectedValue(
+      Object.assign(new Error('EvalForge POST /v1/... → 503: upstream unavailable'), { status: 503 }),
+    );
+    const { runAnalyze } = await import('../src/utils/analyze-run');
+
+    await runAnalyze();
+
+    expect(upsert.mock.calls[0][0]).toContain('unexpected');
+    expect(upsert.mock.calls[0][0]).not.toContain('upstream unavailable');
+  });
+
+  it('never echoes an unrecognised error into the comment, however long it is', async () => {
+    analyzeEvalRun.mockRejectedValue(new Error(`leaked-secret ${'x'.repeat(100_000)}`));
     const { runAnalyze } = await import('../src/utils/analyze-run');
 
     await runAnalyze();
 
     expect(upsert.mock.calls[0][0].length).toBeLessThan(1_000);
+    expect(upsert.mock.calls[0][0]).not.toContain('leaked-secret');
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('leaked-secret'));
   });
 
   it('posts an unavailable note when the analysis is empty', async () => {

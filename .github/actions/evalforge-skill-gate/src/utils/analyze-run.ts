@@ -1,13 +1,10 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
-  EvalForgeClient, evalRunUrl, formatAnalysisComment, formatAnalysisUnavailable,
+  EvalForgeClient, evalRunUrl, formatAnalysisComment, formatAnalysisUnavailable, isHttpError,
 } from '@wix/evalforge-core';
 import { getAnalyzeConfig } from './config';
 import { describeError, makeAnalysisCommenter } from './report';
-
-/** Caps the reason echoed into the public comment; the full detail still reaches the log via `core.warning`. */
-const MAX_COMMENT_REASON_LENGTH = 500;
 
 /**
  * Posts EvalForge's AI investigation of a completed run to its own PR comment.
@@ -49,8 +46,27 @@ async function buildBody(
     }
     return formatAnalysisComment({ analysis, runId: config.evalRunId, runUrl });
   } catch (error) {
-    const detail = describeError(error);
-    core.warning(`The AI investigation failed: ${detail}`);
-    return unavailable(detail.slice(0, MAX_COMMENT_REASON_LENGTH));
+    core.warning(`The AI investigation failed: ${describeError(error)}`);
+    return unavailable(describeUnavailable(error));
   }
+}
+
+/**
+ * A plain sentence per case the comment can name, and a generic one otherwise. The client's own
+ * message is never repeated on the PR: it reads like a stack trace for a routine refusal, and it
+ * can carry upstream-authored text that `core.setSecret` masks in logs but not in a comment body.
+ */
+function describeUnavailable(error: unknown): string {
+  if (isTimeout(error)) return 'EvalForge timed out';
+  if (isHttpError(error)) {
+    if (error.status === 400) return 'the eval run had not finished when the investigation ran';
+    if (error.status === 408 || error.status === 504) return 'EvalForge timed out';
+    if (error.status >= 500) return 'EvalForge returned an unexpected error';
+  }
+  return 'EvalForge could not complete the investigation';
+}
+
+/** `AbortSignal.timeout` rejects with a `TimeoutError`, an explicit abort with an `AbortError`. */
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }

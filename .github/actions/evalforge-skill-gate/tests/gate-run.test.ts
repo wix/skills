@@ -8,6 +8,7 @@ vi.mock('../src/utils/config', () => ({
 }));
 
 const upsertComment = vi.fn().mockResolvedValue(undefined);
+const supersedeAnalysisComment = vi.fn().mockResolvedValue(undefined);
 const listTestScenarios = vi.fn().mockResolvedValue([]);
 const listTestScenariosByTag = vi.fn().mockResolvedValue([]);
 const createTestScenario = vi.fn().mockResolvedValue({ id: 'created-id' });
@@ -33,6 +34,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
     getFirstCommitAuthorEmail: vi.fn(),
     getChangedFiles: vi.fn(),
     makeCommenter: vi.fn(() => upsertComment),
+    makeCommentUpdater: vi.fn(() => supersedeAnalysisComment),
     loadScenarios: vi.fn(),
     collectSkillFiles: vi.fn(),
     pollUntilDone: vi.fn(),

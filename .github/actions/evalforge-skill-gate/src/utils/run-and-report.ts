@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import {
   classifyChangeImpact, EvalForgeClient, evalRunUrl, evaluateRunResult, foldScenarioIterations,
-  formatGateResult, formatGateServiceError, selectScenarios,
+  formatAnalysisSuperseded, formatGateResult, formatGateServiceError, selectScenarios,
   type Commenter, type ScenarioSelection,
 } from '@wix/evalforge-core';
 import { HALTED, fail, type Guarded } from './report';
@@ -19,6 +19,8 @@ export async function runAndReport(
   /** The version's **id**, not its label. */
   versionId: string,
   comment: Commenter,
+  /** Update-only, so a PR that never failed gets no investigation comment to retract. */
+  supersedeAnalysis: Commenter,
 ): Promise<void> {
   const selected = await resolveScenarioIds(config, scope, nameToId, comment);
   if (!selected.ok) return;
@@ -76,6 +78,11 @@ export async function runAndReport(
     const { failed, errors } = prStatus.aggregateMetrics;
     if (failed > 0 || errors > 0) {
       core.setOutput('analyze-run-id', arms.value.prRunId);
+    } else {
+      // Nothing else clears the investigation: it is only ever written on failure, and its job does
+      // not start for a clean run. Without this the fixing push leaves a green verdict sitting above
+      // the findings of the run it fixed.
+      await supersedeAnalysis(formatAnalysisSuperseded({ runId: arms.value.prRunId, runUrl }));
     }
 
     if (!verdict.passed) {

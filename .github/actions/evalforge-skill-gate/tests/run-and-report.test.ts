@@ -146,6 +146,9 @@ type PollSleep = { sleep: (ms: number) => Promise<void> };
 const upsertComment = vi.fn().mockResolvedValue(undefined);
 const lastComment = (): string => upsertComment.mock.calls.at(-1)?.[0] as string;
 
+/** Update-only in production, so a green PR that never failed gets no analysis comment at all. */
+const supersedeAnalysis = vi.fn().mockResolvedValue(undefined);
+
 beforeEach(async () => {
   vi.clearAllMocks();
   // Installed once here rather than per-test: `redRun()` now has a failed assertion, so every
@@ -165,7 +168,7 @@ afterEach(() => {
 
 async function run(config: GateConfig = CONFIG) {
   const { runAndReport } = await import('../src/utils/run-and-report');
-  await runAndReport(client, config, SCOPE, NAME_TO_ID, 'ver-1', upsertComment);
+  await runAndReport(client, config, SCOPE, NAME_TO_ID, 'ver-1', upsertComment, supersedeAnalysis);
 }
 
 async function lastImpact() {
@@ -404,6 +407,28 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     await run();
 
     expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+  });
+
+  it('leaves the investigation comment alone when there is something to investigate', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 2, errors: 0 }));
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
+  // Otherwise a fixed PR shows a green verdict directly above the sticky investigation of the run
+  // that failed — the state a merging reviewer sees most often.
+  it('retracts a superseded investigation when the run comes back clean', async () => {
+    const { ANALYSIS_COMMENT_MARKER } = await import('@wix/evalforge-core');
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));
+
+    await run();
+
+    expect(supersedeAnalysis).toHaveBeenCalledOnce();
+    expect(supersedeAnalysis.mock.calls[0][0]).toContain(ANALYSIS_COMMENT_MARKER);
+    expect(supersedeAnalysis.mock.calls[0][0]).toContain('no longer applies');
+    expect(vi.mocked(core.setOutput)).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
   });
 
   it('emits analyze-run-id when assertions errored but none failed', async () => {

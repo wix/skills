@@ -14,6 +14,12 @@ const MAX_SUMMARY_LENGTH = 12_000;
 
 const TEASER_LENGTH = 300;
 
+/**
+ * Safety net for the note that explains why no analysis arrived. Its reasons are short mapped
+ * sentences, so this bounds only a caller that passes something unbounded through.
+ */
+const MAX_REASON_LENGTH = 500;
+
 /** Room for the omission notice, so trimming findings can never itself overflow the budget. */
 const OMISSION_NOTICE_RESERVE = 160;
 
@@ -47,8 +53,22 @@ function render(body: string[]): string {
   return [ANALYSIS_COMMENT_MARKER, `## 🔍 ${HEADING}`, '', ...body].join('\n');
 }
 
-function runLine(runId: string, runUrl: string): string {
-  return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a></sub>`;
+/** `2026-08-12T14:03:22.512Z` → `2026-08-12 14:03 UTC`. Absent for a value the wire mangled. */
+function formatGeneratedAt(generatedAt: string): string | undefined {
+  const parsed = new Date(generatedAt);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return `${parsed.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+function runLine(runId: string, runUrl: string, generatedAt?: string): string {
+  const stamp = generatedAt === undefined ? undefined : formatGeneratedAt(generatedAt);
+  const suffix = stamp === undefined ? '' : ` · ${stamp}`;
+  return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a>${suffix}</sub>`;
+}
+
+/** GitHub honours a `</details>` from inside the fold, unfolding every finding after it. */
+function neutraliseFoldEnd(text: string): string {
+  return text.replaceAll('</details>', '&lt;/details&gt;');
 }
 
 /** Positives last: a reader opening this comment is here for what broke. */
@@ -82,23 +102,25 @@ function truncateWords(text: string, limit: number): string {
 
 function teaser(summary: string): string[] {
   const firstParagraph = summary.trim().split('\n\n')[0]?.trim() ?? '';
-  return firstParagraph === '' ? [] : ['', truncateWords(firstParagraph, TEASER_LENGTH)];
+  return firstParagraph === '' ? [] : ['', neutraliseFoldEnd(truncateWords(firstParagraph, TEASER_LENGTH))];
 }
 
 function findingBlock(finding: RunAnalysisFinding): string[] {
-  const severity = SEVERITY_LABELS[finding.severity];
+  // A positive finding sits outside the severity counts in the tally, so labelling it "🔴 High"
+  // here would have the heading and the body disagree about the same finding.
+  const severity = finding.category === 'POSITIVE' ? '' : SEVERITY_LABELS[finding.severity];
   const category = CATEGORY_LABELS[finding.category];
   const lines = [
     '',
     `### ${severity === '' ? category : `${severity} · ${category}`}`,
     '',
-    finding.description,
+    neutraliseFoldEnd(finding.description),
   ];
   if (finding.affectedScenarios.length > 0) {
     lines.push('', `**Scenarios:** ${finding.affectedScenarios.map(name => `\`${name}\``).join(', ')}`);
   }
   if (finding.recommendation !== undefined && finding.recommendation !== '') {
-    lines.push('', `**Recommendation:** ${finding.recommendation}`);
+    lines.push('', `**Recommendation:** ${neutraliseFoldEnd(finding.recommendation)}`);
   }
   return lines;
 }
@@ -109,7 +131,7 @@ function findingBlock(finding: RunAnalysisFinding): string[] {
  * fold and are never dropped, which is what keeps a truncated comment actionable.
  */
 function foldedDetail(summary: string, findings: RunAnalysisFinding[], fixedLength: number): string[] {
-  const cappedSummary = truncateWords(summary.trim(), MAX_SUMMARY_LENGTH);
+  const cappedSummary = neutraliseFoldEnd(truncateWords(summary.trim(), MAX_SUMMARY_LENGTH));
   const header = ['', '<details>', '<summary>Full investigation</summary>', ''];
   const footer = ['', '</details>'];
   const lengthOf = (lines: string[]) => lines.join('\n').length;
@@ -131,7 +153,7 @@ function foldedDetail(summary: string, findings: RunAnalysisFinding[], fixedLeng
 
   const notice = dropped === 0 ? [] : [
     '',
-    `_${dropped} further finding${dropped === 1 ? '' : 's'} omitted — `
+    `_${dropped} finding${dropped === 1 ? '' : 's'} omitted — `
     + 'see the full analysis in EvalForge._',
   ];
 
@@ -145,7 +167,7 @@ export function formatAnalysisComment(input: {
 }): string {
   const { analysis, runId, runUrl } = input;
   const findings = sortFindings(analysis.findings);
-  const footer = ['', runLine(runId, runUrl)];
+  const footer = ['', runLine(runId, runUrl, analysis.generatedAt)];
 
   if (findings.length === 0) {
     return render([
@@ -166,9 +188,21 @@ export function formatAnalysisUnavailable(input: {
   runUrl: string;
 }): string {
   return render([
-    `The AI investigation could not be generated: ${input.reason}.`,
+    `The AI investigation could not be generated: ${truncateWords(input.reason, MAX_REASON_LENGTH)}.`,
     '',
     'This does not affect the gate verdict.',
+    '',
+    runLine(input.runId, input.runUrl),
+  ]);
+}
+
+/**
+ * Retracts an investigation of a run a later push has superseded. Posted by the gate when the run
+ * comes back clean, so a green verdict is never left sitting above a stale list of findings.
+ */
+export function formatAnalysisSuperseded(input: { runId: string; runUrl: string }): string {
+  return render([
+    'The earlier investigation no longer applies — the latest run had no failing assertions.',
     '',
     runLine(input.runId, input.runUrl),
   ]);

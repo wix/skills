@@ -206,6 +206,11 @@ absent PR payload, which fails the job via `core.setFailed` — there is no comm
 report through.) The comment lives under its own sticky marker, separate from `gate`'s, so
 the two never overwrite each other.
 
+Nothing in this mode retracts a stale investigation, because a clean run never starts it. So
+`gate` does: when a run comes back with no failed and no errored assertions it updates the
+analysis comment — update-only, never creating one — with a note saying the earlier
+investigation no longer applies.
+
 ## `cleanup` flow
 
 ```mermaid
@@ -275,7 +280,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `evalforge-url` | all | — | Upgraded to HTTPS with a warning if it is not |
 | `evalforge-project-id` | all | — | |
 | `evalforge-app-id` / `evalforge-app-secret` | all | — | OAuth client credentials; both registered for log masking |
-| `evals-glob` | all | — | e.g. `yaml/wix-app-evals/**/*.{yml,yaml}` |
+| `evals-glob` | `gate`, `cleanup`, `sync` | — | e.g. `yaml/wix-app-evals/**/*.{yml,yaml}` |
 | `capability-id` | `gate`, `cleanup` | — | The capability the PR skill version is created under |
 | `agent-id` | `gate` | — | Preset agent the run uses |
 | `eval-run-id` | `analyze` | — | Eval run to investigate — the `gate` job's `analyze-run-id` output |
@@ -288,9 +293,9 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `base-arm-grace-seconds` | `gate` | `60` | Max `300`. `0` means "don't wait for the base arm at all". Window the base arm gets after the PR arm completes before its poll is cancelled. Exceeding it degrades the comment to "attribution unavailable" without affecting the verdict — the base eval run itself still completes server-side either way |
 | `blocking` | `gate` | `false` | `true` fails the check; anything else warns and passes |
 
-`capability-id`, `agent-id` and `skill-dir` are optional at the action level because `sync`
-mode does not use them. The gate marks them required where it reads them, so a
-misconfigured gate workflow fails at the first step rather than running with empty ids.
+`capability-id`, `agent-id`, `skill-dir` and `eval-run-id` are optional at the action level
+because no single mode uses all of them. Each mode marks the ones it reads required, so a
+misconfigured workflow fails at the first step rather than running with empty ids.
 
 `gate` and `cleanup` modes need the base SHA checked out into `.action-src` alongside the
 head checkout — the sync and cleanup plans compare against the base YAML to tell "PR-only"

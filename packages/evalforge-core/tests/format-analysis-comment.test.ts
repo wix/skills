@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ANALYSIS_COMMENT_MARKER, MAX_COMMENT_BODY_LENGTH,
-  formatAnalysisComment, formatAnalysisUnavailable,
+  formatAnalysisComment, formatAnalysisSuperseded, formatAnalysisUnavailable,
 } from '../src/format-analysis-comment';
 import { GATE_COMMENT_MARKER } from '../src/format-gate-comment';
 import type { RunAnalysis, RunAnalysisFinding } from '../src/evalforge';
@@ -100,6 +100,48 @@ describe('formatAnalysisComment', () => {
     expect(render({ findings: [finding()] })).not.toContain('Recommendation');
   });
 
+  it('renders a positive finding without a severity dot, matching how the tally counts it', () => {
+    const body = render({ findings: [finding({ category: 'POSITIVE', severity: 'HIGH' })] });
+    expect(body).toContain('### Strength');
+    expect(body).not.toContain('🔴');
+    expect(body).not.toContain('High');
+  });
+
+  it('renders the generation time in the footer when the analysis carries one', () => {
+    const body = render({ generatedAt: '2026-08-12T14:03:22.512Z' });
+    expect(body).toContain('2026-08-12 14:03 UTC');
+    expect(body).toMatch(/eval run run-123<\/a> · 2026-08-12 14:03 UTC<\/sub>/);
+  });
+
+  it('omits the time and its separator when the analysis carries none', () => {
+    const body = render();
+    expect(body).toContain(`eval run ${RUN_ID}</a></sub>`);
+    expect(body).not.toContain('UTC');
+  });
+
+  it('drops an unparseable generation time rather than rendering it raw', () => {
+    const body = render({ generatedAt: 'not-a-timestamp' });
+    expect(body).not.toContain('not-a-timestamp');
+    expect(body).toContain(`eval run ${RUN_ID}</a></sub>`);
+  });
+
+  it('neutralises a closing details tag in a finding, so one finding cannot unfold the rest', () => {
+    const body = render({
+      findings: [
+        finding({ description: 'Quoting </details> in prose.', recommendation: 'Avoid </details> too.' }),
+        finding({ description: 'the-later-finding' }),
+      ],
+    });
+    expect(body.split('</details>')).toHaveLength(2);
+    expect(body).toContain('&lt;/details&gt;');
+    expect(body.indexOf('the-later-finding')).toBeLessThan(body.indexOf('</details>'));
+  });
+
+  it('neutralises a closing details tag in the folded summary', () => {
+    const body = render({ summary: `Narrative mentioning </details>.\n\nSecond paragraph.` });
+    expect(body.split('</details>')).toHaveLength(2);
+  });
+
   it('renders an UNKNOWN category and severity without inventing one', () => {
     const body = render({ findings: [finding({ category: 'UNKNOWN', severity: 'UNKNOWN' })] });
     expect(body).not.toContain('UNKNOWN');
@@ -126,7 +168,10 @@ describe('formatAnalysisComment', () => {
         finding({ severity: 'HIGH', description: `finding-${index} ${'y'.repeat(1_000)}` })),
     });
     expect(body.length).toBeLessThanOrEqual(MAX_COMMENT_BODY_LENGTH);
-    expect(body).toMatch(/further findings? omitted/);
+    // "further" would claim the omitted findings are the tail; the loop keeps packing shorter
+    // findings in after dropping a long one, so they are not.
+    expect(body).toMatch(/_\d+ findings? omitted — /);
+    expect(body).not.toContain('further');
   });
 
   it('keeps the body within budget when many short findings all survive the fold', () => {
@@ -163,5 +208,28 @@ describe('formatAnalysisUnavailable', () => {
     expect(body.startsWith(ANALYSIS_COMMENT_MARKER)).toBe(true);
     expect(body).toContain('the analysis exceeded its budget');
     expect(body).toContain(RUN_URL);
+  });
+
+  it('caps a runaway reason itself, rather than trusting its caller to', () => {
+    const body = formatAnalysisUnavailable({
+      reason: 'x'.repeat(100_000),
+      runId: RUN_ID,
+      runUrl: RUN_URL,
+    });
+    expect(body.length).toBeLessThan(1_000);
+  });
+});
+
+describe('formatAnalysisSuperseded', () => {
+  it('retracts the earlier investigation under the same marker, keeping the run reachable', () => {
+    const body = formatAnalysisSuperseded({ runId: RUN_ID, runUrl: RUN_URL });
+    expect(body.startsWith(ANALYSIS_COMMENT_MARKER)).toBe(true);
+    expect(body).toContain('no longer applies');
+    expect(body).toContain('no failing assertions');
+    expect(body).toContain(RUN_URL);
+  });
+
+  it('stays short enough to read as a one-line note', () => {
+    expect(formatAnalysisSuperseded({ runId: RUN_ID, runUrl: RUN_URL }).length).toBeLessThan(400);
   });
 });

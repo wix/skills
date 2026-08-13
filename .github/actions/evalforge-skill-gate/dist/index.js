@@ -31024,6 +31024,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MAX_COMMENT_BODY_LENGTH = exports.ANALYSIS_COMMENT_MARKER = void 0;
 exports.formatAnalysisComment = formatAnalysisComment;
 exports.formatAnalysisUnavailable = formatAnalysisUnavailable;
+exports.formatAnalysisSuperseded = formatAnalysisSuperseded;
 exports.ANALYSIS_COMMENT_MARKER = '<!-- evalforge-skill-analysis-action -->';
 /**
  * Budget for the rendered body. GitHub rejects a comment over 65536 characters with a 422, and
@@ -31034,6 +31035,11 @@ exports.MAX_COMMENT_BODY_LENGTH = 60_000;
 /** One 100k narrative must not be able to crowd out every finding. */
 const MAX_SUMMARY_LENGTH = 12_000;
 const TEASER_LENGTH = 300;
+/**
+ * Safety net for the note that explains why no analysis arrived. Its reasons are short mapped
+ * sentences, so this bounds only a caller that passes something unbounded through.
+ */
+const MAX_REASON_LENGTH = 500;
 /** Room for the omission notice, so trimming findings can never itself overflow the budget. */
 const OMISSION_NOTICE_RESERVE = 160;
 const HEADING = 'EvalForge: AI Investigation';
@@ -31061,8 +31067,21 @@ const SEVERITY_RANK = {
 function render(body) {
     return [exports.ANALYSIS_COMMENT_MARKER, `## 🔍 ${HEADING}`, '', ...body].join('\n');
 }
-function runLine(runId, runUrl) {
-    return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a></sub>`;
+/** `2026-08-12T14:03:22.512Z` → `2026-08-12 14:03 UTC`. Absent for a value the wire mangled. */
+function formatGeneratedAt(generatedAt) {
+    const parsed = new Date(generatedAt);
+    if (Number.isNaN(parsed.getTime()))
+        return undefined;
+    return `${parsed.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+function runLine(runId, runUrl, generatedAt) {
+    const stamp = generatedAt === undefined ? undefined : formatGeneratedAt(generatedAt);
+    const suffix = stamp === undefined ? '' : ` · ${stamp}`;
+    return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a>${suffix}</sub>`;
+}
+/** GitHub honours a `</details>` from inside the fold, unfolding every finding after it. */
+function neutraliseFoldEnd(text) {
+    return text.replaceAll('</details>', '&lt;/details&gt;');
 }
 /** Positives last: a reader opening this comment is here for what broke. */
 function sortFindings(findings) {
@@ -31093,22 +31112,24 @@ function truncateWords(text, limit) {
 }
 function teaser(summary) {
     const firstParagraph = summary.trim().split('\n\n')[0]?.trim() ?? '';
-    return firstParagraph === '' ? [] : ['', truncateWords(firstParagraph, TEASER_LENGTH)];
+    return firstParagraph === '' ? [] : ['', neutraliseFoldEnd(truncateWords(firstParagraph, TEASER_LENGTH))];
 }
 function findingBlock(finding) {
-    const severity = SEVERITY_LABELS[finding.severity];
+    // A positive finding sits outside the severity counts in the tally, so labelling it "🔴 High"
+    // here would have the heading and the body disagree about the same finding.
+    const severity = finding.category === 'POSITIVE' ? '' : SEVERITY_LABELS[finding.severity];
     const category = CATEGORY_LABELS[finding.category];
     const lines = [
         '',
         `### ${severity === '' ? category : `${severity} · ${category}`}`,
         '',
-        finding.description,
+        neutraliseFoldEnd(finding.description),
     ];
     if (finding.affectedScenarios.length > 0) {
         lines.push('', `**Scenarios:** ${finding.affectedScenarios.map(name => `\`${name}\``).join(', ')}`);
     }
     if (finding.recommendation !== undefined && finding.recommendation !== '') {
-        lines.push('', `**Recommendation:** ${finding.recommendation}`);
+        lines.push('', `**Recommendation:** ${neutraliseFoldEnd(finding.recommendation)}`);
     }
     return lines;
 }
@@ -31118,7 +31139,7 @@ function findingBlock(finding) {
  * fold and are never dropped, which is what keeps a truncated comment actionable.
  */
 function foldedDetail(summary, findings, fixedLength) {
-    const cappedSummary = truncateWords(summary.trim(), MAX_SUMMARY_LENGTH);
+    const cappedSummary = neutraliseFoldEnd(truncateWords(summary.trim(), MAX_SUMMARY_LENGTH));
     const header = ['', '<details>', '<summary>Full investigation</summary>', ''];
     const footer = ['', '</details>'];
     const lengthOf = (lines) => lines.join('\n').length;
@@ -31140,7 +31161,7 @@ function foldedDetail(summary, findings, fixedLength) {
     }
     const notice = dropped === 0 ? [] : [
         '',
-        `_${dropped} further finding${dropped === 1 ? '' : 's'} omitted — `
+        `_${dropped} finding${dropped === 1 ? '' : 's'} omitted — `
             + 'see the full analysis in EvalForge._',
     ];
     return [...header, cappedSummary, ...kept, ...notice, ...footer];
@@ -31148,7 +31169,7 @@ function foldedDetail(summary, findings, fixedLength) {
 function formatAnalysisComment(input) {
     const { analysis, runId, runUrl } = input;
     const findings = sortFindings(analysis.findings);
-    const footer = ['', runLine(runId, runUrl)];
+    const footer = ['', runLine(runId, runUrl, analysis.generatedAt)];
     if (findings.length === 0) {
         return render([
             'No findings — the investigation surfaced nothing to act on.',
@@ -31162,9 +31183,20 @@ function formatAnalysisComment(input) {
 }
 function formatAnalysisUnavailable(input) {
     return render([
-        `The AI investigation could not be generated: ${input.reason}.`,
+        `The AI investigation could not be generated: ${truncateWords(input.reason, MAX_REASON_LENGTH)}.`,
         '',
         'This does not affect the gate verdict.',
+        '',
+        runLine(input.runId, input.runUrl),
+    ]);
+}
+/**
+ * Retracts an investigation of a run a later push has superseded. Posted by the gate when the run
+ * comes back clean, so a green verdict is never left sitting above a stale list of findings.
+ */
+function formatAnalysisSuperseded(input) {
+    return render([
+        'The earlier investigation no longer applies — the latest run had no failing assertions.',
         '',
         runLine(input.runId, input.runUrl),
     ]);
@@ -32004,6 +32036,7 @@ async function pollUntilDone(client, projectId, runId, options = {}) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getChangedFiles = getChangedFiles;
 exports.makeCommenter = makeCommenter;
+exports.makeCommentUpdater = makeCommentUpdater;
 /**
  * The PR's cumulative diff against its base — not the last commit. A gate keyed on the
  * newest commit alone would miss files an earlier commit in the same PR changed.
@@ -32018,32 +32051,45 @@ async function getChangedFiles(octokit, owner, repo, prNumber) {
         previousFilename: file.previous_filename,
     }));
 }
+/** Resolves the marked comment's id at most once per run, whether or not one exists. */
+function commentIdCache(octokit, target) {
+    let cachedId;
+    let resolved = false;
+    return {
+        async find() {
+            if (resolved)
+                return cachedId;
+            for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+                owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
+            })) {
+                const hit = page.data.find(comment => comment.body?.includes(target.marker));
+                if (hit) {
+                    cachedId = hit.id;
+                    break;
+                }
+            }
+            resolved = true;
+            return cachedId;
+        },
+        remember(id) {
+            cachedId = id;
+            resolved = true;
+        },
+    };
+}
+function describeCommentError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
 /**
  * Upserts a single marked PR comment, so repeated runs edit one comment rather than
  * spamming the thread. Never throws: a comment is a report, and losing it must not fail
  * the gate — the body goes to the job summary instead.
  */
 function makeCommenter(octokit, target, io) {
-    let cachedId;
-    let resolved = false;
-    async function findExistingId() {
-        if (resolved)
-            return cachedId;
-        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-            owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
-        })) {
-            const hit = page.data.find(comment => comment.body?.includes(target.marker));
-            if (hit) {
-                cachedId = hit.id;
-                break;
-            }
-        }
-        resolved = true;
-        return cachedId;
-    }
+    const ids = commentIdCache(octokit, target);
     return async function upsert(body) {
         try {
-            const id = await findExistingId();
+            const id = await ids.find();
             if (id !== undefined) {
                 await octokit.rest.issues.updateComment({
                     owner: target.owner, repo: target.repo, comment_id: id, body,
@@ -32053,13 +32099,35 @@ function makeCommenter(octokit, target, io) {
                 const created = await octokit.rest.issues.createComment({
                     owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
                 });
-                cachedId = created.data.id;
-                resolved = true;
+                ids.remember(created.data.id);
             }
         }
         catch (error) {
-            io.warn(`Failed to post PR comment: ${error instanceof Error ? error.message : String(error)}`);
+            io.warn(`Failed to post PR comment: ${describeCommentError(error)}`);
             await io.writeSummary(body);
+        }
+    };
+}
+/**
+ * Replaces a marked comment that is already on the PR, and does nothing when there is none — so a
+ * run can retract a report it posted earlier without a run that never posted one adding noise.
+ *
+ * Never throws, on the same reasoning as `makeCommenter`. No job-summary fallback: the body only
+ * means anything as a replacement for a comment the reader can already see.
+ */
+function makeCommentUpdater(octokit, target, io) {
+    const ids = commentIdCache(octokit, target);
+    return async function updateIfPresent(body) {
+        try {
+            const id = await ids.find();
+            if (id === undefined)
+                return;
+            await octokit.rest.issues.updateComment({
+                owner: target.owner, repo: target.repo, comment_id: id, body,
+            });
+        }
+        catch (error) {
+            io.warn(`Failed to update PR comment: ${describeCommentError(error)}`);
         }
     };
 }
@@ -62198,8 +62266,6 @@ const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const report_1 = __nccwpck_require__(7267);
-/** Caps the reason echoed into the public comment; the full detail still reaches the log via `core.warning`. */
-const MAX_COMMENT_REASON_LENGTH = 500;
 /**
  * Posts EvalForge's AI investigation of a completed run to its own PR comment.
  *
@@ -62234,10 +62300,31 @@ async function buildBody(client, config, runUrl) {
         return (0, evalforge_core_1.formatAnalysisComment)({ analysis, runId: config.evalRunId, runUrl });
     }
     catch (error) {
-        const detail = (0, report_1.describeError)(error);
-        core.warning(`The AI investigation failed: ${detail}`);
-        return unavailable(detail.slice(0, MAX_COMMENT_REASON_LENGTH));
+        core.warning(`The AI investigation failed: ${(0, report_1.describeError)(error)}`);
+        return unavailable(describeUnavailable(error));
     }
+}
+/**
+ * A plain sentence per case the comment can name, and a generic one otherwise. The client's own
+ * message is never repeated on the PR: it reads like a stack trace for a routine refusal, and it
+ * can carry upstream-authored text that `core.setSecret` masks in logs but not in a comment body.
+ */
+function describeUnavailable(error) {
+    if (isTimeout(error))
+        return 'EvalForge timed out';
+    if ((0, evalforge_core_1.isHttpError)(error)) {
+        if (error.status === 400)
+            return 'the eval run had not finished when the investigation ran';
+        if (error.status === 408 || error.status === 504)
+            return 'EvalForge timed out';
+        if (error.status >= 500)
+            return 'EvalForge returned an unexpected error';
+    }
+    return 'EvalForge could not complete the investigation';
+}
+/** `AbortSignal.timeout` rejects with a `TimeoutError`, an explicit abort with an `AbortError`. */
+function isTimeout(error) {
+    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }
 
 
@@ -63037,7 +63124,7 @@ async function runGate() {
     const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
     if (!nameToId.ok)
         return;
-    await (0, run_and_report_1.runAndReport)(client, config, scope.value, nameToId.value, version.value.id, comment);
+    await (0, run_and_report_1.runAndReport)(client, config, scope.value, nameToId.value, version.value.id, comment, (0, report_1.makeAnalysisUpdater)(octokit, config));
 }
 
 
@@ -63290,7 +63377,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.makeAnalysisCommenter = exports.makeGateCommenter = exports.HALTED = void 0;
+exports.makeAnalysisUpdater = exports.makeAnalysisCommenter = exports.makeGateCommenter = exports.HALTED = void 0;
 exports.describeError = describeError;
 exports.fail = fail;
 exports.guardedCall = guardedCall;
@@ -63324,14 +63411,16 @@ async function guardedCall(operation, failure, comment, blocking) {
         return exports.HALTED;
     }
 }
-function commenterFor(marker) {
-    return (octokit, target) => (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker }, {
+function commenterFor(marker, make) {
+    return (octokit, target) => make(octokit, { ...target, marker }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
 }
-exports.makeGateCommenter = commenterFor(evalforge_core_1.GATE_COMMENT_MARKER);
-exports.makeAnalysisCommenter = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER);
+exports.makeGateCommenter = commenterFor(evalforge_core_1.GATE_COMMENT_MARKER, evalforge_core_1.makeCommenter);
+exports.makeAnalysisCommenter = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER, evalforge_core_1.makeCommenter);
+/** For the gate, which retracts a superseded investigation but must never open one. */
+exports.makeAnalysisUpdater = commenterFor(evalforge_core_1.ANALYSIS_COMMENT_MARKER, evalforge_core_1.makeCommentUpdater);
 
 
 /***/ }),
@@ -63384,7 +63473,9 @@ const comparison_arms_1 = __nccwpck_require__(6430);
 const base_attribution_1 = __nccwpck_require__(3500);
 async function runAndReport(client, config, scope, nameToId, 
 /** The version's **id**, not its label. */
-versionId, comment) {
+versionId, comment, 
+/** Update-only, so a PR that never failed gets no investigation comment to retract. */
+supersedeAnalysis) {
     const selected = await resolveScenarioIds(config, scope, nameToId, comment);
     if (!selected.ok)
         return;
@@ -63433,6 +63524,12 @@ versionId, comment) {
         const { failed, errors } = prStatus.aggregateMetrics;
         if (failed > 0 || errors > 0) {
             core.setOutput('analyze-run-id', arms.value.prRunId);
+        }
+        else {
+            // Nothing else clears the investigation: it is only ever written on failure, and its job does
+            // not start for a clean run. Without this the fixing push leaves a green verdict sitting above
+            // the findings of the run it fixed.
+            await supersedeAnalysis((0, evalforge_core_1.formatAnalysisSuperseded)({ runId: arms.value.prRunId, runUrl }));
         }
         if (!verdict.passed) {
             (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);

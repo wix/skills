@@ -116,10 +116,13 @@ running the investigation alongside the verdict would hold the gate's check open
 than the verdict itself needs. The verdict lands — and the PR blocks or unblocks — without
 waiting for it, and the second comment follows shortly after.
 
-A run with nothing failing gets no investigation and no second comment. A failed
-investigation never fails a check: if the analysis cannot be generated, the comment says
-why instead of going missing. Set the `WIX_APP_EVAL_ANALYZE` repo variable to `false` to
-switch it off. Re-running the `analyze` job regenerates the analysis rather than
+A run with nothing failing gets no investigation and no second comment — and if an earlier
+push left one, the gate replaces it with a note saying it no longer applies, so a green
+verdict never sits above the findings of the run you just fixed. A blocked PR still gets
+its investigation: the analysis runs even when the gate itself goes red, which is when it
+is most worth reading. A failed investigation never fails a check: if the analysis cannot
+be generated, the comment says why instead of going missing. Set the `WIX_APP_EVAL_ANALYZE`
+repo variable to `false` to switch it off. Re-running the `analyze` job regenerates the analysis rather than
 re-showing the stored one.
 
 **During the soak period** the gate posts its comment but does not block: it runs with
