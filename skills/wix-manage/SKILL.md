@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes for configuring and managing Wix sites, business entities, and administrative workflows through REST APIs. Also hand-authors Ricos/richContent JSON nodes trees for Wix Blog posts, Stores descriptions, Events, and CMS rich-text fields; use when requests mention Ricos, rich content, richContent, or a nodes tree. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
