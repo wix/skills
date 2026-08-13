@@ -31,8 +31,9 @@ describe('scenariosToRun', () => {
       headScenarios: head,
       changedEvalPaths: new Set(['yaml/wix-manage-evals/blog/changed.yml']),
       coveredBy: new Map(),
+      quarantined: new Set(),
     });
-    expect([...out.keys()]).toEqual(['blog/changed']);
+    expect([...out.selected.keys()]).toEqual(['blog/changed']);
   });
 
   it('also includes scenarios covering a changed doc, even when their YAML is unchanged', () => {
@@ -40,8 +41,9 @@ describe('scenariosToRun', () => {
       headScenarios: head,
       changedEvalPaths: new Set(),
       coveredBy: new Map([['skills/wix-manage/references/marketing/social.md', ['marketing/social']]]),
+      quarantined: new Set(),
     });
-    expect([...out.keys()]).toEqual(['marketing/social']);
+    expect([...out.selected.keys()]).toEqual(['marketing/social']);
   });
 
   it('unions changed + doc-covered scenarios without duplicates', () => {
@@ -52,8 +54,9 @@ describe('scenariosToRun', () => {
         ['skills/wix-manage/references/marketing/social.md', ['marketing/social']],
         ['skills/wix-manage/references/blog/changed.md', ['blog/changed']],
       ]),
+      quarantined: new Set(),
     });
-    expect([...out.keys()].sort()).toEqual(['blog/changed', 'marketing/social']);
+    expect([...out.selected.keys()].sort()).toEqual(['blog/changed', 'marketing/social']);
   });
 
   it('ignores covering names with no loaded head scenario', () => {
@@ -61,8 +64,31 @@ describe('scenariosToRun', () => {
       headScenarios: head,
       changedEvalPaths: new Set(),
       coveredBy: new Map([['skills/wix-manage/references/x/y.md', ['does/not-exist']]]),
+      quarantined: new Set(),
     });
-    expect(out.size).toBe(0);
+    expect(out.selected.size).toBe(0);
+  });
+
+  it('skips quarantined scenarios pulled in via doc coverage', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(),
+      coveredBy: new Map([['skills/wix-manage/references/blog/post.md', ['blog/changed', 'blog/unchanged']]]),
+      quarantined: new Set(['blog/unchanged']),
+    });
+    expect([...out.selected.keys()]).toEqual(['blog/changed']);
+    expect(out.quarantineSkipped).toEqual(['blog/unchanged']);
+  });
+
+  it('still runs a quarantined scenario whose own YAML changed in the PR', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(['yaml/wix-manage-evals/blog/changed.yml']),
+      coveredBy: new Map(),
+      quarantined: new Set(['blog/changed']),
+    });
+    expect([...out.selected.keys()]).toEqual(['blog/changed']);
+    expect(out.quarantineSkipped).toEqual([]);
   });
 });
 

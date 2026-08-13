@@ -6,6 +6,7 @@ import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
+import { loadQuarantine } from './quarantine';
 import {
   EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
   listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
@@ -19,7 +20,7 @@ import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
   formatComparisonResult, formatComparisonTimeout, formatTooManyNewSkills,
-  formatLintViolations, composeSections,
+  formatLintViolations, formatQuarantineSkipped, composeSections,
   noWinnerReason, formatConfirmOnFail,
 } from './comment';
 import { findTokenBudgetViolations } from './token-budget';
@@ -51,23 +52,30 @@ export function toAttemptOutcomes(
 /**
  * Head scenarios to sync and run: those whose YAML changed, plus those covering a
  * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
+ *
+ * Quarantine only filters coverage-sourced additions — a scenario whose own YAML
+ * changed in this PR always runs, since its fix must prove itself.
  */
 export function scenariosToRun(input: {
   headScenarios: Map<string, LoadedScenario>;
   changedEvalPaths: Set<string>;
   coveredBy: Map<string, string[]>;
-}): Map<string, LoadedScenario> {
-  const result = new Map<string, LoadedScenario>();
+  quarantined: Set<string>;
+}): { selected: Map<string, LoadedScenario>; quarantineSkipped: string[] } {
+  const selected = new Map<string, LoadedScenario>();
+  const skipped = new Set<string>();
   for (const [name, ls] of input.headScenarios) {
-    if (input.changedEvalPaths.has(ls.path)) result.set(name, ls);
+    if (input.changedEvalPaths.has(ls.path)) selected.set(name, ls);
   }
   for (const coveringNames of input.coveredBy.values()) {
     for (const name of coveringNames) {
       const ls = input.headScenarios.get(name);
-      if (ls) result.set(name, ls);
+      if (!ls || selected.has(name)) continue;
+      if (input.quarantined.has(name)) { skipped.add(name); continue; }
+      selected.set(name, ls);
     }
   }
-  return result;
+  return { selected, quarantineSkipped: [...skipped].sort() };
 }
 
 export function scenarioIdsToRun(
@@ -188,7 +196,20 @@ export async function runGate(): Promise<void> {
   );
   if (!mcpVersion) return;
 
-  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
+  // Quarantine entries are read from the base-branch checkout, never the PR's own
+  // head — otherwise a PR could quarantine its own covering scenario and skip it
+  // in the same run. An entry only takes effect once merged to the base branch.
+  const quarantine = loadQuarantine(baseWorkspace);
+  for (const err of quarantine.errors) core.warning(`Quarantine file issue: ${err}`);
+
+  const { selected: changedHeadScenarios, quarantineSkipped } = scenariosToRun({
+    headScenarios, changedEvalPaths, coveredBy: cov.coveredBy, quarantined: quarantine.names,
+  });
+  const quarantineSkippedBody = quarantineSkipped.length > 0 ? formatQuarantineSkipped(quarantineSkipped) : '';
+  if (quarantineSkippedBody) {
+    core.info(`Quarantined scenarios skipped: ${quarantineSkipped.join(', ')}`);
+    await comment(quarantineSkippedBody);
+  }
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(
@@ -260,7 +281,7 @@ export async function runGate(): Promise<void> {
       if (s.without.runId) core.info(`${s.scenarioName} [prod]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
     }
     const comparisonBody = formatComparisonResult(done, config.projectId);
-    await comment(comparisonBody);
+    await comment(composeSections(comparisonBody, quarantineSkippedBody));
 
     const initialOutcomes = toAttemptOutcomes(done.result.scenarios ?? [], headScenarios);
     const initialFailures = initialOutcomes.filter(o => o.failed);
@@ -288,7 +309,7 @@ export async function runGate(): Promise<void> {
       }
 
       const confirmBody = formatConfirmOnFail(confirmResult, config.blocking);
-      await comment(composeSections(comparisonBody, confirmBody));
+      await comment(composeSections(comparisonBody, confirmBody, quarantineSkippedBody));
       const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
       if (confirmed.length > 0) {
         fail(`${confirmed.length} scenario(s) failed after confirm-on-fail (${confirmed.map(v => v.scenarioName).join(', ')})`, config.blocking);
