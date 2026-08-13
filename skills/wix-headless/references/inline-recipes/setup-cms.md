@@ -169,6 +169,30 @@ Use **Bulk Insert Reference Data Items**: `POST https://www.wixapis.com/wix-data
 
 **⚠️ References only resolve if the field was created with a non-empty `referencedCollectionId` (STEP 1).** This call can return `200` / `totalSuccesses` even when the field's target binding is empty — but then a read with `.include("categories")` (or `query-referenced`) returns nothing (and `query-referenced` errors `WDE0020 "Provided property [] is not a multi-reference field"`). If references insert "successfully" but never appear on reads, the field's `referencedCollectionId` was empty at create time — fix the STEP 1 field definition, not this call.
 
+### Adding a field to an EXISTING collection (schema change, not initial create)
+
+When the request adds a field to a collection that's already live (e.g. "add a photo field to `team`" after `team` was created and seeded), **don't guess at whole-collection PUT/PATCH on `/collections/{id}`** — `PUT /wix-data/v2/collections/{id}` and `PATCH /wix-data/v2/collections/{id}` both **404** (there is no id-suffixed collections route). Use the dedicated, field-scoped endpoint instead:
+
+```
+POST https://www.wixapis.com/wix-data/v2/collections/create-field
+{ "dataCollectionId": "team", "field": { "key": "photo", "displayName": "Photo", "type": "IMAGE" } }
+```
+
+This takes just the one new field — no `revision`, no re-sending the existing `fields` array, no system fields. (Its siblings follow the same minimal shape: `POST .../collections/update-field` to change a field, `POST .../collections/delete-field` to remove one.) Verified live: `create-field` returns `200` with the full updated collection.
+
+The **whole-object** `PUT https://www.wixapis.com/wix-data/v2/collections` (no id in the path — the id goes in `collection.id`) also works, but only as a full replace: it requires `collection.revision` (from a prior GET) and the **entire** `fields` array, and the system fields a GET echoes back (`_id`, `_createdDate`, `_updatedDate`, `_owner`) must be stripped before writing it back or the call 400s — the docs' worked examples show a hand-authored minimal body, not this GET→strip→PUT round-trip. Reach for `create-field`/`update-field`/`delete-field` first; they don't have this footgun.
+
+### Removing items (bulk delete)
+
+**The bulk action is named `remove`, not `delete` — `POST .../bulk/items/delete` does not exist and 404s** (verified live). The single-item endpoint's HTTP verb is `DELETE` (`DELETE /wix-data/v2/items/{id}?dataCollectionId=...`, which does work), but the bulk equivalent is a POST to an endpoint whose action segment is `remove`:
+
+```
+POST https://www.wixapis.com/wix-data/v2/bulk/items/remove
+{ "dataCollectionId": "team", "dataItemIds": ["<id1>", "<id2>"] }
+```
+
+Same body shape you'd guess for `.../bulk/items/delete` (`dataCollectionId` + `dataItemIds`) — only the path segment differs. If a re-seed/cleanup call to `.../bulk/items/delete` looks like it "succeeded" with no error, check the actual HTTP status: it's a 404 on the wrong route, not a 200 no-op on the right one — don't reach for a re-insert workaround (which just produces duplicates) before confirming the request even hit the real endpoint.
+
 ### Attach images (imagery ON only — skip otherwise)
 
 **Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the CMS entry in the required pass-2 "attach the generated image to the entity" flow — items were inserted text-only earlier (any `IMAGE` field left blank); now write the image onto each. It presumes the collection has an `IMAGE`-type field (from the field schema at create time). Generate + import per `references/IMAGE_GENERATION.md` and keep `file.url` (the permanent `wixstatic.com` URL — an `IMAGE` field stores the URL string).
@@ -196,5 +220,7 @@ Following these steps **in order** sets up a Wix CMS backend:
 - Native collection `id`s carry **no namespace** and are kept verbatim for the frontend to bind to.
 - Every item is bulk-inserted with **real field values** in `data` (keys matching the schema) and **verified to have persisted**.
 - Reference fields are created with a non-empty `typeMetadata…referencedCollectionId` (the working key, not the docs' stale `referencedCollection`); multi-references are then wired with the reference endpoint's `dataItemReferences[]` shape (never set at insert — they're silently dropped there), and single references by item-id at insert.
+- **Adding a field to a collection that already exists** uses the field-scoped `POST .../collections/create-field` (just the new field, no revision, no re-sent schema) — not a guessed `PUT`/`PATCH` on `/collections/{id}` (both 404).
+- **Bulk-removing items** is `POST .../bulk/items/remove` — the action is `remove`, not `delete`; `.../bulk/items/delete` doesn't exist and 404s.
 - **When imagery is on**, each item's `IMAGE` field is filled by the **Attach images** step (pass-2) via **read-merge-PUT** (`PUT …/items/{id}` with the full merged record — a partial PUT wipes omitted fields), storing `file.url`; on failure the item stays text-only.
 - **Keep** per collection: the `collectionId`, the field `key`s, and the `itemIds[]` — these are the producer for the coding handoff.
