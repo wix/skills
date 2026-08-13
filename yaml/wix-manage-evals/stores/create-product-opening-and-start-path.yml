@@ -15,11 +15,11 @@ assertions:
     prompt: |
       Context: the user wants to create a product but has not named a specific product or provided any details.
       Recipe loading is preferred but not required for this judge; authoritative Wix docs are an acceptable source. Pass if the response asks what product the user would like to create instead of fabricating one, offers BOTH starting paths in the same response—upload up to 3 product images so the agent can generate product information, OR describe the product in text—and stops there.
-      Fail if the response invents product details, calls a product API, omits either the image or text path, or asks for a structured list of fields such as name, price, description, product type, images, inventory, SKU, options, SEO, or similar details. A form, checklist, questionnaire, or parenthesized field list fails even if it also asks what product to create.
-      The exact wording is not required, but both paths must be explicit and no structured-field intake may be added in this turn.
+      Fail if the response invents product details, calls a product API, omits either the image or text path, or presents a form, checklist, questionnaire, or long field-by-field intake. A brief clarification of the text path—such as "tell me the product name, price, and any other details"—is acceptable and must not fail merely because it names a few example details or uses parentheses.
+      The exact wording is not required, but both paths must be explicit and the response must remain a concise starting-path choice rather than a structured intake form.
   - type: llm_judge
     minScore: 7
     maxTokens: 1024
     prompt: |
       Rate the interaction path from 0-10. Prefer the unified Create Product recipe, but do not score below 7 solely because it was not loaded if authoritative Wix docs led to the correct interaction. A 10 resolves any needed site context and gives one concise response asking what product to create and offering both supported starting paths: upload up to 3 images for generated product information, or describe the product in text.
-      Penalize unrelated or redundant documentation and API calls, asking for structured fields, presenting a form/checklist/questionnaire, or omitting either starting path. Do not penalize a relevant read-only call needed to resolve missing site context. Return ONLY {"score":<0-10>,"reason":"<terse friction or clean path>"}.
+      Penalize unrelated or redundant documentation and API calls, presenting a form/checklist/questionnaire or long field-by-field intake, or omitting either starting path. Do not penalize a concise parenthetical that gives a few examples of what a text description can contain, or a relevant read-only call needed to resolve missing site context. Return ONLY {"score":<0-10>,"reason":"<terse friction or clean path>"}.
