@@ -23,7 +23,7 @@ assertions:
 
       Pass if the response:
       - states whether bestbakery-in-tel-aviv.com is available in plain language, AND
-      - ask if user wants to connect the domain to onf user's sites OR 
+      - ask if user wants to connect the domain to one of user's sites OR 
       - proposes the user to choose between connect it to Wix site (with showing the list of sites) or to purchase it standalone
 
       Fail if the response:

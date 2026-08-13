@@ -296,6 +296,12 @@ Then:
     - Yes → **go to §P1 and follow it.**
     - No → *"Do you own a different domain you'd like to connect?"* → back to §A4 with the new domain.
 
+⚠️ **Suppressing the standalone line is a merge, never a deletion.** The user is told in plain
+language that the domain can be bought — exactly once, in the first message that follows the check.
+Both continuations carry it, and the merged forms live in §P1.3a and §P2.3, Premium and Free
+respectively. If you are about to send a message that offers a plan, a price or a bundle and the user
+has not yet heard *"{displayName} is available!"*, the line was dropped rather than merged. Say it.
+
 ### A4b — `available: false` (US-09)
 
 The domain is registered. Registered by **whom** is the next question, and it decides everything that
@@ -402,14 +408,6 @@ Do exactly two things: call `suggest-domains` with the SLD only for 3 alternativ
 **That is the entire response.** No registrar, no "someone renewed it six months ago", no valuation,
 no broker or outreach option, no TLDs you thought of yourself. If your answer to a taken domain is
 longer than the block above, you have left this skill — see §A1.1.
-
-⛔ **The order is the rule: suggestions first, then the one message.** *"{displayName} is already
-registered…"* is the opening of that message, not a verdict to send the moment the availability call
-comes back. Sending it early splits this branch across two messages and strands the alternatives in a
-second one with nothing to introduce them — the user's answer then reads as a bare list that never says
-what happened to the domain they asked for. Hold the whole block until `suggest-domains` has returned,
-and send it once. (§A4a's *"do not send '…is available!' on its own"* is the same rule on the other
-branch.)
 
 The *"If it's yours"* hedge is correct **here and only here** — either the ownership check found
 nothing, or it could not run. Ownership is a guess in this branch, and the copy says so honestly.
@@ -651,8 +649,8 @@ Say, verbatim:
 
 > Great — after purchasing, {displayName} will auto-connect to **{site name}**.
 
-When the site was already known from context and no availability line has been sent yet, merge the
-two into one message:
+When the site was already known from context — which is exactly when §A4a suppressed the standalone
+*"is available!"* line — merge the two into one message:
 
 > {displayName} is available! After purchasing, it will auto-connect to **{site name}**.
 
@@ -688,6 +686,19 @@ The `getPremiumSale` context call (`wix.premium.store.v1.sales/GetSale`) runs au
 - Returns empty / no `saleDetails` → no sale. Say nothing about sales.
 
 ### P2.3 Present the offer
+
+**If a `siteId` was in context, this message owes the user the availability line.** §A4a held back
+the standalone *"{displayName} is available!"* so it could be merged into the site + plan outcome, and
+this is the branch that merges it — §P1.3a does the same job on a Premium site. Lead with it and
+let the rest of the copy stand:
+
+> {displayName} is available! **{site name}** doesn't have a premium plan yet, and connecting a domain
+> requires one. Upgrade and you can get it free for the first year — or buy it on its own at full
+> price and connect it after you upgrade. Want me to generate a bundle link?
+
+The **not coupon-eligible** variant takes the same opener. The **just-logged-in** variant does not —
+that user came through the login prompt, which only ever appears after *"is available!"* has already
+gone out on its own.
 
 **Coupon-eligible TLD** — verbatim:
 
@@ -1040,13 +1051,13 @@ Three calls, in order, **silently**:
   "lineItems": [
     {
       "productInfo": { "productId": "<products[0].productId from §P3>",
-        "productTypeId": "72af0602-1321-4897-8299-f507480b2bb8" },
+                       "productTypeId": "72af0602-1321-4897-8299-f507480b2bb8" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
       "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>", "core": "true" }
     },
     {
       "productInfo": { "productId": "<addon product ID from §P6>",
-        "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1" },
+                       "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1" },
       "cycle": { "cycleDuration": { "count": <years>, "unit": "YEAR" }, "cycleType": "RECURRING" },
       "metadata": { "domainName": "{domain}", "wsess": "<wsess from §P5>" }
     }
@@ -1334,20 +1345,13 @@ Connecting a domain **requires** a Wix site. Apply §R3:
 | Case | Action |
 |------|--------|
 | A | `siteId` already in context, or the user named a site → use it. **Do not call `ListWixSites`.** |
-| B | Logged in, no `siteId` → call `ListWixSites`. One site → use it silently. Multiple → list them numbered and ask. |
+| B | Logged in, no `siteId` → call `ListWixSites`. One site → use it silently. 2 – 8 → list them all, numbered, in the message that asks. More than 8 → name the total, show five, invite a name (§R3 Case B). **Never a bare count.** |
 | B, no sites | → §C5 |
 | C | Not logged in → *"To connect a domain you'll need a Wix site — [Log in or create a Wix account]"*. End the turn until they log in, then go to Case B. |
 | R | Ownership is **confirmed via root** and the root's `assigned` match named a site → that site is a **candidate, not a resolution**. Offer it and wait — below. |
 
 Do all of this silently, **Case R excepted**. The user should see one message at the end of this path,
 not a play-by-play.
-
-⛔ **When this section asks which site, no link goes in that message.** Every connect URL carries a
-`siteId` (§R6), so a link answers the question on the user's behalf and then asks it. A placeholder in
-place of the id — `{siteId}`, `{your-site-id}`, "your site ID here" — is the same failure wearing a
-disguise: it hands over a URL the user cannot use and still leaves the site unresolved. This binds
-Case B's numbered list exactly as it binds Case R. The link goes out with §C3's opening, once a site
-is chosen.
 
 **After a Case C login, run the ownership check** (§R4.3) before continuing — it
 could not run while they were logged out. A match changes the answer: `assigned` sends you to §C0,
@@ -1771,9 +1775,6 @@ If a re-check ever shows the domain is available, the user does not own it. Say:
   the subdomain belongs — §C1's Case R offers it and waits for a yes. Since every connect URL carries
   a `siteId`, sending the link first decides for the user and presents it as an answer. *"I used that
   site rather than asking"* is not a defence; it is the bug.
-- **Send a connect link in the message that asks which site.** §C1 Case B lists the sites and waits; a
-  link carries a `siteId`, so it answers the question being asked. A placeholder standing in for the id
-  is not an escape — the URL is unusable and the site is still unresolved. Ask, then link.
 - **Blend the root sentence with the hedge.** *"sits under {root displayName}, which is in your Wix
   account. If it's yours —"* states a fact and then doubts it. The three openings above are three,
   not ingredients.
@@ -1944,6 +1945,12 @@ The system prompt, environment or dashboard context already provides a `siteId` 
 > Case B. What their answer buys you is skipping the *"which site?"* question, not the lookup. Match
 > the name against the returned sites; if nothing matches, list what came back and ask.
 
+> **A roster in context is not a resolved `siteId` either.** The host may preload part of the
+> account's site list — ten of ninety-three, say — into the system prompt or site context. That is
+> **not** Case A. It names no site for *this* domain, it may not even contain the right one, and it
+> hands you no `siteId` for the task. Go to Case B and call `ListWixSites`. Every prohibition on that
+> call is about a `siteId` you already hold, never about a list you happened to be shown.
+
 ### Case B — user is logged in, no `siteId` in context
 
 → Call `ListWixSites`.
@@ -1951,8 +1958,30 @@ The system prompt, environment or dashboard context already provides a `siteId` 
 | Result | Action |
 |--------|--------|
 | Exactly one site (US-14) | Use it directly, no question asked. Name it in your next message so the user can spot a mistake. |
-| Multiple sites (US-15) | List them numbered and ask which one: *"You have a few Wix sites — which one should this domain be connected to?"* (*"a couple"* when there are exactly two.) Wait for the pick. |
+| 2 – 8 sites (US-15) | **List them all, numbered, in the same message as the question:** *"You have a few Wix sites — which one should this domain be connected to?"* (*"a couple"* when there are exactly two.) Wait for the pick. |
+| More than 8 | Still a list, never a count — name the total, show five, invite a name. Copy below. Wait for the pick. |
 | No sites | Purchase path → continue standalone. Connect path → US-17 terminal state, see §C5. |
+
+**More than eight sites.** A numbered wall of ninety-three is unusable, and a bare count is worse.
+Name the total, show five, and leave the door open:
+
+> You have 93 Wix sites. Which one should {displayName} go on?
+>
+> 1. {site name}
+> 2. {site name}
+> 3. {site name}
+> 4. {site name}
+> 5. {site name}
+>
+> Or tell me the name and I'll find it.
+
+Show the five most recently updated if the response gives you that; otherwise the first five it
+returned. A name in reply is matched against the **whole** result you already have — do not call
+`ListWixSites` a second time to look it up.
+
+⛔ **Never announce the count and stop.** *"You have 93 sites — would you like me to list them?"* asks
+permission for the step you were already told to take. The user has asked for their domain on a site;
+the list is what moves that forward and a count moves nothing. It costs a turn and answers nothing.
 
 ### Case C — user is not logged in (US-16)
 
@@ -2013,7 +2042,7 @@ GET https://www.wixapis.com/domain-search/v2/check-domain-availability?domain={d
 ```json
 { "message": "Unsupported TLD for domain name myshop.ws",
   "details": { "applicationError": { "code": "DOMAINS_UNSUPPORTED_TLD",
-    "description": "Unsupported TLD for domain name myshop.ws" } } }
+                                     "description": "Unsupported TLD for domain name myshop.ws" } } }
 ```
 
 Detect it at `details.applicationError.code === "DOMAINS_UNSUPPORTED_TLD"`. Do **not** look for
@@ -2036,8 +2065,8 @@ Accepts free text — business descriptions, keywords and brand concepts, not ju
 
 ```json
 { "suggestions": [ { "domain": "cozycookuts.com", "premium": false },
-  { "domain": "cozycuts.net", "premium": false },
-  { "domain": "cozycutstudio.com", "premium": false } ],
+                   { "domain": "cozycuts.net", "premium": false },
+                   { "domain": "cozycutstudio.com", "premium": false } ],
   "pagingMetadata": { "count": 3, "cursors": { "next": "eyJxdWVyeSI6…" }, "hasNext": true } }
 ```
 
@@ -2124,9 +2153,9 @@ it reaches a link.
 
 ```json
 { "sites": [ { "site":      { "siteId": "…", "siteName": "…", "connectedDomain": "…" },
-  "primary":   { "domainName": "…", "siteId": "…" },
-  "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
-  "transfers": [] } ],
+               "primary":   { "domainName": "…", "siteId": "…" },
+               "redirects": [ { "domainName": "…", "redirectsTo": "…" } ],
+               "transfers": [] } ],
   "isAllDataReturned": true }
 ```
 
@@ -2453,7 +2482,11 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
   neither is a substitute for saying which period the price covers. Print the period, not a rate.
 - Re-check availability for a domain that came from the suggest endpoint.
 - Use `availability.premium` to decide anything.
-- Call `ListWixSites` when a `siteId` is already in context.
+- Call `ListWixSites` when a `siteId` is already in context. A partial roster the host preloaded is
+  not that — see Case A.
+- **Announce a site count instead of the sites.** *"You have 93 sites — want me to list them?"* asks
+  permission for a step already required. Show them (§R3 Case B) — all of them up to eight, otherwise five
+  and an invitation to name one.
 - **Hedge about ownership the account already settled.** Once §R4.3 returns an exact match, the domain
   *is* the user's — no *"if it's yours"*, no *"do you own this?"*, no *"assuming it's yours"*. The
   hedge belongs to the branch where ownership is genuinely an inference, and nowhere else.
