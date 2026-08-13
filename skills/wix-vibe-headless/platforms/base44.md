@@ -18,12 +18,7 @@ Install two skills — they land under `.agents/skills/`:
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
   doesn't cover.
 
-Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
-skills, then runs `deploy.cjs <vertical…> --client-id … --metasite-id …` (lays the shared transport +
-**each** listed vertical's REST scaffolds and UI client into `src/`, writes `wix-config.js` from
-those two ids — the site id from your prompt always wins, so pass both) and `pin-agents-md.cjs`
-(pins the project's AGENTS.md
-note so later turns keep the rules).
+Run this through exec_tool, exactly as written — installs both skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
 **Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
 
@@ -39,11 +34,7 @@ note so later turns keep the rules).
 | `members` | let visitors sign in — this is **auth** |
 | `cms` | keep its own structured content — user submissions, galleries, listings, anything the rows above don't already cover |
 
-**List every vertical the app actually uses** — one is the common case, and name more when the intent
-spans them, so all their scaffolds come from the skill rather than being written by hand. Anything the
-app stores itself needs `cms`, and anything where visitors sign in needs `members`, so those two often
-join whichever vertical is the main one. Adding one later is fine too: re-run with the extra name (the
-copy only fills in missing files).
+**List every vertical the app uses.** `cms` for app-stored content, `members` for visitor sign-in — these often join the main vertical. Adding one later: re-run with the extra name.
 
 ```js
 const { execSync } = require('child_process');
@@ -56,7 +47,6 @@ const WIX_CLIENT_ID = '<client id from the prompt>';
 const WIX_METASITE_ID = '<site id from the prompt>';
 const results = {};
 for (const skill of ['wix-vibe-headless', 'wix-docs']) {
-  // Some hosts install these at app creation; keep the copy that's already there.
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
@@ -65,19 +55,12 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-// Deploy the shared transport + each listed vertical's scaffolds/UI into src/, and write
-// wix-config.js. The site id you pass wins over anything already in that file.
 const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')} --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
-// Pin the project's AGENTS.md note (idempotent) so the rules survive after this doc leaves context.
 const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
 ```
 
-Read the skills with **`read_file`** (rooted at `/app` → workspace-relative path, e.g.
-`.agents/skills/wix-vibe-headless/SKILL.md`; absolute `/app/...` fails — exec_tool/shell wants
-absolute). Prefer it over `cat`/exec_tool and web-fetch, which cap output (~5000 chars) and
-truncate. Always read from **`.agents/skills/` exactly**, on later turns too — don't guess; ignore
-stray copies like `agent/skills/`.
+Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
 
 ## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
@@ -105,12 +88,7 @@ fails or shows nothing relevant, ask the user what they offer.
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
 
-**REST scaffolds are already in `src/rest/`** (STEP 1), `wix-config.js` among them — both ids are in
-it, so there is nothing to write here. Some
-verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
-`INSTRUCTIONS.md`, don't rebuild. STEP 1 already deployed these files — **don't `read_file` the
-deployed component/page source to inspect them**; every field shape is in `INSTRUCTIONS.md`. Read a
-deployed file only on a real fallback (an error, or a field the snippets don't cover).
+**REST scaffolds + `wix-config.js` are already in `src/rest/`** (STEP 1 wrote them). Some verticals also ship a ready UI client in `src/` — theme + wire it per `INSTRUCTIONS.md`, don't rebuild. **Don't `read_file` deployed files** — every field shape is in `INSTRUCTIONS.md`; read one only on a real error or gap.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
@@ -155,11 +133,6 @@ build the client, so the urls are ready by the time you seed.
 The connector + seeding are **admin-only** (STEP 4) — **not** part of the client, which is built
 solely per the `wix-vibe-headless` skill.
 
-## Parallelism
-
-Run STEP 3 and STEP 4 in parallel — building and seeding are independent. Within each, also
-parallelize independent work (API calls, multiple entities).
-
 ## STEP 5 — Wrap up
 
 Once the site is built and seeded:
@@ -171,13 +144,7 @@ Once the site is built and seeded:
    metasite id) to complete setup in Wix (required), and mention that the preview shows a dismissible
    top banner linking to this same dashboard.
 
-**Preview briefly, don't chase images.** A quick render check is enough. Generated images show as
-alt-text/broken in this preview because `generate_image` returns a `/__generating__/…` placeholder —
-the platform swaps every placeholder for the final url **automatically at the end of the turn**
-(failed ones get a stock fallback), in your own components and the seeded data alike. So a broken
-image in the preview is expected and already handled: **do NOT swap, re-seed, re-attach, or debug
-image urls.** Hand-editing a placeholder `src` is wasted work and just risks find_replace errors on
-urls that are about to be replaced anyway. Leave them and finish.
+**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit, re-seed, or debug image urls.** Leave them and finish.
 
 ## Later admin requests
 
