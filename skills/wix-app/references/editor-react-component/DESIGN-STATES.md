@@ -31,7 +31,9 @@ nested (`card__row--selected`).
 Put the resting value in the bare class; put only the state override in the
 state selector.
 
-- **Native** — pair the pseudo-class with the `:global` modifier.
+- **Native** — pair the pseudo-class with the `:global` modifier. Every native
+  state needs both selectors in the same rule; do not split the pair across
+  states (for example, pseudo-only `hover` plus global-only `disabled`).
 - **Custom** — the `:global` modifier alone.
 
 The bare selector is the short **module** class (`.cta`); the `:global(...)`
@@ -45,7 +47,8 @@ state class is the **prefixed** global one.
 .cta:hover {
   background: #4f46e5;
 }
-.cta:global(.pricing-card-cta--disabled) {
+.cta:global(.pricing-card-cta--disabled),
+.cta:disabled {
   opacity: 0.5;
 }
 .plan-row:global(.pricing-card-plan-row--selected) {
@@ -124,4 +127,3 @@ Rules:
 Prefer a native state (interactive markup) or a class trigger (per-item data
 such as `row.selected`) whenever one fits — those are the common cases and work
 at any depth. Reach for a prop trigger only for a root-level boolean switch.
-

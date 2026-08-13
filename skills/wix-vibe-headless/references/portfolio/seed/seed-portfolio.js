@@ -9,20 +9,14 @@
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
-//   // Clean is JUDGMENT — never auto-delete. Only obvious install samples on a fresh install;
-//   // projects BEFORE collections. If it could be the owner's real content, ask first.
-//   const projs = await seed.listProjects(ctx);
-//   // await seed.deleteProjects(ctx, projs.filter(isObviousSample).map(p => p.id));
-//   const cols = await seed.listCollections(ctx);
-//   // await seed.deleteCollections(ctx, cols.filter(isObviousSample).map(c => c.id));
-//
 //   const collections = await seed.createCollections(ctx, [{ title, description }]);        // STEP 1
 //   const projects = await seed.createProjects(ctx, [                                        // STEP 2
 //     { title, description, collectionIds: [collections[0].id], details: [{ label, text }] },
 //   ]);
-//   // optional —
-//   await seed.attachProjectCovers(ctx, projects.map((p,i) => ({ id:p.id, revision:p.revision, imageId:ids[i], height:2880, width:1920 })));
-//   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId, height:896, width:1200 }]);
+//   // optional — import each image url to Wix Media first (portfolio binds by file id), then attach.
+//   const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+//   await seed.attachProjectCovers(ctx, projects.map((p,i) => ({ id:p.id, revision:p.revision, imageId:files[i].id, height:1024, width:1024 })));
+//   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId: files[0].id, height:1024, width:1024 }]);
 //
 // **NOT yet live-verified — transcribed from setup-portfolio.md.** If any call fails with a
 // shape the caller didn't expect, fall back to the wix-docs skill (search + read the live Wix
@@ -30,6 +24,7 @@
 // wix-headless/references/inline-recipes/setup-portfolio.md.
 
 const API = "https://www.wixapis.com";
+const PORTFOLIO_APP_ID = "d90652a2-f5a1-4c7c-84c4-d4cdcc41f130"; // installPortfolioApp installs this before seeding
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -48,25 +43,14 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 
 // ---- exported operations ----
 
-// STEP 0 clean helpers. Clean is JUDGMENT — never auto-delete. Delete children before parents:
-// projects first, then collections (deleting a collection does not clean up its projects).
+// Read-only listing helpers.
 async function listProjects(ctx) {
   const r = await req(ctx, "/portfolio/v1/projects", { method: "GET" });
   return (r.projects ?? []).map((p) => ({ id: p.id, title: p.title }));
 }
-// No bulk-delete for projects — one DELETE call per id (each returns 200).
-async function deleteProjects(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/projects/${id}`, { method: "DELETE" });
-}
 async function listCollections(ctx) {
   const r = await req(ctx, "/portfolio/v1/collections", { method: "GET" });
   return (r.collections ?? []).map((c) => ({ id: c.id, title: c.title }));
-}
-// No bulk-delete for collections — one DELETE call per id (each returns 200).
-async function deleteCollections(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) await req(ctx, `/portfolio/v1/collections/${id}`, { method: "DELETE" });
 }
 
 /**
@@ -115,9 +99,19 @@ async function createProjects(ctx, projects) {
   return out;
 }
 
+// Import an external image URL into Wix Media → { id, url }. Portfolio binds covers + gallery items
+// by the Wix Media file **id**, NOT a url — an external url (e.g. a base44 generate_image result)
+// MUST be imported first; the raw url renders nothing. id = wixstatic file id, url = wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Optional — pass a cover/items to attach, omit to skip. Cover = the listing-card thumbnail. PATCH per entity,
 // echoing the current revision (a missing/stale revision fails). height + width are required
-// alongside the imported WixMedia image id. items: [{ id, revision, imageId, height, width }].
+// alongside the imported WixMedia image id (from importImage). items: [{ id, revision, imageId, height, width }].
 async function attachProjectCovers(ctx, items) {
   for (const it of items) {
     await req(ctx, `/portfolio/v1/projects/${it.id}`, {
@@ -154,16 +148,27 @@ async function createProjectItems(ctx, items) {
  * collections→projects→items→covers are wired without hand-threading ids. Order matches SEED.md:
  * createCollections → createProjects (into collections) → createProjectItems → attach*Covers.
  * @param plan {
- *   collections: [{ title, description?, hidden?, cover?: { imageId, height, width } }],
+ *   collections: [{ title, description?, hidden?, coverImageUrl? }],
  *   projects:    [{ title, description?, details?, hidden?,
  *                   collection?: "<collection title>",   // resolved to that collection's id
- *                   items?: [{ sortOrder, title, imageId, height, width }],
- *                   cover?: { imageId, height, width } }],
+ *                   items?: [{ sortOrder, title, imageUrl }],
+ *                   coverImageUrl? }],
  * }
- *   Covers/items are optional — a project/collection without a `cover`/`items` skips it.
+ *   coverImageUrl / items[].imageUrl are plain image urls — imported to Wix Media here. Covers/items
+ *   are optional — a project/collection without one skips it.
  * @returns { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
  */
+// Install the Wix Portfolio app before seeding — base44 sites aren't guaranteed to have it (no
+// separate Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installPortfolioApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: PORTFOLIO_APP_ID, enabled: true },
+  } });
+}
+
 async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
+  await installPortfolioApp(ctx);
   const cols = await createCollections(ctx, collections);               // STEP 1
   const idByName = new Map(collections.map((c, i) => [c.title, cols[i].id]));
 
@@ -175,19 +180,44 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
     })),
   );
 
-  const itemsFlat = projects.flatMap((p, i) =>
-    (p.items ?? []).map((it) => ({ ...it, projectId: projs[i].id })),
-  );
+  // resolve a plain image url → { imageId, height, width } by importing to Wix Media (binds by file id)
+  const toImage = async (url, name) => {
+    const file = await importImage(ctx, url, name);
+    return { imageId: file.id, height: 1024, width: 1024 };
+  };
+
+  // STEP 3 — project media-gallery items (import each image; a failed import skips that item)
+  const itemsFlat = [];
+  for (let i = 0; i < projects.length; i++) {
+    for (const it of projects[i].items ?? []) {
+      if (!it.imageUrl) continue;
+      try {
+        const img = await toImage(it.imageUrl, `${it.title || "item"}.png`);
+        itemsFlat.push({ projectId: projs[i].id, sortOrder: it.sortOrder, title: it.title, ...img });
+      } catch { /* skip this item's image */ }
+    }
+  }
   const items = itemsFlat.length ? await createProjectItems(ctx, itemsFlat) : [];
 
-  const projCovers = projects
-    .map((p, i) => (p.cover ? { id: projs[i].id, revision: projs[i].revision, ...p.cover } : null))
-    .filter(Boolean);
+  // STEP 4 — covers (import each; a failed import skips that cover)
+  const projCovers = [];
+  for (let i = 0; i < projects.length; i++) {
+    if (!projects[i].coverImageUrl) continue;
+    try {
+      const img = await toImage(projects[i].coverImageUrl, `${projects[i].title || "project"}-cover.png`);
+      projCovers.push({ id: projs[i].id, revision: projs[i].revision, ...img });
+    } catch { /* skip */ }
+  }
   if (projCovers.length) await attachProjectCovers(ctx, projCovers);
 
-  const colCovers = collections
-    .map((c, i) => (c.cover ? { id: cols[i].id, revision: cols[i].revision, ...c.cover } : null))
-    .filter(Boolean);
+  const colCovers = [];
+  for (let i = 0; i < collections.length; i++) {
+    if (!collections[i].coverImageUrl) continue;
+    try {
+      const img = await toImage(collections[i].coverImageUrl, `${collections[i].title || "collection"}-cover.png`);
+      colCovers.push({ id: cols[i].id, revision: cols[i].revision, ...img });
+    } catch { /* skip */ }
+  }
   if (colCovers.length) await attachCollectionCovers(ctx, colCovers);
 
   return {
@@ -199,8 +229,8 @@ async function setupPortfolio(ctx, { collections = [], projects = [] } = {}) {
 }
 
 module.exports = {
-  setupPortfolio,
-  listProjects, deleteProjects, listCollections, deleteCollections,
-  createCollections, createProjects,
+  setupPortfolio, installPortfolioApp,
+  listProjects, listCollections,
+  createCollections, createProjects, importImage,
   attachProjectCovers, attachCollectionCovers, createProjectItems,
 };

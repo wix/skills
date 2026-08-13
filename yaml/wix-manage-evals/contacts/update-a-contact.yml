@@ -1,0 +1,77 @@
+name: contacts/update-a-contact
+description: >
+  A site owner asks to add a street address to a contact they identify by name. Verifies the agent
+  loads the Update a Contact recipe, locates the contact with Search Contacts rather than filtering
+  a query by name (which the API rejects as not filterable), and writes `subdivision` in ISO 3166-2
+  form. The Contacts reference documents that field with the example `NY`, which the server's
+  SUBDIVISION format validator rejects on updates as well as on creates.
+triggerPrompt: >
+  Add the address 350 Fifth Avenue, New York, NY 10118 to my contact Jordan Lee.
+tags: [contacts]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/update-a-contact
+  - type: llm_judge          # correctness — the user's outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Add the address 350 Fifth Avenue, New York, NY 10118 to my
+      contact Jordan Lee." A contact named Jordan Lee already exists on the site.
+
+      Score 9-10: the existing Jordan Lee contact now carries an address whose street is 350 Fifth
+      Avenue, city New York, postal code 10118, and a New York state subdivision, set by a
+      successful (2xx) Contacts API call. The agent confirmed the result.
+
+      Score 7-8: the same end state, but the confirmation to the user is vague or omits the address.
+
+      Score 4-6: the address was attached but part of it is missing or wrong — no subdivision
+      stored, wrong city, or the contact's existing email or name was destroyed in the process.
+
+      Score 1-3: a NEW contact was created instead of updating the existing one; OR no address was
+      attached; OR the final call errored (non-2xx); OR the agent only described how to do it
+      without doing it.
+
+      Judge the end state, not the number of attempts — a run that was rejected and then recovered
+      to the correct end state still scores on the end state here.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the tool-call path (gates, per docs/eval-scenarios.md)
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace,
+      including request bodies and any error bodies.
+
+      Score 9-10: a direct path — the contact was located by name in one successful call, and the
+      address was attached in one successful call whose `subdivision` was already in the accepted
+      ISO 3166-2 form. No non-2xx responses, no retried request bodies.
+
+      Score 4-6: the outcome was reached, but the path cost an avoidable round trip — for example
+      repeated API-spec or schema lookups to resolve the nested address shape, a redundant read of
+      the contact, or a second write to repair something the first should have set.
+
+      Score 1-3: any call was REJECTED and then retried. Score here in particular when a lookup was
+      rejected with `Field 'name.first' is not declared as filterable` because the agent filtered a
+      contacts query by name instead of using the free-text contacts search, or when a write was
+      rejected with `subdivision is not a valid subdivision code` (a `FORMAT` violation on a
+      `subdivision` field) because the subdivision was sent without its country prefix, or when it
+      was rejected for an address `tag` outside the accepted set (`OTHER`, `HOME`, `WORK`,
+      `BILLING`, `SHIPPING`) — even though a later call succeeded. Also score here for a wrong
+      endpoint or wrong API version tried first.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: seed contact Jordan Lee
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name: { first: Jordan, last: Lee }
+            email: { email: jordan.lee@example.com }

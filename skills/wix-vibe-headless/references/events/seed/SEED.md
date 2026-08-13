@@ -9,8 +9,7 @@ seed operation. `require` it and call the functions with plain data.
 
 Two one-way constraints fix the order: `registration.initialType` (`TICKETING`/`RSVP`) is **immutable**
 after create, and **publishing is one-way**. So per event: create DRAFT → (ticketed) add tiers → publish.
-Wix Events is **pre-installed** by setup — never reinstall (a 403 means fail loudly). There is no
-clean-up step (a fresh install ships no sample events).
+`setupEvents` **installs the Wix Events app first** (idempotent — a re-install returns 200), so seeding works even if the site doesn't have it yet.
 
 ```js
 // build-time exec_tool
@@ -26,7 +25,7 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // category NAMES → ids + assigns and attaches main images. Ids are kept in memory; nothing is
 // hand-threaded across exec calls. Dates MUST be in the future (ISO-8601 UTC); default ~60–90 days
 // out and note it if the request gives none. price is a decimal STRING; ticket name <= 30 chars;
-// omit ticketTiers for RSVP/free, omit image if you have none. height/width REQUIRED or it won't render.
+// omit ticketTiers for RSVP/free, omit imageUrl if you have none.
 const summary = await seed.setupEvents(ctx, {
   events: [{
     title: "Summer Synth Festival", shortDescription: "One night of analog sound.",
@@ -35,16 +34,22 @@ const summary = await seed.setupEvents(ctx, {
     location: { name: "The Echo Lot", type: "VENUE", address: { addressLine: "120 Harbor St", city: "Seattle", subdivision: "US-WA", postalCode: "98101", country: "US" } },
     ticketTiers: [{ name: "General Admission", price: "65.00", initialLimit: 200 }],
     category: "Talks",
-    image: { id: file.id, url: file.url, height: 1024, width: 1024 }, // altText defaults to the event slug
+    // imageUrl is optional and attached IN this one call. Pass a plain url — the module imports it to
+    // Wix Media for you (events binds the main image by file id). Use the FINAL https://media.base44.com/...
+    // url from the COMPLETED generate_image (it runs in the background while you build — wait for it),
+    // never a still-generating /__generating__/<id>.png placeholder. altText defaults to the event slug.
+    imageUrl: "https://media.base44.com/…",
   }],
 });
 // summary -> { events: [{ id, slug, ticketCount, category }], categories: [{ id, name }], imagesAttached }
 ```
 
-### Escape hatch — individual steps
+**Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
+"sample" data, don't reset. Just add.
 
-Call the step functions directly only when `setupEvents` doesn't fit (e.g. re-running a single step,
-or a shape it doesn't model). Same order applies: create DRAFT → (ticketed) tiers → publish → categories → image.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupEvents` doesn't fit (re-running a single
+step, a shape it doesn't model). `setupEvents` is built from them, in this order:
 
 ```js
 // STEP 1 — create each event as a DRAFT. TICKETING = paid tiers; RSVP = free built-in form (no fields to seed).
@@ -65,7 +70,8 @@ await seed.publishEvent(ctx, ev.id);
 const cats = await seed.createEventCategories(ctx, ["Talks"]);
 await seed.assignEventsToCategory(ctx, cats[0].id, [ev.id]);
 
-// Attach images (optional): generate per IMAGE_GENERATION.md, then set mainImage. height/width REQUIRED or it won't render.
+// Attach images (optional): import the url to Wix Media (events binds by file id), then set mainImage.
+const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
 await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 ```
 
@@ -83,9 +89,19 @@ Free/RSVP events need neither.
 | `publishEvent(ctx, eventId)` | STEP 3 — publish (one-way) |
 | `createEventCategories(ctx, names)` | STEP 4 (opt) — v1 Categories, one call each → `[{id,name}]` |
 | `assignEventsToCategory(ctx, categoryId, eventIds)` | STEP 4 (opt) — path `/{categoryId}/events`, body `{eventId:[…]}` |
-| `setEventMainImage(ctx, {eventId,id,url,height,width,altText})` | optional — PATCH `mainImage` (no revision) |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); the main image binds by this file id |
+| `setEventMainImage(ctx, {eventId,id,url,height,width,altText})` | optional — PATCH `mainImage` (no revision); `id` = a Wix Media file id from `importImage` |
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-events.md`.
+
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Event: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event.md
+- Create Ticket Definition: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/create-ticket-definition.md
+- Create Category: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/create-category.md
+- Get Site Properties (timezone / currency): https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties.md

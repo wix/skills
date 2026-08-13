@@ -324,7 +324,7 @@ function applySafeModeToRequestBody(body, safeModeOptions) {
 // media import, Contacts manage/schema, and Members manage.
 //
 // Auth scheme normalization: Wix API keys (`IST.…`) are sent RAW in the Authorization
-// header; OAuth access tokens (e.g. a Wix CLI token from `npx @wix/cli token --site …`)
+// header; OAuth access tokens (e.g. a Wix CLI token from `npx @wix/cli@latest token --site …`)
 // must be sent as `Bearer <token>`. Detect and prefix so both credential kinds work.
 function authHeaderValue(token) {
   const t = String(token).trim();

@@ -4,6 +4,7 @@ import type { SyncError } from './plan-pr-scenario-sync';
 import type { ScenarioSelection } from './select-scenarios';
 import type { RunVerdict } from './evaluate-run-result';
 import { parseDraftTag, type EvalRunStatus } from './evalforge';
+import type { ChangeImpact, ImpactClass, ScenarioImpact } from './classify-change-impact';
 
 export const GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
 const HEADING = 'EvalForge Skill Gate';
@@ -31,9 +32,24 @@ function runLine(runId: string, runUrl: string): string {
 }
 
 /**
+ * Only rendered above the default of 1: at 1, "ran once per arm" is the assumption a reader
+ * already makes, and saying so on every comment would be noise. Above 1, it is exactly the
+ * context that makes `newly-broken` interpretable — a reader cannot otherwise tell whether they
+ * are looking at one execution or five, or that a single flaky iteration is enough to block.
+ */
+function runsPerScenarioNote(runsPerScenario: number | undefined): string[] {
+  if (runsPerScenario === undefined || runsPerScenario <= 1) return [];
+  return [
+    '',
+    `**Runs per scenario:** ${runsPerScenario} — each scenario ran ${runsPerScenario} times per arm, `
+    + 'and any failing iteration counts as a failure.',
+  ];
+}
+
+/**
  * The three outcomes where nothing was verified and retrying is the answer. These are live-system
- * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
- * without asking for a commit the PR does not need.
+ * flakes rather than PR problems, so `/re-eval` is listed first: it re-runs the gate without
+ * asking for a commit the PR does not need.
  */
 function retryNote(): string[] {
   return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
@@ -147,6 +163,99 @@ export function formatForeignDraftConflicts(errors: SyncError[], blocking: boole
   ]);
 }
 
+/**
+ * Two `Record<ImpactClass, string>` maps rather than a switch: a new `ImpactClass` then fails to
+ * compile here until it is given both an icon and a meaning, instead of silently rendering nothing.
+ */
+const IMPACT_ICON: Record<ImpactClass, string> = {
+  fixed: '✅',
+  'newly-broken': '❌',
+  'still-passing': '➖',
+  'still-failing': '⚠️',
+  unattributed: '❔',
+};
+
+const IMPACT_MEANING: Record<ImpactClass, string> = {
+  fixed: 'Failed against `main`, passes on this PR — this change fixed it.',
+  'newly-broken': 'Passed against `main`, fails on this PR — caused by this change.',
+  'still-passing': 'Passed on both `main` and this PR — unaffected by this change.',
+  'still-failing': 'Fails on both `main` and this PR — pre-existing, not caused by this change.',
+  unattributed: 'No comparable result from `main` to classify against.',
+};
+
+/** Assertion names come from the API and scenario names from repo YAML — neither is safe to render into a table cell unescaped. */
+function escapeTableCell(text: string): string {
+  return text.replace(/\|/g, '\\|');
+}
+
+function failingAssertionsNote(failingAssertionNames: string[] | undefined): string {
+  if (failingAssertionNames === undefined || failingAssertionNames.length === 0) return '';
+  return ` Failing: ${failingAssertionNames.map(name => `\`${escapeTableCell(name)}\``).join(', ')}.`;
+}
+
+/**
+ * Whether every scenario in an unavailable-attribution result came back with no `prPassed` at
+ * all — i.e. the PR arm itself scored nothing, rather than the base arm being the gap. Built from
+ * `ChangeImpact.scenarios`, which is already on hand at the call site, so this needs no new field.
+ */
+function prArmMeasuredNothing(scenarios: ScenarioImpact[]): boolean {
+  return scenarios.every(scenario => scenario.prPassed === undefined);
+}
+
+/**
+ * The section that reports the fixed/newly-broken/still-failing delta against `main`. Absent
+ * `impact` means an old caller that has no comparison to offer — the section is skipped so its
+ * output stays byte-identical to before this field existed. Once a caller does pass `impact`, a
+ * failed base arm (`attributionAvailable: false`) still gets an explicit "unavailable" line rather
+ * than silence, so it reads as "no comparison was attempted" rather than "nothing happened".
+ */
+function impactSection(impact: ChangeImpact | undefined): string[] {
+  if (impact === undefined) return [];
+
+  if (!impact.attributionAvailable) {
+    // Whichever side produced nothing is named directly rather than defaulting to "the base run":
+    // `attributionAvailable` is also false when the PR arm itself scored nothing, and blaming the
+    // base run on a blocking comment sends the contributor to investigate the wrong side.
+    const reason = prArmMeasuredNothing(impact.scenarios)
+      ? 'this run produced no comparable results'
+      : 'the base run produced no comparable results';
+    return [
+      '',
+      `**Impact vs \`main\`:** unavailable — ${reason}, so scenarios could not be classified as fixed, newly broken, or pre-existing.`,
+    ];
+  }
+
+  const summary = `**Impact vs \`main\`:** ${count(impact.fixed, 'scenario')} fixed, `
+    + `${count(impact.newlyBroken, 'scenario')} newly broken, ${count(impact.stillPassing, 'scenario')} still passing, `
+    + `${count(impact.stillFailing, 'scenario')} still failing, ${count(impact.unattributed, 'scenario')} unattributed`
+    + ` — net effect ${impact.netEffect > 0 ? '+' : ''}${impact.netEffect}`;
+
+  const allStillPassing = impact.scenarios.length > 0 && impact.stillPassing === impact.scenarios.length;
+  if (allStillPassing) {
+    return [
+      '',
+      summary,
+      '',
+      'Every scenario passed on both this PR and `main` — this change moved nothing measurable. '
+      + 'That is the expected result for a PR that only touches scenario YAML: both arms then '
+      + 'evaluate identical skill content, so the all-green summary above is not a suspicious no-op.',
+    ];
+  }
+
+  return [
+    '',
+    summary,
+    '',
+    '| Scenario | Impact | Meaning |',
+    '|---|---|---|',
+    ...impact.scenarios.map(scenario => {
+      const icon = IMPACT_ICON[scenario.impact];
+      const meaning = IMPACT_MEANING[scenario.impact];
+      return `| ${icon} \`${escapeTableCell(scenario.scenarioName)}\` | \`${scenario.impact}\` | ${meaning}${failingAssertionsNote(scenario.failingAssertionNames)} |`;
+    }),
+  ];
+}
+
 export function formatGateResult(input: {
   metrics: EvalRunStatus['aggregateMetrics'];
   verdict: RunVerdict;
@@ -158,6 +267,8 @@ export function formatGateResult(input: {
   unmapped: string[];
   broadImpact: boolean;
   blocking: boolean;
+  impact?: ChangeImpact;
+  runsPerScenario?: number;
 }): string {
   const { metrics, verdict, selection } = input;
   const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
@@ -167,6 +278,7 @@ export function formatGateResult(input: {
     + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
     + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
     runLine(input.runId, input.runUrl),
+    ...runsPerScenarioNote(input.runsPerScenario),
   ];
 
   if (!verdict.passed) {
@@ -198,7 +310,7 @@ export function formatGateResult(input: {
     );
   }
 
-  body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+  body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped), ...impactSection(input.impact));
   if (!verdict.passed) body.push(...soakNote(input.blocking));
 
   return render(icon, label, body);

@@ -30,7 +30,10 @@ const result = await seed.setupRestaurants(ctx, {
     name: "Dinner", description: "Evening menu",
     sections: [
       { name: "Antipasti", description: "To start", items: [
-        { name: "Bruschetta al Pomodoro", description: "Grilled sourdough, San Marzano tomatoes, basil.", price: 9.50, imageUrl: "https://…" },
+        // imageUrl per item is optional and attached IN this one call. It must be the FINAL
+        // https://media.base44.com/... url from the COMPLETED generate_image (it runs in the background
+        // while you build — wait for it), never a still-generating /__generating__/<id>.png placeholder.
+        { name: "Bruschetta al Pomodoro", description: "Grilled sourdough, San Marzano tomatoes, basil.", price: 9.50, imageUrl: "https://media.base44.com/…" },
       ] },
     ],
   },
@@ -40,15 +43,13 @@ const result = await seed.setupRestaurants(ctx, {
 // → { menuId, sectionIds, itemIds, orderingEnabled, reservationsEnabled, imagesAttached }
 ```
 
-## Escape hatch: the individual fns
-
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-Reach for these only when the one-call path doesn't fit (partial re-seed, custom
-fulfillment methods, experiences). The **items → sections → menu** ordering below is the rule
-`setupRestaurants`/`createMenu` bake in — a section is created with its `itemIds`, a menu with its
-`sectionIds`, so each child must exist before its parent.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupRestaurants` doesn't fit (partial re-seed,
+custom fulfillment methods, experiences). `setupRestaurants` is built from them, in this order
+(items → sections → menu — each child before its parent):
 
 ```js
 // ── MENU (always; the seedable core) ────────────────────────────────────────────────────────────
@@ -63,8 +64,9 @@ const menu = await seed.createMenu(ctx, {           // builds items → sections
   ],
 });                                                 // → { menuId, sectionIds, itemIds }
 
-// optional — generate an image, then attach (full-replace — echo revision + price)
-// await seed.attachItemImages(ctx, [{ id, revision, price, image: { id, url, height, width } }]);
+// optional — import the url to Wix Media (restaurants binds by file id), then attach (full-replace — echo revision + price)
+// const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+// await seed.attachItemImages(ctx, [{ id, revision, price, image: { id: file.id, url: file.url, height: 1024, width: 1024 } }]);
 
 // ── ONLINE ORDERING (add-on, on demand; MENU-FIRST) ──────────────────────────────────────────────
 await seed.installOrdersApp(ctx);                   // auto-provisions a working ordering setup
@@ -93,7 +95,8 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 |---|---|
 | `installMenusApp(ctx)` | install the Wix Restaurants Menus app |
 | `createMenu(ctx, {name,description?,sections})` | items → sections → menu bottom-up → `{menuId,sectionIds,itemIds}` |
-| `attachItemImages(ctx, [{id,revision,price,image}])` | image pass — full-replace PATCH (echo revision + priceInfo) |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); menu items bind by this file id |
+| `attachItemImages(ctx, [{id,revision,price,image}])` | image pass — full-replace PATCH (echo revision + priceInfo); `image.id` = a Wix Media file id from `importImage` |
 
 **Shared** (ordering + reservations STEP 0)
 | fn | does |
@@ -150,9 +153,28 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 - **Booking an experience** is premium-gated the same way (create works on a free site; booking needs
   premium + online reservations enabled).
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover, use the
 **`wix-docs`** skill to search + read the live Wix API reference — never guess. The **Experiences** create
 payload especially lives in the docs (fields evolve). The authoritative source recipes are
 `wix-headless/references/inline-recipes/setup-restaurants.md`, `setup-restaurant-orders.md`,
 `setup-restaurant-reservations.md`, and `setup-restaurant-experiences.md`.
+
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Menu: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu.md
+- Create Section: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/create-section.md
+- Bulk Create Sections: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-create-sections.md
+- Create Item: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/create-item.md
+- Bulk Create Items: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-create-items.md
+- List Operations: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
+- Update Operation: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/update-operation.md
+- Create Fulfillment Method: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/create-fulfillment-method.md
+- Create Location: https://dev.wix.com/docs/api-reference/business-management/locations/create-location.md
+- List Reservation Locations: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/list-reservation-locations.md
+- Update Reservation Location: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/update-reservation-location.md
+- Query Menu Ordering Settings: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/query-menu-ordering-settings.md
+- Upsert Menu Ordering Settings By Menu Id: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/upsert-menu-ordering-settings-by-menu-id.md
+- Create Experience: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/create-experience.md

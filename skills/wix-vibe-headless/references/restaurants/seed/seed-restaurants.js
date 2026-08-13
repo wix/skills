@@ -93,32 +93,17 @@ async function installTableReservationsApp(ctx) { return installApp(ctx, TABLE_R
 // Everything is the Restaurants Menus V1 API on /restaurants/menus/v1/... — one service.
 // REST flattens the protobuf wrappers: send plain values (`"visible": true`), never `{"value": …}`.
 
-// STEP 0 — clean the install's default sample "Dinner Menu". JUDGMENT call: only delete when it's
-// obviously the install's own sample; if it could be the owner's real menu, ask first (seeding is
-// additive). Children before parents: items → sections → menus.
 async function listMenuItems(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/items", { method: "GET" });
   return (r.items ?? []).map((it) => ({ id: it.id, name: it.name }));
-}
-async function deleteMenuItems(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/restaurants/menus/v1/bulk/items/delete", { method: "DELETE", body: { ids } });
 }
 async function listMenuSections(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/sections", { method: "GET" });
   return (r.sections ?? []).map((s) => ({ id: s.id, name: s.name }));
 }
-async function deleteMenuSections(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/restaurants/menus/v1/bulk/sections/delete", { method: "DELETE", body: { ids } });
-}
 async function listMenus(ctx) {
   const r = await req(ctx, "/restaurants/menus/v1/menus", { method: "GET" });
   return (r.menus ?? []).map((m) => ({ id: m.id, name: m.name }));
-}
-// No bulk-delete endpoint for menus — one DELETE per menu; single delete takes only the path id (no revision).
-async function deleteMenu(ctx, menuId) {
-  return req(ctx, `/restaurants/menus/v1/menus/${menuId}`, { method: "DELETE" });
 }
 
 /**
@@ -184,10 +169,21 @@ async function createMenu(ctx, menu) {
   return { menuId: menuRes.menu?.id, sectionIds, itemIds: createdItems.map((it) => it?.id) };
 }
 
+// Import an external image URL into Wix Media → { id, url }. Restaurants binds a menu-item image by
+// the Wix Media file **id**, NOT a url — an external url (e.g. a base44 generate_image result) MUST
+// be imported first; the raw url as the id stores (200) but renders nothing. id = wixstatic file id,
+// url = the permanent wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Optional (pass-2). The ITEM is the image-bearing entity. Update Item is a FULL-ENTITY REPLACE
 // with NO field mask — you MUST echo each item's current `revision` AND `priceInfo`, or it fails
 // `428 MISSING_ITEM_PRICING` and the image does NOT apply. `image` is an OBJECT { id, url, height, width }
-// (never a bare string); the binding field is the Wix Media file `id`. Never block on image failure.
+// (never a bare string); the binding field is the Wix Media file `id` (from importImage). Never block on image failure.
 // items: [{ id, revision, price, image: { id, url, height, width } }]
 async function attachItemImages(ctx, items) {
   return req(ctx, "/restaurants/menus/v1/bulk/items/update", {
@@ -368,7 +364,7 @@ async function createExperiences(ctx, reservationLocationId, experiences) {
  *
  * @param plan {
  *   menu: { name, description?, sections: [{ name, description?,
- *           items: [{ name, description?, price, imageUrl?|image? }] }] },
+ *           items: [{ name, description?, price, imageUrl? }] }] },   // imageUrl = a plain url; imported to Wix Media here
  *   ordering?:     boolean | { address? },
  *   reservations?: boolean | { address?, configuration? },
  * }
@@ -383,15 +379,17 @@ async function setupRestaurants(ctx, plan) {
   const flatItems = plan.menu.sections.flatMap((s) => s.items || []);
   const itemNameToId = new Map(flatItems.map((it, i) => [it.name, itemIds[i]]));
 
-  // image pass — map each plan item that carries an image to its created id (revision "1", fresh).
-  const imageItems = flatItems
-    .filter((it) => it.image || it.imageUrl)
-    .map((it) => ({
-      id: itemNameToId.get(it.name),
-      revision: "1",
-      price: it.price,
-      image: it.image || { url: it.imageUrl },
-    }));
+  // image pass — import each item's url to Wix Media (restaurants binds by file id), then full-replace
+  // update its created id (revision "1", fresh + priceInfo). A failed import just skips that image.
+  const imageItems = [];
+  for (const it of flatItems) {
+    if (!it.imageUrl) continue;
+    try {
+      const file = await importImage(ctx, it.imageUrl, `${it.name || "item"}.png`);
+      imageItems.push({ id: itemNameToId.get(it.name), revision: "1", price: it.price,
+        image: { id: file.id, url: file.url, height: 1024, width: 1024 } });
+    } catch { /* skip this item's image */ }
+  }
   let imagesAttached = 0;
   if (imageItems.length) {
     try { await attachItemImages(ctx, imageItems); imagesAttached = imageItems.length; }
@@ -439,8 +437,8 @@ module.exports = {
   // app install
   installMenusApp, installOrdersApp, installTableReservationsApp,
   // menu
-  listMenuItems, deleteMenuItems, listMenuSections, deleteMenuSections, listMenus, deleteMenu,
-  createMenu, attachItemImages,
+  listMenuItems, listMenuSections, listMenus,
+  createMenu, importImage, attachItemImages,
   // shared business location (ordering + reservations STEP 0)
   setBusinessLocation,
   // ordering add-on

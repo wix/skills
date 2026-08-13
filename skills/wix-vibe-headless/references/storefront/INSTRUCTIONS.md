@@ -1,530 +1,266 @@
+# Wix Storefront — ready-made client
 
-# Wix Storefront Skill
+The storefront client is **shipped as real files**, not snippets to regenerate. It's a complete
+catalog + PDP + server-cart + checkout, styled with your app's design tokens (base44's
+`src/index.css` — the shadcn palette the design phase already set). Copy it into the app and wire
+the routes — you generate almost none of the commerce code (variant resolution, modifiers, stock
+gating, the server cart all ship and are correct).
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and both storefront helpers from `references/storefront/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`). Copy **both** for a full storefront:
->
-> | File | What it covers |
-> |---|---|
-> | `wix-store-catalog.js` | Products, categories, product detail, search |
-> | `wix-store-cart.js` | Add to cart, cart management, checkout |
-
-Builds a real, client-only Wix storefront. The browser talks to Wix directly over a
-public `WIX_CLIENT_ID`. Never mock products; never hand-build `/checkout` URLs — always
-go through the eCom cart + redirect-session.
-
-## When to use
-- User wants a Wix eCommerce store or asks to "connect Wix".
-- Replacing placeholder/mock products with live Wix data.
-- Adding cart, checkout, categories, or product detail pages over an existing Wix Stores catalog.
+Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock
+products; never hand-build a `/checkout` URL — the shipped cart goes through the eCom
+redirect-session.
 
 ## Prerequisites
-1. A Wix site with **Wix Stores installed and products already added** (this skill does
-   NOT provision — it's read-only over the catalog).
-2. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (the
-   Wix Business Manager surfaces a copyable prompt with the id filled in — see
-   the router `SKILL.md`). Paste it into `src/rest/wix-client.js` in place of the placeholder. It is a
-   buyer-facing credential (it only mints anonymous visitor tokens), **not** a secret, so
-   hardcoding/committing it is fine.
-3. The deployed app domain must be allow-listed on the OAuth client for Wix-hosted
-   checkout to return. This is a **separate Wix setup flow the user completes later** —
-   out of this skill's scope. If checkout return fails before that setup is done, that's
-   expected; flag it and continue.
+- The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately (see **Seeding** below), in parallel with this build — so it may be empty at build time; the client renders the shipped empty state until products land.
+- The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
-## The API (copy as-is; do not re-derive it)
-This skill ships only the REST layer — no UI components. Build the storefront's UI
-however the project wants; wire it to these two snippets. Copy them into the app (e.g.
-`src/api/`) and only adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to
-  the id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh
-  token IS the cart identity; it is persisted to localStorage. Do not re-mint anonymously
-  per load or the cart silently empties.
-- `src/rest/wix-store-catalog.js` — **Catalog:**
-  `queryProducts`, `queryProductsByCategory`, `getProductBySlug`, `countProducts`,
-  `queryCategories`, `getCategoryBySlug`
-- `src/rest/wix-store-cart.js` — **Cart & checkout:**
-  `addToCart`, `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
+## STEP 1 — The client is already in `src/`
+The install step (base44.md STEP 1) deployed the whole storefront UI client + REST scaffolds into
+`src/` (imports use the `@/` alias → `src/`). Here's every file and what it is — **this is your map,
+so you don't need to open them:**
 
-Every field shape and gotcha you need is in this file (the prose below + the **Reference
-components** section), and those components show correct usage of every helper — `import` from
-`wix-client.js` / `wix-store-*.js`, adapt the components' logic, and restyle to the brand.
+| file | what it is |
+|---|---|
+| `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
+| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
+| `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
+| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state). The tile carries quick add for single-variant products, colour dots + an option summary, and pre-order / sold-out / limited-stock / percent-off / merchant-ribbon badges — all from the list query, no extra request |
+| `components/ProductGallery.jsx` | PDP main image + thumbnails |
+| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
+| `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
+| `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
+| `components/VariantPicker.jsx` | option/variant selector used on the PDP — colour options render as real swatches, and picking one moves the gallery to that colour's photo |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
+| `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
+| `rest/wix-config.js` | the two ids, written by the install step |
+| `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
 
-## How to wire it (UI is the project's choice)
-- **Product grid** — `queryProducts()` for the listing (visible products only); pass
-  `nextCursor` back as `cursor` to load the next page. Render most fields directly from the Wix
-  product object (see the `Product` typedef in `wix-store-catalog.js` for key fields) — the one
-  exception is `plainDescription`, which is HTML (see PDP below). For price, use
-  `actualPriceRange.minValue.formattedAmount` (already includes the currency symbol) — no
-  manual formatting needed.
-- **PDP** — `getProductBySlug(slug)` keyed off the URL slug; returns null on miss — show
-  a not-found state, never invent a product. **Drive the whole PDP from the returned product
-  object at runtime — build it generically, not around the one product you happened to inspect.**
-  A catalog is heterogeneous: some products have `options`, some have `modifiers` (mandatory or
-  optional), some track inventory, some none of these. Render a selector for **every** entry the
-  product actually carries: one control per `product.options` (variant choices) **and** one per
-  `product.modifiers` (TEXT_CHOICES → choice buttons/select; FREE_TEXT → a text input); render
-  neither when the arrays are empty. Skipping modifiers is a common miss — a product with a
-  **mandatory** modifier (e.g. "gift wrap?") whose control isn't rendered can never be added: the
-  buyer can't satisfy the requirement, so `add-to-cart` returns 200 with an **empty** `lineItems`
-  and the add silently no-ops.
-  Render `product.plainDescription` as **HTML** — despite the name it contains markup (`<p>`,
-  `<br>`, `<strong>`), so `dangerouslySetInnerHTML={{ __html: product.plainDescription }}` (React)
-  or `el.innerHTML = product.plainDescription`, never as a plain text node (that shows raw `<p>`
-  tags). Strip tags only for plain-text contexts (SEO/meta description, a truncated card teaser).
-- **Gate the Add-to-cart button** — disable it only until the requirements the product *actually
-  has* are met, computed from the product object (never assume every product has options or
-  modifiers): if `product.options` is non-empty, a variant must resolve from the selections; every
-  `modifier.mandatory === true` must have a value. A product with no options and no mandatory
-  modifiers is immediately addable — don't leave the button stuck. Optional modifiers never block.
-  Then pass the selections to `addToCart` (see Cart below); never call it with a required selection missing.
-- **Reflect stock in the UI** — the product object already carries availability at three levels; surface
-  it rather than letting the buyer discover it only on click. Read it from the data at runtime (never
-  hardcode):
-  - **Grid / card:** `product.inventory.availabilityStatus` (`IN_STOCK` / `OUT_OF_STOCK` /
-    `PARTIALLY_OUT_OF_STOCK`) — badge an out-of-stock product as sold out.
-  - **Option choice:** `product.options[].choicesSettings.choices[].inStock` — disable/strike a choice
-    (e.g. size L) that has no in-stock variant, before a full variant is even resolved.
-  - **Variant:** `variantsInfo.variants[].inventoryStatus.inStock` — once selections resolve to a
-    variant, disable Add-to-cart (label "Out of stock") when that variant is `inStock: false`.
-  A product/variant with inventory tracking **off** reports `availabilityStatus: IN_STOCK` /
-  `inStock: true` and stays freely addable — tracking-off is not "no data", it's "always available".
-  `addToCart` still throws on a sold-out line as a backstop, but the UI should prevent reaching it.
-- **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
-  a category landing page. **`queryCategories()` returns `{ categories, nextCursor }`** (same shape
-  as `queryProducts`) — destructure the array first; it is **not** itself an array, so
-  `queryCategories().filter(...)` / `(await queryCategories()).filter(...)` throws
-  `filter is not a function`. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
-  to list only the products in that category; paginate exactly like `queryProducts`.
-  The result includes Wix's auto-created **"All Products" system category** (`slug: "all-products"`) —
-  it mirrors the full catalog, so drop it from the menu:
-  `const { categories } = await queryCategories(); const menu = categories.filter(c => c.slug !== "all-products");`
-  Filter by that slug, not by name (renames/localizes) or `visible` (it's `visible: true` like any other).
-- **Cart** — `addToCart(catalogItemId, variantId?, qty?, { modifierChoices?, customTextFields? }?)`,
-  `updateCartItemQuantity(lineItemId, qty)`, `removeFromCart(lineItemId)`.
-  - `variantId` (`variantsInfo.variants[].id` from `getProductBySlug`) — required for products with
-    options; resolve it by matching the buyer's selections to `variant.choices[].optionChoiceIds`.
-  - `modifierChoices` — `{ [modifier.key]: choiceKey }` for `TEXT_CHOICES` modifiers.
-  - `customTextFields` — `{ [modifier.freeTextSettings.key]: userInput }` for `FREE_TEXT` modifiers.
-    Mandatory modifiers must be included. See the eCommerce integration guide:
-    https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md
-  - Use `cart.lineItems[].id` as `lineItemId` (not `catalogItemId`) for mutations.
-  - Read the cart back with `getCurrentCart()` rather than mirroring it locally.
-- **Checkout** — `window.location.href = await checkout()`. After the buyer returns from
-  hosted checkout the order is placed and the cart is empty — re-fetch with
-  `getCurrentCart()` on return (e.g. on mount + `visibilitychange`) to clear the UI.
-- **Empty state** — if `countProducts()` is 0, show an empty state telling the user to
-  add products in their Wix dashboard. Never invent products.
+They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
+`read_file` the shipped page/component/hook source to inspect it** — the table above says what each is
+and every field shape you need is in the snippets below. Read a shipped file's source **only** on a
+real fallback — a runtime error, or a field the snippets don't cover (see "Fallback only" at the
+end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
+`references/storefront/app/` → `src/`.)
 
-## Hard rules (do not violate)
-- ✅ Checkout ONLY via `checkout()` (`create-checkout` → `/headless/v1/redirect-session`
-  `fullUrl`), then redirect.
-- ❌ Never hand-build `/checkout`, cart-add, or product permalinks for purchase.
-- ❌ Never mock products — render live Wix data or the empty state.
-- ❌ Never generate fake reviews, ratings, or testimonials. Empty review UI only.
-- ✅ Set `WIX_CLIENT_ID` from the prompt's value (public client id — safe to hardcode).
-- ✅ `lineItemId` for cart mutations is `cart.lineItems[].id`, not `catalogItemId`.
-- ✅ On the PDP, render a control for **every** `product.options` entry **and** every `product.modifiers`
-  entry — never only variants. Keep Add-to-cart disabled until a variant resolves and every
-  `modifier.mandatory === true` has a value; a mandatory modifier with no rendered control makes the
-  product unbuyable (add-to-cart returns 200 with empty `lineItems`).
-- ✅ Pass `addToCart`'s `variantId` (`variantsInfo.variants[].id`) for products with variants; omit for products without.
-- ✅ Pass `modifierChoices` (`{ [modifier.key]: choiceKey }`) for TEXT_CHOICES modifiers; pass `customTextFields`
-  (`{ [modifier.freeTextSettings.key]: userInput }`) for FREE_TEXT modifiers. Include mandatory modifiers.
-- The engine fails loudly on purpose: `addToCart`/`checkout` throw on out-of-stock or
-  empty carts. A green path means it is really buyable — don't swallow these.
 
-## Beyond the snippets
-The snippets cover the common storefront paths. If you hit a use case they don't cover
-(e.g. coupons, members/auth, a product field not shown in the typedef), make the call
-yourself with `wixApiRequest` — but look up the exact endpoint, HTTP method, and request
-body in the **official Wix API reference** first; never guess:
-- Official Wix API reference: https://dev.wix.com/docs/api-reference.md
-- eCommerce integration guide (modifiers, custom text, variants): https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md
-- Member login + a "my orders" account view → the **members** vertical (`references/members/INSTRUCTIONS.md`): custom login on your own UI so buyers can sign in and see their account.
+## STEP 2 — Theme (nothing to style on the shipped components)
+The shipped components carry **no palette of their own** — they render from base44's design tokens
+in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
+`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
+`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
+`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
+pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
+`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
+shipped JSX.** Build the Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it
+matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
-Keep the snippets as the default for everything they already do; reach for the API
-reference only for the gap.
-
-## Reference components (headless — adapt the logic, restyle freely)
-
-These are the recurring storefront pieces, written **headless**: the data wiring (Wix field
-paths, variant resolution, modifier handling, stock gating, cart) is correct and complete — the
-markup is deliberately plain. **Copy the logic exactly; restyle the JSX to the brand.** Don't
-re-derive the data shape from scratch (that's where the bugs are — the variant/modifier/stock
-paths especially). They consume the `src/rest/` helpers; you don't need to read those helpers'
-source.
-
-**`src/context/CartContext.jsx`** — cart state, mirroring the Wix **server** cart (never a
-local copy). Wrap the app in `<CartProvider>`; everything reads `useCart()`.
+## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
+`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
+replace it.
+- Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
+- Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
+  route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
+  — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
+  header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
+  your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
+  markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
+  the content by the region's measured height so it clears the chrome and self-corrects when the
+  banner is dismissed.
+- Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
+  **You add `/` → your own Home** page.
 
 ```jsx
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getCurrentCart, addToCart as apiAdd, removeFromCart as apiRemove,
-         updateCartItemQuantity as apiQty, checkout as apiCheckout } from "@/rest/wix-store-cart";
+import { useRef, useState, useEffect } from "react";
+import { Routes, Route, Outlet } from "react-router-dom";
+import { CartProvider } from "@/context/CartContext";
+import CartDrawer from "@/components/CartDrawer";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
+import Shop from "@/pages/Shop";                       // shipped · default export, no props
+import ProductDetail from "@/pages/ProductDetail";     // shipped · default export, no props
+import Home from "@/pages/Home";       // YOU build
+import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
+import Footer from "@/components/Footer";   // YOU build
 
-const CartContext = createContext(null);
-
-export function CartProvider({ children }) {
-  const [cart, setCart] = useState(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const refreshCart = useCallback(async () => setCart(await getCurrentCart()), []);
-  useEffect(() => {                                   // load once + re-sync when tab regains focus
-    refreshCart();
-    const onVisible = () => document.visibilityState === "visible" && refreshCart();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [refreshCart]);
-
-  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantity || 0), 0);
-  const addToCart = async (id, variantId, qty = 1, extras) => {
-    setLoading(true);
-    try { setCart(await apiAdd(id, variantId, qty, extras)); setIsOpen(true); } finally { setLoading(false); }
-  };
-  const removeItem = async (lineItemId) => { setLoading(true); try { setCart(await apiRemove(lineItemId)); } finally { setLoading(false); } };
-  const updateQuantity = async (lineItemId, qty) => { setLoading(true); try { setCart(await apiQty(lineItemId, qty)); } finally { setLoading(false); } };
-  const checkout = async () => { setLoading(true); try { window.location.href = await apiCheckout(); } finally { setLoading(false); } };
-
-  return (
-    <CartContext.Provider value={{ cart, itemCount, isOpen, setIsOpen, loading, addToCart, removeItem, updateQuantity, checkout, refreshCart }}>
-      {children}
-    </CartContext.Provider>
-  );
+function Layout() {
+  const topRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {                                  // measure the fixed region → pad content below it
+    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
+    if (topRef.current) ro.observe(topRef.current);
+    return () => ro.disconnect();
+  }, []);
+  return (<>
+    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
+      <Header />                             {/* your brand header, in-flow inside this fixed block */}
+    </div>
+    <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
+      <Outlet />                             {/* shipped Shop/ProductDetail render here, untouched */}
+      <Footer />
+    </div>
+    <CartDrawer />                           {/* overlays every page */}
+  </>);
 }
-export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used within <CartProvider>");
-  return ctx;
-}
+
+<CartProvider>
+  <Routes>
+    <Route element={<Layout />}>                                   {/* chrome wraps all */}
+      <Route path="/" element={<Home />} />                        {/* yours */}
+      <Route path="/shop" element={<Shop />} />                    {/* shipped, as-is */}
+      <Route path="/product/:slug" element={<ProductDetail />} />  {/* shipped, as-is */}
+    </Route>
+  </Routes>
+</CartProvider>
 ```
 
-**`ProductCard.jsx`** — grid tile. Note the `//`-protocol fix on the image URL and the exact
-price / out-of-stock field paths.
+## What you build (not shipped)
+The **home / landing page**, the **`Header`** (mount `<CartButton/>` in it) and a **`Footer`** — the
+two you drop into the `Layout` (STEP 3) so they wrap every route — plus the overall brand story,
+styled from the same base44 tokens/classes. **Compose the shipped pieces** — a
+featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
+(a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
+text button) + a link to `/shop`:
+
+```jsx
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { queryProducts } from "@/rest/wix-store-catalog";
+import ProductGrid from "@/components/ProductGrid";
+import CartButton from "@/components/CartButton";
+
+// Responsive header: choose ONE branch with a state flag, so <CartButton/> mounts once.
+// Do NOT render a desktop nav AND a mobile nav toggled by `hidden md:flex` / `md:hidden`:
+// these navs are inline-styled, and an inline `display` beats a Tailwind class, so `hidden`
+// never applies — BOTH branches render and you get two cart buttons. One branch = one cart.
+export function Header() {                                  // in your nav
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);            // keep it reactive to viewport changes
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return (
+    <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* brand/logo */}
+      {mobile
+        ? <YourMenu />                                       // your hamburger + <CartButton/> here
+        : <div style={{ display: "flex", gap: 24 }}><Link to="/shop">Shop</Link><CartButton /></div>}
+    </nav>
+  );
+}
+export function Featured() {                                // on your home page
+  const [products, setProducts] = useState(null);           // null → ProductGrid shows skeletons
+  // NB: queryProducts returns { products, nextCursor } — destructure the array.
+  useEffect(() => {
+    queryProducts({ limit: 8 })
+      .then(({ products }) => setProducts(products))
+      .catch(() => setProducts([]));                        // land on the empty state, not a spinner
+  }, []);
+  return <ProductGrid products={products} loading={products === null} empty="Products coming soon." />;
+}
+```
+Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages
+automatically. `<CartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
+
+**Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
+can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
+full navigate/reload of the preview and re-check — don't keep rewriting correct code against a stale
+render.
+
+## Using the client from your own UI (cart, hand-built images)
 
 ```jsx
 import { Link } from "react-router-dom";
-
-function productImage(product) {
-  const url = product?.media?.main?.image?.url;
-  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
-}
-
-export default function ProductCard({ product }) {
-  const image = productImage(product);
-  const price = product?.actualPriceRange?.minValue?.formattedAmount;           // includes currency symbol
-  const compareAt = product?.compareAtPriceRange?.minValue?.formattedAmount;    // present only when on sale
-  const soldOut = product?.inventory?.availabilityStatus === "OUT_OF_STOCK";
-  return (
-    <Link to={`/product/${product.slug}`} /* restyle */>
-      {image ? <img src={image} alt={product.name} loading="lazy" /> : <div>{/* placeholder */}</div>}
-      {soldOut && <span>Sold out</span>}
-      <h3>{product.name}</h3>
-      <span>{price}</span>
-      {compareAt && compareAt !== price && <span style={{ textDecoration: "line-through" }}>{compareAt}</span>}
-    </Link>
-  );
-}
-```
-
-**`pages/Shop.jsx`** — the catalog listing (grid + category menu + empty state + paging). Every
-catalog helper returns an **object, not a bare array** — `queryProducts`/`queryProductsByCategory`
-→ `{ products, nextCursor }`, `queryCategories` → `{ categories, nextCursor }`, `countProducts` → a
-number. Destructure first: calling `.filter`/`.map` on the returned object throws
-`… is not a function` (the #1 catalog-listing bug). Keep the destructuring exactly.
-
-```jsx
-import { useState, useEffect } from "react";
-import { queryProducts, queryProductsByCategory, queryCategories, countProducts } from "@/rest/wix-store-catalog";
-import ProductCard from "@/components/ProductCard";
-
-export default function Shop() {
-  const [products, setProducts] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [menu, setMenu] = useState([]);         // category menu (system category dropped)
-  const [active, setActive] = useState(null);   // selected category id, or null for "all"
-  const [total, setTotal] = useState(null);
-
-  useEffect(() => {
-    // NB: destructure — these return objects, not arrays.
-    countProducts().then(setTotal);
-    queryCategories().then(({ categories }) =>
-      setMenu(categories.filter((c) => c.slug !== "all-products")));   // drop Wix's "All Products" system category
-  }, []);
-
-  useEffect(() => {
-    const load = active
-      ? queryProductsByCategory(active, { limit: 24 })
-      : queryProducts({ limit: 24 });
-    load.then(({ products, nextCursor }) => { setProducts(products); setCursor(nextCursor); });
-  }, [active]);
-
-  const loadMore = () => {
-    const load = active
-      ? queryProductsByCategory(active, { limit: 24, cursor })
-      : queryProducts({ limit: 24, cursor });
-    load.then(({ products: more, nextCursor }) => { setProducts((p) => [...p, ...more]); setCursor(nextCursor); });
-  };
-
-  if (total === 0) return <p>{/* empty state — no products yet */}</p>;
-  return (
-    <div /* restyle */>
-      <nav>
-        <button onClick={() => setActive(null)} aria-pressed={active === null}>All</button>
-        {menu.map((c) => (
-          <button key={c.id} onClick={() => setActive(c.id)} aria-pressed={active === c.id}>{c.name}</button>
-        ))}
-      </nav>
-      <div /* grid */>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
-      {cursor && <button onClick={loadMore}>Load more</button>}
-    </div>
-  );
-}
-```
-
-**`pages/Category.jsx`** — a category landing page. `getCategoryBySlug(slug)` returns a **bare
-category object** (or `null` on miss — show a not-found state), **not** `{ category }`. Render the
-category's own fields, then feed `category.id` (never the slug) to `queryProductsByCategory` and
-paginate exactly like `Shop.jsx`.
-
-```jsx
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { getCategoryBySlug, queryProductsByCategory } from "@/rest/wix-store-catalog";
-import ProductCard from "@/components/ProductCard";
-
-export default function Category() {
-  const { slug } = useParams();
-  const [category, setCategory] = useState(null);
-  const [notFound, setNotFound] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [cursor, setCursor] = useState(null);
-
-  useEffect(() => {
-    getCategoryBySlug(slug).then((c) => {              // bare category object, or null on miss
-      if (!c) return setNotFound(true);
-      setCategory(c);
-      queryProductsByCategory(c.id, { limit: 24 }).then(({ products, nextCursor }) => {  // feed id, not slug
-        setProducts(products);
-        setCursor(nextCursor);
-      });
-    });
-  }, [slug]);
-
-  const loadMore = () =>
-    queryProductsByCategory(category.id, { limit: 24, cursor }).then(({ products: more, nextCursor }) => {
-      setProducts((p) => [...p, ...more]);
-      setCursor(nextCursor);
-    });
-
-  if (notFound) return <div>Category not found.</div>;
-  if (!category) return <div>Loading…</div>;
-  return (
-    <div /* restyle */>
-      <h1>{category.name}</h1>
-      {/* category.description is a typedef field, but whether it's plain text or HTML is not
-          documented — if it renders raw tags, treat it as HTML like plainDescription; confirm via wix-docs. */}
-      {category.description && <p>{category.description}</p>}
-      {/* category.image is listed in the typedef but WITHOUT a sub-shape (no url/altText) — do NOT
-          assume category.image.url; look the category media shape up via the wix-docs skill before rendering it. */}
-      <div /* grid */>{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
-      {cursor && <button onClick={loadMore}>Load more</button>}
-    </div>
-  );
-}
-```
-
-**`CartDrawer.jsx`** — reads everything from `useCart()`; mutate by `lineItem.id` (not
-`catalogItemId`), check out via the context.
-
-```jsx
 import { useCart } from "@/context/CartContext";
 
-export default function CartDrawer() {
-  const { cart, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading } = useCart();
-  const lineItems = cart?.lineItems ?? [];
-  if (!isOpen) return null;
-  return (
-    <div /* restyle: slide-over panel */>
-      <button onClick={() => setIsOpen(false)}>Close</button>
-      {lineItems.length === 0 ? <p>Your cart is empty.</p> : (
-        <>
-          {lineItems.map((item) => (
-            <div key={item.id}>
-              <img src={item.image?.url} alt={item.productName?.original} />   {/* cart image is an object: item.image.url (NOT a bare string — don't apply the ProductCard //-fix to it) */}
-              <span>{item.productName?.original}</span>
-              {item.descriptionLines?.map((dl, i) => (               // variant/modifier summary Wix supplies
-                <small key={i}>{dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}</small>
-              ))}
-              <button onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}>−</button>
-              <span>{item.quantity}</span>
-              <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
-              <button onClick={() => removeItem(item.id)}>Remove</button>
-              <span>{item.price?.formattedAmount}</span>
-            </div>
-          ))}
-          {/* Order total / subtotal is NOT in the cart typedef (wix-store-cart.js lists only per-line
-              price/fullPrice) — resolve the exact cart-level total path via the wix-docs skill before
-              rendering one; do NOT invent priceSummary/subtotal. */}
-          <button disabled={loading} onClick={checkout}>Checkout</button>
-        </>
-      )}
-    </div>
-  );
+// useCart() gives:
+// { cart, itemCount, isOpen, setIsOpen, loading, error, clearError(),
+//   addToCart(productId, variantId?, qty=1, { modifierChoices?, customTextFields? }?),
+//   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
+// Every mutation catches its own failure into `error` (the shipped CartDrawer renders it), so a
+// refusal — an empty cart, or a line item that stopped being AVAILABLE — reaches the buyer instead
+// of becoming an unhandled rejection.
+//
+// Cart money: every amount is { amount, convertedAmount, formattedAmount, formattedConvertedAmount } —
+// show a formatted one so the currency symbol and grouping come from Wix. Read
+// `cart.subtotalAfterDiscounts` rather than `cart.subtotal`: the two match until a cart-level coupon
+// applies, and then `subtotal` is the pre-discount figure. `cart.discount` + `cart.appliedDiscounts`
+// carry the reduction. Never sum line items yourself — tax and shipping resolve at checkout.
+// `lineItems[].availability.quantityAvailable` is the stock cap for a quantity control.
+
+function CartCount() {                                   // header badge
+  const { itemCount, setIsOpen } = useCart();
+  return <button onClick={() => setIsOpen(true)}>Cart ({itemCount})</button>;
 }
+
+// Buy from a card → link to the PDP; the shipped ProductDetail owns options/variants + add-to-cart.
+// (Listing helpers return no variants — only getProductBySlug does — so buying happens on the PDP.)
+const CardBuy = ({ product }) => <Link to={`/product/${product.slug}`}>View</Link>;
+
+// Doing add-to-cart yourself? addToCart resolves for an option-less product; wrap it — it rejects on
+// out-of-stock / empty cart / a missing required selection, and you show that message.
+async function quickAdd(addToCart, product) {
+  try { await addToCart(product.id); } catch (e) { alert(e.message); }
+}
+
+// An image you render yourself (hero / custom card): normalise the url through lib/storeImage — Wix
+// returns these protocol-relative — and keep a token bg so a just-generated url that 404s for a
+// second reads as a surface, not a blank block.
+import { storeImage, productImage, productGallery } from "@/lib/storeImage";
+function BrandImage({ url, alt }) {
+  return <div className="bg-card"><img src={storeImage(url)} alt={alt} /></div>;
+}
+// productImage(product) → the catalog image · productGallery(product) → every image, main first,
+// de-duplicated (media.itemsInfo.items repeats the main one and video items carry no image url).
 ```
 
-**`pages/ProductDetail.jsx`** — the PDP. This carries the trickiest logic: resolving the
-buyer's option selections to a variant, gating add-to-cart on mandatory modifiers + stock, and
-rendering the HTML description. Keep all of it.
+## Extending the client
+Building something beyond the shipped pages? Copy these:
 
 ```jsx
-import { useState, useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
-import { getProductBySlug } from "@/rest/wix-store-catalog";
-import { useCart } from "@/context/CartContext";
+// Every catalog/cart list helper returns { <plural>, nextCursor } — destructure the array:
+const { products, nextCursor } = await queryProducts({ limit: 24 });
+const { categories } = await queryCategories();
+const menu = categories.filter((c) => c.slug !== "all-products");   // drop Wix's system category
+const { products: inCategory } = await queryProductsByCategory(menu[0].id, { limit: 24 });
 
-// same //→https: protocol fix as ProductCard — Wix image urls can come back protocol-relative
-function imageUrl(url) {
-  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
-}
-// PDP gallery: product.media.itemsInfo.items — [{ image: { url }, altText }] (see wix-store-catalog.js typedef)
-function galleryImages(product) {
-  return (product?.media?.itemsInfo?.items ?? [])
-    .map((it) => ({ url: imageUrl(it.image?.url), alt: it.altText || product?.name }))
-    .filter((i) => i.url);
-}
-// one control per product.options[] (variant choices)
-function OptionSelector({ option, selected, onSelect }) {
-  return (
-    <div>
-      <label>{option.name}</label>
-      {option.choicesSettings?.choices?.map((c) => (
-        <button key={c.choiceId} disabled={c.inStock === false}      // choice with no in-stock variant
-          aria-pressed={selected === c.choiceId} onClick={() => onSelect(option.id, c.choiceId)}>{c.name}</button>
-      ))}
-    </div>
-  );
-}
-// one control per product.modifiers[] — TEXT_CHOICES → buttons, FREE_TEXT → input
-function ModifierSelector({ modifier, value, onChange }) {
-  const key = modifier.modifierRenderType === "FREE_TEXT" ? modifier.freeTextSettings?.key : modifier.key;
-  if (modifier.modifierRenderType === "FREE_TEXT")
-    return <label>{modifier.name}{modifier.mandatory && " *"}<input value={value || ""} onChange={(e) => onChange(key, e.target.value)} /></label>;
-  return (
-    <div>
-      <label>{modifier.name}{modifier.mandatory && " *"}</label>
-      {modifier.choicesSettings?.choices?.map((c) => (
-        <button key={c.key} aria-pressed={value === c.key} onClick={() => onChange(key, c.key)}>{c.name}</button>
-      ))}
-    </div>
-  );
-}
-
-export default function ProductDetail() {
-  const { slug } = useParams();
-  const { addToCart } = useCart();
-  const [product, setProduct] = useState(null);
-  const [notFound, setNotFound] = useState(false);
-  const [selectedOptions, setSelectedOptions] = useState({});
-  const [modifierValues, setModifierValues] = useState({});
-  const [quantity, setQuantity] = useState(1);
-
-  useEffect(() => {
-    getProductBySlug(slug).then((p) => {
-      if (!p) return setNotFound(true);
-      setProduct(p);
-      const initial = {};                                            // pre-select first in-stock choice per option
-      (p.options || []).forEach((o) => {
-        const first = o.choicesSettings?.choices?.find((c) => c.inStock !== false);
-        if (first) initial[o.id] = first.choiceId;
-      });
-      setSelectedOptions(initial);
-    });
-  }, [slug]);
-
-  const options = product?.options || [];
-  const modifiers = product?.modifiers || [];
-  const variants = product?.variantsInfo?.variants || [];
-
-  const variant = useMemo(() => {                                    // match selections → variant
-    if (options.length === 0) return variants[0] || null;           // option-less → single variant
-    if (!options.every((o) => selectedOptions[o.id])) return null;  // not all chosen yet
-    return variants.find((v) => (v.choices || []).every((c) =>
-      selectedOptions[c.optionChoiceIds?.optionId] === c.optionChoiceIds?.choiceId)) || null;
-  }, [options, variants, selectedOptions]);
-
-  const inStock = variant ? variant.inventoryStatus?.inStock !== false : true;
-  const canAdd = useMemo(() => {
-    if (options.length > 0 && !variant) return false;               // options exist but unresolved
-    if (variant && !inStock) return false;
-    return modifiers.filter((m) => m.mandatory).every((m) =>        // every mandatory modifier filled
-      m.modifierRenderType === "FREE_TEXT" ? !!modifierValues[m.freeTextSettings?.key] : !!modifierValues[m.key]);
-  }, [options, variant, inStock, modifiers, modifierValues]);
-
-  const price = variant?.price?.actualPrice?.formattedAmount || product?.actualPriceRange?.minValue?.formattedAmount || "";
-
-  async function handleAdd() {
-    const modifierChoices = {}, customTextFields = {};
-    modifiers.forEach((m) => {
-      const k = m.modifierRenderType === "FREE_TEXT" ? m.freeTextSettings?.key : m.key;
-      if (!k || !modifierValues[k]) return;
-      (m.modifierRenderType === "FREE_TEXT" ? customTextFields : modifierChoices)[k] = modifierValues[k];
-    });
-    await addToCart(product.id, variant?.id, quantity, {
-      modifierChoices: Object.keys(modifierChoices).length ? modifierChoices : undefined,
-      customTextFields: Object.keys(customTextFields).length ? customTextFields : undefined,
-    });
-  }
-
-  if (notFound) return <div>Product not found.</div>;
-  if (!product) return <div>Loading…</div>;
-  return (
-    <div /* restyle */>
-      <img src={imageUrl(product.media?.main?.image?.url)} alt={product.name} />   {/* //→https: fix, same as ProductCard */}
-      {galleryImages(product).length > 0 && (
-        <div /* thumbnail strip */>
-          {galleryImages(product).map((img, i) => (
-            <img key={i} src={img.url} alt={img.alt} loading="lazy" />
-          ))}
-        </div>
-      )}
-      <h1>{product.name}</h1>
-      <p>{price}</p>
-      {/* plainDescription is HTML despite the name — never render as plain text */}
-      <div dangerouslySetInnerHTML={{ __html: product.plainDescription || "" }} />
-      {options.map((o) => (
-        <OptionSelector key={o.id} option={o} selected={selectedOptions[o.id]}
-          onSelect={(id, cid) => setSelectedOptions((s) => ({ ...s, [id]: cid }))} />
-      ))}
-      {modifiers.map((m) => (
-        <ModifierSelector key={m.key || m.freeTextSettings?.key} modifier={m}
-          value={modifierValues[m.key || m.freeTextSettings?.key]}
-          onChange={(k, v) => setModifierValues((s) => ({ ...s, [k]: v }))} />
-      ))}
-      <button disabled={!canAdd} onClick={handleAdd}>{inStock ? "Add to cart" : "Out of stock"}</button>
-    </div>
-  );
-}
+// product.plainDescription is HTML → render as HTML (the PDP does this):
+<div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
+// image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
 ```
+
+Fallback only — when you hit an error or need something not shown here (coupons, members, a field
+these snippets don't have): read the relevant shipped file under `src/`, or look it up via the
+**`wix-docs`** skill. Each helper in `wix-store-catalog.js` / `wix-store-cart.js` links its own
+reference page inline; these are the areas they sit in:
+- Stores catalog (products, categories, inventory): https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3.md
+- eCommerce (cart, checkout, orders): https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md
+- Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
+
+## Hard rules
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Shop`/`ProductDetail` to add chrome.
+- The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
+- Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
+- Render live Wix data or the shipped empty state — never mock products.
 
 ## Point the user to their dashboard
-In some cases, users need to access the Wix dashboard in order to edit the store content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For store data those pages are:
-- **Products** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/products` (`Dashboard → Store → Products`; add/edit products, variants, inventory)
-- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/categories/list` (`Dashboard → Store → Categories`; organize products into the category menu)
+Provide deep links so the owner can edit content (substitute the site's `metaSiteId`):
+- **Products** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/products`
+- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/categories/list`
 
-Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+## Seeding
+Seed the catalog per `seed/SEED.md` (the build-time `setupStore` module) — separate from this
+client build; run in parallel.
 
-## Verification checklist (before declaring done)
-- [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
-- [ ] Visitor token persists across reload (cart survives reload, same visitor)
-- [ ] Every product choice renders on the PDP — variant options **and** modifiers (mandatory ones included)
-- [ ] Add-to-cart button stays disabled until all required choices are made (variant + mandatory modifiers)
-- [ ] A product with a mandatory modifier adds successfully (its selection is sent, cart line appears)
-- [ ] Stock reflected in the UI — sold-out product badged (grid), out-of-stock option choices and variants disabled/labelled (PDP)
-- [ ] Add to cart works; out-of-stock items throw rather than add a dead line
-- [ ] Quantity update / remove reflect in `getCurrentCart()`
-- [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
-- [ ] Cart re-fetched on return from checkout (clears once the order is placed)
-- [ ] Empty state shown when `countProducts()` is 0
-- [ ] No mock products anywhere
-- [ ] Told the user at least once that they can continue setting up their store in the dashboard and provided deep links.
+## Verify (before declaring done)
+- [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
+- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
+- [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects; the drawer shows a **subtotal**.
+- [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
+- [ ] A product with several images shows **thumbnails** on the PDP, and one with per-variant prices shows a **range** on its card.
+- [ ] Categories seeded? The `/shop` menu lists them (minus the auto-created `all-products`) and filters; a catalog past one page shows **Load more**.

@@ -21,27 +21,51 @@ const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
-  const res = await fetch(API + path, {
-    method,
-    headers: {
-      Authorization: `Bearer ${ctx.token}`,
-      "wix-site-id": ctx.siteId,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
-  return json;
+  // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
+  // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
+  // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
+  // error throws on the first try as before.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(API + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${ctx.token}`,
+        "wix-site-id": ctx.siteId,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return json;
+    if (isProvisioning(res.status, json) && attempt < 40) {
+      await sleep(2000);
+      continue;
+    }
+    throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
+  }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// A freshly installed Stores catalog transiently reports CATALOG_V1: V3 calls 428 with
-// applicationError.code === "CATALOG_V1_SITE_CALLING_CATALOG_V3_API" until provisioning settles to
-// V3. Poll a cheap V3 read until that code clears (bounded ~30s), so seeding doesn't race the
-// install. Returns once V3 is live (or after the budget — the caller's real call then surfaces it).
-async function waitForCatalogV3(ctx, { attempts = 20, delayMs = 1500 } = {}) {
+// A freshly installed catalog isn't writable yet, and Wix has signalled that with two different
+// 428s: the older CATALOG_V1_SITE_CALLING_CATALOG_V3_API (site still reports V1) and the current
+// CATALOG_V3_SITE_PROVISIONING ("Site is currently being provisioned for CATALOG_V3"). Sites exist
+// on both behaviours, so match either. The message check catches a further rename: on this endpoint
+// a 428 means "not ready, retry", and treating an unknown one as fatal turns a wait into a failed
+// seed — which is exactly how the V3 code slipped through when only the V1 code was matched.
+const PROVISIONING_CODES = new Set(["CATALOG_V1_SITE_CALLING_CATALOG_V3_API", "CATALOG_V3_SITE_PROVISIONING"]);
+
+function isProvisioning(status, json) {
+  if (PROVISIONING_CODES.has(json?.details?.applicationError?.code)) return true;
+  return status === 428 && /provision/i.test(json?.message || "");
+}
+
+// A freshly installed Stores catalog 428s on V3 calls until provisioning settles (see
+// isProvisioning for the codes). Poll a cheap V3 read until that clears (bounded ~80s), so we don't
+// fire the expensive bulk-create repeatedly during the window. This is a pre-gate on the READ path;
+// the WRITE path clears slightly later, so the real guarantee is req()'s retry — this just minimizes
+// how many times the actual write has to retry.
+async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
       method: "POST",
@@ -50,19 +74,59 @@ async function waitForCatalogV3(ctx, { attempts = 20, delayMs = 1500 } = {}) {
     });
     if (res.ok) return;
     const json = await res.json().catch(() => ({}));
-    if (json?.details?.applicationError?.code !== "CATALOG_V1_SITE_CALLING_CATALOG_V3_API") return;
+    // Anything that isn't a provisioning signal is a real error — return and let the caller's own
+    // request surface it. Matching only one of the two codes here made this exit the wait on the
+    // other one, handing the caller straight to a write that then 428'd.
+    if (!isProvisioning(res.status, json)) return;
     await sleep(delayMs);
   }
 }
 
-// plain string -> Wix rich-text description node tree (plainDescription is HTML/nodes, not text)
+// description string -> Wix rich-text node tree.
+//
+// Descriptions arrive as HTML as often as not: asked to describe a product, a model writes
+// <p>…</p><strong>Care:</strong><br/>. The writable field is `description` (Ricos nodes) — the HTML
+// `plainDescription` the storefront renders is read-only, derived from them. So markup dropped into
+// a single TEXT node is stored as literal text, comes back escaped, and the PDP shows the tags to
+// the buyer. Convert the tags a model actually emits; a string with no tags stays one paragraph.
+const HTML_ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+
+function decodeEntities(s) {
+  return s.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (m) => HTML_ENTITIES[m] ?? m);
+}
+
+// One paragraph's inner HTML -> TEXT nodes, carrying bold/italic as Ricos decorations.
+function mkTextNodes(html) {
+  const nodes = [];
+  let bold = 0, italic = 0, last = 0, m;
+  const tag = /<(\/?)(strong|b|em|i)\s*\/?>/gi;
+  const push = (raw) => {
+    const text = decodeEntities(raw.replace(/<[^>]*>/g, ""));
+    if (!text) return;
+    const decorations = [];
+    if (bold > 0) decorations.push({ type: "BOLD" });
+    if (italic > 0) decorations.push({ type: "ITALIC" });
+    nodes.push({ type: "TEXT", textData: { text, decorations } });
+  };
+  while ((m = tag.exec(html)) !== null) {
+    push(html.slice(last, m.index));
+    const step = m[1] ? -1 : 1;
+    if (/^(strong|b)$/i.test(m[2])) bold = Math.max(0, bold + step);
+    else italic = Math.max(0, italic + step);
+    last = tag.lastIndex;
+  }
+  push(html.slice(last));
+  return nodes.length ? nodes : [{ type: "TEXT", textData: { text: "", decorations: [] } }];
+}
+
 function mkDesc(text, i) {
+  const blocks = String(text ?? "").split(/<\/p\s*>|<br\s*\/?>/i).map((b) => b.trim()).filter(Boolean);
   return {
-    nodes: [{
-      type: "PARAGRAPH", id: `desc-${i}`,
-      nodes: [{ type: "TEXT", textData: { text: text || "" } }],
+    nodes: (blocks.length ? blocks : [""]).map((block, n) => ({
+      type: "PARAGRAPH", id: `desc-${i}-${n}`,
+      nodes: mkTextNodes(block),
       paragraphData: { textStyle: { textAlignment: "AUTO" } },
-    }],
+    })),
     metadata: { version: 1, id: `desc-meta-${i}` },
   };
 }
@@ -121,24 +185,20 @@ async function installStoresApp(ctx) {
   await waitForCatalogV3(ctx);
 }
 
-// Clean is JUDGMENT — never auto-delete. Agent lists, decides which are obvious install samples,
-// deletes only those (SEED.md: seeding is additive; deleting real content needs the owner's OK).
 async function listProducts(ctx) {
   const r = await req(ctx, "/stores/v3/products/query", { body: { query: { paging: { limit: 50 } } } });
   return (r.products ?? []).map((p) => ({ id: p.id, name: p.name }));
-}
-async function deleteProducts(ctx, ids) {
-  if (!ids || !ids.length) return;
-  return req(ctx, "/stores/v3/bulk/products/delete", { body: { productIds: ids } });
 }
 
 /**
  * Bulk-create products.
  * @param products [{ name, description, price, compareAtPrice?, quantity,
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
+ *   description: plain text, or simple HTML (`<p>`, `<br/>`, `<strong>`, `<em>`) — converted to
+ *   Wix rich text here, so the storefront renders paragraphs and bold rather than tag text.
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
- *   visible/physicalProperties/variant-expansion handled here.
+ *   visible/physicalProperties/variant-expansion handled here. `quantity` is the stock created.
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
@@ -157,9 +217,36 @@ async function bulkCreateProducts(ctx, products) {
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
   // NB: results nest under productResults.results[].item — NOT a top-level `results`.
-  return (r.productResults?.results ?? []).map((x) => ({
+  const created = (r.productResults?.results ?? []).map((x, i) => ({
     id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
+    variantId: x.item?.variantsInfo?.variants?.[0]?.id,
+    hasOptions: (products[i]?.options?.length ?? 0) > 0,
+    quantity: products[i]?.quantity ?? 0,
   }));
+  await stockOptionlessProducts(ctx, created);
+  return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
+}
+
+// products-with-inventory/create stocks a variant via its choices; an OPTION-LESS product has a
+// single choiceless (default) variant that the create does NOT stock — it lands OUT_OF_STOCK. So
+// set stock on those default variants explicitly (bulk/inventory-items/create). Products WITH options
+// are already stocked by the create above, so they're skipped. Backfills the default variantId from a
+// query if the create response didn't return it.
+async function stockOptionlessProducts(ctx, created) {
+  const need = created.filter((p) => !p.hasOptions && p.id);
+  if (!need.length) return;
+  const missing = need.filter((p) => !p.variantId).map((p) => p.id);
+  if (missing.length) {
+    const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: missing } }, paging: { limit: missing.length } } } });
+    const vById = new Map((q.products ?? []).map((p) => [p.id, p.variantsInfo?.variants?.[0]?.id]));
+    need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
+  }
+  const inventoryItems = need
+    .filter((p) => p.variantId)
+    .map((p) => ({ productId: p.id, variantId: p.variantId, quantity: p.quantity }));
+  if (inventoryItems.length) {
+    await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
+  }
 }
 
 // Categories: no bulk create, and MUST be sequential — they share the @wix/stores tree revision,
@@ -189,10 +276,10 @@ async function addProductsToCategories(ctx, mapping) {
 
 // Bulk image attach in ONE call. items: [{ id, url, altText }] — NO revision.
 // An attach bumps the product's revision, so a caller-supplied revision goes stale between passes
-// (INVALID_REVISION). We read each product's CURRENT revision here, right before the update, so the
-// caller never manages a revision token — attach as many times as you like, in any pass. Wix
-// re-hosts the image (new wixstatic id on read-back); media-only update preserves options/variants.
-// Read success from results[].itemMetadata.success + bulkActionMetadata.totalSuccesses.
+// (INVALID_REVISION); we read each product's CURRENT revision here, right before the update, so the
+// caller never manages a revision token — attach any number of times, in any pass. Wix re-hosts the
+// image from the url server-side; the re-hosted media can take a little while to appear on read-back
+// (propagation) — that's normal, not a failure, so we don't block on it.
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
   const ids = items.map((it) => it.id);
@@ -216,8 +303,6 @@ async function attachProductImages(ctx, items) {
  *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
- * Cleanup is intentionally NOT here — deleting existing content is a judgment call; do it explicitly
- * with listProducts/deleteProducts first if (and only if) the site holds obvious install samples.
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
@@ -248,6 +333,6 @@ async function setupStore(ctx, { products = [], categories = {} } = {}) {
 
 module.exports = {
   setupStore,
-  installStoresApp, listProducts, deleteProducts,
+  installStoresApp, listProducts,
   bulkCreateProducts, createCategories, addProductsToCategories, attachProductImages,
 };

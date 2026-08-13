@@ -32,16 +32,20 @@ const summary = await seed.setupPortfolio(ctx, {
     { title: "Northwind Rebrand", description: "Full identity refresh for a logistics firm.",
       collection: "Brand Identity",                    // resolved to that collection's id
       details: [{ label: "Year", text: "2025" }],
-      // optional — generate + import per IMAGE_GENERATION.md, then pass ids/dims:
-      cover: { imageId: ids[0], height: 2880, width: 1920 },
-      items: [{ sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }] },
+      // cover/items are optional and attached IN this one call. Pass plain urls — the module imports
+      // them to Wix Media for you (portfolio binds by file id). Use the FINAL https://media.base44.com/...
+      // url from the COMPLETED generate_image (it runs in the background while you build — wait for it),
+      // never a still-generating /__generating__/<id>.png placeholder.
+      coverImageUrl: "https://media.base44.com/…",
+      items: [{ sortOrder: 1, title: "Hero", imageUrl: "https://media.base44.com/…" }] },
   ],
 });
 // summary => { collections:[{id,slug,revision}], projects:[{id,slug,revision}], itemsCreated, coversAttached }
 ```
 
-### Escape hatch — individual functions
-Use these directly when you need step-by-step control. Same order applies.
+## Escape hatch — individual functions
+Reach for the functions below only when the one-call `setupPortfolio` doesn't fit (step-by-step
+control, partial re-seed). `setupPortfolio` is built from them, in this order:
 
 ```js
 const collections = await seed.createCollections(ctx, [                                 // STEP 1
@@ -52,10 +56,11 @@ const projects = await seed.createProjects(ctx, [                               
     collectionIds: [collections[0].id], details: [{ label: "Year", text: "2025" }] },
 ]);
 
-// optional — generate + import images, then attach
-await seed.attachProjectCovers(ctx, projects.map((p, i) => ({ id: p.id, revision: p.revision, imageId: ids[i], height: 2880, width: 1920 })));
-await seed.attachCollectionCovers(ctx, collections.map((c, i) => ({ id: c.id, revision: c.revision, imageId: cids[i], height: 2880, width: 1920 })));
-await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title: "Hero", imageId: ids[0], height: 896, width: 1200 }]);
+// optional — import each url to Wix Media first (portfolio binds by file id), then attach
+const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+await seed.attachProjectCovers(ctx, projects.map((p, i) => ({ id: p.id, revision: p.revision, imageId: files[i].id, height: 1024, width: 1024 })));
+await seed.attachCollectionCovers(ctx, collections.map((c, i) => ({ id: c.id, revision: c.revision, imageId: files[i].id, height: 1024, width: 1024 })));
+await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title: "Hero", imageId: files[0].id, height: 1024, width: 1024 }]);
 ```
 
 ## Functions
@@ -64,17 +69,26 @@ await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, t
 | `setupPortfolio(ctx, plan)` | **DEFAULT** — one call: collections → projects → items → covers; returns `{collections,projects,itemsCreated,coversAttached}` |
 | `createCollections(ctx, collections)` | STEP 1 — `[{title,description?,hidden?}]` → `[{id,slug,revision}]` |
 | `createProjects(ctx, projects)` | STEP 2 — `[{title,description?,collectionIds,details?,hidden?}]` → `[{id,slug,revision}]` |
-| `attachProjectCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each project's cover (optional) |
+| `importImage(ctx, url)` | import an external url into Wix Media → `{id,url}` (file id + wixstatic url); covers + items bind by this file id |
+| `attachProjectCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each project's cover (optional); `imageId` = a Wix Media file id from `importImage` |
 | `attachCollectionCovers(ctx, [{id,revision,imageId,height,width}])` | PATCH each collection's cover (optional) |
 | `createProjectItems(ctx, [{projectId,sortOrder,title,imageId,height,width}])` | one POST per gallery image (optional) |
 
 `hidden` defaults to `false` (shown) — omit it for visible entities; send `hidden: true` only to
-hide. On `428` / `APP_NOT_INSTALLED`, the Setup step was skipped — fail loudly, don't self-install.
+hide. `setupPortfolio` **installs the Wix Portfolio app first** (`installPortfolioApp`, idempotent), so seeding works even if the site doesn't have it yet.
 
-## Fallback
+## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-portfolio.md`.
 
 **Transcribed from the recipe — NOT yet live-verified.** The endpoints/fields mirror
 `setup-portfolio.md`; confirm against a real run or the Wix docs before trusting edge shapes.
+
+Read a method's page before writing its call: it carries the exact body shape, the required
+permission scope, and the response envelope.
+- Install a Wix app onto the site: https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md
+- Import an image into Wix Media: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+- Create Collection: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/create-collection.md
+- Create Project: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/create-project.md
+- Create Project Item: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/create-project-item.md

@@ -1,277 +1,258 @@
+# Wix Restaurants — ready-made client
 
-# Wix Restaurants Skill
+The restaurant client is **shipped as real files**, not snippets to regenerate. It's a complete
+menu + item ordering + server-cart + checkout, plus a table-reservation flow, styled with your app's
+design tokens (base44's `src/index.css` — the shadcn palette the design phase already set). Copy it
+into the app and wire the routes — you generate almost none of the restaurant code (the menu tree
+join, the order cart, the reservation hold→reserve flow all ship and are correct).
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/restaurants/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
->
-> | Need | Copy |
-> |---|---|
-> | Menu display (always) | `wix-restaurants-menu.js` |
-> | Online ordering (cart + checkout) | `wix-restaurants-ordering.js` |
-> | Table reservations | `wix-restaurants-reservations.js` |
-
-Builds a real, client-only Wix restaurant experience. The browser talks to Wix directly over a
-public `WIX_CLIENT_ID`. Never mock the menu; never hand-build `/checkout` or reservation URLs —
-always go through the official cart + redirect-session and the reservations hold/reserve flow.
-
-## When to use
-- User wants a Wix restaurant site, an online food-ordering page, or a table-reservation page.
-- User asks to "connect Wix Restaurants" or replace placeholder menu/ordering/booking UI with live data.
-- Adding a menu, cart + checkout, or reservations over an existing Wix Restaurants setup.
+Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock the
+menu; never hand-build `/checkout` or reservation URLs — the shipped cart goes through the eCom
+redirect-session and reservations go through the hold/reserve flow.
 
 ## Prerequisites
-1. A Wix site with the **Wix Restaurants Menus** app installed and **menu content already added**
-   (this skill is read-only over the menu — it does NOT create menus/items).
-2. For **online ordering**: at least one online-ordering **Operation** configured (Wix Restaurants
-   Orders). For **reservations**: the **Table Reservations** app installed with at least one location
-   and online reservations enabled. If a flow's backing app/config isn't set up, that flow returns
-   empty — flag it and continue; don't fabricate data.
-3. The site's public headless **`WIX_CLIENT_ID`**, provided in the handoff prompt (see the router `SKILL.md`).
-   Paste it into `src/rest/wix-client.js` in place of the placeholder. It is a buyer-facing
-   credential (it only mints anonymous visitor tokens), **not** a secret — hardcoding/committing
-   it is fine.
-4. The deployed app domain must be allow-listed on the OAuth client for Wix-hosted checkout to
-   return. This is a **separate Wix setup flow the user completes later** — out of this skill's
-   scope. If checkout return fails before that setup is done, that's expected; flag it and continue.
+- The site's **Wix Restaurants Menus** app is the read target for the menu; **Restaurant Orders**
+  backs online ordering; **Table Reservations** backs the booking page. They're installed and seeded
+  separately (see **Seeding** below), in parallel with this build — so the menu may be empty and
+  ordering / reservations may be unconfigured at build time. The client renders the shipped empty /
+  "unavailable" states until content and operations land.
+- The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
+- For Wix-hosted checkout to return, the deployed app domain must be allow-listed on the OAuth
+  client — a **separate Wix setup the user completes later**, out of scope here. If checkout return
+  fails before that, it's expected; flag it and continue.
 
-## The API (copy as-is; do not re-derive it)
-This skill ships only the REST layer — no UI components. Build the restaurant UI however the
-project wants; wire it to these two snippets. Copy them into the app (e.g. `src/api/`) and only
-adjust import paths:
-- `src/rest/wix-client.js` — visitor-token mint/refresh + transport. Set `WIX_CLIENT_ID` to the id
-  from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token IS the
-  cart identity; it is persisted to localStorage. Do not re-mint anonymously per load or the cart
-  silently empties.
-- `src/rest/wix-restaurants-menu.js` — **Menu (read-only):**
-  `getFullMenu` (the assembled tree — start here), `listMenus`, `listSections`, `listItems`,
-  `listVariants`, `listModifierGroups`, `listModifiers`, `listLabels`
-- `src/rest/wix-restaurants-ordering.js` — **Online ordering:**
-  `listOperations`, `getDefaultOperation`, `addItemToCart`, `getCurrentCart`,
-  `updateCartItemQuantity`, `removeFromCart`, `checkout`
-- `src/rest/wix-restaurants-reservations.js` — **Reservations:**
-  `listReservationLocations`, `getTimeSlots`, `createHeldReservation`, `reserveReservation`
+## STEP 1 — The client is already in `src/`
+The install step (base44.md STEP 1) deployed the whole restaurant UI client + REST scaffolds into
+`src/` (imports use the `@/` alias → `src/`). Here's every file and what it is — **this is your map,
+so you don't need to open them:**
 
-The Menu, Item, ModifierGroup, Operation, Cart, ReservationLocation, TimeSlot, and Reservation
-shapes are documented as JSDoc at the top of each helper file. Read the relevant file(s) before
-building the UI — they describe the key fields and link to the full reference for anything not shown.
+| file | what it is |
+|---|---|
+| `context/OrderCartContext.jsx` | `useOrderCart()` provider: resolves the ordering Operation, server cart, add/update/remove, checkout, `ordering` flag |
+| `hooks/useItemOrder.js` | item-dialog add-to-order logic (stock + ordering-available gating, quantity) |
+| `hooks/useReservation.js` | reservation flow (locations → date/party → AVAILABLE slots → hold → reserve) |
+| `components/MenuItemCard.jsx`, `MenuList.jsx` | menu render UI (dish card + the menus→sections→items tree, with empty state) |
+| `components/ItemDialog.jsx` | dish detail modal — description, price/variants, modifier groups (display), quantity, add-to-order |
+| `components/OrderCartButton.jsx` | header order **icon** button with a live-count badge |
+| `components/OrderCartDrawer.jsx` | slide-over order cart (mount once; opens from `useOrderCart`) |
+| `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
+| `pages/Menu.jsx`, `pages/Reservations.jsx` | the two shipped routes (`/menu`, `/reservations`) |
+| `rest/wix-config.js` | the two ids, written by the install step |
+| `rest/wix-client.js` | REST transport + visitor-token mint/refresh (the refresh token IS the cart identity) |
+| `rest/wix-restaurants-menu.js` | menu read helpers — `getFullMenu` (the assembled tree; start here) + raw `list*` |
+| `rest/wix-restaurants-ordering.js` | ordering — operations, add/update/remove, `checkout` |
+| `rest/wix-restaurants-reservations.js` | reservations — locations, time slots, hold, reserve |
 
-## How to wire it (UI is the project's choice)
-- **Menu page** — call `getFullMenu()` once. It is the **only** pre-joined shape and the entry point
-  for the menu screen. It returns `{ menus: [{ ...menu, sections: [{ ...section, items: [assembledItem]
-  }] }] }`, already ordered by `sectionIds` / `itemIds`, each item enriched with a resolved `price` /
-  `variants`, `modifierGroups`, and `labels`. Render each item's `name`, `description`, `image`,
-  `labels` (`name` + `icon`), and `featured` flag. **`item.image`, `section.image`, and `label.icon`
-  are OBJECTS** (`{ url, width, height, altText }`, and `{ url }` for the icon) — render
-  `item.image?.url`, `section.image?.url`, `label.icon?.url`, never the object itself. For price, show
-  `item.price` (single) or the `item.variants[]` (each `{ name, price }`). **Restaurants MENU prices
-  are plain decimal strings with NO currency symbol** — format with the site's currency in the UI (the
-  eCom cart's `price.formattedAmount` DOES include it — see the cart snippet). This is the main render
-  surface: use the `MenuPage.jsx` reference snippet below.
-- **Build on `getFullMenu`, not the raw `list*` fns** — `getFullMenu` is the only helper that returns
-  a joined tree with references resolved. The raw `listSections` / `listItems` / `listVariants` /
-  `listModifiers` return **unresolved refs** (an item's `labels` and `modifierGroups` come back
-  **id-only**, price variants unresolved) and have **inconsistent return shapes**: `listMenus` → a
-  `{ menus, nextCursor }` wrapper, while `listSections` / `listItems` / `listVariants` /
-  `listModifierGroups` / `listModifiers` → **bare arrays**. Don't re-join them by hand. If you truly
-  need a partial fetch, note the signature — those fns take an **array of GUIDs** (`listSections(sectionIds)`,
-  `listItems(itemIds)`), and the join walks `menu.sectionIds` → `listSections` → each `section.itemIds`
-  → `listItems`.
-- **Item detail** — render `item.modifierGroups[]`: each group's `name`, its `rule`
-  (`required`, `minSelections`, `maxSelections`), and `modifiers[]` (`name`, `additionalCharge`,
-  `preSelected`, `inStock`). If `orderSettings.acceptSpecialRequests`, offer a free-text field.
-- **Online ordering** — resolve an operation with `getDefaultOperation()` (or let the user pick from
-  `listOperations()`); if it's `null`, show an "ordering unavailable" state. Add a dish with
-  `addItemToCart(item.id, { operationId, menuId, sectionId, quantity })` — `menuId`/`sectionId` are
-  the menu and section the item was shown under. Read the cart back with `getCurrentCart()`; mutate
-  with `updateCartItemQuantity(lineItemId, qty)` / `removeFromCart(lineItemId)` using
-  `cart.lineItems[].id` (not the item id).
-- **Checkout** — `window.location.href = await checkout()`. After the visitor returns, the order is
-  placed and the cart is empty — re-fetch with `getCurrentCart()` on return (e.g. on mount +
-  `visibilitychange`) to clear the UI.
-- **Reservations** — `listReservationLocations()` for the picker (use `location` details for the
-  label). **Skip archived locations** (`loc.archived === true`) — that flag IS in the location shape.
-  There is **no `onlineReservationsEnabled` field** in the location shape: the util documents
-  `configuration.onlineReservations.approval.mode` (`AUTOMATIC` / `MANUAL` / `MANUAL_FOR_LARGE_PARTIES`)
-  and `configuration.partySize`, not an enable toggle. Do **not** filter on an invented
-  `onlineReservationsEnabled` — if you need to hide locations that don't take online reservations,
-  confirm the real enable/visibility field with the **wix-docs** skill / Restaurants reference first.
-  Then `getTimeSlots(locationId, dateISO, partySize)` — render `availableTimeSlots` (already filtered
-  to `AVAILABLE`). On slot pick, `createHeldReservation(locationId, slot.startDate, partySize)` → keep
-  the returned `id` + `revision`. Collect the visitor's details, then `reserveReservation(id, revision,
-  { firstName, phone, lastName?, email? })`. Read the returned reservation's top-level `status` —
-  `RESERVED` is confirmed, `REQUESTED` means the location requires manual approval (tell the user it's
-  pending) — and echo `reservation.details.{startDate, endDate, partySize}` back as the confirmation
-  summary.
-- **Empty state** — if `getFullMenu()` returns no menus, show an empty state telling the user to add
-  a menu in their Wix dashboard. Never invent menu items.
+They're already in place — go **straight to theming + wiring**, nothing to verify first. **Don't
+`read_file` the shipped page/component/hook source to inspect it** — the table above says what each is
+and every field shape you need is in the snippets below. Read a shipped file's source **only** on a
+real fallback — a runtime error, or a field the snippets don't cover (see "Fallback only" at the
+end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
+`references/restaurants/app/` → `src/`.)
 
-## Hard rules (do not violate)
-- ✅ Order ONLY through the cart: `addItemToCart()` → `checkout()` (`create-checkout` →
-  `/headless/v1/redirect-session` `fullUrl`), then redirect.
-- ❌ Never hand-build `/checkout`, ordering, or reservation URLs.
-- ❌ Never mock menus, items, prices, operations, locations, or time slots — render live Wix data or
-  the empty state.
-- ❌ Never generate fake reviews, ratings, or testimonials. Empty review UI only.
-- ✅ Set `WIX_CLIENT_ID` from the prompt's value (public client id — safe to hardcode).
-- ✅ `addItemToCart` requires `operationId`, `menuId`, and `sectionId` — it throws if any is missing.
-- ✅ `lineItemId` for cart mutations is `cart.lineItems[].id`, not the item id.
-- ✅ Reservations: offer only `AVAILABLE` slots; a HELD reservation expires in 10 minutes — pass the
-  `revision` from the hold into `reserveReservation`, and restart the flow if it expired.
-- ✅ Reservee `firstName` + `phone` (E.164, e.g. `+15551234567`) are mandatory to confirm.
-- The engine fails loudly on purpose: `addItemToCart`/`checkout` throw on out-of-stock or empty
-  carts; reservation helpers throw on unavailable slots or expired holds. A green path means it is
-  really orderable/bookable — don't swallow these.
 
-## Beyond the snippets
-The snippets cover the common menu / ordering / reservation paths. For the "20%" they don't cover,
-make the call yourself with `wixApiRequest` — but look up the exact endpoint, HTTP method, and
-request body in the **official Wix API reference** first; never guess:
+## STEP 2 — Theme (nothing to style on the shipped components)
+The shipped components (menu, item dialog, order cart, reservations) carry **no palette of their
+own** — they render from base44's design tokens in `src/index.css` (`:root`/`.dark`: `--background`,
+`--foreground`, `--card`, `--primary`, `--muted`, `--border`, `--radius`, `--font-*`) via shadcn
+Tailwind classes (`bg-card`, `text-foreground`, `bg-primary`, `text-muted-foreground`,
+`border-border`, `rounded-lg`, `font-display`). Those tokens are **already set to the brand by the
+design phase**, so the shipped pages are themed with zero work here. To adjust the palette, edit
+`index.css` (`:root` **and** `.dark`) — the base44 way; **never add a parallel theme file (e.g. a
+`theme.css`) or restyle the shipped JSX.** Build the Home/Header you add (STEP 3) from the **same**
+base44 tokens/classes so it matches automatically. A dark brand is just base44's dark palette in
+`index.css` — no per-component work.
+
+## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
+`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
+replace it.
+- Wrap the routed tree in `<OrderCartProvider>` (from `@/context/OrderCartContext`).
+- Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
+  route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
+  — including the shipped `Menu` / `Reservations` — so you **never edit the shipped pages to add a
+  header/footer** (they render inside `<Outlet/>` as-is). Mount `<OrderCartDrawer/>` once in the Layout.
+- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
+  your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
+  markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
+  the content by the region's measured height so it clears the chrome and self-corrects when the
+  banner is dismissed.
+- Routes under the Layout: `/menu` → `Menu`, `/reservations` → `Reservations` (both shipped, as-is).
+  **You add `/` → your own Home** page.
+
+```jsx
+import { useRef, useState, useEffect } from "react";
+import { Routes, Route, Outlet } from "react-router-dom";
+import { OrderCartProvider } from "@/context/OrderCartContext";
+import OrderCartDrawer from "@/components/OrderCartDrawer";
+import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
+import Menu from "@/pages/Menu";                       // shipped · default export, no props
+import Reservations from "@/pages/Reservations";       // shipped · default export, no props
+import Home from "@/pages/Home";       // YOU build
+import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
+import Footer from "@/components/Footer";   // YOU build
+
+function Layout() {
+  const topRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {                                  // measure the fixed region → pad content below it
+    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
+    if (topRef.current) ro.observe(topRef.current);
+    return () => ro.disconnect();
+  }, []);
+  return (<>
+    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
+      <WixManageBanner />                    {/* null on the published site / when dismissed */}
+      <Header />                             {/* your brand header, in-flow inside this fixed block */}
+    </div>
+    <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
+      <Outlet />                             {/* shipped Menu/Reservations render here, untouched */}
+      <Footer />
+    </div>
+    <OrderCartDrawer />                       {/* overlays every page */}
+  </>);
+}
+
+<OrderCartProvider>
+  <Routes>
+    <Route element={<Layout />}>                                {/* chrome wraps all */}
+      <Route path="/" element={<Home />} />                     {/* yours */}
+      <Route path="/menu" element={<Menu />} />                 {/* shipped, as-is */}
+      <Route path="/reservations" element={<Reservations />} /> {/* shipped, as-is */}
+    </Route>
+  </Routes>
+</OrderCartProvider>
+```
+
+## What you build (not shipped)
+The **home / landing page**, the **`Header`** (mount `<OrderCartButton/>` in it) and a **`Footer`** —
+the two you drop into the `Layout` (STEP 3) so they wrap every route — plus the overall brand story,
+styled with the same base44 tokens/classes. The nav is an `<OrderCartButton/>` (a clean order-**icon**
+button with a live-count badge — render it as-is, don't wrap it in your own text button) + links to
+`/menu` and `/reservations`:
+
+```jsx
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import OrderCartButton from "@/components/OrderCartButton";
+
+// Responsive header: choose ONE branch with a state flag, so <OrderCartButton/> mounts once.
+// Do NOT render a desktop nav AND a mobile nav toggled by `hidden md:flex` / `md:hidden`:
+// these navs are inline-styled, and an inline `display` beats a Tailwind class, so `hidden`
+// never applies — BOTH branches render and you get two order buttons. One branch = one button.
+export function Header() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);            // keep it reactive to viewport changes
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return (
+    <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* brand/logo */}
+      {mobile
+        ? <YourMenu />                                       // your hamburger + <OrderCartButton/> here
+        : <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+            <Link to="/menu">Menu</Link><Link to="/reservations">Reserve</Link><OrderCartButton />
+          </div>}
+    </nav>
+  );
+}
+```
+
+Everything visual reads base44's design tokens (`index.css`), so your home/nav match the shipped pages automatically.
+`<OrderCartButton/>` is an icon button (live-count badge) — drop it in as-is, it inherits `currentColor`.
+
+**Editing a component and the change doesn't show? It's the preview, not your code.** The dev preview
+can serve a stale module after a write. Before diagnosing a visual bug you just "fixed", do a fresh
+full navigate/reload of the preview and re-check — don't keep rewriting correct code against a stale
+render.
+
+## Using the client from your own UI (menu, order cart)
+
+```jsx
+import { getFullMenu } from "@/rest/wix-restaurants-menu";
+import { useOrderCart } from "@/context/OrderCartContext";
+
+// getFullMenu() is the ONLY pre-joined shape and the entry point for any menu surface. It returns
+// { menus: [{ ...menu, sections: [{ ...section, items: [assembledItem] }] }] }, already ordered.
+// Each item is enriched with a resolved price / variants, modifierGroups, and labels.
+const { menus } = await getFullMenu();            // [] when no menus → show the shipped empty state
+
+// useOrderCart() gives:
+// { cart, operation, ordering, itemCount, isOpen, setIsOpen, loading,
+//   addItem(item, { menuId, sectionId }, qty=1),   // needs the menu/section the item was shown under
+//   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
+// `ordering` is false when no ordering Operation is configured — show an "ordering unavailable" state.
+
+// Load-bearing field paths (the shipped components already do these):
+// - item.image / section.image / label.icon are OBJECTS → render `.url`, never the object; //-urls → https:
+// - MENU prices are plain decimal strings with NO currency symbol ("12.50") — format in the UI.
+//   The eCom cart line price (line.price.formattedAmount) DOES include the symbol.
+// - an item is priced by EITHER item.price (single) OR item.variants[] (one-of, each { name, price }).
+// - a cart mutation uses cart.lineItems[].id (the lineItemId), NOT the menu item id.
+```
+
+Buying happens in the shipped `ItemDialog` (opened from `MenuList`) — it owns quantity + add-to-order
+and surfaces out-of-stock / ordering-unavailable errors. Compose a featured strip on your Home from
+`getFullMenu()` + the shipped `MenuItemCard` if you want.
+
+## Extending the client
+Building something beyond the shipped pages, or need a path these snippets don't cover?
+
+```jsx
+// The raw list* helpers return UNRESOLVED refs and INCONSISTENT shapes (listMenus → { menus,
+// nextCursor }; listSections/listItems/listVariants/listModifierGroups/listModifiers → bare arrays).
+// Don't re-join them by hand — build on getFullMenu(). If you truly need a partial fetch, note they
+// take an array of GUIDs: listSections(sectionIds), listItems(itemIds).
+
+// Reservation status after reserve: RESERVED = confirmed, REQUESTED = manual approval pending
+// (tell the user). firstName + phone (E.164, e.g. "+15551234567") are mandatory; a HELD reservation
+// expires in 10 minutes — the hook passes the hold's { id, revision } into reserve for you.
+```
+
+Modifier up-charges / price-variant selection / special requests on the **cart line** are **not**
+wired into `addItemToCart` — the restaurants `catalogReference.options` shape for these isn't
+documented for client add-to-cart, so `ItemDialog` displays modifier groups for the diner but sends
+only quantity. To wire them, confirm the shape via the **`wix-docs`** skill / the reference first,
+never guess:
 - Restaurants API reference: https://dev.wix.com/docs/api-reference/business-solutions/restaurants.md
-- Selecting a specific **price variant** or applying **modifier up-charges** on the cart line: the
-  restaurants `catalogReference.options` shape for these is not documented for client add-to-cart.
-  The menu UI still displays them; confirm the shape before wiring them into `addItemToCart`:
-  https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
-- Fulfillment methods, delivery-address validation, scheduled (preorder) time slots, service fees:
-  see the Online Orders section of the reference.
+- Sample flows (cart options): https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
 - **Member login + a "my orders" account view** → the **members** vertical
   (`references/members/INSTRUCTIONS.md`): ordering/reserving works anonymously, but signing a member
-  in (custom login on your own UI) lets them see their own order/reservation history.
+  in lets them see their own order/reservation history.
 
-Keep the snippets as the default for everything they already do; reach for the API reference only
-for the gap.
+Fallback only — when you hit an error or need something not shown here: read the relevant shipped
+file under `src/`, or look it up via the **`wix-docs`** skill.
 
-## Reference snippets (headless — adapt the logic, restyle freely)
-
-These are the recurring restaurant pieces, written **headless**: the Wix field paths are correct and
-complete; the markup is deliberately plain. **Copy the logic exactly; restyle the JSX to the brand.**
-They consume the `src/rest/` helpers — you don't need to read those helpers' source.
-
-**`pages/MenuPage.jsx`** — the menu render surface. Drives everything off the assembled `getFullMenu()`
-tree. Note the paths that trip people up: `item.image` / `section.image` / `label.icon` are **objects**
-(render `.url`, never the object), menu prices carry **no currency symbol**, and an item is priced by
-**either** `item.price` (single) **or** `item.variants[]` (one-of, each `{ name, price }`).
-
-```jsx
-import { useState, useEffect } from "react";
-import { getFullMenu } from "@/rest/wix-restaurants-menu";
-
-// Wix media urls can come back protocol-relative (//...) — normalize to https.
-// item.image / section.image / label.icon are OBJECTS ({ url, ... }) — read .url, never render the object.
-function imageUrl(img) {
-  const url = img?.url;
-  return url ? (url.startsWith("//") ? `https:${url}` : url) : null;
-}
-
-// Restaurants MENU prices are plain decimal strings with NO currency symbol ("12.50").
-function formatPrice(price) {
-  return price == null ? "" : `$${price}`; // swap "$" for the site's currency
-}
-
-export default function MenuPage() {
-  const [menus, setMenus] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getFullMenu().then(({ menus }) => { setMenus(menus); setLoading(false); });
-  }, []);
-
-  if (loading) return <div>Loading…</div>;
-  if (menus.length === 0) return <p>{/* empty state — add a menu in the Wix dashboard */}</p>;
-
-  return (
-    <div /* restyle */>
-      {menus.map((menu) => (
-        <section key={menu.id}>
-          <h2>{menu.name}</h2>
-          {menu.description && <p>{menu.description}</p>}
-          {menu.sections.map((section) => (
-            <div key={section.id}>
-              <h3>{section.name}</h3>
-              {imageUrl(section.image) && <img src={imageUrl(section.image)} alt={section.name} />}
-              {section.items.map((item) => (
-                <article key={item.id}>
-                  {imageUrl(item.image) && <img src={imageUrl(item.image)} alt={item.name} loading="lazy" />}
-                  <h4>{item.name}{item.featured && <span> ★</span>}</h4>
-                  {item.description && <p>{item.description}</p>}
-                  {/* labels: [{ id, name, icon }] — icon is an OBJECT ({ url }); render label.icon.url */}
-                  {item.labels.map((label) => (
-                    <span key={label.id}>
-                      {imageUrl(label.icon) && <img src={imageUrl(label.icon)} alt="" />}
-                      {label.name}
-                    </span>
-                  ))}
-                  {/* price: single string, OR one-of variants [{ name, price }] — neither has a currency symbol */}
-                  {item.price != null
-                    ? <span>{formatPrice(item.price)}</span>
-                    : item.variants.map((v) => (
-                        <span key={v.variantId}>{v.name}: {formatPrice(v.price)}</span>
-                      ))}
-                  {item.orderSettings?.inStock === false && <span>Sold out</span>}
-                </article>
-              ))}
-            </div>
-          ))}
-        </section>
-      ))}
-    </div>
-  );
-}
-```
-
-**`Cart.jsx`** — reads the Wix **server** cart via `getCurrentCart()` (never a local copy). The line
-paths: `line.id` is the **lineItemId** used for mutations (NOT the menu item id), the display name is
-`line.productName.original`, and the line price is `line.price.formattedAmount` (the eCom cart price
-DOES include the currency symbol, unlike the menu). Re-fetch on return from checkout to clear the UI.
-
-```jsx
-import { useState, useEffect } from "react";
-import { getCurrentCart, updateCartItemQuantity, removeFromCart, checkout } from "@/rest/wix-restaurants-ordering";
-
-export default function Cart() {
-  const [cart, setCart] = useState(null);
-  const refresh = () => getCurrentCart().then(setCart);
-  useEffect(() => { // re-fetch on mount + when the tab regains focus (cart is empty after a completed checkout)
-    refresh();
-    const onVisible = () => document.visibilityState === "visible" && refresh();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
-
-  const lineItems = cart?.lineItems ?? [];
-  if (lineItems.length === 0) return <p>Your cart is empty.</p>;
-  return (
-    <div /* restyle */>
-      {lineItems.map((line) => (
-        <div key={line.id}>{/* line.id is the lineItemId for mutations — NOT the menu item id */}
-          <span>{line.productName?.original}</span>
-          <button onClick={async () => setCart(await updateCartItemQuantity(line.id, Math.max(1, line.quantity - 1)))}>−</button>
-          <span>{line.quantity}</span>
-          <button onClick={async () => setCart(await updateCartItemQuantity(line.id, line.quantity + 1))}>+</button>
-          <button onClick={async () => setCart(await removeFromCart(line.id))}>Remove</button>
-          <span>{line.price?.formattedAmount}</span>{/* eCom cart price DOES include the currency symbol (unlike menu prices) */}
-        </div>
-      ))}
-      <button onClick={async () => { window.location.href = await checkout(); }}>Checkout</button>
-    </div>
-  );
-}
-```
+## Hard rules
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Menu`/`Reservations` to add chrome.
+- The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
+- Order through the shipped cart: `addItem()` → `checkout()` (redirect-session) — never a hand-built `/checkout`, ordering, or reservation URL.
+- Reservations: offer only `AVAILABLE` slots; pass the hold's `revision` into reserve; `firstName` + `phone` (E.164) are mandatory.
+- Render live Wix data or the shipped empty / "unavailable" state — never mock menus, items, prices, operations, locations, slots, or reviews.
 
 ## Point the user to their dashboard
-In some cases, users need to access the Wix dashboard in order to edit the restaurant content for their site — across up to three apps. To facilitate this, provide the user with deep links directly to the relevant dashboard pages; only mention the apps the project actually uses. Those pages are:
+Provide deep links so the owner can edit content across the apps they actually use (substitute the
+site's `metaSiteId` from the handoff / `ListWixSites`):
 - **Menu** (always) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-menus-new` (`Dashboard → Restaurant Menus`; click **Manage Items** to add dishes; only visible menus appear in the app)
-- **Online ordering** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings` (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the site accepts orders — each has its own page: pickup `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings/pickup`, delivery `.../wix-restaurants-orders-new/settings/delivery`, dine-in `.../wix-restaurants-orders-new/settings/dine-in`.
+- **Online ordering** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings` (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the site accepts orders: pickup `.../wix-restaurants-orders-new/settings/pickup`, delivery `.../settings/delivery`, dine-in `.../settings/dine-in`.
 - **Table reservations** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-table-reservations/table-reservations` (`Dashboard → Table Reservations` → **Settings**; configure tables, availability, and enable online reservations)
 
-Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+Tell the user at least once that they can keep setting up their restaurant (menu / ordering /
+reservations) in the dashboard, and include the in-dashboard navigation as a fallback.
 
-## Verification checklist (before declaring done)
-- [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
-- [ ] Visitor token persists across reload (cart survives reload, same visitor)
-- [ ] `getFullMenu()` renders real sections/items with prices, variants, modifiers, and labels
-- [ ] Empty state shown when there are no menus (never invented items)
-- [ ] Add to cart works with a real `operationId`/`menuId`/`sectionId`; out-of-stock items throw
-- [ ] Quantity update / remove reflect in `getCurrentCart()`
-- [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL); cart re-fetched on return
-- [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`
-- [ ] No mock data anywhere
-- [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) in the dashboard and provided deep links.
+## Seeding
+Seed the menu (and ordering/reservation setup) per `seed/SEED.md` — separate from this client build;
+run in parallel.
+
+## Verify (before declaring done)
+- [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
+- [ ] Opened `/menu` and `/reservations` (not just the home page) and confirmed the shipped components render themed (surface, text, brand) with images.
+- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Menu`/`Reservations` untouched; content clears the fixed chrome; `<OrderCartProvider>` wraps the tree; `<OrderCartDrawer/>` mounted; `<OrderCartButton/>` in the header.
+- [ ] `getFullMenu()` renders real sections/items with prices, variants, modifiers, and labels; empty catalog shows the shipped empty state (no mock items).
+- [ ] Add to order works with a real operation (or shows "ordering unavailable"); order survives reload (same visitor); update-qty / remove work; checkout redirects and re-fetches on return.
+- [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`; no locations shows the shipped empty state.
+- [ ] Told the user they can continue setting up in the dashboard, with deep links.

@@ -8,6 +8,7 @@ vi.mock('../src/utils/config', () => ({
 }));
 
 const upsertComment = vi.fn().mockResolvedValue(undefined);
+const supersedeAnalysisComment = vi.fn().mockResolvedValue(undefined);
 const listTestScenarios = vi.fn().mockResolvedValue([]);
 const listTestScenariosByTag = vi.fn().mockResolvedValue([]);
 const createTestScenario = vi.fn().mockResolvedValue({ id: 'created-id' });
@@ -32,7 +33,14 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
     ...actual,
     getFirstCommitAuthorEmail: vi.fn(),
     getChangedFiles: vi.fn(),
-    makeCommenter: vi.fn(() => upsertComment),
+    // Routed on the option so the retract path keeps its own spy: sharing one would let a
+    // superseded note land in `upsertComment.mock.calls.at(-1)` and be read as the gate comment.
+    makeCommenter: vi.fn((
+      _octokit: unknown,
+      _target: unknown,
+      _io: unknown,
+      options?: { createIfMissing?: boolean },
+    ) => (options?.createIfMissing === false ? supersedeAnalysisComment : upsertComment)),
     loadScenarios: vi.fn(),
     collectSkillFiles: vi.fn(),
     pollUntilDone: vi.fn(),
@@ -65,6 +73,10 @@ const CONFIG: GateConfig = {
   headSha: 'abc1234deadbeef',
   evaluatedSha: 'merge99feedface',
   versionLabel: 'pr-42-merge99',
+  baseSha: 'base1234567890',
+  comparisonGroupId: 'pr-42-merge99',
+  runsPerScenario: 1,
+  baseArmGraceMs: 60_000,
 };
 
 const strongScenario = (name: string, tags: string[]) => ({
@@ -89,6 +101,7 @@ const runMetrics = (
     errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
     ...overrides,
   },
+  results: [],
 });
 
 beforeEach(async () => {

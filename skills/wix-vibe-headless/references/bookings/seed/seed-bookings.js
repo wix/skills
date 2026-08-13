@@ -13,13 +13,8 @@
 //
 //   await seed.installBookingsApp(ctx);                          // if the site doesn't have Wix Bookings yet
 //
-//   // Clean is a JUDGMENT call — never auto-delete. Only remove obvious install samples on a
-//   // fresh install; if what's there could be the owner's real services, ask first (additive).
-//   const existing = await seed.listServices(ctx);
-//   // await seed.deleteServices(ctx, existing.filter(isObviousSample).map(s => s.id));
-//
 //   // ORDER MATTERS: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE services (STEP 3).
-//   const staff = await seed.queryStaff(ctx);                    // fresh install has a default "Business Owner"
+//   const staff = await seed.queryStaffWithRetry(ctx);           // polls: fresh install provisions the owner async
 //   const resourceId = staff[0].resourceId;                      // NB: resourceId, NOT staff id
 //   const cats = await seed.createCategories(ctx, ["Our Services"]);
 //   const services = await seed.createServices(ctx, [
@@ -32,8 +27,9 @@
 //   await seed.scheduleClassSessions(ctx, services.filter(s => s.type === "CLASS").map(s => ({
 //     scheduleId: s.scheduleId, resourceId, start: "2026-08-10T09:00:00", end: "2026-08-10T10:00:00", capacity: 20,
 //   })));
-//   // optional — generate an image, then patch each service (revision-checked).
-//   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id, url, width, height } });
+//   // optional — import the image url to Wix Media first (bookings binds by file id), then patch (revision-checked).
+//   // const file = await seed.importImage(ctx, imageUrl); // → { id, url } (Wix Media file id + wixstatic url)
+//   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
 //
 // If any call fails with a shape the caller didn't expect, or you need an operation this module
 // doesn't cover, fall back to the wix-docs skill (search + read the live Wix API reference) —
@@ -104,17 +100,10 @@ async function installBookingsApp(ctx) {
   } });
 }
 
-// Clean is JUDGMENT — never auto-delete. Agent lists, decides which are obvious install samples,
-// deletes only those. The default "Business Owner" is a RESOURCE, not a service — it won't appear here.
+// The default "Business Owner" is a RESOURCE, not a service — it won't appear here.
 async function listServices(ctx) {
   const r = await req(ctx, "/bookings/v2/services/query", { body: { query: { paging: { limit: 100 } } } });
   return (r.services ?? []).map((s) => ({ id: s.id, name: s.name }));
-}
-async function deleteServices(ctx, ids) {
-  if (!ids || !ids.length) return;
-  for (const id of ids) {
-    await req(ctx, `/bookings/v2/services/${id}`, { method: "DELETE" });
-  }
 }
 
 // STEP 1: resolve staff resources. Returns [{ resourceId, id, name }].
@@ -124,6 +113,22 @@ async function queryStaff(ctx) {
     body: { query: {}, fields: ["RESOURCE_DETAILS"] },
   });
   return (r.staffMembers ?? []).map((m) => ({ resourceId: m.resourceId, id: m.id, name: m.name }));
+}
+
+// installBookingsApp → provisioning is async (Wix signals completion via the App-Instance-Installed
+// webhook, which an exec script can't receive). The default "Business Owner" resource isn't queryable
+// in the same tick, so queryStaff returns [] (or throws "Business schedule not found") until it lands.
+// Poll so the one-call path resolves the owner instead of failing APPOINTMENT services with
+// MISSING_APPOINTMENT_RESOURCES. Already-provisioned sites return on the first try (no added latency).
+async function queryStaffWithRetry(ctx, { tries = 10, delayMs = 2000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { const s = await queryStaff(ctx); if (s.length) return s; }
+    catch (e) { lastErr = e; }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  if (lastErr) throw lastErr; // never provisioned → surface the real error rather than a silent []
+  return [];
 }
 
 // STEP 1 (optional): create named staff when the request names stylists/providers. staff: [{ name, description }].
@@ -147,10 +152,19 @@ async function queryCategories(ctx) {
 // STEP 2: create categories — every service needs a category.id or it's invisible on the live site.
 // Independent (no shared revision, unlike Stores categories); looped here one call per category.
 async function createCategories(ctx, names) {
+  // Reuse an existing same-named category instead of creating a duplicate. Bookings categories aren't
+  // unique-by-name, so a re-run (or a partial-failure retry — categories are created before services)
+  // would otherwise pile up dupes. Keeps the seed additive-but-idempotent.
+  const byName = new Map((await queryCategories(ctx)).map((c) => [c.name, c]));
   const out = [];
   for (const name of names) {
-    const r = await req(ctx, "/bookings/v2/categories", { body: { category: { name } } });
-    out.push({ id: r.category?.id, name });
+    let cat = byName.get(name);
+    if (!cat) {
+      const r = await req(ctx, "/bookings/v2/categories", { body: { category: { name } } });
+      cat = { id: r.category?.id, name };
+      byName.set(name, cat);
+    }
+    out.push(cat);
   }
   return out;
 }
@@ -217,8 +231,22 @@ async function getService(ctx, serviceId) {
 }
 
 /**
- * Attach images (optional). Writes under media.mainMedia + media.coverMedia; revision-checked.
- * @param it { serviceId, revision, image: { id, url, width, height } }  (image.id is the binding field)
+ * Import an external image URL into Wix Media → { id, url }. Bookings binds a service image by the
+ * Wix Media file **id** (`mainMedia.image.id`), NOT a url — so an external url (e.g. a base44
+ * generate_image result) MUST be imported first; the raw url as the id stores (200) but renders
+ * nothing. `id` is the wixstatic file id (`<hash>~mv2.png`), `url` the permanent wixstatic url.
+ */
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
+/**
+ * Attach an image (optional). Writes under media.mainMedia + media.coverMedia; revision-checked.
+ * @param it { serviceId, revision, image: { id, url, width, height } } — `image.id` MUST be a Wix
+ *   Media file id (from importImage), never a raw external url.
  * ⚠️ Writing under media.image (not mainMedia/coverMedia) returns 200 but SILENTLY drops the image — a 200
  * is not proof; confirm with getService and check media.mainMedia is populated. Never block on failure.
  */
@@ -244,10 +272,9 @@ async function attachServiceImage(ctx, it) {
  *   services: [{ type:"APPOINTMENT"|"CLASS", name, description, tagLine?, price?, free?, duration?,
  *                capacity?, category?(name), staffMemberIds?,
  *                sessions?: [{ start, end, capacity? }],  // CLASS only; local "YYYY-MM-DDThh:mm:ss"
- *                image? }],                                // {id,url,width,height} to attach, optional
+ *                imageUrl? }],                             // a plain image url; imported to Wix Media here, optional
  *   staffResourceId?: string,   // defaults to the fresh install's owner (queryStaff()[0].resourceId)
  * }}
- * Cleanup is intentionally NOT here — deleting existing services is a judgment call.
  * @returns { services:[...createServices], categories:[{id,name}], resourceId, sessionsScheduled, imagesAttached }
  */
 async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
@@ -255,8 +282,8 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
   let resourceId = staffResourceId;
   if (!resourceId) {
-    const staff = await queryStaff(ctx);
-    resourceId = staff[0]?.resourceId; // fresh install ships a default owner
+    const staff = await queryStaffWithRetry(ctx); // fresh install provisions the default owner async — poll
+    resourceId = staff[0]?.resourceId;
   }
 
   const catNames = [...new Set(services.map((s) => s.category).filter(Boolean))];
@@ -283,11 +310,16 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
   let imagesAttached = 0;
   for (let i = 0; i < created.length; i++) {
-    const img = services[i]?.image;
-    if (img && created[i]?.id) {
-      await attachServiceImage(ctx, { serviceId: created[i].id, revision: created[i].revision, image: img });
+    const url = services[i]?.imageUrl;         // a plain image url (e.g. base44 generate_image) — imported here
+    if (!url || !created[i]?.id) continue;
+    try {
+      const file = await importImage(ctx, url, `${created[i].slug || "service"}.png`);   // → Wix Media file id
+      await attachServiceImage(ctx, {
+        serviceId: created[i].id, revision: created[i].revision,
+        image: { id: file.id, url: file.url, width: 1024, height: 1024 },
+      });
       imagesAttached++;
-    }
+    } catch { /* never block on image failure — leave the service text-only */ }
   }
 
   return { services: created, categories: cats, resourceId, sessionsScheduled: scheduled.length, imagesAttached };
@@ -295,7 +327,7 @@ async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
 
 module.exports = {
   setupBookings,
-  installBookingsApp, listServices, deleteServices,
-  queryStaff, createStaff, queryCategories, createCategories,
-  createServices, scheduleClassSessions, getService, attachServiceImage,
+  installBookingsApp, listServices,
+  queryStaff, queryStaffWithRetry, createStaff, queryCategories, createCategories,
+  createServices, scheduleClassSessions, getService, importImage, attachServiceImage,
 };

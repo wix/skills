@@ -1,6 +1,6 @@
 ---
 name: "Goal: Sell Gift Cards"
-description: SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy orchestrator. Sizes a gift card product from the site's own AOV and catalog prices (preset denominations, custom amount range, expiration policy) and gates on the site already selling gift cards. Sub-step, NOT a direct entry point — load Recommend: eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking.
+description: "SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy orchestrator. Sizes a gift card product from the site's own AOV and catalog prices (preset denominations, custom amount range, expiration policy) and gates on the site already selling gift cards. Sub-step, NOT a direct entry point — load Recommend: eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking."
 references:
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
@@ -202,18 +202,14 @@ Run every check before handing the recommendation back to the orchestrator. A fa
 |---|---|
 | 1 | No existing gift card product (Step 1 returned empty) |
 | 2 | No `PROPOSED` / `DONE` gift-card recommendation, and no permanent rejection, in the orchestrator's history load (its Step 2) |
-| 3 | `name` non-empty and ≤ 55 chars |
-| 4 | `description` ≤ 3000 chars |
-| 5 | At least one preset variant **or** a custom variant — both empty fails with `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS`. This goal always emits both. |
-| 6 | 3–5 presets, ascending, no duplicates, every value ≥ 10 |
-| 7 | `customVariant.minValue < customVariant.maxValue` |
-| 8 | Every amount is a decimal string (`"60"`, not `60`), scale ≤ 4, in `siteData.currency`, with no currency symbol baked into the value |
-| 9 | `expirationMonths` either unset or ≥ 60, and set only because the merchant asked |
-| 10 | `name` / `description` in `siteData.language`; `title` / `reasoning` in English |
-| 11 | `reasoning` cites the actual numbers and names the call each came from |
-| 12 | The expiry stance is stated in `reasoning`, `successCriteria`, **and** the prose shown to the merchant |
-| 13 | `BatchCreate` returned an `id` (or the merchant said `SKIP_TRACKING`, or you are reporting that tracking failed) |
-| 14 | **At most one** gift-card recommendation in the orchestrator's set |
+| 3 | `name` ≤ 55 chars and non-empty; `description` ≤ 3000; both in `siteData.language` |
+| 4 | 3–5 presets, ascending, no duplicates, every value ≥ 10, and a custom variant with `minValue < maxValue` — emitting neither fails with `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS` |
+| 5 | Every amount is a decimal string (`"60"`, not `60`), scale ≤ 4, in `siteData.currency`, no symbol in the value |
+| 6 | `expirationMonths` unset, or ≥ 60 because the merchant asked |
+| 7 | `reasoning` (English) cites the real numbers and names the call each came from |
+| 8 | The expiry stance is stated in `reasoning`, `successCriteria`, **and** the prose shown to the merchant |
+| 9 | `BatchCreate` returned an `id` (or `SKIP_TRACKING`, or you are reporting that tracking failed) |
+| 10 | **At most one** gift-card recommendation in the orchestrator's set |
 
 ---
 
@@ -239,7 +235,7 @@ The recommendation object — `domain: "gift_cards"`, `action: "create_gift_card
 ```json
 {
   "title": "Sell gift cards before Mother's Day — 30/60/120/250 plus a custom amount",
-  "reasoning": "QueryGiftCardProducts returned 0 products, so this site sells no gift cards. AOV is 62 (metasite online_gpv_last_30_days 12,400 / last_30_days_orders_count 200), currency EUR. GetCatalogAnalytics 'All Products': min price 18, max price 210. Denominations anchor on AOV (0.5x/1x/2x/4x, rounded); the 15-500 custom range covers the cheapest item up to twice the top preset. merchant_business_country is IE and Mother's Day there falls in late March, 38 days out — enough lead time to be live for the gifting window. No expiry: expiry on stored-value cards is regulated and varies by market, and unexpiring cards convert better.",
+  "reasoning": "QueryGiftCardProducts returned 0 products. AOV is 62 (metasite online_gpv_last_30_days 12,400 / last_30_days_orders_count 200), currency EUR; GetCatalogAnalytics 'All Products' min 18, max 210 — presets are AOV x0.5/1/2/4 rounded, custom range covers the cheapest item to twice the top preset. Country IE, Mother's Day there is late March, 38 days out. No expiry: it's regulated and varies by market, and unexpiring cards convert better.",
   "domain": "gift_cards",
   "urgency": "HIGH",
   "expiresAt": "2026-03-15T00:00:00.000Z",
@@ -276,17 +272,17 @@ Omit `giftCardProduct.expirationMonths` entirely when there's no expiry. Do not 
 
 ### Field rules
 
+The orchestrator's own field rules apply (`title` ≤ 200 chars English, `id`/`revision` from `BatchCreate`). Gift-card specifics:
+
 | Field | Rule |
 |---|---|
-| `id` / `revision` | From the BatchCreate result. Omit only if tracking was skipped or failed. |
-| `title` | Max 200 chars, English. Lead with the outcome and the denominations. |
-| `params.shortTitle` | Max 50 chars, ~5 words — headline for dashboards and notifications. English. |
-| `reasoning` | Max 2000 chars, English. Must name the source call for every number (`QueryGiftCardProducts`, metasite profile fields, `GetCatalogAnalytics`). |
-| `domain` | Always `"gift_cards"`. |
+| `domain` / `action` | Always `"gift_cards"` / `"create_gift_card_product"`. |
 | `urgency` | `HIGH`, `MEDIUM`, or `LOW` — per Step 2c. Never `CRITICAL`. |
-| `name`, `description` | Customer-facing — in `siteData.language`. |
-| All amounts | Decimal strings in `siteData.currency`, no symbol in the value. Format with the currency only when displaying to the merchant. |
-| `successCriteria` | Concrete and checkable: product name, exact denominations, custom range, expiry. |
+| `reasoning` | Max 2000 chars, English. Must name the source call for every number. |
+| `params.shortTitle` | Max 50 chars, ~5 words. English. |
+| `name`, `description` | Customer-facing — in `siteData.language`, not English. |
+| All amounts | Decimal strings in `siteData.currency`, no symbol in the value. |
+| `successCriteria` | Product name, exact denominations, custom range, and expiry. |
 
 ---
 
@@ -317,29 +313,26 @@ Currency comes from the site's default — the request carries bare amounts, not
 | Error | Cause | Fix |
 |---|---|---|
 | `GIFT_CARD_PRODUCT_ALREADY_EXISTS` (409) | A product exists — Step 1 was skipped or raced | Drop the domain; route to Update Gift Card Product |
-| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS` (428) | No presets and no custom variant | Validation check 5 |
-| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_INVALID_CUSTOM_AMOUNTS_RANGE` (400) | `minValue >= maxValue` | Validation check 7 |
+| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS` (428) | No presets and no custom variant | Validation check 4 |
+| `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_INVALID_CUSTOM_AMOUNTS_RANGE` (400) | `minValue >= maxValue` | Validation check 4 |
 | `CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_PAST_EXPIRATION_DATE` (428) | A `FIXED` expiry date in the past | This goal never uses `FIXED` — use `RELATIVE` |
 | `403` / app not installed on QueryGiftCardProducts | Wix Gift Cards unavailable on the site | Report the blocker; do not work around it |
 | `RECOMMENDATION_SUPPRESSED` (400) | `create_gift_card_product` permanently rejected for this site | Never re-propose; tell the merchant it's suppressed |
-| `VERSION_MISMATCH` (400) | Stale `revision` on a state transition | Query for the latest revision, then retry |
-| Missing catalog **and** order data | New/empty site | Drop the domain — do not invent denominations |
+| No `aov` **and** no catalog prices | New/empty site | Say you can't size amounts yet and offer to proceed from a typical order value the merchant names — do not invent denominations |
+
+Tracking errors (`VERSION_MISMATCH`, state-transition failures) are handled in [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking).
 
 ---
 
 ## Constraints
 
-- **At most one** gift-card recommendation per session — one gift card product per site, so Step 1 is not optional.
-- Never create, update, or delete anything before the merchant approves the persisted recommendation.
-- Denominations derive from this site's AOV and catalog prices. No stock 25/50/100 ladder.
-- No expiry unless the merchant asked; then ≥ 60 months, with the compliance caveat stated.
-- Amounts are decimal strings in the site's currency. Never assume USD, never hard-code a symbol.
+- **At most one** gift-card recommendation — one product per site, so Step 1 is not optional.
+- Nothing is created, updated, or deleted before the merchant approves the persisted recommendation.
+- Denominations come from this site's AOV or catalog prices. No stock 25/50/100 ladder, no invented prices.
 - `presetVariants[].price` and `.value` are always equal — promotional gift-card pricing is out of scope.
-- Persist via `BatchCreate` before presenting (Step 5), unless `SKIP_TRACKING`.
-- The expiry stance is always stated to the merchant, never left implicit.
+- Amounts are decimal strings in the site's currency. Never assume USD, never hard-code a symbol.
 
 ## References
 
-- [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — the orchestrator that loads this file · [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
-- [Gift Card Products API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products) — [Create](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/create-gift-card-product) · [Query](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/query-gift-card-products) · [Update](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product) · [Delete](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/delete-gift-card-product)
-- [Gift Cards API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards) — individual issued cards (out of scope here)
+- [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) (the orchestrator) · [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
+- [Gift Card Products API](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products) — [Create](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/create-gift-card-product) · [Query](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/query-gift-card-products) · [Update](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/update-gift-card-product)

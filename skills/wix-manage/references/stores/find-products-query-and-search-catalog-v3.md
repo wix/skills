@@ -1,6 +1,6 @@
 ---
 name: "Find Products (Query and Search, Catalog V3)"
-description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
+description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering (including by price), sorting, and paging.
 ---
 
 # RECIPE: Business Recipe – Find Products in a Wix Store (Query and Search, Catalog V3)
@@ -18,11 +18,12 @@ Use **Search Products** for text search and name-based lookup. Use **Query Produ
 | Find products by name or free text | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Best for user-provided names, keywords, and broad product lookup. |
 | List all products or page through the catalog | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Supports paging and structured filters on the fields listed below. |
 | Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
+| Filter by price — "products under $20", "between $10 and $50" | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Query Products has no price filter, so filter server-side here (STEP 1) instead of paging the catalog and comparing amounts yourself. |
 | Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
 
-### STEP 1: Search products by name or free text
+### STEP 1: Search products by name, free text, or price
 
-Use Search Products when the user gives a product name, keyword, or other text expression:
+Use Search Products when the user gives a product name, keyword, or other text expression, and for price criteria, which Query Products cannot filter on. Free text goes in `search.search`; price and other structured criteria go in `search.filter`. Send only the part you need:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
@@ -30,10 +31,24 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
 -H 'Authorization: <AUTH>' \
 -d '{
   "search": {
-    "expression": "Blue Shirt"
+    "search": { "expression": "Blue Shirt" },
+    "filter": { "actualPriceRange.minValue.amount": { "$lt": 20 } }
   }
 }'
 ```
+
+The response puts the matches in `products`:
+
+```json
+{
+  "products": [
+    { "id": "...", "name": "Blue Shirt", "slug": "blue-shirt" }
+  ],
+  "pagingMetadata": { "count": 1 }
+}
+```
+
+Query Products returns the same envelope.
 
 For exact name matching, search with the user-provided text and then compare the returned `product.name` values in your own code.
 
@@ -80,7 +95,7 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 | `DESCRIPTION`                      | Rich text description        |
 | `DIRECT_CATEGORIES_INFO`           | Direct category info         |
 | `ALL_CATEGORIES_INFO`              | All category info            |
-| `MIN_VARIANT_PRICE_INFO`           | Minimum variant price        |
+| `MIN_PRICE_VARIANT`                | Lowest-priced visible variant |
 | `INFO_SECTION_DESCRIPTION`         | Info section rich content    |
 | `THUMBNAIL`                        | Thumbnail image              |
 | `DIRECT_CATEGORY_IDS`              | Direct category IDs          |
@@ -106,7 +121,7 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 
 ### STEP 4: Filtering and sorting with Query Products
 
-`QueryProducts` supports filters only on these fields:
+`QueryProducts` supports filters only on these fields. Price is not among them, so answer a price question with Search Products rather than paging the whole catalog and comparing amounts in your own code:
 
 | Field | Supported Filters | Sortable |
 | ----- | ----------------- | -------- |

@@ -17,15 +17,17 @@
 //       { type: "quote", text: "Great coffee is grown, not made." },
 //     ] },
 //   ], { memberId });
-//   // optional — import images, then attach covers + re-publish
-//   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: fileIds[i] })));
+//   // optional — import each image url to Wix Media (blog binds by file id), then attach covers + re-publish
+//   const files = await Promise.all(imageUrls.map((u) => seed.importImage(ctx, u)));   // → [{ id, url }]
+//   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 //
-// **NOT yet live-verified — transcribed from setup-blog.md.** If any call fails with a shape the
-// caller didn't expect, fall back to the wix-docs skill (search + read the live Wix Blog API
-// reference) — never guess. Source recipe (authoritative):
+// Live-verified end-to-end (members author, categories, posts single+bulk, tags, covers, idempotent
+// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the wix-docs
+// skill (search + read the live Wix Blog API reference) — never guess. Source recipe:
 // wix-headless/references/inline-recipes/setup-blog.md.
 
 const API = "https://www.wixapis.com";
+const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103"; // installBlogApp installs this before seeding
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -135,31 +137,60 @@ async function createPosts(ctx, posts, { memberId, publish = true } = {}) {
   }));
 }
 
-// STEP 3 (optional — only if the request groups posts): create categories, one POST each.
-// No bulk endpoint. `label` is the Category display-name field (Category object model; the recipe
-// gives the endpoint but not the body). Returns [{ id, name }] — feed ids into post.categoryIds.
-async function createCategories(ctx, names) {
-  const out = [];
-  for (const name of names) {
-    const r = await req(ctx, "/blog/v3/categories", { body: { category: { label: name } } });
-    out.push({ id: r.category?.id, name });
-  }
-  return out;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Existing label -> id, straight from the query (the source of truth for what actually persisted).
+async function labelIdMap(ctx, kind) {
+  const path = kind === "categories" ? "/blog/v3/categories/query" : "/v3/tags/query";
+  const r = await req(ctx, path, { body: { query: { paging: { limit: 100 } } } });
+  return new Map((r[kind] ?? []).map((x) => [x.label, x.id]));
 }
 
-// STEP 3 (optional): create tags, one POST each. `label` is the Tag display-name field.
-// Returns [{ id, name }] — feed ids into post.tagIds.
-async function createTags(ctx, names) {
-  const out = [];
-  for (const name of names) {
-    const r = await req(ctx, "/blog/v3/tags", { body: { tag: { label: name } } });
-    out.push({ id: r.tag?.id, name });
+// Create category/tag labels resiliently. TWO hazards this absorbs:
+//  1. Fresh-install provisioning window — for a few seconds after the Blog app is installed, per-item
+//     category/tag creates return 200 with an id but DON'T persist (last-write-wins; the id is a lie).
+//     Posts (bulk) are unaffected. So we never trust the create response — we re-query and treat what
+//     the query returns as truth, re-creating anything still missing until it sticks (store warms in ~s).
+//  2. Idempotency — an already-present label (e.g. a partial-failure re-run) is skipped, not re-created.
+// Category bodies are NESTED (`{ category: { label } }`); tag bodies are FLAT (`{ label }`) — a
+// `{ tag: { label } }` body sends an empty top-level label and 400s. Returns [{ id, name }].
+async function ensureLabels(ctx, kind, createPath, mkBody, names) {
+  let map = await labelIdMap(ctx, kind);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const missing = names.filter((n) => !map.has(n));
+    if (!missing.length) break;
+    if (attempt) await sleep(1500); // backoff only between retries — happy path pays nothing
+    for (const name of missing) {
+      try { await req(ctx, createPath, { body: mkBody(name) }); }
+      catch (e) { if (!String(e.message).includes("-> 409")) throw e; } // 409 = raced, already there
+    }
+    map = await labelIdMap(ctx, kind);
   }
-  return out;
+  return names.map((name) => ({ id: map.get(name), name }));
+}
+
+// STEP 3 (optional — only if the request groups posts): create categories. No bulk endpoint.
+async function createCategories(ctx, names) {
+  return ensureLabels(ctx, "categories", "/blog/v3/categories", (name) => ({ category: { label: name } }), names);
+}
+
+// STEP 3 (optional): create tags. Feed the returned ids into post.tagIds.
+async function createTags(ctx, names) {
+  return ensureLabels(ctx, "tags", "/blog/v3/tags", (name) => ({ label: name }), names);
+}
+
+// Import an external image URL into Wix Media → { id, url }. Blog binds the cover by the Wix Media
+// file **id**, NOT a url — an external url (e.g. a base44 generate_image result) MUST be imported
+// first; the raw url renders nothing. id = wixstatic file id, url = the permanent wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
 }
 
 // Attach images step (optional). covers: [{ postId, fileId }] where fileId is the WixMedia
-// file.id from IMAGE_GENERATION.md import (Blog binds the cover by id, not url). Per post:
+// file.id from importImage (Blog binds the cover by id, not url). Per post:
 //   PATCH /blog/v3/draft-posts/{id}  (NOT POST …/{id}/update — that 404s for a single post),
 // setting media.displayed:true + media.custom:true + wixMedia.image.id (id ALONE is a silent no-op),
 // then re-publish (the PATCH sets hasUnpublishedChanges, so the live post stays cover-less until republish).
@@ -183,15 +214,27 @@ async function attachPostCovers(ctx, covers) {
  * category/tag names → ids internally and keeps every id in memory, so nothing is hand-threaded
  * across exec calls. Order: memberId → categories/tags → posts (with resolved ids) → covers.
  * @param plan {
- *   posts: [{ title, content?|richContent?, category?|categories?(name|names), tags?(names), coverImageUrl?|cover?(WixMedia fileId) }],
+ *   posts: [{ title, content?|richContent?, category?|categories?(name|names), tags?(names), coverImageUrl? }],
  *   categories?: [name],  // pre-create categories even if no post references them
  *   tags?: [name],
  * }
- *   category/categories/tags are display NAMES (resolved to ids here); cover/coverImageUrl is the
- *   WixMedia file id — a cover is attached only for posts that provide one.
+ *   category/categories/tags are display NAMES (resolved to ids here); coverImageUrl is a plain image
+ *   url — imported to Wix Media here — and a cover is attached only for posts that provide one.
  * @returns { posts:[{id,index,success}], categories:[{id,name}], tags:[{id,name}], coversAttached }
  */
+// Install the Wix Blog app before seeding — base44 sites aren't guaranteed to have it (no separate
+// Setup step here, unlike the wix-headless recipe). Idempotent: re-installing returns 200.
+async function installBlogApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: BLOG_APP_ID, enabled: true },
+  } });
+}
+
 async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
+  await installBlogApp(ctx);
+  await sleep(3000); // let a fresh Blog install settle so the first category/tag writes stick (see ensureLabels);
+                     // correctness is still guaranteed by ensureLabels' verify-retry — this just cuts the retries.
   const memberId = await getAuthorMemberId(ctx);
   const catNames = [...new Set([...categories, ...posts.flatMap((p) => [].concat(p.category ?? [], p.categories ?? []))])];
   const tagNames = [...new Set([...tags, ...posts.flatMap((p) => [].concat(p.tags ?? []))])];
@@ -208,14 +251,20 @@ async function setupBlog(ctx, { posts = [], categories = [], tags = [] } = {}) {
       ...(tn.length ? { tagIds: tn.map((n) => tagId.get(n)).filter(Boolean) } : {}),
     };
   }), { memberId });
-  const covers = created
-    .map((post, i) => ({ postId: post.id, fileId: posts[i]?.coverImageUrl ?? posts[i]?.cover }))
-    .filter((c) => c.postId && c.fileId);
+  const covers = [];
+  for (let i = 0; i < created.length; i++) {
+    const url = posts[i]?.coverImageUrl;
+    if (!created[i]?.id || !url) continue;
+    try {
+      const file = await importImage(ctx, url, `post-${i}.png`);   // → Wix Media file id
+      covers.push({ postId: created[i].id, fileId: file.id });
+    } catch { /* never block on image failure — leave the post cover-less */ }
+  }
   if (covers.length) await attachPostCovers(ctx, covers);
   return { posts: created, categories: cats, tags: tgs, coversAttached: covers.length };
 }
 
 module.exports = {
-  setupBlog,
-  getAuthorMemberId, createPosts, createCategories, createTags, attachPostCovers,
+  setupBlog, installBlogApp,
+  getAuthorMemberId, createPosts, createCategories, createTags, importImage, attachPostCovers,
 };

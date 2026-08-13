@@ -11,8 +11,7 @@
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/events/seed/seed-events.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
-//   // Wix Events is PRE-INSTALLED by setup — do NOT reinstall. A 403/app-not-installed means fail loudly.
-//   // No clean-up: a fresh Events install ships no sample events, so nothing to delete first.
+//   // setupEvents installs the Wix Events app first (installEventsApp) — base44 sites may not have it.
 //
 //   // STEP 1: create each event as a DRAFT (TICKETING = paid tiers | RSVP = free built-in form)
 //   const ev = await seed.createEvent(ctx, {
@@ -28,15 +27,16 @@
 //   // STEP 4 (optional): group by format/track
 //   const cats = await seed.createEventCategories(ctx, ["Talks"]);
 //   await seed.assignEventsToCategory(ctx, cats[0].id, [ev.id]);
-//   // Attach images (optional): height/width REQUIRED or it won't render
-//   await seed.setEventMainImage(ctx, { eventId: ev.id, id: fileId, url: fileUrl, height: 1024, width: 1024, altText: ev.slug });
+//   // Attach images (optional): import the url to Wix Media first (events binds by file id), then patch.
+//   const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
+//   await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 //
 // If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-events.md.
 
 const API = "https://www.wixapis.com";
-// Wix Events app id — for reference only. The app is pre-installed by setup; never reinstall here.
+// Wix Events app id — installEventsApp installs it before seeding (base44 sites may not have it).
 const EVENTS_APP_ID = "140603ad-af8d-84a5-2c80-a0f60cb47351";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
@@ -63,7 +63,7 @@ function buildRegistration(ev) {
       initialType: "TICKETING",
       tickets: {
         ticketLimitPerOrder: ev.ticketLimitPerOrder ?? 8, // per recipe (example value)
-        currency: ev.currency ?? "USD", // per recipe (example value)
+        currency: ev.currency ?? "USD", // setupEvents threads the site currency; USD only as last-resort fallback
         reservationDurationInMinutes: ev.reservationDurationInMinutes ?? 20, // per recipe (example value)
       },
     };
@@ -121,7 +121,7 @@ async function createTicketTiers(ctx, eventId, tiers) {
         name: t.name,
         description: t.description,
         ...(t.initialLimit != null ? { initialLimit: t.initialLimit } : {}), // omit => unlimited
-        pricingMethod: { fixedPrice: { value: String(t.price), currency: t.currency ?? "USD" } }, // value MUST be a decimal string
+        pricingMethod: { fixedPrice: { value: String(t.price), currency: t.currency ?? "USD" } }, // value = decimal string; currency = site currency (threaded by setupEvents), USD only as fallback
         feeType: t.feeType ?? "FEE_INCLUDED", // per recipe (default)
       },
       fields: ["SALES_DETAILS"],
@@ -151,9 +151,20 @@ async function assignEventsToCategory(ctx, categoryId, eventIds) {
   return req(ctx, `/events/v1/categories/${categoryId}/events`, { body: { eventId: eventIds } });
 }
 
+// Import an external image URL into Wix Media → { id, url }. Events binds mainImage by the Wix Media
+// file **id**, NOT a url — an external url (e.g. a base44 generate_image result) MUST be imported
+// first; the raw url as the id stores (200) but renders nothing. id = wixstatic file id, url = the
+// permanent wixstatic url.
+async function importImage(ctx, url, displayName = "image.png") {
+  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
+  const f = r.file || r;
+  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 // Attach images (optional). mainImage is an Image OBJECT; height/width are REQUIRED or it won't
 // render. Events V3 uses NO revision — partial PATCH keyed by event.id. Works before OR after publish.
-// item: { eventId, id, url, height, width, altText }  (id = the WixMedia image id)
+// item: { eventId, id, url, height, width, altText }  (id = the WixMedia image id, from importImage)
 async function setEventMainImage(ctx, item) {
   return req(ctx, `/events/v3/events/${item.eventId}`, {
     method: "PATCH",
@@ -175,17 +186,41 @@ async function setEventMainImage(ctx, item) {
  *   ...createEvent fields (title, shortDescription?, type, startDate, endDate, timeZoneId, location, …),
  *   ticketTiers?: [{ name, price, initialLimit?, … }],   // TICKETING only; omit to skip
  *   category?: string,                                     // category NAME; resolved to id + assigned
- *   image?: { id, url, height, width, altText? }           // optional; omit to skip
+ *   imageUrl?: string                                      // a plain image url; imported to Wix Media here, optional
  * }] }}
- * Cleanup is intentionally NOT here — deleting existing content is a judgment call.
  */
+// Install the Wix Events app so seeding self-provisions — base44 sites aren't guaranteed to have it
+// (there's no separate Setup step here, unlike the wix-headless recipe this was ported from). Idempotent:
+// re-installing an already-installed app returns 200 (verified), so it's safe to call unconditionally.
+async function installEventsApp(ctx) {
+  return req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    tenant: { tenantType: "SITE", id: ctx.siteId },
+    appInstance: { appDefId: EVENTS_APP_ID, enabled: true },
+  } });
+}
+
+// Ticket prices are in the SITE's currency. The ticket-definitions API REQUIRES `currency` and does
+// not infer it (omitting it 400s), and it does NOT fall back to the site currency — whatever you pass
+// is used verbatim. So resolve the site's payment currency once and thread it through, instead of a
+// hardcoded default that would mis-price tickets on a non-USD site (e.g. USD tickets on a EUR/ILS site).
+async function getSiteCurrency(ctx) {
+  try {
+    const r = await req(ctx, "/site-properties/v4/properties", { method: "GET" });
+    return r?.properties?.paymentCurrency || "USD";
+  } catch { return "USD"; }
+}
+
 async function setupEvents(ctx, { events = [] } = {}) {
+  await installEventsApp(ctx);
+  const siteCurrency = await getSiteCurrency(ctx);
   const created = [];
   for (const ev of events) {
-    const e = await createEvent(ctx, ev);
-    const tiers = ev.ticketTiers?.length ? await createTicketTiers(ctx, e.id, ev.ticketTiers) : [];
+    const e = await createEvent(ctx, { ...ev, currency: ev.currency ?? siteCurrency });
+    const tiers = ev.ticketTiers?.length
+      ? await createTicketTiers(ctx, e.id, ev.ticketTiers.map((t) => ({ ...t, currency: t.currency ?? siteCurrency })))
+      : [];
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, image: ev.image, ticketCount: tiers.length });
+    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, ticketCount: tiers.length });
   }
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
   const cats = names.length ? await createEventCategories(ctx, names) : [];
@@ -195,9 +230,12 @@ async function setupEvents(ctx, { events = [] } = {}) {
   }
   let imagesAttached = 0;
   for (const e of created) {
-    if (!e.image?.url) continue;
-    await setEventMainImage(ctx, { eventId: e.id, altText: e.slug, ...e.image });
-    imagesAttached++;
+    if (!e.imageUrl) continue;
+    try {
+      const file = await importImage(ctx, e.imageUrl, `${e.slug || "event"}.png`);   // → Wix Media file id
+      await setEventMainImage(ctx, { eventId: e.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: e.slug });
+      imagesAttached++;
+    } catch { /* never block on image failure — leave the event image-less */ }
   }
   return {
     events: created.map((e) => ({ id: e.id, slug: e.slug, ticketCount: e.ticketCount, category: e.category ?? null })),
@@ -209,5 +247,5 @@ async function setupEvents(ctx, { events = [] } = {}) {
 module.exports = {
   setupEvents,
   createEvent, createTicketTiers, publishEvent,
-  createEventCategories, assignEventsToCategory, setEventMainImage,
+  installEventsApp, getSiteCurrency, createEventCategories, assignEventsToCategory, importImage, setEventMainImage,
 };
