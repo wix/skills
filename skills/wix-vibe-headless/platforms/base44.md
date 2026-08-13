@@ -21,7 +21,8 @@ Install two skills — they land under `.agents/skills/`:
 Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
 skills, then runs `deploy.cjs <vertical…> --client-id … --metasite-id …` (lays the shared transport +
 **each** listed vertical's REST scaffolds and UI client into `src/`, writes `wix-config.js` from
-those two ids unless it already holds values) and `pin-agents-md.cjs` (pins the project's AGENTS.md
+those two ids — the site id from your prompt always wins, so pass both) and `pin-agents-md.cjs`
+(pins the project's AGENTS.md
 note so later turns keep the rules).
 
 **Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
@@ -65,7 +66,7 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
 // Deploy the shared transport + each listed vertical's scaffolds/UI into src/, and write
-// wix-config.js unless it already holds values.
+// wix-config.js. The site id you pass wins over anything already in that file.
 const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')} --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
 // Pin the project's AGENTS.md note (idempotent) so the rules survive after this doc leaves context.
 const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
