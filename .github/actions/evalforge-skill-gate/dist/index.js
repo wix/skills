@@ -31079,9 +31079,12 @@ function runLine(runId, runUrl, generatedAt) {
     const suffix = stamp === undefined ? '' : ` · ${stamp}`;
     return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a>${suffix}</sub>`;
 }
-/** GitHub honours a `</details>` from inside the fold, unfolding every finding after it. */
+/**
+ * GitHub honours a `</details>` from inside the fold, unfolding every finding after it. Matched
+ * loosely because `</DETAILS>` and `</details >` close it just as well as the canonical spelling.
+ */
 function neutraliseFoldEnd(text) {
-    return text.replaceAll('</details>', '&lt;/details&gt;');
+    return text.replaceAll(/<\/\s*details\s*>/gi, '&lt;/details&gt;');
 }
 /** Positives last: a reader opening this comment is here for what broke. */
 function sortFindings(findings) {
@@ -63525,10 +63528,14 @@ supersedeAnalysis) {
         if (failed > 0 || errors > 0) {
             core.setOutput('analyze-run-id', arms.value.prRunId);
         }
-        else {
+        else if (verdict.passed) {
             // Nothing else clears the investigation: it is only ever written on failure, and its job does
             // not start for a clean run. Without this the fixing push leaves a green verdict sitting above
             // the findings of the run it fixed.
+            //
+            // Guarded on the verdict, not just the counts: a cancelled run and a run that produced no
+            // assertions both fail the verdict with `failed` and `errors` at zero. Retracting there would
+            // claim the failures were gone beside a red check, and delete the findings that still apply.
             await supersedeAnalysis((0, evalforge_core_1.formatAnalysisSuperseded)({ runId: arms.value.prRunId, runUrl }));
         }
         if (!verdict.passed) {

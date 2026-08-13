@@ -78,10 +78,14 @@ export async function runAndReport(
     const { failed, errors } = prStatus.aggregateMetrics;
     if (failed > 0 || errors > 0) {
       core.setOutput('analyze-run-id', arms.value.prRunId);
-    } else {
+    } else if (verdict.passed) {
       // Nothing else clears the investigation: it is only ever written on failure, and its job does
       // not start for a clean run. Without this the fixing push leaves a green verdict sitting above
       // the findings of the run it fixed.
+      //
+      // Guarded on the verdict, not just the counts: a cancelled run and a run that produced no
+      // assertions both fail the verdict with `failed` and `errors` at zero. Retracting there would
+      // claim the failures were gone beside a red check, and delete the findings that still apply.
       await supersedeAnalysis(formatAnalysisSuperseded({ runId: arms.value.prRunId, runUrl }));
     }
 

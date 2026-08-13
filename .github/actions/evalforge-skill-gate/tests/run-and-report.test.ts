@@ -116,6 +116,8 @@ const redRun = (): EvalRunStatus => runStatus([assertionRow('FAILED')]);
 const partialRun = (): EvalRunStatus => runStatus([partialRow], { totalAssertions: 0, passed: 0, passRate: 0 });
 /** No rows at all for the requested scenario — the "requested but never measured" case. */
 const emptyRun = (): EvalRunStatus => runStatus([], { totalAssertions: 0, passed: 0, passRate: 0 });
+/** `pollUntilDone` treats `cancelled` as terminal, so this reaches the verdict with zero failures. */
+const cancelledRun = (): EvalRunStatus => ({ ...runStatus([assertionRow('PASSED')]), status: 'cancelled' });
 
 const statusWith = (
   metrics: { passed: number; failed: number; errors: number },
@@ -419,6 +421,25 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
 
   // Otherwise a fixed PR shows a green verdict directly above the sticky investigation of the run
   // that failed — the state a merging reviewer sees most often.
+  // A retraction that falsely claims the run was clean is worse than a stale investigation: it
+  // reassures the reader beside a red check *and* destroys the findings. Both of these fail the
+  // verdict while leaving `failed` and `errors` at zero, so the counts alone cannot gate it.
+  it('never retracts the investigation when the run produced no assertions', async () => {
+    pollUntilDone.mockResolvedValue(emptyRun());
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('never retracts the investigation when the run was cancelled', async () => {
+    pollUntilDone.mockResolvedValue(cancelledRun());
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
   it('retracts a superseded investigation when the run comes back clean', async () => {
     const { ANALYSIS_COMMENT_MARKER } = await import('@wix/evalforge-core');
     pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));

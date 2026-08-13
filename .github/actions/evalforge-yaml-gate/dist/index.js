@@ -35193,9 +35193,12 @@ function runLine(runId, runUrl, generatedAt) {
     const suffix = stamp === undefined ? '' : ` · ${stamp}`;
     return `<sub>Generated for <a href="${runUrl}">eval run ${runId}</a>${suffix}</sub>`;
 }
-/** GitHub honours a `</details>` from inside the fold, unfolding every finding after it. */
+/**
+ * GitHub honours a `</details>` from inside the fold, unfolding every finding after it. Matched
+ * loosely because `</DETAILS>` and `</details >` close it just as well as the canonical spelling.
+ */
 function neutraliseFoldEnd(text) {
-    return text.replaceAll('</details>', '&lt;/details&gt;');
+    return text.replaceAll(/<\/\s*details\s*>/gi, '&lt;/details&gt;');
 }
 /** Positives last: a reader opening this comment is here for what broke. */
 function sortFindings(findings) {

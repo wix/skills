@@ -137,6 +137,16 @@ describe('formatAnalysisComment', () => {
     expect(body.indexOf('the-later-finding')).toBeLessThan(body.indexOf('</details>'));
   });
 
+  // GitHub honours all three spellings, so a literal case-sensitive match leaves the hole open.
+  // Counted with the same permissive pattern, since `</details >` does not contain `</details>`
+  // literally — a plain split on the canonical form would pass without neutralising anything.
+  it.each(['</DETAILS>', '</Details>', '</details >'])('neutralises the %s spelling too', (variant) => {
+    const body = render({ findings: [finding({ description: `Quoting ${variant} in prose.` })] });
+
+    expect(body.match(/<\/\s*details\s*>/gi)).toHaveLength(1);
+    expect(body).toContain('&lt;/');
+  });
+
   it('neutralises a closing details tag in the folded summary', () => {
     const body = render({ summary: `Narrative mentioning </details>.\n\nSecond paragraph.` });
     expect(body.split('</details>')).toHaveLength(2);
