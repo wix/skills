@@ -1,0 +1,26 @@
+name: livetest/confirm-budget-check
+description: >-
+  Scratch scenario used to smoke-test confirm-on-fail's handling of a
+  token-budget violation. maxTokens is set absurdly low on purpose, so any
+  real agent run exceeds it regardless of task quality. Not a real skill
+  eval — safe to delete, part of a throwaway PR.
+triggerPrompt: >-
+  List the top 3 Wix site template categories that would suit a small
+  bakery business.
+tags:
+  - livetest
+maxTokens: 50
+assertions:
+  - tool: SearchSiteTemplates
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/site-templates/skills/search-templates
+  - type: llm_judge
+    minScore: 6
+    prompt: >-
+      Pass if the agent's response names at least one template category
+      relevant to a bakery. Fail if no relevant category is mentioned.
+  - type: llm_judge
+    minScore: 6
+    prompt: >-
+      Rate the tool-call path taken. Fail (score below 6) if the agent
+      made egregious wasted calls or retried errors.
