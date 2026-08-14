@@ -118,6 +118,7 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 - [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
+- [`editor-react-component/FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) — Standard SDK event handler props, DOM wiring, custom callbacks
 - [`editor-react-component/ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
 - [`editor-react-component/COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) — Editor-specific entry point (`component.preview.tsx`), `useIsEditMode()`, when to modify
 - [`editor-react-component/SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) — Hooks for runtime site context (site pages, current URL, language direction, editor mode) — read only when a trigger above applies
