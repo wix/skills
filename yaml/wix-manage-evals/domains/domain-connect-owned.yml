@@ -4,7 +4,7 @@ description: >-
   treats it as a connect rather than a purchase, and resolves the target site per Part C Case B —
   asking which site when the account holds several, without handing over a connect link first.
 triggerPrompt: >-
-  I want to connect a domain I already own to my Wix site.
+  I want to buy bestbakery-in-tel-aviv.com for my Wix site.
 tags: [domains]
 maxTokens: 600000
 assertions:
@@ -15,7 +15,7 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked to buy bestbakery-in-tel-aviv.com for their Wix site. Their request: "I want to buy mybakery.com for my Wix site."
+      The user asked to buy bestbakery-in-tel-aviv.com for their Wix site. Their request: "I want to buy bestbakery-in-tel-aviv.com for my Wix site."
 
       Per Part A of the recipe, the availability check runs silently and the result is stated plainly;
       per Part P the conversation then continues toward the purchase (site and plan outcome, registration
