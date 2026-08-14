@@ -187,6 +187,12 @@ When creating TypeScript interfaces for component props, use types from `@wix/ed
 import type { Link } from "@wix/editor-react-types"; // Reference at node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts
 ```
 
+For **function event handler props** (`onClick`, `onDblClick`, `onChange`, `onFocus`, `onBlur`, `onMouseIn`, `onMouseOut`) and custom callbacks, follow [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md). Key rules:
+
+- Use the exact SDK prop names from that file — the manifest system recognizes them
+- Wire them to the correct DOM events (note: `onDblClick` → `onDoubleClick`, `onMouseIn` → `onMouseEnter`, `onMouseOut` → `onMouseLeave`)
+- Custom callbacks not tied to DOM events use `() => void` (no React event parameter)
+
 ### External resources are forbidden
 
 All resources rendered or fetched by the component (images, icons, fonts,
@@ -476,4 +482,3 @@ interface ComponentProps {
 ```
 
 See also: [Array Element Types: Always Objects with Named Keys](#array-element-types-always-objects-with-named-keys) — items must be objects with named keys.
-
