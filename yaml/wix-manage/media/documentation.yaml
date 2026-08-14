@@ -6,3 +6,8 @@ apiDoc:
       title: Upload Media to Wix
       docsEntry: https://dev.wix.com/docs/api-reference/assets/media
       tags: [media]
+
+    - file: ../../../skills/wix-manage/references/media/set-image-alt-text.md
+      title: Set Image Alt Text
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/update-file-descriptor
+      tags: [media, seo, accessibility]
