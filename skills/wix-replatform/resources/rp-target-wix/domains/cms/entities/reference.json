@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "entity": "reference",
+  "displayName": "CMS Reference",
+  "target": {
+    "classification": "cms",
+    "nativeEntity": "Wix Data Reference",
+    "verifiedFqdn": null,
+    "idPolicy": "client-assigned",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "relationship", "routes": ["post meta", "term relationships"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "cmsReference", "routes": ["Wix Data reference fields"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Wix Data Items",
+    "endpoint": "POST /wix-data/v2/items",
+    "writerId": "insertDataItem",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "second-pass", "severity": "blocker", "summary": "References and multi-references often require a second pass after target IDs are known." }
+  ],
+  "mappingGuidance": ["Resolve crosswalks before writing reference fields."],
+  "setupRequirements": ["Reference fields declared in target collection schema."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}

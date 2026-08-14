@@ -6,3 +6,7 @@ apiDoc:
       title: Change Payment Currency (Site Properties)
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
       tags: [site-properties]
+    - file: ../../../skills/wix-manage/references/site-properties/site-properties-dashboard-navigation.md
+      title: Site Settings Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
+      tags: [site-properties]

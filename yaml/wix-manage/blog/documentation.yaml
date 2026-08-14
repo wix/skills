@@ -6,3 +6,8 @@ apiDoc:
       title: How to Create Blog Posts
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
       tags: [blog]
+
+    - file: ../../../skills/wix-manage/references/blog/blog-dashboard-navigation.md
+      title: Blog Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
+      tags: [blog]

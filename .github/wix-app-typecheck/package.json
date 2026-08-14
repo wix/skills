@@ -2,6 +2,7 @@
   "name": "@wix/skills-wix-app-typecheck",
   "private": true,
   "type": "module",
+  "packageManager": "yarn@4.12.0",
   "scripts": {
     "typecheck": "node extract.mjs"
   },

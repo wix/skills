@@ -68,11 +68,16 @@ export type Commenter = (body: string) => Promise<void>;
  * Upserts a single marked PR comment, so repeated runs edit one comment rather than
  * spamming the thread. Never throws: a comment is a report, and losing it must not fail
  * the gate — the body goes to the job summary instead.
+ *
+ * `createIfMissing: false` makes it update-only: it retracts or rewrites a comment already on the
+ * PR and does nothing when there is none, so a body that only makes sense as a replacement cannot
+ * introduce itself.
  */
 export function makeCommenter(
   octokit: CommentClient,
   target: CommentTarget,
   io: CommentIo,
+  options: { createIfMissing?: boolean } = {},
 ): Commenter {
   let cachedId: number | undefined;
   let resolved = false;
@@ -97,6 +102,9 @@ export function makeCommenter(
           owner: target.owner, repo: target.repo, comment_id: id, body,
         });
       } else {
+        if (options.createIfMissing === false) {
+          return;
+        }
         const created = await octokit.rest.issues.createComment({
           owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
         });

@@ -9,6 +9,7 @@ const status = (state: string): EvalRunStatus => ({
     totalAssertions: 1, passed: 1, failed: 0, skipped: 0,
     errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0,
   },
+  results: [],
 });
 
 const noSleep = () => Promise.resolve();
@@ -84,5 +85,35 @@ describe('pollUntilDone', () => {
       .mockResolvedValueOnce(status('completed'));
     const result = await pollUntilDone({ getEvalRun }, 'P', 'run-1', { sleep: noSleep });
     expect(result.status).toBe('completed');
+  });
+
+  // The base comparison arm cancels by injecting a `sleep` that rejects. `pollUntilDone` must
+  // propagate that rejection from both places it awaits `sleep` — this is the only place either
+  // await point is actually exercised; every other test in this file resolves immediately.
+  describe('when the injected sleep rejects — the base arm cancellation seam', () => {
+    it('parked on the inter-attempt delay: rejects with that error and polls no further', async () => {
+      const cancellationError = new Error('cancelled — the verdict was already decided without it');
+      const getEvalRun = vi.fn().mockResolvedValue(status('running'));
+      const rejectingSleep = () => Promise.reject(cancellationError);
+
+      await expect(
+        pollUntilDone({ getEvalRun }, 'P', 'run-1', { sleep: rejectingSleep }),
+      ).rejects.toBe(cancellationError);
+
+      expect(getEvalRun).toHaveBeenCalledTimes(1);
+    });
+
+    it('parked on the retry delay: rejects with that error and polls no further', async () => {
+      const cancellationError = new Error('cancelled — the verdict was already decided without it');
+      const serverError = Object.assign(new Error('boom'), { status: 503 });
+      const getEvalRun = vi.fn().mockRejectedValue(serverError);
+      const rejectingSleep = () => Promise.reject(cancellationError);
+
+      await expect(
+        pollUntilDone({ getEvalRun }, 'P', 'run-1', { sleep: rejectingSleep }),
+      ).rejects.toBe(cancellationError);
+
+      expect(getEvalRun).toHaveBeenCalledTimes(1);
+    });
   });
 });

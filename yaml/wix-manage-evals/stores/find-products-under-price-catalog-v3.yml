@@ -1,0 +1,110 @@
+name: stores/find-products-under-price-catalog-v3
+description: >
+  A store owner asks which of their products cost less than a given amount. Verifies the agent
+  loads the Find Products (Query and Search, Catalog V3) recipe and answers with a Search
+  Products price filter, rather than paging the whole catalog through Query Products and
+  comparing amounts in its own code — a path that also invites guessing where the price lives
+  on a Catalog V3 product. The seeded products are the ground truth, and the agent can only
+  know them by reading the catalog.
+triggerPrompt: >
+  Which of my products cost less than $20?
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/find-products-query-and-search-catalog-v3
+  - type: llm_judge          # correctness — the user's outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Which of my products cost less than $20?"
+
+      The site is a Catalog V3 store seeded with two products: "Eval Gate Mug" at $12.00 and
+      "Eval Gate Tee" at $25.00. Only the Mug is under $20. The template also ships its own
+      demo catalog.
+
+      Judge the FINAL ANSWER's end state only. How many API calls it took, and whether the
+      agent corrected itself along the way, are judged by a separate assertion — do not
+      deduct for either here.
+
+      Score 9-10: the answer names "Eval Gate Mug" as costing less than $20 and does NOT
+      present "Eval Gate Tee" as under $20, and the products came from a successful (2xx)
+      read of the catalog.
+
+      Score 7-8: the Mug is correctly reported and the Tee is correctly excluded, but the
+      answer is muddled — for example it hedges on the price or buries the result.
+
+      Score 1-3: the answer includes "Eval Gate Tee" among the products under $20; OR omits
+      "Eval Gate Mug"; OR reports that no products are under $20; OR lists products without
+      having read the catalog through any Wix API; OR only describes how to find them
+      without doing it.
+
+      Demo products from the template that genuinely cost less than $20 are NOT an error —
+      do not deduct for naming extra products beyond the Mug.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality of the tool-call path (gates, per docs/eval-scenarios.md)
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call
+      trace, including the request bodies and any error bodies.
+
+      Score 9-10: a direct path — the catalog was filtered by price server-side in a single
+      successful read (a Catalog V3 Search Products call carrying a price filter), with no
+      non-2xx responses and no retried request bodies.
+
+      Score 4-6: the outcome was reached, but the path cost an avoidable round trip — for
+      example one probing API-spec or schema lookup beyond what was needed, or a redundant
+      repeat of a read that had already succeeded.
+
+      Score 1-3: any of the following, even though a later call succeeded:
+
+      - the agent fetched products WITHOUT a price filter and compared amounts in its own
+        code — for example a Query Products call followed by a client-side comparison — when
+        a Search Products price filter would have returned the answer directly;
+      - the agent guessed where the price lives on a Catalog V3 product, such as reading
+        `priceData.price` or `price.price`, got `undefined` or an empty result, and then had
+        to re-read a product to discover the real field;
+      - a price filter was sent inside the Query Products `query.filter` and was rejected
+        with `Field '<fieldName>' is not declared as filterable`;
+      - the response was parsed with a Catalog V1/V2 shape, such as reading results from
+        `productResults.results` or `catalogItems` rather than `products`, and the call had
+        to be repeated;
+      - a `fields` value that is not a valid enum constant was sent and rejected;
+      - any other non-2xx response, or a wrong endpoint or catalog version tried first.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed mug product under the threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "12.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed tee product above the threshold
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Tee
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "25.00" } }
+                  physicalProperties: {}
+                  visible: true

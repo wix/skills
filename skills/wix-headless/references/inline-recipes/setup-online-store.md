@@ -158,29 +158,38 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
 
 ### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep each image's `url`.
 
-**The exact working call — do this per product (getting it right first time avoids a multi-round debug loop):**
+**Attach every product in ONE call** — `POST https://www.wixapis.com/stores/v3/bulk/products/update` (up to 100 products). You already hold each product's `id` **and `revision`** from STEP 2's bulk-create response (`productResults.results[].item`), so **no per-product `GET` is needed**. Each entry nests under a `product` wrapper carrying just `id`, `revision`, and `media` — options, variants, and every other field are left untouched (it's a partial update):
 
-1. **`GET https://www.wixapis.com/stores/v3/products/{id}`** → read `revision`, `options`, and `variantsInfo` from **`response.product.*`**. The product is **nested under a `product` key** — the GET response is *not* flat.
-2. **`PATCH https://www.wixapis.com/stores/v3/products/{id}`** with the body below. **⚠️ Everything nests under a `product` wrapper.** Putting `id` / `revision` / `media` at the **root** fails `400 "product is invalid: revision must not be empty"` — the #1 cause of the loop here. **Do not send a field mask** (the validator runs before masking → `428`):
+```json
+{
+  "products": [
+    { "product": {
+        "id": "<product id>",
+        "revision": "<from the create response>",
+        "media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/… or Wix Media id>", "altText": "…" } ] } }
+    } }
+  ]
+}
+```
 
-   ```json
-   {
-     "product": {
-       "id": "<product id>",
-       "revision": "<revision from the GET — required; omitting it is the 400 above>",
-       "media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } },
-       "options":      "<echo the GET's product.options, unchanged>",
-       "variantsInfo": "<echo the GET's product.variantsInfo, unchanged>"
-     }
-   }
-   ```
-   The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
+- **`revision` is required on every entry** — omitting it fails `400 "revision must not be empty"`. Use the revision from the create response (or a fresh query); a stale one fails the optimistic-concurrency check.
+- **Everything nests under `product`** — `id` / `revision` / `media` at the entry root fails validation. **Send no field mask** (the validator runs before masking → `428`).
+- **Write the image via `media.itemsInfo.items`**; the server derives `media.main` from it. One primary image per product (a larger gallery is out of scope for the seed). The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
+- **Success shape** — `bulkActionMetadata` totals the run, and each result carries an `itemMetadata`:
 
-- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main.image.url`** — it must resolve to a `static.wixstatic.com` URL. Check that nested string, **not** the presence of `media.main` (which can be a non-null object with no image and makes a failed attach look successful). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
-- Send **one image per product** (primary); a larger gallery is out of scope for the seed.
-- **Never block on image failure** — skip and leave the product text-only.
+  ```jsonc
+  {
+    "results": [ { "itemMetadata": { "id": "<product id>", "originalIndex": 0, "success": true } } ],
+    "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0, "undetailedFailures": 0 }
+  }
+  ```
+  Read `itemMetadata.success` per product (the result carries no product body). **Retry only the failed ids once**, then move on.
+- **Confirm by requery** — `POST …/stores/v3/products/query` with `"fields": ["MEDIA_ITEMS_INFO"]`; the attached image is at `media.main.image.url`. Wix **re-hosts** the image on attach, so that URL is a **new** `wixstatic.com` id — verify it's *a* wixstatic URL, never string-equality against the one you sent. The read-back can lag a beat; one empty read right after success isn't a failure.
+- **Never block on image failure** — a product that won't attach stays text-only.
+
+**One-off fix (single product).** To (re)attach a single image later, `PATCH https://www.wixapis.com/stores/v3/products/{id}` with the same `{ "product": { "id", "revision", "media": {…} } }` body — same rules apply (revision required, no field mask, media-only is a partial update that leaves options/variants intact). Read the current `revision` from `GET …/products/{id}` → `response.product.revision` (the GET is not flat); the `200` response carries the image at `media.main.url`.
 
 ---
 

@@ -15,7 +15,12 @@ export type PollOptions = {
   warn?: (message: string) => void;
   intervalMs?: number;
   timeoutMs?: number;
-  /** Injected for tests; defaults to a real setTimeout delay. */
+  /**
+   * Defaults to a real setTimeout delay. Also the production cancellation seam: the base
+   * comparison arm injects a `sleep` that rejects once cancelled, and `pollUntilDone` must keep
+   * awaiting it at both the retry delay and the inter-attempt delay for that cancellation to
+   * actually stop the loop — do not replace either `await sleep(...)` with a bare `setTimeout`.
+   */
   sleep?: (ms: number) => Promise<void>;
 };
 

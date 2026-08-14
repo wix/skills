@@ -52,7 +52,8 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to method-return wrappers (note `checkoutId`).
 
 ```jsonc
-// productsV3.queryProducts() / .searchProducts()  →  result.items[]
+// productsV3.queryProducts().…find()  →  result.items[]
+// productsV3.searchProducts({...})    →  result.products[]
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
@@ -119,7 +120,7 @@ const res = await categories.queryCategories({
 **⚠️ CRITICAL: category filtering MUST use `searchProducts`, NOT `queryProducts`.** `directCategoriesInfo.categories` is **not declared as filterable in `queryProducts`** — passing it there returns HTTP `400 "... is not declared as filterable"`, which the SDK **swallows silently**, leaving an empty category page that looks like "no products". This is the #1 way this breaks. Use Search Products:
 
 ```js
-const { items } = await productsV3.searchProducts({
+const { products } = await productsV3.searchProducts({
   filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
 });
 ```

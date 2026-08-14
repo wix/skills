@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order",
+  "displayName": "eCommerce Order",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "eCommerce Order",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "order", "routes": ["/wc/v3/orders"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "ecomOrder", "routes": ["eCommerce Orders API"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders/import",
+    "writerId": "importOrder",
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false,
+    "releaseStatus": "beta",
+    "decision": "Import Order is the dedicated migration path (ECOM-01): settable purchasedDate/createdDate/number, values stored as-is, no side effects (no buyer notifications, no inventory adjustment, no contact/invoice/receipt/subscription creation; only the OrderImported event fires). Beta, single-order only (no bulk endpoint), no SHOPIFY/WOOCOMMERCE channel enums (use OTHER_PLATFORM), analytics inclusion not suppressible. Rollback via Bulk Delete Imported Orders; re-send with the same id fully replaces."
+  },
+  "alternateWrites": [
+    {
+      "surface": "eCom Orders",
+      "endpoint": "POST /ecom/v1/orders",
+      "writerId": "createOrder",
+      "verification": "unverified",
+      "importSafe": false,
+      "bulk": false,
+      "when": "Live-commerce order creation only — NEVER for historical import: decrements inventory, sends buyer confirmation email, auto-creates a contact (ECOM-02)."
+    }
+  ],
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "billingInfo.email",
+      "source": "target-schema",
+      "notes": "Historical order billing email on the order object; codegen must resolve request wrappers."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "billingInfo.phone",
+      "source": "target-schema",
+      "notes": "Historical order billing phone on the order object; codegen must resolve request wrappers."
+    },
+    {
+      "kind": "email",
+      "targetPath": "shippingInfo.email",
+      "source": "target-schema",
+      "notes": "Historical order shipping email on the order object when present."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "shippingInfo.phone",
+      "source": "target-schema",
+      "notes": "Historical order shipping phone on the order object when present."
+    },
+    {
+      "kind": "email",
+      "targetPath": "buyerInfo.email",
+      "source": "target-schema",
+      "notes": "Historical order buyer email on the order object when present."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "buyerInfo.phone",
+      "source": "target-schema",
+      "notes": "Historical order buyer phone on the order object when present."
+    }
+  ],
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for separate audit/history records or unsupported nested source details." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "create-order-not-import-safe", "severity": "blocker", "summary": "Never route historical orders through createOrder — it decrements inventory, emails the buyer, and auto-creates contacts; importOrder is the only import-safe writer." },
+    { "code": "contact-crosswalk-sequencing", "severity": "blocker", "summary": "Import creates no contact; contacts (including guest buyers from order billing emails) must be imported first so buyerInfo.contactId can be passed." },
+    { "code": "beta-single-order", "severity": "warning", "summary": "Import Order is Beta and single-order only (no bulk endpoint); undocumented rate limits apply at scale." },
+    { "code": "analytics-not-suppressible", "severity": "warning", "summary": "Imported orders appear in sales analytics/reports with no documented exclusion flag." },
+    { "code": "imported-orders-invisible-to-events", "severity": "warning", "summary": "Only the OrderImported event fires and only eCom's own indexer consumes it — imported orders never materialize in contacts/loyalty/event-driven views." }
+  ],
+  "mappingGuidance": [
+    "Resolve product, variation, contact, and coupon crosswalks before writing orders.",
+    "Contacts import first, orders second: Import Order accepts buyerInfo.contactId (schema-checked 2026-08-04) but creates no contact itself — always pass the crosswalked contact ID, including for guest buyers derived from order billing emails (see crm/contact). The field doc's 'automatically created if one doesn't exist' text is shared with live Create Order and is unverified for the import path — do not rely on it.",
+    "Use order and line-item extended fields for source-only metadata when configured."
+  ],
+  "setupRequirements": ["Order data extension schema if extended fields are used.", "Side-effect verification before execution."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" },
+    { "type": "repo-research", "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md" }
+  ]
+}

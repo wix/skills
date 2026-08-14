@@ -27,6 +27,12 @@ That PR override makes the Wix MCP load skill content from the pull request inst
 
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
+When a run ends without a verdict for reasons that have nothing to do with your change — a
+timeout, a poll failure — comment `/re-eval` on the PR to re-run this gate rather than
+pushing an empty commit. This gate's own comment does not mention the command; the rules
+are the same for both gates and are listed under
+[the wix-app PR eval gate](#wix-app-scenarios-the-pr-eval-gate).
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs
@@ -83,6 +89,49 @@ The PR comment names the reason. The common ones:
 | capped at `max-scenarios` | Informational. The named scenarios did not run this time |
 | no scenarios could be resolved to run | The gate refuses to report green having verified nothing. Usually a sync gap — check the named scenarios exist in EvalForge |
 
+**When the gate verified nothing at all** — it timed out, the polling failed mid-run, or the
+run never started — the comment ends with `Comment /re-eval to run the gate again`. That is
+not a PR problem: evals depend on live systems, so a run can end without a verdict for
+reasons that have nothing to do with your change.
+
+Commenting `/re-eval` on the PR re-runs **the gate's existing run**, so the check updates in
+place. It deliberately does not evaluate in the comment's own workflow run: an
+`issue_comment` run is associated with the default branch's commit, while required checks
+are evaluated on the PR head, so a verdict published there would land somewhere the PR
+cannot see. See [`.github/workflows/evalforge-re-eval.yml`](../.github/workflows/evalforge-re-eval.yml).
+
+- The command must be the **first thing in the comment** — mentioning it mid-sentence does
+  nothing, so discussing it or quoting someone who used it cannot start a paid run.
+- The **PR author**, or a collaborator with **write access**, may use it. Each scenario is a
+  live agent build, and this repo is public, so it is a spend gate.
+- It covers **both gates** — the wix-app gate and the wix-manage YAML gate. A PR touching
+  both skills re-runs both; one touching neither has nothing to re-run and is refused.
+- It cannot help where a re-run would change nothing: a draft or closed PR, a fork branch, a
+  commit the gate never ran for, or a gate job that was skipped. Push a commit instead.
+
+**The AI investigation comment**
+
+When the PR's eval run has failing or errored assertions, a second job asks EvalForge to
+investigate that run and posts what it found as its own PR comment, separate from the
+verdict above it. If EvalForge found nothing to flag, the comment says so plainly;
+otherwise it opens with a tally and a short extract of the summary, with the findings
+themselves folded behind **Full investigation** — each listed by severity, with a
+description and, where it has them, the scenarios it affects and a suggested fix.
+
+It runs in a separate job on purpose: a check does not finalise until its job ends, so
+running the investigation alongside the verdict would hold the gate's check open longer
+than the verdict itself needs. The verdict lands — and the PR blocks or unblocks — without
+waiting for it, and the second comment follows shortly after.
+
+A run with nothing failing gets no investigation and no second comment — and if an earlier
+push left one, the gate replaces it with a note saying it no longer applies, so a green
+verdict never sits above the findings of the run you just fixed. A blocked PR still gets
+its investigation: the analysis runs even when the gate itself goes red, which is when it
+is most worth reading. A failed investigation never fails a check: if the analysis cannot
+be generated, the comment says why instead of going missing. Set the `WIX_APP_EVAL_ANALYZE`
+repo variable to `false` to switch it off. Re-running the `analyze` job regenerates the analysis rather than
+re-showing the stored one.
+
 **During the soak period** the gate posts its comment but does not block: it runs with
 `blocking: false` until there is enough real-PR signal to turn it on. Read the comment
 anyway — it is telling you what will block once it flips.
@@ -138,3 +187,13 @@ Adding a dependency to `evalforge-core` also changes both consuming actions' loc
 through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
 `yarn install` in `evalforge-core` **and** in both actions, then commit all three
 `yarn.lock` files.
+
+**The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`
+asserts the wiring of the gate workflow — including the `analyze` job that follows it,
+dispatched off the gate job's output rather than run inside it — plus the cleanup and
+re-eval workflows, and `tests/re-eval-script.test.ts` runs the re-eval `github-script` body
+the way the action does — it compiles that exact string with stubbed
+`github`/`context`/`core`, so the guards that decide whether money is spent have real tests
+despite living inside a YAML string. That is why `ci.yml`'s change detection counts
+`.github/workflows/evalforge-*` as an evalforge change: editing only a workflow must still
+run the tests written to cover it.

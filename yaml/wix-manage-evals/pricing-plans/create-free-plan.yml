@@ -1,0 +1,76 @@
+name: pricing-plans/create-free-plan
+description: >-
+  Verifies the agent reads the create-and-update-pricing-plans recipe and
+  assembles a valid Plans V3 create body for a free plan on the first attempt —
+  including plan.status, a caller-generated pricingVariants[].id GUID, and
+  billingTerms.startType, which the generated Create Plan schema does not
+  present as a complete required set.
+triggerPrompt: >-
+  Create a free membership plan called Free Tier.
+tags: [pricing-plans]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/create-and-update-pricing-plans
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create a free membership plan called Free Tier."
+
+      Intent: create a Wix Pricing Plans plan named "Free Tier" that costs 0, via
+      POST https://www.wixapis.com/pricing-plans/v3/plans.
+
+      Examine the tool-call trace, not only the final answer.
+
+      Pass only if ALL of these are true:
+        1. A plan named "Free Tier" was created successfully (2xx) with a flat rate
+           amount of 0.
+        2. EVERY create-plan call in the trace succeeded. In particular, no
+           create-plan call was rejected with a 400 for a missing or invalid
+           required field — the field violations to watch for are
+           `plan.status` ("value is required"), `plan.pricingVariants[0].id`
+           ("is not a valid GUID" / "must not be empty"), and
+           `plan.pricingVariants[0].billingTerms.startType` ("value is required").
+        3. The agent confirmed the created plan in its final answer.
+
+      Fail if ANY of these are true:
+        - A create-plan call was rejected with a 400 naming any of `plan.status`,
+          `plan.pricingVariants[].id`, or `billingTerms.startType`, even if a later
+          retry succeeded. Recovering from this error is still a failure for this
+          scenario: the recipe is supposed to supply those fields up front.
+        - The plan was never created, or was created with a non-zero price, or with
+          a name other than "Free Tier".
+        - The agent only described how to create the plan instead of creating it.
+        - The agent used a deprecated Plans API version instead of
+          `pricing-plans/v3/plans`.
+
+      A create-plan call that failed for a reason unrelated to required fields
+      (for example CURRENCY_MISSING or the app not being installed) is a site
+      provisioning problem, not a failure of this scenario — ignore it when
+      judging criterion 2, and say so in your reason.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the
+      agent create a free Pricing Plans plan. Examine the tool-call trace.
+      Score 0-10, where 10 means a direct path: no failed calls, no schema
+      guessing, no re-reading an article to recover from an error.
+
+      Penalize and LIST any of:
+        - a create-plan call that returned a non-2xx error, even if recovered
+        - required fields discovered only from a 400 response rather than from the
+          docs the agent read first (`plan.status`,
+          `plan.pricingVariants[].id`, `billingTerms.startType`)
+        - re-reading a docs article after a failed call in order to recover
+        - schema or spec lookups that did not yield a usable request body
+        - a `billingCycle` sent on a free plan, then removed
+
+      For each issue, name the likely MCP or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and the
+      suspected MCP/docs gap, or 'clean path' if none>"}.

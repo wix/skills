@@ -1,0 +1,27 @@
+name: ecommerce/gift-cards/goal-sell-gift-cards
+description: A gift-card prompt should reach the strategy orchestrator, load the gift-cards goal, check the site's existing gift card product before proposing anything, size amounts from the site's own data, and always state the expiry stance.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to look at gift cards — should I be selling them, and are the amounts right for my store?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge three things, and only these three. Ignore breadth: other domains may also appear in the orchestrator's recommendation set, and their presence or absence is irrelevant here.
+
+      1. It checked the site's existing gift card products — a call to Query Gift Card Products (POST https://www.wixapis.com/gift-cards/v1/gift-card-products/query) before proposing anything. A site supports only ONE gift card product, so this call decides which answer is correct.
+
+      2. It gave an answer consistent with what that call returned, and grounded in the site's own data:
+         - Product already exists → it reports that product (name, its amounts) and assesses whether those amounts fit the site's AOV or catalog prices, pointing at Update Gift Card Product for changes. Proposing to CREATE another product here is wrong.
+         - No product, and AOV or catalog price data available → 3-5 preset denominations plus a custom amount range derived from that data in the site's currency, persisted via BatchCreate with domain "gift_cards" before being presented.
+         - No product and no price data at all → it says it cannot size amounts yet and offers a way forward. Nothing to persist in this case.
+
+      3. It stated the expiry stance somewhere in the answer — that the cards don't expire (and ideally that this is the safer default because expiry is regulated and varies by market), or the existing product's expiry, or a proposed period of at least 60 months flagged for compliance. Silence about expiry is a fail.
+
+      Fail if: the existing-product check never happened; it invented denominations, product names, or prices not returned by an API; it proposed a generic 25/50/100 ladder while real AOV or catalog data was available; it proposed creating a second gift card product on a site that already has one; it presented a NEW create recommendation without persisting it via BatchCreate; it called Create Gift Card Product before the merchant approved; or expiry went unmentioned.

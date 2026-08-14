@@ -3,7 +3,7 @@ import * as github from '@actions/github';
 import { EvalForgeClient, draftTagFor, formatGateSkipped } from '@wix/evalforge-core';
 import { getGateConfig } from './config';
 import { workspaceRoot } from './workspace';
-import { guardedCall, makeGateCommenter } from './report';
+import { guardedCall, makeAnalysisUpdater, makeGateCommenter } from './report';
 import { checkPrAuthor } from './pr-lookups';
 import { resolveGateScope } from './gate-scope';
 import { syncDraftScenarios } from './sync-draft-scenarios';
@@ -29,7 +29,8 @@ export async function runGate(): Promise<void> {
   const draftTag = draftTagFor(config.repoFullName, config.prNumber);
   core.info(
     `EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
-    + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`,
+    + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} `
+    + `into base ${config.baseSha.slice(0, 7)})`,
   );
 
   const scope = await resolveGateScope(octokit, config, workspace, comment);
@@ -51,5 +52,8 @@ export async function runGate(): Promise<void> {
   );
   if (!nameToId.ok) return;
 
-  await runAndReport(client, config, scope.value, nameToId.value, version.value.id, comment);
+  await runAndReport(
+    client, config, scope.value, nameToId.value, version.value.id, comment,
+    makeAnalysisUpdater(octokit, config),
+  );
 }

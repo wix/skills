@@ -1,6 +1,8 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { GATE_COMMENT_MARKER, formatGateServiceError, makeCommenter, type Commenter } from '@wix/evalforge-core';
+import {
+  ANALYSIS_COMMENT_MARKER, GATE_COMMENT_MARKER, formatGateServiceError, makeCommenter, type Commenter,
+} from '@wix/evalforge-core';
 
 export function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -46,12 +48,17 @@ export async function guardedCall<T>(
   }
 }
 
-export function makeGateCommenter(
-  octokit: ReturnType<typeof github.getOctokit>,
-  target: { owner: string; repo: string; prNumber: number },
-): Commenter {
-  return makeCommenter(octokit, { ...target, marker: GATE_COMMENT_MARKER }, {
+function commenterFor(marker: string, options: { createIfMissing?: boolean } = {}) {
+  return (
+    octokit: ReturnType<typeof github.getOctokit>,
+    target: { owner: string; repo: string; prNumber: number },
+  ): Commenter => makeCommenter(octokit, { ...target, marker }, {
     warn: core.warning,
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
-  });
+  }, options);
 }
+
+export const makeGateCommenter = commenterFor(GATE_COMMENT_MARKER);
+export const makeAnalysisCommenter = commenterFor(ANALYSIS_COMMENT_MARKER);
+/** For the gate, which retracts a superseded investigation but must never open one. */
+export const makeAnalysisUpdater = commenterFor(ANALYSIS_COMMENT_MARKER, { createIfMissing: false });
