@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   I want to buy bestbakery-in-tel-aviv.com for my Wix site.
 tags: [domains]
-maxTokens: 600000
+maxTokens: 800000
 assertions:
   - tool: ReadFullDocsArticle
     params:
