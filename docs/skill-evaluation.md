@@ -42,6 +42,16 @@ confirmed failures separately from recovered flaky runs. When many scenarios fai
 once, retries are skipped and the failure is treated as real. A scenario that repeatedly
 recovers on retry is flaky — rewrite it.
 
+### Merge-tag sweep
+
+After a wix-manage PR merges to `main`, [`evalforge-merge-tag-sweep.yml`](../.github/workflows/evalforge-merge-tag-sweep.yml)
+re-runs every EvalForge scenario sharing a tag with whatever changed — catching regressions in
+other areas that a PR's own scenarios can't see. It's reactive, not blocking: the commit is
+already on `main` by the time it runs. Failures go through the same confirm-on-fail retry as
+the PR-time gate; only a confirmed regression posts to Slack, naming the merging PR's author. A
+tag matching more than 20 scenarios samples rather than running everything, to keep a broad tag
+from re-running dozens of scenarios on every merge that touches it.
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs
