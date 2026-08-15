@@ -2,11 +2,11 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge'
     required: false
     default: 'eval'
   github-token:
-    description: 'GitHub token for PR comments (required for eval, promote, cleanup modes)'
+    description: 'GitHub token for PR comments (required for eval, promote, cleanup modes) and PR-author lookup (merge-tag-sweep mode)'
     required: false
     default: ''
   evalforge-url:
@@ -16,7 +16,7 @@ inputs:
     description: 'EvalForge project ID'
     required: true
   evalforge-agent-id:
-    description: 'EvalForge agent ID for eval runs (required for eval and run-all modes)'
+    description: 'EvalForge agent ID for eval runs (required for eval, run-all, and merge-tag-sweep modes)'
     required: false
   evalforge-mcp-id:
     description: 'EvalForge MCP capability ID (required for eval, promote, cleanup modes)'
@@ -60,6 +60,10 @@ inputs:
     description: 'Name for the eval run (run-all mode only)'
     required: false
     default: 'scheduled-run'
+  changed-files:
+    description: 'Raw `git diff --name-status` output for this push (required for merge-tag-sweep mode)'
+    required: false
+    default: ''
 outputs:
   status:
     description: 'Eval run terminal status: completed, failed, cancelled, timeout, or skipped (run-all mode only)'
@@ -74,9 +78,27 @@ outputs:
   run-id:
     description: 'EvalForge eval run ID (run-all mode only)'
   run-url:
-    description: 'Link to EvalForge results page (run-all mode only)'
+    description: 'Link to EvalForge results page (run-all and merge-tag-sweep modes)'
   summary:
     description: 'Human-readable one-line summary of the run (run-all mode only)'
+  matched-tags:
+    description: 'Comma-separated tags that triggered this sweep (merge-tag-sweep mode only)'
+  sweep-matched-total:
+    description: 'Total EvalForge scenarios matching the tag(s), before the sampling cap (merge-tag-sweep mode only)'
+  sweep-sampled-count:
+    description: 'Scenarios actually run this sweep, after the cap (merge-tag-sweep mode only)'
+  confirmed-failed-count:
+    description: 'Number of scenarios confirmed failed after confirm-on-fail retries (merge-tag-sweep mode only)'
+  recovered-count:
+    description: 'Number of scenarios that failed once but recovered on retry (merge-tag-sweep mode only)'
+  confirmed-failed-scenarios:
+    description: 'Newline-separated "name (reasons)" for each confirmed-failed scenario (merge-tag-sweep mode only)'
+  merged-by-name:
+    description: 'GitHub handle of the merging PR author, or the raw commit author name if no PR was found (merge-tag-sweep mode only)'
+  merged-by-url:
+    description: 'Link to the merging PR, or to the commit if no PR was found (merge-tag-sweep mode only)'
+  infra-error:
+    description: 'Set when the sweep itself could not run (EvalForge unreachable, run creation failed) — distinct from a confirmed scenario failure (merge-tag-sweep mode only)'
 runs:
   using: 'node20'
   main: 'dist/index.js'
