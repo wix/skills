@@ -28,6 +28,10 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
     expect(workflowContent).not.toContain('cancel-in-progress: true');
   });
 
+  it('has no concurrency block at all', () => {
+    expect(workflowContent).not.toContain('concurrency:');
+  });
+
   it('checks out with full history for git diff', () => {
     expect(workflowContent).toContain('fetch-depth: 0');
   });
