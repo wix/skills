@@ -66049,11 +66049,13 @@ const gate_1 = __nccwpck_require__(2302);
 const promote_1 = __nccwpck_require__(2245);
 const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
+const merge_tag_sweep_1 = __nccwpck_require__(3821);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
+    'merge-tag-sweep': merge_tag_sweep_1.runMergeTagSweep,
 };
 const mode = core.getInput('mode') || 'eval';
 const handler = modes[mode];
@@ -66450,6 +66452,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
+exports.getMergeSweepConfig = getMergeSweepConfig;
 exports.getEvalConfig = getEvalConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -66483,6 +66486,19 @@ function getScheduleConfig() {
         appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
         appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
         runName: core.getInput('run-name') || 'scheduled-run',
+    };
+}
+function getMergeSweepConfig() {
+    return {
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        agentId: core.getInput('evalforge-agent-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        changedFilesRaw: core.getInput('changed-files', { required: true }),
     };
 }
 function getEvalConfig() {
@@ -67281,6 +67297,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseChangedFiles = parseChangedFiles;
 exports.classifyChanges = classifyChanges;
 exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
@@ -67289,6 +67306,40 @@ const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
+const GIT_STATUS_MAP = {
+    A: 'added',
+    M: 'modified',
+    D: 'removed',
+    T: 'modified',
+};
+/**
+ * Parses `git diff --name-status <before> <after>` output into `ChangedFile[]`, for the
+ * merge-tag sweep (a push event, not a PR — there's no octokit file-list API to call here).
+ * Copy (C) is treated as added and type-change (T) as modified; renames (R<score>) carry
+ * both paths. Unrecognized status codes are skipped rather than guessed at.
+ */
+function parseChangedFiles(diffOutput) {
+    const files = [];
+    for (const line of diffOutput.split('\n')) {
+        if (!line.trim())
+            continue;
+        const parts = line.split('\t');
+        const letter = parts[0][0];
+        if (letter === 'R') {
+            files.push({ filename: parts[2], status: 'renamed', previousFilename: parts[1] });
+            continue;
+        }
+        if (letter === 'C') {
+            files.push({ filename: parts[2], status: 'added' });
+            continue;
+        }
+        const status = GIT_STATUS_MAP[letter];
+        if (!status)
+            continue;
+        files.push({ filename: parts[1], status });
+    }
+    return files;
+}
 function classifyChanges(files) {
     const classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
     for (const file of files) {
@@ -67320,6 +67371,249 @@ function makeCommenter(octokit, owner, repo, prNumber) {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
+}
+
+
+/***/ }),
+
+/***/ 3821:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_SWEEP_SCENARIOS = void 0;
+exports.tagsOfDirectlyAffected = tagsOfDirectlyAffected;
+exports.resolveSweepSet = resolveSweepSet;
+exports.rowsToOutcomes = rowsToOutcomes;
+exports.runMergeTagSweep = runMergeTagSweep;
+const evalforge_core_1 = __nccwpck_require__(7495);
+const gate_1 = __nccwpck_require__(2302);
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_2 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const evals_1 = __nccwpck_require__(1686);
+const doc_url_1 = __nccwpck_require__(8515);
+const coverage_1 = __nccwpck_require__(4035);
+const github_1 = __nccwpck_require__(6246);
+const workspace_1 = __nccwpck_require__(9620);
+const confirm_1 = __nccwpck_require__(1505);
+const merged_by_1 = __nccwpck_require__(5795);
+/** Above this many tag-matched scenarios, the sweep samples rather than running everything —
+ * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
+exports.MAX_SWEEP_SCENARIOS = 20;
+/** Only these assertion statuses count as actual failures — `SKIPPED` and `UNKNOWN` are excluded.
+ * See evalforge-core/src/evalforge.ts for the rationale: `UNKNOWN` is a wire value not recognized,
+ * and folding it into a failure would manufacture a failure nothing actually reports as failed. */
+const NOT_PASSED = new Set(['FAILED', 'ERROR']);
+/** Tags carried by whatever the PR-time gate would itself run for this push: scenarios whose
+ * own YAML changed, unioned with scenarios covering a changed doc. */
+function tagsOfDirectlyAffected(headScenarios, changedEvalPaths, coveredBy) {
+    const affected = (0, gate_1.scenariosToRun)({ headScenarios, changedEvalPaths, coveredBy });
+    const tags = new Set();
+    for (const ls of affected.values()) {
+        for (const t of ls.scenario.tags)
+            tags.add(t);
+    }
+    return tags;
+}
+/**
+ * Resolves the sweep set from EvalForge itself, not the local repo — a scenario that exists
+ * only in EvalForge (hand-authored, drafted from traffic mining) is swept in too, as long as
+ * its tag matches. Caps deterministically: sorted by name, so an overflowing tag samples the
+ * same subset every time rather than an unstable truncation.
+ */
+async function resolveSweepSet(client, projectId, tags) {
+    if (tags.size === 0)
+        return { selected: [], excludedCount: 0, totalMatched: 0 };
+    const all = [];
+    for (const tag of tags) {
+        all.push(...await client.listTestScenariosByTag(projectId, tag));
+    }
+    const unique = (0, evalforge_core_1.uniqueRemoteScenarios)(all).sort((a, b) => a.name.localeCompare(b.name));
+    const selected = unique.slice(0, exports.MAX_SWEEP_SCENARIOS);
+    return {
+        selected,
+        excludedCount: Math.max(0, unique.length - exports.MAX_SWEEP_SCENARIOS),
+        totalMatched: unique.length,
+    };
+}
+/** Turns one EvalRun's per-scenario result rows into confirm.ts's generic AttemptOutcome shape.
+ * Sibling to gate.ts's toAttemptOutcomes, not a reuse of it — there's no with/without pair here,
+ * just "did main pass this scenario." */
+function rowsToOutcomes(rows) {
+    return rows.map(row => ({
+        scenarioId: row.scenarioId,
+        scenarioName: row.scenarioName,
+        failed: row.failed > 0,
+        reasons: row.assertions.filter(a => NOT_PASSED.has(a.status)).map(a => a.assertionName),
+    }));
+}
+async function runMergeTagSweep() {
+    const config = (0, config_1.getMergeSweepConfig)();
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const octokit = github.getOctokit(config.githubToken);
+    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
+    const classified = (0, github_1.classifyChanges)(changedFiles);
+    const { scenarios: headScenarios } = (0, evals_1.loadEvals)(workspace);
+    const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
+    const changedEvalPaths = new Set([
+        ...classified.evalsAdded.map(f => f.filename),
+        ...classified.evalsModified.map(f => f.filename),
+    ]);
+    const tags = tagsOfDirectlyAffected(headScenarios, changedEvalPaths, cov.coveredBy);
+    if (tags.size === 0) {
+        core.info('Merge-tag sweep: no eval-relevant tags in this push — nothing to run');
+        return;
+    }
+    const sortedTags = [...tags].sort();
+    core.setOutput('matched-tags', sortedTags.join(', '));
+    const runName = `merge-sweep-${github.context.sha.slice(0, 7)}`;
+    const runOnce = async (name, scenarioIds) => {
+        const created = await evalforge.createAndRunEvalRun(config.projectId, {
+            name,
+            description: `Merge-tag sweep for tags: ${sortedTags.join(', ')}`,
+            projectId: config.projectId,
+            agentId: config.agentId,
+            scenarioIds,
+        });
+        await evalforge.triggerEvalRun(config.projectId, created.id);
+        const status = await (0, evalforge_core_2.pollUntilDone)(evalforge, config.projectId, created.id, { log: core.info, warn: core.warning });
+        return { id: created.id, status };
+    };
+    // Everything from here on talks to EvalForge — wrapped so an infra failure (unreachable,
+    // 5xx, auth) surfaces as a distinct Slack message rather than a bare failed job nobody sees,
+    // same "no silent failure" rule the PR-time gate applies via PR comments.
+    let initial;
+    try {
+        const { selected, excludedCount, totalMatched } = await resolveSweepSet(evalforge, config.projectId, tags);
+        core.setOutput('sweep-matched-total', String(totalMatched));
+        core.setOutput('sweep-sampled-count', String(selected.length));
+        if (excludedCount > 0) {
+            core.warning(`Merge-tag sweep: sampled ${selected.length} of ${totalMatched} tag-matched scenarios (${excludedCount} excluded by the cap)`);
+        }
+        if (selected.length === 0) {
+            core.info('Merge-tag sweep: tag match resolved to zero scenarios — nothing to run');
+            return;
+        }
+        initial = await runOnce(runName, selected.map(s => s.id));
+    }
+    catch (e) {
+        const message = e instanceof evalforge_core_2.EvalRunTimeoutError
+            ? `Merge-tag sweep timed out: ${e.message}`
+            : `Merge-tag sweep could not run: ${e instanceof Error ? e.message : String(e)}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+        return;
+    }
+    core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
+    const initialOutcomes = rowsToOutcomes(initial.status.results);
+    const initialFailures = initialOutcomes.filter(o => o.failed);
+    if (initialFailures.length === 0) {
+        core.info('Merge-tag sweep: all sampled scenarios passed');
+        core.setOutput('confirmed-failed-count', '0');
+        core.setOutput('recovered-count', '0');
+        return;
+    }
+    let confirmResult;
+    let retriesFailed = false;
+    try {
+        confirmResult = await (0, confirm_1.confirmOnFail)(initialOutcomes, async (ids) => {
+            const retry = await runOnce(`${runName}-retry`, ids);
+            return rowsToOutcomes(retry.status.results);
+        });
+    }
+    catch (e) {
+        core.error(`Merge-tag sweep retry failed: ${e instanceof Error ? e.message : String(e)}`);
+        retriesFailed = true;
+        confirmResult = {
+            verdicts: initialFailures.map(o => ({
+                scenarioId: o.scenarioId, scenarioName: o.scenarioName,
+                attempts: 1, failures: 1, confirmed: true, reasons: o.reasons,
+            })),
+            retriesRun: 0,
+            skipReason: 'rerun-error',
+        };
+    }
+    const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
+    const recovered = confirmResult.verdicts.filter(v => !v.confirmed);
+    core.setOutput('confirmed-failed-count', String(confirmed.length));
+    core.setOutput('recovered-count', String(recovered.length));
+    core.setOutput('confirmed-failed-scenarios', confirmed.map(v => `${v.scenarioName} (${v.reasons.join(', ')})`).join('\n'));
+    if (retriesFailed)
+        core.warning('Merge-tag sweep: retry infrastructure failed — first-attempt failures stand');
+    if (confirmed.length > 0) {
+        const fallback = {
+            name: github.context.payload.head_commit?.author?.name ?? 'unknown',
+            url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
+        };
+        const mergedBy = await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
+        core.setOutput('merged-by-name', mergedBy.name);
+        core.setOutput('merged-by-url', mergedBy.url);
+        core.setFailed(`${confirmed.length} scenario(s) confirmed failed in merge-tag sweep (${confirmed.map(v => v.scenarioName).join(', ')})`);
+    }
+}
+
+
+/***/ }),
+
+/***/ 5795:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveMergedBy = resolveMergedBy;
+/**
+ * Attributes a merge commit to a PR author, for the merge-tag sweep's Slack notification.
+ * Works across both squash and rebase merges (a squash-commit-message regex would not) since
+ * it asks GitHub directly which PR(s) a commit belongs to, rather than parsing commit text.
+ * Falls back to the caller-supplied commit author when no PR is associated (e.g. a direct
+ * push bypassing PR flow) or the associated PR's account no longer exists.
+ */
+async function resolveMergedBy(octokit, owner, repo, commitSha, fallback) {
+    const { data } = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+        owner, repo, commit_sha: commitSha,
+    });
+    const pr = data[0];
+    if (!pr || !pr.user)
+        return fallback;
+    return { name: pr.user.login, url: pr.html_url };
 }
 
 
