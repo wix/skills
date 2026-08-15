@@ -22,8 +22,10 @@ assertions:
       period, contact details, checkout) rather than ending on the availability answer.
 
       Pass if the response:
+      - asks which site to connect it to, presenting the sites on the account, rather than answering
+        for a site it never established, OR
       - states whether bestbakery-in-tel-aviv.com is available in plain language, AND
-      - ask if user wants to connect the domain to one of user's sites OR 
+      - asks if user wants to connect the domain to one of user's sites OR 
       - proposes the user to choose between connect it to Wix site (with showing the list of sites) or to purchase it standalone
 
       Fail if the response:
