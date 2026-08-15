@@ -7,6 +7,11 @@ import type { AttemptOutcome } from './confirm';
  * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
 export const MAX_SWEEP_SCENARIOS = 20;
 
+/** Only these assertion statuses count as actual failures — `SKIPPED` and `UNKNOWN` are excluded.
+ * See evalforge-core/src/evalforge.ts for the rationale: `UNKNOWN` is a wire value not recognized,
+ * and folding it into a failure would manufacture a failure nothing actually reports as failed. */
+const NOT_PASSED = new Set(['FAILED', 'ERROR']);
+
 /** Tags carried by whatever the PR-time gate would itself run for this push: scenarios whose
  * own YAML changed, unioned with scenarios covering a changed doc. */
 export function tagsOfDirectlyAffected(
@@ -60,6 +65,6 @@ export function rowsToOutcomes(rows: EvalRunResultRow[]): AttemptOutcome[] {
     scenarioId: row.scenarioId,
     scenarioName: row.scenarioName,
     failed: row.failed > 0,
-    reasons: row.assertions.filter(a => a.status !== 'PASSED').map(a => a.assertionName),
+    reasons: row.assertions.filter(a => NOT_PASSED.has(a.status)).map(a => a.assertionName),
   }));
 }

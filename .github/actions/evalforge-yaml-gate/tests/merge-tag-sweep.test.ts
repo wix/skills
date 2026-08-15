@@ -88,4 +88,27 @@ describe('rowsToOutcomes', () => {
     }]);
     expect(out).toEqual([{ scenarioId: '1', scenarioName: 'a', failed: true, reasons: ['correctness'] }]);
   });
+
+  it('includes ERROR assertions in reasons but excludes SKIPPED', () => {
+    const out = rowsToOutcomes([{
+      scenarioId: '1', scenarioName: 'a', passed: 1, failed: 1, partial: false, iterationIndex: 0,
+      assertions: [
+        { assertionName: 'api_call', assertionType: 'tool_called', status: 'ERROR' },
+        { assertionName: 'validation', assertionType: 'tool_output_check', status: 'SKIPPED' },
+        { assertionName: 'check', assertionType: 'llm_judge', status: 'PASSED' },
+      ],
+    }]);
+    expect(out).toEqual([{ scenarioId: '1', scenarioName: 'a', failed: true, reasons: ['api_call'] }]);
+  });
+
+  it('excludes UNKNOWN from reasons', () => {
+    const out = rowsToOutcomes([{
+      scenarioId: '1', scenarioName: 'a', passed: 1, failed: 1, partial: false, iterationIndex: 0,
+      assertions: [
+        { assertionName: 'actual_fail', assertionType: 'llm_judge', status: 'FAILED' },
+        { assertionName: 'unknown_status', assertionType: 'unknown_type', status: 'UNKNOWN' },
+      ],
+    }]);
+    expect(out).toEqual([{ scenarioId: '1', scenarioName: 'a', failed: true, reasons: ['actual_fail'] }]);
+  });
 });
