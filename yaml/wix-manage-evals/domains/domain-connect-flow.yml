@@ -1,10 +1,10 @@
-name: domains/domain-connect-owned
+name: domains/domain-connect-flow
 description: >-
   Verifies the agent reads the domain-search-purchase-and-connect recipe when the user already owns a
   domain, treats it as a connect rather than a purchase, and resolves the target site per Part C Case B —
   asking which site when the account holds several, without handing over a connect link first.
 triggerPrompt: >-
-  I need to connect nike.com domain to my Wix site.
+  I want to connect a domain I already own to my Wix site.
 tags: [domains]
 maxTokens: 800000
 assertions:
