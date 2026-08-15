@@ -26,8 +26,9 @@ assertions:
       Pass if the response:
       - reads this as connecting a domain the user already owns, not as a purchase, AND
       - asks which site to connect it to, presenting the sites on the account, rather than answering
-        for a site it never established, AND
-      - puts no site-specific connect URL in that message.
+        for a site it never established, OR
+      - ask if user wants to connect it by nameservers or by pointing OR
+      - explain the user the whole procedure step by step, select a premium site, choose the connection type by pointing vs nameservers.
 
       Fail if the response:
       - hands over a dashboard connect link, or a link with a site placeholder in it, before a site has
