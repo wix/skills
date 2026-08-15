@@ -2,7 +2,7 @@ apiDoc:
   title: Wix Domains Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/domains/domain-search-and-purchase.md
+    - file: ../../../skills/wix-manage/references/domains/domain-search-purchase-and-connect.md
       title: Domain Search, Purchase and Connect a domain
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]

@@ -1,6 +1,6 @@
 name: domains/domain-buy-flow
 description: >-
-  Verifies the agent reads the domain-search-and-purchase recipe on a buy
+  Verifies the agent reads the domain-search-purchase-and-connect recipe on a buy
   request, reports availability in plain language, and carries on into the
   purchase path instead of stopping at the availability answer.
 triggerPrompt: >-

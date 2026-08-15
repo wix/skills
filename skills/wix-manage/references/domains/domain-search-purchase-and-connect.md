@@ -1,11 +1,11 @@
 ---
-name: "Domain Search and Purchase"
+name: "Domain Search, Purchase and Connect"
 description: Buy a domain through Wix or connect one the user already owns — intent, availability,
   suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path
   including ownership lookup and binding a domain to a site.
 ---
 
-# Domain Search and Purchase
+# Domain Search, Purchase and Connect
 
 One document, four parts. Section numbers carry their part's letter, so every reference names the
 part it points into — §A4b, §P3, §C0c, §R4.3.
