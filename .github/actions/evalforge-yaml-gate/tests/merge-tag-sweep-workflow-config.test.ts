@@ -56,4 +56,9 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
   it('reuses the existing Slack webhook secret', () => {
     expect(workflowContent).toContain('SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}');
   });
+
+  it('guards both Slack steps with always(), since the sweep step itself reports failure on a confirmed regression or infra error', () => {
+    expect(workflowContent).toContain("if: always() && steps.sweep.outputs.confirmed-failed-count");
+    expect(workflowContent).toContain("if: always() && steps.sweep.outputs.infra-error");
+  });
 });

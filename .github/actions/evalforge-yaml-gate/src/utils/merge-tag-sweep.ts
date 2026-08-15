@@ -1,4 +1,4 @@
-import { uniqueRemoteScenarios, type RemoteScenario, type EvalRunResultRow } from '@wix/evalforge-core';
+import { uniqueRemoteScenarios, foldScenarioIterations, type RemoteScenario, type EvalRunResultRow } from '@wix/evalforge-core';
 import type { LoadedScenario } from './evals';
 import { scenariosToRun } from './gate';
 import type { AttemptOutcome } from './confirm';
@@ -17,11 +17,6 @@ import { resolveMergedBy, type MergedBy } from './merged-by';
 /** Above this many tag-matched scenarios, the sweep samples rather than running everything —
  * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
 export const MAX_SWEEP_SCENARIOS = 20;
-
-/** Only these assertion statuses count as actual failures — `SKIPPED` and `UNKNOWN` are excluded.
- * See evalforge-core/src/evalforge.ts for the rationale: `UNKNOWN` is a wire value not recognized,
- * and folding it into a failure would manufacture a failure nothing actually reports as failed. */
-const NOT_PASSED = new Set(['FAILED', 'ERROR']);
 
 /** Tags carried by whatever the PR-time gate would itself run for this push: scenarios whose
  * own YAML changed, unioned with scenarios covering a changed doc. */
@@ -72,11 +67,11 @@ export async function resolveSweepSet(
  * Sibling to gate.ts's toAttemptOutcomes, not a reuse of it — there's no with/without pair here,
  * just "did main pass this scenario." */
 export function rowsToOutcomes(rows: EvalRunResultRow[]): AttemptOutcome[] {
-  return rows.map(row => ({
-    scenarioId: row.scenarioId,
-    scenarioName: row.scenarioName,
-    failed: row.failed > 0,
-    reasons: row.assertions.filter(a => NOT_PASSED.has(a.status)).map(a => a.assertionName),
+  return foldScenarioIterations(rows).map(outcome => ({
+    scenarioId: outcome.scenarioId,
+    scenarioName: outcome.scenarioName,
+    failed: outcome.failed > 0 || outcome.errors > 0,
+    reasons: outcome.failingAssertionNames ?? [],
   }));
 }
 
@@ -85,6 +80,11 @@ export async function runMergeTagSweep(): Promise<void> {
   const workspace = workspaceRoot();
   const octokit = github.getOctokit(config.githubToken);
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+
+  if (config.changedFilesRaw.trim() === '') {
+    core.info('Merge-tag sweep: no changed files reported for this push (e.g. first push on this ref) — nothing to run');
+    return;
+  }
 
   const changedFiles = parseChangedFiles(config.changedFilesRaw);
   const classified = classifyChanges(changedFiles);
@@ -141,6 +141,16 @@ export async function runMergeTagSweep(): Promise<void> {
     core.setFailed(message);
     return;
   }
+  if (initial.status.status !== 'completed' || initial.status.aggregateMetrics.totalAssertions === 0) {
+    const reason = initial.status.status !== 'completed'
+      ? `the eval run ${initial.status.status === 'cancelled' ? 'was cancelled' : `ended as "${initial.status.status}"`}`
+      : 'the run produced no assertions, so nothing was verified';
+    const message = `Merge-tag sweep run did not complete reliably: ${reason}`;
+    core.setOutput('infra-error', message);
+    core.setFailed(message);
+    return;
+  }
+
   core.setOutput('run-url', evalRunUrl(config.projectId, initial.id));
 
   const initialOutcomes = rowsToOutcomes(initial.status.results);
@@ -187,7 +197,13 @@ export async function runMergeTagSweep(): Promise<void> {
       name: github.context.payload.head_commit?.author?.name ?? 'unknown',
       url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
     };
-    const mergedBy = await resolveMergedBy(octokit, config.owner, config.repo, github.context.sha, fallback);
+    let mergedBy: MergedBy;
+    try {
+      mergedBy = await resolveMergedBy(octokit, config.owner, config.repo, github.context.sha, fallback);
+    } catch (e) {
+      core.warning(`Could not resolve merging PR author, using commit author instead: ${e instanceof Error ? e.message : String(e)}`);
+      mergedBy = fallback;
+    }
     core.setOutput('merged-by-name', mergedBy.name);
     core.setOutput('merged-by-url', mergedBy.url);
     core.setFailed(`${confirmed.length} scenario(s) confirmed failed in merge-tag sweep (${confirmed.map(v => v.scenarioName).join(', ')})`);

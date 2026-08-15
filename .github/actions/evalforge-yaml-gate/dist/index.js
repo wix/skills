@@ -66498,7 +66498,7 @@ function getMergeSweepConfig() {
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
-        changedFilesRaw: core.getInput('changed-files', { required: true }),
+        changedFilesRaw: core.getInput('changed-files'),
     };
 }
 function getEvalConfig() {
@@ -67436,10 +67436,6 @@ const merged_by_1 = __nccwpck_require__(5795);
 /** Above this many tag-matched scenarios, the sweep samples rather than running everything —
  * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
 exports.MAX_SWEEP_SCENARIOS = 20;
-/** Only these assertion statuses count as actual failures — `SKIPPED` and `UNKNOWN` are excluded.
- * See evalforge-core/src/evalforge.ts for the rationale: `UNKNOWN` is a wire value not recognized,
- * and folding it into a failure would manufacture a failure nothing actually reports as failed. */
-const NOT_PASSED = new Set(['FAILED', 'ERROR']);
 /** Tags carried by whatever the PR-time gate would itself run for this push: scenarios whose
  * own YAML changed, unioned with scenarios covering a changed doc. */
 function tagsOfDirectlyAffected(headScenarios, changedEvalPaths, coveredBy) {
@@ -67476,11 +67472,11 @@ async function resolveSweepSet(client, projectId, tags) {
  * Sibling to gate.ts's toAttemptOutcomes, not a reuse of it — there's no with/without pair here,
  * just "did main pass this scenario." */
 function rowsToOutcomes(rows) {
-    return rows.map(row => ({
-        scenarioId: row.scenarioId,
-        scenarioName: row.scenarioName,
-        failed: row.failed > 0,
-        reasons: row.assertions.filter(a => NOT_PASSED.has(a.status)).map(a => a.assertionName),
+    return (0, evalforge_core_1.foldScenarioIterations)(rows).map(outcome => ({
+        scenarioId: outcome.scenarioId,
+        scenarioName: outcome.scenarioName,
+        failed: outcome.failed > 0 || outcome.errors > 0,
+        reasons: outcome.failingAssertionNames ?? [],
     }));
 }
 async function runMergeTagSweep() {
@@ -67488,6 +67484,10 @@ async function runMergeTagSweep() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const octokit = github.getOctokit(config.githubToken);
     const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    if (config.changedFilesRaw.trim() === '') {
+        core.info('Merge-tag sweep: no changed files reported for this push (e.g. first push on this ref) — nothing to run');
+        return;
+    }
     const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
     const classified = (0, github_1.classifyChanges)(changedFiles);
     const { scenarios: headScenarios } = (0, evals_1.loadEvals)(workspace);
@@ -67541,6 +67541,15 @@ async function runMergeTagSweep() {
         core.setFailed(message);
         return;
     }
+    if (initial.status.status !== 'completed' || initial.status.aggregateMetrics.totalAssertions === 0) {
+        const reason = initial.status.status !== 'completed'
+            ? `the eval run ${initial.status.status === 'cancelled' ? 'was cancelled' : `ended as "${initial.status.status}"`}`
+            : 'the run produced no assertions, so nothing was verified';
+        const message = `Merge-tag sweep run did not complete reliably: ${reason}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+        return;
+    }
     core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
     const initialOutcomes = rowsToOutcomes(initial.status.results);
     const initialFailures = initialOutcomes.filter(o => o.failed);
@@ -67582,7 +67591,14 @@ async function runMergeTagSweep() {
             name: github.context.payload.head_commit?.author?.name ?? 'unknown',
             url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
         };
-        const mergedBy = await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
+        let mergedBy;
+        try {
+            mergedBy = await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
+        }
+        catch (e) {
+            core.warning(`Could not resolve merging PR author, using commit author instead: ${e instanceof Error ? e.message : String(e)}`);
+            mergedBy = fallback;
+        }
         core.setOutput('merged-by-name', mergedBy.name);
         core.setOutput('merged-by-url', mergedBy.url);
         core.setFailed(`${confirmed.length} scenario(s) confirmed failed in merge-tag sweep (${confirmed.map(v => v.scenarioName).join(', ')})`);

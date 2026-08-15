@@ -94,7 +94,7 @@ export function getMergeSweepConfig(): MergeSweepConfig {
     githubToken: coreSafeGetSecret(core, 'github-token'),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
-    changedFilesRaw: core.getInput('changed-files', { required: true }),
+    changedFilesRaw: core.getInput('changed-files'),
   };
 }
 
