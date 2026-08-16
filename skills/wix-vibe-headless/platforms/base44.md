@@ -68,7 +68,7 @@ Only when the business description is vague or missing (else skip to STEP 3). Do
 Business Solution — **read the site in one call** via the connector (exec_tool):
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wix-headless"
 const res = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
   method: "POST",
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -111,7 +111,7 @@ access token and send it as a bearer token; do **not** hand-roll a token getter 
 flow applies to Base44):
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wix-headless"
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
