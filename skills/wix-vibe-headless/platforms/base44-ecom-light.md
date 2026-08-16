@@ -71,4 +71,4 @@ const res = await fetch("https://www.wixapis.com/<api-path>", {
 return await res.json();
 ```
 
-`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
+`base44` is already declared inline in exec_tool or in backend functions — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
