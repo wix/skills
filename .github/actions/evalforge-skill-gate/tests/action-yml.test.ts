@@ -8,7 +8,12 @@ import {
 } from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
-type ActionYml = { name: string; inputs: Record<string, ActionInput>; runs: { main: string } };
+type ActionYml = {
+  name: string;
+  inputs: Record<string, ActionInput>;
+  outputs: Record<string, { description: string }>;
+  runs: { main: string };
+};
 
 const action = yaml.load(readFileSync(join(__dirname, '../action.yml'), 'utf8')) as ActionYml;
 
@@ -22,7 +27,7 @@ describe('action.yml', () => {
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
       'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
-      'base-arm-grace-seconds',
+      'base-arm-grace-seconds', 'eval-run-id',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);
     }
@@ -58,5 +63,15 @@ describe('action.yml', () => {
 
   it('runs the committed bundle', () => {
     expect(action.runs.main).toBe('dist/index.js');
+  });
+
+  it('declares the analyze-run-id output the analyze job triggers on', () => {
+    expect(Object.keys(action.outputs)).toContain('analyze-run-id');
+  });
+
+  it('documents every mode the action dispatches', () => {
+    for (const mode of ['gate', 'analyze', 'cleanup', 'sync']) {
+      expect(action.inputs.mode.description).toContain(`"${mode}"`);
+    }
   });
 });

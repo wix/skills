@@ -116,6 +116,26 @@ const redRun = (): EvalRunStatus => runStatus([assertionRow('FAILED')]);
 const partialRun = (): EvalRunStatus => runStatus([partialRow], { totalAssertions: 0, passed: 0, passRate: 0 });
 /** No rows at all for the requested scenario — the "requested but never measured" case. */
 const emptyRun = (): EvalRunStatus => runStatus([], { totalAssertions: 0, passed: 0, passRate: 0 });
+/** `pollUntilDone` treats `cancelled` as terminal, so this reaches the verdict with zero failures. */
+const cancelledRun = (): EvalRunStatus => ({ ...runStatus([assertionRow('PASSED')]), status: 'cancelled' });
+
+const statusWith = (
+  metrics: { passed: number; failed: number; errors: number },
+): EvalRunStatus => ({
+  status: 'completed',
+  progress: 100,
+  aggregateMetrics: {
+    totalAssertions: metrics.passed + metrics.failed + metrics.errors,
+    passed: metrics.passed,
+    failed: metrics.failed,
+    skipped: 0,
+    errors: metrics.errors,
+    passRate: 0,
+    avgDuration: 0,
+    totalDuration: 0,
+  },
+  results: [assertionRow(metrics.failed > 0 ? 'FAILED' : 'PASSED')],
+});
 
 /** Never settles — models a base arm that the grace period must not wait out. */
 const NEVER_SETTLES = new Promise<EvalRunStatus>(() => {});
@@ -128,8 +148,15 @@ type PollSleep = { sleep: (ms: number) => Promise<void> };
 const upsertComment = vi.fn().mockResolvedValue(undefined);
 const lastComment = (): string => upsertComment.mock.calls.at(-1)?.[0] as string;
 
+/** Update-only in production, so a green PR that never failed gets no analysis comment at all. */
+const supersedeAnalysis = vi.fn().mockResolvedValue(undefined);
+
 beforeEach(async () => {
   vi.clearAllMocks();
+  // Installed once here rather than per-test: `redRun()` now has a failed assertion, so every
+  // test that reaches the emit calls the real `core.setOutput` unless it is always mocked —
+  // otherwise it falls back to printing the deprecated `::set-output` workflow command.
+  vi.spyOn(core, 'setOutput').mockImplementation(() => undefined);
   // Loaded before any test installs fake timers: a dynamic import that first has to reach the
   // loader mid-test cannot make progress while the clock is frozen.
   await import('../src/utils/run-and-report');
@@ -143,7 +170,7 @@ afterEach(() => {
 
 async function run(config: GateConfig = CONFIG) {
   const { runAndReport } = await import('../src/utils/run-and-report');
-  await runAndReport(client, config, SCOPE, NAME_TO_ID, 'ver-1', upsertComment);
+  await runAndReport(client, config, SCOPE, NAME_TO_ID, 'ver-1', upsertComment, supersedeAnalysis);
 }
 
 async function lastImpact() {
@@ -374,5 +401,78 @@ describe('runAndReport — the base arm cannot move or delay the verdict', () =>
     expect(impact?.scenarios).toHaveLength(1);
     expect(impact?.scenarios[0]).toMatchObject({ scenarioId: 'remote-id', impact: 'unattributed' });
     expect(lastComment()).not.toContain('newly-broken');
+  });
+
+  it('emits analyze-run-id when the PR arm has failed assertions', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 2, errors: 0 }));
+
+    await run();
+
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+  });
+
+  it('leaves the investigation comment alone when there is something to investigate', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 2, errors: 0 }));
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
+  // Otherwise a fixed PR shows a green verdict directly above the sticky investigation of the run
+  // that failed — the state a merging reviewer sees most often.
+  // A retraction that falsely claims the run was clean is worse than a stale investigation: it
+  // reassures the reader beside a red check *and* destroys the findings. Both of these fail the
+  // verdict while leaving `failed` and `errors` at zero, so the counts alone cannot gate it.
+  it('never retracts the investigation when the run produced no assertions', async () => {
+    pollUntilDone.mockResolvedValue(emptyRun());
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('never retracts the investigation when the run was cancelled', async () => {
+    pollUntilDone.mockResolvedValue(cancelledRun());
+
+    await run();
+
+    expect(supersedeAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('retracts a superseded investigation when the run comes back clean', async () => {
+    const { ANALYSIS_COMMENT_MARKER } = await import('@wix/evalforge-core');
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));
+
+    await run();
+
+    expect(supersedeAnalysis).toHaveBeenCalledOnce();
+    expect(supersedeAnalysis.mock.calls[0][0]).toContain(ANALYSIS_COMMENT_MARKER);
+    expect(supersedeAnalysis.mock.calls[0][0]).toContain('no longer applies');
+    expect(vi.mocked(core.setOutput)).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
+  });
+
+  it('emits analyze-run-id when assertions errored but none failed', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 1, failed: 0, errors: 1 }));
+
+    await run();
+
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
+  });
+
+  it('emits no analyze-run-id for a fully green run', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 3, failed: 0, errors: 0 }));
+
+    await run();
+
+    expect(vi.mocked(core.setOutput)).not.toHaveBeenCalledWith('analyze-run-id', expect.anything());
+  });
+
+  it('still emits analyze-run-id in soak mode, where a run with real failures still passes', async () => {
+    pollUntilDone.mockResolvedValue(statusWith({ passed: 0, failed: 3, errors: 0 }));
+
+    await run({ ...CONFIG, isBlocking: false });
+
+    expect(vi.mocked(core.setOutput)).toHaveBeenCalledWith('analyze-run-id', 'run-pr');
   });
 });

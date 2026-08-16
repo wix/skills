@@ -278,6 +278,36 @@ export function getGateConfig(): GateConfig {
   };
 }
 
+/** Analyze mode reads no repo files, so it needs no skill dir, glob, capability, agent or shas. */
+export type AnalyzeConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  appId: string;
+  appSecret: string;
+  githubToken: string;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  evalRunId: string;
+};
+
+export function getAnalyzeConfig(): AnalyzeConfig {
+  const owner = github.context.repo.owner;
+  const repo = github.context.repo.repo;
+
+  return {
+    evalforgeUrl: ensureHttps(core, core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    appId: safeGetSecret(core, 'evalforge-app-id'),
+    appSecret: safeGetSecret(core, 'evalforge-app-secret'),
+    githubToken: safeGetSecret(core, 'github-token'),
+    owner,
+    repo,
+    prNumber: getPrNumber(github.context.payload),
+    evalRunId: core.getInput('eval-run-id', { required: true }),
+  };
+}
+
 export function getCleanupConfig(): CleanupConfig {
   const owner = github.context.repo.owner;
   const repo = github.context.repo.repo;

@@ -2,18 +2,23 @@
 
 Use this reference to audit and fix accessibility issues in an Editor React Component. This complements [`ACCESSIBILITY.md`](ACCESSIBILITY.md), which covers ARIA prop conventions and patterns, with an automated scan and triage workflow over the component's runtime, manifest extension, and shared code.
 
-This is not a separate skill. It runs as part of the Editor React Component workflow described in [`../SKILL.md`](../SKILL.md). Run it after editing the React/CSS sources and before `npx wix build && npx wix generate manifest`.
+This is not a separate skill. It runs as part of the Editor React Component workflow described in [`../EDITOR_REACT_COMPONENT.md`](../EDITOR_REACT_COMPONENT.md). Run it after editing the React/CSS sources and before `npx wix build && npx wix generate manifest`.
 
 ## Scanner Invocation
 
-Two scanners live at the Editor React Component skill root:
+Two scanners are bundled under `<SKILL_ROOT>/scripts`, where `<SKILL_ROOT>` is
+the absolute path to the directory containing the active skill's `SKILL.md`:
 
 ```bash
-node scripts/scan-a11y-eslint.cjs <file1> [file2] ...
-node scripts/scan-a11y-code.cjs  <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-eslint.cjs <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-code.cjs  <file1> [file2] ...
 ```
 
-Run them from the consumer project root (the Wix CLI app's working directory) so dependencies resolve from the project's `package.json`. Pass paths relative to that cwd. The dependency preflight is part of the workflow in [`../SKILL.md`](../SKILL.md).
+Replace `<SKILL_ROOT>` with that absolute path, but run the commands from the
+consumer project root (the Wix CLI app's working directory) so dependencies
+resolve from the project's `package.json`. Pass target paths relative to that
+cwd. The dependency preflight is part of the workflow in
+[`../EDITOR_REACT_COMPONENT.md`](../EDITOR_REACT_COMPONENT.md).
 
 The ESLint scanner uses the explicitly declared `eslint-plugin-jsx-a11y` dev dependency. The semantic scanner follows imports up to four levels deep and adds resolution evidence and confidence to its findings.
 
@@ -52,7 +57,7 @@ Execute every phase inline while editing. Do not pause for approval or add a sep
 ### Phase 2a: ESLint JSX A11y Scan (Tier 0)
 
 ```bash
-node scripts/scan-a11y-eslint.cjs <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-eslint.cjs <file1> [file2] ...
 ```
 
 Use each finding's rule ID, message, and location as the rule-specific context. Validate the finding against the component implementation before editing.
@@ -60,7 +65,7 @@ Use each finding's rule ID, message, and location as the rule-specific context. 
 ### Phase 2b: Semantic Scan (Tier 1)
 
 ```bash
-node scripts/scan-a11y-code.cjs <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-code.cjs <file1> [file2] ...
 ```
 
 Use the emitted resolution path, evidence, and confidence to trace each finding. The scanner output is the source of rule-specific details; the reference only defines how to evaluate and act on those details.

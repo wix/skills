@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -31,6 +31,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [App Management Dashboard Navigation](references/app-installation/app-installation-dashboard-navigation.md)
 **Technical:** Direct links to the App Market and installed-apps management dashboard pages on manage.wix.com, paired with the List Installed Apps read API.
+
+---
+
+## Accessibility
+
+### [Scan a Wix Site for Accessibility Issues](references/accessibility/scan-site-accessibility.md)
+**Technical:** Runs an asynchronous accessibility scan for a full site, one page, or every page in any supported Wix page collection. Discovers collection IDs instead of hardcoding verticals, polls the scan to completion, separates failed pages from clean pages, and returns prioritized, agent-friendly findings and fix guidance.
 
 ---
 
