@@ -51,21 +51,25 @@ Use the optional nested `bootstrap` block when the cloned site needs additional 
 ```yaml
 siteSetup:
   mode: template
-  templateId: blank-editor
+  templateId: stores-v3-editor
   bootstrap:
     steps:
-      - label: Install the Wix Blog app so the site has a blog
+      - label: Seed a product
         method: post
-        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        url: https://www.wixapis.com/stores/v3/products
         body:
-          tenant:
-            id: "{{siteId}}"
-            tenantType: SITE
-          appInstance:
-            appDefId: 14bcded7-0066-7c35-14d7-466cb3f09103
+          product:
+            name: Demo Product
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "42.50" } }
+                  physicalProperties: {}
+                  visible: true
 ```
 
-Choose a template that matches the scenario's starting state, and use bootstrap only for setup that the template does not already provide. Bootstrap is fail-fast: any non-2xx response fails the run. See the [blog-publish-post evaluation setup example](https://github.com/wix-private/ax-tools/blob/abfc61243932b21c29bea27e985448840c2a60bc/packages/proto-eval-gate/selftest/proto/appendices/evals/blog/blog-publish-post.evalforge.yaml), which clones `blank-editor` and then installs the Wix Blog app through a bootstrap API call. For the complete schema and more examples, see [Site provisioning](docs/eval-scenarios.md#site-provisioning-optional).
+Choose a template that matches the scenario's starting state, and use bootstrap only for setup that the template does not already provide. Bootstrap is fail-fast: any non-2xx response fails the run. For the complete schema and more examples, see [Site provisioning](docs/eval-scenarios.md#site-provisioning-optional).
 
 ## Updating a Wix App Reference
 
