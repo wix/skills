@@ -29,7 +29,8 @@ so you don't need to open them:**
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
-| `components/VariantPicker.jsx` | option/variant selector used on the PDP — colour options render as real swatches, and picking one moves the gallery to that colour's photo |
+| `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); **always use this to build your own variant UI on the PDP** |
+| `components/VariantPicker.jsx` | reference implementation of a variant selector built on `useVariantOptions` (pills + colour swatches) — read it for inspiration, but build your own component rather than using it directly |
 | `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | the two ids, written by the install step |
@@ -70,6 +71,35 @@ replace it.
   banner is dismissed.
 - Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
   **You add `/` → your own Home** page.
+- **Build your own variant selector on the PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships with a `VariantPicker` import — remove it and replace with your own component built on `useVariantOptions`. Design the controls to fit the brief: the business type, the tone, the audience. A fashion brand might want large colour swatches and a size chart link; a tech store might want a compact dropdown. `VariantPicker.jsx` is in `src/` for reference — read it, don't use it:
+
+```jsx
+import { useVariantOptions } from "@/hooks/useVariantOptions";
+
+// options/modifiers/selectedOptions/modifierValues come from useProductDetail:
+const { optionGroups, modifierGroups } = useVariantOptions(options, modifiers, selectedOptions, modifierValues);
+
+// optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode, isColorSwatch, inStock, selected }] }]
+// modifierGroups: [{ key, name, mandatory, type: 'choices'|'text', choices?: [{ key, name, selected }], value?: string }]
+
+// Then render however you want:
+optionGroups.map((group) =>
+  group.choices.map((c) =>
+    c.isColorSwatch
+      ? <MySwatch key={c.choiceId} color={c.colorCode} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)} />
+      : <MyPill  key={c.choiceId} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)}>{c.name}</MyPill>
+  )
+);
+modifierGroups.map((m) =>
+  m.type === "text"
+    ? <MyInput key={m.key} label={m.name} value={m.value} onChange={(v) => setModifier(m.key, v)} />
+    : m.choices.map((c) =>
+        <MyPill key={c.key} active={c.selected} onClick={() => setModifier(m.key, c.key)}>{c.name}</MyPill>
+      )
+);
+```
 
 ```jsx
 import { useRef, useState, useEffect } from "react";
