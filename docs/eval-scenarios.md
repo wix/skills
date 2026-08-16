@@ -78,15 +78,15 @@ Beyond these three, you can add other assertions (`api_call`, `cost`, `time_limi
 ### Example
 
 ```yaml
-name: domains/domain-search-purchase-and-connect
-description: Verifies the agent reads the domain-search-purchase-and-connect docs when asked about purchasing a new domain or connecting a domain that the user already owns.
+name: domains/domain-search-purchase-and-connect-a-domain
+description: Verifies the agent reads the domain-search-purchase-and-connect-a-domain docs when asked about purchasing a new domain or connecting a domain that the user already owns.
 triggerPrompt: I want to purchase a domain and connect it to the Wix site.
 tags: [domains]
 maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect-a-domain
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

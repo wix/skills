@@ -166,7 +166,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Domains
 
-### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
+### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect-a-domain.md)
 **Technical:** Purchase domains, connect domains to Wix sites, search for available domains and get domain suggestions. Covers availability checks, TLD filtering, purchase flow and connecting domains to Wix sites.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
