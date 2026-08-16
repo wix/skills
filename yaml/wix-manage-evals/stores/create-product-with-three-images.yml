@@ -1,0 +1,26 @@
+name: stores/create-product-with-three-images
+description: Verifies that one Catalog V3 product can be created with exactly three ordered, ready images and no inventory.
+triggerPrompt: >-
+  Create one physical product named "Three Photo Sample" for $49 with SKU 3IMG-001 and no inventory.
+  Attach these three images in this exact order: https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800,
+  https://images.unsplash.com/photo-1552053831-71594a27632d?w=800, and
+  https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800.
+tags: [stores, media]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent detects Catalog V3, uploads all three supplied images together when batch upload is available (or uses the documented Media Manager fallback), and creates exactly one PHYSICAL product through /stores/v3/products or a compatible one-product /stores/v3/bulk/products/create call. A successful upload's matching wixstatic.com URL may be used while processing is PENDING; READY polling is not mandatory. The product must keep name "Three Photo Sample", price 49, SKU "3IMG-001", product- and variant-level physicalProperties, and no inventoryItem. media.itemsInfo.items must contain exactly three distinct returned wixstatic.com URLs mapped to the three supplied assets in the same order, without media.main. To verify the gallery, the agent should request MEDIA_ITEMS_INFO on the create call or make at most one GET /stores/v3/products/{id}?fields=MEDIA_ITEMS_INFO. It must report attachment as verified only when that projected response proves it; otherwise label the images submitted rather than fully processed or verified. If any exact upload fails or remains unavailable, it should not create this required-three-image product and must report it blocked.
+      Fail if the agent uploads images separately when batch upload is available, uses an original external URL, a URL from a FAILED upload, or a thumbnail, substitutes, duplicates, drops, or reorders an image, creates more than one product, uses an inventory endpoint or adds inventory, writes media.main, loses the price or SKU, claims all three images are READY or verified without evidence, or searches the Update Product schema and PATCHes unchanged media merely because an unprojected create/GET response omitted itemsInfo. Do not fail merely because creation used successful upload URLs whose asynchronous status was PENDING.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, one successful batch upload, one no-inventory mutation with MEDIA_ITEMS_INFO, and projected response validation. One projected Get Product is acceptable if needed. A successful PENDING upload URL is usable and should not itself be penalized; only unsupported claims that processing is READY should be. Penalize redundant docs, speculative Update Product/schema searches, repair PATCHes, repeated uploads, recovered errors, failed media, substitution/reordering, wrong inventory mode, or repeated probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

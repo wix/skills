@@ -1,0 +1,24 @@
+name: stores/create-products-multiple-with-inventory
+description: Verifies that multiple Catalog V3 products with inventory use the inventory-aware bulk endpoint and validate both product and inventory results.
+triggerPrompt: >-
+  Create two physical products with no images: "Organic Green Tea" at $20, SKU TEA-001, quantity 50;
+  and "Herbal Shampoo" at $15, SKU SHAMPOO-001, marked in stock.
+tags: [stores]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent makes one POST to /stores/v3/bulk/products-with-inventory/create with returnEntity true and exactly two PHYSICAL products. Organic Green Tea's only variant must keep price 20, SKU TEA-001, and inventoryItem.quantity 50 together. Herbal Shampoo's only variant must keep price 15, SKU SHAMPOO-001, and inventoryItem.inStock true together. Both products and variants need physicalProperties and neither product should have media. Judge the returned API payload directly: success is supported when every top-level productResults.results[] and inventoryResults.results[] itemMetadata succeeds, both bulkActionMetadata objects reconcile with the expected counts, and inventoryResults.error is absent or null. The agent need not narrate each field inspection or make an additional verification call when that one response already proves the outcome.
+      Fail if it makes repeated single calls, calls /bulk/products/create without inventory, uses the suppliers-hub API, drops or swaps price/SKU/inventory values, invents images, or reports success when the returned payload shows or leaves unresolved a product failure, inventory failure, count mismatch, or non-null inventoryResults.error. Do not fail merely because the final answer summarizes success without explicitly naming itemMetadata, both metadata objects, or a null/absent inventoryResults.error.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, and one inventory-aware bulk mutation whose returned product and inventory result collections, metadata totals, and inventory error state support success. The agent does not need to recite those response paths in its final answer or make another verification call. Score below 7 for a response that does not prove inventory success, wrong response paths, unresolved failures/counts/errors, redundant docs, speculative probes, recovered errors, repeated single creates, or unnecessary calls. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.
