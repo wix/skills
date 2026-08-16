@@ -17,29 +17,11 @@ Install two skills — they land under `.agents/skills/`:
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
   doesn't cover.
 
-Run this through exec_tool, exactly as written — installs both skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
-
-**Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
-
-| vertical | pick it when the app needs to |
-|---|---|
-| `storefront` | sell products |
-| `bookings` | take appointments or service bookings |
-| `blog` | publish articles |
-| `events` | publish events with RSVPs or ticket sales |
-| `portfolio` | showcase creative work |
-| `pricing-plans` | sell memberships or subscriptions |
-| `restaurants` | show a menu, take orders, book tables |
-| `members` | let visitors sign in — this is **auth** |
-| `cms` | keep its own structured content — user submissions, galleries, listings, anything the rows above don't already cover |
-
-**List every vertical the app uses.** `cms` for app-stored content, `members` for visitor sign-in — these often join the main vertical. Adding one later: re-run with the extra name.
+Run this through exec_tool, exactly as written — installs both skills, deploys the `storefront` REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
 ```js
 const { execSync } = require('child_process');
 const { existsSync, readdirSync } = require('fs');
-const VERTICALS = ['storefront'];        // ← set from the prompt; list every vertical the app uses
-// const VERTICALS = ['members', 'cms']; // ← e.g. visitors sign in AND the app stores what they submit
 // COPY these two straight from the prompt — deploy writes them into src/rest/wix-config.js, so never
 // retype either one into a file by hand afterwards.
 const WIX_CLIENT_ID = '<client id from the prompt>';
@@ -54,7 +36,7 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')} --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
+const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs storefront --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
 const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
 ```
