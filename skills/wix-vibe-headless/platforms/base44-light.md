@@ -8,7 +8,7 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **`wix-vibe-headless` and `wix-docs` are the complete build path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).** **This flow builds the client only — there is no seeding step.**
 
-Follow STEPs 1–4 below exactly.
+Follow STEPs 1–3 below exactly.
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -61,27 +61,7 @@ return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.pa
 
 Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
 
-## STEP 2 (optional) — Brief doesn't say what to build? Read the site
-
-Only when the business description is vague or missing (else skip to STEP 3). Don't guess the Wix
-Business Solution — **read the site in one call** via the connector (exec_tool):
-
-```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const res = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ siteId: "<metasite id from your prompt>" }),
-});
-return (await res.json()).markdown;
-```
-
-It returns a markdown report — installed apps (by name), status, URL, locale, CMS collections
-([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md)).
-Build for the installed apps' solutions (several → prioritize by the user's words and which holds
-real, non-sample content). If it fails or shows nothing relevant, ask the user what they offer.
-
-## STEP 3 — Build the client
+## STEP 2 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
@@ -92,7 +72,7 @@ truth for how the client is built.
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
 rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
 
-## STEP 4 — Wrap up
+## STEP 3 — Wrap up
 
 **No seeding in this flow** — the client is the only deliverable. Do not seed, populate, or write data to Wix.
 
