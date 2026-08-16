@@ -362,7 +362,7 @@ Once the service and staff member are available, you can define when the service
 
 **Event requirements**:
 
-- `event.resources` array **must include at least one resource** (a staff member/room/etc.). CLASS and COURSE events will fail with a 400 error if no resources are provided. Each entry needs **both** fields:
+- `event.resources` array **must include at least 1 staff resource**. CLASS and COURSE events fail with a 400 error if no resources are provided at all. If the service also uses room or other resource types, add those as additional entries, not as a substitute for staff. Each entry needs **both** fields:
   - `id` — the staff member's `resourceId` from Step 1, **not** the staff member `id`. Using the staff member `id` returns a 404 `"Resource with <id> ID not found"`.
   - `permissionRole` — `WRITER` or `COMMENTER`. Omitting it fails with a 400 `"resources.permissionRole must not be UNKNOWN_ROLE"`.
 - `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE. Passing a staff member's schedule ID for a CLASS/COURSE session returns 200 but creates the session on that staff member's personal schedule, where it has no capacity or location and customers can't book it.
