@@ -1,0 +1,24 @@
+name: stores/create-products-multiple-no-inventory
+description: Verifies that multiple Catalog V3 products without inventory use the no-inventory bulk endpoint and preserve each product's type, price, and SKU.
+triggerPrompt: >-
+  Create these two products with no inventory and no images: a physical "Canvas Tote" at $18.50 with SKU 000-TOTE,
+  and a digital "Focus Planner PDF" at $9.99 with SKU PDF-FOCUS-01.
+tags: [stores]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent makes one POST to /stores/v3/bulk/products/create with returnEntity true and exactly two products. Canvas Tote must be PHYSICAL with product and variant physicalProperties, price 18.50, and SKU "000-TOTE" preserved. Focus Planner PDF must be DIGITAL with price 9.99 and SKU "PDF-FOCUS-01", without physicalProperties. No product may contain inventoryItem or media. The agent must inspect every result's itemMetadata and bulkActionMetadata before reporting success.
+      Fail if it makes repeated single-product calls, calls either inventory endpoint, uses the suppliers-hub API, adds inventory/images, loses a SKU/price/type, adds physicalProperties to the digital product, or claims full success without inspecting all bulk results.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, one no-inventory bulk mutation, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, repeated single creates, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

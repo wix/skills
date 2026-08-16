@@ -383,27 +383,17 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
 **Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
 
-### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
-**Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
-
-### [Create Product from Image](references/stores/create-product-from-image.md)
-**Technical:** **MANDATORY entry point** for any "create product from image" or "create product from photo" request. STEP 1 auto-detects the site's catalog version (V1/V3) via the provision endpoint, then runs the matching flow inline — V3 supports up to 3 images, info sections, SEO, options/variants, and atomic creation; V1 supports a single image, simple product, and a separate media-attach call. Combines Media Upload + LLM analysis + Product Creation + (V1 only) Add Product Media in one self-contained recipe.
-
-
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 **Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
 
-### [Create Product with Options (Catalog V3)](references/stores/create-product-with-options-catalog-v3.md)
-**Technical:** Single product creation with options using Catalog V3 Products API. Covers option types (TEXT_CHOICES, SWATCH_CHOICES), choice configuration, and automatic variant generation.
+### [Create Product (Catalog V3)](references/stores/create-product-catalog-v3.md)
+**Technical:** **Mandatory first read for every Catalog V3 create-product request, including vague requests.** Before any other documentation or API tool, load exactly `https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3`. When no product is identified, that recipe read must be the final tool call; respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” Then stop. **Never replace this with a list or questions for name, price, description, type, images, inventory, SKU, options, SEO, or other fields.** If name or price is missing, ask for it or offer to suggest it, then stop. When name and price are present, create from supplied details without requiring optional enrichment. Never default price to `0`. The recipe owns single/bulk endpoint choice, inventory, physical/digital products, images, options, variants, prices, SKUs, limits, and validation.
 
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
 **Technical:** Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
 **Technical:** Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
-
-### [Setup Online Store (Catalog V3)](references/stores/setup-online-store-catalog-v3.md)
-**Technical:** Initializes a Stores catalog with Catalog V3 Products API, bulk products endpoint, and Categories API. Covers product creation, option configuration, variant management, and category assignment.
 
 ### [Update Product Pre-Order](references/stores/update-product-pre-order.md)
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
