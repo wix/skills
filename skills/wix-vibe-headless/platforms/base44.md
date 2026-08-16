@@ -149,4 +149,4 @@ Once the site is built and seeded:
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
 `wix-docs` — all over the connector.
 
-version: v1337
+version: v1338
