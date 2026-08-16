@@ -59,7 +59,7 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 ## Later admin requests
 
-For any later admin/management request, use the Wix connector — get an access token and call the Wix API directly:
+When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix-headless");
