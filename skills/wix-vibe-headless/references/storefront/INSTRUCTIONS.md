@@ -29,7 +29,8 @@ so you don't need to open them:**
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
-| `components/VariantPicker.jsx` | option/variant selector used on the PDP — colour options render as real swatches, and picking one moves the gallery to that colour's photo |
+| `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); use this to build your own variant UI instead of the shipped `VariantPicker` |
+| `components/VariantPicker.jsx` | default option/variant selector (pills + colour swatches) built on `useVariantOptions` — swap it for your own component if you want a different look; the hook contract stays the same |
 | `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | the two ids, written by the install step |
@@ -229,6 +230,36 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 // product.plainDescription is HTML → render as HTML (the PDP does this):
 <div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
 // image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
+```
+
+**Building your own variant/option UI?** Use `useVariantOptions` instead of the shipped `VariantPicker`:
+
+```jsx
+import { useVariantOptions } from "@/hooks/useVariantOptions";
+
+// Inside your PDP component — options/modifiers/selectedOptions/modifierValues come from useProductDetail:
+const { optionGroups, modifierGroups } = useVariantOptions(options, modifiers, selectedOptions, modifierValues);
+
+// optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode, isColorSwatch, inStock, selected }] }]
+// modifierGroups: [{ key, name, mandatory, type: 'choices'|'text', choices?: [{ key, name, selected }], value?: string }]
+
+// Then render however you want:
+optionGroups.map((group) =>
+  group.choices.map((c) =>
+    c.isColorSwatch
+      ? <MySwatch key={c.choiceId} color={c.colorCode} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)} />
+      : <MyPill  key={c.choiceId} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)}>{c.name}</MyPill>
+  )
+);
+modifierGroups.map((m) =>
+  m.type === "text"
+    ? <MyInput key={m.key} label={m.name} value={m.value} onChange={(v) => setModifier(m.key, v)} />
+    : m.choices.map((c) =>
+        <MyPill key={c.key} active={c.selected} onClick={() => setModifier(m.key, c.key)}>{c.name}</MyPill>
+      )
+);
 ```
 
 Fallback only — when you hit an error or need something not shown here (coupons, members, a field
