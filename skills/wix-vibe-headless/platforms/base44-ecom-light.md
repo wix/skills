@@ -1,7 +1,7 @@
-# Wix Managed Headless — Base44 build instructions (client only)
+# Wix Managed Headless — Base44 storefront client
 
-You are building a **Wix Managed** headless site inside Base44 — the business is described in your
-initial prompt, and the Wix connector is already configured; use it for all admin API calls.
+You are building a **Wix Managed** headless storefront inside Base44 — the business is described in your
+initial prompt, and the Wix connector is already configured.
 
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
@@ -13,7 +13,7 @@ Follow STEPs 1–3 below exactly.
 ## STEP 1 — Install the Wix skills locally
 
 Install two skills — they land under `.agents/skills/`:
-- **`wix-vibe-headless`** — the client build guide (STEP 3): your main source of truth.
+- **`wix-vibe-headless`** — the storefront build guide (STEP 2): your main source of truth.
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
   doesn't cover.
 
@@ -59,4 +59,4 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 **Do NOT add the `<WixManageBanner/>` component** and do not send the user Wix dashboard links — this flow does not include the manage banner or back-office handoff.
 
-**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit, re-seed, or debug image urls.** Leave them and finish.
+**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
