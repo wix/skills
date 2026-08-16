@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to skills. This document provides Wix-specific guidelines for adding and updating skill content in this repository.
 
-> **Note:** For general Agent Skills format requirements, see the [Agent Skills specification](https://agentskills.io/home).
+> **Note:** For general Agent Skills format requirements, see the [Agent Skills specification](https://agentskills.io/home).rrr
 
 Two companion documents carry the detail, so this one stays the entry point:
 
