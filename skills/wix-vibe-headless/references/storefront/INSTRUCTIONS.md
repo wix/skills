@@ -57,7 +57,7 @@ pages are themed with zero work here. To adjust the palette, edit `index.css` (`
 shipped JSX.** Build the Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it
 matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
-## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## STEP 3 — Wire routes + build your UI (Home, card, grid, variant selector)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
@@ -184,8 +184,8 @@ function Layout() {
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<CartButton/>` in it) and a **`Footer`** — the
 two you drop into the `Layout` (STEP 3) so they wrap every route — plus the overall brand story,
-styled from the same base44 tokens/classes. **Compose the shipped pieces** — a
-featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
+styled from the same base44 tokens/classes. **Compose the pieces** — a
+featured strip is just `queryProducts` + your own grid component (built on `useProductCard`, using `ProductGrid` as a reference); the nav is a `<CartButton/>`
 (a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
 text button) + a link to `/shop`:
 
@@ -193,8 +193,8 @@ text button) + a link to `/shop`:
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { queryProducts } from "@/rest/wix-store-catalog";
-import ProductGrid from "@/components/ProductGrid";
 import CartButton from "@/components/CartButton";
+// import your own grid component here (built on useProductCard)
 
 // Responsive header: choose ONE branch with a state flag, so <CartButton/> mounts once.
 // Do NOT render a desktop nav AND a mobile nav toggled by `hidden md:flex` / `md:hidden`:
@@ -224,7 +224,7 @@ export function Featured() {                                // on your home page
       .then(({ products }) => setProducts(products))
       .catch(() => setProducts([]));                        // land on the empty state, not a spinner
   }, []);
-  return <ProductGrid products={products} loading={products === null} empty="Products coming soon." />;
+  return <MyProductGrid products={products} loading={products === null} empty="Products coming soon." />;
 }
 ```
 Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages
@@ -324,7 +324,7 @@ client build; run in parallel.
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
 - [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
-- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
+- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed your own card + grid render themed (surface, text, brand color) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects; the drawer shows a **subtotal**.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
