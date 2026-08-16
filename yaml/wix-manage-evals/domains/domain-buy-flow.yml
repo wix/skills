@@ -10,7 +10,7 @@ maxTokens: 800000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

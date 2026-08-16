@@ -141,8 +141,11 @@ The article does most of the work: **a** domain is one the user does not have ye
 Do not fall through to the clarifying question just because the words "buy" or "purchase" are
 absent — *"I want a domain for my site"* is a purchase.
 
-An answer of "connect" / "I have one" with no domain named → ask *"What domain would you like to
-connect?"*, then go to §A4.
+**CONNECT with no domain named gets one reply, and it is the same reply whether it opened the
+conversation or answered the clarifying question above:** ask *"What domain would you like to
+connect?"*, then go to §A4. *"I want to connect a domain I already own to my Wix site"* is that case.
+§A3 carries it as its own row, above both no-domain rows — a site mentioned in the request does not
+turn it into one of the purchase branches.
 
 Do **not** ask "do you already own this domain?" — not before the availability check, and not after
 it either. Asking first produces the awkward case where the user claims to own a domain that is not
@@ -159,12 +162,21 @@ else in this table — including a site they named in the same breath.
 | Situation | Action |
 |-----------|--------|
 | User named a specific domain — **even if they named a site too** | Normalize it (§R1). A **subdomain** → §A3.1. Anything else → §A4, **first**, before any site work |
+| **Intent is CONNECT and no domain was named** — *"I want to connect a domain I already own to my Wix site"*, *"I have a domain I'd like to add to Wix"* | Ask, verbatim: **"What domain would you like to connect?"** Normalize the answer (§R1) and go to §A4. **Nothing else happens in this turn** — no suggestions, no site resolution, no plan check, no link |
 | User gave brand/business context but no domain — *"My business is called Green Sprout Bakery"*, *"I need a domain for my pancakes restaurant"* | **Do not ask.** Build a query from that context → §A5 |
 | **No domain, but they pointed at a site** — *"I want a domain for my wix site"*, *"I need a domain for my site"* | **Do not ask for a domain yet.** The site is the context → §A3.2 |
 | Nothing at all — *"I want to buy a domain"*, *"help me get a domain"* | Ask, verbatim: **"What domain do you have in mind?"** Then take the answer as either a specific domain (→ §A4) or a description (→ §A5). |
 
 The user answering with a description rather than a domain (*"Something with 'cozycuts' in it"*) is
 normal — treat it as a query and go to §A5.
+
+⛔ **The CONNECT row sits above both no-domain rows on purpose, and a site in the message does not
+displace it.** *"I want to connect a domain I already own to my Wix site"* mentions a site, which
+looks like the row below it — but the two rows below are **purchase** rows, and both answer a
+question this user has not asked. Brand context feeds §A5, which offers domains to *register*; the
+site row feeds §A3.2, which resolves a site in order to build a suggestions query. Neither is a
+connect. The intent decides which row applies, and the site named in a CONNECT message is simply
+carried forward to §C1 — there is nothing to resolve it *for* until a domain is in hand.
 
 ⚠️ **A named domain is checked before anything else happens, and the answer is the first thing the user
 hears.** No site resolution, no fetching list of sites, no plan check and no list of sites comes in front of
@@ -246,9 +258,16 @@ pitch — §R9.
 
 ### A3.2 The User Pointed at a Site but Named No Domain
 
-**This section is only for a message that named no domain.** If a domain was named as well —
-*"buy mybakery.com for my wix site"* — row 1 owns it: §A4 runs first, and the site is resolved
-afterwards by §P1. Resolving a site here would put a list in front of the availability answer.
+**This section is only for a message that named no domain, and only when the intent is PURCHASE or
+UNKNOWN.** If a domain was named as well — *"buy mybakery.com for my wix site"* — row 1 owns it: §A4
+runs first, and the site is resolved afterwards by §P1. Resolving a site here would put a list in
+front of the availability answer.
+
+⛔ **A CONNECT message never reaches this section**, however closely it matches the shape.
+*"I want to connect a domain I already own to my Wix site"* names no domain and points at a site, and
+it is still not this row — §A3's CONNECT row took it and asked which domain. Everything below builds
+a **suggestions query** out of the site's name in order to offer domains to buy, which is the one
+thing a user who already owns their domain did not ask for.
 
 *"I want a domain for my wix site"* names no domain, and it is **not** nothing. Two things arrive with
 it, and the old reading of this row threw both away:
