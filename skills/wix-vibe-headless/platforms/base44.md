@@ -113,7 +113,7 @@ const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
-Inline via exec_tool or in backend functions, `base44` is already declared — use it directly; do **not** import
+Inline via exec_tool, `base44` is already declared — use it directly; do **not** import
 `@base44/sdk`, re-declare it, or call `createClient()` (that's for standalone `.js` files only;
 inline it throws *"Identifier 'base44' has already been declared."*).
 

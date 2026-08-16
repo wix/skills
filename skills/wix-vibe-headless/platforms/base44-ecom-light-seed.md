@@ -68,7 +68,7 @@ const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
-Inline via exec_tool or in backend functions, `base44` is already declared — use it directly; do **not** import
+Inline via exec_tool, `base44` is already declared — use it directly; do **not** import
 `@base44/sdk`, re-declare it, or call `createClient()` (that's for standalone `.js` files only;
 inline it throws *"Identifier 'base44' has already been declared."*).
 
@@ -101,4 +101,4 @@ const res = await fetch("https://www.wixapis.com/<api-path>", {
 return await res.json();
 ```
 
-`base44` is already declared inline in exec_tool or in backend functions — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
+`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
