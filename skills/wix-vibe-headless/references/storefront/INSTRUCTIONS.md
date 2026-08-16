@@ -71,6 +71,35 @@ replace it.
   banner is dismissed.
 - Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
   **You add `/` → your own Home** page.
+- **Build your own variant selector on the PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships with a `VariantPicker` import — remove it and replace with your own component built on `useVariantOptions`. Design the controls to fit the brief: the business type, the tone, the audience. A fashion brand might want large colour swatches and a size chart link; a tech store might want a compact dropdown. `VariantPicker.jsx` is in `src/` for reference — read it, don't use it:
+
+```jsx
+import { useVariantOptions } from "@/hooks/useVariantOptions";
+
+// options/modifiers/selectedOptions/modifierValues come from useProductDetail:
+const { optionGroups, modifierGroups } = useVariantOptions(options, modifiers, selectedOptions, modifierValues);
+
+// optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode, isColorSwatch, inStock, selected }] }]
+// modifierGroups: [{ key, name, mandatory, type: 'choices'|'text', choices?: [{ key, name, selected }], value?: string }]
+
+// Then render however you want:
+optionGroups.map((group) =>
+  group.choices.map((c) =>
+    c.isColorSwatch
+      ? <MySwatch key={c.choiceId} color={c.colorCode} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)} />
+      : <MyPill  key={c.choiceId} active={c.selected} disabled={!c.inStock}
+                  onClick={() => selectOption(group.id, c.choiceId)}>{c.name}</MyPill>
+  )
+);
+modifierGroups.map((m) =>
+  m.type === "text"
+    ? <MyInput key={m.key} label={m.name} value={m.value} onChange={(v) => setModifier(m.key, v)} />
+    : m.choices.map((c) =>
+        <MyPill key={c.key} active={c.selected} onClick={() => setModifier(m.key, c.key)}>{c.name}</MyPill>
+      )
+);
+```
 
 ```jsx
 import { useRef, useState, useEffect } from "react";
@@ -230,36 +259,6 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 // product.plainDescription is HTML → render as HTML (the PDP does this):
 <div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
 // image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
-```
-
-**Build your own variant/option UI on the PDP using `useVariantOptions`** — don't use `VariantPicker` directly; it's a reference, not the deliverable:
-
-```jsx
-import { useVariantOptions } from "@/hooks/useVariantOptions";
-
-// Inside your PDP component — options/modifiers/selectedOptions/modifierValues come from useProductDetail:
-const { optionGroups, modifierGroups } = useVariantOptions(options, modifiers, selectedOptions, modifierValues);
-
-// optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode, isColorSwatch, inStock, selected }] }]
-// modifierGroups: [{ key, name, mandatory, type: 'choices'|'text', choices?: [{ key, name, selected }], value?: string }]
-
-// Then render however you want:
-optionGroups.map((group) =>
-  group.choices.map((c) =>
-    c.isColorSwatch
-      ? <MySwatch key={c.choiceId} color={c.colorCode} active={c.selected} disabled={!c.inStock}
-                  onClick={() => selectOption(group.id, c.choiceId)} />
-      : <MyPill  key={c.choiceId} active={c.selected} disabled={!c.inStock}
-                  onClick={() => selectOption(group.id, c.choiceId)}>{c.name}</MyPill>
-  )
-);
-modifierGroups.map((m) =>
-  m.type === "text"
-    ? <MyInput key={m.key} label={m.name} value={m.value} onChange={(v) => setModifier(m.key, v)} />
-    : m.choices.map((c) =>
-        <MyPill key={c.key} active={c.selected} onClick={() => setModifier(m.key, c.key)}>{c.name}</MyPill>
-      )
-);
 ```
 
 Fallback only — when you hit an error or need something not shown here (coupons, members, a field
