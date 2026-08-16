@@ -42,6 +42,31 @@ When adding a `wix-manage` skill:
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
 7. Keep the skill's `description` to at most 1024 characters.
 
+### Starting an eval from a site template
+
+Use cases do not have to start from an empty or shared site. When an eval needs a fresh site with a particular Wix Business Solution already configured, add `siteSetup` to the scenario. EvalForge clones the selected template before the agent runs; for example, `stores-v3-editor` provides a pre-configured Stores site.
+
+Use the optional nested `bootstrap` block when the cloned site needs additional setup. Its steps are API calls executed in order after site creation and before the agent runs. Bootstrap calls can refer to the new site's ID as `{{siteId}}`.
+
+```yaml
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install the Wix Blog app so the site has a blog
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 14bcded7-0066-7c35-14d7-466cb3f09103
+```
+
+Choose a template that matches the scenario's starting state, and use bootstrap only for setup that the template does not already provide. Bootstrap is fail-fast: any non-2xx response fails the run. See the [blog-publish-post evaluation setup example](https://github.com/wix-private/ax-tools/blob/abfc61243932b21c29bea27e985448840c2a60bc/packages/proto-eval-gate/selftest/proto/appendices/evals/blog/blog-publish-post.evalforge.yaml), which clones `blank-editor` and then installs the Wix Blog app through a bootstrap API call. For the complete schema and more examples, see [Site provisioning](docs/eval-scenarios.md#site-provisioning-optional).
+
 ## Updating a Wix App Reference
 
 When updating `wix-app` skill content:
