@@ -112,6 +112,31 @@ curl -X GET \
 }
 ```
 
+This works for `displayName`/`displayField`. **Permission updates currently fail with `WDE0075: Not recognized role provided in permissions.`** Use the full-replace endpoint below to update a collection's permissions.
+
+**To change permissions on an existing collection, use the full-replace endpoint instead** (`UpdateDataCollection`, not `PatchDataCollection`) — it requires the collection's current `revision` and full `fields` array (get both from a `GET` first), but it does work:
+
+**Endpoint**: `PUT /wix-data/v2/collections`
+
+```json
+{
+  "collection": {
+    "id": "Products",
+    "revision": "3",
+    "displayName": "Product Catalog",
+    "fields": [ /* the collection's full current non-system fields, from GET */ ],
+    "permissions": {
+      "insert": "ADMIN",
+      "update": "ADMIN",
+      "remove": "ADMIN",
+      "read": "SITE_MEMBER"
+    }
+  }
+}
+```
+
+Don't delete and recreate a collection just to change its permissions — this full-replace call is the working path.
+
 ## Field Types Reference
 
 | Type | Description | Example Value |
@@ -122,7 +147,7 @@ curl -X GET \
 | `DATE` | Date only | `"2024-01-15"` |
 | `DATETIME` | Date and time | `{ "$date": "2024-01-15T10:00:00.000Z" }` |
 | `IMAGE` | Image reference | `"wix:image://v1/..."` |
-| `MEDIA_IMAGE` | Wix Media Image | `{ "url": "http://...", "height": 640, "width": 480, "alt": "Picture" }` |
+| `MEDIA_IMAGE` | Wix Media Image | `{ "id": "<mediaId>", "url": "http://...", "height": 640, "width": 480, "altText": "Picture" }` |
 | `MEDIA_VECTOR_ART` | Wix Media Vector Art | `{ "uri": "wix:vector://v1/...", "viewBox": "0 0 100 100", "contentType": "shape", "svgContent": "<svg>...</svg>" }` |
 | `URL` | Web URL | `"https://example.com"` |
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
@@ -138,7 +163,14 @@ curl -X GET \
 | `ANYONE` | All visitors (including anonymous) |
 | `SITE_MEMBER` | Logged-in site members |
 | `SITE_MEMBER_AUTHOR` | Members who created the item |
+| `PRIVILEGED` | Access to collection is controlled per role |
 | `ADMIN` | Site admins only |
+
+## Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
 
 ## Related Documentation
 

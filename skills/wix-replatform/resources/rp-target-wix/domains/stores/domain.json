@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "displayName": "Wix Stores",
+  "ownerHint": "Stores Catalog, Inventory, Coupons, Tags, and merchandising domain owners",
+  "wixAppsRequired": ["Wix Stores"],
+  "defaultImportOrder": ["category", "product-tag", "product", "inventory-item", "coupon"],
+  "sharedPitfalls": [
+    {
+      "code": "catalog-version-required",
+      "severity": "blocker",
+      "summary": "Catalog V3 only — Catalog V1 is unsupported. Confirm catalogVersion is V3_CATALOG (GET /stores/v3/provision/version) before any Stores write; V1_CATALOG halts the run, it is never mapped or coded around."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/stores-catalog-inventory.md"
+    },
+    {
+      "type": "repo-research",
+      "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md"
+    }
+  ]
+}

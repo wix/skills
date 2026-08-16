@@ -99,6 +99,7 @@ Some common apps:
 | Wix Bookings | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` |
 | Wix Blog | `14bcded7-0066-7c35-14d7-466cb3f09103` |
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
+| Wix Multilingual | `14d84998-ae09-1abf-c6fc-3f3cace5bf19` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 | Wix CMS | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 
@@ -113,6 +114,8 @@ Some common apps:
 
 ### App Not Installed Error
 If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
+
+If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
 
 ---
 

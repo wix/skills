@@ -1,0 +1,37 @@
+name: google-ads/create-performance-max-campaign
+description: >-
+  Verifies the agent uses the Performance Max recipe: generating text/image
+  assets and search themes, getting a PMAX budget recommendation, and building
+  an asset group that meets Google's minimum asset counts.
+triggerPrompt: >-
+  How do I create a Performance Max lead-generation campaign on my Wix site with
+  the Google Ads API, including generating the ad assets? Reference the endpoints.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/create-and-launch-a-performance-max-campaign
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to create a Performance Max (PMAX) Leads campaign including
+      generating assets.
+
+      Pass if the response:
+      - uses the Performance Max recipe, AND
+      - uses campaignType PERFORMANCE_MAX_LEADS (or PERFORMANCE_MAX) via
+        POST /v1/campaigns with a performanceMaxCampaign asset group, AND
+      - generates assets via text-asset-suggestions and image-asset-suggestions
+        (and search-theme-suggestions for Leads), AND
+      - notes the asset group must meet minimum asset counts (e.g. multiple
+        headlines, at least two descriptions, a business name, images), AND
+      - gets a budget via POST /v1/budget-recommendation (not the Smart
+        budget-suggestions endpoint), AND
+      - does NOT set the bidding strategy manually (it is server-enforced).
+
+      Fail if the response:
+      - hand-sets a bidding strategy, OR
+      - uses Smart-campaign fields (keywordThemes/smartCampaign) for PMAX, OR
+      - omits the asset-group minimums, OR
+      - hallucinates endpoints.

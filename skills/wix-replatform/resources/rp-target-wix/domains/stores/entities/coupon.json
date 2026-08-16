@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "coupon",
+  "displayName": "Stores Coupon",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Stores Coupon",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "coupon", "routes": ["/wc/v3/coupons"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "coupon", "routes": ["Coupons API"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Coupons",
+    "endpoint": "POST /stores/v2/coupons",
+    "writerId": "createCoupon",
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for unsupported source constraints, audit detail, or manual setup notes." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "constraint-coverage", "severity": "warning", "summary": "Source coupon constraints may be narrower or differently modeled in Wix." }
+  ],
+  "mappingGuidance": ["Prefer native coupons and record unsupported conditions as CMS shadow fields or setup gaps."],
+  "setupRequirements": ["Wix Stores app"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" }
+  ]
+}

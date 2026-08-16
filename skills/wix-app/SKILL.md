@@ -72,12 +72,13 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Anywhere on site (with editor manifest) → Editor React component
    - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
+   - Exposing tools to the Wix AI assistant → App Tools
    - After event occurs → Backend Event Extension
 
 ## Decision Flow (Not sure?)
 
 - **Admin:** Single-collection CRUD admin page? → **Auto Patterns Dashboard (DEFAULT)**. Custom React page (multi-collection / custom logic / embedded scripts / external APIs / explicit user request)? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
-- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
+- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ---
@@ -91,6 +92,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Dashboard Plugin | Dashboard | `DASHBOARD_PLUGIN` | [DASHBOARD_PLUGIN.md](references/DASHBOARD_PLUGIN.md) |
 | Dashboard Menu Plugin | Dashboard | `DASHBOARD_MENU_PLUGIN` | [DASHBOARD_MENU_PLUGIN.md](references/DASHBOARD_MENU_PLUGIN.md) |
 | Service Plugin | Backend | `SERVICE_PLUGIN` | [SERVICE_PLUGIN.md](references/SERVICE_PLUGIN.md) |
+| App Tools (AI assistant tools) | Backend | `APP_TOOLS`, then `SERVICE_PLUGIN` with `pluginType: TOOLS_PROVIDER_CONFIG` | [APP_TOOLS.md](references/APP_TOOLS.md) |
 | Backend Event Extension | Backend | `EVENT` | [BACKEND_EVENT.md](references/BACKEND_EVENT.md) |
 | Backend API | Backend | — (manual, see banner below) | [BACKEND_API.md](references/BACKEND_API.md) |
 | Data Collection | Backend | `DATA_COLLECTION` | [DATA_COLLECTION.md](references/DATA_COLLECTION.md) |
@@ -210,6 +212,7 @@ Use the Extension Types Reference Table and decision content above. State extens
    - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
    - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
+   - App Tools (AI assistant tools) → read `references/APP_TOOLS.md`; it links to `references/app-tools/TOOLS.md` (declaration) and `references/service-plugin/TOOLS_PROVIDER.md` (handler)
 4. **Verify the specific method/event exists** in references
 5. **ONLY use MCP discovery if NOT found** in reference files
 

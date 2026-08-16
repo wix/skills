@@ -9,6 +9,8 @@ This guide defines rules and guidance on **how to implement** production-quality
 - [`DIRECTIONALITY.md`](DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
+- [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md) — Standard SDK event handler props, DOM wiring, custom callbacks
+- [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
 - [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
 
 ## React 18 features are not supported
@@ -22,8 +24,8 @@ React 18 features.
 Understand the component and infer its behavior. Extract what is provided; use reasonable defaults for anything not specified.
 
 1. **Identity** — Component name.
-2. **Structure** — Identify named parts by applying the mandatory filter in [`PARTS.md`](PARTS.md) to every candidate element before accepting it as a part. Include content/data props (labels, items, types, required vs optional) and configuration (toggles, choices, ranges, modes).
-3. **Interactions** — Clicks, hover/focus; what is exposed as event props vs handled internally.
+2. **Structure** — Elect the root element per [`PARTS.md`](PARTS.md) Step 0, then identify named inner parts by applying the mandatory filter in [`PARTS.md`](PARTS.md) to every candidate element before accepting it as a part. Include content/data props (labels, items, types, required vs optional) and configuration (toggles, choices, ranges, modes).
+3. **Interactions** — Clicks, hover/focus; what is exposed as event props vs handled internally. If the component's primary content is a **playable animation** (Lottie/JSON, animated GIF/SVG, canvas/WebGL loop, video-like surface), it gets a play/pause control — follow [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md).
 4. **States** — For every part, decide which design states it supports (native: `hover`/`focus`/`disabled`/`invalid`; custom: `selected`/`active`/`open`/… ) by applying the heuristic in [`DESIGN-STATES.md`](DESIGN-STATES.md), and record them in the plan. These become the editor's per-element state styling controls.
 
 **Understanding → implementation (checklist):** For every part, decide `elementProps` vs CSS-only and which design states it supports ([`DESIGN-STATES.md`](DESIGN-STATES.md)); build the props interface (data + behavior); wire interaction in React (`useState`, `useEffect`, refs, native event handlers); give every named inner element an `elementProps` entry and spread it + merge its `className` ([`COMPONENT-API.md`](COMPONENT-API.md)); generate TS + CSS. Infer reasonable defaults where anything is unspecified.
@@ -109,7 +111,7 @@ Unless explicitly specified as a component capability/API in the specification, 
 **External handlers (only when specified):**
 
 - Only expose handlers that are explicitly listed as component capabilities
-- Example: If specification says "onClick callback for external control", then add `onClick?: () => void` to props
+- Use the standard SDK prop names and DOM wiring rules from [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md)
 
 **Child component handlers:**
 
@@ -168,5 +170,4 @@ See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and [`COMPONENT-API.md`](COMPONENT-API.
 
 **Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; toggle custom-state classes from data ([`DESIGN-STATES.md`](DESIGN-STATES.md))
 
-**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md))
-
+**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md)). If the request uses the words **branded**, **themed**, or **brand-aware**, also apply [`BRANDED-COMPONENTS.md`](BRANDED-COMPONENTS.md) before writing CSS.

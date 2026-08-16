@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product-tag",
+  "displayName": "Stores Product Tag",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Wix Tag",
+    "verifiedFqdn": "wix.stores.catalog.v3.product",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "product_tag", "routes": ["/wc/v3/products/tags"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "productTag", "routes": ["Tags API scoped to product FQDN"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Tags",
+    "endpoint": "POST /tags/v1/tags",
+    "writerId": null,
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use only for source tag metadata not represented by Wix Tags." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "fqdn-required", "severity": "blocker", "summary": "Use the verified product FQDN and resolve tag IDs before attaching them to products." }
+  ],
+  "mappingGuidance": ["Create tags before products; attach tag IDs through product publicTags when supported."],
+  "setupRequirements": ["Wix Stores app"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" }
+  ]
+}

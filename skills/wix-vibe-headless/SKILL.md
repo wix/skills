@@ -39,7 +39,7 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 - **Auth = one public client id.** `WIX_CLIENT_ID` is a **buyer/visitor-facing** credential —
   it only mints anonymous visitor tokens. It is **not a secret**; hardcoding and committing it
   is fine. The user provides it (their vibe/host platform surfaces a copyable prompt with the
-  id filled in). Paste it into `wix-client.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
+  id filled in). Paste it into `wix-config.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
 - **Money/price fields are objects, never scalars.** Every price/amount a Wix API returns —
   Stores `price.actualPrice`, Bookings service `payment.fixed.price`, Events ticket
   `registration.tickets.lowestPrice`, and the rest — has the shape `{ value, currency,
@@ -93,14 +93,16 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 
 ## How this skill is structured
 
-`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Two files make up each vertical's
-runtime:
+`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Each vertical ships a **complete UI
+client as files** under `references/<vertical>/app/` — `components/`, `pages/`,
+`hooks/`/`context/`, and its REST helpers in `app/rest/` — plus the **shared transport** in
+`references/shared/app/` (`app/rest/wix-client.js` + `wix-config.js`, identical for every vertical).
+Set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) in `wix-config.js`. Deploying `references/<vertical>/app/`
+and `references/shared/app/` into the app's `src/` puts every file in place — the helpers all land in
+`src/rest/`, so their relative imports resolve.
 
-1. **The shared transport** — `references/shared/wix-client.js`. **Identical for every vertical.**
-   Copy it once into the app's `src/rest/` and set `WIX_CLIENT_ID` in it.
-2. **The vertical helper** — `references/<vertical>/<helper>.js`. Copy it into the **same**
-   `src/rest/` folder (it does `import { wixApiRequest } from "./wix-client.js"`, so the two
-   files must sit side by side).
+**Where these files live in the app, and how they get there** (pre-installed at setup, or copied
+in) **is your platform's call — follow your platform instructions for that.**
 
 Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
 prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.
@@ -111,28 +113,50 @@ prerequisites, the exported API, how to wire it, the hard rules, and a verificat
 Load the vertical(s) the user's app needs; a project may combine several (e.g. a restaurant
 with a blog, or a store with pricing plans).
 
-| The user wants… | Vertical | Read | Helper(s) to copy (+ `shared/wix-client.js`) |
-|---|---|---|---|
-| Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` | `wix-store-catalog.js` + `wix-store-cart.js` |
-| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` | `wix-bookings-services.js` + `wix-bookings-checkout.js` |
-| Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` | `references/blog/wix-blog.js` |
-| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` | `wix-events-browse.js` (always) + `wix-events-registration.js` (RSVP/tickets) |
-| Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` | `references/portfolio/wix-portfolio.js` |
-| Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` | `wix-restaurants-menu.js` (always) + `wix-restaurants-ordering.js` + `wix-restaurants-reservations.js` as needed |
-| CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` | `references/cms/wix-cms.js` |
-| Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` | `references/pricing-plans/wix-pricing-plans.js` |
-| Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` | `references/members/wix-members-auth.js` |
+Each vertical's UI + helpers ship in `references/<vertical>/app/`; copy that dir plus
+`references/shared/app/` into the app's `src/` (base44 does this at install via `deploy.cjs`).
+
+| The user wants… | Vertical | Read |
+|---|---|---|
+| Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
+| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` |
+| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` |
+| Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
+| Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
+| CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` |
+| Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
+| Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` |
+
+### When the request doesn't name a Wix Business Solution — ask, or check the site
+
+Don't infer which Wix Business Solution to build (stores, bookings, blog, events, portfolio,
+restaurants, CMS, pricing plans, members, etc..) from a vague brief. **Ask the user** one short
+question — what do they offer (products? appointments? posts? events?) — or **check what the
+site actually has**: call a cheap read from each likely solution's helper (`queryProducts`,
+`queryServices`, `queryPosts`, `queryEvents`, …) — authenticated with a visitor token minted
+from the `WIX_CLIENT_ID`, or with an admin token if you have one — and build for the solutions
+that return real content. A `428` "app not installed" (blog: `401`) means
+that solution isn't on the site; sample-looking content ("Sample product 3") proves the app is
+installed, not what the business is about. Never default to store/bookings on silence.
 
 ## The run
 
 1. **Get `WIX_CLIENT_ID`.** It comes from the user (the handoff prompt from their Wix/vibe
    platform carries it). If it's missing, ask for it before wiring — nothing works without it.
-2. **Pick the vertical(s)** from the routing table and open each one's `INSTRUCTIONS.md`.
-3. **Copy the two files per vertical** — `shared/wix-client.js` (once) + the vertical helper —
-   into the app's `src/rest/` (adjust only the import path if the app uses a different folder),
-   and set `WIX_CLIENT_ID`.
-4. **Wire the UI** to the exported helpers following the vertical's INSTRUCTIONS. Build the UI
-   however the project wants — these scaffolds ship the REST layer only, no components.
+2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
+   **ask or check the site** (see above) instead of guessing. Open each picked vertical's
+   `INSTRUCTIONS.md`.
+3. **Ensure the vertical's files are in place** — copy `references/<vertical>/app/` and
+   `references/shared/app/` into the app's `src/`, and set `WIX_CLIENT_ID` in `wix-config.js`. (Where
+   and how they get there is your platform's call — see its instructions. On base44 the install step
+   writes and verifies `wix-config.js` for you, so there's nothing to set by hand.)
+4. **Wire the shipped client** following the vertical's INSTRUCTIONS: the components are themed by
+   base44's design tokens (`src/index.css` — shadcn palette, already set by the design phase), so
+   there's no re-skin step; just wire routes + header/footer through the Layout. The UI ships as
+   files — you compose the home page and wire it, you don't rebuild the client. Style what you add
+   from the same tokens: every background paired with its own foreground (`bg-primary` with
+   `text-primary-foreground`), `border-input` on form controls, `border-border` on cards and dividers.
 5. **Verify** against the vertical's checklist before declaring done: token persists across
    reload, live data renders (or a real empty state), and purchases go through the Wix redirect.
 

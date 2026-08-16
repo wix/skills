@@ -36,6 +36,14 @@ body: { "url": "<imageURL from generate>", "mimeType": "image/png", "displayName
 
 Keep two values from the `file` object: **`file.url`** (the full permanent `wixstatic.com` URL) and **`file.id`** (the WixMedia file id, e.g. `<hash>~mv2.jpg`). Some entities bind by url, others by id — **which one a given entity uses is the recipe's concern** (§3), not this common section's. (The import response has **no `fileUrl` field** — the id is `file.id`.)
 
+**Importing several images? Use one bulk call, not N singles** — `POST https://www.wixapis.com/site-media/v1/bulk/files/import-v2` (≤100 per call):
+
+```
+body: { "importFileRequests": [ { "url": "<imageURL>", "mimeType": "image/png", "displayName": "<name>.png" }, … ] }
+```
+
+Response is `{ "results": [ { "itemMetadata": { "originalIndex", "success" }, "item": { "url", "id", … } } ] }` — read each hit's **`item.url`** / **`item.id`** (same values as the single import's `file.url` / `file.id`) and its `itemMetadata.success`.
+
 ## 3 · Attach (by entity type)
 
 The pass-2 **write shape is per-entity earned knowledge and lives in each capability's seed recipe** — right next to the create shape the seeder already reads (`inline-recipes/setup-<capability>.md`). **That recipe is authoritative** — read the exact shape there (field paths, any required companion fields, silent-drop warnings, confirm-by-requery), not here. This section is navigation only and carries no shapes:
@@ -56,6 +64,8 @@ The pass-2 **write shape is per-entity earned knowledge and lives in each capabi
 ## Prompts
 
 Brand-contextual, never generic. Include: subject; the brand aesthetic/mood; the palette (real tones, e.g. "warm cream and forest green"); style/lighting; and always **"no text, no watermarks"** (AI-rendered text is garbled). Pull context from the brand + the entity (product name/description, post topic, page purpose).
+
+**At least one image per page must show the real subject of the business** — the actual service/product/space, not just abstract or decorative art; decorative visuals layer in *addition* to that, never *instead of* it (`CONTENT.md` § Images has the full rule + the fillable-slot fallback for when only the user's own real photos will do).
 
 ## Credits, cost & the not-generating fallback
 

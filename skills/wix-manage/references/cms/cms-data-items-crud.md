@@ -25,10 +25,12 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 Before inserting or updating items, you need to know the collection's field names and types. If you don't already know the schema:
 
 1. **Query existing items** - Fetch a few items to infer field names from the data
-2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions
-3. **List collections** - Use `GET /collections?fields=displayName` to see what collections exist (see [Schema Management](cms-schema-management.md))
+2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions, **including `plugins`** — don't omit the `plugins` field when fetching or listing schemas
+3. **List collections** - Use `GET /collections?fields=displayName,plugins` to see what collections exist (see [Schema Management](cms-schema-management.md))
 
 It may be, that user refers to schema by its `displayName` rather than `id`, if collection is not found list all collections to find the right `id` (`dataCollectionId`) to use.
+
+**Check for the Draft Items plugin.** If the collection's `plugins` include the Draft Items plugin, this collection gates items behind a draft/publish workflow. **Stop and load [CMS Draft & Publish Workflow](cms-publishing-flow.md)** before making any data changes, and follow its instructions instead of the plain CRUD flow below for that collection.
 
 ---
 
@@ -367,7 +369,7 @@ curl -X DELETE \
 | `IMAGE` | Image reference (HTTP url or wix:image://v1/{mediaId}/{friendlyName}) | `"wix:image://v1/3f72369f2219e2ee853e9e3df0217ce1.jpg/Colorful%20Business%20Cards.jpg"` |
 | `VIDEO` | Video reference (HTTP url or wix:video://v1/{mediaId}/{friendlyName}) | `"wix:video://v1/11062b_484182533ede4b9a81329daf20238867/Sketching%20Design%20Concepts#posterUri=11062b_484182533ede4b9a81329daf20238867f000.jpg&posterWidth=1920&posterHeight=1080"` |
 | `DOCUMENT` | Document reference  (HTTP url or wix:document://v1/{mediaId}) | `"wix:document://v1/..."` |
-| `MEDIA_IMAGE` | Wix Media Image | `{ "url": "http://...", "height": 640, "width": 480, "alt": "Picture" }` |
+| `MEDIA_IMAGE` | Wix Media Image | `{ "id": "<mediaId>", "url": "http://...", "height": 640, "width": 480, "altText": "Picture" }` |
 | `MEDIA_VECTOR_ART` | Wix Media Vector Art | `{ "uri": "wix:vector://v1/...", "viewBox": "0 0 100 100", "contentType": "shape", "svgContent": "<svg>...</svg>" }` |
 | `URL` | Web URL | `"https://example.com"` |
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
@@ -429,6 +431,31 @@ curl -X DELETE \
 
 ## Error Handling
 
+### Recovering from WDE0110
+
+`WDE0110` means the Wix CMS (Wix Data) app is not installed on the site. If the user has
+explicitly asked to install it, install the app before retrying the data-item request:
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+```
+
+```json
+{
+  "tenant": {
+    "tenantType": "SITE",
+    "id": "<SITE_ID>"
+  },
+  "appInstance": {
+    "appDefId": "e593b0bd-b783-45b8-97c2-873d42aacaf4"
+  }
+}
+```
+
+After the installation succeeds, retry the original `POST /wix-data/v2/items` request. If the
+user only asks what the error means or how to fix it, explain this installation step and ask for
+confirmation before performing the install.
+
 | Error | Cause | Solution |
 |-------|-------|----------|
 | `COLLECTION_NOT_FOUND` | Invalid collection ID | Check collection exists |
@@ -449,3 +476,4 @@ curl -X DELETE \
 - [CMS Schema Management](cms-schema-management.md) - Creating and modifying collections
 - [CMS References & Relationships](cms-references-and-relationships.md) - Linking collections
 - [CMS Data Operations Extended](cms-data-operations-extended.md) - Count, upsert, aggregate
+- [CMS Draft & Publish Workflow](cms-publishing-flow.md) - Collections gated behind a draft/publish (Draft Items plugin) workflow

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "entity": "comment",
+  "displayName": "Blog Comment",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Comment",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "comment", "routes": ["/wp/v2/comments"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "comment", "routes": ["Comments API"], "confidence": "medium" }
+  ],
+  "preferredWrite": {
+    "surface": "Comments",
+    "endpoint": "POST /comments/v1/comments",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for unsupported target relations, moderation history, IP/user-agent policy limits, or threading gaps." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "relation-required", "severity": "blocker", "summary": "Verify the target relation and notification behavior before native comment writes." }
+  ],
+  "mappingGuidance": ["Classify blog comments, page comments, product reviews, and custom-post comments separately."],
+  "setupRequirements": ["Comment relation verification before execution."],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}

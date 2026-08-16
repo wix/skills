@@ -91,7 +91,12 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
-**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the run hits substantial friction (repeated API/doc/tooling failures), you may **offer** to relay it to Wix per `references/FEEDBACK.md`. Send only after an explicit yes — never automatically.
+**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the
+run hits any real friction (a confusing error, a doc gap, a tooling dead end, a workaround you had to
+invent — it doesn't need to repeat), **offer** to relay it to Wix per `references/FEEDBACK.md`. Default
+to offering rather than waiting to be asked. Every flow's finalize step (`<TYPE_DIR>/DEPLOYMENT.md` /
+`managed/CREATE.md` / `managed/CONNECT.md`) ends with the same checkpoint — treat it as a required
+self-check, not optional. Send only after an explicit yes — never automatically.
 
 **Managed create / connect / iterate** — after Discovery, hand the whole run to the managed flow:
 - **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
@@ -112,11 +117,13 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | What | Path |
 |---|---|
 | Vertical index (intent matching + per-vertical site spec) | `<SKILL_ROOT>/references/CAPABILITIES.md` |
-| Discovery (infer capabilities + brand + intent) | `<SKILL_ROOT>/references/DISCOVERY.md` |
+| Discovery (infer capabilities + brand + intent; existing site → the Dynamic Context call in §1) | `<SKILL_ROOT>/references/DISCOVERY.md` |
 | Setup (install apps) | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
+| Design — fallback visual quality bar for the built frontend, when the user gave no design direction of their own (managed **create** only) | `<SKILL_ROOT>/references/DESIGN.md` |
+| Content — fallback copy quality bar for the built frontend, when the user gave no copy/voice direction of their own (managed **create** only) | `<SKILL_ROOT>/references/CONTENT.md` |
 | AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
 | Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |

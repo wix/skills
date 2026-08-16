@@ -1,0 +1,40 @@
+name: forms/forms-dashboard-navigation
+description: >-
+  Verifies the agent reads the forms-dashboard-navigation recipe when asked
+  for direct links to Wix Forms dashboard pages, and returns correct
+  manage.wix.com URLs across both the wix-forms-and-payments and wix-forms
+  namespaces.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to: my forms list, my form submissions, the page
+  where I'd edit one specific form, and the form templates page.
+tags: [forms]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/forms-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the forms list, the form
+      submissions table, the edit page for a specific form, and the form
+      templates page.
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses wix-forms-and-payments for the forms list,
+        wix-forms-and-payments/submissions for submissions, and
+        wix-forms-and-payments/templates for templates, AND
+      - explains the edit-form link is wix-forms/form/{formId} (a placeholder
+        or an explanation that the form id goes in the path is fine).
+
+      Fail if the response:
+      - invents dashboard routes that are not in the recipe (e.g.
+        forms/manage, dashboard/forms, wix-forms/submissions), OR
+      - puts submissions or templates under wix-forms/ instead of
+        wix-forms-and-payments/, OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

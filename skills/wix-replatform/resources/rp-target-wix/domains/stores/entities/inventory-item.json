@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "inventory-item",
+  "displayName": "Stores Inventory Item",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Inventory Item",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "woocommerce", "sourceEntity": "product_variation_inventory", "routes": ["/wc/v3/products", "/wc/v3/products/{productId}/variations"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "inventoryItem", "routes": ["Stores Inventory APIs"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Stores Inventory V3",
+    "endpoint": "POST /stores/v3/inventory-items",
+    "writerId": "createInventoryItem",
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use for source stock history or multi-location detail not represented by the selected target inventory plan." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "product-first", "severity": "blocker", "summary": "Inventory requires target product and variant IDs." },
+    { "code": "bis-side-effects", "severity": "warning", "summary": "Avoid stock transitions that trigger Back in Stock notifications on live stores." }
+  ],
+  "mappingGuidance": ["Create products first, then create or update inventory per variant."],
+  "setupRequirements": ["SCOPE.STORES.INVENTORY_ITEM_WRITE"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" }
+  ]
+}

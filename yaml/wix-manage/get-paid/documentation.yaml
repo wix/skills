@@ -14,3 +14,7 @@ apiDoc:
       title: Payment Links for Bookings
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid, bookings]
+    - file: ../../../skills/wix-manage/references/get-paid/get-paid-dashboard-navigation.md
+      title: Get Paid Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [get-paid]

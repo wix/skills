@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "entity": "category",
+  "displayName": "Blog Category",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Blog Category",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "category", "routes": ["/wp/v2/categories"], "confidence": "high" },
+    { "sourceSystem": "wix", "sourceEntity": "blogCategory", "routes": ["Blog Categories"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Blog Categories",
+    "endpoint": "POST /blog/v3/categories",
+    "writerId": "createBlogCategory",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    { "classification": "cms", "when": "Use to preserve WordPress category hierarchy because Wix Blog categories are flat." }
+  ],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "flat-target", "severity": "warning", "summary": "Wix Blog categories are flat; WordPress hierarchy needs CMS shadowing if it matters." }
+  ],
+  "mappingGuidance": ["Resolve category collisions and crosswalk IDs before writing posts."],
+  "setupRequirements": ["Wix Blog app"],
+  "evidence": [
+    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+  ]
+}
