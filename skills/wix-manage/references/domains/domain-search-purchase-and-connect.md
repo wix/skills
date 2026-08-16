@@ -2045,8 +2045,6 @@ These are open endpoints. Send a plain GET with query parameters: **no headers, 
 scopes.** If you get `403` / `access_denied`, you added auth that does not belong — remove it and
 retry.
 
-> Do **not** use the `GetSuggestedDomains` tool. Always use the v2 endpoint below.
-
 **Check domain availability**
 
 ```
