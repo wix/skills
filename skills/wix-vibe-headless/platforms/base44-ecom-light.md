@@ -59,4 +59,16 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 ## Later admin requests
 
-For any later admin/management request: the storefront seed module first, else `wix-docs` — all over the connector.
+For any later admin/management request, use the Wix connector — get an access token and call the Wix API directly:
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wix-headless"
+const res = await fetch("https://www.wixapis.com/<api-path>", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ /* request body */ }),
+});
+return await res.json();
+```
+
+`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
