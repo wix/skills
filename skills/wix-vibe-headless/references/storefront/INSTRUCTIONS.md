@@ -25,7 +25,8 @@ so you don't need to open them:**
 | `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
 | `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
 | `hooks/useProductCard.js` | headless data layer for a grid tile — returns `leftBadges`, `promoBadge`, `priceDisplay`, `compareAtDisplay`, `colors`, `optionLabel`, `isQuickAddable`, `image`, `hoverImage`; **always use this to build your own product card UI on the grid** |
-| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state). `ProductCard` is a reference implementation built on `useProductCard` (pills, colour dots, quick-add) — read it for inspiration, build your own component rather than using it directly |
+| `components/ProductCard.jsx` | reference implementation of a grid tile built on `useProductCard` — read it for inspiration, build your own component rather than using it directly |
+| `components/ProductGrid.jsx` | reference grid layout (2-col mobile → auto-fill desktop) with skeleton + empty state — read it for the skeleton/empty-state patterns, build your own layout rather than using it directly |
 | `components/ProductGallery.jsx` | PDP main image + thumbnails |
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
@@ -74,6 +75,7 @@ replace it.
   **You add `/` → your own Home** page.
 - **Build your own variant selector on the PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships with a `VariantPicker` import — remove it and replace with your own component built on `useVariantOptions`. Design the controls to fit the brief: the business type, the tone, the audience. A fashion brand might want large colour swatches and a size chart link; a tech store might want a compact dropdown. `VariantPicker.jsx` is in `src/` for reference — read it, don't use it:
 - **Build your own product card for the grid — this is required, not optional, and it's your chance to be creative.** `ProductGrid.jsx` ships with a `ProductCard` import — replace it with your own component built on `useProductCard`. The hook hands you everything the tile needs (badges, price display, colour dots, quick-add flag, images) — you decide the layout, shape, hover behaviour, and CTA style. A lifestyle brand might want full-bleed images with an overlay gradient; a tech store might want a compact horizontal list item. `ProductCard.jsx` is in `src/` for reference — read it, don't use it:
+- **Build your own grid layout — this is required, not optional, and it's your chance to be creative.** `ProductGrid.jsx` ships as a reference (2-col mobile → auto-fill desktop, 220px min) — replace it with an arrangement that fits the brief. A curated boutique might want a 3-col asymmetric editorial layout; a high-volume store might want a dense 4-col grid; a featured strip on the home page might want horizontal scroll. Keep the skeleton and empty-state patterns from `ProductGrid.jsx` (copy them into your own component) — the states themselves are correct, just the layout is yours to choose.
 
 ```jsx
 import { Link } from "react-router-dom";
