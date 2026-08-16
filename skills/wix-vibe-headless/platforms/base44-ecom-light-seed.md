@@ -61,9 +61,7 @@ its loader snippet (build-time exec_tool); call its functions with your data. Ga
 shape → the **`wix-docs`** skill.
 
 **Auth for these admin calls is the already-configured Wix headless connector — nothing else.** Get its
-access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
-`getAdminToken()`), install/run the Wix CLI (`@wix/cli`), or device-login (no managed-project auth
-flow applies to Base44):
+access token and send it as a bearer token:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix-headless"); // connector name: "wix" or "wix-headless"
