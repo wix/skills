@@ -167,7 +167,7 @@ The user answering with a description rather than a domain (*"Something with 'co
 normal — treat it as a query and go to §A5.
 
 ⚠️ **A named domain is checked before anything else happens, and the answer is the first thing the user
-hears.** No site resolution, no `ListWixSites`, no plan check and no list of sites comes in front of
+hears.** No site resolution, no fetching list of sites, no plan check and no list of sites comes in front of
 it. *"I want to buy mybakery.com for my Wix site"* names a site, and the site waits its turn: §A4
 runs, the user is told *"mybakery.com is available!"* or *"mybakery.com is already registered."*, and
 only then does §P1 resolve the site. Asking which of ninety-three sites to use before saying whether
@@ -285,7 +285,7 @@ returns noise. When the name has no real words in it, treat it as **no context**
 and the auto-connect line, just not for suggestions.
 
 ⚠️ **This is the one place the purchase path resolves a site before the domain**, and only because the
-user put the site in the request. §P1.1's rule — do not call `ListWixSites` unless the user asked
+user put the site in the request. §P1.1's rule — do not fetch list of sites unless the user asked
 about a site — is **satisfied here, not bypassed**. Carry the resolved `siteId` into §P1; the site is
 already settled, so the plan check is the next step and the question is never re-asked.
 
@@ -650,10 +650,10 @@ Covers **US-18 – US-32**.
 ### P1.1 Resolve the site
 
 Domain purchase does **not** require a Wix site. Apply the site-resolution rules in
-§R3 — Case A (siteId in context), Case B (logged in → `ListWixSites`),
+§R3 — Case A (siteId in context), Case B (logged in → fetch list of sites),
 Case C (not logged in → inline login prompt), Case D (logged in, ask once).
 
-Do **not** call `ListWixSites` unless the user asked about a site or answered yes to the question.
+Do **not** fetch list of sites unless the user asked about a site or answered yes to the question.
 
 - **No site resolved** → skip §P1.2 and §P2 entirely. No premium check, no voucher check, no upgrade
   pitch. Go to §P3 as a standalone purchase.
@@ -1370,8 +1370,8 @@ Connecting a domain **requires** a Wix site. Apply §R3:
 
 | Case | Action |
 |------|--------|
-| A | `siteId` already in context, or the user named a site → use it. **Do not call `ListWixSites`.** |
-| B | Logged in, no `siteId` → call `ListWixSites`. One site → use it silently. 2 – 8 → list them all, numbered, in the message that asks. More than 8 → name the total, show five, invite a name (§R3 Case B). **Never a bare count.** |
+| A | `siteId` already in context, or the user named a site → use it. **Do not fetch list of sites.** |
+| B | Logged in, no `siteId` → fetch list of sites. One site → use it silently. 2 – 8 → list them all, numbered, in the message that asks. More than 8 → name the total, show five, invite a name (§R3 Case B). **Never a bare count.** |
 | B, no sites | → §C5 |
 | C | Not logged in → *"To connect a domain you'll need a Wix site — [Log in or create a Wix account]"*. End the turn until they log in, then go to Case B. |
 | R | Ownership is **confirmed via root** and the root's `assigned` match named a site → that site is a **candidate, not a resolution**. Offer it and wait — below. |
@@ -1403,7 +1403,7 @@ So ask, in one message, and **put no link in it**:
 |---------------|-----|
 | yes / "same site" | That is the resolved site. Continue to §C2. |
 | names a different site | Resolve that name as Case A or Case B, then continue. |
-| no, or is unsure which | Case B: call `ListWixSites` and ask which one. |
+| no, or is unsure which | Case B: fetch list of sites and ask which one. |
 
 ⛔ **Do not send the connect link with the question.** Every connect URL carries a `siteId` (§R6), so
 a link in that message answers the question on the user's behalf and then asks it — the failure this
@@ -1758,7 +1758,7 @@ Detect the editor: the dashboard URL contains `/studio/`, or the site context ex
 
 ## C5. No Wix Site (US-17)
 
-The user is logged in but `ListWixSites` returned nothing. Connecting is impossible without a site,
+The user is logged in but list of sites returned nothing. Connecting is impossible without a site,
 so say so plainly and offer the way out:
 
 > Connecting a domain requires a Wix site. Want to create one?
@@ -1790,7 +1790,7 @@ If a re-check ever shows the domain is available, the user does not own it. Say:
 ❌ **Never:**
 
 - Resolve a site before the availability check.
-- Call `ListWixSites` when a `siteId` is already in context — including when the site was already
+- Fetch list of sites when a `siteId` is already in context — including when the site was already
   named by the ownership lookup (§R3, Shortcut).
 - Send a connect link for a domain that is already connected in the role asked for. Check §C0 first.
 - **Bind a subdomain on the strength of its root domain.** *Confirmed via root* earns the
@@ -1952,7 +1952,7 @@ the same; **when** they run differs:
 
 > **Shortcut:** if the ownership check (§R4.3) came back with an `assigned` match **on the domain
 > being connected**, the site is already named in that response (`sites[].site.siteName` /
-> `.siteId`). Use it. Nothing below needs to run — in particular, do **not** call `ListWixSites` to
+> `.siteId`). Use it. Nothing below needs to run — in particular, do **not** fetch list of sites to
 > re-discover a site you have just been handed.
 >
 > ⛔ **A match on a subdomain's *root* domain is not that match.** It names the site the **root** is
@@ -1964,22 +1964,22 @@ the same; **when** they run differs:
 
 The system prompt, environment or dashboard context already provides a `siteId` / `msid`.
 
-→ Use it directly. **Do NOT call `ListWixSites`.** Do not ask the user to pick a site.
+→ Use it directly. **Do NOT fetch list of sites.** Do not ask the user to pick a site.
 
 > **The user naming a site is not the same thing.** If they say *"my site is called My Bistro"* but
-> no `siteId` is in context, you still need `ListWixSites` to turn that name into an ID — go to
+> no `siteId` is in context, you still need to fetch list of sites to turn that name into an ID — go to
 > Case B. What their answer buys you is skipping the *"which site?"* question, not the lookup. Match
 > the name against the returned sites; if nothing matches, list what came back and ask.
 
 > **A roster in context is not a resolved `siteId` either.** The host may preload part of the
 > account's site list — ten of ninety-three, say — into the system prompt or site context. That is
 > **not** Case A. It names no site for *this* domain, it may not even contain the right one, and it
-> hands you no `siteId` for the task. Go to Case B and call `ListWixSites`. Every prohibition on that
+> hands you no `siteId` for the task. Go to Case B and fetch list of sites. Every prohibition on that
 > call is about a `siteId` you already hold, never about a list you happened to be shown.
 
 ### Case B — user is logged in, no `siteId` in context
 
-→ Call `ListWixSites`.
+→ Fetch list of sites.
 
 | Result | Action |
 |--------|--------|
@@ -2002,8 +2002,8 @@ Name the total, show five, and leave the door open:
 > Or tell me the name and I'll find it.
 
 Show the five most recently updated if the response gives you that; otherwise the first five it
-returned. A name in reply is matched against the **whole** result you already have — do not call
-`ListWixSites` a second time to look it up.
+returned. A name in reply is matched against the **whole** result you already have — do not fetch
+list of sites a second time to look it up.
 
 ⛔ **Never announce the count and stop.** *"You have 93 sites — would you like me to list them?"* asks
 permission for the step you were already told to take. The user has asked for their domain on a site;
@@ -2016,7 +2016,7 @@ inline prompt instead, verbatim:
 
 > If you'd like to connect this domain to a Wix site — [Log in or create a Wix account]
 
-- User logs in → go to Case B (call `ListWixSites`).
+- User logs in → go to Case B (fetch list of sites).
 - User declines ("No, I'll just buy it for now") → standalone purchase, no `siteId`, no premium
   pitch, no voucher check. Reply *"No problem."* and continue.
 
@@ -2111,7 +2111,7 @@ Wix session auth automatically — do not add headers.
 
 | Purpose | Call |
 |---------|------|
-| List the user's sites | `ListWixSites` |
+| List the user's sites | fetch list of sites |
 | Site Premium status | `GET https://manage.wix.com/_api/premium-store/plans/premiumStatus?metaSiteId={siteId}` |
 | Domain cycles + pricing | `POST https://manage.wix.com/_api/premium-purchase-platform-serverless/v1/offering/72af0602-1321-4897-8299-f507480b2bb8`<br>Body: `{ "purchaseContext": { "params": { "tld": ".{TLD}" } } }` |
 | Privacy addon pricing | Same offering endpoint with the addon product type id `b3d86a1d-9db3-4f69-bd54-c132808856b1` |
@@ -2508,7 +2508,7 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
   neither is a substitute for saying which period the price covers. Print the period, not a rate.
 - Re-check availability for a domain that came from the suggest endpoint.
 - Use `availability.premium` to decide anything.
-- Call `ListWixSites` when a `siteId` is already in context. A partial roster the host preloaded is
+- Fetch list of sites when a `siteId` is already in context. A partial roster the host preloaded is
   not that — see Case A.
 - **Announce a site count instead of the sites.** *"You have 93 sites — want me to list them?"* asks
   permission for a step already required. Show them (§R3 Case B) — all of them up to eight, otherwise five
