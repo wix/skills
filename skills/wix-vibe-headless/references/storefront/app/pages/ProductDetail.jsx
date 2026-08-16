@@ -1,8 +1,5 @@
-// PDP — thin view over useProductDetail (all logic lives in the hook). plainDescription is HTML
-// despite the name; render via dangerouslySetInnerHTML. Styled with base44 design tokens (shadcn Tailwind classes).
-//
-// The price shown follows the selection: once options resolve to a variant the hook returns that
-// variant's price, so a picked size can cost more than the "from" figure the grid tile showed.
+// Reference PDP built on useProductDetail — read it for error/skeleton/breadcrumb/quantity-stepper
+// patterns, but build your own PDP page using useProductDetail (see INSTRUCTIONS.md STEP 3).
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProductDetail } from "@/hooks/useProductDetail";
