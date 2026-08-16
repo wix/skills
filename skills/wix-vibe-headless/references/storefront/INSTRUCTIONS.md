@@ -24,7 +24,8 @@ so you don't need to open them:**
 | `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
 | `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
 | `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
-| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state). The tile carries quick add for single-variant products, colour dots + an option summary, and pre-order / sold-out / limited-stock / percent-off / merchant-ribbon badges — all from the list query, no extra request |
+| `hooks/useProductCard.js` | headless data layer for a grid tile — returns `leftBadges`, `promoBadge`, `priceDisplay`, `compareAtDisplay`, `colors`, `optionLabel`, `isQuickAddable`, `image`, `hoverImage`; **always use this to build your own product card UI on the grid** |
+| `components/ProductCard.jsx`, `ProductGrid.jsx` | product listing UI (grid + card, skeletons, empty state). `ProductCard` is a reference implementation built on `useProductCard` (pills, colour dots, quick-add) — read it for inspiration, build your own component rather than using it directly |
 | `components/ProductGallery.jsx` | PDP main image + thumbnails |
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
@@ -72,6 +73,39 @@ replace it.
 - Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
   **You add `/` → your own Home** page.
 - **Build your own variant selector on the PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships with a `VariantPicker` import — remove it and replace with your own component built on `useVariantOptions`. Design the controls to fit the brief: the business type, the tone, the audience. A fashion brand might want large colour swatches and a size chart link; a tech store might want a compact dropdown. `VariantPicker.jsx` is in `src/` for reference — read it, don't use it:
+- **Build your own product card for the grid — this is required, not optional, and it's your chance to be creative.** `ProductGrid.jsx` ships with a `ProductCard` import — replace it with your own component built on `useProductCard`. The hook hands you everything the tile needs (badges, price display, colour dots, quick-add flag, images) — you decide the layout, shape, hover behaviour, and CTA style. A lifestyle brand might want full-bleed images with an overlay gradient; a tech store might want a compact horizontal list item. `ProductCard.jsx` is in `src/` for reference — read it, don't use it:
+
+```jsx
+import { Link } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { useProductCard } from "@/hooks/useProductCard";
+
+export default function MyProductCard({ product }) {
+  const { addToCart } = useCart();
+  const {
+    isSoldOut, isPreorder,
+    leftBadges,       // [{ type: 'pre-order'|'sold-out'|'limited-stock', label }] — render left side of image
+    promoBadge,       // { type: 'discount'|'ribbon', label } | null — render right side
+    priceDisplay,     // "€10" or "€10 – €20" (range when variants differ)
+    compareAtDisplay, // original price string | null
+    colors,           // hex strings → render as dots (slice to how many you want)
+    optionLabel,      // "3 sizes · 2 materials" or empty string
+    isQuickAddable,   // true for single-variant, in-stock products
+    image,            // primary image URL | null
+    hoverImage,       // second image URL | null
+  } = useProductCard(product);
+
+  // Then render however you want:
+  return (
+    <div>
+      {/* image, badges, price, colour dots, quick-add or "Choose options" CTA */}
+      {isQuickAddable && <button onClick={() => addToCart(product.id)}>Quick add</button>}
+      {!isQuickAddable && !isSoldOut && <Link to={`/product/${product.slug}`}>Choose options</Link>}
+      {isSoldOut && isPreorder && <Link to={`/product/${product.slug}`}>Pre-order</Link>}
+    </div>
+  );
+}
+```
 
 ```jsx
 import { useVariantOptions } from "@/hooks/useVariantOptions";
