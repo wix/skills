@@ -5,7 +5,7 @@ description: Buy a domain through Wix or connect one the user already owns — i
   including ownership lookup and binding a domain to a site.
 ---
 
-# Domain Search, Purchase and Connect
+# Domain Search, Purchase and Connect a Domain
 
 One document, four parts. Section numbers carry their part's letter, so every reference names the
 part it points into — §A4b, §P3, §C0c, §R4.3.
