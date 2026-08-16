@@ -8,7 +8,7 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **`wix-vibe-headless` and `wix-docs` are the complete build path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).** **This flow builds the client only — there is no seeding step.**
 
-Follow STEPs 1–3 below exactly.
+Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
@@ -49,9 +49,41 @@ Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` an
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
 rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
 
-## STEP 3 — Wrap up
+## STEP 3 — Seed the storefront
 
-**No seeding in this flow** — the client is the only deliverable. Do not seed, populate, or write data to Wix.
+**Never delete or clean up anything on the user's site — seeding is additive only.** It's a live
+user-owned business, so never delete or overwrite existing content, even apparent sample data. If a
+cleanup truly seems needed, ask the user first.
+
+Seed by calling the storefront's ready-made seed module — read
+`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.js` via
+its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
+shape → the **`wix-docs`** skill.
+
+**Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
+access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
+`getAdminToken()`), install/run the Wix CLI (`@wix/cli`), or device-login (no managed-project auth
+flow applies to Base44):
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+// then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
+```
+
+Inline via exec_tool, `base44` is already declared — use it directly; do **not** import
+`@base44/sdk`, re-declare it, or call `createClient()` (that's for standalone `.js` files only;
+inline it throws *"Identifier 'base44' has already been declared."*).
+
+**Product images.** Generate with **Base44's built-in image generation**, then attach via the
+storefront seed module's image-attach step — `wix-docs` if the module doesn't cover it.
+
+**Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
+from the **completed** `generate_image` result and pass it straight into your single `setupStore`
+call (images included). A still-generating `/__generating__/<id>.png` placeholder is not a real url
+— Wix can't fetch it. `generate_image` runs in the background while you build the client, so the
+urls are ready by the time you seed.
+
+## STEP 4 — Wrap up
 
 **Do NOT add the `<WixManageBanner/>` component** and do not send the user Wix dashboard links — this flow does not include the manage banner or back-office handoff.
 
