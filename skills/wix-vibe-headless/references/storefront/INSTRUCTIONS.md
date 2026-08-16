@@ -29,8 +29,8 @@ so you don't need to open them:**
 | `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
-| `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); use this to build your own variant UI instead of the shipped `VariantPicker` |
-| `components/VariantPicker.jsx` | default option/variant selector (pills + colour swatches) built on `useVariantOptions` — swap it for your own component if you want a different look; the hook contract stays the same |
+| `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); **always use this to build your own variant UI on the PDP** |
+| `components/VariantPicker.jsx` | reference implementation of a variant selector built on `useVariantOptions` (pills + colour swatches) — read it for inspiration, but build your own component rather than using it directly |
 | `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
 | `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
 | `rest/wix-config.js` | the two ids, written by the install step |
@@ -232,7 +232,7 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 // image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
 ```
 
-**Building your own variant/option UI?** Use `useVariantOptions` instead of the shipped `VariantPicker`:
+**Build your own variant/option UI on the PDP using `useVariantOptions`** — don't use `VariantPicker` directly; it's a reference, not the deliverable:
 
 ```jsx
 import { useVariantOptions } from "@/hooks/useVariantOptions";
