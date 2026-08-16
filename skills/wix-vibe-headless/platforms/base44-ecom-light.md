@@ -10,7 +10,7 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 Follow STEPs 1–3 below exactly.
 
-## STEP 1 — Install the Wix skills locally
+## STEP 1 — Install and deploy the Wix skills
 
 Install two skills — they land under `.agents/skills/`:
 - **`wix-vibe-headless`** — the storefront build guide (STEP 2): your main source of truth.
