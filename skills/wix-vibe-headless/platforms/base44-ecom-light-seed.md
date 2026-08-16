@@ -64,7 +64,7 @@ shape → the **`wix-docs`** skill.
 access token and send it as a bearer token:
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wixheadless"); // connector name: "wix" or "wixheadless"
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wixheadless");
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
