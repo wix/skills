@@ -1,0 +1,23 @@
+name: stores/create-product-physical-no-inventory-no-image
+description: Verifies that a simple physical V3 product without image or inventory uses ordinary Create Product and preserves its SKU.
+triggerPrompt: >-
+  Create a physical product named "Canvas Tote" for $18.50 with SKU 000-TOTE. Do not add an image and do not track inventory.
+tags: [stores]
+maxTokens: 20000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent detects V3, skips all image-upload work, and creates exactly one product through either /stores/v3/products or /stores/v3/bulk/products/create. The PHYSICAL product must contain product-level physicalProperties and one variant with actualPrice.amount "18.50", sku "000-TOTE" preserved with its leading zeroes, and variant physicalProperties. It must omit inventoryItem. If bulk is used, it must contain exactly one product and the agent must validate its bulk result.
+      Fail if it uploads or invents media, creates inventory, uses an inventory-aware endpoint, changes the SKU, or omits required physicalProperties. The no-inventory bulk endpoint with exactly this one product is valid.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, the no-inventory endpoint, one mutation, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.
