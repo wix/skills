@@ -1,11 +1,6 @@
-// Responsive product grid, with the two states a fresh store spends most of its life in: loading and
-// empty. Styled with base44 design tokens (shadcn Tailwind classes).
-//
-// Two columns on phones — a 220px minmax leaves room for only one, and a one-up catalog scrolls
-// forever — then auto-fill from md up.
-//
-// The empty state carries weight here — a catalog is seeded separately from the build, so it is
-// routinely empty when the merchant first opens the page. Say why, rather than showing a bare line.
+// Reference implementation of a product grid — 2-col mobile, auto-fill desktop, with a skeleton
+// loading state and a descriptive empty state. Build your own layout instead (see INSTRUCTIONS.md
+// STEP 3) — read this for the skeleton/empty-state patterns, don't use it directly.
 import ProductCard from "./ProductCard";
 
 // Skeleton tiles match ProductCard's aspect-square + two text lines, so nothing shifts when the real
