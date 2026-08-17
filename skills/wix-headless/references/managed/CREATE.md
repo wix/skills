@@ -107,10 +107,14 @@ headlines, kickers, subtitles, and CTA labels per **`references/CONTENT.md`** �
 Either way, `CONTENT.md` §1 (the business's category must read literally above the fold) always holds —
 a page a first-time visitor can't identify isn't done yet, regardless of voice.
 
+**Before writing any page or component code, Read the inline recipe for each loaded capability** (`references/inline-recipes/how-to-code-*.md` — mapped per capability in `SDK_HANDOFF.md`). The recipe is the authoritative source for that capability's exact module names, method shapes, field paths, and silent-fail traps. Never write storefront, cart, booking, blog, or events code from memory or from the SDK docs alone — the recipe is what prevents convincing-looking UI that isn't wired to anything real (placeholder `addToCart` with no actual SDK call, a cart badge that never updates, a checkout button that goes nowhere).
+
 Then build the pages the user's intent calls for, **wired to the live backend**, using
 **`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded schema to
 bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the
 project, and bind them to the live backend content. Keep it scoped to what was asked — no speculative pages.
+
+> **Pre-release API-wiring check (stores + ecom capabilities):** Before releasing, verify the generated code actually calls the real SDK. For a store, grep the project source for `addToCurrentCart` and `productsV3` — if either is absent, the cart or product listing is a stub; wire it from the recipe before proceeding. Apply the same principle to every loaded capability: a bookings build must reference `getServiceAvailability` or equivalent; a blog build must reference `queryPosts`. A page that renders convincingly but calls nothing is a broken deliverable.
 
 > **`npm install` note (Astro):** always run **`npm install --ignore-scripts`**. Astro pulls `sharp`
 > as an *optional* transitive dep for **local, build-time**
