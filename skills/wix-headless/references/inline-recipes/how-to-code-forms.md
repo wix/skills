@@ -456,7 +456,7 @@ async function submitContact(formEl) {
     formId: SEEDED_FORM_ID,          // from seeded.forms[].formId
     submissions: values,             // map of target -> value (or -> nested object, for an address)
   });
-  return { _id, status };            // CONFIRMED → render a thank-you (see the status note below)
+  return { _id, status };            // CONFIRMED or PENDING → render a thank-you (see the status note below)
 }
 ```
 
@@ -482,13 +482,25 @@ construction, with no hand-maintained list to drift.
 
 Both are fixed in `setup-forms.md` STEP 2.
 
-**⚠️ A resolved promise is not always a recorded submission.** Read `status` from the result: for the
-Wix Forms namespace it is `CONFIRMED` (recorded — show the thank-you), but a form that collects
-payment returns `PAYMENT_WAITING` and some namespaces return `PENDING`, neither of which is recorded
-or visible to the owner yet
+**⚠️ Read `status` from the result — but only `PAYMENT_WAITING` means "not done".** For the Wix Forms
+namespace the status is `CONFIRMED` (recorded — show the thank-you). Some namespaces return `PENDING`,
+which is **not yet recorded** in the Wix Forms collection but **is a created submission**
 ([Submission status](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction#submission-status)).
-Since this renderer skips `PAYMENT` fields, treat anything other than `CONFIRMED` as "not done yet"
-rather than showing a success state.
+
+**Treat `PENDING` as success and show the thank-you.** The visitor has done everything they can, and
+confirming it is a server-side step they play no part in. Showing an error instead invites them to
+submit again — so the cost of getting this wrong is duplicate submissions in the owner's inbox for a
+submission that already exists, which is worse than the rare `PENDING` that never gets confirmed.
+
+The one status to **not** treat as success is **`PAYMENT_WAITING`** — a form collecting payment, where
+the visitor genuinely has a step left. Since this renderer skips `PAYMENT` fields, that shouldn't
+arise; if it does, the schema has a payment field the UI isn't rendering.
+
+```js
+const { _id, status } = await submissions.createSubmission({ formId, submissions: values });
+if (status === "PAYMENT_WAITING") { /* payment still owed — don't show the thank-you */ }
+else { /* CONFIRMED or PENDING → thank-you */ }
+```
 
 **⚠️ Per-field validation errors — the SDK buries them two levels deeper than the docs' shape.** The
 documented entries (`errorPath`, `errorType`, `errorMessage`, `params` — see
@@ -667,9 +679,9 @@ A correct Wix Forms frontend:
   `target`** so the `submissions` map is keyed by `target` by construction;
 - submits on the **plain visitor token with NO `auth.elevate`** (anonymous submit works; a pure SPA
   can't elevate anyway) and, at the default `ADVANCED` protection, **no captcha**;
-- **only writes submissions** — reading them back is owner-only — and treats
-  **`status === "CONFIRMED"`**, not a resolved promise, as the signal to show the thank-you; reads
-  the created id as **`result._id`**, never `result.id`;
+- **only writes submissions** — reading them back is owner-only — and shows the thank-you for
+  **`CONFIRMED` *or* `PENDING`** (both are created submissions), withholding it only for
+  **`PAYMENT_WAITING`**; reads the created id as **`result._id`**, never `result.id`;
 - is **accessible by construction** (the inputs are generated, so a slip repeats on every field):
   each error carries a deterministic id from its `errorPath` and is referenced by `aria-describedby`
   + `role="alert"` and persisted (not conditionally unmounted); a choice group's error and
