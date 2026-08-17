@@ -74,8 +74,12 @@ curl -X PATCH 'https://www.wixapis.com/events/v3/events/<EVENT_ID>' \
 ```
 
 The Events API takes **no field mask and no `revision`** on update — send only the fields you are
-changing. Send `dateAndTimeSettings` complete when moving a date: `startDate`, `endDate` and
-`timeZoneId` together, since the same required-field rules apply as on create.
+changing. A `revision`, if you send one, is ignored rather than rejected.
+
+**When moving a date, send `startDate` and `endDate` together.** `dateAndTimeSettings` is replaced
+wholesale rather than merged, so a patch carrying only `startDate` leaves the event with no end and
+fails `400 event cannot have negative duration` — an error naming neither the missing field nor the
+replacement. `timeZoneId` is optional here, unlike on create; the stored one is kept.
 
 Ticket definitions are the exception — `PATCH /events/v3/ticket-definitions/{ticketDefinition.id}`
 *does* require the current `revision`, which increments on every update.
