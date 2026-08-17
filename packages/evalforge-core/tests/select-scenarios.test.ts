@@ -168,4 +168,24 @@ describe('selectScenarios', () => {
     });
     expect(selection.selected).toEqual(['c', 'a', 'b']);
   });
+
+  // `ids` and `selected` are two parallel unsorted arrays built from one `map` — unlike `dropped`
+  // and `missingIds`, which this same function sorts a few lines away. Callers (`run-and-report.ts`)
+  // zip them index-for-index to pair each id with its name; if `selected` were ever sorted
+  // independently of `ids`, every name in the impact table would be wrong while the ids stayed
+  // right, and an appended `unattributed` row's name is the reader's only identification of it.
+  it('keeps ids[i] and selected[i] pointing at the same scenario', () => {
+    const selection = selectScenarios({
+      broadImpact: true,
+      tags: [],
+      localScenarios: loadedMap(['zzz', ['t']], ['aaa', ['t']], ['mmm', ['t']]),
+      nameToId: idsFor('zzz', 'aaa', 'mmm'),
+      touchedScenarioPaths: new Set(),
+      maxScenarios: 25,
+    });
+    expect(selection.ids).toHaveLength(selection.selected.length);
+    for (let index = 0; index < selection.ids.length; index += 1) {
+      expect(selection.ids[index]).toBe(`id-${selection.selected[index]}`);
+    }
+  });
 });

@@ -98,12 +98,15 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: .github/wix-app-typecheck/node_modules
-          key: ${{ runner.os }}-node-modules-wix-app-typecheck-${{ hashFiles('.github/wix-app-typecheck/package-lock.json') }}
+          key: ${{ runner.os }}-node-modules-wix-app-typecheck-${{ hashFiles('.github/wix-app-typecheck/yarn.lock') }}
 
+      # yarn, not npm: this was the one install flow with no cooldown guardrail, and
+      # `npm install` re-resolved the whole tree on every cache miss. `--legacy-peer-deps`
+      # is gone — yarn reports peer mismatches as warnings and installs anyway.
       - name: wix-app — install dependencies
         if: ${{ needs.detect.outputs.wix_app == 'true' && steps.cache-deps.outputs.cache-hit != 'true' }}
         working-directory: .github/wix-app-typecheck
-        run: npm install --legacy-peer-deps
+        run: yarn install --immutable
 
       - name: wix-app — typecheck reference docs
         if: ${{ needs.detect.outputs.wix_app == 'true' }}
@@ -111,7 +114,7 @@ jobs:
         run: node extract.mjs
 
       # ── evalforge: typecheck the shared package and both actions ────────────────────
-      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.10.0 via
+      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.12.0 via
       # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
       # process cwd — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)`.
       #

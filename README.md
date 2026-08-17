@@ -10,7 +10,7 @@ Agent skills for building Wix app extensions, managing Wix business solutions, d
 
 ### Claude Code Plugin
 
-In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
+In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run: 
 
 ```bash
 /plugin marketplace add wix/skills

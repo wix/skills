@@ -1,0 +1,23 @@
+name: stores/create-product-digital-no-image-sku
+description: Verifies that a digital V3 product uses ordinary Create Product without physical or inventory fields while retaining price and SKU.
+triggerPrompt: >-
+  Create a digital product named "Focus Planner PDF" for $9.99 with SKU PDF-FOCUS-01. It has no product image and I am not supplying a download file yet.
+tags: [stores]
+maxTokens: 20000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; a direct, correct execution grounded in authoritative Wix API docs must pass. Pass if the agent detects V3, skips image upload, and creates exactly one DIGITAL product through either /stores/v3/products or /stores/v3/bulk/products/create. Its single variant must contain actualPrice.amount "9.99" and sku "PDF-FOCUS-01". Because the user supplied neither inventory nor a download file, the request must omit inventoryItem, product-level and variant-level physicalProperties, media, and any invented digital file. If bulk is used, it must contain exactly one product and the agent must validate its bulk result.
+      Fail if it treats the product as PHYSICAL, uses an inventory-aware endpoint, adds physicalProperties/inventoryItem, invents a downloadable file or image, or loses the SKU/price. A no-inventory bulk endpoint with exactly this one product is valid.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified Create Product recipe, but do not score below 7 solely because it was not loaded when authoritative Wix API docs supported a correct direct execution. A 10 uses the recipe or the exact Create Product docs, existing V3 site context or one version check, the no-inventory V3 endpoint immediately, one product mutation, and response validation. Penalize redundant or tangential docs, speculative probes, wrong inventory mode, recovered non-2xx errors, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

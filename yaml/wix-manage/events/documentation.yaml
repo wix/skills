@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Events Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/events/create-wix-event.md
+      title: Create Event
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/events
+      tags: [events]
+    - file: ../../../skills/wix-manage/references/events/manage-wix-events.md
+      title: Manage Events
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/events
+      tags: [events]

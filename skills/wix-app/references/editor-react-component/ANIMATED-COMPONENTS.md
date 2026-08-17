@@ -32,8 +32,9 @@ implementation detail.
 
 1. **Props** — `autoPlay`, `loop`, `pauseButtonVisibility`
 2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
-3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility
+3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility; **must be a named part** (`classNames('component-name-play-button', styles.playButton)`) with hover/focus design-state selectors
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
+5. **Respect `prefers-reduced-motion`** — suppress autoplay when the OS requests reduced motion
 
 ---
 
@@ -65,14 +66,34 @@ export interface MyAnimationProps {
 
 ## 2. Playback state
 
-Track play/pause state with `useState`, initialized from the `autoPlay` prop:
+Track play/pause state with `useState`. Initialize it from `autoPlay` and the OS reduced-motion preference — when the visitor has requested reduced motion, the animation starts paused:
 
 ```tsx
-const [isPlaying, setIsPlaying] = React.useState(autoPlay ?? true);
+import { useReducedMotion } from '@wix/react-component-utils';
+
+// inside the component:
+const reducedMotion = useReducedMotion();
+
+const [isPlaying, setIsPlaying] = React.useState((autoPlay ?? true) && !reducedMotion);
+
+// when autoPlay prop changes, re-sync (but still respect reduced motion)
+React.useEffect(() => {
+  setIsPlaying((autoPlay ?? true) && !reducedMotion);
+}, [autoPlay]);
+
+// when reduced motion is enabled, suppress playback; never re-enable on its own
+// (visitor may have manually paused — don't restart against their will)
+React.useEffect(() => {
+  if (reducedMotion) {
+    setIsPlaying(false);
+  }
+}, [reducedMotion]);
 
 const handlePause = () => setIsPlaying(false);
 const handleResume = () => setIsPlaying(true);
 ```
+
+**`reducedMotion`** is `true` when the hook reports that reduced motion is enabled. When active, the animation starts paused — the visitor can still press the play button to start it manually. It is a runtime browser signal, not a manifest/data prop; never expose it as a component prop or in the manifest.
 
 Pass `isPlaying` to the animation renderer and toggle between `handlePause` / `handleResume` on button click.
 
@@ -96,10 +117,39 @@ Position the button absolutely so it overlays the content without pushing other 
   inset-inline-end: 5px;
   inset-block-start: 5px;
 }
+
+/* Design-state selectors: pair native pseudo-class with editor-injected modifier class.
+   The editor applies the modifier class (e.g. my-animation-play-button--hover) when
+   the site owner previews that state in the design panel, so both selectors must exist. */
+.playButton:global(.my-animation-play-button--hover),
+.playButton:hover {
+  /* e.g. background: rgba(255, 255, 255, 1); */
+}
+
+.playButton:global(.my-animation-play-button--focus),
+.playButton:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+```
+
+```tsx
+{/* ✅ Named part: play/pause is always a named part — site owners can style it independently */}
+<button
+  type="button"
+  className={classNames('my-animation-play-button', styles.playButton)}
+  onClick={isPlaying ? handlePause : handleResume}
+  aria-label={isPlaying ? 'Pause' : 'Play'}
+>
+  {isPlaying ? <PauseIcon /> : <PlayIcon />}
+</button>
 ```
 
 ```css
-/* pauseButtonVisibility variants — structural CSS, not named-part rules */
+/* pauseButtonVisibility visibility behavior — descendant CSS is allowed here
+   because these rules control the button's *visibility*, not its styling surface.
+   The button itself is a named part (classNames('...-play-button', styles.playButton))
+   and must carry both a global class and design-state selectors (see above). */
 
 /* showOnHover (default) */
 .root[data-pause-button-visibility="showOnHover"] .playButton {

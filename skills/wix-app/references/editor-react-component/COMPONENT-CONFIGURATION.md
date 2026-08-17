@@ -163,3 +163,63 @@ const componentExtension = extensions.editorReactComponent({
   },
 });
 ```
+
+---
+
+## 5. Adding range constraints for numeric props
+
+The zero-config pipeline reads `@min` and `@max` JSDoc tags on numeric props and
+emits them as `number: { min, max }` in the generated manifest. Add these tags
+directly on the prop in the component's props interface — no extension file
+override is needed.
+
+### Heuristic — does this number have a fixed domain?
+
+| Scenario | Action |
+|----------|--------|
+| Rating 0–5, column count 1–6, items per row 1–4 | Add `@min` / `@max` |
+| Volume 0–100, playback speed 0.5–5, autoplay delay 0.5–30 | Add `@min` / `@max` |
+| Geo coordinates, zoom level | Add `@min` / `@max` |
+| Arbitrary count, free-form price, unconstrained input | Omit — leave as `number` |
+| Semantic index (active tab, active slide, active item) | Omit — upper bound is driven by the component's own item count, not a fixed domain |
+
+### How to write the tags
+
+Add `@min` and `@max` inline in the JSDoc comment for the prop in `<componentName>.props.ts`:
+
+```ts
+export interface RatingWidgetProps {
+  /** @min 0 @max 5 */
+  rating: number;
+}
+```
+
+Zero-config picks these up during `npx wix build && npx wix generate manifest`
+and emits:
+
+```ts
+rating: {
+  dataType: 'number',
+  number: { min: '0', max: '5' },
+}
+```
+
+### Examples
+
+```ts
+// Star rating 0–5
+/** @min 0 @max 5 */
+rating: number;
+
+// Volume 0–100
+/** @min 0 @max 100 */
+volume: number;
+
+// Playback speed 0.5–5
+/** @min 0.5 @max 5 */
+speed: number;
+
+// Column count 1–6
+/** @min 1 @max 6 */
+columns: number;
+```

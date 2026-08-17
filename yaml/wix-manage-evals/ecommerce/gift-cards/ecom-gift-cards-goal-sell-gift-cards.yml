@@ -1,6 +1,6 @@
 name: ecommerce/gift-cards/goal-sell-gift-cards
-description: A gift-card prompt should reach the strategy orchestrator, activate its GIFT_CARDS domain, load the gift-cards goal, size denominations from the site's own data, and persist the recommendation via tracking.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) should I sell gift cards? If it's worth it, tell me exactly which amounts to offer.
+description: A gift-card prompt should reach the strategy orchestrator, load the gift-cards goal, check the site's existing gift card product before proposing anything, size amounts from the site's own data, and always state the expiry stance.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to look at gift cards — should I be selling them, and are the amounts right for my store?
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
@@ -13,16 +13,15 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Two things are required in every outcome: the agent loads the recommend-ecommerce-strategy orchestrator and treats gift cards as one of its domains rather than a standalone entry point, and it calls Query Gift Card Products (POST https://www.wixapis.com/gift-cards/v1/gift-card-products/query) BEFORE proposing anything, because a site supports only one gift card product.
+      Judge three things, and only these three. Ignore breadth: other domains may also appear in the orchestrator's recommendation set, and their presence or absence is irrelevant here.
 
-      Which of the three outcomes below is correct depends on what that query and the site data return. Judge the one the site state dictates — do not require a different one.
+      1. It checked the site's existing gift card products — a call to Query Gift Card Products (POST https://www.wixapis.com/gift-cards/v1/gift-card-products/query) before proposing anything. A site supports only ONE gift card product, so this call decides which answer is correct.
 
-      Outcome A — the site has NO gift card product, and AOV or catalog price data exists. Expect: 3-5 preset denominations AND a custom amount range derived from that data in the site's own currency; the expiration stance stated (no expiry by default with a reason, or >= 60 months flagged as needing a compliance check); and the recommendation persisted via BatchCreate with domain "gift_cards" before it is presented, with the returned id/revision echoed.
+      2. It gave an answer consistent with what that call returned, and grounded in the site's own data:
+         - Product already exists → it reports that product (name, its amounts) and assesses whether those amounts fit the site's AOV or catalog prices, pointing at Update Gift Card Product for changes. Proposing to CREATE another product here is wrong.
+         - No product, and AOV or catalog price data available → 3-5 preset denominations plus a custom amount range derived from that data in the site's currency, persisted via BatchCreate with domain "gift_cards" before being presented.
+         - No product and no price data at all → it says it cannot size amounts yet and offers a way forward. Nothing to persist in this case.
 
-      Outcome B — the site ALREADY HAS a gift card product. Creating a second one is impossible, so a create recommendation is the WRONG answer and nothing should be persisted. Expect instead: the existing product reported (name, its preset amounts and custom range, and its expiry stance read from expirationType), an assessment of whether those amounts still fit the site's AOV / catalog prices, and a pointer to Update Gift Card Product for changes.
+      3. It stated the expiry stance somewhere in the answer — that the cards don't expire (and ideally that this is the safer default because expiry is regulated and varies by market), or the existing product's expiry, or a proposed period of at least 60 months flagged for compliance. Silence about expiry is a fail.
 
-      Outcome C — no gift card product, and neither AOV nor usable catalog price data. Expect: the agent says it cannot size denominations yet, explains why, and offers a way forward such as asking the merchant for a typical order value. Denominations and persistence are NOT expected — there is nothing to persist.
-
-      Fail if the response invents denominations, product names, or prices it did not get from an API response; proposes a generic 25/50/100 ladder while real AOV or catalog data was available; skips the Query Gift Card Products check; proposes creating a product on a site that already has one; presents a NEW recommendation (Outcome A) without persisting it via BatchCreate; never mentions expiry in Outcome A or B; calls Create Gift Card Product before the merchant approves; hard-codes a currency symbol that isn't the site's; or marks urgency CRITICAL.
-
-      Topic-completeness beyond the gift-card outcome is NOT required — other domains may also appear in the orchestrator's set.
+      Fail if: the existing-product check never happened; it invented denominations, product names, or prices not returned by an API; it proposed a generic 25/50/100 ladder while real AOV or catalog data was available; it proposed creating a second gift card product on a site that already has one; it presented a NEW create recommendation without persisting it via BatchCreate; it called Create Gift Card Product before the merchant approved; or expiry went unmentioned.

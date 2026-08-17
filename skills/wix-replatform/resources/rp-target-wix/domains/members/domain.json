@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "displayName": "Wix Members",
+  "ownerHint": "Members identity, profile, roles, and badges domain owners",
+  "defaultImportOrder": ["member", "badge"],
+  "evidence": [
+    {
+      "type": "repo-research",
+      "path": "research/import-api-suitability/orders-contacts-members.md"
+    }
+  ]
+}

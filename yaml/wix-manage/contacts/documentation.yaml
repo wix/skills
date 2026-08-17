@@ -10,6 +10,14 @@ apiDoc:
       title: Bulk Label and Unlabel Contacts
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
+    - file: ../../../skills/wix-manage/references/contacts/create-a-contact.md
+      title: Create a Contact
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
+      tags: [contacts]
+    - file: ../../../skills/wix-manage/references/contacts/update-a-contact.md
+      title: Update a Contact
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
+      tags: [contacts]
     - file: ../../../skills/wix-manage/references/contacts/contacts-dashboard-navigation.md
       title: Contacts Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts

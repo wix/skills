@@ -3,11 +3,17 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import {
-  DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
+  DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
+  DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO,
 } from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
-type ActionYml = { name: string; inputs: Record<string, ActionInput>; runs: { main: string } };
+type ActionYml = {
+  name: string;
+  inputs: Record<string, ActionInput>;
+  outputs: Record<string, { description: string }>;
+  runs: { main: string };
+};
 
 const action = yaml.load(readFileSync(join(__dirname, '../action.yml'), 'utf8')) as ActionYml;
 
@@ -20,7 +26,8 @@ describe('action.yml', () => {
       'mode', 'github-token', 'evalforge-url', 'evalforge-project-id',
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
-      'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking',
+      'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
+      'base-arm-grace-seconds', 'eval-run-id',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);
     }
@@ -40,6 +47,14 @@ describe('action.yml', () => {
     expect(action.inputs['reference-dir'].default).toBe(DEFAULT_REFERENCE_DIR);
   });
 
+  it('keeps runs-per-scenario in step with the core default', () => {
+    expect(action.inputs['runs-per-scenario'].default).toBe(String(DEFAULT_RUNS_PER_SCENARIO));
+  });
+
+  it('keeps base-arm-grace-seconds in step with the core default', () => {
+    expect(action.inputs['base-arm-grace-seconds'].default).toBe(String(DEFAULT_BASE_ARM_GRACE_SECONDS));
+  });
+
   it('leaves gate-only inputs optional so sync mode needs none of them', () => {
     for (const name of ['capability-id', 'agent-id', 'skill-dir']) {
       expect(action.inputs[name].required, name).toBeFalsy();
@@ -48,5 +63,15 @@ describe('action.yml', () => {
 
   it('runs the committed bundle', () => {
     expect(action.runs.main).toBe('dist/index.js');
+  });
+
+  it('declares the analyze-run-id output the analyze job triggers on', () => {
+    expect(Object.keys(action.outputs)).toContain('analyze-run-id');
+  });
+
+  it('documents every mode the action dispatches', () => {
+    for (const mode of ['gate', 'analyze', 'cleanup', 'sync']) {
+      expect(action.inputs.mode.description).toContain(`"${mode}"`);
+    }
   });
 });

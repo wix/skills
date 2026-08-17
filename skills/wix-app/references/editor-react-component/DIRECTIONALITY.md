@@ -42,12 +42,29 @@ Use logical CSS properties — never physical `left`/`right`-only layouts. See �
 
 ### Root Element Pattern
 
-Apply on main component only:
+Apply on main component only. `dir` and the fallback class go on whatever element is the root — never add a wrapper `<div>` to host them (see [`PARTS.md`](PARTS.md) Step 0).
 
 ```typescript
 <div
+  id={id}
   dir={direction}
   className={classNames(
+    'profile-card',
+    styles.root,
+    className,
+    styles.fallbackDirection,
+  )}
+>
+```
+
+```typescript
+/* Root is the component's own semantic element — same attribute, same classes */
+<button
+  type="button"
+  id={id}
+  dir={direction}
+  className={classNames(
+    'like-button',
     styles.root,
     className,
     styles.fallbackDirection,
@@ -81,18 +98,18 @@ const labelDirection = elementProps?.label?.direction;
 
 ### Runtime Direction Checking
 
-**Environment Service (for site direction):**
+**Site direction hook:**
 
-Use service when direction drives JavaScript behavior (keyboard navigation, animation logic, conditional rendering).
+Use the hook **only** when direction drives JavaScript behavior (keyboard navigation, animation logic, conditional rendering). For purely visual RTL, use logical CSS properties instead — see below.
 
 ```typescript
-import { useService } from '@wix/services-manager-react';
-import { EnvironmentDefinition } from '@wix/environment-service/definition';
+import { useLanguageDirection } from '@wix/react-component-utils';
 
-const environmentService = useService(EnvironmentDefinition);
-const siteDirection = environmentService.getLanguageDirection();
+const siteDirection = useLanguageDirection();
 const isRTL = siteDirection === 'rtl';
 ```
+
+See [`SITE-CONTEXT-HOOKS.md`](SITE-CONTEXT-HOOKS.md) for the full set of site context hooks.
 
 **Fallback chain (for child components):**
 

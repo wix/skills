@@ -1,0 +1,95 @@
+{
+  "vendor": "shopify",
+  "profileVersion": "2026-07",
+  "sourceOfTruth": "https://help.shopify.com/en/manual/products/import-export/using-csv",
+  "anchors": {
+    "required": ["Handle", "Title"],
+    "strong": ["Body (HTML)", "Variant SKU", "Variant Price", "Option1 Name", "Vendor"],
+    "negative": ["Attribute 1 value(s)", "attribute_set_code", "Item Type"]
+  },
+  "layout": {
+    "pattern": "grouped-by-key",
+    "groupKey": "Handle",
+    "continuation": "blank-key",
+    "parentEntity": "product",
+    "childEntity": "variant",
+    "columnGroups": [
+      {
+        "entity": "variant",
+        "prefixes": ["Variant ", "Option1 ", "Option2 ", "Option3 "],
+        "columns": ["Cost per item"]
+      },
+      {
+        "entity": "image",
+        "prefixes": ["Image "],
+        "columns": []
+      }
+    ]
+  },
+  "derived": [
+    {
+      "entity": "category",
+      "fromColumn": "Product Category",
+      "hierarchySeparator": ">",
+      "hierarchical": true,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "categories", "cardinality": "many-to-many" }
+    },
+    {
+      "entity": "tag",
+      "fromColumn": "Tags",
+      "multiValueSeparator": ",",
+      "hierarchical": false,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "tags", "cardinality": "many-to-many" }
+    }
+  ],
+  "fileRoles": [
+    { "role": "product", "filenameHints": ["products_export", "products"] },
+    { "role": "customer", "filenameHints": ["customers_export", "customers"] },
+    { "role": "order", "filenameHints": ["orders_export", "orders"] }
+  ],
+  "columnMap": [
+    { "wixTarget": "product.name", "aliases": ["Title", "product_title"] },
+    { "wixTarget": "product.description", "aliases": ["Body (HTML)", "body_html", "Description"] },
+    { "wixTarget": "product.slug", "aliases": ["Handle"] },
+    { "wixTarget": "product.brand", "aliases": ["Vendor"] },
+    { "wixTarget": "product.visible", "aliases": ["Published", "Status"] },
+    { "wixTarget": "product.productType", "aliases": ["Type", "Product Type"] },
+    { "wixTarget": "product.seoTitle", "aliases": ["SEO Title"] },
+    { "wixTarget": "product.seoDescription", "aliases": ["SEO Description"] },
+    { "wixTarget": "variant.sku", "aliases": ["Variant SKU", "variant_sku"] },
+    { "wixTarget": "variant.price", "aliases": ["Variant Price", "variant_price"] },
+    { "wixTarget": "variant.compareAtPrice", "aliases": ["Variant Compare At Price"] },
+    { "wixTarget": "variant.cost", "aliases": ["Cost per item"] },
+    { "wixTarget": "variant.barcode", "aliases": ["Variant Barcode"] },
+    { "wixTarget": "variant.weight", "aliases": ["Variant Grams", "Variant Weight"] },
+    { "wixTarget": "variant.weightUnit", "aliases": ["Variant Weight Unit"] },
+    { "wixTarget": "variant.inventoryQuantity", "aliases": ["Variant Inventory Qty"] },
+    { "wixTarget": "variant.inventoryPolicy", "aliases": ["Variant Inventory Policy"] },
+    { "wixTarget": "variant.requiresShipping", "aliases": ["Variant Requires Shipping"] },
+    { "wixTarget": "variant.taxable", "aliases": ["Variant Taxable"] },
+    { "wixTarget": "variant.option1.name", "aliases": ["Option1 Name"] },
+    { "wixTarget": "variant.option1.value", "aliases": ["Option1 Value"] },
+    { "wixTarget": "variant.option2.name", "aliases": ["Option2 Name"] },
+    { "wixTarget": "variant.option2.value", "aliases": ["Option2 Value"] },
+    { "wixTarget": "variant.option3.name", "aliases": ["Option3 Name"] },
+    { "wixTarget": "variant.option3.value", "aliases": ["Option3 Value"] },
+    { "wixTarget": "variant.image", "aliases": ["Variant Image"] },
+    { "wixTarget": "image.url", "aliases": ["Image Src"] },
+    { "wixTarget": "image.altText", "aliases": ["Image Alt Text"] },
+    { "wixTarget": "image.position", "aliases": ["Image Position"] },
+    { "wixTarget": "category.path", "aliases": ["Product Category"] },
+    { "wixTarget": "tag.name", "aliases": ["Tags"] }
+  ],
+  "quirks": [
+    "A continuation row carries an additional variant, an additional image, or both, and is never its own product. Exports differ in how they mark one: most blank the Handle, but some repeat it on every row of the product. The pinned continuation mode is verified against the sampled rows and corrected when the file disagrees, so do not assume either shape.",
+    "A continuation row that carries only an extra image leaves every Variant column blank, so a product has fewer variants than rows.",
+    "The first row of a product already carries its first variant, so variant columns are populated on the group head — a variant column cannot be identified by 'blank on the head row'.",
+    "The product CSV does NOT carry collection membership. Shopify collections require the Admin API or an app; surface this at discovery so the user is not surprised at mapping time.",
+    "Prices (Variant Price, Variant Compare At Price, Cost per item) are plain decimal strings with no currency symbol; the currency is a store setting the CSV does not carry.",
+    "Variant Grams is an integer weight in grams regardless of Variant Weight Unit.",
+    "Tags is one cell holding a comma-separated list.",
+    "Published is TRUE/FALSE while Status is active/draft/archived; they are different columns and both may be present."
+  ]
+}

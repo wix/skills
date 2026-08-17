@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Accessibility Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/accessibility/scan-site-accessibility.md
+      title: Scan a Wix Site for Accessibility Issues
+      docsEntry: https://dev.wix.com/docs/api-reference/site/accessibility
+      tags: [aria, stores]

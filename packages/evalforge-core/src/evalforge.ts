@@ -15,6 +15,12 @@ const MAX_QUERY_CONCURRENCY = 8;
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
 const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+// The server's own analysis budget is 57s, so the default would abort every analysis client-side
+// moments before it returned.
+const ANALYZE_TIMEOUT_MS = 75_000;
+
 export const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'] as const;
 export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[number];
 
@@ -74,9 +80,40 @@ export type EvalRunInput = {
   };
   capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
+  /** These three sit on the `EvalRun` message itself — RunEvaluation takes an EvalRun wholesale,
+   * so there is no separate compare endpoint to call. */
+  comparisonGroupId?: string;
+  comparisonLabel?: string;
+  runsPerScenario?: number;
 };
 
 export type EvalRunCreated = { id: string; status: RunStatus };
+
+export type AssertionOutcome = {
+  assertionName: string;
+  assertionType: string;
+  /** `UNKNOWN` is a wire value this action does not recognize (absent, `UNSPECIFIED`, or a future
+   * enum member) — distinct from `ERROR`, which is the API's own genuine-error status. Folding
+   * `UNKNOWN` into `ERROR` would manufacture a failure for an assertion nothing actually reports
+   * as failed. */
+  status: 'PASSED' | 'FAILED' | 'SKIPPED' | 'ERROR' | 'UNKNOWN';
+  message?: string;
+  /** Present when the wire row carries one — the only field that disambiguates two assertions
+   * sharing a name (e.g. two `skill_was_called` checks against different reference files). */
+  assertionId?: string;
+};
+
+export type EvalRunResultRow = {
+  scenarioId: string;
+  scenarioName: string;
+  passed: number;
+  failed: number;
+  /** Present when the row was reconstructed at cancel and NOT scored. */
+  partial: boolean;
+  /** Distinguishes repeats of the same scenario when runsPerScenario > 1. */
+  iterationIndex: number;
+  assertions: AssertionOutcome[];
+};
 
 export type EvalRunStatus = {
   status: RunStatus;
@@ -91,6 +128,28 @@ export type EvalRunStatus = {
     avgDuration: number;
     totalDuration: number;
   };
+  results: EvalRunResultRow[];
+};
+
+export type RunAnalysisCategory =
+  | 'FAILURE_PATTERN' | 'COST_WASTE' | 'FLAKINESS' | 'INEFFICIENCY' | 'POSITIVE'
+  | 'WRONG_TOOL_CALL' | 'TOOL_OUTPUT_ERROR' | 'DOCS_ERROR' | 'SKILL_MISGUIDANCE'
+  | 'UNKNOWN';
+
+export type RunAnalysisSeverity = 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+
+export type RunAnalysisFinding = {
+  category: RunAnalysisCategory;
+  severity: RunAnalysisSeverity;
+  description: string;
+  affectedScenarios: string[];
+  recommendation?: string;
+};
+
+export type RunAnalysis = {
+  generatedAt?: string;
+  summary: string;
+  findings: RunAnalysisFinding[];
 };
 
 export const DRAFT_PREFIX = 'draft:';
@@ -168,7 +227,124 @@ function assertNotTruncated(received: number, meta: RawPagingMetadata | undefine
   );
 }
 type RawMetrics = Partial<EvalRunStatus['aggregateMetrics']>;
-type RawEvalRun = { id: string; status: string; progress?: number; aggregateMetrics?: RawMetrics };
+type RawAssertionResult = {
+  assertionName?: string;
+  assertionType?: string;
+  // Untyped, not `string`: this is untrusted wire data, and a proto enum can arrive as a number
+  // (or, in a malformed response, an object or array) — `status` must be validated by type before
+  // any string method touches it.
+  status?: unknown;
+  message?: string;
+  assertionId?: string;
+};
+type RawEvalRunResult = {
+  scenarioId?: string;
+  scenarioName?: string;
+  passed?: number;
+  failed?: number;
+  partial?: boolean;
+  iterationIndex?: number;
+  assertionResults?: RawAssertionResult[];
+};
+type RawEvalRun = {
+  id: string;
+  status: string;
+  progress?: number;
+  aggregateMetrics?: RawMetrics;
+  results?: RawEvalRunResult[];
+};
+
+// Guards against a wire array field being absent, null, or (in a malformed
+// response) present but not actually an array — any of which would otherwise
+// crash `.map` mid-poll rather than degrade to an empty result.
+function toRowArray<Row>(value: unknown): Row[] {
+  return Array.isArray(value) ? value as Row[] : [];
+}
+
+const ASSERTION_STATUSES = ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'] as const;
+
+// The real API sends the proto enum's full name (e.g. ASSERTION_RESULT_STATUS_PASSED),
+// not the bare literal — strip that prefix before matching so both forms resolve.
+const ASSERTION_STATUS_PROTO_PREFIX = 'ASSERTION_RESULT_STATUS_';
+
+// Validates against the known enum rather than casting, so a typo'd or novel
+// wire value doesn't silently type-check as one of the five literals and
+// defeat an exhaustive switch over AssertionOutcome['status'].
+//
+// `rawStatus` is untrusted: a proto enum can arrive as a number (or worse in a malformed
+// response), and `.startsWith` on a non-string throws — the `typeof` guard is what stops that
+// from surfacing as a poll failure for a run that actually completed. A value that fails to
+// match, including `undefined` (proto3 omits a zero-valued enum field) and any non-string, maps
+// to `UNKNOWN` rather than `ERROR`: `ERROR` is a genuine wire status, and folding an unrecognized
+// value into it would manufacture a failure nothing actually reports.
+function toAssertionStatus(rawStatus: unknown): AssertionOutcome['status'] {
+  if (typeof rawStatus !== 'string') return 'UNKNOWN';
+  const unprefixedStatus = rawStatus.startsWith(ASSERTION_STATUS_PROTO_PREFIX)
+    ? rawStatus.slice(ASSERTION_STATUS_PROTO_PREFIX.length)
+    : rawStatus;
+  return ASSERTION_STATUSES.find(candidate => candidate === unprefixedStatus) ?? 'UNKNOWN';
+}
+
+type RawRunAnalysisFinding = {
+  category?: unknown;
+  severity?: unknown;
+  description?: string;
+  affectedScenarios?: unknown;
+  recommendation?: string;
+};
+type RawRunAnalysis = { generatedAt?: string; summary?: string; findings?: unknown };
+
+const RUN_ANALYSIS_CATEGORIES = [
+  'FAILURE_PATTERN', 'COST_WASTE', 'FLAKINESS', 'INEFFICIENCY', 'POSITIVE',
+  'WRONG_TOOL_CALL', 'TOOL_OUTPUT_ERROR', 'DOCS_ERROR', 'SKILL_MISGUIDANCE',
+] as const;
+
+const RUN_ANALYSIS_SEVERITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
+
+// These are nested proto enums, so unlike AssertionResultStatus their members carry no enum-name
+// prefix and the wire value is bare. proto3 omits a zero-valued enum, making an absent field as
+// ordinary as the explicit UNKNOWN_CATEGORY / UNKNOWN_SEVERITY members — both, and any future or
+// malformed value, land on UNKNOWN so nothing is invented as HIGH.
+function toEnumMember<Member extends string>(
+  raw: unknown,
+  members: readonly Member[],
+): Member | 'UNKNOWN' {
+  if (typeof raw !== 'string') return 'UNKNOWN';
+  return members.find(candidate => candidate === raw) ?? 'UNKNOWN';
+}
+
+function toRunAnalysisFinding(raw: RawRunAnalysisFinding | null | undefined): RunAnalysisFinding {
+  return {
+    category: toEnumMember(raw?.category, RUN_ANALYSIS_CATEGORIES),
+    severity: toEnumMember(raw?.severity, RUN_ANALYSIS_SEVERITIES),
+    description: raw?.description ?? '',
+    affectedScenarios: toRowArray<unknown>(raw?.affectedScenarios)
+      .filter((scenario): scenario is string => typeof scenario === 'string'),
+    ...(raw?.recommendation === undefined ? {} : { recommendation: raw.recommendation }),
+  };
+}
+
+function toAssertionOutcome(rawAssertionResult: RawAssertionResult | null | undefined): AssertionOutcome {
+  return {
+    assertionName: rawAssertionResult?.assertionName ?? '(unnamed)',
+    assertionType: rawAssertionResult?.assertionType ?? 'unknown',
+    status: toAssertionStatus(rawAssertionResult?.status),
+    ...(rawAssertionResult?.message === undefined ? {} : { message: rawAssertionResult.message }),
+    ...(rawAssertionResult?.assertionId === undefined ? {} : { assertionId: rawAssertionResult.assertionId }),
+  };
+}
+
+function toResultRow(rawResult: RawEvalRunResult | null | undefined): EvalRunResultRow {
+  return {
+    scenarioId: rawResult?.scenarioId ?? '',
+    scenarioName: rawResult?.scenarioName ?? '',
+    passed: rawResult?.passed ?? 0,
+    failed: rawResult?.failed ?? 0,
+    partial: rawResult?.partial ?? false,
+    iterationIndex: rawResult?.iterationIndex ?? 0,
+    assertions: toRowArray<RawAssertionResult>(rawResult?.assertionResults).map(toAssertionOutcome),
+  };
+}
 
 // V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
 // works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
@@ -202,7 +378,7 @@ export class EvalForgeClient {
     this.tokens = new TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
   }
 
-  private send(method: string, path: string, body: unknown, token: string): Promise<Response> {
+  private send(method: string, path: string, body: unknown, token: string, timeoutMs: number): Promise<Response> {
     return fetch(`${this.baseUrl}/v1${path}`, {
       method,
       headers: {
@@ -210,16 +386,21 @@ export class EvalForgeClient {
         Authorization: `Bearer ${token}`,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+  ): Promise<T> {
     const token = await this.tokens.getToken();
-    let res = await this.send(method, path, body, token);
+    let res = await this.send(method, path, body, token, timeoutMs);
     if (res.status === 401) {
       // Token rejected before its computed expiry — mint a fresh one and retry once.
-      res = await this.send(method, path, body, await this.tokens.forceRefresh(token));
+      res = await this.send(method, path, body, await this.tokens.forceRefresh(token), timeoutMs);
     }
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string; details?: unknown };
@@ -415,6 +596,9 @@ export class EvalForgeClient {
           filter: input.filter,
           capabilityIds: input.capabilityIds,
           capabilityVersions: input.capabilityVersions,
+          comparisonGroupId: input.comparisonGroupId,
+          comparisonLabel: input.comparisonLabel,
+          runsPerScenario: input.runsPerScenario,
         },
       },
     );
@@ -447,6 +631,25 @@ export class EvalForgeClient {
         avgDuration: m.avgDuration ?? 0,
         totalDuration: m.totalDuration ?? 0,
       },
+      results: toRowArray<RawEvalRunResult>(r.results).map(toResultRow),
+    };
+  }
+
+  // --- Analysis ---
+
+  /** Requires a COMPLETED run; anything else is a 400. The result is persisted on the run. */
+  async analyzeEvalRun(projectId: string, runId: string): Promise<RunAnalysis> {
+    const res = await this.request<{ runAnalysis?: RawRunAnalysis }>(
+      'POST',
+      `/projects/${enc(projectId)}/eval-runs/${enc(runId)}/analyze`,
+      {},
+      ANALYZE_TIMEOUT_MS,
+    );
+    const raw = res.runAnalysis ?? {};
+    return {
+      ...(raw.generatedAt === undefined ? {} : { generatedAt: raw.generatedAt }),
+      summary: raw.summary ?? '',
+      findings: toRowArray<RawRunAnalysisFinding>(raw.findings).map(toRunAnalysisFinding),
     };
   }
 
