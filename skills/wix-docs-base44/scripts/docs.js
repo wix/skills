@@ -3,13 +3,13 @@
 // return, the .md suffix, the filtered-browse rule, the docsUrl (not operationId) match.
 //
 // INVARIANT: no function returns more than ~4,000 chars into a tool result. Anything bigger
-// is written to src/scratch/ and you get { path, bytes } back — read it with read_file.
+// is written to the scratch dir and you get { path, bytes } back — read it with read_file.
 //
 // Usage (exec_tool; require() can return empty exports for build-time files — load by eval):
 //   const fs = require("fs");
 //   const docs = (() => { const m = { exports: {} };
 //     new Function("module", "exports", "require",
-//       fs.readFileSync("/app/src/scratch/docs.js", "utf8"))(m, m.exports, require);
+//       fs.readFileSync("/app/.agents/skills/wix-docs-base44/scripts/docs.js", "utf8"))(m, m.exports, require);
 //     return m.exports; })();
 //
 //   return await docs.browse({ menuUrl: ".../business-solutions/bookings/bookings",
@@ -25,8 +25,13 @@ const SEARCH_API = "https://www.wixapis.com/mcp-docs-search/v1/docs";
 const SPEC_API = "https://mcp.wix.com/api/code-mode/search";
 const BUDGET = 4000; // chars a function may return inline; results are clipped at ~5,000
 
+// Everything this module saves lands inside the installed skill, next to this file —
+// .agents/skills/wix-docs-base44/scratch/ — so fetched docs live with the skill, not in src/.
+// Returned paths are workspace-relative: read them with read_file exactly as returned.
+const SCRATCH_REL = ".agents/skills/wix-docs-base44/scratch";
+
 function scratchDir() {
-  const dir = path.join(process.cwd(), "src", "scratch");
+  const dir = path.join(process.cwd(), SCRATCH_REL);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -34,11 +39,11 @@ function scratchDir() {
 function save(name, text) {
   const file = path.join(scratchDir(), name);
   fs.writeFileSync(file, text);
-  return { path: "src/scratch/" + name, bytes: fs.statSync(file).size };
+  return { path: SCRATCH_REL + "/" + name, bytes: fs.statSync(file).size };
 }
 
 function readScratch(name) {
-  return fs.readFileSync(path.join(scratchDir(), name.replace(/^src\/scratch\//, "")), "utf8");
+  return fs.readFileSync(path.join(scratchDir(), name.replace(SCRATCH_REL + "/", "")), "utf8");
 }
 
 // Trim a {…, hits/rows: [...]} payload to the budget; `omitted` > 0 means narrow and re-run.

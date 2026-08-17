@@ -10,14 +10,15 @@ an error. **Never invent a Wix endpoint, path, body, or enum from memory.**
 
 This is the [`wix-docs`](../wix-docs/SKILL.md) flow — find the right page, then read it — for a
 sandbox with no shell pipeline and a ~5,000-char cap on tool results. Documents therefore live on
-disk in `src/scratch/`: `exec_tool` fetches and returns only facts about the bytes; `read_file`
+disk — in the skill's own scratch folder, `.agents/skills/wix-docs-base44/scratch/`: `exec_tool` fetches and returns only facts about the bytes; `read_file`
 (45,000-char budget, real paging) reads the bytes. Nothing large ever crosses a tool boundary.
 
 ## The module
 
 The mechanics live in **`scripts/docs.js`** — byte budgets, the `.md` suffix, the filtered-browse
 rule, the `docsUrl` match. Call it rather than hand-rolling the requests; every function either
-answers inline under the cap or writes to `src/scratch/` and returns `{ path, bytes }`.
+answers inline under the cap or saves into the scratch folder and returns `{ path, bytes }` —
+a workspace-relative path you pass to `read_file` exactly as returned.
 
 Load it in `exec_tool` like this (`require()` can return empty exports for build-time files):
 
@@ -25,7 +26,7 @@ Load it in `exec_tool` like this (`require()` can return empty exports for build
 const fs = require("fs");
 const docs = (() => { const m = { exports: {} };
   new Function("module", "exports", "require",
-    fs.readFileSync("/app/src/scratch/docs.js", "utf8"))(m, m.exports, require);
+    fs.readFileSync("/app/.agents/skills/wix-docs-base44/scripts/docs.js", "utf8"))(m, m.exports, require);
   return m.exports; })();
 ```
 
@@ -71,7 +72,7 @@ level up instead of retrying variants.
 
 ```js
 await docs.search("cancel a booking and refund the customer")
-// → { path: "src/scratch/search-1.md", bytes: 10738, urls: [ …/cancel-booking, … ] }
+// → { path: ".agents/skills/wix-docs-base44/scratch/search-1.md", bytes: 10738, urls: [ … ] }
 ```
 
 `type` (default `REST`): `SDK` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` ·
@@ -90,12 +91,12 @@ recipe and flow pages giving multi-step ordering no single method page mentions.
 
 ```js
 await docs.fetchDoc("https://dev.wix.com/docs/…/bookings-writer-v2/cancel-booking")
-// → { path: "src/scratch/cancel-booking.md", bytes: 76170, status: 200 }
+// → { path: ".agents/skills/wix-docs-base44/scratch/cancel-booking.md", bytes: 76170, status: 200 }
 ```
 
 The module appends **`.md`** — the suffix that makes the portal serve markdown instead of a
 multi-megabyte HTML shell (`create-draft-post`: 5,325,977 bytes as HTML, 414,150 as `.md`). Keep
-`src/scratch/` in the hundreds of KB: filling it with megabytes starves the sandbox sync that makes
+the scratch folder in the hundreds of KB: filling it with megabytes starves the sandbox sync that makes
 new files visible to `read_file`, and reads start failing.
 
 Menu pages (child links) and articles (small prose) can be read whole. Method pages are the heavy
