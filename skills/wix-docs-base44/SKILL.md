@@ -36,8 +36,33 @@ lever: at 5 lines a 5-result query returns ~4.7 KB, at 200 lines ~20 KB).
 **A. Semantic search, readable — start here for "how do I call X?"**
 `POST https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown` returns
 `{"content": "<one markdown string>"}` — condensed method docs carrying the endpoint, real request
-examples, the response shape and the description. Often the whole answer in one call. Write
-`.content` to `src/scratch/search-<n>.md` and return `{path, bytes}` plus the doc URLs you can see.
+examples, the response shape and the description. Often the whole answer in one call.
+
+```js
+const fs = require('fs');
+const path = require('path');
+const dir = path.join(process.cwd(), 'src', 'scratch');
+fs.mkdirSync(dir, { recursive: true });
+
+const resp = await fetch('https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    search_term: 'cancel a booking and refund the customer',
+    document_type: 'REST',
+    maximum_results: 5,
+    lines_in_each_result: 20,
+  }),
+});
+const { content } = await resp.json();
+const file = path.join(dir, 'search-1.md');
+fs.writeFileSync(file, content);
+
+// hand the URLs back now, so the next round can fetch without reading the file first
+const urls = [...new Set(content.match(/https:\/\/dev\.wix\.com\/docs\/[^\s)"'\]]+/g) || [])];
+return { path: 'src/scratch/search-1.md', bytes: fs.statSync(file).size, urls };
+// → { bytes: 10738, urls: [ '…/bookings/bookings-writer-v2/cancel-booking', … 11 total ] }
+```
 
 **B. Semantic search, structured — to route programmatically**
 `POST https://www.wixapis.com/mcp-docs-search/v1/docs/search` returns
@@ -66,17 +91,32 @@ Blog: 39 methods, 16 webhooks, 12 articles, 5 resources, 5 objects, 2 skills
 `docsUrl`, `publicUrl`) and `getResourceSchemaByUrl(docsUrl)`. The response is wrapped in
 `{"result": …}`.
 
+This is the call that answers "does this API exist?" — one round returns a resource's entire method
+list. Match on the entry's `docsUrl`, **not** on `operationId`: an `operationId` is fully qualified
+(`wix.bookings.catalog.v1.ServiceOptionsAndVariantsService.CreateServiceOptionsAndVariants`), so
+filtering it by a resource name silently returns almost nothing.
+
 ```js
-// every draft-post method with its verb and callable URL
-lightIndex.flatMap(r => r.methods)
-          .filter(m => /draftpost/i.test(m.operationId))
-          .map(m => ({ op: m.operationId, verb: m.httpMethod, url: m.publicUrl }))
+const fn = `async function(){
+  const r = lightIndex.find(x => /bookings-writer-v2/i.test(x.docsUrl || ''));
+  return { docsUrl: r.docsUrl, methods: r.methods.map(m => m.operationId.split('.').pop()) };
+}`;
+const resp = await fetch('https://mcp.wix.com/api/code-mode/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ code: fn }),
+});
+const { result } = await resp.json();   // note the { result: … } wrapper
+return result;
+// → methods: [ 'CreateBooking', 'CancelBooking', 'RescheduleBooking',
+//              'CancelBookingAnonymously', 'RescheduleMultiServiceBooking', … ]
 ```
 
 Filter narrowly and return only the fields you need — an unfiltered dump is enormous. For an exact
-request/response schema or an enum's values, ask this instead of slicing markdown. Prefer the whole
-resource over a single method: a requirement is often documented on a *sibling* method, such as a
-field required on single-create but absent from the bulk-create page.
+request/response schema or an enum's values, call `getResourceSchemaByUrl(docsUrl)` in the same way
+instead of slicing markdown. Prefer the whole resource over a single method: a requirement is often
+documented on a *sibling* method, such as a field required on single-create but absent from the
+bulk-create page.
 
 ### Search ranks, it does not match
 
@@ -110,8 +150,20 @@ tree by hand: `https://dev.wix.com/docs/llms.txt` is the root map, and under it 
 frontend modules), `go-headless.md`, `build-apps.md`, `wix-cli.md`, `velo.md`. Truncate a path to go
 up, extend it to go down.
 
-One `exec_tool` call per document: write the body to `src/scratch/<slug>.md`, return
-`{path, bytes, status}`.
+One `exec_tool` call per document:
+
+```js
+const fs = require('fs');
+const path = require('path');
+const url = 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/cancel-booking';
+
+const resp = await fetch(url + '.md');          // the suffix is what makes it markdown
+const body = await resp.text();
+const file = path.join(process.cwd(), 'src', 'scratch', 'cancel-booking.md');
+fs.writeFileSync(file, body);
+return { path: 'src/scratch/cancel-booking.md', bytes: fs.statSync(file).size, status: resp.status };
+// → { bytes: 76170, status: 200 }
+```
 
 Three kinds of page come back, and they want different handling:
 
@@ -127,19 +179,36 @@ Method pages run to thousands of lines and repeat themselves: the same field nam
 schema, the SDK schema and the code examples, with different types and different meanings. Paging
 blind is slow, and it is how you end up quoting the SDK when you were asked about REST.
 
-So spend one `exec_tool` call mapping the file before reading any of it. Read it, split on newlines,
-and return only `{line, text}` for every line matching your term, plus the section headers
-(`^#{1,3} `) so you can tell which section each hit sits in. Return the match list, never the body.
+So spend one `exec_tool` call mapping the file before reading any of it — matching lines *and* the
+section headers, so you can tell which section each hit sits in. Return the match list, never the
+body, and cap it so the result itself stays under the limit:
+
+```js
+const fs = require('fs');
+const path = require('path');
+const file = path.join(process.cwd(), 'src', 'scratch', 'cancel-booking.md');
+const lines = fs.readFileSync(file, 'utf8').split('\n');
+const term = /refund/i;
+
+const hits = [];
+lines.forEach((text, i) => {
+  if (/^#{1,3} /.test(text) || term.test(text)) hits.push({ line: i + 1, text: text.slice(0, 110) });
+});
+return { file: 'src/scratch/cancel-booking.md', lines: lines.length, hits: hits.slice(0, 60) };
+```
 
 ```
-line  950  param name: scheduledPublishDate … if `action` is set to `UPDATE_SCHEDULE`
-line 1896  ## JavaScript SDK
-line 2808  name: scheduledPublishDate | type: Date …
+lines: 431, 25 hits
+  26  ## REST API
+  28  ### Schema
+  40  - name: withRefund | type: boolean | description: Whether to issue a refund when canceling…
+ 140  - name: status | type: BookingStatus | description: Booking status…
+ 154  -     REFUNDED: The booking is refunded.
 ```
 
-One round of this typically replaces ten rounds of blind paging. Then `read_file` with
-`offset`/`limit` around the lines that matter, widening only as needed, and confirm which section
-your line falls in before quoting it.
+That is the answer, in one round, with the section it belongs to — where blind paging would have
+taken ten. Then `read_file` with `offset`/`limit` around the lines that matter, widening only as
+needed, and confirm which section your line falls in before quoting it.
 
 ## 4. Answer
 
