@@ -6,7 +6,10 @@ description: "Look up Wix API/SDK documentation from inside the Base44 builder s
 # Wix Docs from the Base44 sandbox
 
 Get the exact truth about a Wix API — endpoint, HTTP verb, request/response shape, a field, an enum,
-an error. **Never invent a Wix endpoint, path, body, or enum from memory.**
+an error. **Discover everything: every endpoint, path, doc URL, body and enum comes from this
+skill's tools, never from training, memory, or pattern.** A URL you composed and a path you
+remembered are guesses even when they look right — and a 404 or an empty result means discover,
+not permute.
 
 This is the [`wix-docs`](../wix-docs/SKILL.md) flow — find the right page, then read it — for a
 sandbox with no shell pipeline and a ~5,000-char cap on tool results. Documents therefore live on
@@ -152,11 +155,46 @@ This queries the API spec index and matches the resource's `docsUrl` — `operat
 qualified (`wix.bookings.catalog.v1.…Service.CreateServiceOptionsAndVariants`), so a resource name
 never matches them.
 
-**Reading a schema is `specQuery`.** Schemas are huge (a create method's tree can run past 200 KB),
-so the query returns the slice you need and you **iterate** — each call is one round; refine the
-query instead of returning more. `lightIndex` and `getResourceSchemaByUrl(docsUrl)` are in scope.
+**Reading a schema is `specQuery`.** Two globals are in scope, and knowing their shape is the
+difference between an answer and a silent `[]`:
 
-A method's request fields, names and types only:
+```typescript
+lightIndex: Array<{             // RESOURCES, not methods
+  name: string                  // "Cart"
+  docsUrl: string               // the resource page
+  menuPath: string[]            // ["business-solutions", "e-commerce", "purchase-flow", "cart"]
+  methods: Array<{
+    operationId: string         // fully qualified: "com.wix.ecom…CartService.AddToCurrentCart"
+    summary: string; httpMethod: string
+    path: string                // PARTIAL ("/v1/carts/current/add-to-cart") — never call it
+    publicUrl: string           // "https://www.wixapis.com/ecom/v1/carts/current/add-to-cart" — call THIS
+    docsUrl: string
+  }>
+}>
+getResourceSchemaByUrl(docsUrl)  // full schema; API pages only — skill/article pages have none
+```
+
+`specQuery` is an **inspect** tool, not discovery: arrive with a `docsUrl` from browse or search,
+find the entry **by docsUrl**, then read. Substring-filtering `lightIndex` by name has no ranking
+and misses methods whose resource is named after a different noun — an empty result means the query
+missed the shape, not that the API is absent.
+
+The endpoint to call is always `publicUrl` — `path` is a fragment. When a call 404s, this one
+round replaces guessing path variants:
+
+```js
+await docs.specQuery(`async function(){
+  const r = lightIndex.find(x => x.docsUrl ===
+    "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart");
+  return r.methods.map(m => ({ op: m.operationId.split(".").pop(),
+                               verb: m.httpMethod, call: m.publicUrl }));
+}`)
+// → { op: "AddToCurrentCart", verb: "post",
+//     call: "https://www.wixapis.com/ecom/v1/carts/current/add-to-cart" }
+```
+
+Schemas are huge, so return the slice you need and **iterate** — each call is one round; refine the
+query instead of returning more. A method's request fields, names and types only:
 
 ```js
 await docs.specQuery(`async function(){
@@ -169,22 +207,9 @@ await docs.specQuery(`async function(){
 // → ["draftPost: object", "publish: boolean", "fieldsets: array"]
 ```
 
-Next round, drill into the object you care about:
-
-```js
-  // …same setup…
-  const dp = m.requestBody.content["application/json"].schema.properties.draftPost;
-  return Object.entries(dp.properties).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
-// → ["id: string", "title: string", "excerpt: string", "featured: boolean", …]
-```
-
-A field typed as `{ "$circular": "<name>" }` is a repeated type stored once — resolve it by name:
-
-```js
-  // …same setup…
-  const type = s.components.schemas["com.wix.ecom.cart.api.v1.Cart"];
-  return Object.entries(type.properties).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
-```
+Next round, drill into the object you care about; a field typed `{ "$circular": "<name>" }` is a
+repeated type stored once — resolve it with `s.components.schemas["<name>"]`, returning only its
+field names and types.
 
 The same door answers anything the canned calls can't — enum values, comparing two methods'
 fields, filtering across every API. Check the *sibling* methods too: a requirement is often
