@@ -252,14 +252,21 @@ return { lines: lines.length, sections: heads.map((h, j) => ({
   limit: (heads[j + 1]?.line ?? lines.length + 1) - h.line,   // to the next header
 })) };
 // → 1,015 chars inline. Each row IS a read_file call:
-//   { text: '## Introduction',    offset:  18, limit:   6 }
-//   { text: '## REST API',        offset:  25, limit:   2 }
-//   { text: '### Schema',         offset:  27, limit: 176 }   ← the REST schema, exactly
-//   { text: '## JavaScript SDK',  offset: 221, limit: 176 }
+//   { text: '## Introduction',            offset:  19, limit:   6 }
+//   { text: '## REST API',                offset:  25, limit:   2 }
+//   { text: '### Schema',                 offset:  27, limit: 176 }  ← the REST schema, exactly
+//   { text: '### Examples',               offset: 203, limit:   2 }
+//   { text: '### Cancel a booking',       offset: 205, limit:  16 }  ← the example body
+//   { text: '## JavaScript SDK',          offset: 221, limit:   2 }
+//   { text: '### Schema',                 offset: 223, limit: 176 }  ← the SDK twin — not yours
+//   { text: '### Examples',               offset: 399, limit:   2 }
+//   { text: '### cancelBooking',          offset: 401, limit:   9 }
 ```
 
-`read_file` with a row's `offset`/`limit` reads that section whole — the Introduction, the REST
-Examples — never a blind window, and never the SDK twin at the same field names.
+`read_file` with a row's `offset`/`limit` reads that section whole. A row with `limit` ≤ 3 is a
+**container** — `## REST API`, `### Examples` — whose content lives in the sibling rows right after
+it; read those, not the container. And read which `### Schema` you're under from the `##` above it:
+the REST and SDK twins carry the same field names at different types.
 
 ```
 lines: 431, 25 hits
