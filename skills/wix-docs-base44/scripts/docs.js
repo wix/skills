@@ -195,8 +195,10 @@ async function methodSchema(docsUrl, slug) {
 // ── call (the docs were the map; this is the territory) ─────────────────────
 
 // Call a Wix API whose contract you just read. `token` is a bearer — the connector's
-// (admin) or a visitor's. Responses follow the invariant: big ones go to disk.
-async function callApi({ url, method = "POST", token, body, saveAs }) {
+// (admin) or a visitor's. API responses are site data and stay OUT of scratch (scratch
+// is committed with the app); an oversized response comes back clipped and says so —
+// narrow the call (filters, paging, fields) rather than re-requesting the same size.
+async function callApi({ url, method = "POST", token, body }) {
   const res = await fetch(url, {
     method,
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" },
@@ -204,8 +206,9 @@ async function callApi({ url, method = "POST", token, body, saveAs }) {
   });
   const text = await res.text();
   if (!res.ok) return { status: res.status, error: text.slice(0, 300) };
-  if (saveAs || text.length > BUDGET) {
-    return { ...save((saveAs || "api-response") + ".json", text), status: res.status };
+  if (text.length > BUDGET) {
+    return { status: res.status, truncated: true, totalChars: text.length, text: text.slice(0, BUDGET),
+             hint: "narrow the call — filters, cursor paging, or fewer fields" };
   }
   try { return { status: res.status, json: JSON.parse(text) }; }
   catch { return { status: res.status, text }; }
