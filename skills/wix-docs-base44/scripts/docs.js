@@ -177,39 +177,6 @@ async function methodsOf(resourcePattern) {
     { resources: result.map(r => r.docsUrl) });
 }
 
-// One method's exact request/response schema, to disk (schemas are large).
-// Large schemas replace repeated types with { "$circular": "<type name>" } stubs; the
-// definitions live in the resource's components — so every referenced one is bundled
-// (transitively) into the saved file under `components`.
-async function methodSchema(docsUrl, slug) {
-  const fn = `async function(){
-    const u = ${JSON.stringify(docsUrl)};
-    const s = await getResourceSchemaByUrl(u);
-    const m = s.methods.find(x => x.docsUrl === u);
-    if (!m) return null;
-    const out = { publicUrl: m.publicUrl, httpMethod: m.httpMethod,
-                  requestBody: m.requestBody, responses: m.responses };
-    const comps = (s.components && s.components.schemas) || {};
-    const need = new Set();
-    const collect = (o) => {
-      if (!o || typeof o !== "object") return;
-      if (o.$circular && comps[o.$circular] && !need.has(o.$circular)) {
-        need.add(o.$circular);
-        collect(comps[o.$circular]);
-      }
-      for (const v of Object.values(o)) collect(v);
-    };
-    collect(out);
-    out.components = {};
-    for (const n of need) out.components[n] = comps[n];
-    return out;
-  }`;
-  const { result } = await post(SPEC_API, { code: fn });
-  if (!result) return { exists: false, hint: "docsUrl did not match a method — copy it from browse/methodsOf output" };
-  const name = (slug || docsUrl.split("/").pop()) + ".schema.json";
-  return { ...save(name, JSON.stringify(result, null, 1)), publicUrl: result.publicUrl, httpMethod: result.httpMethod };
-}
-
 // ── call (the docs were the map; this is the territory) ─────────────────────
 
 // Call a Wix API whose contract you just read. `token` is a bearer — the connector's
@@ -232,10 +199,14 @@ async function callApi({ url, method = "POST", token, body }) {
   catch { return { status: res.status, text }; }
 }
 
-// Your own query over the API spec index — lightIndex and getResourceSchemaByUrl are in
-// scope, the response arrives wrapped in { result }. The escape hatch when the canned calls
-// don't fit: expand an enum, resolve a $circular type, filter across every API. Spec data is
-// public docs, so a big result goes to scratch like any fetched page.
+// THE way to read a schema: write a query over the API spec index — lightIndex and
+// getResourceSchemaByUrl(docsUrl) are in scope, the response arrives wrapped in { result }.
+// Schemas are huge; return only the slice you need and ITERATE — each call is one round,
+// refine the query instead of returning more. A method's schema sits at
+// m.requestBody.content["application/json"].schema; repeated types appear as
+// { "$circular": "<name>" } stubs — resolve one with s.components.schemas["<name>"].
+// Small results come back inline; a big one is saved to scratch (public docs — allowed)
+// as { path, bytes } to read with read_file.
 async function specQuery(fnBody, { saveAs } = {}) {
   const { result } = await post(SPEC_API, { code: fnBody });
   const text = JSON.stringify(result, null, 1);
@@ -243,4 +214,4 @@ async function specQuery(fnBody, { saveAs } = {}) {
   return { result };
 }
 
-module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, methodSchema, callApi, specQuery };
+module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, callApi, specQuery };

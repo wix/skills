@@ -268,8 +268,8 @@ curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-contex
 A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
 context instead of an auth error, so treat empty as "check auth", never as "empty site".
 
-For the rest of site management — installing apps, site properties, media, OAuth apps — the
-**`wix-manage`** skill carries per-area recipes. It may already be installed at
+For site management, the **`wix-manage`** skill carries per-area recipes. It may already be
+installed at
 `.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
 or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
 
