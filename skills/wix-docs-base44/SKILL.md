@@ -43,6 +43,7 @@ this skill into the app via `npx skills add`; after it runs, the path is
 | `docs.sections(slug)` | the outline, with `read_file` coordinates | `{ lines, shown, omitted, rows }` |
 | `await docs.methodsOf("resource-pattern")` | every method of a resource, from the spec index | `{ resources, rows }` |
 | `await docs.methodSchema(docsUrl, slug?)` | one method's exact schema → disk | `{ path, bytes, publicUrl, httpMethod }` |
+| `await docs.callApi({ url, token, body, saveAs? })` | run a call you read the contract for | `{ status, json }` inline, or `{ path, bytes }` if big |
 
 One `exec_tool` call per round, never two. The default timeout is 10s; pass `timeout` (up to 120)
 for a single large fetch. `exec_tool` must never return document text — that is the module's
@@ -162,6 +163,53 @@ Distinguish three outcomes, plainly: the docs show this; the docs show something
 not the same thing; or you enumerated the resource's methods and none of them do this. The third is
 a real answer — give it, and say what you enumerated. Never infer an endpoint, field or enum from a
 URL pattern, from a similar API in another Wix product, or from a search snippet you did not open.
+
+## 6. From docs to calls
+
+The docs were the map; `docs.callApi` is the territory. It takes the contract you just read and
+runs it — same invariant as everything else: small responses come back inline, big ones land in
+scratch as `{ path, bytes }`.
+
+Two identities, and which one a call wants is part of what you read:
+
+| identity | token | for |
+|---|---|---|
+| **admin** | the app's Wix connector | managing the site — ad hoc from `exec_tool`, or the same fetch inside a backend function |
+| **visitor** | minted in the app's client code | everything the site's end user does — storefront reads, cart, checkout |
+
+**Admin — the connector is the token.** First call: what IS this site? The Dynamic Site Context API
+returns one markdown report — installed apps, status, URL, locale, CMS collections:
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+return await docs.callApi({
+  url: "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
+  token: accessToken,
+  body: { siteId: WIX_SITE_ID },
+  saveAs: "site-context",          // the report can approach 1 MB — read it with read_file
+});
+```
+
+A `200` with `{"markdown": ""}` means the token or `siteId` is wrong — the endpoint reports an
+empty context instead of an auth error, so treat empty as "check auth", never as "empty site".
+
+**Visitor — minted from the OAuth app's client id, in the client.** The client id is a public
+value (it lives in a committed config file); the mint is one unauthenticated call, so it belongs
+in the app's own frontend code, straight from the docs contract:
+
+```js
+// src/lib/wixClient.js — app code, not exec_tool
+const res = await fetch("https://www.wixapis.com/oauth2/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ clientId: WIX_CLIENT_ID, grantType: "anonymous" }),
+});
+const { access_token } = await res.json();   // bearer for products, cart, checkout
+```
+
+Contract source: `business-management/headless/authentication/retrieve-tokens`. The cart and
+checkout APIs act on the *caller's* identity, so they want the visitor token — the admin token is
+for managing the site, the visitor token is for being on it.
 
 ## The raw endpoints (what the module wraps)
 

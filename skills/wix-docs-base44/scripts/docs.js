@@ -192,4 +192,23 @@ async function methodSchema(docsUrl, slug) {
   return { ...save(name, JSON.stringify(result, null, 1)), publicUrl: result.publicUrl, httpMethod: result.httpMethod };
 }
 
-module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, methodSchema };
+// ── call (the docs were the map; this is the territory) ─────────────────────
+
+// Call a Wix API whose contract you just read. `token` is a bearer — the connector's
+// (admin) or a visitor's. Responses follow the invariant: big ones go to disk.
+async function callApi({ url, method = "POST", token, body, saveAs }) {
+  const res = await fetch(url, {
+    method,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) return { status: res.status, error: text.slice(0, 300) };
+  if (saveAs || text.length > BUDGET) {
+    return { ...save((saveAs || "api-response") + ".json", text), status: res.status };
+  }
+  try { return { status: res.status, json: JSON.parse(text) }; }
+  catch { return { status: res.status, text }; }
+}
+
+module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, methodSchema, callApi };
