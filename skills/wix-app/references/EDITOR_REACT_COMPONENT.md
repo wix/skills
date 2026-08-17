@@ -67,10 +67,12 @@ File where you can override the generated manifest from `<componentName>.generat
 3. Edit the generated React and CSS files in
    `src/extensions/site/components/component-name/`. Apply
    [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) while
-   authoring: every interactive named part must use interactive markup and
-   pair each native state selector with its prefixed global modifier (for
-   example, `.cta:global(.component-name-cta--hover), .cta:hover`). A
-   pseudo-class without the matching global modifier is incomplete.
+   authoring: every interactive named part must use interactive markup, and
+   every native design state supported by the eligibility table must pair its
+   selector with the prefixed global modifier (for example,
+   `.cta:global(.component-name-cta--hover), .cta:hover`). A standalone
+   `:focus-visible` keyboard indicator on a non-input control is not an editor
+   design state and intentionally has no global modifier.
 4. **MANDATORY** — execute the full A11y Review on the edited component per [`editor-react-component/A11Y-REVIEW.md`](editor-react-component/A11Y-REVIEW.md). Run both scanners over the component's `.tsx`/`.jsx` files, complete the Phase 3 manual semantic review, fix confirmed findings, and re-run the scanners after fixes. Reading the reference without executing these steps is not a review. Do not proceed to the build or report completion until the review is complete.
 5. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest

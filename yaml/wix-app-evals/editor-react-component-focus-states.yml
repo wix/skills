@@ -1,0 +1,32 @@
+name: editor-react-component-focus-states
+description: Verifies Editor React components expose focus design states for input widgets and only explicitly requested non-input controls.
+triggerPrompt: |-
+  Build an Editor React component named ContactPreferenceForm. It should include a text input for an email address, a native checkbox for marketing opt-in, a submit button, and a Help link. Expose an editable focus design state for the Help link. I did not request an editable focus state for the submit button.
+  CODE_IDENTIFIER: "MirivoMyApp31ceim". Use this identifier as the extension type prefix.
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [editor-react-component]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app:
+        - references/EDITOR_REACT_COMPONENT.md
+        - references/editor-react-component/DESIGN-STATES.md
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the generated ContactPreferenceForm source. Score 0-10.
+      Pass only if all of the following are true:
+      1. The email input and native checkbox each have a paired focus design-state rule: their prefixed global --focus modifier and a native focus/focus-visible selector share the rule.
+      2. The submit button has no global --focus modifier and is not exposed as an editable focus design state. A standalone :focus-visible keyboard indicator is allowed.
+      3. The Help link has the explicitly requested paired focus design-state rule.
+      4. Hover, disabled, semantic HTML, and keyboard accessibility remain appropriate.
+      Fail if a focus design state is generated indiscriminately for every interactive element.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the implementation path and final code quality. Score 0-10. Reward a direct use of the wix-app Editor React Component and Design States references, valid scaffolded component code, and a clear distinction between editor focus states and standalone keyboard focus indicators. Penalize unnecessary focus modifiers, accessibility regressions, manual generated-manifest edits, failed tool calls, or unrelated changes.
