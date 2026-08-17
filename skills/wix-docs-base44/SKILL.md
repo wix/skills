@@ -188,14 +188,32 @@ const fs = require('fs');
 const path = require('path');
 const file = path.join(process.cwd(), 'src', 'scratch', 'cancel-booking.md');
 const lines = fs.readFileSync(file, 'utf8').split('\n');
-const term = /refund/i;
+const term = /refund|flowControl|participantNotification/i;
 
 const hits = [];
 lines.forEach((text, i) => {
-  if (/^#{1,3} /.test(text) || term.test(text)) hits.push({ line: i + 1, text: text.slice(0, 110) });
+  if (/^#{1,3} /.test(text) || term.test(text)) hits.push({ line: i + 1, text: text.trim().slice(0, 100) });
 });
-return { file: 'src/scratch/cancel-booking.md', lines: lines.length, hits: hits.slice(0, 60) };
+
+// Budget the RESULT, not the hit count — a wide term set overflows the cap and
+// the tail is silently clipped, which is the failure this whole flow exists to avoid.
+const MAX = 3500;
+let used = 0;
+const shown = [];
+for (const h of hits) {
+  const n = h.text.length + 20;
+  if (used + n > MAX) break;
+  shown.push(h);
+  used += n;
+}
+return { file: 'src/scratch/cancel-booking.md', lines: lines.length,
+         shown: shown.length, omitted: hits.length - shown.length, hits: shown };
 ```
+
+`omitted` is the point: if it comes back non-zero, narrow the term and map again rather than reading
+on with a list you cannot see the end of. On this page a nine-term map produces 81 hits — 7,069
+characters raw, clipped at 5,000 with no marker inside the JSON — while the budgeted version returns
+3,630 characters and tells you 37 were left out.
 
 ```
 lines: 431, 25 hits
