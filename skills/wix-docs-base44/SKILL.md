@@ -29,8 +29,9 @@ const docs = (() => { const m = { exports: {} };
   return m.exports; })();
 ```
 
-(The module must be on disk first — installed under `.agents/skills/wix-docs-base44/scripts/docs.js`,
-or written to `src/scratch/docs.js` in a prior step. Adjust the path to wherever it landed.)
+(The module must be on disk first — `platforms/base44.md` is the paste-ready bootstrap that installs
+this skill into the app via `npx skills add`; after it runs, the path is
+`/app/.agents/skills/wix-docs-base44/scripts/docs.js`.)
 
 | call | does | returns |
 |---|---|---|
