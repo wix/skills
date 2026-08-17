@@ -212,6 +212,44 @@ when present, fall back to Lane 1 when not. Optional — skip this lane if the t
 Append `.md` only when `curl`-ing a page directly. The MCP tools and the search endpoint take the
 plain docs URL **without** `.md` — never feed a `.md` URL to an MCP tool.
 
+## From docs to calls
+
+The contract you just read runs under one of two identities — and which one a call wants is part
+of what you read:
+
+| identity | token | for |
+|---|---|---|
+| **admin** | an admin token (API key, connector, or OAuth-app admin grant) | managing the site — ad hoc calls, or the same fetch inside an app's backend function |
+| **visitor** | minted from the site's OAuth app, in frontend code | everything the site's end user does — storefront reads, cart, checkout |
+
+**Admin — first call: what IS this site?** The Dynamic Site Context API returns one markdown
+report — installed apps, status, URL, locale, CMS collections — the same output the Wix MCP's
+site-context tool renders:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data-raw '{"siteId": "<metasite id>"}' | jq -r '.markdown'
+```
+
+A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
+context instead of an auth error, so treat empty as "check auth", never as "empty site".
+
+**Visitor — minted from the OAuth app's client id.** The client id is a public value (it lives in
+a committed config file); the mint is one unauthenticated call, so it belongs in the site's own
+frontend code:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/oauth2/token' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"clientId": "<oauth app client id>", "grantType": "anonymous"}'
+# → { "access_token": "OauthNG.JWS.…", … } — bearer for products, cart, checkout
+```
+
+Contract source: `business-management/headless/authentication/retrieve-tokens`. The cart and
+checkout APIs act on the *caller's* identity, so they want the visitor token — the admin token is
+for managing the site, the visitor token is for being on it.
+
 ## Before you write the code
 
 Confirm on the page — not from memory — the endpoint, the HTTP verb, the request body shape,
