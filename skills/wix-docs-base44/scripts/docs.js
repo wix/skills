@@ -199,14 +199,23 @@ async function callApi({ url, method = "POST", token, body }) {
   catch { return { status: res.status, text }; }
 }
 
-// THE way to read a schema: write a query over the API spec index — lightIndex and
-// getResourceSchemaByUrl(docsUrl) are in scope, the response arrives wrapped in { result }.
+// THE way to read a schema: write a query over the API spec index. In scope:
+//   lightIndex — Array<{ name, resourceId, docsUrl, menuPath: string[],
+//                        methods: [{ operationId, summary, httpMethod,
+//                                    path,       // PARTIAL — never call it
+//                                    publicUrl,  // the executable wixapis.com URL — call THIS
+//                                    docsUrl, description }] }>
+//   getResourceSchemaByUrl(docsUrl) — the full resource schema: .methods (requestBody at
+//     m.requestBody.content["application/json"].schema; { "$circular": "<name>" } stubs
+//     resolve via .components.schemas["<name>"]). API pages only — skill/article pages
+//     have no schema.
+// This is an INSPECT tool, not discovery: arrive with a docsUrl from browse/search, then
+// find the exact entry by docsUrl. Substring-filtering lightIndex has no ranking, matches
+// only resource names, and returns [] on the wrong field — an empty result means your
+// query missed the shape, not that the API is absent.
 // Schemas are huge; return only the slice you need and ITERATE — each call is one round,
-// refine the query instead of returning more. A method's schema sits at
-// m.requestBody.content["application/json"].schema; repeated types appear as
-// { "$circular": "<name>" } stubs — resolve one with s.components.schemas["<name>"].
-// Small results come back inline; a big one is saved to scratch (public docs — allowed)
-// as { path, bytes } to read with read_file.
+// refine the query instead of returning more. Small results come back inline; a big one is
+// saved to scratch (public docs — allowed) as { path, bytes } to read with read_file.
 async function specQuery(fnBody, { saveAs } = {}) {
   const { result } = await post(SPEC_API, { code: fnBody });
   const text = JSON.stringify(result, null, 1);
