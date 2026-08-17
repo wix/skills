@@ -118,6 +118,11 @@ async function fetchDoc(url, slug) {
   const mdUrl = url.replace(/\.md$/, "").replace(/\?.*$/, "") + ".md";
   const res = await fetch(mdUrl);
   const body = await res.text();
+  if (!res.ok) {
+    // A 404 body saved as a doc reads as a doc — a composed URL must fail loudly instead.
+    return { exists: false, status: res.status, url: mdUrl, body: body.slice(0, 200),
+             hint: "not a docs page — take URLs from browse/search output, do not compose them" };
+  }
   const name = (slug || mdUrl.split("/").pop().replace(/\.md$/, "")) + ".md";
   return { ...save(name, body), status: res.status };
 }
@@ -127,19 +132,23 @@ async function fetchDoc(url, slug) {
 // Line numbers of every match + every section header, byte-budgeted.
 // omitted > 0 → narrow the regex and map again; never read on past an unseen tail.
 function mapTerms(slug, regex) {
-  const lines = readScratch(slug.endsWith(".md") ? slug : slug + ".md").split("\n");
+  const name = slug.endsWith(".md") ? slug : slug + ".md";
+  const lines = readScratch(name).split("\n");
   const hits = [];
   lines.forEach((text, i) => {
     if (/^#{1,3} /.test(text) || regex.test(text)) hits.push({ line: i + 1, text: text.trim().slice(0, 100) });
   });
-  return budgeted(hits, { lines: lines.length });
+  // `file` rides every return so the read_file path is always in the latest tool result —
+  // hand-reconstructed paths are how src/-prefixed reads fail.
+  return budgeted(hits, { file: SCRATCH_REL + "/" + name.replace(SCRATCH_REL + "/", ""), lines: lines.length });
 }
 
 // The page outline with read_file coordinates precomputed. Every method page is an intro then
 // two parallel halves — REST and SDK — each with its own Schema and Examples. limit <= 3 is a
 // container (read its children); camelCase example titles are SDK, English titles are REST.
 function sections(slug) {
-  const lines = readScratch(slug.endsWith(".md") ? slug : slug + ".md").split("\n");
+  const name = slug.endsWith(".md") ? slug : slug + ".md";
+  const lines = readScratch(name).split("\n");
   const heads = [];
   lines.forEach((text, i) => {
     if (/^#{1,3} /.test(text)) heads.push({ line: i + 1, text: text.trim().slice(0, 80) });
@@ -148,7 +157,7 @@ function sections(slug) {
     text: h.text, offset: h.line - 1,
     limit: (heads[j + 1]?.line ?? lines.length + 1) - h.line,
   }));
-  return budgeted(rows, { lines: lines.length });
+  return budgeted(rows, { file: SCRATCH_REL + "/" + name.replace(SCRATCH_REL + "/", ""), lines: lines.length });
 }
 
 // ── enumerate (the "does it exist?" calls) ──────────────────────────────────
