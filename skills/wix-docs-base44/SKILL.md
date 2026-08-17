@@ -35,8 +35,24 @@ URL; omit for the portal root), `document_type` (`REST`), `depth` (1, max 6), `i
 (`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`), `name_filter`, `deprecated`
 (`HIDE`·`SHOW`·`ONLY`), `format` (`MARKDOWN` → `content` · `STRUCTURED` → JSON).
 
-Deterministic — no ranking, no wrong-product noise — and the answer is small enough to return
-**inline**: no file, no read-back round.
+Deterministic — no ranking, no wrong-product noise — and a *filtered* browse is small enough to
+return **inline**: no file, no read-back round.
+
+**Drill by counts; never ask for every method of a vertical.** `include: ["METHOD"]` without a
+`name_filter` over a whole vertical returns one row per method — Restaurants has 172, which is
+31,726 bytes into a 5,000-char result, clipped with no way to see what fell off. Two calls that
+stay inline:
+
+- **orient**: `{ menu_url: <vertical or category> }` — default depth, children with subtree counts
+  (`Online Orders — 76 methods, 7 resources`), 1,285 B for all of Restaurants. Pick the subtree,
+  browse again one level down. Use a URL a previous response gave you — a composed path
+  (`…/restaurants/orders` for what is actually `online-orders`) returns `content: null`; that means
+  the node does not exist, so re-orient a level up instead of retrying variants.
+- **find**: `{ menu_url: …, include: ["METHOD"], name_filter: "resched", depth: 4 }` — the matching
+  methods only.
+
+If you genuinely need a full method list bigger than that (rare — the spec index in D does it
+better), write the `content` to `src/scratch/` like a search result instead of returning it.
 
 ```js
 const resp = await fetch('https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse', {
