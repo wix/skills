@@ -18,8 +18,9 @@ pages through the file with `offset`/`limit`. Nothing large crosses a tool bound
 a file also means the map-then-read step below costs no extra network round trip.
 
 Work inside `src/scratch/`. One `exec_tool` call per round — never two, they share the sandbox and
-can both time out — and each has a 10s budget, so one fetch per call. `exec_tool` must never return
-document text.
+can both time out. The default budget is 10s; pass `timeout` (up to 120) for a single large fetch
+rather than letting it die mid-download — but still one fetch per call. `exec_tool` must never
+return document text.
 
 Keep that directory small. A few hundred KB per doc is normal; filling it with megabytes starves the
 sandbox sync that makes new files visible to `read_file` at all, and reads start failing.
@@ -28,15 +29,46 @@ sandbox sync that makes new files visible to `read_file` at all, and reads start
 
 Four ways in. All take a **plain docs URL** — never put a `.md` URL in an endpoint payload.
 
-Shared search body: `search_term` (required, natural language, 1–500 chars), `document_type`
-(`REST` default · `SDK` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` ·
-`CLI`), `maximum_results` (1–20, default 15), `lines_in_each_result` (1–200, default 20 — the size
-lever: at 5 lines a 5-result query returns ~4.7 KB, at 200 lines ~20 KB).
+**A. Browse the tree — start here when you know the product.**
+`POST https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse`. Body: `menu_url` (absolute docs
+URL; omit for the portal root), `document_type` (`REST`), `depth` (1, max 6), `include`
+(`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`), `name_filter`, `deprecated`
+(`HIDE`·`SHOW`·`ONLY`), `format` (`MARKDOWN` → `content` · `STRUCTURED` → JSON).
 
-**A. Semantic search, readable — start here for "how do I call X?"**
+Deterministic — no ranking, no wrong-product noise — and the answer is small enough to return
+**inline**: no file, no read-back round.
+
+```js
+const resp = await fetch('https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    menu_url: 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings',
+    include: ['METHOD'],
+    name_filter: 'resched',
+    depth: 4,
+  }),
+});
+return (await resp.json()).content;
+// → 1,735 bytes, inline:
+//   Bookings Writer V2 (resource) — 29 methods
+//     Reschedule Booking (POST)               …/bookings-writer-v2/reschedule-booking
+//     Reschedule Booking Anonymously (POST)
+//   Bookings Validation Service Plugin — 6 methods
+//     Validate Before Reschedule (POST)
+```
+
+One call gives kind, HTTP verb, subtree counts and the doc URL to fetch next. Omit `name_filter` to
+see a whole resource's method list. REST reference only.
+
+**B. Semantic search — when you don't know where it lives.**
 `POST https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown` returns
 `{"content": "<one markdown string>"}` — condensed method docs carrying the endpoint, real request
-examples, the response shape and the description. Often the whole answer in one call.
+examples, the response shape and the description. Body: `search_term` (required, natural language,
+1–500 chars), `document_type` (`REST` default · `SDK` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` ·
+`VELO` · `WDS` · `BUILD_APPS` · `CLI`), `maximum_results` (1–20, default 15), `lines_in_each_result`
+(1–200, default 20 — the size lever: at 5 lines a 5-result query returns ~4.7 KB, at 200 lines
+~20 KB). The response is too big to return inline, so it goes to disk:
 
 ```js
 const fs = require('fs');
@@ -64,26 +96,12 @@ return { path: 'src/scratch/search-1.md', bytes: fs.statSync(file).size, urls };
 // → { bytes: 10738, urls: [ '…/bookings/bookings-writer-v2/cancel-booking', … 11 total ] }
 ```
 
-**B. Semantic search, structured — to route programmatically**
-`POST https://www.wixapis.com/mcp-docs-search/v1/docs/search` returns
+Once a hit names the product, switch to browsing that subtree (A) rather than searching again.
+
+**C. Semantic search, structured — to route programmatically**
+`POST https://www.wixapis.com/mcp-docs-search/v1/docs/search` (same body as B) returns
 `{"results":[{title, url, content, relevance_score, …}]}`. Method hits carry a `url`; article hits
 keep their link inside `content`. Return titles and URLs only.
-
-**C. Browse the tree — deterministic, and how you learn what exists**
-`POST https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse`. Body: `menu_url` (absolute docs
-URL; omit for the portal root), `document_type` (`REST`), `depth` (1, max 6), `include`
-(`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`), `name_filter`, `deprecated`
-(`HIDE`·`SHOW`·`ONLY`), `format` (`MARKDOWN` → `content` · `STRUCTURED` → JSON). Every child comes
-back with its kind, HTTP verb and subtree counts, in ~2 KB:
-
-```
-Blog: 39 methods, 16 webhooks, 12 articles, 5 resources, 5 objects, 2 skills
-- Draft Posts (resource) — 14 methods, 3 webhooks, 2 articles, 1 object
-  - Bulk Create Draft Posts (POST)
-  - Update Draft Post (PATCH)  …
-```
-
-`include:["METHOD"]` with `name_filter` jumps straight to the methods you want. REST reference only.
 
 **D. Query the API spec index — exact schemas, or filtering across every method**
 `POST https://mcp.wix.com/api/code-mode/search` with `{"code":"async function(){ … }"}`. In scope:
@@ -120,15 +138,15 @@ bulk-create page.
 
 ### Search ranks, it does not match
 
-The search endpoints always return their best guesses and **never report "no match"**. A nonsense
-query comes back with a confident, irrelevant page, and the scores barely discriminate — for
-`"schedule blog draft post"` a *Marketing* API (`marketing-plan/schedule-drafts`, score 0.667)
+The search endpoints (B and C) always return their best guesses and **never report "no match"**. A
+nonsense query comes back with a confident, irrelevant page, and the scores barely discriminate —
+for `"schedule blog draft post"` a *Marketing* API (`marketing-plan/schedule-drafts`, score 0.667)
 outranks every Blog result. Two consequences:
 
 - Read the product and namespace in each URL and drop hits from outside the product you were asked
   about. A plausible method name from the wrong vertical is the most common wrong answer.
 - **Search results are never evidence that something does not exist.** To establish absence,
-  enumerate with C or D — browse the resource's methods, or filter `lightIndex` — and say what you
+  enumerate with A or D — browse the resource's methods, or filter `lightIndex` — and say what you
   enumerated.
 
 Worth a look per vertical: the `skills` nodes (`…/business-solutions/<vertical>/skills`) hold recipe
