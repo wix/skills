@@ -177,26 +177,13 @@ async function methodsOf(resourcePattern) {
     { resources: result.map(r => r.docsUrl) });
 }
 
-// One method's exact request/response schema, to disk (schemas are large).
-async function methodSchema(docsUrl, slug) {
-  const fn = `async function(){
-    const u = ${JSON.stringify(docsUrl)};
-    const s = await getResourceSchemaByUrl(u);
-    const m = s.methods.find(x => x.docsUrl === u);
-    return m ? { publicUrl: m.publicUrl, httpMethod: m.httpMethod,
-                 requestBody: m.requestBody, responses: m.responses } : null;
-  }`;
-  const { result } = await post(SPEC_API, { code: fn });
-  if (!result) return { exists: false, hint: "docsUrl did not match a method — copy it from browse/methodsOf output" };
-  const name = (slug || docsUrl.split("/").pop()) + ".schema.json";
-  return { ...save(name, JSON.stringify(result, null, 1)), publicUrl: result.publicUrl, httpMethod: result.httpMethod };
-}
-
 // ── call (the docs were the map; this is the territory) ─────────────────────
 
 // Call a Wix API whose contract you just read. `token` is a bearer — the connector's
-// (admin) or a visitor's. Responses follow the invariant: big ones go to disk.
-async function callApi({ url, method = "POST", token, body, saveAs }) {
+// (admin) or a visitor's. API responses are site data and stay OUT of scratch (scratch
+// is committed with the app); an oversized response comes back clipped and says so —
+// narrow the call (filters, paging, fields) rather than re-requesting the same size.
+async function callApi({ url, method = "POST", token, body }) {
   const res = await fetch(url, {
     method,
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" },
@@ -204,11 +191,27 @@ async function callApi({ url, method = "POST", token, body, saveAs }) {
   });
   const text = await res.text();
   if (!res.ok) return { status: res.status, error: text.slice(0, 300) };
-  if (saveAs || text.length > BUDGET) {
-    return { ...save((saveAs || "api-response") + ".json", text), status: res.status };
+  if (text.length > BUDGET) {
+    return { status: res.status, truncated: true, totalChars: text.length, text: text.slice(0, BUDGET),
+             hint: "narrow the call — filters, cursor paging, or fewer fields" };
   }
   try { return { status: res.status, json: JSON.parse(text) }; }
   catch { return { status: res.status, text }; }
 }
 
-module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, methodSchema, callApi };
+// THE way to read a schema: write a query over the API spec index — lightIndex and
+// getResourceSchemaByUrl(docsUrl) are in scope, the response arrives wrapped in { result }.
+// Schemas are huge; return only the slice you need and ITERATE — each call is one round,
+// refine the query instead of returning more. A method's schema sits at
+// m.requestBody.content["application/json"].schema; repeated types appear as
+// { "$circular": "<name>" } stubs — resolve one with s.components.schemas["<name>"].
+// Small results come back inline; a big one is saved to scratch (public docs — allowed)
+// as { path, bytes } to read with read_file.
+async function specQuery(fnBody, { saveAs } = {}) {
+  const { result } = await post(SPEC_API, { code: fnBody });
+  const text = JSON.stringify(result, null, 1);
+  if (saveAs || text.length > BUDGET) return save((saveAs || "spec-query") + ".json", text);
+  return { result };
+}
+
+module.exports = { browse, search, fetchDoc, mapTerms, sections, methodsOf, callApi, specQuery };

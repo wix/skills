@@ -222,18 +222,13 @@ of what you read:
 | **admin** | an admin token (API key, connector, or OAuth-app admin grant) | managing the site — ad hoc calls, or the same fetch inside an app's backend function |
 | **visitor** | minted from the site's OAuth app, in frontend code | everything the site's end user does — storefront reads, cart, checkout |
 
-**Admin — first call: what IS this site?** The Dynamic Site Context API returns one markdown
-report — installed apps, status, URL, locale, CMS collections — the same output the Wix MCP's
-site-context tool renders:
+**Admin** — any management or read call, straight from its docs contract:
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+curl -sS -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  --data-raw '{"siteId": "<metasite id>"}' | jq -r '.markdown'
+  --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
 ```
-
-A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
-context instead of an auth error, so treat empty as "check auth", never as "empty site".
 
 **Visitor — minted from the OAuth app's client id.** The client id is a public value (it lives in
 a committed config file); the mint is one unauthenticated call, so it belongs in the site's own
@@ -246,9 +241,37 @@ curl -sS -X POST 'https://www.wixapis.com/oauth2/token' \
 # → { "access_token": "OauthNG.JWS.…", … } — bearer for products, cart, checkout
 ```
 
-Contract source: `business-management/headless/authentication/retrieve-tokens`. The cart and
-checkout APIs act on the *caller's* identity, so they want the visitor token — the admin token is
-for managing the site, the visitor token is for being on it.
+The cart and checkout APIs act on the *caller's* identity, so they want the visitor token — the
+admin token is for managing the site, the visitor token is for being on it.
+
+The authentication docs (append `.md` to read):
+
+- [`about-identities`](https://dev.wix.com/docs/api-reference/articles/authentication/about-identities) — the identity model
+- [`rest-api-authentication`](https://dev.wix.com/docs/api-reference/articles/authentication/rest-api-authentication) — headers, token kinds
+- [`retrieve-tokens`](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens) — the `/oauth2/token` contract, all grant types
+- [`about-authentication`](https://dev.wix.com/docs/go-headless/authentication/about-authentication) — visitor vs member sessions
+- [`create-an-oauth-app-for-visitors-and-members`](https://dev.wix.com/docs/go-headless/getting-started/setup/authentication/create-an-oauth-app-for-visitors-and-members) — where the client id comes from
+- [`set-up-a-headless-client`](https://dev.wix.com/docs/go-headless/authentication/setup/set-up-a-headless-client) — wiring the client
+
+## Special APIs worth knowing
+
+**Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
+whole site — installed apps, status, URL, locale, CMS collections — the same output the Wix MCP's
+site-context tool renders:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data-raw '{"siteId": "<metasite id>"}' | jq -r '.markdown'
+```
+
+A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
+context instead of an auth error, so treat empty as "check auth", never as "empty site".
+
+For site management, the **`wix-manage`** skill carries per-area recipes. It may already be
+installed at
+`.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
+or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
 
 ## Before you write the code
 

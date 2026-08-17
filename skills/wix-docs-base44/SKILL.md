@@ -42,8 +42,8 @@ this skill into the app via `npx skills add`; after it runs, the path is
 | `docs.mapTerms(slug, /regex/i)` | line numbers of matches + section headers | `{ lines, shown, omitted, rows }` |
 | `docs.sections(slug)` | the outline, with `read_file` coordinates | `{ lines, shown, omitted, rows }` |
 | `await docs.methodsOf("resource-pattern")` | every method of a resource, from the spec index | `{ resources, rows }` |
-| `await docs.methodSchema(docsUrl, slug?)` | one method's exact schema → disk | `{ path, bytes, publicUrl, httpMethod }` |
-| `await docs.callApi({ url, token, body, saveAs? })` | run a call you read the contract for | `{ status, json }` inline, or `{ path, bytes }` if big |
+| `await docs.specQuery("async function(){…}")` | read schemas: your own query over the spec index | `{ result }` inline, or `{ path, bytes }` if big |
+| `await docs.callApi({ url, token, body })` | run a call you read the contract for | `{ status, json }`, or clipped `text` + `truncated` |
 
 One `exec_tool` call per round, never two. The default timeout is 10s; pass `timeout` (up to 120)
 for a single large fetch. `exec_tool` must never return document text — that is the module's
@@ -150,10 +150,45 @@ await docs.methodsOf("bookings-writer-v2")
 
 This queries the API spec index and matches the resource's `docsUrl` — `operationId`s are fully
 qualified (`wix.bookings.catalog.v1.…Service.CreateServiceOptionsAndVariants`), so a resource name
-never matches them. For one method's exact request/response schema or enum values,
-`docs.methodSchema(docsUrl)` writes it to disk as JSON — prefer it over slicing markdown, and check
-the *sibling* methods too: a requirement is often documented on single-create but absent from the
-bulk-create page.
+never matches them.
+
+**Reading a schema is `specQuery`.** Schemas are huge (a create method's tree can run past 200 KB),
+so the query returns the slice you need and you **iterate** — each call is one round; refine the
+query instead of returning more. `lightIndex` and `getResourceSchemaByUrl(docsUrl)` are in scope.
+
+A method's request fields, names and types only:
+
+```js
+await docs.specQuery(`async function(){
+  const u = "https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post";
+  const s = await getResourceSchemaByUrl(u);
+  const m = s.methods.find(x => x.docsUrl === u);
+  const props = m.requestBody.content["application/json"].schema.properties;
+  return Object.entries(props).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
+}`)
+// → ["draftPost: object", "publish: boolean", "fieldsets: array"]
+```
+
+Next round, drill into the object you care about:
+
+```js
+  // …same setup…
+  const dp = m.requestBody.content["application/json"].schema.properties.draftPost;
+  return Object.entries(dp.properties).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
+// → ["id: string", "title: string", "excerpt: string", "featured: boolean", …]
+```
+
+A field typed as `{ "$circular": "<name>" }` is a repeated type stored once — resolve it by name:
+
+```js
+  // …same setup…
+  const type = s.components.schemas["com.wix.ecom.cart.api.v1.Cart"];
+  return Object.entries(type.properties).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
+```
+
+The same door answers anything the canned calls can't — enum values, comparing two methods'
+fields, filtering across every API. Check the *sibling* methods too: a requirement is often
+documented on single-create but absent from the bulk-create page.
 
 ## 5. Answer
 
@@ -166,9 +201,10 @@ URL pattern, from a similar API in another Wix product, or from a search snippet
 
 ## 6. From docs to calls
 
-The docs were the map; `docs.callApi` is the territory. It takes the contract you just read and
-runs it — same invariant as everything else: small responses come back inline, big ones land in
-scratch as `{ path, bytes }`.
+The docs were the map; `docs.callApi` is the territory — it runs the contract you just read.
+API responses are site data, so they stay out of scratch: small ones come back inline, an
+oversized one comes back clipped with `truncated: true` — narrow the call (filters, cursor paging,
+fewer fields) rather than re-request the same size.
 
 Two identities, and which one a call wants is part of what you read:
 
@@ -177,21 +213,16 @@ Two identities, and which one a call wants is part of what you read:
 | **admin** | the app's Wix connector | managing the site — ad hoc from `exec_tool`, or the same fetch inside a backend function |
 | **visitor** | minted in the app's client code | everything the site's end user does — storefront reads, cart, checkout |
 
-**Admin — the connector is the token.** First call: what IS this site? The Dynamic Site Context API
-returns one markdown report — installed apps, status, URL, locale, CMS collections:
+**Admin — the connector is the token.** Any management or read call from its docs contract:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 return await docs.callApi({
-  url: "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
+  url: "https://www.wixapis.com/stores/v3/products/query",   // from the page you just read
   token: accessToken,
-  body: { siteId: WIX_SITE_ID },
-  saveAs: "site-context",          // the report can approach 1 MB — read it with read_file
+  body: { query: { cursorPaging: { limit: 10 } } },
 });
 ```
-
-A `200` with `{"markdown": ""}` means the token or `siteId` is wrong — the endpoint reports an
-empty context instead of an auth error, so treat empty as "check auth", never as "empty site".
 
 **Visitor — minted from the OAuth app's client id, in the client.** The client id is a public
 value (it lives in a committed config file); the mint is one unauthenticated call, so it belongs
@@ -207,9 +238,39 @@ const res = await fetch("https://www.wixapis.com/oauth2/token", {
 const { access_token } = await res.json();   // bearer for products, cart, checkout
 ```
 
-Contract source: `business-management/headless/authentication/retrieve-tokens`. The cart and
-checkout APIs act on the *caller's* identity, so they want the visitor token — the admin token is
-for managing the site, the visitor token is for being on it.
+The cart and checkout APIs act on the *caller's* identity, so they want the visitor token — the
+admin token is for managing the site, the visitor token is for being on it.
+
+The authentication docs, all fetchable with `docs.fetchDoc`:
+
+- `api-reference/articles/authentication/about-identities` — the identity model
+- `api-reference/articles/authentication/rest-api-authentication` — headers, token kinds
+- `business-management/headless/authentication/retrieve-tokens` — the /oauth2/token contract, all grant types
+- `go-headless/authentication/about-authentication` — visitor vs member sessions
+- `go-headless/getting-started/setup/authentication/create-an-oauth-app-for-visitors-and-members` — where the client id comes from
+- `go-headless/authentication/setup/set-up-a-headless-client` — wiring the client
+
+## 7. Special APIs worth knowing
+
+**Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
+whole site: installed apps, status, URL, locale, CMS collections.
+
+```js
+await docs.callApi({
+  url: "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
+  token: accessToken,
+  body: { siteId: WIX_SITE_ID },
+})
+```
+
+The report can be large — expect `truncated: true` on content-rich sites. And a `200` with
+`{"markdown": ""}` means the token or `siteId` is wrong — the endpoint reports an empty context
+instead of an auth error, so treat empty as "check auth", never as "empty site".
+
+For site management, the **`wix-manage`** skill carries per-area recipes. It may already be
+installed at
+`.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
+or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
 
 ## The raw endpoints (what the module wraps)
 
@@ -218,7 +279,7 @@ for managing the site, the visitor token is for being on it.
 | `POST https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse` | `browse` — body: `menu_url`, `include`, `name_filter`, `depth` (1–6), `deprecated`, `format` |
 | `POST https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown` | `search` — body: `search_term`, `document_type`, `maximum_results` (1–20), `lines_in_each_result` (1–200) |
 | `GET https://dev.wix.com/docs/…?.md` | `fetchDoc` — every docs path has a `.md` twin; `https://dev.wix.com/docs/llms.txt` is the root map; `?apiView=SDK` for the SDK view |
-| `POST https://mcp.wix.com/api/code-mode/search` | `methodsOf` / `methodSchema` — `{ code: "async function(){…}" }` with `lightIndex` and `getResourceSchemaByUrl(docsUrl)` in scope; response wrapped in `{ result }` |
+| `POST https://mcp.wix.com/api/code-mode/search` | `methodsOf` / `specQuery` — `{ code: "async function(){…}" }` with `lightIndex` and `getResourceSchemaByUrl(docsUrl)` in scope; response wrapped in `{ result }` |
 
 There is also a structured search (`POST …/v1/docs/search`, same body → `{ results: [{ title, url,
 relevance_score }] }`) when you want to route on hits programmatically.
