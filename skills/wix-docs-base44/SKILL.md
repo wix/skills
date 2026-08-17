@@ -233,6 +233,34 @@ on with a list you cannot see the end of. On this page a nine-term map produces 
 characters raw, clipped at 5,000 with no marker inside the JSON — while the budgeted version returns
 3,630 characters and tells you 37 were left out.
 
+Don't know what term to grep yet? Map the sections instead — headers only, with each section's
+`read_file` coordinates precomputed:
+
+```js
+const fs = require('fs');
+const path = require('path');
+const file = path.join(process.cwd(), 'src', 'scratch', 'cancel-booking.md');
+const lines = fs.readFileSync(file, 'utf8').split('\n');
+
+const heads = [];
+lines.forEach((text, i) => {
+  if (/^#{1,3} /.test(text)) heads.push({ line: i + 1, text: text.trim().slice(0, 80) });
+});
+return { lines: lines.length, sections: heads.map((h, j) => ({
+  ...h,
+  offset: h.line - 1,
+  limit: (heads[j + 1]?.line ?? lines.length + 1) - h.line,   // to the next header
+})) };
+// → 1,015 chars inline. Each row IS a read_file call:
+//   { text: '## Introduction',    offset:  18, limit:   6 }
+//   { text: '## REST API',        offset:  25, limit:   2 }
+//   { text: '### Schema',         offset:  27, limit: 176 }   ← the REST schema, exactly
+//   { text: '## JavaScript SDK',  offset: 221, limit: 176 }
+```
+
+`read_file` with a row's `offset`/`limit` reads that section whole — the Introduction, the REST
+Examples — never a blind window, and never the SDK twin at the same field names.
+
 ```
 lines: 431, 25 hits
   26  ## REST API
