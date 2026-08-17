@@ -10,18 +10,18 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
  * Wix eCom Cart V2 — key fields for building a cart UI.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
  *
- *   id {string} — the cart id IS the checkout id, currency {string},
+ *   id {string} — the cart id IS the checkout id (currency lives under businessInfo.currencyCode / customerInfo.currencyCode, not at the cart root),
  *   lineItems[].id {string} — lineItemId for update/remove (NOT catalogItemId),
  *   lineItems[].quantityInfo.confirmedQuantity {number},
  *   lineItems[].catalogReference.catalogItemId {string},
- *   lineItems[].productName.original {string},
+ *   lineItems[].name.original {string},
  *   lineItems[].pricing.unitPrice {ConvertedMoney} — per-unit price after discounts,
  *   lineItems[].pricing.totalPrice {ConvertedMoney} — line total after discounts,
  *     ConvertedMoney is { amount, convertedAmount } with NO formatted string — `amount` is in the
  *     site currency, `convertedAmount` in the display currency; format the number client-side.
  *   lineItems[].descriptionLines {array} — human-readable option/modifier labels:
  *     [{ name: { original }, plainText: { original } OR colorInfo: { original, code } }],
- *   lineItems[].attributes.image {string},
+ *   lineItems[].attributes.image {object} — { id, url, height, width, altText } (use .url),
  *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
  */
 
@@ -105,7 +105,7 @@ export async function checkout() {
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
   const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.productName?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
   if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");

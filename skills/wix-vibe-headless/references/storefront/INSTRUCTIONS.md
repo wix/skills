@@ -253,10 +253,13 @@ import { useCart } from "@/context/CartContext";
 //
 // Cart money: every amount is a ConvertedMoney { amount, convertedAmount } with NO formatted string —
 // `amount` is in the site currency, `convertedAmount` in the display currency; format the number
-// yourself (Intl.NumberFormat with cart.currency) so the symbol and grouping match the locale. Read
-// `cart.subtotalAfterDiscounts` rather than `cart.subtotal`: the two match until a cart-level coupon
-// applies, and then `subtotal` is the pre-discount figure. `cart.discount` + `cart.appliedDiscounts`
-// carry the reduction. Never sum line items yourself — tax and shipping resolve at checkout.
+// yourself (Intl.NumberFormat with the cart's currency —
+// `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`) so the symbol and grouping
+// match the locale. The V2 cart has no `subtotalAfterDiscounts`/`discount`/`appliedDiscounts`: it
+// carries only a raw `cart.subtotal` (ConvertedMoney). The authoritative discounted totals come from
+// a currentCartV2 estimate/calculate `summary.priceSummary`, not the cart — call that when you need
+// the after-coupon figure; otherwise show `cart.subtotal`. Never sum line items yourself — tax and
+// shipping resolve at checkout.
 // A line's `status` (IN_STOCK / PARTIALLY_IN_STOCK / OUT_OF_STOCK) tells a quantity control whether
 // another increment is still fulfillable.
 

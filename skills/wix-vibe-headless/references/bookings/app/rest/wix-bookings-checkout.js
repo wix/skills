@@ -106,7 +106,7 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
  * the redirect session straight from that cart's id (there is no separate checkout-creation call).
  * Redirect the buyer there (window.location.href = ...). On return, the booking is confirmed.
  * Throws if no redirect URL is produced.
- * https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items.md
+ * https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
  * @param {string} bookingId  booking.id from createBooking().
  * @returns {Promise<string>} The hosted-checkout URL to redirect to.
  */

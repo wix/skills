@@ -12,11 +12,11 @@ import { wixApiRequest } from "./wix-client.js";
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/operation-object.md
  *
  * Cart (Wix eCom V2) — restaurant orders use the same visitor cart as the storefront.
- *   id {string} — the cart id IS the checkout id, currency {string},
+ *   id {string} — the cart id IS the checkout id,
  *   lineItems[].id {string} — lineItemId for update/remove (NOT the item id),
  *   lineItems[].quantityInfo.confirmedQuantity {number},
  *   lineItems[].catalogReference.catalogItemId {string} — the ordered item's GUID,
- *   lineItems[].productName.original {string},
+ *   lineItems[].name.original {string},
  *   lineItems[].pricing.unitPrice / lineItems[].pricing.totalPrice {ConvertedMoney} —
  *     { amount, convertedAmount } with NO formatted string; format the number client-side,
  *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
@@ -138,7 +138,7 @@ export async function checkout() {
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
   const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.productName?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
   if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");
