@@ -255,8 +255,6 @@ The authentication docs (append `.md` to read):
 
 ## Special APIs worth knowing
 
-APIs that answer whole questions, not just single operations:
-
 **Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
 whole site — installed apps, status, URL, locale, CMS collections — the same output the Wix MCP's
 site-context tool renders:
@@ -270,14 +268,10 @@ curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-contex
 A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
 context instead of an auth error, so treat empty as "check auth", never as "empty site".
 
-**Query OAuth Apps — the site's client ids.** Lists the site's OAuth apps (admin token; needs
-`SCOPE.OAUTH_APP.READ`) — each app carries the public client id the visitor mint needs:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/oauth-app/v1/oauth-apps/query' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  --data-raw '{"query": {}}'
-```
+For the rest of site management — installing apps, site properties, media, OAuth apps — the
+**`wix-manage`** skill carries per-area recipes. It may already be installed at
+`.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
+or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
 
 ## Before you write the code
 

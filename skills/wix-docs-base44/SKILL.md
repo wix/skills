@@ -42,7 +42,8 @@ this skill into the app via `npx skills add`; after it runs, the path is
 | `docs.mapTerms(slug, /regex/i)` | line numbers of matches + section headers | `{ lines, shown, omitted, rows }` |
 | `docs.sections(slug)` | the outline, with `read_file` coordinates | `{ lines, shown, omitted, rows }` |
 | `await docs.methodsOf("resource-pattern")` | every method of a resource, from the spec index | `{ resources, rows }` |
-| `await docs.methodSchema(docsUrl, slug?)` | one method's exact schema → disk | `{ path, bytes, publicUrl, httpMethod }` |
+| `await docs.methodSchema(docsUrl, slug?)` | one method's exact schema, `$circular` types bundled → disk | `{ path, bytes, publicUrl, httpMethod }` |
+| `await docs.specQuery("async function(){…}")` | your own query over the spec index | `{ result }` inline, or `{ path, bytes }` if big |
 | `await docs.callApi({ url, token, body })` | run a call you read the contract for | `{ status, json }`, or clipped `text` + `truncated` |
 
 One `exec_tool` call per round, never two. The default timeout is 10s; pass `timeout` (up to 120)
@@ -155,6 +156,21 @@ never matches them. For one method's exact request/response schema or enum value
 the *sibling* methods too: a requirement is often documented on single-create but absent from the
 bulk-create page.
 
+Large schemas replace repeated types with `{ "$circular": "com.wix.ecom.cart.api.v1.Cart" }` stubs;
+`methodSchema` bundles every referenced type (transitively) into the file's `components`, so the
+saved schema is self-contained — resolve a stub by looking up its name there.
+
+When the canned calls don't fit — expand one enum, compare two methods' fields, filter across every
+API — write the query yourself with `specQuery`. `lightIndex` and `getResourceSchemaByUrl` are in
+scope:
+
+```js
+await docs.specQuery(`async function(){
+  const s = await getResourceSchemaByUrl("…/cart/get-current-cart");
+  return Object.keys(s.components.schemas).filter(n => /LineItem/i.test(n));
+}`)
+```
+
 ## 5. Answer
 
 Cite the file and line for each claim, and name the product the page belongs to.
@@ -217,8 +233,6 @@ The authentication docs, all fetchable with `docs.fetchDoc`:
 
 ## 7. Special APIs worth knowing
 
-A short list of APIs that answer whole questions, not just single operations:
-
 **Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
 whole site: installed apps, status, URL, locale, CMS collections.
 
@@ -234,17 +248,10 @@ The report can be large — expect `truncated: true` on content-rich sites. And 
 `{"markdown": ""}` means the token or `siteId` is wrong — the endpoint reports an empty context
 instead of an auth error, so treat empty as "check auth", never as "empty site".
 
-**Query OAuth Apps — the site's client ids.** Lists the site's OAuth apps (admin token; needs
-`SCOPE.OAUTH_APP.READ`, which the connector token carries):
-
-```js
-await docs.callApi({
-  url: "https://www.wixapis.com/oauth-app/v1/oauth-apps/query",
-  token: accessToken,
-  body: { query: {} },
-})
-// → each app carries the public client id the visitor mint needs
-```
+For the rest of site management — installing apps, site properties, media, OAuth apps — the
+**`wix-manage`** skill carries per-area recipes. It may already be installed at
+`.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
+or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
 
 ## The raw endpoints (what the module wraps)
 
