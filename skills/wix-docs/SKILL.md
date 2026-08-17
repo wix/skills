@@ -230,9 +230,21 @@ curl -sS -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
 ```
 
-**Visitor — minted from the OAuth app's client id.** The client id is a public value (it lives in
-a committed config file); the mint is one unauthenticated call, so it belongs in the site's own
-frontend code:
+In a Wix CLI project, the CLI mints `$ADMIN_TOKEN` — at either scope:
+
+```bash
+TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")   # site-scoped: this one site's APIs
+TOKEN=$(npx @wix/cli@latest token)                     # account-scoped: account-level APIs (list sites, …)
+```
+
+Mint once per run and cache it — within a run the CLI returns a byte-identical token, so re-minting
+only spends startup time.
+
+**Visitor — minted from the OAuth app's client id.** The client id is a public value, and it is
+usually already on disk before it is in any API: in a managed headless project it is the `appId`
+field of `wix.config.json` — **the OAuth app id and the client id are the same value** — so read it
+from the project's config instead of querying the OAuth-apps API for it. The mint is one
+unauthenticated call, so it belongs in the site's own frontend code:
 
 ```bash
 curl -sS -X POST 'https://www.wixapis.com/oauth2/token' \
