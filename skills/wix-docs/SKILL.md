@@ -230,10 +230,11 @@ curl -sS -X POST 'https://www.wixapis.com/stores/v3/products/query' \
   --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
 ```
 
-In a Wix CLI project, the CLI mints `$ADMIN_TOKEN`:
+In a Wix CLI project, the CLI mints `$ADMIN_TOKEN` — at either scope:
 
 ```bash
-TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")   # site-scoped REST token
+TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")   # site-scoped: this one site's APIs
+TOKEN=$(npx @wix/cli@latest token)                     # account-scoped: account-level APIs (list sites, …)
 ```
 
 Mint once per run and cache it — within a run the CLI returns a byte-identical token, so re-minting
