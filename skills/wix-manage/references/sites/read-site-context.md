@@ -1,6 +1,6 @@
 ---
 name: "Read Site Context"
-description: The recommended first call for any AI agent entering a Wix account or site — returns installed apps by display name, locale, currency, timezone, and status in one shot. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
+description: How AI agents orient themselves on a Wix account or site — one call returns installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 ---
 # Read Site Context
 
