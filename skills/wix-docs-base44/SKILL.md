@@ -9,7 +9,8 @@ Get the exact truth about a Wix API — endpoint, HTTP verb, request/response sh
 an error. **Discover everything: every endpoint, path, doc URL, body and enum comes from this
 skill's tools, never from training, memory, or pattern.** A URL you composed and a path you
 remembered are guesses even when they look right — and a 404 or an empty result means discover,
-not permute.
+not permute. The example endpoints in this file are real and verified — use them as written;
+anything beyond them, discover.
 
 This is the [`wix-docs`](../wix-docs/SKILL.md) flow — find the right page, then read it — for a
 sandbox with no shell pipeline and a ~5,000-char cap on tool results. Documents therefore live on
@@ -160,14 +161,14 @@ difference between an answer and a silent `[]`:
 
 ```typescript
 lightIndex: Array<{             // RESOURCES, not methods
-  name: string                  // "Cart"
+  name: string                  // "Contacts V5"
   docsUrl: string               // the resource page
-  menuPath: string[]            // ["business-solutions", "e-commerce", "purchase-flow", "cart"]
+  menuPath: string[]            // ["crm", "members-contacts", "contacts", "contacts-v5"]
   methods: Array<{
-    operationId: string         // fully qualified: "com.wix.ecom…CartService.AddToCurrentCart"
+    operationId: string         // fully qualified: "wix.contacts.v5.Contacts.QueryContacts"
     summary: string; httpMethod: string
-    path: string                // PARTIAL ("/v1/carts/current/add-to-cart") — never call it
-    publicUrl: string           // "https://www.wixapis.com/ecom/v1/carts/current/add-to-cart" — call THIS
+    path: string                // PARTIAL ("/v5/contacts/query") — never call it
+    publicUrl: string           // "https://www.wixapis.com/contacts/v5/contacts/query" — call THIS
     docsUrl: string
   }>
 }>
@@ -185,12 +186,14 @@ round replaces guessing path variants:
 ```js
 await docs.specQuery(`async function(){
   const r = lightIndex.find(x => x.docsUrl ===
-    "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart");
-  return r.methods.map(m => ({ op: m.operationId.split(".").pop(),
+    "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5");
+  return r.methods.filter(m => /query/i.test(m.summary))
+                  .map(m => ({ op: m.operationId.split(".").pop(),
                                verb: m.httpMethod, call: m.publicUrl }));
 }`)
-// → { op: "AddToCurrentCart", verb: "post",
-//     call: "https://www.wixapis.com/ecom/v1/carts/current/add-to-cart" }
+// → { op: "QueryContacts", verb: "post",
+//     call: "https://www.wixapis.com/contacts/v5/contacts/query" }
+// (unfiltered, this resource's 32 methods overflow the inline budget — slice, don't dump)
 ```
 
 Schemas are huge, so return the slice you need and **iterate** — each call is one round; refine the
@@ -243,7 +246,7 @@ Two identities, and which one a call wants is part of what you read:
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 return await docs.callApi({
-  url: "https://www.wixapis.com/stores/v3/products/query",   // from the page you just read
+  url: "https://www.wixapis.com/contacts/v5/contacts/query",   // from the page you just read
   token: accessToken,
   body: { query: { cursorPaging: { limit: 10 } } },
 });

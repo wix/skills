@@ -225,10 +225,13 @@ of what you read:
 **Admin** — any management or read call, straight from its docs contract:
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/stores/v3/products/query' \
+curl -sS -X POST 'https://www.wixapis.com/contacts/v5/contacts/query' \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
   --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
 ```
+
+The example endpoints in this skill are real and verified — use them as written; anything beyond
+them, discover through the flow above.
 
 In a Wix CLI project, the CLI mints `$ADMIN_TOKEN` — at either scope:
 
