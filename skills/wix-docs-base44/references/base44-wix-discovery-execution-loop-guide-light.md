@@ -1,29 +1,24 @@
-# Wix APIs from the Base44 sandbox — one-file, zero-disk edition
+# Wix APIs from Base44 — zero-disk discovery & execution loop
 
-**Discover everything.** Endpoints, paths, doc URLs, request bodies, response fields — all come
-from the calls below, never from memory or pattern. A 404 or empty result means discover, not
-permute. The examples teach mechanics and go stale — verify before relying on one.
+**Discover everything.** Endpoints, paths, doc URLs, request bodies, response fields — all from
+the calls below, never from memory or pattern. A 404 or empty result means discover, not permute.
+Examples teach mechanics and go stale — verify before relying on one.
 
-**One invariant: every call is fetch → reduce in memory → return ≤ 4,000 chars.** Tool results
-clip at ~5,000; nothing is ever written to disk — no scratch files, nothing lands in the app's
-repo. State between rounds is re-fetching (docs pages take ~1s). Return facts, not documents:
-filter and project inside exec, and when a result would be big, return a *count of what you left
-out* and narrow on the next round. One exec per round; timeout default 10s, up to 120 via
-`{timeout}` for one big fetch.
+**Every call: fetch → reduce in memory → return ≤ 4,000 chars.** Results clip at ~5,000. Nothing
+is written to disk — nothing lands in the app's repo; state between rounds is re-fetching (~1s).
+**Fetch every URL inside exec with `fetch()`** — website/browser tools clip at 10,000 chars
+silently. Return facts, not documents; a big result returns a count of what was left out, and you
+narrow next round. One exec per round; timeout default 10s, up to 120 via `{timeout}`.
 
-The clip guard — end any snippet that might return big with:
-
-```js
-const s = JSON.stringify(out);
-return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;
-```
+Clip guard for any snippet that might return big:
+`const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
 ## Identities
 
 | | token | for |
 |---|---|---|
-| **admin** | `const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix")` | managing the site — ad hoc from exec, or in a backend function |
-| **visitor** | minted in the app's own frontend from the public clientId | everything the end user does: storefront reads, cart, checkout |
+| **admin** | `await base44.asServiceRole.connectors.getConnection("wix")` → `accessToken` | managing the site — ad hoc from exec, or in a backend function |
+| **visitor** | minted in the app's frontend from the public clientId | everything the end user does |
 
 ## 0. First admin call — what IS this site
 
@@ -34,22 +29,20 @@ const r = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-c
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   body: JSON.stringify({ siteId: WIX_SITE_ID }),
 });
-const { markdown } = await r.json();
-// big report? extract the section you need instead of paging blind:
+const { markdown } = await r.json();   // big? extract a section, not the whole report:
 const apps = (markdown.match(/### Apps[\s\S]*?(?=\n### |$)/) || [markdown.slice(0, 3500)])[0];
 return { total: markdown.length, apps: apps.slice(0, 3500) };
 ```
 
-One markdown report: installed apps **with their ids** (the Stores appId `catalogReference` needs,
-and its catalog version — V1 vs V3 decides every Stores endpoint), the OAuth app id (**which is
-also the visitor `clientId`**), locale, currency, CMS collections. Need another section next
-round? Same call, different regex — or `markdown.slice(4000, 8000)` to page. A `200` with
-`markdown: ""` means bad token or siteId — never "empty site".
+One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
+endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
+Another section: same call, different regex, or `.slice(4000, 8000)`. A `200` with `markdown: ""`
+means bad token or siteId — never "empty site".
 
 ## 1. Find the page
 
 **Know the product? Browse (deterministic).** Orient with counts, then filter — an unfiltered
-method listing of a vertical is ~30 KB and will clip:
+vertical listing is ~30 KB and clips:
 
 ```js
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
@@ -62,9 +55,8 @@ const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/brow
 return (await r.json()).content;   // null/404 ⇒ not a docs node — re-orient a level up
 ```
 
-**Don't know where it lives? Search (ranks, never matches).** Each hit is a condensed method doc —
-the callable endpoint, a code example, and the method description are all in the response. Reduce
-per hit, keeping the riches:
+**Don't know where it lives? Search (ranks, never matches).** Each hit is a condensed method
+doc. Reduce per hit, keeping the riches:
 
 ```js
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown", {
@@ -82,22 +74,15 @@ const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
               .trim().replace(/\s+/g, " ").slice(0, 220),
 })).filter(h => h.docsUrl);
 return { total: content.length, hits };
-// → 1,242 chars for 5 hits: { method: "Pause Order",
-//     endpoint: "POST https://www.wixapis.com/pricing-plans/v2/orders/{id}/pause",
-//     gist: "Pauses an order… status to PAUSED… buyers are not charged…" }
-// article/webhook hits carry docsUrl only — that's fine
 ```
 
-For "how do I call X?" the hits often ARE the answer — endpoint plus semantics in one round; go
-deeper (§2 map, §3 spec) for request fields, enums, or proof of absence. Drop hits from other
-products (read each URL's vertical); a wrong-product hit looks confident. Absence is only provable
-by enumeration (§3).
+For "how do I call X?" the hits often ARE the answer. Go deeper for request fields, enums, or
+proof of absence — which only enumeration gives (§3). Drop hits from other products.
 
-## 2. Read a doc page — fetch and map in ONE call, nothing saved
+## 2. Read a doc page — fetch and map in ONE call
 
-Always append **`.md`** (without it the portal serves a multi-MB HTML shell: `create-draft-post`
-is 5.3 MB as HTML, 414 KB as `.md`). Method pages are 100 KB+ with **twin REST and SDK halves
-repeating the same field names at different types** — so never return the page: map it.
+Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, with twin
+REST and SDK halves repeating field names at different types — never return the page:
 
 ```js
 const url = "https://dev.wix.com/docs/…/cancel-booking";        // from browse/search output
@@ -113,30 +98,17 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
          omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
 ```
 
-`omitted > 0` ⇒ narrow the term, map again. The headers in the hit list tell you which `##` half
-(REST vs SDK) each hit sits in — quote only your half. No term at all = the outline: header-to-
-header distances are the section windows.
+`omitted > 0` ⇒ narrow, map again. Headers in the hit list say which `##` half each hit sits in —
+quote only yours. No term = the outline; header-to-header = section windows.
 
-**Window the REST example FIRST.** Every method page carries a complete working request under
-`### Examples` (the one below `## REST API` — the SDK half has its own). It is the highest-value
-slice on the page: exact URL, headers, and a body with real-format values — usually all you need
-to model the call; use the schema windows only for fields the example doesn't show (optional
-params, enums, validations). Same fetch, sliced to the example's lines from the map:
+**Window the REST example FIRST** — under `### Examples` below `## REST API`: a complete working
+request, usually all you need. Schema windows cover what it leaves out. Same fetch, sliced:
 
 ```js
 const url = "https://dev.wix.com/docs/…/check-in-ticket";
 const lines = (await (await fetch(url + ".md")).text()).split("\n");
 return lines.slice(95, 113).map((t, i) => (96 + i) + ": " + t.slice(0, 110)).join("\n");
-// → curl -X POST 'https://www.wixapis.com/events/v1/tickets/check-in' \
-//   -d '{ "eventId": "ad18d12e-…", "ticketNumber": ["FNVL-NIJT-WP021", …] }'
-```
-
-Then, for anything the example leaves out, window the schema lines the same way:
-
-```js
-const url = "https://dev.wix.com/docs/…/cancel-booking";
-const lines = (await (await fetch(url + ".md")).text()).split("\n");
-return lines.slice(37, 47).map((t, i) => (38 + i) + ": " + t.slice(0, 110)).join("\n");
+// → the method's complete curl: URL, headers, real-format body
 ```
 
 ## 3. The spec index — endpoints and exact schemas
@@ -145,19 +117,18 @@ return lines.slice(37, 47).map((t, i) => (38 + i) + ": " + t.slice(0, 110)).join
 In scope:
 
 ```typescript
-lightIndex: Array<{             // RESOURCES, not methods
-  name: string; docsUrl: string; menuPath: string[]
-  methods: Array<{ operationId,  // "wix.contacts.v5.Contacts.QueryContacts"
+lightIndex: Array<{   // RESOURCES, not methods
+  name; docsUrl; menuPath: string[]
+  methods: Array<{ operationId,   // fully qualified: "wix.contacts.v5.Contacts.QueryContacts"
     summary, httpMethod,
-    path,                        // PARTIAL ("/v5/contacts/query") — never call it
-    publicUrl,                   // "https://www.wixapis.com/contacts/v5/contacts/query" — call THIS
-    docsUrl }>
-}>
-getResourceSchemaByUrl(docsUrl)  // full schema; API pages only — skills/articles have none
+    path,        // PARTIAL ("/v5/contacts/query") — never call it
+    publicUrl,   // "https://www.wixapis.com/contacts/v5/contacts/query" — call THIS
+    docsUrl }> }>
+getResourceSchemaByUrl(docsUrl)   // full schema; API pages only — skills/articles have none
 ```
 
-Inspect, don't discover: arrive with a `docsUrl`, match by `docsUrl`. Every method of a resource,
-with callable URLs (also how you prove an API does NOT exist — enumerate and say what you enumerated):
+Inspect, don't discover: arrive with a `docsUrl`, match by `docsUrl`. A resource's methods with
+callable URLs — also the proof an API does NOT exist (say what you enumerated):
 
 ```js
 const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
@@ -173,26 +144,13 @@ const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
 return (await r.json()).result;
 ```
 
-A method's request fields — names and types only, drill next round, `$circular` stubs resolve via
-`components.schemas[name]`:
-
-```js
-// …same POST wrapper, code:
-`async function(){
-  const u = "https://dev.wix.com/docs/…/create-draft-post";     // a METHOD docsUrl
-  const s = await getResourceSchemaByUrl(u);
-  const m = s.methods.find(x => x.docsUrl === u);
-  const props = m.requestBody.content["application/json"].schema.properties;
-  return Object.entries(props).map(([k, v]) => k + ": " + (v.type || v.$circular || "object"));
-}`
-```
-
-Schemas are huge; a clipped `{ truncated }` result means the query missed the shape or returned
-too much — refine it, never re-run it as-is.
+For request fields, same wrapper with `getResourceSchemaByUrl(methodDocsUrl)`: the schema sits at
+`m.requestBody.content["application/json"].schema.properties` — return names and types only, drill
+next round; a `{ "$circular": "<name>" }` stub resolves via `s.components.schemas["<name>"]`.
 
 ## 4. Call it
 
-Admin, from a contract you discovered — project the response down to the facts you need, in code:
+Admin — project the response to facts, in code:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -204,13 +162,11 @@ const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   
 const text = await r.text();
 if (!r.ok) return { status: r.status, error: text.slice(0, 300) };
 const data = JSON.parse(text);
-// project, don't dump — e.g. just names and one sample row's keys:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}),
          names: (data.contacts || []).map(c => c.name?.first).slice(0, 10) };
 ```
 
-Visitor — minted in the app's frontend code (not exec); the clientId is public, from §0's report
-or the project config:
+Visitor — minted in the app's frontend code (not exec); the clientId is public, from §0's report:
 
 ```js
 // src/lib/wixClient.js
@@ -218,22 +174,16 @@ const res = await fetch("https://www.wixapis.com/oauth2/token", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ clientId: WIX_CLIENT_ID, grantType: "anonymous" }),
 });
-const { access_token } = await res.json();   // bearer for products, cart, checkout
+const { access_token } = await res.json();   // bearer for everything the end user does
 ```
 
-Cart and checkout act on the **caller's** identity — they want the visitor token. Admin manages
-the site; visitor is *on* it.
+End-user actions run on the **caller's** identity — the visitor token. Admin manages the site;
+visitor is *on* it. **Response shapes obey the discover rule too**: code against fields you saw
+in a live response or the schema — `priceData` and `media.items` are ghosts of old versions;
+probe one real row first, like the projection above.
 
-**Response shapes obey the discover rule too**: code against fields you saw in a live response or
-the schema — never remembered names (`priceData`, `media.items` are ghosts of old versions; probe
-one real row first, exactly like the projection above).
+## More
 
-## Auth docs (map with §2 when needed)
-
-`api-reference/articles/authentication/about-identities` · `…/rest-api-authentication` ·
-`business-management/headless/authentication/retrieve-tokens` (the /oauth2/token contract) ·
-`go-headless/authentication/about-authentication` · `…/create-an-oauth-app-for-visitors-and-members` ·
-`…/authentication/setup/set-up-a-headless-client`
-
-For site management beyond this file — installing apps, media, properties — the `wix-manage`
-skill: `npx -y skills add wix/skills/skills/wix-manage`, or `https://www.wix.com/skills/wix-manage`.
+Auth docs (map with §2): `api-reference/articles/authentication/about-identities` ·
+`business-management/headless/authentication/retrieve-tokens`. Site management: the `wix-manage`
+skill — `https://www.wix.com/skills/wix-manage`.
