@@ -15,7 +15,6 @@ When a headless site is provisioned it gets one OAuth app automatically (see [Cr
 ## Prerequisites
 
 - Site-level authentication with `SCOPE.OAUTH_APP.MANAGE` permission
-- The site must be a headless site (OAuth apps are headless-only)
 
 ---
 
