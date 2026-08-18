@@ -1,29 +1,34 @@
 # Wix APIs from Base44 — zero-disk discovery & execution loop
 
-**Discover everything.** Endpoints, paths, doc URLs, request bodies, response fields — all from
-the calls below, never from memory or pattern. A 404 or empty result means discover, not permute.
-Examples teach mechanics and go stale — verify before relying on one.
+**Discover everything.** Endpoints, paths, doc URLs, request and response fields — all from the
+calls below, never from memory or pattern. 404 or empty ⇒ discover, not permute. Examples teach
+mechanics and go stale — verify before relying on one.
 
 **Every call: fetch → reduce in memory → return ≤ 4,000 chars.** Results clip at ~5,000. Nothing
-is written to disk — nothing lands in the app's repo; state between rounds is re-fetching (~1s).
-**Fetch every URL inside exec with `fetch()`** — website/browser tools clip at 10,000 chars
-silently. Return facts, not documents; a big result returns a count of what was left out, and you
-narrow next round. One exec per round; timeout default 10s, up to 120 via `{timeout}`.
+is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL inside exec with
+`fetch()`** — website/browser tools clip at 10,000 chars silently. Return facts, not documents; a
+big result returns a count of what was left out, and you narrow next round. One exec per round;
+timeout default 10s, up to 120 via `{timeout}`.
 
 Clip guard for any snippet that might return big:
 `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
-## Identities
+## Who calls Wix
 
-| | token | for |
-|---|---|---|
-| **admin** | `await base44.asServiceRole.connectors.getConnection("wix")` → `accessToken` | managing the site — ad hoc from exec, or in a backend function |
-| **visitor** | minted in the app's frontend from the public clientId | everything the end user does |
+```
+end user's browser ──(visitor token)─► wixapis.com   the app, at runtime
+exec_tool          ──(admin token)───► wixapis.com   you, ad hoc: probing/managing while building
+backend function   ──(admin token)───► wixapis.com   the app's admin ops: webhooks, owner tasks
+```
 
-**The headless paradigm:** the app's frontend calls `wixapis.com` DIRECTLY on the visitor token —
-every end-user action. Backend functions are for admin/management work only; the platform's
-"connector token in backend functions" rule is about the admin token, not a reason to proxy
-end-user calls.
+Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a frontend
+calls its backend from the browser. Visitor token: minted in frontend code from the public
+`clientId` (§4). Admin token: `await base44.asServiceRole.connectors.getConnection("wix")` →
+`accessToken`.
+
+Litmus: about to write a backend function that a page calls to reach Wix? Stop — that call belongs
+in the browser, on the visitor token. The platform's "connector token in backend functions" rule
+is about the admin token, not a reason to proxy end-user calls.
 
 ## 0. First admin call — what IS this site
 
@@ -41,7 +46,7 @@ return { total: markdown.length, apps: apps.slice(0, 3500) };
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
-Another section: same call, different regex. `200` with `markdown: ""` = bad token or siteId.
+`200` with `markdown: ""` = bad token or siteId.
 
 ## 1. Find the page
 
@@ -53,7 +58,7 @@ const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/brow
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     menu_url: "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
-    include: ["METHOD"], name_filter: "resched", depth: 4,   // orient first: { menu_url } alone
+    include: ["METHOD"], name_filter: "resched", depth: 4,   // orient first: menu_url alone
   }),
 });
 return (await r.json()).content;   // null/404 ⇒ not a docs node — re-orient a level up
@@ -66,7 +71,7 @@ doc. Reduce per hit, keeping the riches:
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ search_term: "pause a pricing plan subscription and resume it",
-    document_type: "REST",   // SDK | WIX_HEADLESS | VELO | BUILD_APPS | CLI …
+    document_type: "REST",   // or SDK | WIX_HEADLESS | VELO | CLI
     maximum_results: 5, lines_in_each_result: 6 }),
 });
 const { content } = await r.json();
@@ -89,13 +94,13 @@ Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 10
 and SDK halves repeating field names at different types — never return the page:
 
 ```js
-const url = "https://dev.wix.com/docs/…/cancel-booking";        // from browse/search output
+const url = "https://dev.wix.com/docs/…/cancel-booking";   // from browse/search output
 const res = await fetch(url.replace(/\.md$/, "") + ".md");
 if (!res.ok) return { status: res.status, hint: "not a docs page — take URLs from output, don't compose" };
 const lines = (await res.text()).split("\n");
 const hits = [];
 lines.forEach((text, i) => {
-  if (/^#{1,3} /.test(text) || /refund/i.test(text))            // headers always; term of interest
+  if (/^#{1,3} /.test(text) || /refund/i.test(text))   // headers always; term of interest
     hits.push({ line: i + 1, text: text.trim().slice(0, 100) });
 });
 return { lines: lines.length, shown: Math.min(hits.length, 40),
@@ -128,7 +133,7 @@ lightIndex: Array<{   // RESOURCES, not methods
     path,        // PARTIAL ("/v5/contacts/query") — never call it
     publicUrl,   // "https://www.wixapis.com/contacts/v5/contacts/query" — call THIS
     docsUrl }> }>
-getResourceSchemaByUrl(docsUrl)   // full schema; API pages only — skills/articles have none
+getResourceSchemaByUrl(docsUrl)   // full schema; API method pages only
 ```
 
 Inspect, don't discover: arrive with a `docsUrl`, match by it. A resource's methods with callable
@@ -163,13 +168,12 @@ const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   body: JSON.stringify({ query: { cursorPaging: { limit: 10 } } }),
 });
-const text = await r.text();
-if (!r.ok) return { status: r.status, error: text.slice(0, 300) };
-const data = JSON.parse(text);
+if (!r.ok) return { status: r.status, error: (await r.text()).slice(0, 300) };
+const data = await r.json();   // project, don't dump:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
 
-Visitor — minted in the app's frontend code (not exec); the clientId is public, from §0's report:
+Visitor — minted in the app's frontend (not exec); clientId is public, from §0's report:
 
 ```js
 // src/lib/wixClient.js
@@ -177,13 +181,12 @@ const res = await fetch("https://www.wixapis.com/oauth2/token", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ clientId: WIX_CLIENT_ID, grantType: "anonymous" }),
 });
-const { access_token } = await res.json();   // bearer for everything the end user does
+const { access_token } = await res.json();   // the end user's bearer
 ```
 
-End-user actions run on the **caller's** identity — the visitor token. Admin manages the site;
-visitor is *on* it. **Response shapes obey the discover rule too**: code against fields you saw
-in a live response or the schema — `priceData` and `media.items` are ghosts of old versions;
-probe one real row first, like the projection above.
+**Response shapes obey the discover rule too**: code against fields you saw in a live response
+or the schema — `priceData` and `media.items` are ghosts of old versions; probe one real row
+first, like the projection above.
 
 ## More
 
