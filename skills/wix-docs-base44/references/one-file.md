@@ -104,8 +104,21 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
 (REST vs SDK) each hit sits in — quote only your half. No term at all = the outline: header-to-
 header distances are the section windows.
 
-**Next round, window the exact lines** (same fetch, slice instead of grep — ~45 lines fits the
-budget; iterate for more):
+**Window the REST example FIRST.** Every method page carries a complete working request under
+`### Examples` (the one below `## REST API` — the SDK half has its own). It is the highest-value
+slice on the page: exact URL, headers, and a body with real-format values — usually all you need
+to model the call; use the schema windows only for fields the example doesn't show (optional
+params, enums, validations). Same fetch, sliced to the example's lines from the map:
+
+```js
+const url = "https://dev.wix.com/docs/…/check-in-ticket";
+const lines = (await (await fetch(url + ".md")).text()).split("\n");
+return lines.slice(95, 113).map((t, i) => (96 + i) + ": " + t.slice(0, 110)).join("\n");
+// → curl -X POST 'https://www.wixapis.com/events/v1/tickets/check-in' \
+//   -d '{ "eventId": "ad18d12e-…", "ticketNumber": ["FNVL-NIJT-WP021", …] }'
+```
+
+Then, for anything the example leaves out, window the schema lines the same way:
 
 ```js
 const url = "https://dev.wix.com/docs/…/cancel-booking";

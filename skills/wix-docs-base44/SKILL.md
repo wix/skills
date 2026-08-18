@@ -144,7 +144,10 @@ docs.sections("cancel-booking")
       ### cancelBooking        offset 401, limit   9    camelCase = SDK snippet
 ```
 
-Know which `##` you are under before quoting anything.
+Know which `##` you are under before quoting anything. And **window the REST example first** —
+the `### Examples` row under `## REST API` (English title = curl) is a complete working request:
+exact URL, headers, and a body with real-format values. Model the call from it; read schema
+windows only for what the example leaves out (optional params, enums, validations).
 
 ## 4. Establish absence
 
