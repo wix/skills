@@ -195,3 +195,4 @@ After finding a site:
 - Use the site `id` for site-level API calls
 - Create new sites using [Create Site from Template](create-site-from-template.md)
 - Manage site settings and content
+- Found duplicate/unwanted sites (e.g. from a retried or declined site-creation call)? See [Delete Sites](delete-sites.md)

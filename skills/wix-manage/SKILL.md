@@ -367,6 +367,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Headless Site](references/sites/create-headless-site.md)
 **Technical:** Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
+### [Delete Sites](references/sites/delete-sites.md)
+**Technical:** Moves one or more account-owned sites to the trash bin (recoverable, not permanent) via the Bulk Delete Site API. Use to clean up duplicate/orphan sites left by a retried, declined, or timed-out site-creation call instead of leaving the user to find and delete them manually.
+
 ### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
 **Technical:** Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's `id` is the `client_id` for frontends connecting to the site's Wix APIs. Secret and rotation are dashboard-only.
 
