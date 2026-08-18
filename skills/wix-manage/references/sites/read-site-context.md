@@ -1,6 +1,6 @@
 ---
 name: "Read Site Context"
-description: Single-call orientation on any Wix site — installed apps by display name, locale, currency, timezone, and status in one shot. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
+description: Probe a Wix site or account for full context in one call — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 ---
 # Read Site Context
 
