@@ -9,8 +9,8 @@ Get the exact truth about a Wix API — endpoint, HTTP verb, request/response sh
 an error. **Discover everything: every endpoint, path, doc URL, body and enum comes from this
 skill's tools, never from training, memory, or pattern.** A URL you composed and a path you
 remembered are guesses even when they look right — and a 404 or an empty result means discover,
-not permute. The example endpoints in this file are real and verified — use them as written;
-anything beyond them, discover.
+not permute. That includes the example endpoints in this file: they illustrate the mechanics and
+go stale like any snapshot — discover the real contract before you rely on one.
 
 This is the [`wix-docs`](../wix-docs/SKILL.md) flow — find the right page, then read it — for a
 sandbox with no shell pipeline and a ~5,000-char cap on tool results. Documents therefore live on

@@ -7,7 +7,8 @@ description: "Look up the Wix API/SDK documentation to confirm an exact endpoint
 
 Get the **exact** truth about a Wix API — endpoint, HTTP method, request/response body, a field, an
 enum, or an error. **Never invent a Wix endpoint, path, body, or enum from memory** — confirm it
-here first.
+here first. That includes the example endpoints in this skill: they illustrate the mechanics and
+go stale like any snapshot — discover the real contract before you rely on one.
 
 A lookup is a short flow: **find the right page, then read it.** Do it with `curl` (default, below)
 or the Wix MCP doc tools if your agent has them (Lane 2).
@@ -229,9 +230,6 @@ curl -sS -X POST 'https://www.wixapis.com/contacts/v5/contacts/query' \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
   --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
 ```
-
-The example endpoints in this skill are real and verified — use them as written; anything beyond
-them, discover through the flow above.
 
 In a Wix CLI project, the CLI mints `$ADMIN_TOKEN` — at either scope:
 
