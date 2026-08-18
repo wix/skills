@@ -382,6 +382,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 **Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
 
+### [Diagnosing Picasso/Vibe Site 5xx Errors](references/sites/diagnosing-picasso-vibe-site-5xx-errors.md)
+**Technical:** Explains why a published Wix Vibe/Picasso site (Astro SSR via `@astrojs/cloudflare`, served by the `wix-hosting-dispatcher` Cloudflare Worker) can intermittently return content-less HTTP 500s under parallel load or right after a publish with zero application-log trace, and what's actually worth checking (Site Monitoring aggregate error rate) versus what to skip (classic Editor/Velo runtime diagnostics, which target a different hosting stack). Use when a report matches this exact signature for a Picasso-editor-type site.
+
 ---
 
 ## Stores
