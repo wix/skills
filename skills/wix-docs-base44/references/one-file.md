@@ -62,23 +62,36 @@ const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/brow
 return (await r.json()).content;   // null/404 ⇒ not a docs node — re-orient a level up
 ```
 
-**Don't know where it lives? Search (ranks, never matches).** Reduce the response to hits in
-memory — titles and URLs, never the raw content:
+**Don't know where it lives? Search (ranks, never matches).** Each hit is a condensed method doc —
+the callable endpoint, a code example, and the method description are all in the response. Reduce
+per hit, keeping the riches:
 
 ```js
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown", {
   method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ search_term: "cancel a booking and refund the customer",
+  body: JSON.stringify({ search_term: "pause a pricing plan subscription and resume it",
     document_type: "REST",   // SDK | WIX_HEADLESS | VELO | BUILD_APPS | CLI …
     maximum_results: 5, lines_in_each_result: 6 }),
 });
 const { content } = await r.json();
-return { hits: [...content.matchAll(/#### \[([^\]]+)\]\((https:[^)]+)\)/g)]
-                 .map(m => ({ title: m[1].split(".").pop(), url: m[2] })) };
+const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
+  method:   (b.match(/^# Method: (.+)$/m) || [])[1],
+  endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable as-is
+  docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
+  gist:     ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
+              .trim().replace(/\s+/g, " ").slice(0, 220),
+})).filter(h => h.docsUrl);
+return { total: content.length, hits };
+// → 1,242 chars for 5 hits: { method: "Pause Order",
+//     endpoint: "POST https://www.wixapis.com/pricing-plans/v2/orders/{id}/pause",
+//     gist: "Pauses an order… status to PAUSED… buyers are not charged…" }
+// article/webhook hits carry docsUrl only — that's fine
 ```
 
-Drop hits from other products (read each URL's vertical); a wrong-product hit looks confident.
-Absence is only provable by enumeration (§3). Then switch to browsing the subtree a hit names.
+For "how do I call X?" the hits often ARE the answer — endpoint plus semantics in one round; go
+deeper (§2 map, §3 spec) for request fields, enums, or proof of absence. Drop hits from other
+products (read each URL's vertical); a wrong-product hit looks confident. Absence is only provable
+by enumeration (§3).
 
 ## 2. Read a doc page — fetch and map in ONE call, nothing saved
 
