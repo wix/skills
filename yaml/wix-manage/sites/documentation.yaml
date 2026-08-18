@@ -18,6 +18,10 @@ apiDoc:
       title: Create Headless Site
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/manage-oauth-apps.md
+      title: Manage OAuth Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps
+      tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/site-import.md
       title: Site Import
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
