@@ -146,7 +146,7 @@ curl -X POST 'https://www.wixapis.com/oauth2/token' \
   -d '{ "clientId": "<clientId>", "grantType": "refresh_token", "refreshToken": "<refreshToken>" }'
 ```
 
-Use the `access_token` as the `Authorization` header on subsequent API calls — Wix expects the raw token value, **not** `Bearer <token>`.
+Use the `access_token` as the `Authorization` header on subsequent API calls.
 
 > **Never re-mint anonymous on every load.** The visitor token is the cart/session identity — a fresh anonymous mint creates a new visitor and silently empties the cart. Persist the `refresh_token` and use it to renew.
 
