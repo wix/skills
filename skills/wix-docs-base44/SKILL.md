@@ -37,7 +37,7 @@ const docs = (() => { const m = { exports: {} };
 (The module must be on disk first — `bootstrap.md` is the paste-ready bootstrap that installs
 this skill into the app via `npx skills add`; after it runs, the path is
 `/app/.agents/skills/wix-docs-base44/scripts/docs.js`. When installing is not an option — no
-network to GitHub, or a one-shot paste — `references/one-file.md` is the whole skill as a single
+network to GitHub, or a one-shot paste — `references/base44-wix-discovery-execution-loop-guide-light.md` is the whole skill as a single
 self-contained prompt: every snippet a complete exec body, no module, no install, and **no disk**
 — every call fetches, reduces in memory, and returns under the result cap, so nothing ever lands
 in the app's repo.)
