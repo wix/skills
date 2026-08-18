@@ -32,7 +32,7 @@ dashboard rather than a visitor-facing site, that's most of it.
 
 ## Discover
 
-### What IS this site — the first admin call
+### What IS this site — one call answers it
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
