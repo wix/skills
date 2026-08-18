@@ -367,6 +367,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Headless Site](references/sites/create-headless-site.md)
 **Technical:** Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
+### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
+**Technical:** Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's `id` is the `client_id` for frontends connecting to the site's Wix APIs. Secret and rotation are dashboard-only.
+
 ### [Query Sites](references/sites/query-sites.md)
 **Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
 
