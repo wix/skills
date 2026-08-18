@@ -1,6 +1,6 @@
 ---
 name: "Manage OAuth Apps"
-description: Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app is the credential holder (client_id) for a frontend or external client connecting to the site's Wix APIs.
+description: Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs.
 ---
 # Manage OAuth Apps
 
@@ -119,6 +119,34 @@ curl -X PATCH \
 | `allowedRedirectUris` | Exact-match URIs for post-authentication redirect. Max 20. |
 | `allowedRedirectDomains` | Domain-level allow-list for non-auth redirects (e.g. checkout). Max 20. |
 | `applicationType` | `WEB_APP`, `MOBILE`, `OTHER` |
+
+---
+
+## Minting a Visitor Token
+
+Once you have a `client_id`, frontends use it to mint an anonymous visitor token for buyer-facing API calls.
+
+**Endpoint**: `POST https://www.wixapis.com/oauth2/token`
+
+```bash
+# Initial anonymous mint
+curl -X POST 'https://www.wixapis.com/oauth2/token' \
+  -H 'Content-Type: application/json' \
+  -d '{ "clientId": "<clientId>", "grantType": "anonymous" }'
+
+# Response: { "access_token": "...", "refresh_token": "...", "expires_in": 14400 }
+```
+
+```bash
+# Refresh (use this instead of re-minting)
+curl -X POST 'https://www.wixapis.com/oauth2/token' \
+  -H 'Content-Type: application/json' \
+  -d '{ "clientId": "<clientId>", "grantType": "refresh_token", "refreshToken": "<refreshToken>" }'
+```
+
+Use the `access_token` as the `Authorization` header on subsequent API calls — Wix expects the raw token value, **not** `Bearer <token>`.
+
+> **Never re-mint anonymous on every load.** The visitor token is the cart/session identity — a fresh anonymous mint creates a new visitor and silently empties the cart. Persist the `refresh_token` and use it to renew.
 
 ---
 
