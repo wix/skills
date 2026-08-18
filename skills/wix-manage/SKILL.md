@@ -370,7 +370,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Query Sites](references/sites/query-sites.md)
 **Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
 
-### [Read Site Context](references/sites/read-site-context.md)
+### [Read Account or Site Context](references/sites/read-site-context.md)
 **Technical:** One call that returns a site's installed apps (by display name), locale, currency, status, and catalog version. Replaces separate query-sites + list-installed-apps + site-properties calls. Use this first on any unfamiliar site to decide which management recipes to follow.
 
 ### [Site Import](references/sites/site-import.md)

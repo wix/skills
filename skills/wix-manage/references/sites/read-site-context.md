@@ -1,8 +1,8 @@
 ---
-name: "Read Site Context"
+name: "Read Account or Site Context"
 description: Probe a Wix site or account for full context in one call — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 ---
-# Read Site Context
+# Read Account or Site Context
 
 Returns a site's name, URL, status, locale/region, and all installed apps with human-readable display names.
 
