@@ -7,8 +7,8 @@ mechanics and go stale — verify before relying on one.
 **Every call: fetch → reduce in memory → return ≤ 4,000 chars.** Results clip at ~5,000. Nothing
 is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL inside exec with
 `fetch()`** — website/browser tools clip at 10,000 chars silently. Return facts, not documents; a
-big result returns a count of what was left out, and you narrow next round. One exec per round;
-timeout default 10s, up to 120 via `{timeout}`.
+big result returns a count of what was left out. One exec per round; timeout 10s, up to 120 via
+`{timeout}`.
 
 Clip guard for any big return:
 `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
