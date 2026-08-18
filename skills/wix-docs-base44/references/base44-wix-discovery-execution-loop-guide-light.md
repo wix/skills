@@ -10,8 +10,7 @@ is written to disk; state between rounds = re-fetching (~1s). **Fetch every URL 
 big result returns a count of what was left out. One exec per round; timeout 10s, up to 120 via
 `{timeout}`.
 
-Clip guard for big returns:
-`const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
+Clip guard: `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
 ## Who calls Wix
 
@@ -22,8 +21,8 @@ backend function   ──(admin token)───► wixapis.com   admin work the 
 ```
 
 Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
-frontend calls its backend from the browser. Tokens: visitor minted in client code (below);
-admin via `getConnection("wix")`.
+frontend calls its backend from the browser. Tokens: visitor minted in client code; admin via
+`getConnection("wix")`.
 
 Litmus, in file paths: a visitor-facing site is `src/lib/wixClient.js` (mint + call helpers) and
 pages that call it — **zero `base44/functions/*` on the visitor path**; those carry only what the
