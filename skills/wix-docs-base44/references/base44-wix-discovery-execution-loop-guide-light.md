@@ -10,7 +10,7 @@ is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL
 big result returns a count of what was left out. One exec per round; timeout 10s, up to 120 via
 `{timeout}`.
 
-Clip guard for any big return:
+Clip guard for big returns:
 `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
 ## Who calls Wix
@@ -48,7 +48,7 @@ return { total: markdown.length, apps: apps.slice(0, 3500) };
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS
-collections. `200` with `markdown: ""` = bad token or siteId, never an empty site.
+collections. `markdown: ""` = bad token or siteId, never an empty site.
 
 ### Find the page
 
