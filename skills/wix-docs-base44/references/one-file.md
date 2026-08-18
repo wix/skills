@@ -1,19 +1,19 @@
-# Wix APIs from the Base44 sandbox — one-file edition
+# Wix APIs from the Base44 sandbox — one-file, zero-disk edition
 
 **Discover everything.** Endpoints, paths, doc URLs, request bodies, response fields — all come
 from the calls below, never from memory or pattern. A 404 or empty result means discover, not
 permute. The examples teach mechanics and go stale — verify before relying on one.
 
-Tool results clip at ~5,000 chars. **Return facts, not documents**: filter and project *inside*
-exec, return slices, iterate. Save to `.agents/scratch/` only *documents* (never API responses);
-read them back with `read_file` at the exact returned path. One exec per round; timeout default
-10s, pass `timeout` up to 120 for one big fetch.
+**One invariant: every call is fetch → reduce in memory → return ≤ 4,000 chars.** Tool results
+clip at ~5,000; nothing is ever written to disk — no scratch files, nothing lands in the app's
+repo. State between rounds is re-fetching (docs pages take ~1s). Return facts, not documents:
+filter and project inside exec, and when a result would be big, return a *count of what you left
+out* and narrow on the next round. One exec per round; timeout default 10s, up to 120 via
+`{timeout}` for one big fetch.
 
-Every snippet below is a complete exec_tool body. Shared clip guard — end any snippet that might
-return big with:
+The clip guard — end any snippet that might return big with:
 
 ```js
-const out = /* whatever you built */;
 const s = JSON.stringify(out);
 return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;
 ```
@@ -35,13 +35,16 @@ const r = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-c
   body: JSON.stringify({ siteId: WIX_SITE_ID }),
 });
 const { markdown } = await r.json();
-return { total: markdown.length, head: markdown.slice(0, 4000) };
+// big report? extract the section you need instead of paging blind:
+const apps = (markdown.match(/### Apps[\s\S]*?(?=\n### |$)/) || [markdown.slice(0, 3500)])[0];
+return { total: markdown.length, apps: apps.slice(0, 3500) };
 ```
 
 One markdown report: installed apps **with their ids** (the Stores appId `catalogReference` needs,
 and its catalog version — V1 vs V3 decides every Stores endpoint), the OAuth app id (**which is
-also the visitor `clientId`**), locale, currency, CMS collections. A `200` with `markdown: ""`
-means bad token or siteId — never "empty site".
+also the visitor `clientId`**), locale, currency, CMS collections. Need another section next
+round? Same call, different regex — or `markdown.slice(4000, 8000)` to page. A `200` with
+`markdown: ""` means bad token or siteId — never "empty site".
 
 ## 1. Find the page
 
@@ -59,46 +62,35 @@ const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/brow
 return (await r.json()).content;   // null/404 ⇒ not a docs node — re-orient a level up
 ```
 
-**Don't know where it lives? Search (ranks, never matches).** It always returns its best guess —
-a wrong-product hit looks confident; absence is only provable by enumeration (§3):
+**Don't know where it lives? Search (ranks, never matches).** Reduce the response to hits in
+memory — titles and URLs, never the raw content:
 
 ```js
-const fs = require("fs"); fs.mkdirSync("/app/.agents/scratch", { recursive: true });
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ search_term: "cancel a booking and refund the customer",
     document_type: "REST",   // SDK | WIX_HEADLESS | VELO | BUILD_APPS | CLI …
-    maximum_results: 5, lines_in_each_result: 20 }),
+    maximum_results: 5, lines_in_each_result: 6 }),
 });
 const { content } = await r.json();
-fs.writeFileSync("/app/.agents/scratch/search-1.md", content);
-const urls = [...new Set(content.match(/https:\/\/dev\.wix\.com\/docs\/[^\s)"'\]]+/g) || [])];
-return { path: ".agents/scratch/search-1.md", bytes: content.length, urls: urls.slice(0, 20) };
+return { hits: [...content.matchAll(/#### \[([^\]]+)\]\((https:[^)]+)\)/g)]
+                 .map(m => ({ title: m[1].split(".").pop(), url: m[2] })) };
 ```
 
-Then switch to browsing the subtree a hit names.
+Drop hits from other products (read each URL's vertical); a wrong-product hit looks confident.
+Absence is only provable by enumeration (§3). Then switch to browsing the subtree a hit names.
 
-## 2. Fetch a doc page — always `.md`
+## 2. Read a doc page — fetch and map in ONE call, nothing saved
 
-Without the suffix the portal serves a multi-MB HTML shell (`create-draft-post`: 5.3 MB as HTML,
-414 KB as `.md`):
+Always append **`.md`** (without it the portal serves a multi-MB HTML shell: `create-draft-post`
+is 5.3 MB as HTML, 414 KB as `.md`). Method pages are 100 KB+ with **twin REST and SDK halves
+repeating the same field names at different types** — so never return the page: map it.
 
 ```js
-const fs = require("fs"); fs.mkdirSync("/app/.agents/scratch", { recursive: true });
 const url = "https://dev.wix.com/docs/…/cancel-booking";        // from browse/search output
 const res = await fetch(url.replace(/\.md$/, "") + ".md");
 if (!res.ok) return { status: res.status, hint: "not a docs page — take URLs from output, don't compose" };
-const body = await res.text();
-fs.writeFileSync("/app/.agents/scratch/cancel-booking.md", body);
-return { path: ".agents/scratch/cancel-booking.md", bytes: body.length };
-```
-
-Articles are small — `read_file` whole. Method pages are 100 KB+ with **parallel REST and SDK
-halves repeating the same field names at different types** — map before reading:
-
-```js
-const fs = require("fs");
-const lines = fs.readFileSync("/app/.agents/scratch/cancel-booking.md", "utf8").split("\n");
+const lines = (await res.text()).split("\n");
 const hits = [];
 lines.forEach((text, i) => {
   if (/^#{1,3} /.test(text) || /refund/i.test(text))            // headers always; term of interest
@@ -108,9 +100,18 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
          omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
 ```
 
-`omitted > 0` ⇒ narrow the term, map again. Then `read_file` with `offset`/`limit` around the hit
-lines. Header-to-header distances are section windows; a section spanning ≤3 lines is a container —
-read its children. Know which `##` half (REST vs SDK) you're under before quoting.
+`omitted > 0` ⇒ narrow the term, map again. The headers in the hit list tell you which `##` half
+(REST vs SDK) each hit sits in — quote only your half. No term at all = the outline: header-to-
+header distances are the section windows.
+
+**Next round, window the exact lines** (same fetch, slice instead of grep — ~45 lines fits the
+budget; iterate for more):
+
+```js
+const url = "https://dev.wix.com/docs/…/cancel-booking";
+const lines = (await (await fetch(url + ".md")).text()).split("\n");
+return lines.slice(37, 47).map((t, i) => (38 + i) + ": " + t.slice(0, 110)).join("\n");
+```
 
 ## 3. The spec index — endpoints and exact schemas
 
@@ -160,10 +161,12 @@ A method's request fields — names and types only, drill next round, `$circular
 }`
 ```
 
+Schemas are huge; a clipped `{ truncated }` result means the query missed the shape or returned
+too much — refine it, never re-run it as-is.
+
 ## 4. Call it
 
-Admin, from a contract you discovered — clip the response, never save it (API responses are the
-user's data; scratch is committed with the app):
+Admin, from a contract you discovered — project the response down to the facts you need, in code:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -174,10 +177,10 @@ const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   
 });
 const text = await r.text();
 if (!r.ok) return { status: r.status, error: text.slice(0, 300) };
-return text.length > 4000
-  ? { status: r.status, truncated: true, total: text.length, head: text.slice(0, 4000),
-      hint: "narrow: filters, cursor paging, fewer fields" }
-  : { status: r.status, json: JSON.parse(text) };
+const data = JSON.parse(text);
+// project, don't dump — e.g. just names and one sample row's keys:
+return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}),
+         names: (data.contacts || []).map(c => c.name?.first).slice(0, 10) };
 ```
 
 Visitor — minted in the app's frontend code (not exec); the clientId is public, from §0's report
@@ -197,9 +200,9 @@ the site; visitor is *on* it.
 
 **Response shapes obey the discover rule too**: code against fields you saw in a live response or
 the schema — never remembered names (`priceData`, `media.items` are ghosts of old versions; probe
-one real row first).
+one real row first, exactly like the projection above).
 
-## Auth docs (fetch with §2 when needed)
+## Auth docs (map with §2 when needed)
 
 `api-reference/articles/authentication/about-identities` · `…/rest-api-authentication` ·
 `business-management/headless/authentication/retrieve-tokens` (the /oauth2/token contract) ·

@@ -38,7 +38,9 @@ const docs = (() => { const m = { exports: {} };
 this skill into the app via `npx skills add`; after it runs, the path is
 `/app/.agents/skills/wix-docs-base44/scripts/docs.js`. When installing is not an option — no
 network to GitHub, or a one-shot paste — `references/one-file.md` is the whole skill as a single
-self-contained prompt: every snippet a complete exec body, no module, no install.)
+self-contained prompt: every snippet a complete exec body, no module, no install, and **no disk**
+— every call fetches, reduces in memory, and returns under the result cap, so nothing ever lands
+in the app's repo.)
 
 | call | does | returns |
 |---|---|---|
