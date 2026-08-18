@@ -5,7 +5,7 @@ calls below, never from memory or pattern. 404 or empty ⇒ discover, not permut
 mechanics and go stale — verify before relying.
 
 **Every call: fetch → reduce in memory → return ≤ 4,000 chars.** Results clip at ~5,000. Nothing
-is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL inside exec with
+is written to disk; state between rounds = re-fetching (~1s). **Fetch every URL inside exec with
 `fetch()`** — website/browser tools clip at 10,000 chars silently. Return facts, not documents; a
 big result returns a count of what was left out. One exec per round; timeout 10s, up to 120 via
 `{timeout}`.
@@ -89,8 +89,8 @@ const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
 return { total: content.length, hits };   // hits often ARE the answer
 ```
 
-Go deeper only for fields, enums, or absence — only the spec index proves absence. Drop hits
-from other products.
+Go deeper for fields, enums, or absence — only the spec index proves absence. Drop
+wrong-product hits.
 
 ### Read a doc page — fetch + map in ONE call
 
@@ -115,7 +115,7 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
 No term = the outline; header-to-header = section windows.
 
 **Window the REST example FIRST** — under `### Examples` below `## REST API` sits a complete
-working request (URL, headers, real-format body): usually all you need. Window it with the same
+working request (URL, headers, body): usually all you need. Window it with the same
 fetch, sliced to the map's line numbers: `lines.slice(a, b).map((t, i) => (a + 1 + i) + ": " + t.slice(0, 110)).join("\n")`.
 
 ### The spec index — endpoints, exact schemas
