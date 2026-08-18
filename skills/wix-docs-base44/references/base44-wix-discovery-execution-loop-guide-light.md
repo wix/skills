@@ -25,9 +25,11 @@ Headless means the Wix site has no pages of its own — **your app IS its fronte
 frontend calls its backend from the browser. Tokens: visitor minted in client code (below);
 admin via `getConnection("wix")`.
 
-Litmus: writing a backend function that a page calls to reach Wix? If the page serves the site's
-*visitors*, stop — that call belongs in the browser, on the visitor token. Backend functions carry
-what the app does *as the site's owner* — for a management dashboard, that's most of the app.
+Litmus, in file paths: a visitor-facing site is `src/lib/wixClient.js` (mint + call helpers) and
+pages that call it — **zero `base44/functions/*` on the visitor path**; those carry only what the
+app does *as the site's owner* (for a management dashboard, that's most of the app). Writing a
+backend function a page calls to reach Wix? If the page serves visitors, that call belongs in the
+browser.
 
 ## Gather context
 
@@ -171,9 +173,9 @@ const data = await r.json();   // project, don't dump:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
 
-Backend functions are this lane, deployed: same token, same calls — admin work the app does at
-runtime. **Response shapes obey the discover rule too**: code against fields you saw in a live
-response or the schema — remembered names are often from older versions. Probe one real row first.
+Backend functions are this lane, deployed: same token, same calls. **Response shapes obey the
+discover rule too**: code against fields you saw in a live response or the schema — remembered
+names are often from older versions. Probe one real row first.
 
 ### The visitor token — client code
 
