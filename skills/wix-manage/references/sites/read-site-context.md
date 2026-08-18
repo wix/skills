@@ -1,6 +1,6 @@
 ---
 name: "Read Site Context"
-description: One-call site snapshot — installed apps (by name), locale, currency, and status — using the Dynamic Site Context API. Replaces separate query-sites + list-installed-apps + site-properties calls.
+description: Single-call site snapshot via the Dynamic Site Context API — returns installed apps by display name, locale, currency, timezone, and status. Works with account-level or site-scoped tokens; siteId is optional.
 ---
 # Read Site Context
 
@@ -8,24 +8,13 @@ A single call that returns a site's name, URL, status, locale/region settings, a
 
 Works with both account-level and site-scoped tokens. Passing a `siteId` is optional.
 
-## Required APIs
-
-- **Get Dynamic Context (markdown)**: [docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown)
-- **Get Dynamic Context (JSON)**: [docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context)
-
-Related:
-
-- [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites) — when you need to page through many sites or filter by field
-- [Get Installed Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps) — raw app instances; use this if you need fields not in the context snapshot
-- [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) — full properties object including business description, address, social links
-
 ---
 
 ## Markdown endpoint (recommended)
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown`
 
-Returns `{ "markdown": "..." }` with human-readable app display names, locale, status, and any app-specific metadata the API injects (e.g. Stores catalog version). Best for reading and routing.
+Returns `{ "markdown": "..." }` with human-readable app display names, locale, status, and any app-specific metadata the API injects. Best for reading and routing.
 
 ### With a site ID — one site
 
@@ -74,7 +63,7 @@ curl -X POST \
   -d '{}'
 ```
 
-- **Account-level token**: returns up to 10 sites on the account. If there are more, the markdown includes: `_Showing 10 sites (more available)_` with a note to call again with a specific `siteId`.
+- **Account-level token**: returns up to 10 sites on the account. If there are more, the markdown includes `_Showing 10 sites (more available)_` with a note to call again with a specific `siteId`.
 - **Site-scoped token** (e.g. the Wix connector in Base44): returns only the site the token is scoped to — useful as a quick way to confirm which site you're operating on before making changes.
 
 ---
@@ -131,20 +120,10 @@ Prefer the markdown endpoint when you just need to read and route — it gives y
 
 ---
 
-## Why use this over separate calls
+## API Reference
 
-| | Dynamic Context | Separate calls |
-|---|---|---|
-| Site name, URL, status | ✓ | [Query Sites](query-sites.md) |
-| Locale + currency | ✓ | [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) |
-| Installed apps (by name) | ✓ | [Get Installed Apps](../app-installation/list-installed-apps.md) + ID lookup |
-| Calls needed | **1** | 3+ |
-
----
-
-## Next Steps
-
-- Found Wix Stores? → [Stores recipes](../../SKILL.md#stores)
-- Found Wix Bookings? → [Bookings recipes](../../SKILL.md#bookings)
-- Found Wix Blog? → [Blog recipes](../../SKILL.md#blog)
-- Need to find the site ID first? → [Query Sites](query-sites.md)
+- [Get Dynamic Context — markdown](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown)
+- [Get Dynamic Context — JSON](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context)
+- [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites) — for paginating or filtering the full site list
+- [Get Installed Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps) — raw app instances with fields not in the context snapshot
+- [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) — full properties including business description, address, social links
