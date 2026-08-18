@@ -278,14 +278,13 @@ The authentication docs, all fetchable with `docs.fetchDoc`:
 ## 7. Special APIs worth knowing
 
 **Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
-whole site: installed apps, status, URL, locale.
+whole site: site ID, installed apps, status, URL, locale, site properties.
 
 ```js
 await docs.callApi({
   url: "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
   token: accessToken,
-  body: {},            // siteId optional — site token returns that site; account token returns up to 10,
-                       // each with its ID, so you can call again with { siteId } to target one
+  body: {},            // siteId optional — site token returns that site; account token returns up to 10
 })
 ```
 
