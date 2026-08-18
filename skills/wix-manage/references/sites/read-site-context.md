@@ -9,7 +9,7 @@ A single call that returns a site's name, URL, status, locale/region settings, a
 ## Prerequisites
 
 - Account-level authentication (the same token used for all other Wix management APIs)
-- Site ID (`metaSiteId`) — typically in your prompt or found via [Query Sites](query-sites.md)
+- Site ID is optional — omit it to get all account sites at once
 
 ## Required APIs
 
@@ -17,11 +17,14 @@ A single call that returns a site's name, URL, status, locale/region settings, a
 
 ---
 
-## Call
+## Markdown endpoint (recommended)
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown`
 
-**Request**:
+Returns `{ "markdown": "..." }` — human-readable app display names, locale, status, and Wix Stores catalog version. This is the preferred form for reading and routing.
+
+### With a site ID — single site
+
 ```bash
 curl -X POST \
   'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
@@ -30,13 +33,7 @@ curl -X POST \
   -d '{"siteId": "<metaSiteId>"}'
 ```
 
-Omit `siteId` to get a snapshot of all sites on the account.
-
----
-
-## Response
-
-Returns `{ "markdown": "..." }`. The markdown contains:
+Response:
 
 ```
 ## 1. Harbor and Oak
@@ -58,14 +55,87 @@ Returns `{ "markdown": "..." }`. The markdown contains:
 
 ### Apps
 
-- **Promote SEO** (ID: `1480c568-5cbd-9392-5604-1148f5faffa0`)
-- **Wix Invoices** (ID: `13ee94c1-b635-8505-3391-97919052c16f`)
-- **Wix Stores** (ID: `215238eb-22a5-4c36-9e7b-e7c08025e04e`) — Catalog app version: **V3**
+- **Promote SEO** (ID: `1480c568-...`)
+- **Wix Invoices** (ID: `13ee94c1-...`)
+- **Wix Stores** (ID: `215238eb-...`) — Catalog app version: **V3**
 ```
 
-App names are display names (not raw UUIDs). Some apps include extra metadata — Wix Stores shows the catalog version (V1/V3), which determines which endpoints to use.
+App names are human-readable display names. Wix Stores entries include the catalog version (V1/V3).
 
-The API also injects global notes at the top of the markdown when relevant — for example, a Wix Stores catalog-version warning when any site has Stores installed.
+### Without a site ID — all account sites
+
+```bash
+curl -X POST \
+  'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Returns up to 10 sites. If the account has more, the markdown includes a note:
+
+```
+_Showing 10 sites (more available)_
+
+> **This account has more than the 10 sites shown above.** To load context for any
+> site not listed here, call `GetSiteContext` with its `siteName` or `siteId`.
+```
+
+Use this when you have an account-level token and need to discover what sites exist before picking one to act on. Use the single-site form once you have the target `siteId`.
+
+---
+
+## JSON endpoint
+
+**Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context`
+
+Same request shape (`{}` or `{"siteId": "..."}`) but returns structured JSON. The `installedApps` array contains raw `appId` UUIDs — most are unrecognizable platform internals. Extract only what you need:
+
+```javascript
+const res = await fetch(
+  "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context",
+  {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ siteId: metaSiteId }),
+  }
+);
+const { sites } = await res.json();
+const site = sites[0];
+
+// Known app IDs worth checking
+const APP_IDS = {
+  stores:       "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+  bookings:     "13d21c63-b5ec-5912-8397-c3a5ddb27a97",
+  blog:         "14bcded7-0066-7c35-14d7-466cb3f09103",
+  events:       "140603ad-af8d-84a5-2c80-a0f60cb47351",
+  pricingPlans: "1522827f-c56c-a5c9-2ac9-00f9e6ae12d3",
+  restaurants:  "13e8d036-5516-6f75-e025-2aca3b5d7930",
+};
+
+const appById = Object.fromEntries(
+  (site.installedApps ?? []).map((a) => [a.appId, a])
+);
+
+const context = {
+  id:       site.id,
+  name:     site.displayName,
+  url:      site.url,
+  currency: site.properties?.paymentCurrency,
+  locale:   `${site.properties?.locale?.languageCode}-${site.properties?.locale?.country}`,
+  timezone: site.properties?.timeZone,
+  // vertical flags
+  hasStores:       !!appById[APP_IDS.stores],
+  storesCatalogV:  appById[APP_IDS.stores]?.catalogVersion ?? null, // "V3" | "V1" | null
+  hasBookings:     !!appById[APP_IDS.bookings],
+  hasBlog:         !!appById[APP_IDS.blog],
+  hasEvents:       !!appById[APP_IDS.events],
+  hasPricingPlans: !!appById[APP_IDS.pricingPlans],
+  hasRestaurants:  !!appById[APP_IDS.restaurants],
+};
+```
+
+Prefer the markdown endpoint when you just need to read and route — it gives you display names without a lookup table and is easier to reason about.
 
 ---
 
@@ -77,47 +147,6 @@ The API also injects global notes at the top of the markdown when relevant — f
 | Locale + currency | ✓ | site-properties |
 | Installed apps (by name) | ✓ | list-installed-apps + ID lookup |
 | Calls needed | **1** | 3+ |
-
-`list-installed-apps` returns raw `appDefId` UUIDs; this endpoint returns human-readable display names.
-
----
-
-## Use Cases
-
-### Understand an unfamiliar site before acting
-
-```javascript
-const res = await fetch(
-  "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
-  {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ siteId: metaSiteId }),
-  }
-);
-const { markdown } = await res.json();
-// Read markdown to learn what apps are installed, locale, and site status
-```
-
-### Decide which vertical to manage
-
-If the prompt is vague about what the site does, read the site context first — the installed apps list tells you which Wix Business Solution is active (Stores, Bookings, Blog, Events, etc.) and which management recipes to follow.
-
-### Determine Wix Stores catalog version before any stores call
-
-Check whether Stores shows `Catalog app version: V3` or `V1` before using stores endpoints:
-- V3 sites: use `/stores/v3/` endpoints and V3 catalog recipes
-- V1 sites: use `/stores/v1/` (legacy) endpoints and V1 catalog recipes — never mix
-
----
-
-## JSON variant
-
-Replace `/markdown` with the bare endpoint to get structured JSON instead:
-
-**Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context`
-
-The JSON response includes an `account` object plus a `sites` array. App entries contain raw `appId` strings (not display names), so the markdown variant is preferred for reading.
 
 ---
 
