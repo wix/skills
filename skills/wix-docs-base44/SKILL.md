@@ -36,7 +36,11 @@ const docs = (() => { const m = { exports: {} };
 
 (The module must be on disk first — `bootstrap.md` is the paste-ready bootstrap that installs
 this skill into the app via `npx skills add`; after it runs, the path is
-`/app/.agents/skills/wix-docs-base44/scripts/docs.js`.)
+`/app/.agents/skills/wix-docs-base44/scripts/docs.js`. When installing is not an option — no
+network to GitHub, or a one-shot paste — `references/base44-wix-discovery-execution-loop-guide-light.md` is the whole skill as a single
+self-contained prompt: every snippet a complete exec body, no module, no install, and **no disk**
+— every call fetches, reduces in memory, and returns under the result cap, so nothing ever lands
+in the app's repo.)
 
 | call | does | returns |
 |---|---|---|
@@ -140,7 +144,10 @@ docs.sections("cancel-booking")
       ### cancelBooking        offset 401, limit   9    camelCase = SDK snippet
 ```
 
-Know which `##` you are under before quoting anything.
+Know which `##` you are under before quoting anything. And **window the REST example first** —
+the `### Examples` row under `## REST API` (English title = curl) is a complete working request:
+exact URL, headers, and a body with real-format values. Model the call from it; read schema
+windows only for what the example leaves out (optional params, enums, validations).
 
 ## 4. Establish absence
 
