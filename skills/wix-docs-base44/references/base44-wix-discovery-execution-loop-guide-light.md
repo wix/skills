@@ -10,7 +10,7 @@ is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL
 big result returns a count of what was left out, and you narrow next round. One exec per round;
 timeout default 10s, up to 120 via `{timeout}`.
 
-Clip guard for any snippet that might return big:
+Clip guard for any big return:
 `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
 ## Who calls Wix
@@ -22,12 +22,12 @@ backend function   ──(admin token)───► wixapis.com   admin work the 
 ```
 
 Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
-frontend calls its backend from the browser. Visitor token: minted in frontend code from the
-public `clientId` (§4). Admin token: `getConnection("wix")` as in §0.
+frontend calls its backend from the browser. Visitor token: minted in frontend code (§5). Admin
+token: `getConnection("wix")` (§0).
 
-Litmus: about to write a backend function that a page calls to reach Wix? If the page serves the
-site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend functions
-carry admin calls: things the app does *as the site's owner* — and if the app is a management
+Litmus: about to write a backend function that a page calls to reach Wix? If the page serves
+the site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend
+functions carry what the app does *as the site's owner* — and if the app is a management
 dashboard rather than a visitor-facing site, that's most of it.
 
 ## 0. First admin call — what IS this site
@@ -39,19 +39,19 @@ const r = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-c
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   body: JSON.stringify({ siteId: WIX_SITE_ID }),
 });
-const { markdown } = await r.json();   // big? extract a section, not the whole report:
+const { markdown } = await r.json();   // big? extract a section, don't page blind:
 const apps = (markdown.match(/### Apps[\s\S]*?(?=\n### |$)/) || [markdown.slice(0, 3500)])[0];
 return { total: markdown.length, apps: apps.slice(0, 3500) };
 ```
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
-endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
-`200` with `markdown: ""` = bad token or siteId.
+endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS
+collections. `200` with `markdown: ""` = bad token or siteId, never an empty site.
 
 ## 1. Find the page
 
 **Know the product? Browse (deterministic).** Orient with counts, then filter — unfiltered
-vertical listings clip:
+listings clip:
 
 ```js
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
@@ -79,19 +79,18 @@ const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
   method:   (b.match(/^# Method: (.+)$/m) || [])[1],
   endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable as-is
   docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
-  gist:     ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
-              .trim().replace(/\s+/g, " ").slice(0, 220),
+  gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "").trim().replace(/\s+/g, " ").slice(0, 220),
 })).filter(h => h.docsUrl);
-return { total: content.length, hits };
+return { total: content.length, hits };   // hits often ARE the answer
 ```
 
-For "how do I call X?" the hits often ARE the answer. Go deeper for fields, enums, or absence —
-which only enumeration proves (§3). Drop hits from other products.
+Go deeper only for fields, enums, or absence — which only enumeration proves (§3). Drop hits
+from other products.
 
 ## 2. Read a doc page — fetch and map in ONE call
 
-Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin REST
-and SDK halves repeating field names at different types — never return the page:
+Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin
+REST and SDK halves repeating field names at different types — never return the page:
 
 ```js
 const url = "https://dev.wix.com/docs/…/cancel-booking";   // from browse/search output
@@ -107,18 +106,12 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
          omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
 ```
 
-`omitted > 0` ⇒ narrow, map again. Headers say which `##` half each hit sits in — quote only
-yours. No term = the outline; header-to-header = section windows.
+`omitted > 0` ⇒ narrow, map again. Headers say which `##` half each hit is in — quote only yours.
+No term = the outline; header-to-header = section windows.
 
-**Window the REST example FIRST** — under `### Examples` below `## REST API`: a complete working
-request, usually all you need. Same fetch, sliced:
-
-```js
-const url = "https://dev.wix.com/docs/…/check-in-ticket";
-const lines = (await (await fetch(url + ".md")).text()).split("\n");
-return lines.slice(95, 113).map((t, i) => (96 + i) + ": " + t.slice(0, 110)).join("\n");
-// → the method's complete curl: URL, headers, real-format body
-```
+**Window the REST example FIRST** — under `### Examples` below `## REST API` sits a complete
+working request (URL, headers, real-format body): usually all you need. Window it with the same
+fetch, sliced to the map's line numbers: `lines.slice(a, b).map((t, i) => (a + 1 + i) + ": " + t.slice(0, 110)).join("\n")`.
 
 ## 3. The spec index — endpoints and exact schemas
 
@@ -128,16 +121,16 @@ In scope:
 ```typescript
 lightIndex: Array<{   // RESOURCES, not methods
   name; docsUrl; menuPath: string[]
-  methods: Array<{ operationId,   // fully qualified: "wix.contacts.v5.Contacts.QueryContacts"
+  methods: Array<{ operationId,   // fully qualified — never filter by resource name on it
     summary, httpMethod,
-    path,        // PARTIAL ("/v5/contacts/query") — never call it
-    publicUrl,   // "https://www.wixapis.com/contacts/v5/contacts/query" — call THIS
+    path,        // PARTIAL — never call it
+    publicUrl,   // the callable https://www.wixapis.com/… URL — call THIS
     docsUrl }> }>
 getResourceSchemaByUrl(docsUrl)   // full schema; API method pages only
 ```
 
-Inspect, don't discover: arrive with a `docsUrl`, match by it. A resource's methods with callable
-URLs — also the proof an API does NOT exist (say what you enumerated):
+Inspect, don't discover: arrive with a `docsUrl`, match by it. A resource's methods with
+callable URLs — also the only proof an API does NOT exist:
 
 ```js
 const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
@@ -153,13 +146,13 @@ const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
 return (await r.json()).result;
 ```
 
-Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → the schema at
+Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema at
 `m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
-round; `{ "$circular": "<name>" }` resolves via `s.components.schemas["<name>"]`.
+round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
 
-## 4. Call it
+## 4. Call it (admin, from exec)
 
-Admin — project the response to facts, in code:
+The admin token is the connector's (§0). Project the response to facts:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -173,23 +166,27 @@ const data = await r.json();   // project, don't dump:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
 
-Visitor — minted in the app's frontend (not exec); clientId is public, from §0's report:
+**Response shapes obey the discover rule too**: before coding against a field name, see it in a
+live response or the schema — remembered names are often from older API versions. Probe one real
+row first, like the projection above.
+
+## 5. The visitor token (app code, not exec)
+
+Neither `clientId` nor the minted token is a secret — together they are "an anonymous visitor",
+safe in shipped frontend code:
 
 ```js
-// src/lib/wixClient.js
+// src/lib/wixClient.js — ships with the app
 const res = await fetch("https://www.wixapis.com/oauth2/token", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ clientId: WIX_CLIENT_ID, grantType: "anonymous" }),
 });
-const { access_token } = await res.json();   // the end user's bearer
+const { access_token, refresh_token, expires_in } = await res.json();   // expires_in: 14400 (4h)
 ```
 
-**Response shapes obey the discover rule too**: code against fields you saw in a live response
-or the schema — `priceData` and `media.items` are ghosts of old versions; probe one real row
-first, like the projection above.
+On expiry exchange `refresh_token` (`grantType: "refresh_token"`) — a fresh anonymous mint is a
+NEW visitor and the old one's cart goes with it. Contract: `…/headless/authentication/retrieve-tokens`.
 
 ## More
 
-Auth docs (map with §2): `api-reference/articles/authentication/about-identities` ·
-`business-management/headless/authentication/retrieve-tokens`. Site management: `wix-manage` —
-`https://www.wix.com/skills/wix-manage`.
+Site management: `wix-manage` — `https://www.wix.com/skills/wix-manage`.
