@@ -51,7 +51,7 @@ endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency
 
 ## Learn Wix — discover APIs in the docs
 
-### Find the page
+### Find what to read
 
 **Know the product? Browse (deterministic).** Orient with counts, then filter — unfiltered
 listings clip:
