@@ -12,12 +12,6 @@ When a headless site is provisioned it gets one OAuth app automatically (see [Cr
 
 ---
 
-## Prerequisites
-
-- Site-level authentication with `SCOPE.OAUTH_APP.MANAGE` permission
-
----
-
 ## Create an OAuth App
 
 **Endpoint**: `POST https://www.wixapis.com/oauth-app/v1/oauth-apps`
