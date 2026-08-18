@@ -284,7 +284,8 @@ whole site: installed apps, status, URL, locale.
 await docs.callApi({
   url: "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
   token: accessToken,
-  body: {},            // siteId optional — site token returns that site; account token returns up to 10
+  body: {},            // siteId optional — site token returns that site; account token returns up to 10,
+                       // each with its ID, so you can call again with { siteId } to target one
 })
 ```
 
