@@ -6,14 +6,18 @@ description: One-call site snapshot — installed apps (by name), locale, curren
 
 A single call that returns a site's name, URL, status, locale/region settings, and all installed apps with human-readable display names. Use this at the start of any management task when you need to understand what a site has installed and how it is configured.
 
-## Prerequisites
-
-- Account-level authentication (the same token used for all other Wix management APIs)
-- Site ID is optional — omit it to get all account sites at once
+Works with both account-level and site-scoped tokens. Passing a `siteId` is optional.
 
 ## Required APIs
 
-- **Dynamic Site Context API**: [Get Dynamic Context Markdown](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md)
+- **Get Dynamic Context (markdown)**: [docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown)
+- **Get Dynamic Context (JSON)**: [docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context)
+
+Related:
+
+- [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites) — when you need to page through many sites or filter by field
+- [Get Installed Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps) — raw app instances; use this if you need fields not in the context snapshot
+- [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) — full properties object including business description, address, social links
 
 ---
 
@@ -21,9 +25,9 @@ A single call that returns a site's name, URL, status, locale/region settings, a
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown`
 
-Returns `{ "markdown": "..." }` — human-readable app display names, locale, status, and Wix Stores catalog version. This is the preferred form for reading and routing.
+Returns `{ "markdown": "..." }` with human-readable app display names, locale, status, and any app-specific metadata the API injects (e.g. Stores catalog version). Best for reading and routing.
 
-### With a site ID — single site
+### With a site ID — one site
 
 ```bash
 curl -X POST \
@@ -36,33 +40,31 @@ curl -X POST \
 Response:
 
 ```
-## 1. Harbor and Oak
+## 1. Acme Store
 
-**ID**: `5e0eed94-9982-49da-a980-08fa2cd4a198`
-**URL**: [https://h6s-410bd0d161d8fc-ayalg5.wix-site-host.com/](...)
+**ID**: `<metaSiteId>`
+**URL**: [https://example.wixsite.com/acme](https://example.wixsite.com/acme)
 **Status**: Published
 **Editor Type**: Editorless
-**Created**: Aug 16, 2026, 18:46 · **Updated**: Aug 17, 2026, 13:10
+**Created**: Aug 14, 2026, 05:21 · **Updated**: Aug 17, 2026, 20:44
 **Velo**: Enabled
 
 ### Properties
 
 **Locale & Region**
 - Language: **en**
-- Country: **IE**
-- Timezone: **Europe/Dublin**
-- Currency: **EUR**
+- Country: **US**
+- Timezone: **America/New_York**
+- Currency: **USD**
 
 ### Apps
 
-- **Promote SEO** (ID: `1480c568-...`)
-- **Wix Invoices** (ID: `13ee94c1-...`)
-- **Wix Stores** (ID: `215238eb-...`) — Catalog app version: **V3**
+- **Wix Stores** (ID: `215238eb-22a5-4c36-9e7b-e7c08025e04e`) — Catalog app version: **V3**
+- **Wix Bookings** (ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
+- **Wix Blog** (ID: `14bcded7-0066-7c35-14d7-466cb3f09103`)
 ```
 
-App names are human-readable display names. Wix Stores entries include the catalog version (V1/V3).
-
-### Without a site ID — all account sites
+### Without a site ID — what you get depends on the token
 
 ```bash
 curl -X POST \
@@ -72,16 +74,8 @@ curl -X POST \
   -d '{}'
 ```
 
-Returns up to 10 sites. If the account has more, the markdown includes a note:
-
-```
-_Showing 10 sites (more available)_
-
-> **This account has more than the 10 sites shown above.** To load context for any
-> site not listed here, call `GetSiteContext` with its `siteName` or `siteId`.
-```
-
-Use this when you have an account-level token and need to discover what sites exist before picking one to act on. Use the single-site form once you have the target `siteId`.
+- **Account-level token**: returns up to 10 sites on the account. If there are more, the markdown includes: `_Showing 10 sites (more available)_` with a note to call again with a specific `siteId`.
+- **Site-scoped token** (e.g. the Wix connector in Base44): returns only the site the token is scoped to — useful as a quick way to confirm which site you're operating on before making changes.
 
 ---
 
@@ -89,7 +83,7 @@ Use this when you have an account-level token and need to discover what sites ex
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context`
 
-Same request shape (`{}` or `{"siteId": "..."}`) but returns structured JSON. The `installedApps` array contains raw `appId` UUIDs — most are unrecognizable platform internals. Extract only what you need:
+Same request shape but returns structured JSON. The `installedApps` array contains raw `appId` UUIDs — mostly unrecognizable platform internals. Extract only what you need:
 
 ```javascript
 const res = await fetch(
@@ -103,8 +97,7 @@ const res = await fetch(
 const { sites } = await res.json();
 const site = sites[0];
 
-// Known app IDs worth checking
-const APP_IDS = {
+const KNOWN_APPS = {
   stores:       "215238eb-22a5-4c36-9e7b-e7c08025e04e",
   bookings:     "13d21c63-b5ec-5912-8397-c3a5ddb27a97",
   blog:         "14bcded7-0066-7c35-14d7-466cb3f09103",
@@ -118,24 +111,23 @@ const appById = Object.fromEntries(
 );
 
 const context = {
-  id:       site.id,
-  name:     site.displayName,
-  url:      site.url,
-  currency: site.properties?.paymentCurrency,
-  locale:   `${site.properties?.locale?.languageCode}-${site.properties?.locale?.country}`,
-  timezone: site.properties?.timeZone,
-  // vertical flags
-  hasStores:       !!appById[APP_IDS.stores],
-  storesCatalogV:  appById[APP_IDS.stores]?.catalogVersion ?? null, // "V3" | "V1" | null
-  hasBookings:     !!appById[APP_IDS.bookings],
-  hasBlog:         !!appById[APP_IDS.blog],
-  hasEvents:       !!appById[APP_IDS.events],
-  hasPricingPlans: !!appById[APP_IDS.pricingPlans],
-  hasRestaurants:  !!appById[APP_IDS.restaurants],
+  id:              site.id,
+  name:            site.displayName,
+  url:             site.url,
+  currency:        site.properties?.paymentCurrency,
+  locale:          `${site.properties?.locale?.languageCode}-${site.properties?.locale?.country}`,
+  timezone:        site.properties?.timeZone,
+  hasStores:       !!appById[KNOWN_APPS.stores],
+  storesCatalogV:  appById[KNOWN_APPS.stores]?.catalogVersion ?? null, // "V3" | "V1" | null
+  hasBookings:     !!appById[KNOWN_APPS.bookings],
+  hasBlog:         !!appById[KNOWN_APPS.blog],
+  hasEvents:       !!appById[KNOWN_APPS.events],
+  hasPricingPlans: !!appById[KNOWN_APPS.pricingPlans],
+  hasRestaurants:  !!appById[KNOWN_APPS.restaurants],
 };
 ```
 
-Prefer the markdown endpoint when you just need to read and route — it gives you display names without a lookup table and is easier to reason about.
+Prefer the markdown endpoint when you just need to read and route — it gives you display names without a lookup table.
 
 ---
 
@@ -143,9 +135,9 @@ Prefer the markdown endpoint when you just need to read and route — it gives y
 
 | | Dynamic Context | Separate calls |
 |---|---|---|
-| Site name, URL, status | ✓ | query-sites |
-| Locale + currency | ✓ | site-properties |
-| Installed apps (by name) | ✓ | list-installed-apps + ID lookup |
+| Site name, URL, status | ✓ | [Query Sites](query-sites.md) |
+| Locale + currency | ✓ | [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) |
+| Installed apps (by name) | ✓ | [Get Installed Apps](../app-installation/list-installed-apps.md) + ID lookup |
 | Calls needed | **1** | 3+ |
 
 ---
