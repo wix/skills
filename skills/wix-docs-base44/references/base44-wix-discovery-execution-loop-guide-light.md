@@ -1,8 +1,8 @@
-# Wix APIs from Base44 — zero-disk discovery & execution loop
+# Wix APIs from Base44 — zero-disk
 
 **Discover everything.** Endpoints, paths, doc URLs, request and response fields — all from the
 calls below, never from memory or pattern. 404 or empty ⇒ discover, not permute. Examples teach
-mechanics and go stale — verify before relying on one.
+mechanics and go stale — verify before relying.
 
 **Every call: fetch → reduce in memory → return ≤ 4,000 chars.** Results clip at ~5,000. Nothing
 is written to disk; state between rounds is re-fetching (~1s). **Fetch every URL inside exec with
@@ -17,20 +17,19 @@ Clip guard for big returns:
 
 ```
 end user's browser ──(visitor token)─► wixapis.com   the app, at runtime
-exec_tool          ──(admin token)───► wixapis.com   you, ad hoc: probing/managing while building
-backend function   ──(admin token)───► wixapis.com   admin work the app itself does at runtime
+exec_tool          ──(admin token)───► wixapis.com   you: probing/managing while building
+backend function   ──(admin token)───► wixapis.com   admin work the app does at runtime
 ```
 
 Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
-frontend calls its backend from the browser. Visitor token: minted in frontend code (Execute).
-Admin token: `getConnection("wix")` (Discover).
+frontend calls its backend from the browser. Tokens: visitor minted in client code (below);
+admin via `getConnection("wix")`.
 
-Litmus: about to write a backend function that a page calls to reach Wix? If the page serves the
-site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend
-functions carry what the app does *as the site's owner* — and when the app is a management
-dashboard rather than a visitor-facing site, that's most of it.
+Litmus: writing a backend function that a page calls to reach Wix? If the page serves the site's
+*visitors*, stop — that call belongs in the browser, on the visitor token. Backend functions carry
+what the app does *as the site's owner* — for a management dashboard, that's most of the app.
 
-## Discover
+## Gather context
 
 ### What IS this site — one call answers it
 
@@ -47,8 +46,10 @@ return { total: markdown.length, apps: apps.slice(0, 3500) };
 ```
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
-endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS
-collections. `markdown: ""` = bad token or siteId, never an empty site.
+endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
+`markdown: ""` = bad token or siteId, never an empty site.
+
+## Learn Wix — discover APIs in the docs
 
 ### Find the page
 
@@ -79,7 +80,7 @@ const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/ma
 const { content } = await r.json();
 const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
   method:   (b.match(/^# Method: (.+)$/m) || [])[1],
-  endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable as-is
+  endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable
   docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
   gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "").trim().replace(/\s+/g, " ").slice(0, 220),
 })).filter(h => h.docsUrl);
@@ -91,8 +92,8 @@ from other products.
 
 ### Read a doc page — fetch + map in ONE call
 
-Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin
-REST and SDK halves repeating field names at different types — never return the page:
+Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin REST
+and SDK halves repeating field names at different types — never return the page, map it:
 
 ```js
 const url = "https://dev.wix.com/docs/…/cancel-booking";   // from browse/search output
@@ -152,9 +153,9 @@ Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema
 `m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
 round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
 
-## Execute
+## Write code on the APIs
 
-### Admin calls, from exec
+### Ad hoc management, from exec
 
 The admin token is the connector's. Project the response to facts:
 
@@ -170,11 +171,11 @@ const data = await r.json();   // project, don't dump:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
 
-**Response shapes obey the discover rule too**: before coding against a field name, see it in a
-live response or the schema — remembered names are often from older API versions. Probe one real
-row first, like the projection above.
+Backend functions are this lane, deployed: same token, same calls — admin work the app does at
+runtime. **Response shapes obey the discover rule too**: code against fields you saw in a live
+response or the schema — remembered names are often from older versions. Probe one real row first.
 
-### The visitor token — app code, not exec
+### The visitor token — client code
 
 Neither `clientId` nor the minted token is a secret — together they are "an anonymous visitor",
 safe in shipped code:
@@ -185,12 +186,12 @@ const res = await fetch("https://www.wixapis.com/oauth2/token", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ clientId: WIX_CLIENT_ID, grantType: "anonymous" }),
 });
-const { access_token, refresh_token, expires_in } = await res.json();   // expires_in: 14400 (4h)
+const { access_token, refresh_token, expires_in } = await res.json();   // 14400s = 4h
 ```
 
-On expiry exchange `refresh_token` (`grantType: "refresh_token"`) — a fresh anonymous mint is a
-NEW visitor and the old one's cart goes with it. Contract: `…/headless/authentication/retrieve-tokens`.
+On expiry exchange `refresh_token` (`grantType: "refresh_token"`) — a fresh mint is a NEW visitor
+and the old one's cart goes with it. Contract: `…/headless/authentication/retrieve-tokens`.
 
 ## More
 
-Site management: `wix-manage` — `https://www.wix.com/skills/wix-manage`.
+Site management: `wix-manage` — `wix.com/skills/wix-manage`.
