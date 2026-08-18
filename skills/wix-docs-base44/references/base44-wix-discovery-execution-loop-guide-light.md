@@ -18,17 +18,17 @@ Clip guard for any snippet that might return big:
 ```
 end user's browser ──(visitor token)─► wixapis.com   the app, at runtime
 exec_tool          ──(admin token)───► wixapis.com   you, ad hoc: probing/managing while building
-backend function   ──(admin token)───► wixapis.com   the app's admin ops: webhooks, owner tasks
+backend function   ──(admin token)───► wixapis.com   admin work the app itself does at runtime
 ```
 
-Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a frontend
-calls its backend from the browser. Visitor token: minted in frontend code from the public
-`clientId` (§4). Admin token: `await base44.asServiceRole.connectors.getConnection("wix")` →
-`accessToken`.
+Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
+frontend calls its backend from the browser. Visitor token: minted in frontend code from the
+public `clientId` (§4). Admin token: `getConnection("wix")` as in §0.
 
-Litmus: about to write a backend function that a page calls to reach Wix? Stop — that call belongs
-in the browser, on the visitor token. The platform's "connector token in backend functions" rule
-is about the admin token, not a reason to proxy end-user calls.
+Litmus: about to write a backend function that a page calls to reach Wix? If the page serves the
+site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend functions
+carry admin calls: things the app does *as the site's owner* — and if the app is a management
+dashboard rather than a visitor-facing site, that's most of it.
 
 ## 0. First admin call — what IS this site
 
@@ -191,5 +191,5 @@ first, like the projection above.
 ## More
 
 Auth docs (map with §2): `api-reference/articles/authentication/about-identities` ·
-`business-management/headless/authentication/retrieve-tokens`. Site management: the `wix-manage`
-skill — `https://www.wix.com/skills/wix-manage`.
+`business-management/headless/authentication/retrieve-tokens`. Site management: `wix-manage` —
+`https://www.wix.com/skills/wix-manage`.
