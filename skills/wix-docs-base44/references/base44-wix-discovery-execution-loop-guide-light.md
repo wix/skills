@@ -20,6 +20,11 @@ Clip guard for any snippet that might return big:
 | **admin** | `await base44.asServiceRole.connectors.getConnection("wix")` → `accessToken` | managing the site — ad hoc from exec, or in a backend function |
 | **visitor** | minted in the app's frontend from the public clientId | everything the end user does |
 
+**The headless paradigm:** the app's frontend calls `wixapis.com` DIRECTLY on the visitor token —
+every end-user action. Backend functions are for admin/management work only; the platform's
+"connector token in backend functions" rule is about the admin token, not a reason to proxy
+end-user calls.
+
 ## 0. First admin call — what IS this site
 
 ```js
@@ -36,13 +41,12 @@ return { total: markdown.length, apps: apps.slice(0, 3500) };
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
-Another section: same call, different regex, or `.slice(4000, 8000)`. A `200` with `markdown: ""`
-means bad token or siteId — never "empty site".
+Another section: same call, different regex. `200` with `markdown: ""` = bad token or siteId.
 
 ## 1. Find the page
 
-**Know the product? Browse (deterministic).** Orient with counts, then filter — an unfiltered
-vertical listing is ~30 KB and clips:
+**Know the product? Browse (deterministic).** Orient with counts, then filter — unfiltered
+vertical listings clip:
 
 ```js
 const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
@@ -76,13 +80,13 @@ const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
 return { total: content.length, hits };
 ```
 
-For "how do I call X?" the hits often ARE the answer. Go deeper for request fields, enums, or
-proof of absence — which only enumeration gives (§3). Drop hits from other products.
+For "how do I call X?" the hits often ARE the answer. Go deeper for fields, enums, or absence —
+which only enumeration proves (§3). Drop hits from other products.
 
 ## 2. Read a doc page — fetch and map in ONE call
 
-Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, with twin
-REST and SDK halves repeating field names at different types — never return the page:
+Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin REST
+and SDK halves repeating field names at different types — never return the page:
 
 ```js
 const url = "https://dev.wix.com/docs/…/cancel-booking";        // from browse/search output
@@ -98,11 +102,11 @@ return { lines: lines.length, shown: Math.min(hits.length, 40),
          omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
 ```
 
-`omitted > 0` ⇒ narrow, map again. Headers in the hit list say which `##` half each hit sits in —
-quote only yours. No term = the outline; header-to-header = section windows.
+`omitted > 0` ⇒ narrow, map again. Headers say which `##` half each hit sits in — quote only
+yours. No term = the outline; header-to-header = section windows.
 
 **Window the REST example FIRST** — under `### Examples` below `## REST API`: a complete working
-request, usually all you need. Schema windows cover what it leaves out. Same fetch, sliced:
+request, usually all you need. Same fetch, sliced:
 
 ```js
 const url = "https://dev.wix.com/docs/…/check-in-ticket";
@@ -127,8 +131,8 @@ lightIndex: Array<{   // RESOURCES, not methods
 getResourceSchemaByUrl(docsUrl)   // full schema; API pages only — skills/articles have none
 ```
 
-Inspect, don't discover: arrive with a `docsUrl`, match by `docsUrl`. A resource's methods with
-callable URLs — also the proof an API does NOT exist (say what you enumerated):
+Inspect, don't discover: arrive with a `docsUrl`, match by it. A resource's methods with callable
+URLs — also the proof an API does NOT exist (say what you enumerated):
 
 ```js
 const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
@@ -144,9 +148,9 @@ const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
 return (await r.json()).result;
 ```
 
-For request fields, same wrapper with `getResourceSchemaByUrl(methodDocsUrl)`: the schema sits at
-`m.requestBody.content["application/json"].schema.properties` — return names and types only, drill
-next round; a `{ "$circular": "<name>" }` stub resolves via `s.components.schemas["<name>"]`.
+Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → the schema at
+`m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
+round; `{ "$circular": "<name>" }` resolves via `s.components.schemas["<name>"]`.
 
 ## 4. Call it
 
@@ -162,8 +166,7 @@ const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   
 const text = await r.text();
 if (!r.ok) return { status: r.status, error: text.slice(0, 300) };
 const data = JSON.parse(text);
-return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}),
-         names: (data.contacts || []).map(c => c.name?.first).slice(0, 10) };
+return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
 
 Visitor — minted in the app's frontend code (not exec); the clientId is public, from §0's report:
