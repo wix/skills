@@ -1,0 +1,31 @@
+name: app-installation/uninstall-wix-portfolio-editor-presence
+description: >-
+  Verifies the agent reads the uninstall-wix-apps skill and explains how to handle
+  HAS_EDITOR_PRESENCE when removing Wix Portfolio.
+triggerPrompt: >-
+  I want to remove Wix Portfolio from my site. What REST endpoint and request body should I use,
+  and what should I do if the uninstall returns HAS_EDITOR_PRESENCE?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/uninstall-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to uninstall Wix Portfolio and how to handle HAS_EDITOR_PRESENCE.
+      Intent: surface the Apps Installer uninstall endpoint, the correct request body shape, and the non-retryable editor-cleanup precondition.
+
+      Pass if the response:
+      - identifies the Apps Installer uninstall endpoint (POST to .../apps-installer-service/v1/app-instance/uninstall), AND
+      - shows a request body with tenant.tenantType SITE, tenant.id as the site ID, and appDefId for the app to uninstall, AND
+      - says Wix Portfolio uses appDefId `d90652a2-f5a1-4c7c-84c4-d4cdcc41f130` or tells the user to verify that exact appDefId before uninstalling, AND
+      - explains that HAS_EDITOR_PRESENCE means editor pages/elements/widgets are still present and must be removed in the Editor before retrying or completing app removal, AND
+      - warns not to blindly retry the same uninstall call for HAS_EDITOR_PRESENCE.
+
+      Fail if the response:
+      - treats HAS_EDITOR_PRESENCE as an auth, missing header, endpoint, or request-body schema problem, OR
+      - recommends retrying the same uninstall call without editor cleanup, OR
+      - omits the uninstall endpoint or the SITE tenant request body, OR
+      - claims the API can remove editor pages/elements automatically.
