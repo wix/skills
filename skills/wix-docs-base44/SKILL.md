@@ -278,7 +278,7 @@ The authentication docs, all fetchable with `docs.fetchDoc`:
 ## 7. Special APIs worth knowing
 
 **Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
-whole site: installed apps, status, URL, locale, CMS collections.
+whole site: installed apps, status, URL, locale.
 
 ```js
 await docs.callApi({
