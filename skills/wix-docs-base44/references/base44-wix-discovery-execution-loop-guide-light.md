@@ -22,15 +22,17 @@ backend function   ──(admin token)───► wixapis.com   admin work the 
 ```
 
 Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
-frontend calls its backend from the browser. Visitor token: minted in frontend code (§5). Admin
-token: `getConnection("wix")` (§0).
+frontend calls its backend from the browser. Visitor token: minted in frontend code (Execute).
+Admin token: `getConnection("wix")` (Discover).
 
-Litmus: about to write a backend function that a page calls to reach Wix? If the page serves
-the site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend
-functions carry what the app does *as the site's owner* — and if the app is a management
+Litmus: about to write a backend function that a page calls to reach Wix? If the page serves the
+site's *visitors*, stop — that call belongs in the browser, on the visitor token. Backend
+functions carry what the app does *as the site's owner* — and when the app is a management
 dashboard rather than a visitor-facing site, that's most of it.
 
-## 0. First admin call — what IS this site
+## Discover
+
+### What IS this site — the first admin call
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -48,7 +50,7 @@ One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS
 collections. `200` with `markdown: ""` = bad token or siteId, never an empty site.
 
-## 1. Find the page
+### Find the page
 
 **Know the product? Browse (deterministic).** Orient with counts, then filter — unfiltered
 listings clip:
@@ -84,10 +86,10 @@ const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
 return { total: content.length, hits };   // hits often ARE the answer
 ```
 
-Go deeper only for fields, enums, or absence — which only enumeration proves (§3). Drop hits
+Go deeper only for fields, enums, or absence — only the spec index proves absence. Drop hits
 from other products.
 
-## 2. Read a doc page — fetch and map in ONE call
+### Read a doc page — fetch + map in ONE call
 
 Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin
 REST and SDK halves repeating field names at different types — never return the page:
@@ -113,7 +115,7 @@ No term = the outline; header-to-header = section windows.
 working request (URL, headers, real-format body): usually all you need. Window it with the same
 fetch, sliced to the map's line numbers: `lines.slice(a, b).map((t, i) => (a + 1 + i) + ": " + t.slice(0, 110)).join("\n")`.
 
-## 3. The spec index — endpoints and exact schemas
+### The spec index — endpoints, exact schemas
 
 `POST https://mcp.wix.com/api/code-mode/search` with `{ code: "async function(){…}" }` → `{ result }`.
 In scope:
@@ -150,13 +152,15 @@ Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema
 `m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
 round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
 
-## 4. Call it (admin, from exec)
+## Execute
 
-The admin token is the connector's (§0). Project the response to facts:
+### Admin calls, from exec
+
+The admin token is the connector's. Project the response to facts:
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   // from §3 publicUrl
+const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   // spec-index publicUrl
   method: "POST",
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   body: JSON.stringify({ query: { cursorPaging: { limit: 10 } } }),
@@ -170,10 +174,10 @@ return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {
 live response or the schema — remembered names are often from older API versions. Probe one real
 row first, like the projection above.
 
-## 5. The visitor token (app code, not exec)
+### The visitor token — app code, not exec
 
 Neither `clientId` nor the minted token is a secret — together they are "an anonymous visitor",
-safe in shipped frontend code:
+safe in shipped code:
 
 ```js
 // src/lib/wixClient.js — ships with the app
