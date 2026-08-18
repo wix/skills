@@ -1,12 +1,10 @@
 ---
 name: "Read Site Context"
-description: Single-call site snapshot via the Dynamic Site Context API — returns installed apps by display name, locale, currency, timezone, and status. Works with account-level or site-scoped tokens; siteId is optional.
+description: Single-call site snapshot via the Dynamic Site Context API — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 ---
 # Read Site Context
 
-A single call that returns a site's name, URL, status, locale/region settings, and all installed apps with human-readable display names. Use this at the start of any management task when you need to understand what a site has installed and how it is configured.
-
-Works with both account-level and site-scoped tokens. Passing a `siteId` is optional.
+Returns a site's name, URL, status, locale/region, and all installed apps with human-readable display names.
 
 ---
 
@@ -14,9 +12,9 @@ Works with both account-level and site-scoped tokens. Passing a `siteId` is opti
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown`
 
-Returns `{ "markdown": "..." }` with human-readable app display names, locale, status, and any app-specific metadata the API injects. Best for reading and routing.
+Returns `{ "markdown": "..." }`.
 
-### With a site ID — one site
+### Account token + siteId — one specific site
 
 ```bash
 curl -X POST \
@@ -53,7 +51,7 @@ Response:
 - **Wix Blog** (ID: `14bcded7-0066-7c35-14d7-466cb3f09103`)
 ```
 
-### Without a site ID — what you get depends on the token
+### Without siteId
 
 ```bash
 curl -X POST \
@@ -63,8 +61,8 @@ curl -X POST \
   -d '{}'
 ```
 
-- **Account-level token**: returns up to 10 sites on the account. If there are more, the markdown includes `_Showing 10 sites (more available)_` with a note to call again with a specific `siteId`.
-- **Site-scoped token** (e.g. the Wix connector in Base44): returns only the site the token is scoped to — useful as a quick way to confirm which site you're operating on before making changes.
+- **Account token**: returns up to 10 sites. If the account has more: `_Showing 10 sites (more available)_` — call again with a specific `siteId`.
+- **Site-scoped token** (e.g. the Wix connector in Base44): returns the one site the token is scoped to.
 
 ---
 
@@ -72,7 +70,7 @@ curl -X POST \
 
 **Endpoint**: `POST https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context`
 
-Same request shape but returns structured JSON. The `installedApps` array contains raw `appId` UUIDs — mostly unrecognizable platform internals. Extract only what you need:
+Same request shape. `installedApps` contains raw `appId` UUIDs — extract only what you need:
 
 ```javascript
 const res = await fetch(
@@ -115,8 +113,6 @@ const context = {
   hasRestaurants:  !!appById[KNOWN_APPS.restaurants],
 };
 ```
-
-Prefer the markdown endpoint when you just need to read and route — it gives you display names without a lookup table.
 
 ---
 
