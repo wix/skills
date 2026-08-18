@@ -4,9 +4,11 @@ description: Create, read, update, and query OAuth apps for a Wix headless site.
 ---
 # Manage OAuth Apps
 
-An OAuth app is a site-level credential holder — its `id` is the `client_id` used in OAuth 2.0 flows by any frontend or external client connecting to the site. When a headless site is provisioned, Wix creates one automatically; use this recipe to create additional apps, inspect existing ones, or update their redirect configuration.
+An OAuth app is a site-level credential holder. Its `id` is the `client_id` (the two terms are interchangeable — Wix uses `appId` in provisioning responses, `clientId` in token requests, and `id` in the OAuth Apps API; they all refer to the same value).
 
-> **Secret is dashboard-only.** The `client_secret` is shown once in the Headless Settings dashboard and never returned by the API. Rotation is also dashboard-only — there is no programmatic rotate-secret endpoint.
+When a headless site is provisioned it gets one OAuth app automatically (see [Create Headless Site](create-headless-site.md)); use this recipe to create additional apps, inspect existing ones, or update their redirect configuration.
+
+> **`client_id` is not a secret** — it is a public identifier safe to embed in frontend code. The visitor token it mints is also non-privileged: it represents an anonymous visitor, not an admin. The `client_secret` is different — shown once in the Headless Settings dashboard, never returned by the API, and rotation is dashboard-only.
 
 ---
 
