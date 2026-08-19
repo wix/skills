@@ -9,7 +9,7 @@ plain data.
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wixheadless"
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const fs = require("fs");
 // exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
 const seed = (() => { const m = { exports: {} };

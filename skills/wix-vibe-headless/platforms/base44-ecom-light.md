@@ -62,7 +62,7 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wixheadless");
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const res = await fetch("https://www.wixapis.com/<api-path>", {
   method: "POST",
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
