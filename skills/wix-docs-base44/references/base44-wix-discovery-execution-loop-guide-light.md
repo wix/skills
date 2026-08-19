@@ -19,9 +19,11 @@ exec_tool          ──(admin token)───► wixapis.com   you: ad hoc pro
 
 **A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
 its own: your app IS its frontend, and it calls Wix from the browser. Every call the visitor token
-can make lives in the client — one file, `src/lib/wixClient.js` (Write the code, below).
-`base44/functions/*` hold the work that needs the owner's identity — elevated-permission ops a
-visitor triggers, webhooks, scheduled jobs — and the app's non-Wix backend.
+can make lives in the client — public reads included (the visitor token queries the catalog
+directly), and `carts/current/*` + checkout act on the CALLER's cart, so only the visitor token
+reaches the visitor's cart. One file carries this path: `src/lib/wixClient.js` (Write the code,
+below). `base44/functions/*` hold the work that needs the owner's identity — elevated-permission
+ops a visitor triggers, webhooks, scheduled jobs — and the app's non-Wix backend.
 
 **An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
 is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
@@ -199,42 +201,6 @@ cross-step gotchas no method page mentions.
 **Response shapes obey the discover rule in every lane**: code against fields you saw in a live
 response or the schema — remembered names are often from older versions. Probe one real row first.
 
-### The visitor client — src/lib/wixClient.js
-
-One file carries the whole visitor path; pages import it. Neither `clientId` (from the context
-report) nor the minted token is a secret — together they are "an anonymous visitor", safe in
-shipped code:
-
-```js
-// src/lib/wixClient.js
-let visitorToken;
-async function mint(body) {
-  const res = await fetch("https://www.wixapis.com/oauth2/token", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const { access_token, refresh_token } = await res.json();   // expires_in: 14400s = 4h
-  visitorToken = access_token;
-  sessionStorage.setItem("wixRefresh", refresh_token);
-}
-// first visit:                 mint({ clientId: WIX_CLIENT_ID, grantType: "anonymous" });
-// on expiry — same visitor:    mint({ refreshToken: sessionStorage.getItem("wixRefresh"),
-//                                     grantType: "refresh_token" });
-// (a fresh anonymous mint is a NEW visitor — the old one's cart goes with it)
-
-const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, { ...opts,
-  headers: { Authorization: `Bearer ${visitorToken}`, "Content-Type": "application/json" } });
-
-wix("/stores/v3/products/query", { method: "POST", body: JSON.stringify({ query: {} }) });
-//  ↑ public reads included — the visitor token queries catalog directly
-wix("/ecom/v1/carts/current");
-wix("/ecom/v1/carts/current/create-checkout", { method: "POST", body: "{}" });
-//  ↑ carts/current/* and checkout act on the CALLER's cart — only the visitor token
-//    reaches the visitor's cart
-```
-
-Token contract: `…/headless/authentication/retrieve-tokens`.
-
 ### Admin calls — exec ad hoc, backend functions deployed
 
 The admin token is the connector's; the same call works from exec (probing, managing) and from a
@@ -251,3 +217,26 @@ if (!r.ok) return { status: r.status, error: (await r.text()).slice(0, 300) };
 const data = await r.json();   // project, don't dump:
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
 ```
+
+### A visitor client — src/lib/wixClient.js
+
+The "site for visitors" shape (What are you building?), in code — one file pages import. Neither
+`clientId` (from the context report) nor the minted token is a secret; together they are "an
+anonymous visitor", safe in shipped code:
+
+```js
+// src/lib/wixClient.js
+let token;
+const mint = async (body) => {
+  const r = await (await fetch("https://www.wixapis.com/oauth2/token", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+  token = r.access_token; sessionStorage.setItem("wixRefresh", r.refresh_token);   // expires_in: 14400s = 4h
+};
+// first visit:  mint({ clientId: WIX_CLIENT_ID, grantType: "anonymous" });
+// on expiry:    mint({ refreshToken: sessionStorage.getItem("wixRefresh"), grantType: "refresh_token" });
+//               a fresh anonymous mint is a NEW visitor — the old one's cart goes with it
+export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, { ...opts,
+  headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+```
+
+Token contract: `…/headless/authentication/retrieve-tokens`.
