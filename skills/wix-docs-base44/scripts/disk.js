@@ -69,12 +69,17 @@ async function resolveRef(ref) {
 
 // ── gather context ────────────────────────────────────────────────────────────
 
-// The dynamic context report — site data, never saved. No section → its header
-// outline; with one → that section's text. Empty report = bad token, never an empty site.
+// The dynamic context report — site data, never saved. No section → the whole report
+// when it fits, else its header outline; with one → that section's text. Empty
+// report = bad token, never an empty site.
 async function context(token, section) {
   const { markdown } = await post(
     "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {}, token);
-  if (!section) return clip({ total: markdown.length, ...outlineOf(markdown.split("\n"), 60) });
+  if (!section) {
+    if (markdown.length <= BUDGET) return markdown;   // most sites: the whole report, one round
+    return clip({ total: markdown.length, ...outlineOf(markdown.split("\n"), 60),
+                  note: "site data — never saved (no path); read one: wx.context(token, '<section name>')" });
+  }
   const m = markdown.match(new RegExp("^#{1,3} .*" + section + "[\\s\\S]*?(?=\\n#{1,3} |$)", "im"));
   return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
 }
