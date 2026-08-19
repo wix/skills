@@ -1,10 +1,12 @@
 name: google-ads/get-campaign-suggestions
 description: >-
   Verifies the agent uses the Suggestions recipe to surface read-only
-  keyword/geo/budget/asset suggestions and picks the right endpoint per need.
+  geo/budget/asset suggestions for a Performance Max campaign and picks the
+  right endpoint per need, without mentioning Smart campaigns.
 triggerPrompt: >-
-  Before I build a Google Ads campaign on my Wix site, what keyword ideas, target
-  locations, and daily budget does Wix suggest, and which API endpoints return them?
+  For a Performance Max campaign on my Wix site with Google Ads, which suggestion
+  API endpoints does Wix provide for target locations and a recommended daily
+  budget, and what do they return?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -14,21 +16,19 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user wants suggested keywords, locations, and budget before building a
-      campaign.
+      The user wants suggested locations and budget before building a campaign.
 
       Pass if the response:
       - uses the Suggestions recipe, AND
-      - maps each need to the right endpoint: keyword themes
-        (POST /v1/keyword-theme-suggestions), geo targets
-        (GET /v1/geo-options), and daily budget tiers
-        (POST /v1/budget-suggestions), AND
+      - maps each need to the right endpoint: geo targets
+        (GET /v1/geo-options) and a budget recommendation
+        (POST /v1/budget-recommendation), AND
       - notes budgets are returned in micros and geo results become
         geoTargetConstants, AND
       - treats these as read-only (no campaign is created or money spent).
 
       Fail if the response:
       - creates a campaign or account, OR
-      - uses the PMAX budget-recommendation endpoint for a basic Smart budget
-        request without explanation, OR
+      - proposes or mentions a Smart campaign, or points the user at the
+        Smart-only keyword-theme-suggestions or budget-suggestions endpoints, OR
       - hallucinates endpoints.
