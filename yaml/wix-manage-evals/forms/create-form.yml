@@ -1,10 +1,11 @@
 name: forms/create-form-count-limit
 description: >-
   Verifies the agent reads the create-form recipe when a form create is blocked
-  by FORMS_COUNT_RESTRICTIONS_ERROR, and gives the correct recovery: a soft
-  delete (permanent=false) does not free a slot, the quota is plan-gated, and a
-  site already over its quota needs a permanent delete down below the limit (or
-  an upgrade) rather than a single delete-and-retry.
+  by FORMS_COUNT_RESTRICTIONS_ERROR, and gives the correct recovery: the quota
+  counts active forms (so the form list can be longer than the limit), a soft
+  delete (permanent=false) does not free a slot, and removing an inactive form
+  changes nothing — the fix is getting active forms below the limit (permanent
+  delete/disable an active form) or upgrading, not a single delete-and-retry.
 triggerPrompt: >-
   I'm trying to create a "Contact Us" form on my Wix site but it keeps failing
   with a 400: "Form validation failed" / rule FORMS_COUNT_RESTRICTIONS_ERROR /
@@ -32,15 +33,16 @@ assertions:
         moves the form to trash but keeps it counting toward the quota, and
         that a permanent delete (DELETE .../forms/{formId}?permanent=true) is
         required to actually free a slot, AND
-      - recognizes this is a plan-gated quota (not a fixed site cap) and that a
-        site with 15 forms is already far above the limit of 4 — so deleting
-        one form will not unblock creation; the active form count must be
-        brought below the quota (or the plan upgraded), AND
+      - recognizes this is a plan-gated quota on ACTIVE forms (not a cap on
+        total form records), which is why the list can show 15 forms while the
+        limit is 4 — so the active count must be brought below the limit by
+        permanently deleting or disabling a form the site actively uses (or by
+        upgrading the plan), AND
       - does not promise the create will succeed after a single delete-and-retry.
 
       Fail if the response:
       - tells the user to just delete one form and retry, OR
       - claims a plain/default DELETE frees a slot, OR
-      - describes the limit as a fixed "~4 forms per site" cap with no mention
-        of the plan quota or the need to get below the limit, OR
+      - describes the limit as a fixed "~4 forms per site" cap on total records
+        with no mention of the plan quota on active forms, OR
       - invents endpoints or parameters not in the recipe.

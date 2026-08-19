@@ -217,7 +217,7 @@ Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/for
 - **CRITICAL: The `identifier` must be a recognized Wix value.** Custom identifiers like `"product_name"` or `"color_preference"` will cause the field to be silently dropped from the form — no error is thrown. For any generic/custom text field, use `"TEXT_INPUT"` as the identifier and set the display name via the `label` property in `textInputOptions`.
 - For plain text fields, use `"format": "UNKNOWN_FORMAT"`. For email fields, use `"format": "EMAIL"`. For phone fields, use `"format": "PHONE"`. Valid format values: `UNKNOWN_FORMAT`, `DATE`, `TIME`, `DATE_TIME`, `EMAIL`, `URL`, `UUID`, `PHONE`, `URI`, `HOSTNAME`, `COLOR_HEX`, `CURRENCY`, `LANGUAGE`, `DATE_OPTIONAL_TIME`.
 - The submit button is a `DISPLAY` field with `identifier: "SUBMIT_BUTTON"`.
-- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** Sites have a **plan-gated form quota** (e.g. 4 on the Free plan); iterative probing burns slots and hits `FORMS_COUNT_RESTRICTIONS_ERROR` (`Form count reached its limit of N`). Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once. Before deleting forms to make room, read § "Form count limit" below — a soft delete does **not** free a slot, and on a site that already exceeds its quota (e.g. after a plan downgrade) deleting one form will not unblock the create.
+- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** Sites have a **plan-gated form quota** (e.g. 4 on the Free plan); iterative probing burns slots and hits `FORMS_COUNT_RESTRICTIONS_ERROR` (`Form count reached its limit of N`). Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once. Before deleting forms to make room, read § "Form count limit" below — the quota counts *active* forms (not total records), a soft delete does **not** free a slot, and deleting an inactive form will not unblock the create.
 
 ### Field Types Reference
 
@@ -298,7 +298,9 @@ Creating a form can fail with a **400** carrying `FORMS_COUNT_RESTRICTIONS_ERROR
    "description":"Form count reached its limit of 4","data":{"limit":4},"violatedRule":"OTHER"}]}}}
 ```
 
-This is a **plan quota**, not a fixed site cap. Two facts make it easy to get stuck — handle both before promising a create will succeed:
+**The quota counts *active* forms, not total form records** — it is set by the site's plan (Free/Light = 4 lead-capture forms, Core = 10, Business = 25, Business Elite = 75). This is why the number in the error can look absurd next to the form list: `GET /form-schema-service/v4/forms?namespace=wix.form_app.form` returns **every** form the site holds, enabled *and* disabled (a site can accumulate far more than its plan allows — e.g. 15 forms listed with `data.limit` of 4), but only the **active** ones count toward the quota. A create sends `enabled: true`, so it fails once the active count is already at the limit.
+
+Two traps follow — handle both before telling the user a create will succeed:
 
 - **A soft delete does NOT free a slot.** `DELETE /form-schema-service/v4/forms/{formId}` defaults to `permanent=false`, which moves the form to trash but keeps it counting against the quota. The delete returns `200 {}` and the very next create **still fails** with the same limit error. To actually free a slot, delete permanently:
 
@@ -308,9 +310,9 @@ This is a **plan quota**, not a fixed site cap. Two facts make it easy to get st
     -H 'Authorization: <AUTH>'
   ```
 
-- **A site can already hold more forms than its quota.** After a plan downgrade (e.g. Premium → Free), a site keeps all its existing forms — `GET /form-schema-service/v4/forms?namespace=wix.form_app.form` may return far more than `data.limit` (e.g. 15 forms with a limit of 4). While the active count is above the quota, creating a new form is blocked and **deleting one or two forms will not unblock it** — you must permanently delete down to *below* the quota, or the user must upgrade their plan.
+- **Removing an *inactive* form changes nothing.** Only forms counting toward the quota (active ones) free a slot when removed. Deleting arbitrary forms by name — especially ones the site isn't actively using — can lower the total form count while leaving the active count pinned at the limit, so the create keeps failing.
 
-**Before deleting anything:** `GET` the form list, compare the count to `data.limit`. If the count is already at/over the limit, tell the user how many forms must be removed (or that an upgrade is needed) instead of deleting a single form and retrying — a single soft delete looks like progress but changes nothing. Only permanently delete forms the user has explicitly agreed to remove.
+**Before deleting anything:** `GET` the form list and recognise that its length is *not* the quota — `data.limit` is. Freeing a slot means getting the count of active forms below `data.limit`: permanently delete (or disable) a form the site is *actively* using, or have the user upgrade their plan. Do not delete-one-and-retry in a loop — a single soft delete, or the deletion of an already-inactive form, looks like progress but changes nothing. Only remove forms the user has explicitly agreed to.
 
 ### Prerequisites
 
@@ -323,7 +325,7 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | `Unrecognized value passed for enum` | Invalid `componentType` value (e.g., `LONG_TEXT_INPUT`) | Use only `componentType` values from the schema: `TEXT_INPUT`, `RADIO_GROUP`, `DROPDOWN`, `DATE_TIME`, `PHONE_INPUT`, `DATE_INPUT`, `TIME_INPUT`, `DATE_PICKER`, `PASSWORD` |
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
-| `FORMS_COUNT_RESTRICTIONS_ERROR` / `Form count reached its limit of N` | Plan quota reached (`data.limit`). A soft delete (`permanent=false`, the default) keeps the form in trash still counting; a downgraded site may already exceed its quota | See § "Form count limit": `GET` the list and compare to `data.limit`; `DELETE ...?permanent=true` to actually free a slot; delete down to *below* the quota or have the user upgrade. Build the real form in one call (don't probe) |
+| `FORMS_COUNT_RESTRICTIONS_ERROR` / `Form count reached its limit of N` | Plan quota on *active* forms reached (`data.limit`). The form list can be far longer than the quota (inactive forms don't count). A soft delete (`permanent=false`, the default) keeps the form in trash still counting; removing an inactive form frees nothing | See § "Form count limit": get the count of *active* forms below `data.limit` by permanently deleting (`?permanent=true`) or disabling a form the site actively uses, or have the user upgrade. Don't delete-one-and-retry. Build the real form in one call (don't probe) |
 | `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
 
