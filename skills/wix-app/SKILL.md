@@ -21,6 +21,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
@@ -109,6 +110,8 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 ```bash
 cat node_modules/@wix/patterns/dist/docs/index.json
 ```
+
+If that path does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 
 `index.json` maps component name → doc file + category; doc filenames match component names (`Table.md`, `useTableCollection.md`). Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 
