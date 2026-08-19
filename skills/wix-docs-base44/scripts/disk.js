@@ -146,10 +146,14 @@ async function grep(ref, pattern) {
     if (hit) termHits++;
     if (hit || /^#{1,3} /.test(t)) rows.push((i + 1) + ": " + t.trim().slice(0, 100));
   });
-  return { file: p, lines: lines.length, shown: Math.min(rows.length, 40),
-           omitted: Math.max(0, rows.length - 40),
+  // byte-budgeted, not row-capped: a broad first cast (/sort|cursor|paging/) is the right
+  // opening move and must not overflow the exec result
+  const shown = [];
+  let used = 0;
+  for (const r of rows) { if (used + r.length + 1 > BUDGET - 300) break; shown.push(r); used += r.length + 1; }
+  return { file: p, lines: lines.length, shown: shown.length, omitted: rows.length - shown.length,
            ...(termHits === 0 && { note: "the term matched nothing — this is just the outline; try another term, or wx.search across docs" }),
-           hits: rows.slice(0, 40).join("\n") };
+           hits: shown.join("\n") };
 }
 
 // sed -n 'from,top' over a saved file — quote a section verbatim by grep's line numbers.

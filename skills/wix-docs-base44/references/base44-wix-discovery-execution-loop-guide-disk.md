@@ -44,8 +44,9 @@ under `.agents/skills/wix-docs-base44/scratch/` and returns `{ path, bytes, line
 the outline is the map. Read a saved file with `wx.grep(ref, /term/)` (numbered hits),
 `wx.window(ref, a, b)` (verbatim lines), `wx.fields(ref, a, b)` (a fenced example's field
 vocabulary) — `ref` is the returned path or the original URL. The shell reads the paths too
-(`grep -n 'term' <path>` · `sed -n 'a,bp' <path>` — GNU grep/sed installed, awk is mawk, no rg),
-and read_file takes them with a 45K cap. **API responses are site data and never land in
+(`grep -n 'term' <path>` · `sed -n 'a,bp' <path>` · across everything saved so far:
+`grep -rn 'term' .agents/skills/wix-docs-base44/scratch/` — GNU grep/sed installed, awk is mawk,
+no rg), and read_file takes them with a 45K cap. **API responses are site data and never land in
 scratch** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
 tools clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
 
