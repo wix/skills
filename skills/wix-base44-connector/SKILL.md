@@ -88,15 +88,15 @@ Go deeper for fields, enums, or absence — only the spec index proves absence.
 ### Read a doc page
 
 Method pages are 100 KB+, twin REST and SDK halves repeating field names at different types —
-`page` fetches, saves, and maps in one round; quote only your half:
+map and window in the SAME exec; coordinates are for your code, not for a second round:
 
 ```js
 const pg = await wx.page(docsUrl);   // whole text when small; else { path, bytes, lines, outline }
-await wx.bash(`grep -in 'refund' ${pg.path} | head -40`);   // grep -n 'term|^#' keeps the sections visible
-// quote with read_file(pg.path) + offset/limit at the lines grep named — the REST example FIRST:
-// under ### Examples below ## REST API sits a complete working request
-await wx.bash(`sed -n '53,949p' ${pg.path} | grep -oE '"[a-zA-Z]+":' | sort -u | head -60`);
-//  ↑ a giant fenced example → its field vocabulary in one round; read it whole only if you must
+// your half, windowed to your term and its Examples (a complete working request — URL, headers,
+// body — usually all you need), one round:
+return wx.bash(`sed -n '/^## REST API/,/^## JavaScript SDK/p' ${pg.path} | grep -B5 -A40 -i 'examples\\|<term>' | head -c 3800`);
+// a giant fenced example → its field vocabulary instead of paging it:
+// wx.bash(`sed -n '<a>,<b>p' ${pg.path} | grep -oE '"[a-zA-Z]+":' | sort -u | head -60`)
 ```
 
 `search` also saves its raw content beside the inline hits — grep its `path` when a hit's six
