@@ -130,4 +130,6 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 - [stores/INVENTORY.md](stores/INVENTORY.md) — inventory read and write operations
 - [stores/CATEGORIES.md](stores/CATEGORIES.md) — collections (V1) ↔ categories (V3)
 
+Every snippet in those files branches on `v` — that is the cached `getVersion()` result from [Mandatory: Detect Version First](#mandatory-detect-version-first) above, not a per-file local.
+
 For methods not listed here, use `SearchWixSDKDocumentation` then `ReadFullDocsArticle`. Always return the required permission scopes to the user.
