@@ -232,9 +232,9 @@ await embeddedScripts.embedScript({
 
 ## Releasing Updates
 
-After a site already called `embedScript()`, releasing a new app version with **only** HTML/JS content changes (no dynamic-parameter changes) is a minor version release — it auto-pushes to that site with no further action; do not tell users to reinstall the app or call `embedScript()` again.
+`embedScript()` is not only a one-time setup step. A site only ever renders whatever content was active the last time `embedScript()` was called for it — releasing a new app version (even a minor one, e.g. via `wix release`, that only changes the script's HTML/JS with no dynamic-parameter changes) does **not** re-embed the script on sites that already called it. Always prompt the site owner to re-run the dashboard-page action (or call `embedScript()` yourself) after any release that changes an embedded script's content, or production sites will silently keep serving the old version.
 
-Adding, removing, or renaming a dynamic parameter is a **major** version change — sites only pick it up after the user clicks Update on the Manage Apps page (or you drive them through the app-installer update flow). See [About App Versioning](https://dev.wix.com/docs/build-apps/manage-your-app/versioning/about-app-versioning).
+Adding, removing, or renaming a dynamic parameter is additionally a **major** version change — those sites only pick up the new version after the user clicks Update on the Manage Apps page (or you drive them through the app-installer update flow). See [About App Versioning](https://dev.wix.com/docs/build-apps/manage-your-app/versioning/about-app-versioning).
 
 ## Enable Embedded Script Permission
 
