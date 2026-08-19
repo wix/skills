@@ -36,7 +36,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/resum
 
 ## Update (partial) & change budget
 
-`PATCH /v1/campaigns/{id}` — send only the fields you're changing, plus the required `id` and `accountId`. Budget is in **micros** (`20000000` = $20.00/day).
+`PATCH /v1/campaigns/{id}` — always required: `id`, `accountId`, `campaignType`. Budget is in **micros** (`20000000` = $20.00/day).
 
 ```bash
 curl -X PATCH 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}' -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
@@ -44,6 +44,23 @@ curl -X PATCH 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}' -H 
 ```
 
 Changing only the daily budget = the same call with just `id`, `accountId`, and `budget.amountMicros`. Over the account max → `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` (check `GET /v1/campaign/daily-budget-boundaries`, returns min/max in micros).
+
+> **This is not a true field-level partial update for Smart Campaigns yet.** Despite the PATCH semantics, `GET` the campaign first and resend the fields below unchanged — omitting them currently causes a server error (5xx) instead of a clean update or validation message:
+> - `smartCampaign.adGroups` (at least one ad group with its `ads`)
+> - `smartCampaign.url`
+> - `smartCampaign.languageCode`, `smartCampaign.businessName` (and `smartCampaign.phone` if the campaign uses call ads)
+>
+> `budget` itself is optional — omit it to leave the daily budget unchanged.
+>
+> To exclude irrelevant search terms on a Smart Campaign (traffic-quality tuning), `GET` the campaign, then resend it with `smartCampaign.excludedSearchTerms` added/changed alongside the required fields above:
+> ```bash
+> curl -X PATCH 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}' -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
+>   -d '{ "campaign": { "id": "...", "accountId": "...", "campaignType": "SMART", "smartCampaign": {
+>     "excludedSearchTerms": [ { "freeFormKeywordTheme": "diy", "displayName": "diy" } ],
+>     "adGroups": [ /* from the GET response, unchanged */ ],
+>     "url": "...", "languageCode": "en", "businessName": "..."
+>   } } }'
+> ```
 
 ## Delete & history
 
