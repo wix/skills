@@ -32,7 +32,7 @@ implementation detail.
 
 1. **Props** — `autoPlay`, `loop`, `pauseButtonVisibility`
 2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
-3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility; **must be a named part** (`classNames('component-name-play-button', styles.playButton)`) with hover/focus design-state selectors
+3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility; **must be a named part** (`classNames('component-name-play-button', styles.playButton)`) with a hover design state and a standalone `:focus-visible` keyboard indicator
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
 5. **Respect `prefers-reduced-motion`** — suppress autoplay when the OS requests reduced motion
 
@@ -126,7 +126,8 @@ Position the button absolutely so it overlays the content without pushing other 
   /* e.g. background: rgba(255, 255, 255, 1); */
 }
 
-.playButton:global(.my-animation-play-button--focus),
+/* Keyboard indicator only — deliberately unpaired: focus is not an editor
+   design state on a non-input control. Do not add a --focus modifier here. */
 .playButton:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
