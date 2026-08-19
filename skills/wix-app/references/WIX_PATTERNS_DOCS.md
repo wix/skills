@@ -4,7 +4,7 @@
 
 Consult the generated docs whenever you work with `@wix/patterns` imports — to look up props, usage examples, or understand how components compose together.
 
-`@wix/patterns` is the **first** place to look for any dashboard page UI element. Only when it genuinely has no equivalent do you fall back to `@wix/design-system`, chosen via the WDS MCP (`SearchWixWDSDocumentation`) or the `wix-design-system` skill. The full resolution order lives in [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order); this file is the *how to look it up* half of that rule.
+`@wix/patterns` is the **first** place to look for any dashboard page UI element. Only when it genuinely has no equivalent do you fall back to `@wix/design-system`, chosen via the `wix-design-system` skill. The full resolution order lives in [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order); this file is the *how to look it up* half of that rule.
 
 ## Prerequisites
 
@@ -116,7 +116,7 @@ Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System
 
 A concept is only "missing" from patterns after you've checked `index.json` **and** searched the docs folder by keyword. Then, and only then:
 
-1. Look the component up in `@wix/design-system` — WDS MCP (`SearchWixWDSDocumentation`) preferred, the `wix-design-system` skill as fallback.
+1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
 3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals or add another UI library.
 

@@ -48,7 +48,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
-| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via MCP or the `wix-design-system` skill |
+| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
 
 ---
@@ -114,13 +114,12 @@ cat node_modules/@wix/patterns/dist/docs/index.json
 
 ### 2. `@wix/design-system` — everything inside the shell
 
-The leaf-level UI patterns does not own: inputs, buttons, form fields, text, layout primitives, cards, badges, tooltips, toasts, icons. Pick the component by lookup, not recall:
+The leaf-level UI patterns does not own: inputs, buttons, form fields, text, layout primitives, cards, badges, tooltips, toasts, icons. Pick the component by lookup, not recall — invoke the **`wix-design-system` skill**, whose bundled helper reads the installed package:
 
-- **Preferred — Wix Design System MCP:** search components and props via `SearchWixWDSDocumentation`.
-- **Fallback — the `wix-design-system` skill** (use when the MCP is unavailable or unauthorized). Its bundled helper reads the installed package:
-  ```bash
-  node <wix-design-system-skill-dir>/scripts/wds.cjs search <keyword>
-  ```
+```bash
+node <wix-design-system-skill-dir>/scripts/wds.cjs search <keyword>
+node <wix-design-system-skill-dir>/scripts/wds.cjs component <Name>
+```
 
 ### 3. Custom React — only after both came back empty
 
