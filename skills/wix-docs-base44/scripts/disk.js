@@ -77,8 +77,8 @@ async function context(token, section) {
     "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {}, token);
   if (!section) {
     if (markdown.length <= BUDGET) return markdown;   // most sites: the whole report, one round
-    return clip({ total: markdown.length, ...outlineOf(markdown.split("\n"), 60),
-                  note: "site data — never saved (no path); read one: wx.context(token, '<section name>')" });
+    return { truncated: true, total: markdown.length, head: markdown.slice(0, BUDGET),
+             note: "site data — never saved (no path); narrow: wx.context(token, '<section name>')" };
   }
   const m = markdown.match(new RegExp("^#{1,3} .*" + section + "[\\s\\S]*?(?=\\n#{1,3} |$)", "im"));
   return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
