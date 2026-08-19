@@ -24,11 +24,21 @@ Headless means the Wix site has no pages of its own — **your app IS its fronte
 frontend calls its backend from the browser. Tokens: visitor minted in client code; admin via
 `getConnection("wix")`.
 
-Litmus, in file paths: a visitor-facing site is `src/lib/wixClient.js` (mint + call helpers) and
-pages that call it — **zero `base44/functions/*` on the visitor path**; those carry only what the
-app does *as the site's owner* (for a management dashboard, that's most of the app). Writing a
-backend function a page calls to reach Wix? If the page serves visitors, that call belongs in the
-browser.
+The visitor-facing shape, as files (`base44/functions/*` carry only owner-side work — for a
+management dashboard, that's most of the app):
+
+```js
+// src/lib/wixClient.js — the ENTIRE visitor path lives here; pages import it
+const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, { ...opts,
+  headers: { Authorization: `Bearer ${visitorToken}`, "Content-Type": "application/json" } });
+
+wix("/stores/v3/products/query", { method: "POST", body: JSON.stringify({ query: {} }) });
+//  ↑ public reads too — the visitor token queries catalog directly; no "admin read" backend fn
+wix("/ecom/v1/carts/current");
+wix("/ecom/v1/carts/current/create-checkout", { method: "POST", body: "{}" });
+//  ↑ carts/current/* and checkout are CALLER-BOUND: on the admin token they act on the
+//    ADMIN's cart — a checkout proxied through a backend function comes up empty
+```
 
 ## Gather context
 
@@ -153,6 +163,21 @@ return (await r.json()).result;
 Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema at
 `m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
 round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
+
+### Management recipes — check before composing admin flows
+
+~100 curated multi-step recipes (install apps, seed catalogs, set up whole verticals), each with a
+name and description written for searching:
+
+```js
+const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
+const q = /install|app/i;   // your task's words
+return files.filter(f => q.test(f.name + " " + (f.description || "")))
+            .map(f => ({ name: f.name, url: base + f.path, kb: Math.round(f.size / 1024) }));
+```
+
+A recipe is a doc page — fetch + map it like any other. A matching recipe beats composing the flow
+from single endpoints: it carries ordering and cross-step gotchas no method page mentions.
 
 ## Write code on the APIs
 
