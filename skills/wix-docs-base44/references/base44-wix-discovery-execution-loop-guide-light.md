@@ -181,7 +181,14 @@ if (text.length <= 4000) return text;
 const lines = text.split("\n");
 return { total: text.length, outline: lines.map((t, i) => /^#{1,3} /.test(t)
   ? { line: i + 1, text: t.slice(0, 80) } : null).filter(Boolean) };
-// recipes are structured (Overview → Prerequisites → Steps) — window sections like any doc page
+```
+
+```js
+// 4. a big section is usually ONE fenced example (bulk-create's STEP 1: 897 lines, one fence) —
+//    reduce it to its shape, window verbatim only where exact values matter
+const sec = lines.slice(from - 1, to);   // bounds: this header's line → the next header's
+const fields = [...new Set(sec.join("\n").match(/"([a-zA-Z][a-zA-Z0-9]*)":/g) || [])].map(s => s.slice(1, -2));
+return { sectionLines: sec.length, fields };   // the request vocabulary in one round
 ```
 
 A matching recipe beats composing the flow from single endpoints: it carries ordering and
