@@ -113,7 +113,7 @@ never carries — a client-side upload answers **403 with an HTML body**. Pick b
 
 **On base44 the elevated route is a backend function** — it holds the credential the client lacks:
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // admin-level; connector name: "wix" or "wixheadless"
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // admin-level
 // → POST /site-media/v1/files/generate-upload-url, PUT the bytes to it, return the file URL
 ```
 That's the same Wix connector the seed step uses, and it's the supported way to reach a Manage-scope

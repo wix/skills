@@ -64,7 +64,7 @@ shape → the **`wix-docs`** skill.
 access token and send it as a bearer token:
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wixheadless");
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
@@ -92,7 +92,7 @@ urls are ready by the time you seed.
 When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wixheadless");
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const res = await fetch("https://www.wixapis.com/<api-path>", {
   method: "POST",
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
