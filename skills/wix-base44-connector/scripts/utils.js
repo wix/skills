@@ -4,9 +4,9 @@
 // pre-pointed at it.
 //
 // Load per exec (execs share no state) — from disk, network only as first-touch fallback:
-//   const fs = require("fs"), P = ".agents/skills/wix-connector/utils.js";
-//   if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-connector", { recursive: true });
-//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-docs-base44/scripts/utils.js")).text()); }
+//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+//   if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
+//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
 //   const wx = (() => { const m = { exports: {} };
 //     new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 //
@@ -21,7 +21,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BUDGET = 4000;
-const SCRATCH = ".agents/skills/wix-connector/scratch";
+const SCRATCH = ".agents/skills/wix-base44-connector/scratch";
 
 const clip = (out) => {
   const s = typeof out === "string" ? out : JSON.stringify(out);
