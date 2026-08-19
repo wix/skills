@@ -41,11 +41,11 @@ const wx = (() => { const m = { exports: {} };
 
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
 under `.agents/skills/wix-docs-base44/scratch/` and returns `{ path, bytes, lines, outline }` —
-the outline is the map. Read a saved file with `wx.grep(ref, /term/)` (numbered hits),
-`wx.window(ref, a, b)` (verbatim lines), `wx.fields(ref, a, b)` (a fenced example's field
-vocabulary) — `ref` is the returned path or the original URL. The shell reads the paths too
-(`grep -n 'term' <path>` · `sed -n 'a,bp' <path>` — GNU grep/sed installed, awk is mawk, no rg),
-and read_file takes them with a 45K cap. **API responses are site data and never land in
+the outline is the map. Read a saved file the way you already know how:
+`wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
+across everything saved: `grep -rn 'term' .agents/skills/wix-docs-base44/scratch/`), and
+`read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
+file when it fits read_file's 45K cap. **API responses are site data and never land in
 scratch** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
 tools clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
 
@@ -81,11 +81,12 @@ Method pages are 100 KB+, twin REST and SDK halves repeating field names at diff
 `page` fetches, saves, and maps in one round; quote only your half:
 
 ```js
-const pg = await wx.page(docsUrl);    // whole text when small; else { path, bytes, lines, outline }
-await wx.grep(pg.path, /refund/);     // headers always + your term, numbered — omitted > 0 ⇒ narrow
-await wx.window(pg.path, 120, 160);   // quote header-to-header — the REST example FIRST:
-                                      // under ### Examples below ## REST API sits a complete request
-await wx.fields(pg.path, 53, 949);    // a giant fenced example → its field vocabulary in one round
+const pg = await wx.page(docsUrl);   // whole text when small; else { path, bytes, lines, outline }
+await wx.bash(`grep -in 'refund' ${pg.path} | head -40`);   // grep -n 'term|^#' keeps the sections visible
+// quote with read_file(pg.path) + offset/limit at the lines grep named — the REST example FIRST:
+// under ### Examples below ## REST API sits a complete working request
+await wx.bash(`sed -n '53,949p' ${pg.path} | grep -oE '"[a-zA-Z]+":' | sort -u | head -60`);
+//  ↑ a giant fenced example → its field vocabulary in one round; read it whole only if you must
 ```
 
 `search` also saves its raw content beside the inline hits — grep its `path` when a hit's six
@@ -115,7 +116,7 @@ await wx.spec(`
 await wx.recipes();           // categories with counts
 await wx.recipes("stores");   // a category's list — or any task word: wx.recipes("coupon")
 await wx.page(url);           // read the chosen recipe — whole when small, saved + outline when
-                              // big; then wx.window / wx.fields by the outline's line numbers
+                              // big; then grep / read_file windows by the outline's line numbers
 ```
 
 A matching recipe beats composing the flow from single endpoints: it carries ordering and

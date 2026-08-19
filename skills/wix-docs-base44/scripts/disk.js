@@ -8,11 +8,9 @@
 //   const wx = (() => { const m = { exports: {} };
 //     new Function("module", "exports", "require", src)(m, m.exports, require); return m.exports; })();
 //
-// Read a saved file three ways — wx.grep(ref, /term/) numbered hits, wx.window(ref, a, b)
-// verbatim lines, wx.fields(ref, a, b) a fenced example's field vocabulary. `ref` is the
-// returned path OR the original URL (it resolves either). The shell works on the paths
-// too: grep -n 'term' <path> · sed -n 'a,bp' <path> (GNU grep/sed; awk is mawk; no rg),
-// and read_file takes them with a 45K cap.
+// Read a saved file the way you already know how: wx.bash("grep -n 'term' <path> | head -40")
+// to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
+// round needed), pipelines for the rest (GNU grep/sed; awk is mawk; no rg).
 //
 // API responses are site data and stay OUT of scratch (scratch ships with the app):
 // post() never saves — project responses to facts.
@@ -94,8 +92,8 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
     ...(filter && { name_filter: filter }), ...(depth && { depth }),
   });   // 404 "No menu node found" ⇒ re-orient a level up
   if (content.length <= BUDGET) return content;
-  return { ...save("browse.md", content),
-           next: "one line per node — wx.grep(path, /term/) it, or re-browse with a filter" };
+  const s = save("browse.md", content);
+  return { ...s, next: `wx.bash("grep -in 'term' ${s.path} | head -40")   // one line per node — or re-browse with a filter` };
 }
 
 // Semantic search — ranks, never says "no match". The reduced hits come back inline
@@ -111,44 +109,45 @@ async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
       .trim().replace(/\s+/g, " ").slice(0, 220),
   })).filter(h => h.docsUrl);
   const saved = save("search.md", content);
+  if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
+    note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
   return clip({ ...saved, hits });
 }
 
 // ── read a page (docs pages and recipes alike) ────────────────────────────────
 
 // Fetch + save + map in one round: whole text inline when small, else
-// { path, bytes, lines, outline } — the outline's line numbers feed grep/window/fields.
+// { path, bytes, lines, outline } — the outline's line numbers feed grep and read_file windows.
 async function page(url) {
   const { path: p, lines } = await resolveRef(url);
   const text = lines.join("\n");
   if (text.length <= BUDGET) return text;
-  return { path: p, bytes: Buffer.byteLength(text), lines: lines.length, ...outlineOf(lines),
-           next: "wx.grep(path, /term/) · wx.window(path, a, b) · wx.fields(path, a, b) — or shell grep -n / sed -n" };
+  const o = outlineOf(lines);
+  const bytes = Buffer.byteLength(text);
+  return { path: p, bytes, lines: lines.length, ...o,
+           next: [
+             `wx.bash("grep -in 'term' ${p} | head -40")`,
+             bytes <= 45000 ? `read_file ${p}   // whole (fits the 45K cap), or a window via offset/limit`
+                            : `read_file ${p} with offset/limit   // window a section by the outline's lines`,
+           ] };
 }
 
-// grep -n over a saved file: headers always match, plus your term — numbered for window().
-async function grep(ref, pattern) {
-  const { path: p, lines } = await resolveRef(ref);
-  const re = pattern instanceof RegExp ? pattern : new RegExp(pattern, "i");
-  const hits = [];
-  lines.forEach((t, i) => { if (/^#{1,3} /.test(t) || re.test(t)) hits.push({ line: i + 1, text: t.trim().slice(0, 100) }); });
-  return { file: p, lines: lines.length, shown: Math.min(hits.length, 40),
-           omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
-}
+// ── shell ─────────────────────────────────────────────────────────────────────
 
-// sed -n 'from,top' over a saved file — quote a section verbatim by grep's line numbers.
-async function window(ref, from, to) {
-  const { path: p, lines } = await resolveRef(ref);
-  return clip({ file: p, text: lines.slice(from - 1, to).map((t, i) => (from + i) + ": " + t.slice(0, 110)).join("\n") });
-}
-
-// A big section is usually ONE fenced example — reduce it to its field vocabulary
-// instead of paging it; window() only where exact values matter.
-async function fields(ref, from, to) {
-  const { path: p, lines } = await resolveRef(ref);
-  const sec = lines.slice(from - 1, to).join("\n");
-  const names = [...new Set(sec.match(/"([a-zA-Z][a-zA-Z0-9]*)":/g) || [])].map(s => s.slice(1, -2));
-  return clip({ file: p, sectionLines: to - from + 1, fields: names });
+// Compose native pipelines over scratch — grep -n, sed -n, mawk, sort, uniq, wc
+// (GNU grep/sed; awk is mawk; no rg). Cap your own output (| head -40); the return
+// clips regardless. grep's exit 1 means no match, not failure — the return says so.
+function bash(cmd) {
+  const { execSync } = require("child_process");
+  try {
+    return clip(execSync(cmd, { timeout: 15000, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 })
+                || "(no output)");
+  } catch (e) {
+    const exit = e.status ?? null, err = (e.stderr || "").toString().trim();
+    return { exit, ...(err && { err: err.slice(0, 300) }),
+             out: clip((e.stdout || "").toString()),
+             ...(exit === 1 && !err && { note: "exit 1 with no stderr — a no-match, not a failure" }) };
+  }
 }
 
 // ── the spec index ────────────────────────────────────────────────────────────
@@ -161,6 +160,8 @@ async function fields(ref, from, to) {
 async function spec(code) {
   if (!/^\s*async function/.test(code)) code = `async function(){ ${code} }`;
   const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  if (result == null || (Array.isArray(result) && !result.length))
+    return { result, note: "empty — the query missed the shape, not proof of absence; find the resource by docsUrl on lightIndex" };
   const text = JSON.stringify(result, null, 1);
   if (text.length <= BUDGET) return result;
   return { ...save("spec.json", text),
@@ -186,7 +187,13 @@ async function recipes(q) {
   const inCat = files.filter(f => cat(f) === q);
   if (inCat.length) return clip(inCat.map(row));
   const re = new RegExp(q, "i");
-  return clip(files.filter(f => re.test(f.name + " " + (f.description || ""))).map(row));
+  const m = files.filter(f => re.test(f.name + " " + (f.description || "")));
+  if (!m.length) {
+    const cats = {};
+    for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }
+    return { note: `nothing matches "${q}" — the categories:`, categories: cats };
+  }
+  return clip(m.map(row));
 }
 
-module.exports = { post, clip, context, browse, search, page, grep, window, fields, spec, recipes };
+module.exports = { post, clip, context, browse, search, page, bash, spec, recipes };
