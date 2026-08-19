@@ -50,10 +50,10 @@ const wx = (() => { const m = { exports: {} };
 ```
 
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
-under `.agents/skills/wix-docs-base44/scratch/` and returns `{ path, bytes, lines, outline }` —
+under `.agents/skills/wix-connector/scratch/` and returns `{ path, bytes, lines, outline }` —
 the outline is the map. Read a saved file the way you already know how:
 `wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
-across everything saved: `grep -rn 'term' .agents/skills/wix-docs-base44/scratch/`), and
+across everything saved: `grep -rn 'term' .agents/skills/wix-connector/scratch/`), and
 `read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
 file when it fits read_file's 45K cap. **API responses are site data and never land in
 scratch** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser

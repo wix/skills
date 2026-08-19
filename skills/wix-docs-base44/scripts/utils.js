@@ -21,7 +21,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BUDGET = 4000;
-const SCRATCH = ".agents/skills/wix-docs-base44/scratch";
+const SCRATCH = ".agents/skills/wix-connector/scratch";
 
 const clip = (out) => {
   const s = typeof out === "string" ? out : JSON.stringify(out);
