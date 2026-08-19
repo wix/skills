@@ -33,7 +33,12 @@ const clip = (out) => {
 async function post(url, body, token) {
   const r = await fetch(url, { method: "POST", body: JSON.stringify(body),
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
-  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 300));
+  if (!r.ok) {
+    const head = (await r.text()).slice(0, 300);
+    throw new Error(r.status + " " + head + (r.status < 500
+      ? " — a 4xx means wrong body or reference: read this endpoint's contract before changing the call"
+      : ""));
+  }
   return r.json();
 }
 
@@ -94,7 +99,7 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
     ...(filter && { name_filter: filter }), ...(depth && { depth }),
   });   // 404 "No menu node found" ⇒ re-orient a level up
   if (content.length <= BUDGET) return content;
-  const s = save("browse.md", content);
+  const s = save("browse-" + (menuUrl.replace(/\/+$/, "").split("/").pop() || "root") + ".md", content);
   return { ...s, next: `wx.bash("grep -in 'term' ${s.path} | head -40")   // one line per node — or re-browse with a filter` };
 }
 
@@ -110,7 +115,7 @@ async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
     gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
       .trim().replace(/\s+/g, " ").slice(0, 220),
   })).filter(h => h.docsUrl);
-  const saved = save("search.md", content);
+  const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
   if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
     note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
   return clip({ ...saved, hits });
@@ -142,8 +147,9 @@ async function page(url) {
 function bash(cmd) {
   const { execSync } = require("child_process");
   try {
-    return clip(execSync(cmd, { timeout: 15000, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 })
-                || "(no output)");
+    const out = execSync(cmd, { timeout: 15000, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+    return out.trim() ? clip(out)
+      : "(no output — a filter may have swallowed the signal; rerun without the reducer)";
   } catch (e) {
     const exit = e.status ?? null, err = (e.stderr || "").toString().trim();
     return { exit, ...(err && { err: err.slice(0, 300) }),

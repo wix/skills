@@ -143,7 +143,9 @@ response or the schema — remembered names are often from older versions. Probe
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const data = await wx.post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
   { query: { cursorPaging: { limit: 10 } } }, accessToken);
-return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };   // project, don't dump
+// let it throw — the thrown message is your result; .catch hides the answer
+return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts?.[0] });
+//  ↑ one real row, whole — the shapes you code against live here, not in key names
 ```
 
 The same call deploys as `base44/functions/*` (work the app does as the owner) — shipped code
@@ -178,4 +180,6 @@ const { access_token } = await wx.post("https://www.wixapis.com/oauth2/token",
   { clientId: WIX_CLIENT_ID, grantType: "anonymous" });   // clientId: from the context report
 return await wx.post("<a public read from Learn Wix>", { query: {} }, access_token);
 // 200 ⇒ every visitor-facing page in the app is this same call, no server between
+// a lean default response isn't the whole shape — contracts often define a fields param
+// that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
