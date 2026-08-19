@@ -30,14 +30,23 @@ is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.
 
 ## Gather context — the dynamic context report
 
+Every JSON call in this guide shares one shape — this helper opens each exec (execs share no
+state, so redeclare it):
+
+```js
+const post = async (url, body, token) => {
+  const r = await fetch(url, { method: "POST", body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
+  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 300));
+  return r.json();
+};
+```
+
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const r = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({}),   // the connector token is site-bound; siteId filter is optional
-});
-const { markdown } = await r.json();   // big? extract a section, don't page blind:
+const { markdown } = await post("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
+  {}, accessToken);   // the connector token is site-bound; siteId filter is optional
+// big? extract a section, don't page blind:
 const apps = (markdown.match(/### Apps[\s\S]*?(?=\n### |$)/) || [markdown.slice(0, 3500)])[0];
 return { total: markdown.length, apps: apps.slice(0, 3500) };
 ```
@@ -61,27 +70,21 @@ out. One exec per round; timeout 10s, up to 120 via `{timeout}`. Clip guard for 
 listings clip:
 
 ```js
-const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
-  method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    menu_url: "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
-    include: ["METHOD"], name_filter: "resched", depth: 4,   // orient first: menu_url alone
-  }),
+const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
+  menu_url: "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
+  include: ["METHOD"], name_filter: "resched", depth: 4,   // orient first: menu_url alone
 });
-return (await r.json()).content;   // null/404 ⇒ not a docs node — re-orient a level up
+return content;   // 404 "No menu node found" ⇒ re-orient a level up
 ```
 
 **Don't know where it lives? Search (ranks, never matches).** Each hit is a condensed method
 doc. Reduce per hit, keeping the riches:
 
 ```js
-const r = await fetch("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown", {
-  method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ search_term: "pause a pricing plan subscription and resume it",
+const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+  { search_term: "pause a pricing plan subscription and resume it",
     document_type: "REST",   // or SDK | WIX_HEADLESS | VELO | CLI
-    maximum_results: 5, lines_in_each_result: 6 }),
-});
-const { content } = await r.json();
+    maximum_results: 5, lines_in_each_result: 6 });
 const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
   method:   (b.match(/^# Method: (.+)$/m) || [])[1],
   endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable
@@ -140,17 +143,14 @@ The index answers questions about pages you already found — arrive with a `doc
 A resource's methods with callable URLs — also the only proof an API does NOT exist:
 
 ```js
-const r = await fetch("https://mcp.wix.com/api/code-mode/search", {
-  method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ code: `async function(){
-    const r = lightIndex.find(x => x.docsUrl ===
-      "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5");
-    return r.methods.filter(m => /query/i.test(m.summary))
-                    .map(m => ({ op: m.operationId.split(".").pop(),
-                                 verb: m.httpMethod, call: m.publicUrl }));
-  }` }),
-});
-return (await r.json()).result;
+const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code: `async function(){
+  const r = lightIndex.find(x => x.docsUrl ===
+    "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5");
+  return r.methods.filter(m => /query/i.test(m.summary))
+                  .map(m => ({ op: m.operationId.split(".").pop(),
+                               verb: m.httpMethod, call: m.publicUrl }));
+}` });
+return result;
 ```
 
 Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema at
@@ -208,14 +208,9 @@ deployed `base44/functions/*` (work the app does as the owner). Project the resp
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const r = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {   // spec-index publicUrl
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ query: { cursorPaging: { limit: 10 } } }),
-});
-if (!r.ok) return { status: r.status, error: (await r.text()).slice(0, 300) };
-const data = await r.json();   // project, don't dump:
-return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };
+const data = await post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
+  { query: { cursorPaging: { limit: 10 } } }, accessToken);
+return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };   // project, don't dump
 ```
 
 ### A visitor client — src/lib/wixClient.js
