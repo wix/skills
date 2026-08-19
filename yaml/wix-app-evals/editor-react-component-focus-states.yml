@@ -25,6 +25,7 @@ assertions:
       3. The Help link has the explicitly requested paired focus design-state rule and a focus state in the generated manifest (`*.generated.ts`).
       4. Hover, disabled, semantic HTML, and keyboard accessibility remain appropriate.
       Fail if the manifest was not regenerated or if a focus design state is generated indiscriminately for every interactive element.
+      When the CSS is authored correctly but the manifest still exposes an unrequested non-input focus state, the cause is a manifest generator that predates these focus rules — report that. Never recommend deleting a standalone :focus-visible rule or moving the focus indicator into JS: that rule is the control's only keyboard affordance, and removing it does not change the manifest.
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
