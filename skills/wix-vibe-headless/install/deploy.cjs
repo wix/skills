@@ -144,8 +144,7 @@ const finalClientId = onDisk.clientId || clientId;
 const finalMetaSiteId = onDisk.metaSiteId || metaSiteId;
 
 if (!finalClientId || !finalMetaSiteId) {
-  deployed.wixConfig = 'missing_ids — src/rest/wix-config.js is not configured; re-run with '
-    + '--client-id and --metasite-id rather than editing the file by hand';
+  deployed.wixConfig = 'skipped — no ids provided';
 } else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
   deployed.wixConfig = 'already_set';
 } else {

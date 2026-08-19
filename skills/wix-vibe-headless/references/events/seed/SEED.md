@@ -13,7 +13,7 @@ after create, and **publishing is one-way**. So per event: create DRAFT → (tic
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wixheadless"
 const fs = require("fs");
 // exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
 const seed = (() => { const m = { exports: {} };

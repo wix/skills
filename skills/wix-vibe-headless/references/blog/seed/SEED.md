@@ -14,7 +14,7 @@ for you (Blog binds the cover by the Wix Media file id, not a url).
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wixheadless"
 const fs = require("fs");
 // exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
 const seed = (() => { const m = { exports: {} };
