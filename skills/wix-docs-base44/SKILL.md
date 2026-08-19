@@ -1,6 +1,6 @@
 ---
 name: wix-docs-base44
-description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide (site context, doc discovery, API contracts, who calls Wix from where), and scripts/disk.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, decide frontend vs backend for a Wix call."
+description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide (site context, doc discovery, API contracts, who calls Wix from where), and scripts/utils.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, decide frontend vs backend for a Wix call."
 ---
 
 # Building on Wix from Base44
@@ -42,9 +42,9 @@ reload each round; the module lives on disk next to this file, network only as f
 fallback):
 
 ```js
-const fs = require("fs"), P = ".agents/skills/wix-connector/disk.js";
+const fs = require("fs"), P = ".agents/skills/wix-connector/utils.js";
 if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-connector", { recursive: true });
-  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-docs-base44/scripts/disk.js")).text()); }
+  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-docs-base44/scripts/utils.js")).text()); }
 const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
