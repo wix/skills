@@ -12,20 +12,15 @@ big result returns a count of what was left out. One exec per round; timeout 10s
 
 Clip guard: `const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
 
-## Who calls Wix
+## What are you building?
 
-```
-end user's browser ──(visitor token)─► wixapis.com   the app, at runtime
-exec_tool          ──(admin token)───► wixapis.com   you: probing/managing while building
-backend function   ──(admin token)───► wixapis.com   admin work the app does at runtime
-```
+The app's audience picks its architecture, because it picks the token — and the two tokens have
+opposite rules: the **visitor token is public** (mintable by anyone from the site's `clientId`),
+the **admin token is a secret** (the connector's; never ships to a browser).
 
-Headless means the Wix site has no pages of its own — **your app IS its frontend**, and a
-frontend calls its backend from the browser. Tokens: visitor minted in client code; admin via
-`getConnection("wix")`.
-
-The visitor-facing shape, as files (`base44/functions/*` carry only owner-side work — for a
-management dashboard, that's most of the app):
+**A site for visitors** — storefront, blog, booking page. Headless means the Wix site has no
+pages of its own: your app IS its frontend, and it calls Wix like any frontend calls its backend —
+from the browser, on the visitor token:
 
 ```js
 // src/lib/wixClient.js — the ENTIRE visitor path lives here; pages import it
@@ -39,6 +34,16 @@ wix("/ecom/v1/carts/current/create-checkout", { method: "POST", body: "{}" });
 //  ↑ carts/current/* and checkout are CALLER-BOUND: on the admin token they act on the
 //    ADMIN's cart — a checkout proxied through a backend function comes up empty
 ```
+
+Zero `base44/functions/*` on this path — they exist here only for work the app does on its own
+as the site's owner (webhooks, scheduled jobs).
+
+**An admin tool for the owner** — dashboard, back office, ops. Now the pages act *as the owner*,
+and the owner's token is a secret — so the shape inverts, correctly:
+`pages → base44/functions/* ──(admin token)──► wixapis.com`.
+
+**Either way, you, while building**: probe and manage ad hoc from `exec_tool` on the admin token
+(next section).
 
 ## Gather context
 
