@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, site-speed, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -356,6 +356,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 **Technical:** Direct links to the site-settings dashboard pages on manage.wix.com (settings hub, website settings, language & region), paired with the Site Properties read API.
+
+---
+
+## Site Speed & Performance
+
+### [Triage a Wix Site's Google PageSpeed Insights / Lighthouse Report](references/site-speed/pagespeed-insights-triage.md)
+**Technical:** Sorts PageSpeed Insights/Lighthouse findings on a Wix site into what's fixable via Wix tools (oversized images via Media Manager, redundant third-party scripts via the Custom Embeds API) versus platform-baseline behavior with no site-owner lever (Wix's own static-asset cache headers are already `max-age=7776000, immutable`; the site's own preconnect hints and diagnostic-only Lighthouse sections aren't controllable via any API or dashboard setting). Use when the user reports a slow site, a PageSpeed/Lighthouse score, or specific audits like "use efficient cache lifetimes," "duplicated/legacy JavaScript," or "more than 4 preconnect connections."
 
 ---
 
