@@ -69,3 +69,15 @@ A distinct request that hits the same wall: the user wants to change an existing
 - Same underlying reason as the rest of this doc: the page's URI lives in the Editor's internal document model, which has no public write API — this isn't a gap specific to SEO tooling.
 
 Treat this the same as the other cases above: state plainly that no API can rename a static page's URL, and that the fix requires a human with desktop-browser Editor access to open Page Settings → SEO Basics → URL and change the slug there.
+
+## Same gap from the full custom-site-migration angle: "faithfully recreate my finished N-page site in Wix Studio"
+
+A distinct request that hits the same wall from the creation side, not the editing side: the user already has a finished, custom multi-page site elsewhere (copy, page architecture, imagery, visual system, internal links, and responsive behavior all already solved) and wants it brought into Wix **as-is** — not rebuilt from a prompt or a template.
+
+[Site Import](site-import.md) is the one tool built for exactly this, but it's gated (limited rollout, `NOT_ENABLED` for most accounts, no self-service path). When it's unavailable, none of the other site-creation tools substitute for it, because they solve a different problem:
+
+- **`WixSiteBuilder`** generates a site from a natural-language prompt (Harmony AI) — it invents layout and copy to fit the prompt, it does not faithfully reproduce a specific existing design/copy/page set.
+- **`CreateSiteFromTemplate`** starts from a generic template — the user still has to manually rebuild every page's content and layout to match their finished design.
+- **`import-claude-design-from-url`** creates a new site from a single self-contained HTML bundle, but only from a Claude Design export (`claudeusercontent.com`) — it doesn't accept an arbitrary existing site's markup, and doesn't cover multi-page fidelity (internal links, shared nav/footer across pages) even for the one page it can take.
+
+So when Site Import is gated, there is currently **no automated path at all** to bring a finished custom multi-page site into Wix with layout/design fidelity — only a full manual rebuild in the Editor. This is the same root cause as the rest of this doc (the Editor/Studio internal page/layout document model has no public write API), just hit before a site is created rather than after. Say so plainly rather than attempting `WixSiteBuilder` or `CreateSiteFromTemplate` as a "close enough" substitute and hoping the result matches — it won't.
