@@ -16,10 +16,14 @@ and `.module.css`.
 | Has a selectable/variant value in its data — `selected`/`active`/`current`/`open`/`expanded`/`checked`/`featured` | that custom state |
 | None of the above | no states — resting style only |
 
+An explicit `role` overrides the tag's implicit semantics: `<input role="button">`
+is a non-input control, and `<div role="checkbox">` is an input field.
+
 A `focus` design state is an editor styling control, not the keyboard focus
-indicator itself. For a non-input control, preserve accessible keyboard focus
-with a standalone `:focus-visible` rule when needed, but do not add a global
-`--focus` modifier unless the user explicitly asks for an editable focus state.
+indicator itself. Do not add a global `--focus` modifier to a non-input control
+unless the user explicitly asks for an editable focus state. A control that
+restyles its own `outline`, `background`, or `border` MUST still carry a
+standalone `:focus-visible` rule — that rule is its only keyboard affordance.
 
 A custom state may also be driven by a root-level boolean prop (e.g.
 `isFeatured`) instead of by markup or item data — see §5.

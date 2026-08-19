@@ -18,15 +18,15 @@ assertions:
     model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
-      Evaluate the generated ContactPreferenceForm source. Score 0-10.
+      Evaluate the generated ContactPreferenceForm source and its generated manifest. Score 0-10.
       Pass only if all of the following are true:
-      1. The email input and native checkbox each have a paired focus design-state rule: their prefixed global --focus modifier and a native focus/focus-visible selector share the rule.
-      2. The submit button has no global --focus modifier and is not exposed as an editable focus design state. A standalone :focus-visible keyboard indicator is allowed.
-      3. The Help link has the explicitly requested paired focus design-state rule.
+      1. The email input and native checkbox each have a paired focus design-state rule in CSS, and each element has a focus state in the generated manifest (`*.generated.ts`).
+      2. The submit button has no global --focus modifier and no focus state in the generated manifest (`*.generated.ts`). A standalone :focus-visible keyboard indicator is allowed.
+      3. The Help link has the explicitly requested paired focus design-state rule and a focus state in the generated manifest (`*.generated.ts`).
       4. Hover, disabled, semantic HTML, and keyboard accessibility remain appropriate.
-      Fail if a focus design state is generated indiscriminately for every interactive element.
+      Fail if the manifest was not regenerated or if a focus design state is generated indiscriminately for every interactive element.
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
-      Evaluate the implementation path and final code quality. Score 0-10. Reward a direct use of the wix-app Editor React Component and Design States references, valid scaffolded component code, and a clear distinction between editor focus states and standalone keyboard focus indicators. Penalize unnecessary focus modifiers, accessibility regressions, manual generated-manifest edits, failed tool calls, or unrelated changes.
+      Evaluate the implementation path and final code quality. Score 0-10. Reward a direct use of the wix-app Editor React Component and Design States references, valid scaffolded component code, successful manifest regeneration, and a clear distinction between editor focus states and standalone keyboard focus indicators. Penalize unnecessary focus modifiers, accessibility regressions, manual generated-manifest edits, failure to inspect the generated focus states, failed tool calls, or unrelated changes.

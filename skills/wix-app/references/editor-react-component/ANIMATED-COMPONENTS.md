@@ -126,6 +126,8 @@ Position the button absolutely so it overlays the content without pushing other 
   /* e.g. background: rgba(255, 255, 255, 1); */
 }
 
+/* Keyboard indicator only — deliberately unpaired: focus is not an editor
+   design state on a non-input control. Do not add a --focus modifier here. */
 .playButton:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;

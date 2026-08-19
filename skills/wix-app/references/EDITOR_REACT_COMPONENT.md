@@ -78,10 +78,13 @@ File where you can override the generated manifest from `<componentName>.generat
    the new/updated prop schema. This command regenerates manifest
    parts for all components. Design-states emission requires
    `@wix/cli` ≥ 1.1.215 (native and class-triggered states work from
-   ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215). If a
-   design state is missing from `<componentName>.generated.ts`, the installed
-   CLI is older than required — tell the user, and let them decide whether to
-   upgrade.
+   ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215).
+   Then inspect `<componentName>.generated.ts`: an input widget should have a
+   `focus` state, while a non-input control should have one only when its CSS
+   contains the paired global `--focus` modifier. A missing expected state or
+   an unrequested non-input `focus` state means the installed manifest
+   generator does not support the required design-state behavior — tell the
+   user, and let them decide whether to upgrade `@wix/cli`.
 6. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 If the component's primary content is a **playable animation** (Lottie/JSON,
