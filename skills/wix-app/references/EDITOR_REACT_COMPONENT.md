@@ -102,6 +102,11 @@ before writing the code. Triggers, and the only cases that warrant it:
 
 Otherwise, do not reach for a hook at all — data the site owner can type or pick
 belongs in props.
+If the component displays **an array of items where only one body is visible at a
+time** (tabs, slides, steps), follow the
+[active-item rules](editor-react-component/COMPONENT-API.md#active-item-components-one-body-visible-at-a-time)
+in [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) (`ActiveItemIndex<>`,
+`name` on each item, render-all-panels visibility).
 
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
@@ -117,7 +122,7 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 - [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) — Which design states a part supports (heuristic) and how to author them
 - [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
-- [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
+- [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props, active-item components
 - [`editor-react-component/FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) — Standard SDK event handler props, DOM wiring, custom callbacks
 - [`editor-react-component/ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
 - [`editor-react-component/COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) — Editor-specific entry point (`component.preview.tsx`), `useIsEditMode()`, when to modify

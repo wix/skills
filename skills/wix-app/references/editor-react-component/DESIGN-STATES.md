@@ -17,6 +17,12 @@ and `.module.css`.
 A custom state may also be driven by a root-level boolean prop (e.g.
 `isFeatured`) instead of by markup or item data — see §5.
 
+For **active-item components** (tabs, slideshow, steps), the `--active` state on
+each item is driven by comparing the item's index to the active-index prop
+(`index === activeItem`), not by a per-item boolean flag — see
+[Active-item components](COMPONENT-API.md#active-item-components-one-body-visible-at-a-time)
+in [`COMPONENT-API.md`](COMPONENT-API.md).
+
 ## 2. Name the state class
 
 Flat: the element's own global class + `--<state>`. Because inner-part
