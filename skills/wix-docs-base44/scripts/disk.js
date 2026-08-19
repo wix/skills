@@ -175,6 +175,24 @@ async function fields(ref, from, to) {
                 ...(names.length === 0 && { note: `no JSON fields in this range — wx.window("${p}", ${from}, ${to}) to see it` }) });
 }
 
+// ── shell ─────────────────────────────────────────────────────────────────────
+
+// Compose native pipelines over scratch — grep -n, sed -n, mawk, sort, uniq, wc
+// (GNU grep/sed; awk is mawk; no rg). Cap your own output (| head -40); the return
+// clips regardless. grep's exit 1 means no match, not failure — the return says so.
+function bash(cmd) {
+  const { execSync } = require("child_process");
+  try {
+    return clip(execSync(cmd, { timeout: 15000, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 })
+                || "(no output)");
+  } catch (e) {
+    const exit = e.status ?? null, err = (e.stderr || "").toString().trim();
+    return { exit, ...(err && { err: err.slice(0, 300) }),
+             out: clip((e.stdout || "").toString()),
+             ...(exit === 1 && !err && { note: "exit 1 with no stderr — a no-match, not a failure" }) };
+  }
+}
+
 // ── the spec index ────────────────────────────────────────────────────────────
 
 // Run a query over the API spec index. In scope: lightIndex (RESOURCES with
@@ -221,4 +239,4 @@ async function recipes(q) {
   return clip(m.map(row));
 }
 
-module.exports = { post, clip, context, browse, search, page, grep, window, fields, spec, recipes };
+module.exports = { post, clip, context, browse, search, page, grep, window, fields, bash, spec, recipes };
