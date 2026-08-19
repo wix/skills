@@ -35,15 +35,22 @@ wix("/ecom/v1/carts/current/create-checkout", { method: "POST", body: "{}" });
 //    ADMIN's cart — a checkout proxied through a backend function comes up empty
 ```
 
-Zero `base44/functions/*` on this path — they exist here only for work the app does on its own
-as the site's owner (webhooks, scheduled jobs).
+The rule is not "no backend functions" — it is: **a call the visitor token can make belongs in
+the client.** A visitor site still has `base44/functions/*` for its non-Wix backend, and for Wix
+ops that genuinely need the ADMIN identity — elevated-permission work a visitor may *trigger* but
+must never hold the token for — plus the app's own owner-side work (webhooks, scheduled jobs).
 
 **An admin tool for the owner** — dashboard, back office, ops. Now the pages act *as the owner*,
 and the owner's token is a secret — so the shape inverts, correctly:
 `pages → base44/functions/* ──(admin token)──► wixapis.com`.
 
-**Either way, you, while building**: probe and manage ad hoc from `exec_tool` on the admin token
-(next section).
+The three lanes, whatever you build:
+
+```
+browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
+base44/functions/* ──(admin token)───► wixapis.com   ops that truly need the owner's identity
+exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
+```
 
 ## Gather context
 
