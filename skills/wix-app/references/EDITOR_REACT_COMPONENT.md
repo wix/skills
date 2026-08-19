@@ -67,24 +67,19 @@ File where you can override the generated manifest from `<componentName>.generat
 3. Edit the generated React and CSS files in
    `src/extensions/site/components/component-name/`. Apply
    [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) while
-   authoring: every interactive named part must use interactive markup, and
-   every native design state supported by the eligibility table must pair its
-   selector with the prefixed global modifier (for example,
-   `.cta:global(.component-name-cta--hover), .cta:hover`). A standalone
-   `:focus-visible` keyboard indicator on a non-input control is not an editor
-   design state and intentionally has no global modifier.
+   authoring: every interactive named part must use interactive markup and
+   pair each native state selector with its prefixed global modifier (for
+   example, `.cta:global(.component-name-cta--hover), .cta:hover`). A
+   pseudo-class without the matching global modifier is incomplete.
 4. **MANDATORY** — execute the full A11y Review on the edited component per [`editor-react-component/A11Y-REVIEW.md`](editor-react-component/A11Y-REVIEW.md). Run both scanners over the component's `.tsx`/`.jsx` files, complete the Phase 3 manual semantic review, fix confirmed findings, and re-run the scanners after fixes. Reading the reference without executing these steps is not a review. Do not proceed to the build or report completion until the review is complete.
 5. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest
    parts for all components. Design-states emission requires
    `@wix/cli` ≥ 1.1.215 (native and class-triggered states work from
-   ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215).
-   Then inspect `<componentName>.generated.ts`: an input widget should have a
-   `focus` state, while a non-input control should have one only when its CSS
-   contains the paired global `--focus` modifier. A missing expected state or
-   an unrequested non-input `focus` state means the installed manifest
-   generator does not support the required design-state behavior — tell the
-   user, and let them decide whether to upgrade `@wix/cli`.
+   ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215). If a
+   design state is missing from `<componentName>.generated.ts`, the installed
+   CLI is older than required — tell the user, and let them decide whether to
+   upgrade.
 6. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 If the component's primary content is a **playable animation** (Lottie/JSON,
