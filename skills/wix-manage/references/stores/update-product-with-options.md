@@ -218,6 +218,14 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID. Each variant object is replaced whole rather than merged, so carry over the fields you are not changing: rebuilding a variant from just its `id` plus the field you want to set drops everything else and is rejected on the first required field it lost (`price must not be empty`). Start from the variant as returned by Get Product and override only what the user asked to change.
 
+### Renaming an Existing Choice Is Not Supported
+
+`options[].choicesSettings.choices` is immutable once a choice exists — this includes the choice's own `name`. If the user asks to rename, fix a typo in, or standardize the name of an **existing** option choice (for example a shared/reusable customization like "Color" or "Patch Design" that already has variants), do not attempt an Update Product or Update Customization PATCH: it returns `200`, `product.revision`/`customization.revision` increments, but the name is silently left unchanged — confirm this yourself with a fresh Get Product/Get Customization call and you will still see the old name. There is currently no endpoint that renames an existing choice, even when you pass back the same `choiceId` and preserve every other choice, option, and variant exactly.
+
+Do not try workarounds that risk the existing variant matrix — do not delete and recreate the choice/option (this destroys all variants using it, along with their prices, SKUs, and inventory), and do not use Set Customization Choices (it fails once the choice is assigned to any product). Tell the user this specific rename isn't possible via the API today and that manually renaming the choice in the Wix dashboard (Site → Products → the product's options) is the only way, or point them to `SupportAndFeedback` to report the gap.
+
+This only blocks renaming an *existing* choice. Adding brand-new choices to an option (Add/Bulk Add Customization Choices, or including a new choice name in a full Update Product `options` payload) works normally.
+
 ### Convert a Simple Product to Color Variants
 
 When adding the first option to a simple product, do not preserve a choice-less default variant unchanged. A simple product often has one existing variant with price or stock but no `choices`. After you add a `Color` option, every variant in `variantsInfo.variants` must include choices that match the product options.
@@ -332,6 +340,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
+- An existing choice's `name` can't be changed via Update Product or Update Customization. The request succeeds and revision increments, but the rename is silently dropped — see "Renaming an Existing Choice Is Not Supported" above.
 - Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates. Reading them back is not symmetric: Get Product returns each variant's `choices` with `optionChoiceIds` only, and fills in `optionChoiceNames` just when the request's `fields` array includes `"VARIANT_OPTION_CHOICE_NAMES"`. So to find the variant for a named choice such as `Large`, either pass that field and match on the name, or take the choice GUID from `options[].choicesSettings.choices[].choiceId` and match it against `variants[].choices[].optionChoiceIds.choiceId`. Matching on a name the response never carried raises nothing — it just selects no variant.
 - Include the `renderType` in `optionChoiceNames`.
 
