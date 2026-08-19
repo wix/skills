@@ -1,5 +1,5 @@
 ---
-name: wix-docs-base44
+name: wix-base44-connector
 description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide (site context, doc discovery, API contracts, who calls Wix from where), and scripts/utils.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, decide frontend vs backend for a Wix call."
 ---
 
@@ -42,18 +42,18 @@ reload each round; the module lives on disk next to this file, network only as f
 fallback):
 
 ```js
-const fs = require("fs"), P = ".agents/skills/wix-connector/utils.js";
-if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-connector", { recursive: true });
-  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-docs-base44/scripts/utils.js")).text()); }
+const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
+  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
 const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
-under `.agents/skills/wix-docs-base44/scratch/` and returns `{ path, bytes, lines, outline }` —
+under `.agents/skills/wix-base44-connector/scratch/` and returns `{ path, bytes, lines, outline }` —
 the outline is the map. Read a saved file the way you already know how:
 `wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
-across everything saved: `grep -rn 'term' .agents/skills/wix-docs-base44/scratch/`), and
+across everything saved: `grep -rn 'term' .agents/skills/wix-base44-connector/scratch/`), and
 `read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
 file when it fits read_file's 45K cap. **API responses are site data and never land in
 scratch** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
