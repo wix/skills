@@ -28,169 +28,87 @@ ops a visitor triggers, webhooks, scheduled jobs — and the app's non-Wix backe
 **An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
 is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
 
-## Gather context — the dynamic context report
+## The helpers
 
-Every JSON call in this guide shares one shape — this helper opens each exec (execs share no
-state, so redeclare it):
+Research and probing run in exec_tool, and one loader opens every exec (execs share no state —
+reload each round, ~1s):
 
 ```js
-const post = async (url, body, token) => {
-  const r = await fetch(url, { method: "POST", body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
-  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 300));
-  return r.json();
-};
+const src = await (await fetch("https://www.wix.com/skills/wix-docs-base44/scripts/lite.js")).text();
+const wx = (() => { const m = { exports: {} };
+  new Function("module", "exports", src)(m, m.exports); return m.exports; })();
 ```
+
+Every helper is fetch → reduce in memory → return ≤ 4,000 chars (exec results clip at ~5,000);
+nothing touches disk. A big return comes back `{ truncated, total, head }` — narrow the query,
+don't page the blob. Fetch every URL inside exec with `fetch()` — website/browser tools clip at
+10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`. A surprising
+shape? Read the script itself — the functions are thin.
+
+## Gather context — the dynamic context report
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const { markdown } = await post("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown",
-  {}, accessToken);   // the connector token is site-bound; siteId filter is optional
-// big? extract a section, don't page blind:
-const apps = (markdown.match(/### Apps[\s\S]*?(?=\n### |$)/) || [markdown.slice(0, 3500)])[0];
-return { total: markdown.length, apps: apps.slice(0, 3500) };
+return await wx.context(accessToken, "Apps");   // no section arg → the report's outline
 ```
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
-`markdown: ""` = bad token, never an empty site.
+An empty report = bad token, never an empty site.
 
 ## Learn Wix — find the APIs, learn their contracts
 
-Research runs in exec_tool, and every research call is **fetch → reduce in memory → return
-≤ 4,000 chars** (results clip at ~5,000). Nothing is written to disk; state between rounds =
-re-fetching (~1s). **Fetch every URL inside exec with `fetch()`** — website/browser tools clip at
-10,000 chars silently. Return facts, not documents; a big result returns a count of what was left
-out. One exec per round; timeout 10s, up to 120 via `{timeout}`. Clip guard for any big return:
-`const s = JSON.stringify(out); return s.length > 4000 ? { truncated: true, total: s.length, head: s.slice(0, 4000) } : out;`
+```js
+// know the product? browse is deterministic — menuUrl alone orients (children + counts);
+// filter before listing methods, unfiltered listings clip
+await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
+                { include: ["METHOD"], filter: "resched", depth: 4 });
 
-### Find what to read
+// don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
+await wx.search("pause a pricing plan subscription and resume it");
+// → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
+```
 
-**Know the product? Browse (deterministic).** Orient with counts, then filter — unfiltered
-listings clip:
+Go deeper for fields, enums, or absence — only the spec index proves absence.
+
+### Read a doc page
+
+Method pages are 100 KB+, twin REST and SDK halves repeating field names at different types — map,
+then quote only your half:
 
 ```js
-const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
-  menu_url: "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
-  include: ["METHOD"], name_filter: "resched", depth: 4,   // orient first: menu_url alone
-});
-return content;   // 404 "No menu node found" ⇒ re-orient a level up
+const map = await wx.page(docsUrl, "refund");   // headers + your term, with line numbers;
+                                                // no term = the outline; omitted > 0 ⇒ narrow
+await wx.window(docsUrl, 120, 160);   // quote header-to-header — the REST example FIRST:
+                                      // under ### Examples below ## REST API sits a complete request
+await wx.fields(docsUrl, 53, 949);    // a giant fenced example → its field vocabulary in one round
 ```
 
-**Don't know where it lives? Search (ranks, never matches).** Each hit is a condensed method
-doc. Reduce per hit, keeping the riches:
+### The spec index
+
+Answers questions about pages you already found — arrive with a `docsUrl`, match by it. Also the
+only proof an API does NOT exist:
 
 ```js
-const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
-  { search_term: "pause a pricing plan subscription and resume it",
-    document_type: "REST",   // or SDK | WIX_HEADLESS | VELO | CLI
-    maximum_results: 5, lines_in_each_result: 6 });
-const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
-  method:   (b.match(/^# Method: (.+)$/m) || [])[1],
-  endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable
-  docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
-  gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "").trim().replace(/\s+/g, " ").slice(0, 220),
-})).filter(h => h.docsUrl);
-return { total: content.length, hits };   // hits often ARE the answer
+await wx.spec(`
+  const r = lightIndex.find(x => x.docsUrl === "<docsUrl from browse/search>");
+  return r.methods.map(m => ({ op: m.operationId.split(".").pop(), verb: m.httpMethod,
+                               call: m.publicUrl }));   // publicUrl is callable — path is PARTIAL
+`);
+// request fields next round: getResourceSchemaByUrl(docsUrl) →
+//   m.requestBody.content["application/json"].schema.properties — names and types, drill deeper
+//   per round; $circular stubs resolve via s.components.schemas["<name>"]
 ```
-
-Go deeper for fields, enums, or absence — only the spec index proves absence. Drop
-wrong-product hits.
-
-### Read a doc page — fetch + map in one exec
-
-Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin REST
-and SDK halves repeating field names at different types — never return the page, map it:
-
-```js
-const url = "https://dev.wix.com/docs/…/cancel-booking";   // from browse/search output
-const res = await fetch(url.replace(/\.md$/, "") + ".md");
-if (!res.ok) return { status: res.status, hint: "not a docs page — take URLs from output, don't compose" };
-const lines = (await res.text()).split("\n");
-const hits = [];
-lines.forEach((text, i) => {
-  if (/^#{1,3} /.test(text) || /refund/i.test(text))   // headers always; term of interest
-    hits.push({ line: i + 1, text: text.trim().slice(0, 100) });
-});
-return { lines: lines.length, shown: Math.min(hits.length, 40),
-         omitted: Math.max(0, hits.length - 40), hits: hits.slice(0, 40) };
-```
-
-`omitted > 0` ⇒ narrow, map again. Headers say which `##` half each hit is in — quote only yours.
-No term = the outline; header-to-header = section windows.
-
-**Window the REST example FIRST** — under `### Examples` below `## REST API` sits a complete
-working request (URL, headers, body): usually all you need. Window it with the same
-fetch, sliced to the map's line numbers: `lines.slice(a, b).map((t, i) => (a + 1 + i) + ": " + t.slice(0, 110)).join("\n")`.
-
-### The spec index — endpoints, exact schemas
-
-`POST https://mcp.wix.com/api/code-mode/search` with `{ code: "async function(){…}" }` → `{ result }`.
-In scope:
-
-```typescript
-lightIndex: Array<{   // RESOURCES, not methods
-  name; docsUrl; menuPath: string[]
-  methods: Array<{ operationId,   // fully qualified — never filter by resource name on it
-    summary, httpMethod,
-    path,        // PARTIAL — never call it
-    publicUrl,   // the callable https://www.wixapis.com/… URL — call THIS
-    docsUrl }> }>
-getResourceSchemaByUrl(docsUrl)   // full schema; API method pages only
-```
-
-The index answers questions about pages you already found — arrive with a `docsUrl`, match by it.
-A resource's methods with callable URLs — also the only proof an API does NOT exist:
-
-```js
-const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code: `async function(){
-  const r = lightIndex.find(x => x.docsUrl ===
-    "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5");
-  return r.methods.filter(m => /query/i.test(m.summary))
-                  .map(m => ({ op: m.operationId.split(".").pop(),
-                               verb: m.httpMethod, call: m.publicUrl }));
-}` });
-return result;
-```
-
-Request fields: same wrapper, `getResourceSchemaByUrl(methodDocsUrl)` → schema at
-`m.requestBody.content["application/json"].schema.properties` — names and types only, drill next
-round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
 
 ### Management recipes — check before composing admin flows
 
-~100 curated multi-step recipes (install apps, seed catalogs, set up whole verticals) from the
-`wix-manage` skill. Drill in three steps — categories, a category's recipes, one recipe:
+~100 curated multi-step recipes (install apps, seed catalogs, set up whole verticals):
 
 ```js
-// 1. what categories exist
-const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
-const cats = {};
-for (const f of files) { const m = f.path.match(/^references\/([^/]+)\//); if (m) cats[m[1]] = (cats[m[1]] || 0) + 1; }
-return cats;   // { stores: 9, bookings: 13, ecommerce: 24, cms: 7, "app-installation": 3, … }
-```
-
-```js
-// 2. one category's recipes — names and descriptions are written for choosing
-return files.filter(f => f.path.startsWith("references/stores/"))
-            .map(f => ({ name: f.name, gist: (f.description || "").slice(0, 120), url: base + f.path, kb: Math.round(f.size / 1024) }));
-```
-
-```js
-// 3. read the chosen recipe — whole when small, outline first when big
-const text = await (await fetch(url)).text();   // url from step 2
-if (text.length <= 4000) return text;
-const lines = text.split("\n");
-return { total: text.length, outline: lines.map((t, i) => /^#{1,3} /.test(t)
-  ? { line: i + 1, text: t.slice(0, 80) } : null).filter(Boolean) };
-```
-
-```js
-// 4. a big section is usually ONE fenced example (bulk-create's STEP 1: 897 lines, one fence) —
-//    reduce it to its shape, window verbatim only where exact values matter
-const sec = lines.slice(from - 1, to);   // bounds: this header's line → the next header's
-const fields = [...new Set(sec.join("\n").match(/"([a-zA-Z][a-zA-Z0-9]*)":/g) || [])].map(s => s.slice(1, -2));
-return { sectionLines: sec.length, fields };   // the request vocabulary in one round
+await wx.recipes();           // categories with counts
+await wx.recipes("stores");   // a category's list — or any task word: wx.recipes("coupon")
+await wx.recipe(url);         // whole when small; { total, outline } when big —
+                              // then wx.window / wx.fields by the outline's line numbers
 ```
 
 A matching recipe beats composing the flow from single endpoints: it carries ordering and
@@ -203,15 +121,15 @@ response or the schema — remembered names are often from older versions. Probe
 
 ### Admin calls — exec ad hoc, backend functions deployed
 
-The admin token is the connector's; the same call works from exec (probing, managing) and from a
-deployed `base44/functions/*` (work the app does as the owner). Project the response to facts:
-
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const data = await post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
+const data = await wx.post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
   { query: { cursorPaging: { limit: 10 } } }, accessToken);
 return { count: data.contacts?.length, keys: Object.keys(data.contacts?.[0] || {}) };   // project, don't dump
 ```
+
+The same call deploys as `base44/functions/*` (work the app does as the owner) — shipped code
+carries its own four-line fetch; the helpers are a build tool, not a runtime dependency.
 
 ### A visitor client — src/lib/wixClient.js
 
