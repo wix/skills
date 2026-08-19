@@ -1,13 +1,10 @@
----
-name: wix-patterns-docs
-description: Provides component documentation for the @wix/patterns library. Use when creating, updating, or debugging code that imports from @wix/patterns, @wix/patterns/page, or related subpaths, or when the user asks about a patterns component, hook, type, or usage example.
----
-
 # @wix/patterns Component Documentation
 
 ## When to Use
 
 Consult the generated docs whenever you work with `@wix/patterns` imports — to look up props, usage examples, or understand how components compose together.
+
+`@wix/patterns` is the **first** place to look for any dashboard page UI element. Only when it genuinely has no equivalent do you fall back to `@wix/design-system`, chosen via the WDS MCP (`SearchWixWDSDocumentation`) or the `wix-design-system` skill. The full resolution order lives in [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order); this file is the *how to look it up* half of that rule.
 
 ## Prerequisites
 
@@ -114,6 +111,16 @@ Each doc contains the component's category, import path, description, code examp
 Docs contain relative Storybook URLs like `[TableState](./?path=/story/...--tablestate)`. To resolve these, **use the link text as the filename**: `[TableState](...)` -> read `TableState.md`.
 
 Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs.
+
+## When Patterns Has No Equivalent
+
+A concept is only "missing" from patterns after you've checked `index.json` **and** searched the docs folder by keyword. Then, and only then:
+
+1. Look the component up in `@wix/design-system` — WDS MCP (`SearchWixWDSDocumentation`) preferred, the `wix-design-system` skill as fallback.
+2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
+3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals or add another UI library.
+
+Anything page- or collection-shaped (page shell, header, table, grid, filters, sorting, paging, row actions, bulk actions) is patterns' territory. If you're about to build one of those from WDS parts, you skipped a lookup.
 
 ## Tips
 

@@ -1,7 +1,16 @@
 
 # Wix Dashboard Page Builder
 Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
-At Wix we build dashboard pages using `@wix/patterns` (see patterns docs under reference) and `@wix/design-system`.
+
+## UI Libraries — Read Before Writing Any JSX
+
+At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
+
+1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up in the generated docs at `node_modules/@wix/patterns/dist/docs/` (start with `index.json`). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the WDS MCP (`SearchWixWDSDocumentation`), or the `wix-design-system` skill if the MCP is unavailable.
+3. **Custom React last** — only when neither library has it.
+
+Do not hand-write React for anything either library already provides, and do not decide a component is missing without checking. Full rule: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
 
 ## Scaffold
 
