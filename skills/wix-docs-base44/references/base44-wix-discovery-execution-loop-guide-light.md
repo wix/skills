@@ -49,7 +49,7 @@ is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.
 
 ## Gather context
 
-### What IS this site — one call answers it
+### The dynamic context report
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -108,7 +108,7 @@ return { total: content.length, hits };   // hits often ARE the answer
 Go deeper for fields, enums, or absence — only the spec index proves absence. Drop
 wrong-product hits.
 
-### Read a doc page — fetch + map in ONE call
+### Read a doc page — fetch + map in one exec
 
 Always append **`.md`** (without it: a multi-MB HTML shell). Method pages are 100 KB+, twin REST
 and SDK halves repeating field names at different types — never return the page, map it:
