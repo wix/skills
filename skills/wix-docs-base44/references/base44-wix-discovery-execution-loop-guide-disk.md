@@ -18,8 +18,9 @@ exec_tool          ──(admin token)───► wixapis.com   you: ad hoc pro
 ```
 
 **A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
-its own: your app IS its frontend. **The complete site — catalog, product pages, cart, checkout —
-is browser calls on the visitor token; none of it needs a backend function.** Public reads
+its own: your app IS its frontend. **The complete visitor experience —
+every page, every read, every action a visitor takes — is browser calls on the visitor token;
+none of it needs a backend function.** Public reads
 included (the visitor token queries the catalog directly), and `carts/current/*` + checkout act
 on the CALLER's cart, so only the visitor token reaches the visitor's cart. One file carries it
 all: `src/lib/wixClient.js` (Write the code, below). `base44/functions/*` appear only where work
@@ -168,5 +169,5 @@ writing pages — mint a visitor, make one public read with it:
 const { access_token } = await wx.post("https://www.wixapis.com/oauth2/token",
   { clientId: WIX_CLIENT_ID, grantType: "anonymous" });   // clientId: from the context report
 return await wx.post("<a public read from Learn Wix>", { query: {} }, access_token);
-// 200 ⇒ every catalog page in the app is this same call, no server between
+// 200 ⇒ every visitor-facing page in the app is this same call, no server between
 ```
