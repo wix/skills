@@ -1,7 +1,7 @@
 # Building on Wix from Base44
 
 The Wix connector is connected; this is how the app gets built on it — gather the site's context,
-learn the APIs from the docs, write the code. **Discover everything**: endpoints, paths, doc URLs,
+find the APIs and learn their contracts from the docs, write the code. **Discover everything**: endpoints, paths, doc URLs,
 request and response fields all come from the calls below, never from memory or pattern. 404 or
 empty ⇒ discover, not permute. Examples teach mechanics and go stale — verify before relying.
 
@@ -44,7 +44,7 @@ One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
 `markdown: ""` = bad token, never an empty site.
 
-## Learn Wix — discover APIs in the docs
+## Learn Wix — find the APIs, learn their contracts
 
 Research runs in exec_tool, and every research call is **fetch → reduce in memory → return
 ≤ 4,000 chars** (results clip at ~5,000). Nothing is written to disk; state between rounds =
@@ -158,17 +158,34 @@ round; `$circular` stubs resolve via `s.components.schemas["<name>"]`.
 ### Management recipes — check before composing admin flows
 
 ~100 curated multi-step recipes (install apps, seed catalogs, set up whole verticals) from the
-`wix-manage` skill, each named and described for searching:
+`wix-manage` skill. Drill in three steps — categories, a category's recipes, one recipe:
 
 ```js
+// 1. what categories exist
 const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
-const q = /install|app/i;   // your task's words
-return files.filter(f => q.test(f.name + " " + (f.description || "")))
-            .map(f => ({ name: f.name, url: base + f.path, kb: Math.round(f.size / 1024) }));
+const cats = {};
+for (const f of files) { const m = f.path.match(/^references\/([^/]+)\//); if (m) cats[m[1]] = (cats[m[1]] || 0) + 1; }
+return cats;   // { stores: 9, bookings: 13, ecommerce: 24, cms: 7, "app-installation": 3, … }
 ```
 
-A recipe is a doc page — fetch + map it like any other. A matching recipe beats composing the flow
-from single endpoints: it carries ordering and cross-step gotchas no method page mentions.
+```js
+// 2. one category's recipes — names and descriptions are written for choosing
+return files.filter(f => f.path.startsWith("references/stores/"))
+            .map(f => ({ name: f.name, gist: (f.description || "").slice(0, 120), url: base + f.path, kb: Math.round(f.size / 1024) }));
+```
+
+```js
+// 3. read the chosen recipe — whole when small, outline first when big
+const text = await (await fetch(url)).text();   // url from step 2
+if (text.length <= 4000) return text;
+const lines = text.split("\n");
+return { total: text.length, outline: lines.map((t, i) => /^#{1,3} /.test(t)
+  ? { line: i + 1, text: t.slice(0, 80) } : null).filter(Boolean) };
+// recipes are structured (Overview → Prerequisites → Steps) — window sections like any doc page
+```
+
+A matching recipe beats composing the flow from single endpoints: it carries ordering and
+cross-step gotchas no method page mentions.
 
 ## Write the code
 
