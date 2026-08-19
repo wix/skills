@@ -230,6 +230,12 @@ await embeddedScripts.embedScript({
 });
 ```
 
+## Releasing Updates
+
+After a site already called `embedScript()`, releasing a new app version with **only** HTML/JS content changes (no dynamic-parameter changes) is a minor version release — it auto-pushes to that site with no further action; do not tell users to reinstall the app or call `embedScript()` again.
+
+Adding, removing, or renaming a dynamic parameter is a **major** version change — sites only pick it up after the user clicks Update on the Manage Apps page (or you drive them through the app-installer update flow). See [About App Versioning](https://dev.wix.com/docs/build-apps/manage-your-app/versioning/about-app-versioning).
+
 ## Enable Embedded Script Permission
 
 After implementation, the app developer must manually enable the embedded script permission:
