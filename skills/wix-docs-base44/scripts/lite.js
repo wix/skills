@@ -124,22 +124,35 @@ async function spec(code) {
 
 // ── management recipes ────────────────────────────────────────────────────────
 
-// ~100 curated multi-step admin flows. No arg → categories with counts; with one →
-// that category's recipes (names and gists are written for choosing). Read the
-// chosen url with page(url) / window(url, a, b) / fields(url, a, b).
-async function recipes(cat) {
+// ~100 curated multi-step admin flows. No arg → categories with counts; a category
+// name → its recipes; any other term → search every recipe's name + gist for it
+// (names and gists are written for choosing).
+async function recipes(q) {
   const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
-  if (!cat) {
+  const cat = f => (f.path.match(/^references\/([^/]+)\//) || [])[1];
+  const row = f => ({ name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
+                      url: base + f.path, kb: Math.round(f.size / 1024) });
+  if (!q) {
     const cats = {};
-    for (const f of files) {
-      const m = f.path.match(/^references\/([^/]+)\//);
-      if (m) cats[m[1]] = (cats[m[1]] || 0) + 1;
-    }
+    for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }
     return cats;
   }
-  return clip(files.filter(f => f.path.startsWith(`references/${cat}/`))
-    .map(f => ({ name: f.name, gist: (f.description || "").slice(0, 120),
-                 url: base + f.path, kb: Math.round(f.size / 1024) })));
+  const inCat = files.filter(f => cat(f) === q);
+  if (inCat.length) return clip(inCat.map(row));
+  const re = new RegExp(q, "i");
+  return clip(files.filter(f => re.test(f.name + " " + (f.description || ""))).map(row));
 }
 
-module.exports = { post, clip, context, browse, search, page, window, fields, spec, recipes };
+// Read a chosen recipe — whole when small, outline first when big; then quote or
+// reduce sections by the outline's line numbers with window(url, a, b) /
+// fields(url, a, b). A matching recipe beats composing the flow from single
+// endpoints: it carries ordering and cross-step gotchas no method page mentions.
+async function recipe(url) {
+  const text = await (await fetch(url)).text();
+  if (text.length <= BUDGET) return text;
+  const outline = text.split("\n").map((t, i) => /^#{1,3} /.test(t)
+    ? { line: i + 1, text: t.slice(0, 80) } : null).filter(Boolean);
+  return clip({ total: text.length, outline });
+}
+
+module.exports = { post, clip, context, browse, search, page, window, fields, spec, recipes, recipe };
