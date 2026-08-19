@@ -14,43 +14,38 @@ Clip guard: `const s = JSON.stringify(out); return s.length > 4000 ? { truncated
 
 ## What are you building?
 
-The app's audience picks its architecture, because it picks the token — and the two tokens have
-opposite rules: the **visitor token is public** (mintable by anyone from the site's `clientId`),
-the **admin token is a secret** (the connector's; never ships to a browser).
+The app's audience picks the token, and the token picks the architecture: the **visitor token is
+public** — anyone can mint it from the site's `clientId` — and the **admin token is a secret**,
+the connector's, server-side only.
 
-**A site for visitors** — storefront, blog, booking page. Headless means the Wix site has no
-pages of its own: your app IS its frontend, and it calls Wix like any frontend calls its backend —
-from the browser, on the visitor token:
+```
+browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
+base44/functions/* ──(admin token)───► wixapis.com   work that needs the owner's identity
+exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
+```
+
+**A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
+its own: your app IS its frontend, and it calls Wix from the browser. Every call the visitor
+token can make lives in the client:
 
 ```js
-// src/lib/wixClient.js — the ENTIRE visitor path lives here; pages import it
+// src/lib/wixClient.js — the visitor path; pages import it
 const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, { ...opts,
   headers: { Authorization: `Bearer ${visitorToken}`, "Content-Type": "application/json" } });
 
 wix("/stores/v3/products/query", { method: "POST", body: JSON.stringify({ query: {} }) });
-//  ↑ public reads too — the visitor token queries catalog directly; no "admin read" backend fn
+//  ↑ public reads included — the visitor token queries catalog directly
 wix("/ecom/v1/carts/current");
 wix("/ecom/v1/carts/current/create-checkout", { method: "POST", body: "{}" });
-//  ↑ carts/current/* and checkout are CALLER-BOUND: on the admin token they act on the
-//    ADMIN's cart — a checkout proxied through a backend function comes up empty
+//  ↑ carts/current/* and checkout act on the CALLER's cart — only the visitor token
+//    reaches the visitor's cart
 ```
 
-The rule is not "no backend functions" — it is: **a call the visitor token can make belongs in
-the client.** A visitor site still has `base44/functions/*` for its non-Wix backend, and for Wix
-ops that genuinely need the ADMIN identity — elevated-permission work a visitor may *trigger* but
-must never hold the token for — plus the app's own owner-side work (webhooks, scheduled jobs).
+`base44/functions/*` hold the work that needs the owner's identity — elevated-permission ops a
+visitor triggers, webhooks, scheduled jobs — and the app's non-Wix backend.
 
-**An admin tool for the owner** — dashboard, back office, ops. Now the pages act *as the owner*,
-and the owner's token is a secret — so the shape inverts, correctly:
-`pages → base44/functions/* ──(admin token)──► wixapis.com`.
-
-The three lanes, whatever you build:
-
-```
-browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
-base44/functions/* ──(admin token)───► wixapis.com   ops that truly need the owner's identity
-exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
-```
+**An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
+is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
 
 ## Gather context
 
