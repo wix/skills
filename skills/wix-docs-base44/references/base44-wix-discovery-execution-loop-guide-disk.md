@@ -18,12 +18,13 @@ exec_tool          ──(admin token)───► wixapis.com   you: ad hoc pro
 ```
 
 **A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
-its own: your app IS its frontend, and it calls Wix from the browser. Every call the visitor token
-can make lives in the client — public reads included (the visitor token queries the catalog
-directly), and `carts/current/*` + checkout act on the CALLER's cart, so only the visitor token
-reaches the visitor's cart. One file carries this path: `src/lib/wixClient.js` (Write the code,
-below). `base44/functions/*` hold the work that needs the owner's identity — elevated-permission
-ops a visitor triggers, webhooks, scheduled jobs — and the app's non-Wix backend.
+its own: your app IS its frontend. **The complete site — catalog, product pages, cart, checkout —
+is browser calls on the visitor token; none of it needs a backend function.** Public reads
+included (the visitor token queries the catalog directly), and `carts/current/*` + checkout act
+on the CALLER's cart, so only the visitor token reaches the visitor's cart. One file carries it
+all: `src/lib/wixClient.js` (Write the code, below). `base44/functions/*` appear only where work
+needs the owner's identity — elevated-permission ops a visitor triggers, webhooks, scheduled
+jobs — and for the app's non-Wix backend.
 
 **An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
 is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
@@ -160,4 +161,12 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-Token contract: `…/headless/authentication/retrieve-tokens`.
+Token contract: `…/headless/authentication/retrieve-tokens`. Prove the lane in one exec before
+writing pages — mint a visitor, make one public read with it:
+
+```js
+const { access_token } = await wx.post("https://www.wixapis.com/oauth2/token",
+  { clientId: WIX_CLIENT_ID, grantType: "anonymous" });   // clientId: from the context report
+return await wx.post("<a public read from Learn Wix>", { query: {} }, access_token);
+// 200 ⇒ every catalog page in the app is this same call, no server between
+```
