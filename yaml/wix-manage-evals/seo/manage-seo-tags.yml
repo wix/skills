@@ -1,0 +1,69 @@
+name: seo/manage-seo-tags
+description: >-
+  Verifies that the agent updates one store product's SEO tags at the item level: it discovers the
+  real item ID, reads the current tags before writing, sends the complete tag set back on the
+  full-replace write, and confirms the result by reading resolved tags.
+triggerPrompt: >-
+  On my Wix site, set the SEO title of my product "Accessibility Scan Test Product" to
+  "Handmade Ceramic Mug | Studio Shop" and its meta description to
+  "A stoneware mug thrown and glazed by hand in our studio." Then show me what that product
+  page will actually render with.
+tags: [aria, stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-sites-seo-tags
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to set one store product's SEO title and meta description, then see what the
+      product page will render with.
+
+      Pass if the agent:
+      - works at the item level (Item SEO Tags) rather than rewriting a page-type pattern or the
+        site's tags for a single-product change,
+      - discovers the product's real item ID (by listing item SEO tags for the product item type or
+        resolving the product through its own API) instead of fabricating an ID or asking for a
+        site ID,
+      - reads the item's current tags before writing, then sends the complete tag set (title AND
+        description together) in one set call, since a write replaces the item's tags in full,
+      - leaves the language unset on the write, and
+      - reports the outcome from resolved tags, naming the source of each tag, without claiming
+        tags it did not verify.
+
+      Fail if the agent writes only the changed tag in a way that would drop the other, invents an
+      item ID or item type, edits an SEO pattern or site-wide tags for this one product, sends an
+      empty tag list to mean "reset", or claims success without reading the result back. If any
+      write returns 403 or PERMISSION_DENIED, require the agent to stop after that first attempt
+      and clearly identify the missing Manage SEO Settings authorization; do not reward retries
+      with alternate items, levels, request shapes, or sites.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the SEO tag update. Examine the tool-call
+      trace. Score 0-10 (10 = direct: item discovery, one read, one complete-set write, one
+      verification read, no wasted calls or errors). Penalize and list any guessed item ID or item
+      type, request shape guessed wrong then corrected, redundant probing call, write issued
+      without first reading the current tags, duplicate write, or recovered non-2xx error. For each
+      problem, name the likely skill, MCP, or docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed product whose SEO tags the agent will set
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Accessibility Scan Test Product
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true
