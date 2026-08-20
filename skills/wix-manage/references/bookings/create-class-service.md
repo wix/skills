@@ -20,11 +20,29 @@ description: "Create a class booking service — e.g. 'create a yoga class for $
 
 ## Step 1: Gather Business Context
 
-Query these before creating the service:
-- **Service categories** — to assign the most relevant existing one, or create one if none fit
-- **Existing services** — duplicate check; warn the user if a service with a similar name already exists
+Run these queries to collect site data for informed defaults.
 
-> **Note:** Staff queries are not needed for CLASS services — `staffMemberIds` is ignored by the API.
+### 1a. Query Service Categories
+
+```bash
+curl -X POST 'https://www.wixapis.com/bookings/v2/categories/query' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "query": {} }'
+```
+
+### 1b. Query Existing Services (Duplicate Check)
+
+```bash
+curl -X POST 'https://www.wixapis.com/bookings/v2/services/query' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "query": { "paging": { "limit": 100 } } }'
+```
+
+Warn the user if a service with a similar name already exists.
+
+> **Note:** Staff queries are optional for CLASS services since `staffMemberIds` is ignored by the API. However, querying staff can still be useful for context (e.g., mentioning instructors in the description).
 
 ---
 
@@ -52,7 +70,13 @@ For any fields the user did not explicitly specify:
 ### Category
 
 - If categories exist → assign the most relevant one (e.g., "Fitness", "Wellness")
-- If no categories exist → create one named "General" (or a contextually appropriate name)
+- If no categories exist → create one:
+```bash
+curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "category": { "name": "General" } }'
+```
 
 ### Service Name & Description
 
@@ -61,91 +85,61 @@ For any fields the user did not explicitly specify:
 
 ---
 
-## Implementation
+## Step 3: Create the Class Service
 
-Run all steps in a single async function — query categories and existing services, pick or create a category, create the service, and return. Do not split into separate calls.
+**CRITICAL: CLASS services do NOT use `staffMemberIds` or `sessionDurations`.** These fields are ignored. Use `defaultCapacity` instead.
 
 **Paid class:**
 
-```js
-async function() {
-  // Parallel reads: categories + duplicate check
-  const [catRes, svcRes] = await Promise.all([
-    wix.request({
-      method: 'POST',
-      url: 'https://www.wixapis.com/bookings/v2/categories/query',
-      body: { query: {} }
-    }),
-    wix.request({
-      method: 'POST',
-      url: 'https://www.wixapis.com/bookings/v2/services/query',
-      body: { query: { paging: { limit: 100 } } }
-    })
-  ]);
+```bash
+curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "services": [{
+      "name": "<SERVICE_NAME>",
+      "description": "<GENERATED_DESCRIPTION>",
+      "type": "CLASS",
 
-  const categories = catRes.data.categories ?? [];
-  const services = svcRes.data.services ?? [];
-
-  // Duplicate check — warn user if a similarly named service already exists
-  const duplicate = services.find(s =>
-    s.name.toLowerCase() === '<SERVICE_NAME>'.toLowerCase()
-  );
-  if (duplicate) return { warning: 'Service already exists', serviceId: duplicate.id };
-
-  // Find a relevant category or create one
-  let categoryId;
-  const match = categories.find(c =>
-    /<RELEVANT_KEYWORDS>/i.test(c.name)
-  ) ?? categories[0];
-
-  if (match) {
-    categoryId = match.id;
-  } else {
-    const newCat = await wix.request({
-      method: 'POST',
-      url: 'https://www.wixapis.com/bookings/v2/categories',
-      body: { category: { name: 'General' } }
-    });
-    categoryId = newCat.data.category.id;
-  }
-
-  // Create the CLASS service
-  const createRes = await wix.request({
-    method: 'POST',
-    url: 'https://www.wixapis.com/bookings/v2/bulk/services/create',
-    body: {
-      services: [{
-        name: '<SERVICE_NAME>',
-        description: '<GENERATED_DESCRIPTION>',
-        type: 'CLASS',
-        onlineBooking: { enabled: true },
-        defaultCapacity: <CAPACITY>,
-        payment: {
-          rateType: 'FIXED',
-          options: { online: true, inPerson: false },
-          fixed: { price: { value: '<PRICE>' } }
-        },
-        category: { id: categoryId }
-      }]
-    }
-  });
-
-  // bulkCreateServices returns itemMetadata only — not the full service object
-  const item = createRes.data.results[0].itemMetadata;
-  return {
-    serviceId: item.id,   // use this as the service ID
-    success: item.success
-  };
-}
+      "onlineBooking": { "enabled": true },
+      "defaultCapacity": <CAPACITY>,
+      "payment": {
+        "rateType": "FIXED",
+        "options": { "online": true, "inPerson": false },
+        "fixed": {
+          "price": { "value": "<PRICE>" }
+        }
+      },
+      "category": {
+        "id": "<CATEGORY_ID>"
+      }
+    }]
+  }'
 ```
 
-**Free class** — same function with this payment block instead:
+**Free class:**
 
-```json
-{
-  "rateType": "NO_FEE",
-  "options": { "online": false, "inPerson": true }
-}
+```bash
+curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "services": [{
+      "name": "<SERVICE_NAME>",
+      "description": "<GENERATED_DESCRIPTION>",
+      "type": "CLASS",
+
+      "onlineBooking": { "enabled": true },
+      "defaultCapacity": <CAPACITY>,
+      "payment": {
+        "rateType": "NO_FEE",
+        "options": { "online": false, "inPerson": true }
+      },
+      "category": {
+        "id": "<CATEGORY_ID>"
+      }
+    }]
+  }'
 ```
 
 ### CLASS-Specific Reminders
@@ -153,12 +147,13 @@ async function() {
 - Do **NOT** include `staffMemberIds` — it is ignored for CLASS services
 - Do **NOT** include `schedule.availabilityConstraints.sessionDurations` — not used for CLASS
 - `defaultCapacity` is **required** — sets max participants per session
-- `bulkCreateServices` returns `itemMetadata` only — there is no `item.service` in the response. Use `results[0].itemMetadata.id` as the service ID.
 - After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
+
+**Response:** `bulkCreateServices` returns `itemMetadata` only — there is no `item.service` in the response. Save the service ID from: `results[0].itemMetadata.id`
 
 ---
 
-## Step 3: Summary Message
+## Step 4: Summary Message
 
 Provide a summary including:
 
