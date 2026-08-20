@@ -29,12 +29,15 @@ function scenario(over: Partial<ScenarioComparison> = {}): ScenarioComparison {
   };
 }
 
-function group(scenarios: ScenarioComparison[]): CompareGroupComplete {
+function group(
+  scenarios: ScenarioComparison[],
+  resultOver: Partial<CompareGroupComplete['result']> = {},
+): CompareGroupComplete {
   return {
     status: 'complete',
     completedRuns: scenarios.length,
     totalRuns: scenarios.length,
-    result: { comparisonGroupId: 'cg1', verdict: 'not-required', tag: 'draft:wix/skills#1', scenarios },
+    result: { comparisonGroupId: 'cg1', verdict: 'not-required', tag: 'draft:wix/skills#1', scenarios, ...resultOver },
   };
 }
 
@@ -88,6 +91,37 @@ describe('comment formatters', () => {
 
   it('formatNoChanges signals success', () => {
     expect(c.formatNoChanges()).toContain('No Gated Changes');
+  });
+
+  it('formatComparisonResult warns and drops the green tick when judging was partial', () => {
+    const tie = scenario({ pairwiseJudgement: undefined, required: false });
+    const out = c.formatComparisonResult(group([tie], { judgeCoverage: { judged: 1, total: 3 } }), 'proj-1');
+
+    // A not-required verdict from partial judging must not read as a pass.
+    // Scoped to the heading, since ✅/⚠️ also appear in the scenario rows.
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+    expect(out).toContain('Only 1/3 scenarios were judged');
+    expect(heading).toContain('⚠️');
+    expect(heading).not.toContain('✅');
+  });
+
+  it('formatComparisonResult keeps the green tick at full coverage', () => {
+    const tie = scenario({ pairwiseJudgement: { winner: 'tie', confidence: 'high', reasoning: 'same' }, required: false });
+    const out = c.formatComparisonResult(group([tie], { judgeCoverage: { judged: 1, total: 1 } }), 'proj-1');
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+
+    expect(out).not.toContain('scenarios were judged');
+    expect(heading).toContain('✅');
+  });
+
+  it('formatComparisonResult is unchanged when the pipeline reports no coverage', () => {
+    const tie = scenario({ pairwiseJudgement: { winner: 'tie', confidence: 'high', reasoning: 'same' }, required: false });
+    const out = c.formatComparisonResult(group([tie]), 'proj-1');
+
+    // Older pipeline builds omit the field; absent must not mean degraded.
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+    expect(out).not.toContain('scenarios were judged');
+    expect(heading).toContain('✅');
   });
 
   it('formatComparisonResult adds a Runs column with PR + prod run links', () => {
