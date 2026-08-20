@@ -1,0 +1,48 @@
+name: forms/create-form-count-limit
+description: >-
+  Verifies the agent reads the create-form recipe when a form create is blocked
+  by FORMS_COUNT_RESTRICTIONS_ERROR, and gives the correct recovery: the quota
+  counts lead-capture forms (so the full form list can be longer than the
+  limit), a soft delete (permanent=false) does not free a slot, and removing a
+  non-lead-capture form changes nothing — the fix is permanently deleting an
+  existing lead-capture form or upgrading, not a single delete-and-retry.
+triggerPrompt: >-
+  I'm trying to create a "Contact Us" form on my Wix site but it keeps failing
+  with a 400: "Form validation failed" / rule FORMS_COUNT_RESTRICTIONS_ERROR /
+  "Form count reached its limit of 4" (data.limit = 4). When I GET
+  /form-schema-service/v4/forms?namespace=wix.form_app.form it returns 15 forms.
+  I already deleted one form (DELETE .../forms/{id}, got 200 {}) and the create
+  still fails with the same error. How do I actually create the new form?
+tags: [forms]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/create-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's create keeps failing with FORMS_COUNT_RESTRICTIONS_ERROR
+      ("Form count reached its limit of 4", data.limit = 4). Their form list
+      already has 15 forms, and a prior DELETE returned 200 but the create
+      still failed.
+
+      Pass if the response:
+      - explains the default DELETE is a soft delete (permanent=false) that
+        moves the form to trash but keeps it counting toward the quota, and
+        that a permanent delete (DELETE .../forms/{formId}?permanent=true) is
+        required to actually free a slot, AND
+      - recognizes this is a plan-gated quota on LEAD-CAPTURE forms (not a cap
+        on total form records), which is why the list can show 15 forms while
+        the limit is 4 — so a slot is freed only by permanently removing an
+        existing lead-capture form (or upgrading the plan), not by deleting
+        feedback/waitlist or other non-lead-capture forms, AND
+      - does not promise the create will succeed after a single delete-and-retry.
+
+      Fail if the response:
+      - tells the user to just delete one form and retry, OR
+      - claims a plain/default DELETE frees a slot, OR
+      - describes the limit as a fixed "~4 forms per site" cap on total records
+        with no mention of the plan quota on lead-capture forms, OR
+      - invents endpoints or parameters not in the recipe.
