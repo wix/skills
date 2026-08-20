@@ -235,7 +235,7 @@ This is the **default template all wix-app runs start from**.
 
 ### Example
 
-See [`yaml/wix-app-evals/employee-shift-dashboard.yml`](../yaml/wix-app-evals/employee-shift-dashboard.yml) for a real scenario — it also demonstrates the negative-dependency pattern from [Tagging](#tagging) above (asserting `AUTO_PATTERNS_DASHBOARD.md` and `DATA_COLLECTION.md` were used, and `DASHBOARD_PAGE.md` was not).
+See [`yaml/wix-app-evals/employee-shift-dashboard.yml`](../yaml/wix-app-evals/employee-shift-dashboard.yml) for a real scenario — it asserts `DASHBOARD_PAGE.md`, `WIX_PATTERNS_DOCS.md`, and `DATA_COLLECTION.md` were all used, then pairs a correctness judge with a quality judge that enforces the patterns-first component selection rule.
 
 ## Common Scenario Fields
 

@@ -16,16 +16,16 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
-  - [ ] **🛑 Auto-Patterns Gate (MANDATORY):** If the use case is a single-collection CRUD admin page (table/grid + entity form), you MUST use [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md). Auto-patterns is the DEFAULT; custom Dashboard Pages are the opt-out. Only fall back to Dashboard Page if a disqualifier applies: multi-collection joins, custom business logic, embedded script configuration, external API integrations, or the user explicitly requested a custom React page.
-  - [ ] **🛑 Iteration Gate (MANDATORY):** Before editing ANY file under `src/extensions/dashboard/pages/<page>/`, check for a sibling `patterns.json`. If it exists, this is an auto-patterns page — you MUST follow [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B and use the override topic-index (banners → `custom-slots-override.md`, header → `custom-header-override.md`, actions → `custom-actions-override.md`, columns → `custom-columns-override.md`, sections → `custom-sections-override.md`). Do NOT edit the page component (`<page-name>.tsx`) to add UI elements directly.
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
+  - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
   - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
@@ -48,8 +48,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
-| Writing custom React for single-collection CRUD when auto-patterns applies | Default to [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) for CRUD admin pages |
-| Editing the page component (`<page-name>.tsx`) to add UI (banners, headers, custom actions, slots, sections) when `patterns.json` exists | Use the matching `custom-*-override.md` from [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B |
+| Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
+| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
+| Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
 
 ---
 
@@ -68,8 +69,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 3. **Where will it appear?**
    - Dashboard sidebar/page →
-     - **Single-collection CRUD admin (default, MANDATORY):** [Auto Patterns Dashboard](references/AUTO_PATTERNS_DASHBOARD.md) — declarative `patterns.json`, faster to author, iterate by editing JSON, no React rewrite.
-     - Custom logic / multi-collection / embedded scripts / external APIs: Dashboard Page
+     - Full admin screen: Dashboard Page — UI built with `@wix/patterns` + `@wix/design-system` (see [Component Selection Order](#component-selection-order))
      - Popup/form: Dashboard Modal
    - Existing Wix app dashboard (widget) → Dashboard Plugin
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
@@ -82,9 +82,72 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ## Decision Flow (Not sure?)
 
-- **Admin:** Single-collection CRUD admin page? → **Auto Patterns Dashboard (DEFAULT)**. Custom React page (multi-collection / custom logic / embedded scripts / external APIs / explicit user request)? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
+- **Admin:** Admin screen in the site owner's dashboard? → Dashboard Page — build its UI with `@wix/patterns` first, `@wix/design-system` for whatever patterns does not cover (see [Component Selection Order](#component-selection-order)). Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+
+---
+
+## Component Selection Order
+
+Dashboard pages at Wix are built from two libraries. For **every** UI element, resolve in this order and stop at the first hit. Never skip a step, and never decide a component is missing from memory — check.
+
+### 1. `@wix/patterns` — page structure and data collections
+
+Patterns owns the page shell and everything collection-shaped. These concepts are patterns' territory — if you need one, look it up there first rather than assembling it from WDS parts:
+
+| Need | Look for |
+| --- | --- |
+| Page shell, header, content area, sticky footer | `CollectionPage`, `EntityPage`, `SettingsPage` (+ their `.Header` / `.Content` sub-parts) |
+| Table, grid, table↔grid switch, folder views | `Table`, `Grid`, `TableGridSwitch`, `TableFolders`, `GridFolders` |
+| Collection state — paging, sorting, selection, loading | `useTableCollection()` and its sibling hooks (one per collection type) |
+| Filters, search, sorting, view presets/tabs | the collection's filter and view APIs |
+| Row actions, bulk actions, drag-and-drop | the collection's feature APIs |
+| Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
+| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
+| Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
+
+**Confirm every name and prop against the generated docs — do not guess:**
+
+```bash
+cat node_modules/@wix/patterns/dist/docs/index.json
+```
+
+If that path does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+
+`index.json` maps component name → doc file + category; doc filenames match component names (`Table.md`, `useTableCollection.md`). Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
+
+### 2. `@wix/design-system` — everything inside the shell
+
+The leaf-level UI patterns does not own: inputs, buttons, form fields, text, layout primitives, cards, badges, tooltips, toasts, icons. Pick the component by lookup, not recall — invoke the **`wix-design-system` skill**, whose bundled helper reads the installed package:
+
+```bash
+node <wix-design-system-skill-dir>/scripts/wds.cjs search <keyword>
+node <wix-design-system-skill-dir>/scripts/wds.cjs component <Name>
+```
+
+### 3. Custom React — only after both came back empty
+
+Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third UI dependency, and do not restyle patterns or WDS internals.
+
+### Overlaps and scope
+
+- When both libraries ship the same concept (page header, page container), the **patterns** one wins inside a patterns page — it is the piece wired into the shell's layout and collection state. Use the WDS equivalent only outside a patterns page shell.
+- **Patterns has its own overlays.** `PickerModal` / `usePickerModal` and `bulkActionModal` cover collection-related overlays. "It's a modal" is not a reason to leave patterns.
+- **Dashboard Plugins** render outside a patterns page shell, so WDS is the default there. Patterns collection components still apply when such a surface displays a data collection.
+
+### Entity create and edit
+
+**Adding, editing, or viewing a single item from a collection page is an `EntityPage` — not a Dashboard Modal.** This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
+
+The documented flow:
+
+1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
+2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
+3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`.
+4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
+
+Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a delete confirmation, a short prompt, an unrelated popup. Reach for it because the interaction is a true dialog, never because "the form should open in a modal."
 
 ---
 
@@ -130,7 +193,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
-| Auto-patterns Dashboard Pages | [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) |
+| Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 
 ---
 
@@ -358,6 +421,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
 - **Invoke wix-design-system** first when using WDS (prevents import errors)
+- **Patterns before WDS** for dashboard page UI — check `@wix/patterns` docs before building anything collection- or page-shaped (see [Component Selection Order](#component-selection-order))
 
 ## Documentation
 

@@ -3,6 +3,8 @@
 
 Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
 
+> **🛑 Scope — genuine dialogs only.** Use a dashboard modal for delete/discard confirmations, short prompts, and dialogs unrelated to editing a collection item. **Adding, editing, or viewing a collection item is NOT a modal** — that is a `@wix/patterns` `EntityPage` reached via `usePatternsNavigate().navigateToEntityPage`. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+
 ## Scaffold
 
 Use `wix generate --params` with all required fields:
@@ -106,29 +108,34 @@ export default {
 
 ## Real-World Example
 
-End-to-end edit-item flow. The scaffolded `<modal>.tsx` already wires up `CustomModalLayout` — the unique parts are on the opener side, in `observeState`, and in the save handler.
+End-to-end delete-confirmation flow. The scaffolded `<modal>.tsx` already wires up `CustomModalLayout` — the unique parts are on the opener side, in `observeState`, and in the confirm handler.
 
 ```typescript
-// Dashboard Page: open the modal with the item to edit
-const handleEdit = (item: Item) => {
-  dashboard.openModal({
-    modalId: "edit-item-modal-guid",
-    params: { item }, // objects are passed directly via params
+// Dashboard Page: open the modal with the item to delete, act on the result
+const handleDelete = async (item: Item) => {
+  const { modalClosed } = dashboard.openModal({
+    modalId: "confirm-delete-modal-guid",
+    params: { itemId: item.id, itemName: item.name }, // objects are passed directly via params
   });
+  // `modalClosed` resolves as `Serializable` (a union) and `openModal` takes no type
+  // parameter, so narrow it to the shape this modal's own close payload uses.
+  const result = (await modalClosed) as { confirmed?: boolean } | undefined;
+  if (result?.confirmed) {
+    // ...your delete logic + collection refresh...
+  }
 };
 
-// Modal: read params, save, toast, close
-const [formData, setFormData] = useState<Item | null>(null);
+// Modal: read params, confirm or cancel
+const [itemName, setItemName] = useState<string | null>(null);
 
 useEffect(() => {
   dashboard.observeState((state) => {
-    if (state.item) setFormData(state.item);
+    if (state.itemName) setItemName(state.itemName);
   });
 }, []);
 
-const handleSave = async () => {
-  // ...your save logic...
-  dashboard.showToast({ message: "Saved!", type: "success" });
-  dashboard.closeModal();
-};
+const handleConfirm = () => dashboard.closeModal({ confirmed: true });
+const handleCancel = () => dashboard.closeModal({ confirmed: false });
 ```
+
+(Editing the item itself would be an `EntityPage`, not a modal — see the scope note at the top.)

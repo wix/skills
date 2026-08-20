@@ -55,7 +55,7 @@ PR or a missing scenario costs no run.
 
 **What gets uploaded, and how it's labelled.** The capability version carries the **whole
 `skill-dir`**, minus `node_modules` and `dist`. The directory is the deployed unit: reference
-docs point the agent at sibling paths like `<SKILL_ROOT>/scripts/generate-auto-patterns.js`
+docs point the agent at sibling paths like `<SKILL_ROOT>/scripts/scan-a11y-code.cjs`
 and tell it to run them, so uploading only the docs would break those capabilities at run
 time — and the resulting eval failure would read as a skill regression rather than a gate bug.
 Note this is a *different* question from `ignore-globs`, which only decides what **triggers** a
