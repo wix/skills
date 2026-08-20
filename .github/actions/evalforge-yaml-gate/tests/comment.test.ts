@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as c from '../src/utils/comment';
+import { formatLintViolations, formatConfirmOnFail, composeSections } from '../src/utils/comment';
 import type { CompareGroupComplete, ScenarioComparison, ScenarioRunResult } from '../src/utils/eval-pipeline';
 
 function run(over: Partial<ScenarioRunResult> = {}): ScenarioRunResult {
@@ -223,5 +224,75 @@ describe('comment formatters', () => {
     expect(out).toContain('| bookings/diagnose-availability-issues | ❌ | - |');
     expect(out).toContain('**No winner:** both runs failed the LLM judge.');
     expect(out).not.toContain('⬆️ with (high)');
+  });
+});
+
+describe('formatLintViolations', () => {
+  it('lists each violation with its rule id and scenario name', () => {
+    const out = formatLintViolations([
+      { name: 'blog/create-post', path: 'yaml/wix-manage-evals/blog/create-post.yml', rule: 'max-tokens', message: 'top-level maxTokens is unset — every scenario needs a token budget' },
+    ], true);
+    expect(out).toContain('blog/create-post');
+    expect(out).toContain('max-tokens');
+    expect(out).toContain('docs/eval-scenarios.md');
+  });
+});
+
+describe('formatConfirmOnFail', () => {
+  it('separates confirmed failures from recovered flakes', () => {
+    const out = formatConfirmOnFail({
+      verdicts: [
+        { scenarioId: 'a', scenarioName: 'blog/a', attempts: 2, failures: 2, confirmed: true, reasons: ['llm-judge'] },
+        { scenarioId: 'b', scenarioName: 'blog/b', attempts: 3, failures: 1, confirmed: false, reasons: ['llm-judge'] },
+      ],
+      retriesRun: 2,
+    }, true);
+    expect(out).toContain('blog/a');
+    expect(out).toContain('2/2');
+    expect(out).toContain('blog/b');
+    expect(out).toContain('recovered');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('notes a broad-failure skip as a real regression, not an infra note', () => {
+    const out = formatConfirmOnFail({ verdicts: [
+      { scenarioId: 'a', scenarioName: 'blog/a', attempts: 1, failures: 1, confirmed: true, reasons: ['llm-judge'] },
+    ], retriesRun: 0, skipReason: 'broad-failure' }, true);
+    expect(out.toLowerCase()).toContain('retries skipped');
+    expect(out).toContain('treated as a real regression');
+    expect(out).not.toContain('retry infrastructure failed');
+  });
+
+  it('notes a rerun-error skip as an infrastructure failure, not a regression', () => {
+    const out = formatConfirmOnFail({ verdicts: [
+      { scenarioId: 'a', scenarioName: 'blog/a', attempts: 1, failures: 1, confirmed: true, reasons: ['llm-judge'] },
+    ], retriesRun: 0, skipReason: 'rerun-error' }, true);
+    expect(out.toLowerCase()).toContain('retries skipped');
+    expect(out).toContain('retry infrastructure failed');
+    expect(out).not.toContain('treated as a real regression');
+  });
+});
+
+describe('composeSections', () => {
+  it('joins non-empty bodies with a horizontal rule, keeping only the first marker', () => {
+    const a = c.formatNoChanges();
+    const b = c.formatServiceError('boom', true);
+    const out = composeSections(a, b);
+    expect(out.split(c.COMMENT_MARKER).length - 1).toBe(1);
+    expect(out).toContain('---');
+    expect(out).toContain('No Gated Changes');
+    expect(out).toContain('boom');
+    expect(out.indexOf('No Gated Changes')).toBeLessThan(out.indexOf('boom'));
+  });
+
+  it('skips empty bodies entirely', () => {
+    const a = c.formatNoChanges();
+    const out = composeSections(a, '', '');
+    expect(out).toBe(a);
+    expect(out).not.toContain('---');
+  });
+
+  it('returns an empty string when every body is empty', () => {
+    expect(composeSections('', '')).toBe('');
   });
 });

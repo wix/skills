@@ -66427,9 +66427,11 @@ function errMsg(e) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
+exports.composeSections = composeSections;
 exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
+exports.formatLintViolations = formatLintViolations;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatServiceError = formatServiceError;
@@ -66442,12 +66444,30 @@ exports.comparisonHasNoWinner = comparisonHasNoWinner;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
 exports.formatTokenBudgetExceeded = formatTokenBudgetExceeded;
+exports.formatConfirmOnFail = formatConfirmOnFail;
 const evalforge_core_1 = __nccwpck_require__(7495);
 const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
     return [exports.COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+/**
+ * Joins non-empty comment section bodies into a single comment, separated by a
+ * horizontal rule. Only the first body's `COMMENT_MARKER` line is kept — the marker
+ * must appear exactly once so the commenter still recognizes this as a single upsert
+ * target, so it is stripped from every subsequent section.
+ */
+function composeSections(...bodies) {
+    const nonEmpty = bodies.filter(b => b.trim().length > 0);
+    return nonEmpty
+        .map((b, i) => {
+        if (i === 0)
+            return b;
+        const lines = b.split('\n');
+        return lines[0] === exports.COMMENT_MARKER ? lines.slice(1).join('\n') : b;
+    })
+        .join('\n\n---\n\n');
 }
 function failIcon(blocking) {
     return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
@@ -66467,6 +66487,16 @@ function formatUncovered(uncovered) {
         'These changed docs have no covering YAML scenario for their **area** (scenarios for other areas do not count):',
         '',
         ...uncovered.map(u => `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`yaml/wix-manage-evals/${u.area}/\``),
+    ]);
+}
+function formatLintViolations(violations, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Scenario Lint', [
+        'Changed eval scenarios must meet the authoring standards in docs/eval-scenarios.md:',
+        '',
+        '| Scenario | Rule | Problem |',
+        '|---|---|---|',
+        ...violations.map(v => `| \`${v.name}\` | \`${v.rule}\` | ${v.message} |`),
     ]);
 }
 function formatForeignDraftConflicts(errs, _pull) {
@@ -66609,6 +66639,29 @@ function formatTokenBudgetExceeded(violations, projectId) {
     }
     return render('❌', 'Token Budget Exceeded', lines);
 }
+function formatConfirmOnFail(result, blocking) {
+    const confirmed = result.verdicts.filter(v => v.confirmed);
+    const recovered = result.verdicts.filter(v => !v.confirmed);
+    const icon = confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅';
+    const body = [
+        'Failing scenarios are rerun and block only when a majority of attempts fail.',
+        '',
+    ];
+    if (result.skipReason === 'broad-failure') {
+        body.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once — treated as a real regression.`, '');
+    }
+    else if (result.skipReason === 'rerun-error') {
+        body.push('> Retries skipped — the retry infrastructure failed; first-attempt failures stand — see the job log.', '');
+    }
+    if (confirmed.length > 0) {
+        body.push('**Confirmed failures:**', '', ...confirmed.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
+    }
+    if (recovered.length > 0) {
+        body.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v => `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
+        body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite.', '');
+    }
+    return render(icon, 'Confirm-on-Fail', body);
+}
 
 
 /***/ }),
@@ -66710,6 +66763,78 @@ function getEvalConfig() {
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
         maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
+}
+
+
+/***/ }),
+
+/***/ 1505:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_RETRY_SCENARIOS = exports.MAX_CONFIRM_RETRIES = void 0;
+exports.confirmOnFail = confirmOnFail;
+exports.MAX_CONFIRM_RETRIES = 2;
+/** Above this many initial failures, retries are skipped: broad failure is signal, not noise. */
+exports.MAX_RETRY_SCENARIOS = 10;
+async function confirmOnFail(initial, rerun) {
+    const failed = initial.filter(o => o.failed);
+    if (failed.length === 0)
+        return { verdicts: [], retriesRun: 0 };
+    const state = new Map(failed.map(o => [o.scenarioId, {
+            scenarioId: o.scenarioId,
+            scenarioName: o.scenarioName,
+            attempts: 1,
+            failures: 1,
+            reasons: new Set(o.reasons),
+        }]));
+    if (failed.length > exports.MAX_RETRY_SCENARIOS) {
+        return {
+            verdicts: finalize(state, () => true),
+            retriesRun: 0,
+            skipReason: 'broad-failure',
+        };
+    }
+    let pending = [...state.keys()];
+    let retriesRun = 0;
+    for (let retry = 0; retry < exports.MAX_CONFIRM_RETRIES && pending.length > 0; retry++) {
+        const results = new Map((await rerun(pending)).map(o => [o.scenarioId, o]));
+        retriesRun++;
+        const stillTied = [];
+        for (const id of pending) {
+            const s = state.get(id);
+            const outcome = results.get(id);
+            const failedAttempt = outcome ? outcome.failed : true;
+            s.attempts++;
+            if (failedAttempt) {
+                s.failures++;
+                for (const r of outcome?.reasons ?? ['missing-result'])
+                    s.reasons.add(r);
+            }
+            // Majority of 3: 2 failures confirms; a pass after 3 attempts recovers.
+            if (s.failures < 2 && s.attempts <= exports.MAX_CONFIRM_RETRIES)
+                stillTied.push(id);
+        }
+        pending = stillTied;
+    }
+    return {
+        verdicts: finalize(state, s => s.failures >= 2),
+        retriesRun,
+    };
+}
+function finalize(state, isConfirmed) {
+    return [...state.values()]
+        .map(s => ({
+        scenarioId: s.scenarioId,
+        scenarioName: s.scenarioName,
+        attempts: s.attempts,
+        failures: s.failures,
+        confirmed: isConfirmed(s),
+        reasons: [...s.reasons],
+    }))
+        .sort((a, b) => a.scenarioName.localeCompare(b.scenarioName));
 }
 
 
@@ -67087,6 +67212,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.toAttemptOutcomes = toAttemptOutcomes;
 exports.scenariosToRun = scenariosToRun;
 exports.scenarioIdsToRun = scenarioIdsToRun;
 exports.runGate = runGate;
@@ -67104,8 +67230,22 @@ const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
 const comment_1 = __nccwpck_require__(3116);
 const token_budget_1 = __nccwpck_require__(5984);
+const scenario_lint_1 = __nccwpck_require__(4389);
+const confirm_1 = __nccwpck_require__(1505);
 function allScenariosRequired(result) {
     return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
+/** Reduces one comparison run to a pass/fail verdict, folding in both llm-judge and token-budget failures. */
+function toAttemptOutcomes(comparisons, headScenarios) {
+    const overBudget = new Set((0, token_budget_1.findTokenBudgetViolations)(comparisons, headScenarios).map(v => v.scenarioName));
+    return comparisons.map(c => {
+        const reasons = [];
+        if ((0, comment_1.noWinnerReason)(c))
+            reasons.push('llm-judge');
+        if (overBudget.has(c.scenarioName))
+            reasons.push('token-budget');
+        return { scenarioId: c.scenarioId, scenarioName: c.scenarioName, failed: reasons.length > 0, reasons };
+    });
 }
 /**
  * Head scenarios to sync and run: those whose YAML changed, plus those covering a
@@ -67170,11 +67310,6 @@ async function runGate() {
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
     core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
-    const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
-    if (!mcpVersion)
-        return;
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
     if (loadErrors.length > 0) {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
@@ -67219,6 +67354,17 @@ async function runGate() {
         ...classifiedChanges.evalsAdded.map(f => f.filename),
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
+    const lintViolations = (0, scenario_lint_1.lintChangedScenarios)(headScenarios, changedEvalPaths);
+    if (lintViolations.length > 0) {
+        await comment((0, comment_1.formatLintViolations)(lintViolations, config.blocking));
+        (0, github_1.fail)(`${lintViolations.length} scenario lint violation(s)`, config.blocking);
+        return;
+    }
+    const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
+    if (!mcpVersion)
+        return;
     const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
     const filters = (0, evalforge_core_1.remoteScenarioFiltersForGate)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => (0, evalforge_core_1.listRemoteScenariosForGate)(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
@@ -67281,18 +67427,42 @@ async function runGate() {
             if (s.without.runId)
                 core.info(`${s.scenarioName} [prod]: ${(0, evalforge_core_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
         }
-        await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
-        const tokenBudgetViolations = (0, token_budget_1.findTokenBudgetViolations)(done.result.scenarios ?? [], headScenarios);
-        if (tokenBudgetViolations.length > 0) {
-            await comment((0, comment_1.formatTokenBudgetExceeded)(tokenBudgetViolations, config.projectId));
-            (0, github_1.fail)((0, token_budget_1.formatTokenBudgetFailureMessage)(tokenBudgetViolations), config.blocking);
-            return;
+        const comparisonBody = (0, comment_1.formatComparisonResult)(done, config.projectId);
+        await comment(comparisonBody);
+        const initialOutcomes = toAttemptOutcomes(done.result.scenarios ?? [], headScenarios);
+        const initialFailures = initialOutcomes.filter(o => o.failed);
+        if (initialFailures.length > 0) {
+            core.info(`Confirm-on-fail: ${initialFailures.length} scenario(s) failed the first attempt — rerunning to confirm`);
+            let confirmResult;
+            try {
+                confirmResult = await (0, confirm_1.confirmOnFail)(initialOutcomes, async (ids) => {
+                    const retry = await pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, ids);
+                    const retryDone = await (0, eval_pipeline_1.pollUntilComparisonDone)(pipeline, retry.comparisonGroupId);
+                    return toAttemptOutcomes(retryDone.result.scenarios ?? [], headScenarios);
+                });
+            }
+            catch (e) {
+                // Retry infrastructure failed — fall back to the first attempt's verdict.
+                core.error(`Confirm-on-fail rerun failed: ${e instanceof Error ? e.message : String(e)}`);
+                confirmResult = {
+                    verdicts: initialFailures.map(o => ({
+                        scenarioId: o.scenarioId, scenarioName: o.scenarioName,
+                        attempts: 1, failures: 1, confirmed: true, reasons: o.reasons,
+                    })),
+                    retriesRun: 0,
+                    skipReason: 'rerun-error',
+                };
+            }
+            const confirmBody = (0, comment_1.formatConfirmOnFail)(confirmResult, config.blocking);
+            await comment((0, comment_1.composeSections)(comparisonBody, confirmBody));
+            const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
+            if (confirmed.length > 0) {
+                (0, github_1.fail)(`${confirmed.length} scenario(s) failed after confirm-on-fail (${confirmed.map(v => v.scenarioName).join(', ')})`, config.blocking);
+                return;
+            }
+            core.info('All first-attempt failures recovered on retry — not blocking');
         }
-        if ((0, comment_1.comparisonHasNoWinner)(done.result)) {
-            (0, github_1.fail)('Eval comparison has no winner because both runs failed assertions', config.blocking);
-            return;
-        }
-        if (config.autoApprove && allScenariosRequired(done.result)) {
+        if (config.autoApprove && allScenariosRequired(done.result) && initialFailures.length === 0) {
             await octokit.rest.pulls.createReview({
                 owner: config.owner,
                 repo: config.repo,
@@ -67572,6 +67742,62 @@ function loadEvalsWithWarnings(root) {
     for (const e of errors)
         core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
     return scenarios;
+}
+
+
+/***/ }),
+
+/***/ 4389:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MIN_SCORE_FLOOR = void 0;
+exports.lintScenario = lintScenario;
+exports.lintChangedScenarios = lintChangedScenarios;
+const evalforge_core_1 = __nccwpck_require__(7495);
+/** Floor for numeric llm_judge minScore — below this a judge passes near-arbitrary output. */
+exports.MIN_SCORE_FLOOR = 6;
+const QUESTION_PROMPT_RE = /^\s*(how\s+(do|can|would|should)\s+i\b|what\s+is\b|where\s+(do|can)\s+i\b)/i;
+function lintScenario(loaded) {
+    const { scenario: s, path } = loaded;
+    const violations = [];
+    const add = (rule, message) => violations.push({ name: s.name, path, rule, message });
+    if (s.assertions.length < 3) {
+        add('three-assertions', `has ${s.assertions.length} assertion(s); needs at least 3 (doc tool-call, correctness judge, quality judge)`);
+    }
+    const hasCoverage = s.assertions.some(a => (0, evalforge_core_1.isToolCall)(a) && typeof a.params?.articleUrl === 'string');
+    if (!hasCoverage) {
+        add('coverage-assertion', 'missing a tool-call assertion with params.articleUrl on the skill doc URL');
+    }
+    const judges = s.assertions.filter(evalforge_core_1.isLlmJudge);
+    if (judges.length < 2) {
+        add('two-llm-judges', `has ${judges.length} llm_judge assertion(s); needs at least 2 (correctness + quality)`);
+    }
+    for (const judge of judges) {
+        if (judge.scoringMode !== 'boolean' && (judge.minScore === undefined || judge.minScore < exports.MIN_SCORE_FLOOR)) {
+            add('min-score-floor', `llm_judge minScore is ${judge.minScore ?? 'unset'}; numeric judges need minScore >= ${exports.MIN_SCORE_FLOOR}`);
+        }
+        if (!/\bfail\b/i.test(judge.prompt)) {
+            add('judge-fail-criteria', 'llm_judge prompt has no explicit fail criteria (must state what fails, not only what passes)');
+        }
+    }
+    if (QUESTION_PROMPT_RE.test(s.triggerPrompt)) {
+        add('task-shaped-prompt', 'triggerPrompt is question-shaped ("how do I…") — give the agent a task with concrete values instead');
+    }
+    if (s.maxTokens === undefined) {
+        add('max-tokens', 'top-level maxTokens is unset — every scenario needs a token budget');
+    }
+    return violations;
+}
+function lintChangedScenarios(scenarios, changedEvalPaths) {
+    const violations = [];
+    for (const loaded of scenarios.values()) {
+        if (changedEvalPaths.has(loaded.path))
+            violations.push(...lintScenario(loaded));
+    }
+    return violations.sort((a, b) => a.name.localeCompare(b.name) || a.rule.localeCompare(b.rule));
 }
 
 

@@ -33,6 +33,15 @@ pushing an empty commit. This gate's own comment does not mention the command; t
 are the same for both gates and are listed under
 [the wix-app PR eval gate](#wix-app-scenarios-the-pr-eval-gate).
 
+### Confirm-on-fail
+
+Eval runs are not fully deterministic, so a single failed attempt does not block a PR.
+When a scenario fails its first attempt, the gate reruns just the failing scenarios (up
+to two retries) and blocks only when a majority of attempts fail. The PR comment lists
+confirmed failures separately from recovered flaky runs. When many scenarios fail at
+once, retries are skipped and the failure is treated as real. A scenario that repeatedly
+recovers on retry is flaky — rewrite it.
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs

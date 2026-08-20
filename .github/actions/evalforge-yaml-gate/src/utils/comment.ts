@@ -4,12 +4,31 @@ import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
+import type { LintViolation } from './scenario-lint';
+import type { ConfirmResult } from './confirm';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 
 function render(icon: string, label: string, body: string[]): string {
   return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+
+/**
+ * Joins non-empty comment section bodies into a single comment, separated by a
+ * horizontal rule. Only the first body's `COMMENT_MARKER` line is kept — the marker
+ * must appear exactly once so the commenter still recognizes this as a single upsert
+ * target, so it is stripped from every subsequent section.
+ */
+export function composeSections(...bodies: string[]): string {
+  const nonEmpty = bodies.filter(b => b.trim().length > 0);
+  return nonEmpty
+    .map((b, i) => {
+      if (i === 0) return b;
+      const lines = b.split('\n');
+      return lines[0] === COMMENT_MARKER ? lines.slice(1).join('\n') : b;
+    })
+    .join('\n\n---\n\n');
 }
 
 function failIcon(blocking: boolean): { icon: string; label: string } {
@@ -35,6 +54,17 @@ export function formatUncovered(uncovered: Uncovered[]): string {
     ...uncovered.map(u =>
       `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`yaml/wix-manage-evals/${u.area}/\``,
     ),
+  ]);
+}
+
+export function formatLintViolations(violations: LintViolation[], blocking: boolean): string {
+  const { icon } = failIcon(blocking);
+  return render(icon, 'Scenario Lint', [
+    'Changed eval scenarios must meet the authoring standards in docs/eval-scenarios.md:',
+    '',
+    '| Scenario | Rule | Problem |',
+    '|---|---|---|',
+    ...violations.map(v => `| \`${v.name}\` | \`${v.rule}\` | ${v.message} |`),
   ]);
 }
 
@@ -197,4 +227,29 @@ export function formatTokenBudgetExceeded(violations: TokenBudgetViolation[], pr
   }
 
   return render('❌', 'Token Budget Exceeded', lines);
+}
+
+export function formatConfirmOnFail(result: ConfirmResult, blocking: boolean): string {
+  const confirmed = result.verdicts.filter(v => v.confirmed);
+  const recovered = result.verdicts.filter(v => !v.confirmed);
+  const icon = confirmed.length > 0 ? (blocking ? '❌' : '⚠️') : '✅';
+  const body: string[] = [
+    'Failing scenarios are rerun and block only when a majority of attempts fail.',
+    '',
+  ];
+  if (result.skipReason === 'broad-failure') {
+    body.push(`> Retries skipped — ${result.verdicts.length} scenario(s) failed at once — treated as a real regression.`, '');
+  } else if (result.skipReason === 'rerun-error') {
+    body.push('> Retries skipped — the retry infrastructure failed; first-attempt failures stand — see the job log.', '');
+  }
+  if (confirmed.length > 0) {
+    body.push('**Confirmed failures:**', '', ...confirmed.map(v =>
+      `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts (${v.reasons.join(', ')})`), '');
+  }
+  if (recovered.length > 0) {
+    body.push('**Recovered (flaky — passed on retry, not blocking):**', '', ...recovered.map(v =>
+      `- \`${v.scenarioName}\` — failed ${v.failures}/${v.attempts} attempts, recovered on retry (${v.reasons.join(', ')})`), '');
+    body.push('A scenario that recovers here repeatedly is flaky — consider a rewrite.', '');
+  }
+  return render(icon, 'Confirm-on-Fail', body);
 }
