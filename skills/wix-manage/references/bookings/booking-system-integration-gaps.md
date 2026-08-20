@@ -51,7 +51,7 @@ The Wix Bookings system contains **fundamental undocumented integration patterns
 - ❌ **NOT** documented booking status vs order status separation
 - ❌ **NOT** documented service properties preservation in checkout
 - ❌ **NO** mention of `BACKOFFICE_MERCHANT` channel requirement
-- ❌ **NO** explanation of why checkout/order APIs are needed for bookings
+- ❌ **NO** explanation of why the cart/order APIs are needed for bookings
 
 **Additional Service-Specific Gaps**:
 - ❌ **Courses**: Dual API requirement (booking + calendar events) completely undocumented
@@ -69,7 +69,7 @@ The Wix Bookings system contains **fundamental undocumented integration patterns
 - Create booking → Booking system creates reservation only
 - Use booking ID as catalog item in ecom system
 - Ecom system handles all pricing, tax, discount calculations
-- Create checkout and order for actual payment processing
+- Create a cart and place the order for actual payment processing
 - Async messaging system handles payment confirmation
 - Booking status (CONFIRMED) independent of payment status
 
@@ -125,7 +125,7 @@ Actual Required Flow: Booking API → Ecom Integration → Payment ✓
 
 **Universal Pattern** (Works for ALL Service Types):
 ```
-Create Booking → Extract Booking ID → Use as Catalog Item ID → Create Checkout → Create Order → Process Payment
+Create Booking → Extract Booking ID → Use as Catalog Item ID → Create Cart → Place Order → Process Payment
 ```
 
 ### 2. Identify Service Type-Specific Booking Patterns
@@ -266,26 +266,33 @@ Create calendar events using `POST https://www.wixapis.com/calendar/v3/bulk/even
 
 **MAJOR DISCOVERY**: ALL booking payments use identical ecommerce integration pattern.
 
-**Step 6A: Create Checkout with Booking ID as Catalog Item**
+**Step 6A: Create Cart with Booking ID as Catalog Item**
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts` ([REST](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/checkout/create-checkout))
+Cart V2 unifies cart and checkout — there is no separate checkout entity, so the created cart's `id` is what later steps use as the cart/checkout id.
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts` ([REST](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart))
 
 ```json
 {
-  "lineItems": [{
+  "catalogItems": [{
     "catalogReference": {
       "catalogItemId": "<BOOKING_ID>",
       "appId": "13d21c63-b5ec-5912-8397-c3a5ddb27a97"
     },
     "quantity": 1
-  }],
-  "channelType": "WEB"
+  }]
 }
 ```
 
-**Step 6B: Create Order for Payment Processing**
+**Step 6B: Place Order for Payment Processing**
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts/{checkoutId}/createOrder`
+First calculate the cart to obtain a price-verification token:
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts/{cartId}/calculate` — read `summary.priceVerificationToken` from the response.
+
+Then place the order, passing that token:
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts/{cartId}/place-order` (body `{ "priceVerificationToken": "<TOKEN>" }`)
 
 **Critical Architecture Discoveries**:
 - **Automatic ID Transformation**: Booking IDs automatically valid as catalog item IDs
@@ -297,7 +304,7 @@ Create calendar events using `POST https://www.wixapis.com/calendar/v3/bulk/even
 
 **Payment Processing Architecture**:
 ```
-Booking (CONFIRMED) → Checkout → Order → Payment Processing (async)
+Booking (CONFIRMED) → Cart → Place Order → Payment Processing (async)
                                               ↓
                                         Messaging System
                                               ↓
@@ -322,7 +329,7 @@ Booking (CONFIRMED) → Checkout → Order → Payment Processing (async)
 **Service Packages**: Multi-service booking + ecom integration
 
 **Universal Integration Considerations**:
-- All service types use same checkout/order creation pattern
+- All service types use the same cart/order creation pattern
 - Pricing calculations always handled by ecom system
 - Async payment confirmation applies to all booking types
 - Service properties preserved across all integration points
@@ -406,7 +413,7 @@ Booking (CONFIRMED) → Checkout → Order → Payment Processing (async)
 * [Standard Booking Flow](https://dev.wix.com/docs/api-reference/business-solutions/bookings/flow-single-service-booking) - Missing payment integration
 * [Create Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking) - No payment processing guidance
 * [Service Types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types) - Missing integration patterns
-* [Ecommerce Checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/introduction) - No booking integration mention
+* [Ecommerce Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) - No booking integration mention
 
 **Completely Undocumented**:
 * **Booking→Ecom Integration**: Universal pattern affecting all booking payments

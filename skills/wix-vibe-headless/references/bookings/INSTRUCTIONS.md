@@ -165,6 +165,8 @@ stale render.
 ## Using the client from your own UI
 The two shipped hooks are the whole flow. If you build a custom surface, drive it the same way:
 
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
+
 ```jsx
 // LIST — every list helper returns an OBJECT, not a bare array. Destructure it:
 const { services, total, nextOffset } = await queryServices({ limit: 24 });   // total 0 → empty state

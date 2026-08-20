@@ -30,7 +30,7 @@ export function OrderCartProvider({ children }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refreshCart]);
 
-  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantity || 0), 0);
+  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantityInfo?.confirmedQuantity || 0), 0);
 
   // A menu item carries its menuId/sectionId from the getFullMenu tree — the caller passes both.
   // addItemToCart throws on a missing operation/menu/section or an unavailable line; let it propagate.
