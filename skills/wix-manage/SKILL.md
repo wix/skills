@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -348,6 +348,15 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
 **Technical:** Required first source for every request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS. Retrieve and read this full article before API schema search or constructing the JSON. Covers node shapes — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds — plus inline text decorations (including spoiler) and nesting rules.
+
+---
+
+## SEO
+
+> **Routing rule (READ FIRST).** For every request to read or change a site's SEO tags — titles, meta descriptions, social share tags, canonical links, structured data, indexing directives, or SEO patterns — use the available full-documentation reading capability to retrieve and read the canonical [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md) recipe before using API schema search. Every SEO write replaces the target's tags in full, so the recipe's read-before-write sequence has to be loaded before the first call.
+
+### [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md)
+**Technical:** Reads and writes a site's SEO tags at three levels — site-wide tags, page-type patterns, and a single item's tags — choosing the level that matches the change. Discovers item IDs and pattern variables instead of hardcoding them, reads before every full-replace write, handles bulk writes with per-item results, and reports resolved tags with the source each one came from.
 
 ---
 
