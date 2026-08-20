@@ -47,6 +47,10 @@ export type ComparisonGroupResult = {
   verdict: string;
   tag: string;
   scenarios: ScenarioComparison[];
+  // How many scenarios actually obtained a pairwise judgement. A verdict built
+  // from partial judging is a weaker claim than one built from all of it, and
+  // `verdict` alone cannot express that. Absent when the pipeline ran no judge.
+  judgeCoverage?: { judged: number; total: number };
 };
 
 export type CompareGroupComplete = {
@@ -64,6 +68,20 @@ const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * The completion poll does substantially more work server-side than the
+ * intermediate "still running" polls, so it can legitimately take much longer
+ * than a normal call.
+ *
+ * Deliberately longer than any deadline the server side applies to itself, so
+ * that the client is the last participant to give up. Aborting locally first
+ * loses the real error and, because an abort counts as retriable, re-issues a
+ * request whose work had already succeeded.
+ */
+const COMPARE_GROUP_TIMEOUT_MS = 65_000;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
@@ -90,7 +108,7 @@ export class EvalPipelineClient {
     this.tokens = new TokenProvider(OAUTH_TOKEN_URL, appId, appSecret);
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
     // No 401 refresh-retry: /run-comparison is non-idempotent (it queues eval runs)
     // and getToken() re-mints proactively before expiry, so a 401 here is a
     // permission denial, not a stale token — retrying would only double-fire.
@@ -102,7 +120,7 @@ export class EvalPipelineClient {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as { error?: string };
@@ -119,7 +137,7 @@ export class EvalPipelineClient {
   }
 
   async compareGroup(comparisonGroupId: string): Promise<CompareGroupStatus> {
-    return this.post<CompareGroupStatus>('/compare-group', { comparisonGroupId });
+    return this.post<CompareGroupStatus>('/compare-group', { comparisonGroupId }, COMPARE_GROUP_TIMEOUT_MS);
   }
 }
 

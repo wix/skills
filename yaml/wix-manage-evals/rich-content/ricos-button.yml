@@ -1,0 +1,20 @@
+name: rich-content/ricos-button
+description: Sharp-edge check on the Author Ricos Rich Content recipe — a BUTTON block with buttonData.type LINK (not an inline LINK decoration on TEXT).
+triggerPrompt: Create Ricos rich content with a centered CTA button labeled "Shop now" that links to https://example.com/shop. Use a BUTTON block, not an inline text link. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 300000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a link button CTA.
+
+      Score 9-10: contains a root-level `BUTTON` node (not just a PARAGRAPH with a LINK decoration on TEXT); `buttonData.type` is `LINK`; `buttonData.text` is "Shop now" (or equivalent); `buttonData.link.url` is `https://example.com/shop`; `buttonData.link.target` is present (e.g. `BLANK`); `buttonData.containerData.alignment` is `CENTER` or equivalent; every `type` is a bare string.
+      Score 6-8: correct BUTTON + LINK shape but a minor field is missing (e.g. `target` or `containerData`) AND `buttonData.type` is present.
+      Score 3-5: uses inline LINK decoration on TEXT instead of a BUTTON block, OR `buttonData.type` is wrong, OR URL/text is wrong.
+      Score 0-2: no button, or prose/plain-text output.
+      **Cap at 6** if `buttonData.type` is missing — prod schema search often omits this field; the Author Ricos recipe requires it.
