@@ -7,7 +7,12 @@ description: Retrieve, create, and delete URL redirects on a Wix site using the 
 
 Use the public **SEO Redirects API** to manage where a Wix site sends visitors who
 request an old or moved URL. The API selects the site from the caller's
-authorization context; never ask for or send a site ID.
+authorization context.
+
+If the run already identifies a site - one connected site, or a site ID supplied
+by the environment - use it and continue. Ask which site only when several are
+available and nothing in the request or the context picks one. Do not stop to ask
+for a site ID the API never takes.
 
 A redirect returns a 301 permanent redirect, takes effect on the live site
 immediately with no site publish, and **takes precedence over a real page at the
