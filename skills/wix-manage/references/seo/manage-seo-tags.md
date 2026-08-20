@@ -24,6 +24,16 @@ Match the user's request to the level that owns the change:
 | "All my product/blog/event pages should be titled like X" — a convention for every item of a page type | Pattern | **SEO Patterns** |
 | "Change the title of this page/product/post" — one specific item | Item | **Item SEO Tags** |
 
+All three APIs live under the **SEO** category of the Wix REST API reference.
+Read the chosen method's own reference article directly rather than searching
+schemas; these are the methods each level has:
+
+| Level | Methods |
+|---|---|
+| Site | Get Site SEO Tags, Set Site SEO Tags |
+| Pattern | Get SEO Pattern, List SEO Patterns, List SEO Pattern Variables, Create SEO Pattern, Set SEO Pattern, Reset SEO Pattern To Default |
+| Item | Get Item SEO Tags, List Item SEO Tags, Set Item SEO Tags, Bulk Set Item SEO Tags, Reset Item SEO Tags To Default |
+
 Work at the level that matches the change. Writing the same title onto many
 items is the same outcome as one pattern and much harder to undo. If the user's
 words fit more than one level, ask one short question before writing. An
