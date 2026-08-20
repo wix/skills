@@ -43,6 +43,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
 **Technical:** Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
+### [Placing a Blog Feed Widget on an Existing Site's Page — Known Gap](references/sites/editing-existing-site-pages-menus-and-homepage.md#same-gap-from-the-business-solution-widget-angle-add-a-blog-feed--stores-grid--other-wix-widget-to-this-page)
+**Technical:** There is no REST/MCP API to place a business-solution widget (Blog Feed, Stores product grid, Events list, etc.) onto a page of an existing site — the Blog/Stores/Events APIs manage the underlying data only, never page/component placement. Read this before assuming a mature data API implies a page-placement API too.
+
 ---
 
 ## Bookings

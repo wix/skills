@@ -114,3 +114,17 @@ A distinct entry point into this same wall: an agent (or the user directly) reac
 - **Every Wix CLI project-creation path provisions a brand-new site** — `create headless`, `create headless link` (even when "linking" an existing local project), and `create init` all mint a new managed site. There is no CLI command that attaches to or overwrites an existing classic-Editor/Studio site's content; the CLI docs themselves note that extending an *existing* site's code is a different, separate feature ("Git Integration & Wix CLI for Sites," Studio-only, requires connecting a GitHub repo — still doesn't let you import external page designs).
 
 So if the user's goal is "get my already-designed pages onto my existing Wix Editor site," the CLI is not a shortcut — it's a dead end for that specific goal, and following it just relocates the same page/layout-editing gap into a new, empty site while costing an extra device-code round-trip. Say this upfront and point back to the rest of this doc's options instead of letting the user spend time authenticating into a CLI flow that can't reach their existing site.
+
+## Same gap from the business-solution-widget angle: "add a Blog feed / Stores grid / other Wix widget to this page"
+
+A distinct request that hits the same wall: the user wants a *Wix-native* widget for an already-installed business solution — e.g. a Blog Feed, a Stores product grid, an Events list — placed onto a specific page of their existing site, not custom HTML. This sounds like it should be simpler than a full custom design import, since the content itself (posts, products, events) already has a mature REST API — but placing the corresponding **widget/component** on a page is a different operation from managing the underlying data, and there's no API for it:
+
+- The Blog, Stores, and Events REST APIs (confirmed via `SearchWixRESTDocumentation`) only manage the underlying data (posts, products, events) — none of them expose a way to add their own feed/grid/list widget to a page's component tree.
+- App Management's "Site Extensions/Plugins" (already ruled out above) only let an app extend **its own** predefined slots — not place a general-purpose widget at an arbitrary point on an arbitrary page.
+- Same root cause as the rest of this doc: widget placement is page-layout/component-tree data living in the Editor's internal document model, with no public write API.
+
+Treat this the same as the other cases: state plainly that no API can place a business-solution widget onto an existing page, regardless of how mature that solution's own data API is.
+
+## A cross-cutting requirement for any future write API: return enough to verify the mutation, not just an ack
+
+Multiple reports converging on this gap have independently asked for the same shape of fix, not just "give us a write API" — they specifically want **every mutation to return the exact `siteId`, page ID, and resulting state**, so the calling agent can verify the change actually happened before telling the user it's done, rather than trusting a bare success/job-accepted response. This isn't a hypothetical nice-to-have: it's the same failure mode already tracked separately for site *creation* (`WixSiteBuilder`/`EditSite` jobId reuse silently no-ops while still reporting job success — see the site-builder-tool gap notes) recurring as a design requirement for site *editing* too. Any future API design for this gap should bake in synchronous, inspectable post-mutation state from the start, not bolt on verification later.
