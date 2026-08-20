@@ -12,7 +12,7 @@ tags: [aria, stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-sites-seo-tags
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-site-s-seo-tags
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
