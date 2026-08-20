@@ -61,12 +61,18 @@ The provider **must** be in a separate parent component from the page content. H
 
 **Wrong — provider and page in the same component:**
 ```tsx
-function App() {
-  const state = useTableCollection({ ... }); // fails — no provider context yet
+function BadApp() {
+  const state = useTableCollection({
+    queryName: 'my-items',
+    itemKey: (item) => item.id,
+    itemName: (item) => item.name,
+    fetchData: async () => ({ items: [], total: 0 }),
+    filters: {},
+  }); // fails at runtime — no provider context above this component
   return (
     <WixPatternsProvider>
       <CollectionPage>
-        <Table state={state} />
+        <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
       </CollectionPage>
     </WixPatternsProvider>
   );
@@ -76,6 +82,8 @@ function App() {
 **Correct — provider in root, page in a separate file:**
 ```tsx
 // App.tsx
+import { WixPatternsProvider } from '@wix/patterns/provider';
+
 function App() {
   return (
     <WixPatternsProvider>
@@ -85,11 +93,20 @@ function App() {
 }
 
 // MyCollectionPage.tsx
+import { Table, useTableCollection } from '@wix/patterns';
+import { CollectionPage } from '@wix/patterns/page';
+
 function MyCollectionPage() {
-  const state = useTableCollection({ ... }); // works
+  const state = useTableCollection({
+    queryName: 'my-items',
+    itemKey: (item) => item.id,
+    itemName: (item) => item.name,
+    fetchData: async () => ({ items: [], total: 0 }),
+    filters: {},
+  }); // works — the provider context exists above this component
   return (
     <CollectionPage>
-      <Table state={state} />
+      <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
     </CollectionPage>
   );
 }
