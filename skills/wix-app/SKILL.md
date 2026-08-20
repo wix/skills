@@ -104,6 +104,8 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Filters, search, sorting, view presets/tabs | the collection's filter and view APIs |
 | Row actions, bulk actions, drag-and-drop | the collection's feature APIs |
 | Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
+| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
+| Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
 **Confirm every name and prop against the generated docs — do not guess:**
 
@@ -131,7 +133,21 @@ Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third U
 ### Overlaps and scope
 
 - When both libraries ship the same concept (page header, page container), the **patterns** one wins inside a patterns page — it is the piece wired into the shell's layout and collection state. Use the WDS equivalent only outside a patterns page shell.
-- **Dashboard Modals and Dashboard Plugins** render outside a patterns page shell: WDS is the default there. Patterns collection components still apply when such a surface displays a data collection.
+- **Patterns has its own overlays.** `PickerModal` / `usePickerModal` and `bulkActionModal` cover collection-related overlays. "It's a modal" is not a reason to leave patterns.
+- **Dashboard Plugins** render outside a patterns page shell, so WDS is the default there. Patterns collection components still apply when such a surface displays a data collection.
+
+### Entity create and edit
+
+**Adding, editing, or viewing a single item from a collection page is an `EntityPage` — not a Dashboard Modal.** This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
+
+The documented flow:
+
+1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
+2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
+3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`.
+4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
+
+Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a delete confirmation, a short prompt, an unrelated popup. Reach for it because the interaction is a true dialog, never because "the form should open in a modal."
 
 ---
 

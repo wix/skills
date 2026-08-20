@@ -41,12 +41,17 @@ Create state with the hook -> pass it to the component's `state` prop -> wrap in
 
 ### Choosing the Right Provider
 
-| Provider                        | When to Use                                          | Import From              |
-|---------------------------------|------------------------------------------------------|--------------------------|
-| `WixPatternsProvider`           | Projects using `@wix/cli`.                           | `@wix/patterns/provider` |
-| `WixPatternsBMProvider`         | Projects using `@wix/yoshi-flow-bm`.                 | `@wix/patterns/bm`       |
+| Provider                        | When to Use                                                                          |
+|---------------------------------|--------------------------------------------------------------------------------------|
+| `WixPatternsProvider`           | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza) and supplies the right context. |
+| `WixPatternsBMProvider`         | Optional alternative for Yoshi BM Flow over Business Manager.                        |
+| `WixPatternsGizaProvider`       | Optional alternative for Yoshi BM Flow over Giza.                                    |
+| `WixPatternsEssentialsProvider` | Yoshi Fullstack.                                                                     |
+| `WixPatternsBaseProvider`       | App does **not** run under a Giza/WixEssentials environment and you inject services (i18n, sentry) yourself. |
 
-Check the project's `package.json` dependencies to determine which one applies.
+Prefer `WixPatternsProvider` unless the project is on one of the specific Yoshi flows above — it is the documented recommendation for most apps, and it resolves the environment for you rather than making you pick.
+
+**Confirm the import path in the provider's own doc file** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
 
 ### Keep Provider and Page Separate
 
@@ -111,6 +116,25 @@ Each doc contains the component's category, import path, description, code examp
 Docs contain relative Storybook URLs like `[TableState](./?path=/story/...--tablestate)`. To resolve these, **use the link text as the filename**: `[TableState](...)` -> read `TableState.md`.
 
 Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs.
+
+## The Collection → Entity Flow
+
+A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form in a dashboard modal is the most common way this goes wrong.
+
+| Step | What owns it |
+| --- | --- |
+| Navigate from a row / primary action to the item | `usePatternsNavigate()` → `navigateToEntityPage({ path, entity })` |
+| Register the route | `PatternsReactRoute` inside `PatternsReactRouter` |
+| Fetch, save, validation, dirty state, skeletons, errors | `useEntityPage({ fetch, onSave })` |
+| Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` |
+| Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
+| The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
+
+`navigateToEntityPage` is preferred over a plain route change because the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.
+
+Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note that `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
+
+Reserve dashboard modals for genuine dialogs — delete confirmations, short prompts — not entity editing.
 
 ## When Patterns Has No Equivalent
 

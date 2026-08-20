@@ -68,13 +68,15 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+Dashboard Pages cannot use `<Modal />`. When you need a true dialog overlay, you **MUST** use a dashboard modal extension — not a React modal and not the WDS `Modal` component.
 
-- **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
+- **Use dashboard modals** for: delete/discard confirmations, short prompts, and dialogs unrelated to editing a collection item
 - **Do NOT use** WDS `Modal` component or custom React modal implementations
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
+
+> **🛑 Exception — adding, editing, or viewing a collection item is NOT a modal.** That is an `EntityPage` from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Do not hand-build the entity form as a WDS form inside a dashboard modal — that is the single most common way the patterns-first rule gets dropped after the table is already correct. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 
