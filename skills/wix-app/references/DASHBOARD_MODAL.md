@@ -117,7 +117,9 @@ const handleDelete = async (item: Item) => {
     modalId: "confirm-delete-modal-guid",
     params: { itemId: item.id, itemName: item.name }, // objects are passed directly via params
   });
-  const result = await modalClosed;
+  // `modalClosed` resolves as `Serializable` (a union) and `openModal` takes no type
+  // parameter, so narrow it to the shape this modal's own close payload uses.
+  const result = (await modalClosed) as { confirmed?: boolean } | undefined;
   if (result?.confirmed) {
     // ...your delete logic + collection refresh...
   }
