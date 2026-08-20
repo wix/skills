@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -341,11 +341,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Rich Content
 
+> **Routing rule (READ FIRST).** For every request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS, use the available full-documentation reading capability to retrieve and read the canonical [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md) recipe before using API schema search, convert/validate APIs, or memory. This also applies when the user asks for JSON only.
+
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
 **Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
 
 ### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
-**Technical:** Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) reused across Blog, Stores, Events, and CMS. Covers every common node shape — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images — plus inline text decorations and the nesting rules the format enforces.
+**Technical:** Required first source for every request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS. Retrieve and read this full article before API schema search or constructing the JSON. Covers node shapes — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds — plus inline text decorations (including spoiler) and nesting rules.
 
 ---
 

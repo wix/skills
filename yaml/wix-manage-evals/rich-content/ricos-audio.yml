@@ -1,0 +1,20 @@
+name: rich-content/ricos-audio
+description: Sharp-edge check on the Author Ricos Rich Content recipe — an AUDIO block with audio.src.id and empty nodes array.
+triggerPrompt: Create Ricos rich content with an AUDIO block for a hosted track using a placeholder Wix media id. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for an audio block.
+
+      Score 9-10: root-level `AUDIO` node; `audioData.audio.src` has an `id` (Wix media path); `nodes` is an empty array `[]` (AUDIO has no child nodes); `audioData.containerData` or alignment present; every `type` is a bare string.
+      Score 6-8: AUDIO with correct src but `nodes` is missing instead of empty, OR a minor container field is missing.
+      Score 3-5: audio as LINK or embedded iframe in PARAGRAPH, OR `audio` nested under wrong path, OR no media id.
+      Score 0-2: no audio block, or prose/plain-text output.
+      **Cap at 5** if `audioData.audio.src.id` is missing — prod doc on main does not document AUDIO blocks.

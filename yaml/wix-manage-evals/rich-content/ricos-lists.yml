@@ -1,8 +1,8 @@
 name: rich-content/ricos-lists
 description: Verifies the agent reads the Author Ricos Rich Content recipe and builds correctly-nested bulleted and ordered lists (LIST → LIST_ITEM → PARAGRAPH → TEXT).
-triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for a short section containing one bulleted list with two items and one numbered/ordered list with three steps. Output only the richContent JSON.
+triggerPrompt: Create Ricos rich content with a short section containing one bulleted list with two items and one numbered/ordered list with three steps. Output only the richContent JSON.
 tags: [rich-content]
-maxTokens: 150000
+maxTokens: 450000
 assertions:
   - tool: ReadFullDocsArticle
     params:
