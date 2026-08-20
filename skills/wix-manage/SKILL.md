@@ -172,6 +172,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 **Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
 
+### [Pointing a Wix-Registered Domain at External (Non-Wix) Hosting](references/domains/pointing-a-registered-domain-to-external-hosting.md)
+**Technical:** Moves hosting for a domain purchased through Wix to a non-Wix host without transferring or unlocking the domain, using the Domain DNS API's Update DNS Zone to edit A/CNAME records — not the Connected Domains / domain-purchase flow, which only connects domains *into* Wix. Use when the user wants to keep a Wix-registered domain but host elsewhere.
+
 ---
 
 ## eCommerce
