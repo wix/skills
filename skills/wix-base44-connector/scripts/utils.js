@@ -24,8 +24,13 @@ const BUDGET = 4000;
 const SCRATCH = ".agents/skills/wix-base44-connector/scratch";
 
 const clip = (out) => {
-  const s = typeof out === "string" ? out : JSON.stringify(out);
-  return s.length <= BUDGET ? out : { truncated: true, total: s.length, head: s.slice(0, BUDGET) };
+  if (typeof out === "string")
+    return out.length <= BUDGET ? out : { truncated: true, total: out.length, head: out.slice(0, BUDGET) };
+  // absence must be visible: JSON.stringify silently ERASES undefined keys, so a probe like
+  // { lineItems: resp.cart?.lineItems } loses the very field that proves the call failed —
+  // render undefined as null instead
+  const s = JSON.stringify(out, (k, v) => v === undefined ? null : v);
+  return s.length <= BUDGET ? JSON.parse(s) : { truncated: true, total: s.length, head: s.slice(0, BUDGET) };
 };
 
 // One transport for every JSON call — Content-Type, optional Bearer, ok-guard.
