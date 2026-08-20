@@ -1,5 +1,5 @@
-
 # Wix Dashboard Page Builder
+
 Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
 
 ## UI Libraries — Read Before Writing Any JSX

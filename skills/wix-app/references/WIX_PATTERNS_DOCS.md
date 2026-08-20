@@ -1,14 +1,14 @@
 # @wix/patterns Component Documentation
 
-## When to Use
-
-Consult the generated docs whenever you work with `@wix/patterns` imports — to look up props, usage examples, or understand how components compose together.
-
-`@wix/patterns` is the **first** place to look for any dashboard page UI element. Only when it genuinely has no equivalent do you fall back to `@wix/design-system`, chosen via the `wix-design-system` skill. The full resolution order lives in [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order); this file is the *how to look it up* half of that rule.
-
 ## Prerequisites
 
-The docs are pre-built at `node_modules/@wix/patterns/dist/docs/` (160+ markdown files + `index.json`). This requires `@wix/patterns` version **1.367.0** or later. If the docs directory doesn't exist, ensure the package is installed at the minimum version:
+The docs are pre-built at `node_modules/@wix/patterns/dist/docs/` (160+ markdown files + `index.json`). This requires `@wix/patterns` version **1.367.0** or later. Verify they exist:
+
+```bash
+ls node_modules/@wix/patterns/dist/docs/   # expect ~165 .md files + index.json
+```
+
+If the directory is missing, install the package at the minimum version:
 
 ```bash
 npm install @wix/patterns@^1.367.0
@@ -36,6 +36,8 @@ Each collection type follows the same Component + State + Hook pattern:
 | TableGridSwitch  | `TableGridSwitch`  | `TableGridSwitchState`  | `useTableGridSwitchCollection()`|
 | TableFolders     | `TableFolders`     | `TableFoldersState`     | `useTableFolders()`             |
 | GridFolders      | `GridFolders`      | `GridFoldersState`      | `useGridFolders()`              |
+
+This table covers the common collection types — the full, authoritative list is in `node_modules/@wix/patterns/dist/docs/index.json`.
 
 Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
@@ -103,8 +105,8 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Finding the right file
 
-- **By name:** Read `index.json` — it maps every component name to its doc file and category.
-- **By browsing:** List the `dist/docs/` folder. Filenames match component names directly (e.g., `Table.md`, `useTableCollection.md`).
+- **By name:** Read `node_modules/@wix/patterns/dist/docs/index.json` — it maps every component name to its doc file and category.
+- **By browsing:** List the `dist/docs/` folder. Filenames match component names directly (e.g., `Table.md`, `useTableCollection.md`). Note some names contain spaces (`AI Assistant.md`) or dots (`CollectionPage.Header.md`) — quote paths when searching.
 - **By concept:** Search filenames for keywords (e.g., "filter"). Check `index.json` categories — related components share a category prefix.
 
 ### Reading doc files
