@@ -1,6 +1,6 @@
 ---
 name: "Manage URL Redirects on a Wix Site"
-description: Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. Redirects do not chain: creating one that points at a path another redirect starts from permanently deletes that other redirect, so list and check before every write.
+description: Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write.
 ---
 
 # Manage URL Redirects on a Wix Site
@@ -82,17 +82,22 @@ still appear in List Redirects.
 `from` cannot be the site root, and two paths differing only by a trailing slash
 count as the same path.
 
-## Read
+## Read: List Redirects is the only way to read many
+
+**There is no query endpoint and no search endpoint.** Most Wix APIs have one, so
+this is the second place an agent goes wrong. Do not call, construct, or go
+looking for `POST /v1/redirects/query`, a `/search` path, or any filtered variant:
+they do not exist, and trying one wastes a turn and returns nothing useful.
 
 - **List Redirects** returns every redirect on the site in one response. It takes
-  no filter, sort, or paging, so filter the result yourself. It also returns
-  redirects Wix created for the site owner, such as when a page's URL slug was
-  renamed in the editor.
+  no filter, sort, cursor, or paging parameter at all. Filter, sort, and slice the
+  returned array yourself. It also returns redirects Wix created for the site
+  owner, such as when a page's URL slug was renamed in the editor.
 - **Get Redirect** retrieves one by ID.
 
 ## Change an existing redirect
 
-There is **no update method and no query method**. To change a redirect:
+There is **no update method**, and as above no query method. To change a redirect:
 
 1. Call **Get Redirect** and keep the whole response.
 2. Call **Delete Redirect** with the same ID.
