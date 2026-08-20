@@ -27,13 +27,15 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** confirm `@wix/patterns` is a dependency and its docs are present.
+**Then, before writing UI:** confirm the three required dependencies and that the patterns docs are present.
 
 ```bash
 ls node_modules/@wix/patterns/dist/docs/index.json
 ```
 
-If it's missing, add the package (`^1.367.0` or later — earlier versions don't ship `dist/docs/`) and install. Without this, the patterns lookup in step 1 of [Component Selection Order](../SKILL.md#component-selection-order) silently finds nothing and the page gets built entirely from WDS.
+`@wix/patterns`, `@wix/design-system`, **and `@wix/dashboard`** must all be in `package.json` — `WixPatternsProvider` requires `@wix/dashboard`. If the docs path is missing, add `@wix/patterns` (`^1.367.0` or later — earlier versions don't ship `dist/docs/`) and install.
+
+Every patterns page is wired the same way: `WixDesignSystemProvider` outside `WixPatternsProvider`, hooks called in a component *below* both, and the page exported via `withDashboard(...)`. Full snippet: [WIX_PATTERNS_DOCS.md → Page Wiring](WIX_PATTERNS_DOCS.md#page-wiring--two-providers-and-withdashboard). Without this, the patterns lookup in step 1 of [Component Selection Order](../SKILL.md#component-selection-order) silently finds nothing and the page gets built entirely from WDS.
 
 ## Capabilities
 
@@ -99,7 +101,7 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create a dashboard page to manage blog posts"
 
-**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. The provider lives in a parent component, in a separate file from the hook call.
+**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. Both providers sit above the component that calls the hook, and the page is exported via `withDashboard(...)`.
 
 ### Settings Form
 

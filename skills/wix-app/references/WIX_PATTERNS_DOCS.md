@@ -55,11 +55,53 @@ Prefer `WixPatternsProvider` unless the project is on one of the specific Yoshi 
 
 **Confirm the import path in the provider's own doc file** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
 
-### Keep Provider and Page Separate
+### Page Wiring — Two Providers and `withDashboard`
 
-The provider **must** be in a separate parent component from the page content. Hooks like `useTableCollection` require the provider's context to already exist above them in the React tree.
+A patterns page needs **both** providers plus the `withDashboard` export. Getting any of the three wrong is a mount failure, not a styling nit.
 
-**Wrong — provider and page in the same component:**
+Per `WixPatternsProvider.md`: *"you need to add a `WixDesignSystemProvider` followed by a `WixPatternsProvider`."* Order matters — WDS outside, patterns inside.
+
+**Requirement:** `@wix/dashboard` must be installed alongside `@wix/patterns` and `@wix/design-system` — `WixPatternsProvider` depends on it. Check all three in `package.json`.
+
+```tsx
+import { Table, useTableCollection, withDashboard } from '@wix/patterns';
+import { CollectionPage } from '@wix/patterns/page';
+import { WixPatternsProvider } from '@wix/patterns/provider';
+import { WixDesignSystemProvider } from '@wix/design-system';
+import '@wix/design-system/styles.global.css';
+
+// Inner component — the hook call must sit BELOW both providers.
+function MyCollectionPage() {
+  const state = useTableCollection({
+    queryName: 'my-items',
+    itemKey: (item) => item.id,
+    itemName: (item) => item.name,
+    fetchData: async () => ({ items: [], total: 0 }),
+    filters: {},
+  });
+  return (
+    <CollectionPage>
+      <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
+    </CollectionPage>
+  );
+}
+
+function Page() {
+  return (
+    <WixDesignSystemProvider>
+      <WixPatternsProvider>
+        <MyCollectionPage />
+      </WixPatternsProvider>
+    </WixDesignSystemProvider>
+  );
+}
+
+export default withDashboard(Page);
+```
+
+**The real constraint is tree position, not file layout.** Hooks like `useTableCollection` and `useEntityPage` read provider context, so they must run in a component *below* the providers. An inner content component in the same file (above) satisfies this; so does putting the page in its own file. Split files when the page grows, not to satisfy the provider rule.
+
+**Wrong — hook called in the component that renders the providers:**
 ```tsx
 function BadApp() {
   const state = useTableCollection({
@@ -79,42 +121,9 @@ function BadApp() {
 }
 ```
 
-**Correct — provider in root, page in a separate file:**
-```tsx
-// App.tsx
-import { WixPatternsProvider } from '@wix/patterns/provider';
+When the page needs **multiple routes**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router, and keep the router alongside the providers. Look up those doc files for setup details.
 
-function App() {
-  return (
-    <WixPatternsProvider>
-      <MyCollectionPage />
-    </WixPatternsProvider>
-  );
-}
-
-// MyCollectionPage.tsx
-import { Table, useTableCollection } from '@wix/patterns';
-import { CollectionPage } from '@wix/patterns/page';
-
-function MyCollectionPage() {
-  const state = useTableCollection({
-    queryName: 'my-items',
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    fetchData: async () => ({ items: [], total: 0 }),
-    filters: {},
-  }); // works — the provider context exists above this component
-  return (
-    <CollectionPage>
-      <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
-    </CollectionPage>
-  );
-}
-```
-
-Always keep the provider (and router if needed) in the app's root component, and each page in its own file.
-
-When the user needs **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) instead of a separate router. Look up the relevant doc files for setup details.
+> Some projects also pass WDS feature flags, e.g. `<WixDesignSystemProvider features={{ newColorsBranding: true }}>`. That is a Wix Design System option, not a `@wix/patterns` requirement — it appears nowhere in the patterns docs. Follow the host project's existing convention.
 
 ## How to Look Things Up
 
@@ -147,7 +156,28 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 | Fetch, save, validation, dirty state, skeletons, errors | `useEntityPage({ fetch, onSave })` |
 | Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` |
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
+| Reaching page state from a child component | `useEntityPageContext()` — no prop-drilling |
 | The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
+
+**Child field components use `useEntityPageContext`, not props.** It returns the `EntityPageState` from context, so any component rendered inside `EntityPage` can reach the form and the entity directly:
+
+```tsx
+const FormContent = () => {
+  const pageState = useEntityPageContext<Entity, FormValues>();
+  const field = useController({
+    name: 'fieldName',
+    control: pageState.form.control,
+    defaultValue: pageState.entity?.fieldName,
+  });
+  return (
+    <FormField label="Field">
+      <Input value={field.field.value} onChange={field.field.onChange} />
+    </FormField>
+  );
+};
+```
+
+Do not thread `form` or `entity` down through props — that is the prop-drilling this hook exists to remove.
 
 `navigateToEntityPage` is preferred over a plain route change because the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.
 

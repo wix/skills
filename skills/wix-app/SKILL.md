@@ -21,7 +21,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns`, `@wix/design-system`, and `@wix/dashboard` are all in the project's `package.json` (install any that are absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
@@ -106,6 +106,7 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
+| Page wiring — providers and the dashboard export | `WixDesignSystemProvider` **outside** `WixPatternsProvider`; hooks called in a component below both; `export default withDashboard(Page)`. Requires `@wix/dashboard` installed. See [Page Wiring](references/WIX_PATTERNS_DOCS.md#page-wiring--two-providers-and-withdashboard) |
 
 **Confirm every name and prop against the generated docs — do not guess:**
 
