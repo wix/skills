@@ -78,25 +78,27 @@ Beyond these three, you can add other assertions (`api_call`, `cost`, `time_limi
 ### Example
 
 ```yaml
-name: domains/domain-search-and-purchase
-description: Verifies the agent reads the domain-search-and-purchase docs when asked about searching for and purchasing a domain via the Wix API.
-triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
+name: domains/domain-search-purchase-and-connect
+description: Verifies the agent reads the domain-search-purchase-and-connect docs when asked about purchasing a new domain or connecting a domain that the user already owns.
+triggerPrompt: I want to purchase a domain and connect it to the Wix site.
 tags: [domains]
 maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user's request: "How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods."
-      Intent: surface Wix Domains Management API methods/endpoints for searching availability and purchasing a domain.
+      The user's request: "I want to purchase a domain and connect it to the Wix site."
+      Intent: brainstorm a domain name, purchase it and / or connect a domain to the Wix site.
 
       Pass if the response:
-      - mentions specific Wix API endpoints, method names, or REST paths from the Wix Domains Management API for search and/or purchase, AND
-      - describes the high-level flow (search → check availability → purchase) using terminology consistent with the docs.
+      - mentions the domain availability OR
+      - suggests domain list OR
+      - mentions user's sites list OR
+      - domain prices       
 
       Fail if the response:
       - is generic with no specific endpoints or method names, OR

@@ -166,8 +166,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Domains
 
-### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
-**Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
+### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
+**Technical:** Purchase domains, connect domains to Wix sites, search for available domains and get domain suggestions. Covers availability checks, TLD filtering, purchase flow and connecting domains to Wix sites.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 **Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
@@ -230,10 +230,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Events
 
 ### [Create Event](references/events/create-wix-event.md)
-**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, and short vs Ricos rich-text descriptions. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoint: /events/v3/events.
+**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, short vs Ricos rich-text descriptions, ticket tiers and pricing, and recurring series from explicit occurrence dates. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
 
 ### [Manage Events](references/events/manage-wix-events.md)
-**Technical:** Manages existing events with the Wix Events V3 API — ticket definitions and pricing (fixed, free, donation, multiple tiers), publishing a draft, cancelling, deleting, cloning, updating an event's date, counting events, and building recurring series from explicit occurrence dates. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
+**Technical:** Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date, and counting events, plus the draft-event permission that makes those calls fail with 403. Key endpoint: /events/v3/events.
 
 ---
 
@@ -369,8 +369,14 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Headless Site](references/sites/create-headless-site.md)
 **Technical:** Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
+### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
+**Technical:** Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's `id` is the `client_id` for frontends connecting to the site's Wix APIs. Secret and rotation are dashboard-only.
+
 ### [Query Sites](references/sites/query-sites.md)
 **Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
+
+### [Read Account or Site Context](references/sites/read-site-context.md)
+**Technical:** One call that returns a site's installed apps (by display name), locale, currency, status, and catalog version. Replaces separate query-sites + list-installed-apps + site-properties calls. Use this first on any unfamiliar site to decide which management recipes to follow.
 
 ### [Site Import](references/sites/site-import.md)
 **Technical:** Drives the autonomous Wix Site Import agent over REST (`/site-import/v1/imports`) to migrate a store/site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Covers Start/Poll/Reply/Cancel, relaying agent questions and progress in plain language, handling `DEPLOYED`/`FAILED`/`AUTH_EXPIRED`/`SESSION_EXPIRED` states, and post-deploy follow-up changes. Use when the user wants to import, migrate, or clone an existing store/site into Wix.
@@ -385,27 +391,17 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
 **Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
 
-### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
-**Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
-
-### [Create Product from Image](references/stores/create-product-from-image.md)
-**Technical:** **MANDATORY entry point** for any "create product from image" or "create product from photo" request. STEP 1 auto-detects the site's catalog version (V1/V3) via the provision endpoint, then runs the matching flow inline — V3 supports up to 3 images, info sections, SEO, options/variants, and atomic creation; V1 supports a single image, simple product, and a separate media-attach call. Combines Media Upload + LLM analysis + Product Creation + (V1 only) Add Product Media in one self-contained recipe.
-
-
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 **Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
 
-### [Create Product with Options (Catalog V3)](references/stores/create-product-with-options-catalog-v3.md)
-**Technical:** Single product creation with options using Catalog V3 Products API. Covers option types (TEXT_CHOICES, SWATCH_CHOICES), choice configuration, and automatic variant generation.
+### [Create Product (Catalog V3)](references/stores/create-product-catalog-v3.md)
+**Technical:** **Mandatory first read for every Catalog V3 create-product request, including vague requests.** Before any other documentation or API tool, load exactly `https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3`. When no product is identified, that recipe read must be the final tool call; respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” Then stop. **Never replace this with a list or questions for name, price, description, type, images, inventory, SKU, options, SEO, or other fields.** If name or price is missing, ask for it or offer to suggest it, then stop. When name and price are present, create from supplied details without requiring optional enrichment. Never default price to `0`. The recipe owns single/bulk endpoint choice, inventory, physical/digital products, images, options, variants, prices, SKUs, limits, and validation.
 
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
 **Technical:** Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
 **Technical:** Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
-
-### [Setup Online Store (Catalog V3)](references/stores/setup-online-store-catalog-v3.md)
-**Technical:** Initializes a Stores catalog with Catalog V3 Products API, bulk products endpoint, and Categories API. Covers product creation, option configuration, variant management, and category assignment.
 
 ### [Update Product Pre-Order](references/stores/update-product-pre-order.md)
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
