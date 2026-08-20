@@ -13,13 +13,13 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
  *   id {string} — the cart id IS the checkout id (currency lives under businessInfo.currencyCode / customerInfo.currencyCode, not at the cart root),
  *   lineItems[].id {string} — lineItemId for update/remove (NOT catalogItemId),
  *   lineItems[].quantityInfo.confirmedQuantity {number},
- *   lineItems[].catalogReference.catalogItemId {string},
+ *   lineItems[].source.catalogReference.catalogItemId {string} — NOT top-level in V2,
  *   lineItems[].name.original {string},
  *   lineItems[].pricing.unitPrice {ConvertedMoney} — per-unit price after discounts,
  *   lineItems[].pricing.totalPrice {ConvertedMoney} — line total after discounts,
  *     ConvertedMoney is { amount, convertedAmount } with NO formatted string — `amount` is in the
  *     site currency, `convertedAmount` in the display currency; format the number client-side.
- *   lineItems[].descriptionLines {array} — human-readable option/modifier labels:
+ *   lineItems[].attributes.descriptionLines {array} — human-readable option/modifier labels:
  *     [{ name: { original }, plainText: { original } OR colorInfo: { original, code } }],
  *   lineItems[].attributes.image {object} — { id, url, height, width, altText } (use .url),
  *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
@@ -58,8 +58,9 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
     method: "POST",
     body: { catalogItems: [{ catalogReference, quantity }] },
   });
+  // V2 nests the reference under `source` — a top-level lineItem.catalogReference no longer exists.
   const line = (res?.cart?.lineItems ?? []).find(
-    (l) => l.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.catalogReference?.options?.variantId === variantId),
+    (l) => l.source?.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.source?.catalogReference?.options?.variantId === variantId),
   );
   // Cart V2 rejects an unbuyable line with an explicit error rather than silently dropping it, but
   // guard both signals defensively:
@@ -105,7 +106,7 @@ export async function checkout() {
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
   const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.name?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.source?.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
   if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");

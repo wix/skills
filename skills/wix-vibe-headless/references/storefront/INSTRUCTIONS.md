@@ -301,7 +301,7 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 
 // product.plainDescription is HTML → render as HTML (the PDP does this):
 <div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
-// image urls live at: product.media.main.image.url  ·  cart lineItems[].attributes.image
+// image urls live at: product.media.main.image.url  ·  cart lineItems[].attributes.image.url
 ```
 
 Fallback only — when you hit an error or need something not shown here (coupons, members, a field

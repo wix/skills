@@ -90,7 +90,8 @@ export default function CartDrawer() {
                 </div>
                 <div className="flex-1 flex flex-col gap-1 min-w-0">
                   <span className="font-semibold truncate">{item.name?.original}</span>
-                  {item.descriptionLines?.map((dl, i) => (
+                  {/* V2 nests these under `attributes` — a top-level lineItem.descriptionLines no longer exists */}
+                  {item.attributes?.descriptionLines?.map((dl, i) => (
                     <small key={i} className="text-muted-foreground">
                       {dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}
                     </small>

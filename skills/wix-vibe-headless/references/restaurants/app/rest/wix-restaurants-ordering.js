@@ -15,7 +15,7 @@ import { wixApiRequest } from "./wix-client.js";
  *   id {string} — the cart id IS the checkout id,
  *   lineItems[].id {string} — lineItemId for update/remove (NOT the item id),
  *   lineItems[].quantityInfo.confirmedQuantity {number},
- *   lineItems[].catalogReference.catalogItemId {string} — the ordered item's GUID,
+ *   lineItems[].source.catalogReference.catalogItemId {string} — the ordered item's GUID (NOT top-level in V2),
  *   lineItems[].name.original {string},
  *   lineItems[].pricing.unitPrice / lineItems[].pricing.totalPrice {ConvertedMoney} —
  *     { amount, convertedAmount } with NO formatted string; format the number client-side,
@@ -81,7 +81,8 @@ export async function addItemToCart(itemId, { operationId, menuId, sectionId, on
       catalogItems: [{ catalogReference: { appId: RESTAURANTS_ORDERS_APP_ID, catalogItemId: itemId, options }, quantity }],
     },
   });
-  const line = (res?.cart?.lineItems ?? []).find((l) => l.catalogReference?.catalogItemId === itemId);
+  // V2 nests the reference under `source` — a top-level lineItem.catalogReference no longer exists.
+  const line = (res?.cart?.lineItems ?? []).find((l) => l.source?.catalogReference?.catalogItemId === itemId);
   if (line?.status && line.status !== "IN_STOCK") {
     throw new Error(`Item not available to order (status: ${line.status}).`);
   }
@@ -138,7 +139,7 @@ export async function checkout() {
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
   const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.name?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.source?.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
   if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");
