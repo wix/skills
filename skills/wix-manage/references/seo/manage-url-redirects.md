@@ -43,9 +43,16 @@ redirect is not the same as the user agreeing to lose a different one.
    - an existing redirect whose `from` equals your new `from` means your create
      **fails** with `FROM_URL_EXISTS` and writes nothing.
    - Paths differing only by a trailing slash count as equal for both checks.
-3. **If either matched, stop and ask.** Name the exact redirect at stake and what
-   happens to it. Wait for an answer before writing.
-4. If neither matched, no deletion is possible: create it and report the result.
+3. **If either matched, end your turn without writing.** Name the exact redirect
+   at stake and what happens to it, then stop and wait for the user's answer.
+
+   This is a rule about turn structure, not about intent: **never put a create in
+   the same response as the List Redirects that found the conflict.** Reporting
+   the conflict and creating the redirect anyway is the failure this rule exists
+   to prevent - the user cannot answer a question you already acted on. If your
+   next action after listing is a write, you have skipped this step.
+4. If neither matched, no deletion is possible: create it in the same turn and
+   report the result. Do not ask permission you do not need.
 
 `options.forceReplace` is the only way to overwrite a taken `from` path, and it
 **deletes** the redirect holding it. Never set it on your own initiative. Offer it

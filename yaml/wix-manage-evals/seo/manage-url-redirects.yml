@@ -42,15 +42,17 @@ assertions:
       - calls List Redirects and reports the existing /blog -> /news redirect,
       - identifies that creating a redirect to /blog would delete that redirect, because it starts
         at the new redirect's target and the API resolves the loop by removing it,
-      - asks the user before creating, rather than writing and reporting afterwards, and
+      - ends its turn after reporting the conflict, without a create in the same response, and
       - uses options.groupRedirect true, because "everything under it" is a group redirect.
 
       Treat naming the consequence as the core requirement: an agent that lists the redirect but
       does not connect it to the requested change has not answered "whether this changes any of
       them".
 
-      Fail if the agent creates the redirect before reporting what exists, misses that the seeded
-      redirect would be deleted, sets options.forceReplace when the user never asked to replace
+      Fail if the agent creates the redirect in the same turn as the List Redirects that found the
+      conflict, even if it also reports the conflict in that response: the user cannot answer a
+      question that was already acted on. Fail if it misses that the seeded redirect would be
+      deleted, sets options.forceReplace when the user never asked to replace
       anything, creates an exact redirect for a request that covers a whole section, asks the user
       for a site ID when the run already provides one, or claims a redirect was created when the
       response echoed the request back with no id.
