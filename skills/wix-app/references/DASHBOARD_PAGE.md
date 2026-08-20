@@ -99,7 +99,7 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create a dashboard page to manage blog posts"
 
-**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. WDS only for the leaf UI inside cells and the add form. The provider lives in a parent component, in a separate file from the hook call.
+**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. The provider lives in a parent component, in a separate file from the hook call.
 
 ### Settings Form
 
@@ -111,7 +111,7 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create an admin panel for customer orders"
 
-**Output:** A `@wix/patterns` `CollectionPage` + `Table`, with filters, sorting, and row actions from the collection APIs — **not** a hand-built WDS filter bar. Status badges are WDS leaf UI inside a cell. Detail view opens as a separate Dashboard Modal via `dashboard.openModal()` (see [Dashboard Modal reference](DASHBOARD_MODAL.md)).
+**Output:** A `@wix/patterns` `CollectionPage` + `Table`, with filters, sorting, and row actions from the collection APIs — **not** a hand-built WDS filter bar. Status badges are WDS leaf UI inside a cell. Viewing or editing an order opens an `EntityPage` via `usePatternsNavigate().navigateToEntityPage` — not a modal (see [Entity create and edit](../SKILL.md#entity-create-and-edit)). A Dashboard Modal appears only for the delete confirmation.
 
 ### Embedded Script Configuration
 
