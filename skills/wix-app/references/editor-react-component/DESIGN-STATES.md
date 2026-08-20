@@ -9,13 +9,30 @@ and `.module.css`.
 
 | Element | Author these states |
 |---|---|
-| Interactive — `button`/`a`/`input`/`select`/`textarea`/`summary`, an interactive `role` (`button`/`link`/`tab`/`switch`/`checkbox`/`radio`/`menuitem`/`option`), or an interactive handler (`onClick`/`onMouseEnter`/`onFocus`/…) | `hover`, `focus` |
+| Interactive — `button`/`a`/`input`/`select`/`textarea`/`summary`, an interactive `role`, or an interactive handler (`onClick`/`onMouseEnter`/`onFocus`/…) | `hover` |
+| Input field — `select`/`textarea`; `input` except `hidden`/`button`/`submit`/`reset`/`image`; or an input-widget `role` (`checkbox`/`radio`/`switch`/`slider`/`spinbutton`/`textbox`/`searchbox`/`combobox`/`listbox`) | `focus` |
+| Other interactive element whose editable focus appearance the user explicitly requests | `focus` |
 | Disableable — `button`/`input`/`select`/`textarea`/`fieldset` or a disableable role | `disabled` (+ `invalid` for `input`/`select`/`textarea`) |
 | Has a selectable/variant value in its data — `selected`/`active`/`current`/`open`/`expanded`/`checked`/`featured` | that custom state |
 | None of the above | no states — resting style only |
 
+An explicit `role` overrides the tag's implicit semantics: `<input role="button">`
+is a non-input control, and `<div role="checkbox">` is an input field.
+
+A `focus` design state is an editor styling control, not the keyboard focus
+indicator itself. Do not add a global `--focus` modifier to a non-input control
+unless the user explicitly asks for an editable focus state. A control that
+restyles its own `outline`, `background`, or `border` MUST still carry a
+standalone `:focus-visible` rule — that rule is its only keyboard affordance.
+
 A custom state may also be driven by a root-level boolean prop (e.g.
 `isFeatured`) instead of by markup or item data — see §5.
+
+For **active-item components** (tabs, slideshow, steps), the `--active` state on
+each item is driven by comparing the item's index to the active-index prop
+(`index === activeItem`), not by a per-item boolean flag — see
+[Active-item components](COMPONENT-API.md#active-item-components-one-body-visible-at-a-time)
+in [`COMPONENT-API.md`](COMPONENT-API.md).
 
 ## 2. Name the state class
 
@@ -31,9 +48,12 @@ nested (`card__row--selected`).
 Put the resting value in the bare class; put only the state override in the
 state selector.
 
-- **Native** — pair the pseudo-class with the `:global` modifier. Every native
-  state needs both selectors in the same rule; do not split the pair across
-  states (for example, pseudo-only `hover` plus global-only `disabled`).
+- **Native design state** — pair the pseudo-class with the `:global` modifier.
+  Every exposed native state needs both selectors in the same rule; do not
+  split the pair across states (for example, pseudo-only `hover` plus
+  global-only `disabled`). A standalone `:focus-visible` accessibility rule on
+  a non-input control is intentionally not an editor design state and therefore
+  has no `:global` modifier.
 - **Custom** — the `:global` modifier alone.
 
 The bare selector is the short **module** class (`.cta`); the `:global(...)`
@@ -51,6 +71,9 @@ state class is the **prefixed** global one.
 .cta:disabled {
   opacity: 0.5;
 }
+.cta:focus-visible {
+  outline: 2px solid currentColor;
+} /* keyboard indicator only; not an editor design state */
 .plan-row:global(.pricing-card-plan-row--selected) {
   border-color: #6366f1;
 }

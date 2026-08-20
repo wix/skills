@@ -67,10 +67,12 @@ File where you can override the generated manifest from `<componentName>.generat
 3. Edit the generated React and CSS files in
    `src/extensions/site/components/component-name/`. Apply
    [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) while
-   authoring: every interactive named part must use interactive markup and
-   pair each native state selector with its prefixed global modifier (for
-   example, `.cta:global(.component-name-cta--hover), .cta:hover`). A
-   pseudo-class without the matching global modifier is incomplete.
+   authoring: every interactive named part must use interactive markup, and
+   every native design state supported by the eligibility table must pair its
+   selector with the prefixed global modifier (for example,
+   `.cta:global(.component-name-cta--hover), .cta:hover`). A standalone
+   `:focus-visible` keyboard indicator on a non-input control is not an editor
+   design state and intentionally has no global modifier.
 4. **MANDATORY** — execute the full A11y Review on the edited component per [`editor-react-component/A11Y-REVIEW.md`](editor-react-component/A11Y-REVIEW.md). Run both scanners over the component's `.tsx`/`.jsx` files, complete the Phase 3 manual semantic review, fix confirmed findings, and re-run the scanners after fixes. Reading the reference without executing these steps is not a review. Do not proceed to the build or report completion until the review is complete.
 5. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest
@@ -79,7 +81,7 @@ File where you can override the generated manifest from `<componentName>.generat
    ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215). If a
    design state is missing from `<componentName>.generated.ts`, the installed
    CLI is older than required — tell the user, and let them decide whether to
-   upgrade.
+   upgrade. If the command exits with an error, diagnose using [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
 6. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 If the component's primary content is a **playable animation** (Lottie/JSON,
@@ -102,6 +104,11 @@ before writing the code. Triggers, and the only cases that warrant it:
 
 Otherwise, do not reach for a hook at all — data the site owner can type or pick
 belongs in props.
+If the component displays **an array of items where only one body is visible at a
+time** (tabs, slides, steps), follow the
+[active-item rules](editor-react-component/COMPONENT-API.md#active-item-components-one-body-visible-at-a-time)
+in [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) (`ActiveItemIndex<>`,
+`name` on each item, render-all-panels visibility).
 
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
@@ -117,7 +124,7 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 - [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) — Which design states a part supports (heuristic) and how to author them
 - [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
-- [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
+- [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props, active-item components
 - [`editor-react-component/FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) — Standard SDK event handler props, DOM wiring, custom callbacks
 - [`editor-react-component/ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
 - [`editor-react-component/COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) — Editor-specific entry point (`component.preview.tsx`), `useIsEditMode()`, when to modify
