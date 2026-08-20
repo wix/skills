@@ -2,8 +2,10 @@ name: restaurants/set-reservation-rules
 description: >-
   Verifies the agent reads the reservations-setup recipe and configures an
   existing reservation location's party size and turnover time, without trying
-  to create a reservation location and without sending both the current and
-  deprecated spelling of a setting.
+  to create a reservation location, without sending both the current and
+  deprecated spelling of a setting, and without echoing `onlineReservationsEnabled`
+  (a Free-plan/PREMIUM_ONLY-gated flag the merchant never asked to toggle) into
+  the PATCH body.
 triggerPrompt: >-
   For table bookings at my restaurant: biggest party we'll take online is 10
   people, and hold each table for 90 minutes. Also I want to approve bookings
@@ -58,12 +60,21 @@ assertions:
         4. Only the current field spellings were sent — not the deprecated twin
            of the same setting in the same request.
         5. The update carried the location's current revision.
+        6. The agent did NOT send `onlineReservationsEnabled` in the PATCH body.
+           The merchant asked for party size, turnover, and approval only — not
+           to turn online reservations on or off. The provisioned site is on a
+           Free plan, and writing `onlineReservationsEnabled` (even echoing the
+           `true` a GET returns) triggers `428 PREMIUM_ONLY` and fails the whole
+           PATCH, so the rule fields never land. Patch only the requested rules.
 
       Fail if ANY of these hold:
         - A create call was attempted against the Reservations APIs for a
           reservation location.
         - Both a current and a deprecated spelling of the same setting were sent
           together.
+        - `onlineReservationsEnabled` was sent in the PATCH body and the call
+          returned `PREMIUM_ONLY`, especially after echoing a GET response —
+          or the same failing body was retried unchanged.
         - The 90 minutes was written as something other than a turnover rule —
           for example as a preparation time or an ordering setting.
         - The agent confused reservations with online ordering and touched
@@ -78,9 +89,12 @@ assertions:
       Penalize and LIST any of: a non-2xx error even if recovered; attempting to
       create a reservation location and being rejected; a validation error from
       sending a deprecated field alongside its replacement, especially after
-      echoing back a GET response wholesale; hunting through the ordering APIs
-      before finding the reservations ones; updating without first reading the
-      revision; redundant or probing calls clearer docs would avoid. For each,
-      name the likely MCP/docs gap.
+      echoing back a GET response wholesale; sending `onlineReservationsEnabled`
+      in the PATCH and hitting `428 PREMIUM_ONLY` on a Free plan — the flag is
+      premium-gated and the merchant never asked to toggle it, so it should be
+      omitted entirely; retrying the same failing PATCH body unchanged; hunting
+      through the ordering APIs before finding the reservations ones; updating
+      without first reading the revision; redundant or probing calls clearer
+      docs would avoid. For each, name the likely MCP/docs gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
       suspected MCP/docs gap, or 'clean path' if none>"}.

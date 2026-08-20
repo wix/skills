@@ -69,7 +69,6 @@ Everything a merchant means by "our booking rules" lives on the reservation loca
     "revision": "4",
     "configuration": {
       "onlineReservations": {
-        "onlineReservationsEnabled": true,
         "partySize": { "min": 1, "max": 10 },
         "defaultTurnoverTime": 90,
         "approval": { "mode": "MANUAL" }
@@ -80,6 +79,8 @@ Everything a merchant means by "our booking rules" lives on the reservation loca
 ```
 
 `defaultTurnoverTime` is minutes and applies to every party; `turnoverTimeRules` overrides it per party size, which is what "90 minutes for a table of four" means. Pacing reads `timeSlotInterval` (15 by default), so party and seat pacing are per 15-minute slot. `minimumReservationNotice` is `{ number, unit }`, e.g. 30 `MINUTES`.
+
+**Do not echo `onlineReservationsEnabled` back unless the merchant is asking to turn online reservations on or off.** Writing `true` to it is gated on a Premium plan — on a non-premium site it returns `428 PREMIUM_ONLY` (`"Can't turn on online reservation for a non-premium website"`), even when the field already reads `true` on a `GET`. A `GET` returns the flag; sending it straight back re-triggers the premium check and fails the whole `PATCH`, so the rule fields never get written. Patch only the rules the merchant asked for (party size, turnover, approval, pacing, schedule) and leave `onlineReservationsEnabled` at its existing value. If the merchant explicitly wants online reservations turned on and the call comes back `PREMIUM_ONLY`, say plainly that a Premium plan is required and stop — do not retry the same body.
 
 ### Step 3: Check Availability Before Booking
 
@@ -139,6 +140,7 @@ Read field shapes from the [Reservations API docs](https://dev.wix.com/docs/api-
 | Error changing a `HELD` reservation's status | Normal updates cannot move a reservation out of `HELD`, and it expires after 10 minutes | Use the reserve call, or start again if it expired |
 | Reservation rejected on create | Non walk-in bookings require the guest's first name and phone | Collect both before creating |
 | Slot looks open but booking fails | Party or seat pacing, not table availability | Check the slot first — it reports pacing conflicts explicitly |
+| `428 PREMIUM_ONLY` — "Can't turn on online reservation for a non-premium website" | `onlineReservationsEnabled` was written (`true` or `false`) on a non-premium site, usually echoed back from a `GET` | Drop `onlineReservationsEnabled` from the body and re-send only the rule fields the merchant asked for. If the merchant specifically wants online reservations on, tell them a Premium plan is required and stop |
 
 ## What This Skill Does NOT Cover
 
