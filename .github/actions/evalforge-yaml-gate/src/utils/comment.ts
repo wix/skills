@@ -130,18 +130,34 @@ function winnerLabel(s: ScenarioComparison): string {
 }
 
 export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
-  const { verdict, tag, scenarios } = result.result;
+  const { verdict, tag, scenarios, judgeCoverage } = result.result;
   const hasNoWinner = comparisonHasNoWinner(result.result);
-  const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
+  // Partial judging never gets a green tick: `not-required` is what the pipeline
+  // returns when a judge yields nothing, so a throttled pass looks identical to
+  // a genuine "no difference" unless coverage is taken into account.
+  const isFullyJudged = !judgeCoverage || judgeCoverage.judged === judgeCoverage.total;
+  const verdictIcon = verdict === 'not-required' && !hasNoWinner && isFullyJudged ? '✅' : '⚠️';
   const lines: string[] = [
     COMMENT_MARKER,
     `## ${verdictIcon} ${HEADING}: Eval Comparison`,
     '',
     `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
     '',
+  ];
+
+  if (!isFullyJudged && judgeCoverage) {
+    lines.push(
+      `> ⚠️ **Only ${judgeCoverage.judged}/${judgeCoverage.total} scenarios were judged.** The verdict above rests on the`,
+      '> remaining scenarios\' assertion results alone, so treat it as provisional rather than',
+      '> as evidence the skill makes no difference. Re-run to get full coverage.',
+      '',
+    );
+  }
+
+  lines.push(
     '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
     '|---|---|---|---|---|---|---|',
-  ];
+  );
 
   for (const s of (scenarios ?? [])) {
     const costWith = s.with.totalCostUsd.toFixed(3);

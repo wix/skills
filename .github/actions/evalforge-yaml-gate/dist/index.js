@@ -66546,18 +66546,24 @@ function winnerLabel(s) {
     return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
 }
 function formatComparisonResult(result, projectId) {
-    const { verdict, tag, scenarios } = result.result;
+    const { verdict, tag, scenarios, judgeCoverage } = result.result;
     const hasNoWinner = comparisonHasNoWinner(result.result);
-    const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
+    // Partial judging never gets a green tick: `not-required` is what the pipeline
+    // returns when a judge yields nothing, so a throttled pass looks identical to
+    // a genuine "no difference" unless coverage is taken into account.
+    const isFullyJudged = !judgeCoverage || judgeCoverage.judged === judgeCoverage.total;
+    const verdictIcon = verdict === 'not-required' && !hasNoWinner && isFullyJudged ? '✅' : '⚠️';
     const lines = [
         exports.COMMENT_MARKER,
         `## ${verdictIcon} ${HEADING}: Eval Comparison`,
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
-        '|---|---|---|---|---|---|---|',
     ];
+    if (!isFullyJudged && judgeCoverage) {
+        lines.push(`> ⚠️ **Only ${judgeCoverage.judged}/${judgeCoverage.total} scenarios were judged.** The verdict above rests on the`, '> remaining scenarios\' assertion results alone, so treat it as provisional rather than', '> as evidence the skill makes no difference. Re-run to get full coverage.', '');
+    }
+    lines.push('| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |', '|---|---|---|---|---|---|---|');
     for (const s of (scenarios ?? [])) {
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
@@ -66943,6 +66949,18 @@ const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * The completion poll does substantially more work server-side than the
+ * intermediate "still running" polls, so it can legitimately take much longer
+ * than a normal call.
+ *
+ * Deliberately longer than any deadline the server side applies to itself, so
+ * that the client is the last participant to give up. Aborting locally first
+ * loses the real error and, because an abort counts as retriable, re-issues a
+ * request whose work had already succeeded.
+ */
+const COMPARE_GROUP_TIMEOUT_MS = 65_000;
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
 }
@@ -66964,7 +66982,7 @@ class EvalPipelineClient {
         // headers no longer resolve the app identity once the app is public.
         this.tokens = new evalforge_core_1.TokenProvider(OAUTH_TOKEN_URL, appId, appSecret);
     }
-    async post(path, body) {
+    async post(path, body, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
         // No 401 refresh-retry: /run-comparison is non-idempotent (it queues eval runs)
         // and getToken() re-mints proactively before expiry, so a 401 here is a
         // permission denial, not a stale token — retrying would only double-fire.
@@ -66976,7 +66994,7 @@ class EvalPipelineClient {
                 Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(timeoutMs),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
@@ -66988,7 +67006,7 @@ class EvalPipelineClient {
         return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
     }
     async compareGroup(comparisonGroupId) {
-        return this.post('/compare-group', { comparisonGroupId });
+        return this.post('/compare-group', { comparisonGroupId }, COMPARE_GROUP_TIMEOUT_MS);
     }
 }
 exports.EvalPipelineClient = EvalPipelineClient;
