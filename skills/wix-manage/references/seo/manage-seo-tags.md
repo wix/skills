@@ -13,6 +13,20 @@ authorization context; never ask for or send a site ID.
 Writing tags requires the **Manage SEO Settings** permission. Reading tags or
 listing pattern variables does not prove that the caller can write.
 
+## The one rule that must never be skipped
+
+**Every write replaces the target's tags in full, so a Get always immediately
+precedes a Set.** There is no partial update: sending only the tag the user
+asked about deletes every other tag that item, pattern, or site had. So before
+any Set, call the matching Get for that exact target, merge the requested change
+into the tags it returns, and send the complete set back.
+
+Never write from the user's request alone, and never skip the Get because the
+change looks small, because a list call already returned something, or because
+the target looks empty. The Set response returns the updated tags and
+`resolvedTags`, so report the outcome from that response instead of issuing
+another read.
+
 ## Choose the level
 
 Wix combines tags from several sources, where a more specific source wins.
@@ -55,17 +69,23 @@ confirmation to make that write.
 - Dynamic Wix Data pages are addressed by `pageId`; addressing a pattern by
   collection name is not supported.
 
-## Read before write — every write replaces in full
+## The write sequence
 
-1. **Get** the current tags or pattern for the target first.
-2. Merge the requested change into the complete current set.
-3. **Set** the complete set back, naming only the changed fields in the field
-   mask. Sending only the changed tag deletes every other tag the target had.
-4. To remove an item's own tags so it inherits again, call **Reset Item SEO
-   Tags To Default** (or **Reset SEO Pattern To Default**) — never set an empty
-   list to mean "reset".
-5. Read the target back and confirm the result before reporting success. Reads
-   are strongly consistent.
+Exactly three calls, in this order, with no extra probing:
+
+1. **Get** the current tags or pattern for the target. Required — see the rule
+   above.
+2. **Set** the complete merged set, naming only the changed fields in the field
+   mask.
+3. Report from the **Set response**, which returns the updated tags and
+   `resolvedTags`. Do not issue a verification read: the write response is the
+   confirmation. Read again only to check a static page's published revision
+   after `publish: true`, or when the user asks about a target you have not read
+   in this session.
+
+To remove an item's own tags so it inherits again, call **Reset Item SEO Tags To
+Default** (or **Reset SEO Pattern To Default**) — never set an empty list to
+mean "reset".
 
 Tags can currently be written only for the site's primary language: leave
 `language` unset on every write. There is no revision checking — the last write
@@ -88,9 +108,10 @@ success.
 
 ## Present results
 
-- When reporting what a page will render with, read the item's `resolvedTags`
-  and name the source of each tag (site, default pattern, user pattern, host
-  page, or the item itself). `hasOverride: false` does not mean built-in
+- When reporting what a page will render with, use the `resolvedTags` already
+  returned by the last Get or Set — not a fresh call — and name the source of
+  each tag (site, default pattern, user pattern, host page, or the item
+  itself). Naming the source of each reported tag is required, not optional. `hasOverride: false` does not mean built-in
   defaults — the item may inherit from a customized pattern or the site.
 - `resolvedTags` excludes tags added by site code or apps at render time, so
   present it as what Wix manages, not a literal copy of the rendered page head.
