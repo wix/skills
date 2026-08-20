@@ -82,16 +82,15 @@ Common types only; `dist/dts-bundle/index.json` has the authoritative set. Creat
 
 **Confirm the import path in the provider's own bundle** — they don't all share a subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`). The project's `package.json` identifies the flow.
 
-### Keep Provider and Page Separate
+### Page Wiring — Two Providers and `withDashboard`
 
 The provider **must** live in a parent component of the page content: hooks like `useTableCollection` need its context to already exist above them in the React tree.
 
 **Wrong:** calling `useTableCollection` in the same component that renders `WixPatternsProvider`. The hook runs before the provider exists above it, so it throws at runtime — and the JSX nesting looks right, which is what makes this hard to spot.
 
-**Correct — provider in root, page in a separate file:**
-```tsx
-// App.tsx
-import { WixPatternsProvider } from '@wix/patterns/provider';
+Both providers are required — `WixDesignSystemProvider` outside, `WixPatternsProvider` inside. Export via `withDashboard(...)` from `@wix/patterns`. `WixPatternsProvider` also needs `@wix/dashboard`.
+
+When the page needs **multiple routes**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router, and keep the router alongside the providers. Look up those doc files for setup details.
 
 function App() {
   return (
@@ -157,6 +156,7 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 | Fetch, save, validation, dirty state, skeletons, errors | `useEntityPage({ fetch, onSave })` |
 | Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` |
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
+| Reaching page state from a child component | `useEntityPageContext()` — no prop-drilling |
 | The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
 
 Prefer `navigateToEntityPage` over a plain route change: the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.

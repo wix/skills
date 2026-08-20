@@ -28,8 +28,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. Confirm `@wix/design-system` and `@wix/dashboard` are in `package.json` too — `WixPatternsProvider` requires `@wix/dashboard`. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
+  - [ ] **Page wiring:** `WixDesignSystemProvider` outside `WixPatternsProvider`, every patterns hook called in a component *below* both, and the page exported via `withDashboard(...)`. See [Page Wiring](references/WIX_PATTERNS_DOCS.md#page-wiring).
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -119,6 +120,7 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
+| Page wiring — providers and the dashboard export | `WixDesignSystemProvider` **outside** `WixPatternsProvider`; hooks called in a component below both; `export default withDashboard(Page)`. Requires `@wix/dashboard` installed. See [Page Wiring](references/WIX_PATTERNS_DOCS.md#page-wiring--two-providers-and-withdashboard) |
 
 **Looking a component up is two direct file reads** — no script, never `node_modules` browsed by hand. Resolve the installed package root once per session ([Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites)), then reuse it. Start with what exists:
 
