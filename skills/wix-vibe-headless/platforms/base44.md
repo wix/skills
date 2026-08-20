@@ -68,7 +68,7 @@ Only when the business description is vague or missing (else skip to STEP 3). Do
 Business Solution — **read the site in one call** via the connector (exec_tool):
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wixheadless"
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const res = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
   method: "POST",
   headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -109,7 +109,7 @@ shape → the **`wix-docs`** skill.
 access token and send it as a bearer token:
 
 ```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // connector name: "wix" or "wixheadless"
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 // then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
 ```
 
