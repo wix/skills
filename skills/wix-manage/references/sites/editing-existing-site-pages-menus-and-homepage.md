@@ -82,6 +82,18 @@ A distinct request that hits the same wall from the creation side, not the editi
 
 So when Site Import is gated, there is currently **no automated path at all** to bring a finished custom multi-page site into Wix with layout/design fidelity — only a full manual rebuild in the Editor. This is the same root cause as the rest of this doc (the Editor/Studio internal page/layout document model has no public write API), just hit before a site is created rather than after. Say so plainly rather than attempting `WixSiteBuilder` or `CreateSiteFromTemplate` as a "close enough" substitute and hoping the result matches — it won't.
 
+### A last-resort workaround when the user needs the *existing URL* specifically: a full-viewport Custom Embed iframe
+
+If the user's hard requirement is that the design appears **at their existing Wix URL** (not "a Wix site" in general — the URL itself matters, e.g. it's already printed on packaging or shared with customers) and the exact source page is a self-contained, publicly-hosted HTML file, one workaround does deliver pixel-exact visual parity without a native migration: create a [Custom Embed](https://dev.wix.com/docs/api-reference/business-management/custom-embeds/introduction) at `position: BODY_START` on the existing homepage whose `embedData.html` is a single full-viewport `<iframe>` (`position:fixed; inset:0; width:100%; height:100%; border:0`) pointing its `src` at the external page's URL. This overlays the exact external design on top of the existing page at its current address.
+
+This is a brittle band-aid, not a real import, and should only be offered after the user understands the tradeoffs — say these explicitly rather than presenting it as equivalent to a native page:
+
+- It is **not** a real Wix page: none of the pasted content is editable via the Wix Editor, isn't part of the site's SEO/sitemap/page document model, and any future redesign still has to happen on the externally-hosted file, not in Wix.
+- It only works reliably if the existing site is served by the **modern render pipeline** — check the `server` response header on the live URL first (`curl -I <url>`): `server: cloudflare` (or similar modern CDN) is fine, but `server: Pepyaka` means the site is on the legacy classic-Editor renderer, where Custom Embeds writes are currently invisible to the live site indefinitely (see the Custom Embeds recipe's staleness-diagnosis note) — the iframe would never actually appear no matter how many times the embed is updated or the site republished.
+- The source URL must be a genuinely public, stable HTML resource — an ephemeral or access-gated preview URL will break silently once it expires or access is revoked.
+
+Reach for this only after confirming Site Import is gated and there's no page/layout write API for a native import (i.e. after reading the rest of this doc) — it's a fallback of last resort, not a first suggestion.
+
 ## Same gap from the responsive-layout angle: "normalize/reset my page's broken responsive grid — menus overflow, sections have huge empty gaps"
 
 A distinct request that hits the same wall on an **Odeditor (Harmony)** or Studio site whose page structure was already built (by AI generation or by hand) and now renders badly: the header/menu overflows its container on desktop, some sections show content clustered at the top with a large blank area below, and mobile doesn't consistently fit the viewport — even though the source images themselves are intact. The user asks for a one-shot "reset/normalize the responsive layout without rebuilding the catalog or losing content."
