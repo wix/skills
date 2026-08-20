@@ -55,6 +55,12 @@ assertions:
       for a site ID when the run already provides one, or claims a redirect was created when the
       response echoed the request back with no id.
 
+      Fail in particular if the agent describes the outcome as a redirect chain, a hop, or a
+      sequence such as /old-blog to /blog to /news. Redirects on this API do not chain: the
+      redirect starting at the new target is deleted. Presenting a chain is a wrong answer even
+      when the create itself succeeded, because the user is told a redirect still exists that the
+      API removed.
+
       If any call returns 403 or PERMISSION_DENIED, require the agent to stop after that first
       attempt and name the missing SEO permission. Do not reward retries with other paths, request
       shapes, or sites.
@@ -72,6 +78,10 @@ assertions:
       Fail if the agent asked which site to work on: this run provisions exactly one site and
       supplies its ID, so that question is a dead end rather than caution. Also fail if the agent
       polled List Redirects repeatedly with no state change between calls, attempted an update or
-      query method (this API has neither), tried to change a redirect without the
-      get-delete-create sequence, or retried a failed write with a mutated request shape instead
-      of reporting the error.
+      query method (this API has neither), or tried to change a redirect without the
+      get-delete-create sequence.
+
+      Fail if a failed write was retried with a mutated request shape - a different path, a
+      different method, a bulk call in place of a single one, or forceReplace added. A failed
+      create wrote nothing, so a mutated retry is a second attempt at a decision the user never
+      agreed to, not a recovery.

@@ -1,6 +1,6 @@
 ---
 name: "Manage URL Redirects on a Wix Site"
-description: Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. Creating a redirect can permanently delete another one, so always confirm before writing.
+description: Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. Redirects do not chain: creating one that points at a path another redirect starts from permanently deletes that other redirect, so list and check before every write.
 ---
 
 # Manage URL Redirects on a Wix Site
@@ -19,22 +19,47 @@ immediately with no site publish, and **takes precedence over a real page at the
 same path**. Creating a redirect from a path that still serves a page makes that
 page unreachable until the redirect is deleted.
 
-## Before writing anything
+## Redirects do not chain, they replace
 
-Two behaviors make writes destructive in ways the user will not expect. Confirm
-the specific paths with the user before any create, and say which of these
-applies:
+This is the single most important thing to know, and it is not what most agents
+assume. If an existing redirect **starts at** the path your new redirect points
+to, the two do not form a chain. The existing one is **deleted**, and your create
+proceeds.
 
-- **Loops.** If the new redirect points at a path that an existing redirect
-  starts from, that existing redirect is **deleted** and the create proceeds. No
-  separate confirmation is asked, and the deletion cannot be undone.
-- **A taken `from` path.** Create Redirect fails with `FROM_URL_EXISTS` and
-  writes nothing. `options.forceReplace` makes it **delete** the redirect holding
-  that path instead. Never set `forceReplace` on your own initiative: offer it
-  only after reporting the conflict, and only if the user asks to replace.
+So with `/blog` -> `/news` already on the site, creating `/old-blog` -> `/blog`
+does **not** produce `/old-blog` -> `/blog` -> `/news`. It produces
+`/old-blog` -> `/blog`, and `/blog` -> `/news` is gone for good. Never describe
+the result as a chain, a hop, or a redirect sequence.
 
-Before a create that might hit either case, call **List Redirects** and check the
-site's existing redirects. If something will be deleted, name it and ask.
+## Run this check before every create
+
+Do not skip it because the user's request was explicit. The user asking for a
+redirect is not the same as the user agreeing to lose a different one.
+
+1. Call **List Redirects**.
+2. Compare the redirect you are about to create against every existing one:
+   - an existing redirect whose `from` equals your new `to` **will be deleted**
+     (loop resolution, described above);
+   - an existing redirect whose `from` equals your new `from` means your create
+     **fails** with `FROM_URL_EXISTS` and writes nothing.
+   - Paths differing only by a trailing slash count as equal for both checks.
+3. **If either matched, stop and ask.** Name the exact redirect at stake and what
+   happens to it. Wait for an answer before writing.
+4. If neither matched, no deletion is possible: create it and report the result.
+
+`options.forceReplace` is the only way to overwrite a taken `from` path, and it
+**deletes** the redirect holding it. Never set it on your own initiative. Offer it
+only after reporting the conflict, and only if the user asks to replace.
+
+## When a write fails
+
+Report the failure and stop. Do **not** retry with a different request shape, a
+different path, `forceReplace` added, or a bulk call in place of a single one. A
+failed create wrote nothing, so there is nothing to clean up, and a mutated retry
+is a second attempt at a decision the user has not agreed to.
+
+On the first `403` or `PERMISSION_DENIED`, stop and report the missing
+authorization for managing SEO settings. Do not try another site, path, or method.
 
 ## Choose exact or group
 
@@ -109,11 +134,8 @@ succeeds: Create Redirect echoes the request back without an `id` or
 `createdDate`, and Bulk Create reports success with no `id`. Do not present that
 as a newly created redirect.
 
-## Stop conditions
+## Reading errors
 
-- **On the first `403` or `PERMISSION_DENIED`, stop.** Report the missing
-  authorization for managing SEO settings. Do not retry with another site, path,
-  request shape, or method.
 - On a 400, read `details.validationError.fieldViolations` and report the named
   field rather than guessing.
 - **Known divergence:** the reference documents `REDIRECT_NOT_FOUND` for an
