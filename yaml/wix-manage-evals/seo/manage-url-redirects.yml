@@ -1,0 +1,49 @@
+name: seo/manage-url-redirects
+description: >-
+  Verifies that the agent lists a site's existing redirects before writing, recognizes that the
+  requested redirect would delete an existing one, asks before creating it, and never sets
+  forceReplace on its own initiative.
+triggerPrompt: >-
+  On my Wix site, send everyone from /old-blog and everything under it to /blog. Tell me what
+  redirects I already have and whether this changes any of them.
+tags: [aria, site-properties]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/redirects/skills/manage-url-redirects-on-a-wix-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to redirect /old-blog and everything under it to /blog, and to be told what
+      redirects already exist and whether any of them change.
+
+      Pass if the agent:
+      - calls List Redirects first and reports the site's existing redirects,
+      - creates the redirect with options.groupRedirect set to true, because "everything under it"
+        is a group redirect rather than an exact one,
+      - asks the user before creating, and explains any existing redirect that would be deleted
+        because it starts at the target path (loop resolution) or holds the same from path, and
+      - reports the result using the response it actually received.
+
+      Fail if the agent creates an exact redirect for a request that clearly covers a whole
+      section, sets options.forceReplace without the user asking for a replacement, writes before
+      reporting what already exists, asks the user for a site ID, or claims a redirect was created
+      when the response echoed the request back without an id. If any call returns 403 or
+      PERMISSION_DENIED, require the agent to stop after that first attempt and name the missing
+      SEO permission; do not reward retries with other paths, request shapes, or sites.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the prose.
+
+      Pass if the agent reached the outcome without redundant or speculative calls: it read the
+      skill, called List Redirects once to establish current state, and made at most one write
+      after confirmation. Using Bulk Create Redirects for a single redirect is acceptable only if
+      the agent reads results[].itemMetadata rather than the HTTP status.
+
+      Fail if the agent polled List Redirects repeatedly with no state change between calls,
+      attempted an update method or a query method (neither exists on this API), tried to change a
+      redirect without the get-delete-create sequence, or retried a failed write with a mutated
+      request shape instead of reporting the error.
