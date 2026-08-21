@@ -25,9 +25,8 @@ This recipe demonstrates how to list and query the sites associated with a Wix a
 
 The request takes a `query` object that supports `filter`, `sort`, and `cursorPaging`.
 
-**Request Body** — filter on `namespace` to include headless sites (Base44 apps, custom
-storefronts, most programmatically-created sites); an unfiltered query silently returns only
-`WIX` sites:
+**Request Body** — filter on `namespace` to include headless sites; an unfiltered query returns
+only `WIX` sites:
 ```json
 {
   "query": {
@@ -185,16 +184,13 @@ Filter on `{ "namespace": { "$in": ["WIX", "HEADLESS"] } }` (so headless sites a
 page through with `cursorPaging` until `metadata.hasNext` is `false`.
 
 ### Find a site by name
-Filter by `name` (the URL slug) — it supports `$eq`, `$in`, and `$startsWith`:
-```json
-{ "query": { "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] }, "name": { "$startsWith": "kintsugi" } } } }
+`displayName` holds the human name. List with the namespace filter and match it in code:
+```javascript
+const sites = await listAllSites(); // filter { namespace: { $in: ["WIX", "HEADLESS"] } }
+const site = sites.find(s => s.displayName === "Kintsugi Akira Ceramics");
 ```
-
-Filterable fields and their operators come from the method's schema (spec index →
-`queryFieldsCapabilitiesMap`). For this API: `id`, `name`, `folderId` take
-`$eq/$ne/$in/$exists/$gt/$gte/$lt/$lte/$startsWith`; `namespace`, `editorType`, `published`,
-`premium`, `domainConnected` take `$eq/$ne/$in/$exists`. `displayName` and the date fields are
-**sortable** — sort by them, and match `displayName` client-side.
+For headless sites `name` is an opaque slug (`headless-<id>`), so `displayName` is the field to
+match on.
 
 ---
 
