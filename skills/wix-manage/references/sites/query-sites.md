@@ -62,23 +62,14 @@ async function listAllSites(wixPost) {
 
 ## Find a site by name
 
-`sites/query` is list-by-metadata; name search is a separate service, meta-site-search — substring
-match. **Host it on `www.wix.com` (the meta-site-search service lives there, not `www.wixapis.com`).**
+Substring-search by display name with `GET manage.wix.com/account/sites/api/sites/search`. It
+returns full site records (headless included) and, with `getCount=true`, the total:
 
 ```bash
-curl -X POST 'https://www.wix.com/meta-site-search-web/v2/search' \
-  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'Content-Type: application/json' \
-  -d '{
-    "filters": {
-      "searchTerm": "kintsugi",
-      "namespaceFilter": { "multi": { "namespaces": ["WIX", "HEADLESS"] } }
-    },
-    "paging": { "pageSize": 20 }
-  }'
-# → { "entries": [ { "metaSiteId": "58a49788-…" }, … ] }   metaSiteId is the site id
+curl 'https://manage.wix.com/account/sites/api/sites/search?query=kintsugi&getCount=true' \
+  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'accept: application/json'
+# → { "sites": [ { "metaSiteId", "displayName", "namespace", "published", "editUrl", … } ], "totalCount": 5 }
 ```
-
-Include `namespaceFilter` to cover headless sites, as with `sites/query`.
 
 ## Response — the `Site` object
 
