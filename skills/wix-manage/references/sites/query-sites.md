@@ -62,9 +62,8 @@ async function listAllSites(wixPost) {
 
 ## Find a site by name
 
-`sites/query` doesn't text-search (`name`/`displayName` filters don't narrow it). Search sites by
-name — substring match — with the meta-site-search service. **Note the host: `www.wix.com`, not
-`www.wixapis.com`.**
+`sites/query` is list-by-metadata; name search is a separate service, meta-site-search — substring
+match. **Host it on `www.wix.com` (the meta-site-search service lives there, not `www.wixapis.com`).**
 
 ```bash
 curl -X POST 'https://www.wix.com/meta-site-search-web/v2/search' \
@@ -79,8 +78,7 @@ curl -X POST 'https://www.wix.com/meta-site-search-web/v2/search' \
 # → { "entries": [ { "metaSiteId": "58a49788-…" }, … ] }   metaSiteId is the site id
 ```
 
-- Don't add `accountId`/`userId` to the body — the token's own identity authorizes; sending them 401s.
-- Omit `namespaceFilter` and headless sites are dropped, as with `sites/query`.
+Include `namespaceFilter` to cover headless sites, as with `sites/query`.
 
 ## Response — the `Site` object
 
