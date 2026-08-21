@@ -79,11 +79,8 @@ curl -X POST 'https://www.wix.com/meta-site-search-web/v2/search' \
 # → { "entries": [ { "metaSiteId": "58a49788-…" }, … ] }   metaSiteId is the site id
 ```
 
-- The account token's own identity authorizes it — do **not** put `accountId`/`userId` in the body
-  (that forces a permission-gated path and fails with "No valid identity for search authorization").
-- Same namespace rule: include `namespaceFilter` or headless sites are excluded.
-- Entries carry `metaSiteId` (the site id); resolve names/other fields via `sites/query` or
-  `GetSiteContext` if you need them.
+- Don't add `accountId`/`userId` to the body — the token's own identity authorizes; sending them 401s.
+- Omit `namespaceFilter` and headless sites are dropped, as with `sites/query`.
 
 ## Response — the `Site` object
 
