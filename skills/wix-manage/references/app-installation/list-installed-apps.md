@@ -61,12 +61,15 @@ Match the `appDefId` values from the response against known Wix app IDs.
 
 | App | appDefId |
 |-----|----------|
-| Wix Stores | `1380b703-ce81-ff05-f115-39571d94dfcd` |
+| Wix Stores | `215238eb-22a5-4c36-9e7b-e7c08025e04e` |
+| Wix eCommerce | `1380b703-ce81-ff05-f115-39571d94dfcd` |
 | Wix Bookings | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` |
 | Wix Blog | `14bcded7-0066-7c35-14d7-466cb3f09103` |
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
-| Wix Restaurants | `13e8d036-5516-6f75-e025-2aca3b5d7930` |
+| Wix Restaurants Menus | `b278a256-2757-4f19-9313-c05c783bec92` |
+| Wix Restaurants Orders | `9a5d83fd-8570-482e-81ab-cfa88942ee60` |
+| Wix Table Reservations | `f9c07de2-5341-40c6-b096-8eb39de391fb` |
 
 For a complete list, see [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix).
 

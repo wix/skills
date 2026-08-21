@@ -331,8 +331,29 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Restaurants
 
-### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
-**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
+### [Configure Restaurants from Prompt](references/restaurants/configure-restaurants-from-prompt.md)
+**Technical:** Routes any Wix Restaurants request to the recipe that handles it, across all three apps — Menus, Orders and Table Reservations. Matches the merchant's own wording ("stop taking pickup orders at 1:30am", "here's our menu", "hold tables for 90 minutes", "where are my orders") to the app and entity that holds the setting, then delegates. Use first when a restaurant request is not yet clearly about one of them.
+
+### [Restaurants Menus Setup](references/restaurants/restaurants-menus-setup.md)
+**Technical:** Builds the catalog with the Menus API: menus, sections, items, price variants, the two-step item modifier / modifier group flow, and dietary labels (entities referenced by ID, not strings). Nothing nests in a create call — entities are created on their own and attached to their parent by ID. For ordering hours, cutoff, prep time and fulfillment methods, see Restaurants Orders Settings.
+
+### [Restaurants Menus Import](references/restaurants/restaurants-menus-import.md)
+**Technical:** Turns an existing menu — pasted text, a document, a photo, or dictation — into a Wix Restaurants menu with sections, items, prices, modifiers and dietary labels. Also covers reworking an existing menu: bulk price changes, reordering sections, hiding seasonal items, splitting one menu into several. Use when the merchant already has a menu rather than building it item by item.
+
+### [Restaurants Orders Setup](references/restaurants/restaurants-orders-setup.md)
+**Technical:** End-to-end launch of online ordering for a restaurant site, in dependency order: install Wix Restaurants Orders, connect a payment method, build the menu, configure the operation and fulfillment methods, verify what customers see, publish. Use for "set up my restaurant site" or "start taking orders online", not for changing one setting.
+
+### [Restaurants Orders Settings](references/restaurants/restaurants-orders-settings.md)
+**Technical:** Configures Wix Restaurants online ordering — operations (order scheduling, ASAP vs preorder, preparation time, ordering status), pickup and delivery fulfillment methods (availability windows, ordering cutoff, fees, minimum order, instructions), per-menu ordering availability, one-off closures, and service fee rules. Covers the derived ordering cutoff (window end minus prep time) and the rule that availability ranges never cross midnight. Dine-in ordering is dashboard-only.
+
+### [Restaurants Orders Delivery Setup](references/restaurants/restaurants-orders-delivery-setup.md)
+**Technical:** Sets up restaurant delivery — the delivery area (radius, postal codes, or custom polygon), delivery fee, free-delivery threshold, minimum order, estimated delivery time, and courier instructions — plus checking whether a given customer address is deliverable. Delivery hours and cutoff follow the ordering settings recipe.
+
+### [Restaurants Orders Management](references/restaurants/restaurants-orders-management.md)
+**Technical:** Finds and reads orders customers already placed. Restaurant online orders are eCommerce orders — identified by `catalogReference.appId` 9a5d83fd-8570-482e-81ab-cfa88942ee60 — with the chosen modifiers, menu, section and operation inside `catalogReference.options`. Use for "where are my orders", counting orders, refunds and cancellations.
+
+### [Restaurants Reservations Setup](references/restaurants/restaurants-reservations-setup.md)
+**Technical:** Configures Wix Table Reservations — party size limits, party and seat pacing, turnover times, manual approval of online requests, the reservation business schedule — and moves individual reservations through their lifecycle. Reservation locations come from the Locations API or the dashboard, never from here, and three settings have deprecated twin fields that error when both are sent.
 
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 **Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.

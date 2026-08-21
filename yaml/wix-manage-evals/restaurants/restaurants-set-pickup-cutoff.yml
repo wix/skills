@@ -1,0 +1,79 @@
+name: restaurants/set-pickup-cutoff
+description: >-
+  Verifies the agent reads the online-orders-settings recipe and configures
+  pickup for a venue open 11:00–02:00: preparation time on the operation, and a
+  pickup availability window split at midnight whose end is 02:00 — so the
+  derived last order lands on the 01:30 the merchant asked for, not 01:00.
+triggerPrompt: >-
+  My restaurant is open 11am to 2am every day. Set up pickup-only online
+  ordering: 30 minutes prep time, customers pick up at the bar, and stop
+  accepting pickup orders at 1:30am so the kitchen can close.
+tags: [restaurants]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-orders-settings
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked for pickup-only online ordering on a venue open 11am–2am
+      daily, with 30 minutes prep time, pickup at the bar, and pickup orders
+      stopping at 1:30am.
+
+      Two things decide correctness here.
+
+      (a) The ordering cutoff is DERIVED, not stored: last order = window end
+      minus prep time. With 30 minutes prep, a 1:30am cutoff requires an
+      availability window ending at 02:00. A window ending at 01:30 is wrong —
+      it produces a 1:00am cutoff, half an hour earlier than asked.
+
+      (b) An availability range cannot cross midnight and hours are 0–23, so
+      11am–2am must be stored as two ranges per weekday: one ending 02:00 (the
+      previous night's tail) and one from 11:00 to 23:59.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. Preparation time of 30 minutes was set on the operation via a
+           successful (2xx) update to the Operations API.
+        2. A pickup fulfillment method was updated (2xx) with weekly
+           availability, and NO time range in that availability has an end time
+           at or before its start time.
+        3. Days carrying late-night hours have TWO ranges, and the one covering
+           the small hours ends at 02:00 — not 01:30.
+        4. The agent reported the resulting last-order time to the merchant as
+           1:30am, explaining it follows from the 2:00am window minus 30 minutes
+           prep.
+        5. Pickup instructions convey "pick up at the bar".
+
+      Fail if ANY of these hold:
+        - Any availability window ends at 01:30 (the off-by-prep-time error).
+        - A single range was sent with a start of 11:00 and an end of 01:30 or
+          02:00, i.e. crossing midnight in one range.
+        - The agent claimed a setting was "noted", "saved", "configured", or
+          "set" without a matching successful call in the trace.
+        - The agent reported the cutoff as 2:00am, or did not state it at all.
+        - The agent tried to create or delete an operation instead of updating
+          an existing one.
+        - The agent only described the steps without executing them.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; searching for
+      a cutoff, last-order, or closing-time field before discovering the cutoff
+      is derived from the window and prep time; sending a range that crosses
+      midnight and having it rejected or silently accepted, then corrected;
+      updating an entity without first reading its revision and hitting a
+      revision conflict; looking for prep time on the fulfillment method or
+      availability on the operation; redundant or probing calls that clearer
+      docs would avoid. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

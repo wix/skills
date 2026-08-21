@@ -2,8 +2,43 @@ apiDoc:
   title: Wix Restaurants Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/restaurants/wix-restaurants-setup.md
-      title: Wix Restaurants Setup
+    - file: ../../../skills/wix-manage/references/restaurants/configure-restaurants-from-prompt.md
+      title: Configure Restaurants from Prompt
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-menus-setup.md
+      title: Restaurants Menus Setup
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-menus-import.md
+      title: Restaurants Menus Import
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-orders-setup.md
+      title: Restaurants Orders Setup
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-orders-settings.md
+      title: Restaurants Orders Settings
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-orders-delivery-setup.md
+      title: Restaurants Orders Delivery Setup
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-orders-management.md
+      title: Restaurants Orders Management
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-reservations-setup.md
+      title: Restaurants Reservations Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
 

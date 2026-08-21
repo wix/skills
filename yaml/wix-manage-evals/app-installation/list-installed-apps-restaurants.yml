@@ -1,0 +1,66 @@
+name: app-installation/list-installed-apps-restaurants
+description: >-
+  Verifies the agent reads the list-installed-apps recipe and answers "which
+  restaurant apps do I have" from the site's own app instances, naming the three
+  current Wix Restaurants apps — Menus, Orders and Table Reservations — rather
+  than reporting the single legacy Wix Restaurants app or guessing from the
+  site's pages.
+triggerPrompt: >-
+  Which Wix Restaurants apps are installed on my site, and is table
+  reservations one of them?
+tags: [app-installation]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/list-installed-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked which Wix Restaurants apps are installed, and whether
+      table reservations is one of them.
+
+      Restaurants is three separate apps, each with its own app definition ID:
+      Wix Restaurants Menus (b278a256-2757-4f19-9313-c05c783bec92), Wix
+      Restaurants Orders (9a5d83fd-8570-482e-81ab-cfa88942ee60) and Wix Table
+      Reservations (f9c07de2-5341-40c6-b096-8eb39de391fb). There is no single
+      "Wix Restaurants" app that covers all three.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. The agent listed the site's installed app instances through the Apps
+           Installer API rather than inferring from site pages or menus data.
+        2. Its answer maps the returned app definition IDs to app names, and
+           distinguishes the restaurants apps that are present from those that
+           are not.
+        3. The table-reservations question is answered explicitly — installed or
+           not — based on whether f9c07de2-5341-40c6-b096-8eb39de391fb appeared
+           in the response.
+
+      Fail if ANY of these hold:
+        - The agent treated "Wix Restaurants" as one app and gave a single
+          yes/no for all restaurant functionality.
+        - It reported an app as installed without that app's ID in the listed
+          instances.
+        - It invented an app definition ID, or attributed one restaurants app's
+          ID to another.
+        - It answered from memory without reading the site's installed apps.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent answer this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; probing
+      restaurants, menus or ecommerce APIs to infer which apps exist instead of
+      listing app instances once; paging through app instances repeatedly;
+      hunting for an app-name field that the response does not carry, so IDs
+      have to be mapped by hand; asking the merchant which apps they have.
+      For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

@@ -1,0 +1,74 @@
+name: restaurants/set-delivery-area
+description: >-
+  Verifies the agent reads the delivery-setup recipe and configures a radius
+  delivery area with a fee and a free-delivery threshold, keeps the minimum
+  distance at zero, and verifies coverage against a real address instead of
+  assuming the saved radius is right.
+triggerPrompt: >-
+  Turn on delivery for my restaurant. We deliver up to 5 miles, charge $4, and
+  it's free for orders over $30. Delivery takes about half an hour.
+tags: [restaurants]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-orders-delivery-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked to enable delivery: up to 5 miles, a $4 fee, free over
+      $30, and roughly 30 minutes delivery time.
+
+      A radius delivery area takes both a minimum and a maximum distance. Only
+      the maximum was specified, so the minimum must be zero — a non-zero
+      minimum would exclude customers closest to the restaurant, which is the
+      opposite of what was asked. The free-delivery threshold and the minimum
+      order are different fields: "free over $30" is the threshold, not a
+      minimum order.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. A delivery fulfillment method was created or updated successfully
+           (2xx), rather than a second overlapping delivery method being added
+           when one already existed.
+        2. The area is a radius type with a maximum of 5 miles and a minimum of
+           zero, with the unit set to miles rather than kilometres.
+        3. The $4 was set as the delivery fee and the $30 as the free-delivery
+           threshold — not as a minimum order.
+        4. The 30 minutes was set as estimated delivery time, not as the
+           operation's preparation time.
+        5. Every request body that wrote `deliveryOptions` also carried
+           `type`. The API rejects such a body without it, and the 400 it
+           returns claims the opposite — that `type` cannot be sent alongside
+           the options.
+
+      Fail if ANY of these hold:
+        - A body wrote `deliveryOptions` without `type`, or the agent responded
+          to that 400 by removing `type` rather than adding it.
+        - A non-zero minimum distance was sent.
+        - $30 was written as a minimum order price.
+        - The 30 minutes was written to the operation's preparation time.
+        - The agent reported delivery as live without any successful write.
+        - The agent only described the steps without executing them.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; sending area
+      options that do not match the declared area type and having it rejected;
+      confusing the free-delivery threshold with the minimum order price;
+      looking for delivery time on the operation rather than the delivery
+      method; updating without first reading the method's revision; hitting
+      the ONE_OF_ALIGNMENT 400 because `type` was omitted alongside
+      `deliveryOptions`, and especially any attempt to resolve it by removing
+      `type` as the error text wrongly suggests; redundant or probing calls
+      clearer docs would avoid. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.
