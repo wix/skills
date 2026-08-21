@@ -166,16 +166,18 @@ function bash(cmd) {
 
 // ── the spec index ────────────────────────────────────────────────────────────
 
-// Run a query over the API spec index. In scope: lightIndex (RESOURCES with
-// .methods — operationId, summary, httpMethod, path [PARTIAL — never call it],
-// publicUrl [callable], docsUrl) and getResourceSchemaByUrl(docsUrl). Arrive with
-// a docsUrl and match by it — also the only proof an API does NOT exist.
-// A big result is saved as JSON; grep it for the keys you saw in its head.
+// Inspect a located method's schema — request body, responses, enums, and the
+// filterable-fields map. In scope: lightIndex (RESOURCES with .methods — operationId,
+// summary, httpMethod, path [PARTIAL — never call it], publicUrl [callable], docsUrl)
+// and getResourceSchemaByUrl(docsUrl) → s.methods (each with requestBody, responses,
+// legacyExamples, queryMethodData.queryFieldsCapabilitiesMap; $circular via
+// s.components.schemas). Arrive with a docsUrl from search/browse — not a discovery
+// tool. A big result is saved as JSON; grep it for the keys you saw in its head.
 async function spec(code) {
   if (!/^\s*async function/.test(code)) code = `async function(){ ${code} }`;
   const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
   if (result == null || (Array.isArray(result) && !result.length))
-    return { result, note: "empty — the query missed the shape, not proof of absence; find the resource by docsUrl on lightIndex" };
+    return { result, note: "empty — the query missed the shape; match your docsUrl against s.methods[].docsUrl" };
   const text = JSON.stringify(result, null, 1);
   if (text.length <= BUDGET) return result;
   let h = 5381;
