@@ -62,18 +62,9 @@ async function listAllSites(wixPost) {
 
 ## Find a specific site
 
-`sites/query` has **no working server-side text filter** — filtering by `name` or `id` matches
-nothing (QA-confirmed), and `displayName` is not filterable. To find a site:
-
-- **By name** — resolve it directly with the dynamic-context endpoint, which matches `displayName`
-  and returns each matching site's `id` (this is the only server-side name lookup):
-  ```bash
-  curl -X POST 'https://dev.wix.com/_api/dynamic-context/v1/dynamic-context' \
-    -H 'Authorization: <ACCOUNT_TOKEN>' -H 'Content-Type: application/json' \
-    -d '{ "site_name": "Kintsugi Akira Ceramics" }'   # → { sites: [{ id, displayName, … }], … }
-  ```
-  (Add `/markdown` to the path for a ready-to-read report instead of raw JSON.)
-- **Client-side** — for exact control, `listAllSites()` then match on `displayName`.
+`sites/query` filters reliably on `namespace`, `published`, and `premium`, but a filter on `name`
+or `displayName` does not narrow results. To find a site by name, `listAllSites()` and match on
+`displayName` in code.
 
 ## Response — the `Site` object
 
