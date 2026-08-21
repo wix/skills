@@ -25,33 +25,20 @@ This recipe demonstrates how to list and query the sites associated with a Wix a
 
 The request takes a `query` object that supports `filter`, `sort`, and `cursorPaging`.
 
-**Request Body**:
+**Request Body** — filter on `namespace` to include headless sites (Base44 apps, custom
+storefronts, most programmatically-created sites); an unfiltered query silently returns only
+`WIX` sites:
 ```json
 {
   "query": {
-    "filter": { "editorType": "EDITOR" },
+    "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } },
     "sort": [{ "fieldName": "createdDate", "order": "ASC" }],
-    "cursorPaging": { "limit": 50 }
+    "cursorPaging": { "limit": 100 }
   }
 }
 ```
 
-All three fields are optional — `{ "query": { "cursorPaging": { "limit": 50 } } }` lists every
-**`WIX`-namespace** site (see the namespace note below — it is not "every site").
-
-> ### Include headless sites — the most correct way to query
->
-> By default the query returns only `WIX`-namespace sites; **headless sites are silently excluded**
-> — no error, they are simply absent. Anything built on a connected OAuth app (Base44 apps, custom
-> headless storefronts, most programmatically-created sites) lives under the **`HEADLESS`**
-> namespace. To query *all* of an account's sites, always filter on both namespaces:
->
-> ```json
-> { "query": { "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } }, "cursorPaging": { "limit": 100 } } }
-> ```
->
-> Make this your default. When you can't find a site you know exists, it is almost always a
-> headless site hidden by the default `WIX`-only view — add the namespace filter and it appears.
+`filter`, `sort`, and `cursorPaging` are all optional.
 
 **Request**:
 ```bash
@@ -61,9 +48,8 @@ curl -X POST \
   -H 'Content-Type: application/json' \
   -d '{
     "query": {
-      "filter": { "editorType": "EDITOR" },
-      "sort": [{ "fieldName": "createdDate", "order": "ASC" }],
-      "cursorPaging": { "limit": 50 }
+      "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } },
+      "cursorPaging": { "limit": 100 }
     }
   }'
 ```
@@ -198,16 +184,17 @@ async function listAllSites() {
 Filter on `{ "namespace": { "$in": ["WIX", "HEADLESS"] } }` (so headless sites are included) and
 page through with `cursorPaging` until `metadata.hasNext` is `false`.
 
-### Find a specific site
-Prefer server-side `filter` and `sort` over fetching everything and filtering client-side — but
-know what is actually filterable, because a filter on a non-filterable field is **silently
-ignored** (it returns everything, as if no filter were set):
+### Find a site by name
+Filter by `name` (the URL slug) — it supports `$eq`, `$in`, and `$startsWith`:
+```json
+{ "query": { "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] }, "name": { "$startsWith": "kintsugi" } } } }
+```
 
-- **Filterable** (`$eq`, `$in`, `$startsWith`, …): `id`, `name` (the URL slug), `namespace`,
-  `editorType`, `published`, `premium`, `domainConnected`, `folderId`, the date fields.
-- **Not filterable — sort only**: `displayName`. There is **no substring/`$contains` search** on
-  any field. To find a site by its human-readable name, list with the namespace filter and match
-  `displayName` client-side, or `$startsWith` on the `name` slug if you know its prefix.
+Filterable fields and their operators come from the method's schema (spec index →
+`queryFieldsCapabilitiesMap`). For this API: `id`, `name`, `folderId` take
+`$eq/$ne/$in/$exists/$gt/$gte/$lt/$lte/$startsWith`; `namespace`, `editorType`, `published`,
+`premium`, `domainConnected` take `$eq/$ne/$in/$exists`. `displayName` and the date fields are
+**sortable** — sort by them, and match `displayName` client-side.
 
 ---
 
