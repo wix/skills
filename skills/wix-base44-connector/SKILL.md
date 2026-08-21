@@ -50,13 +50,13 @@ const wx = (() => { const m = { exports: {} };
 ```
 
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
-under `.agents/skills/wix-base44-connector/scratch/` and returns `{ path, bytes, lines, outline }` —
+under `/tmp/wix-docs/` and returns `{ path, bytes, lines, outline }` —
 the outline is the map. Read a saved file the way you already know how:
 `wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
-across everything saved: `grep -rn 'term' .agents/skills/wix-base44-connector/scratch/`), and
+across everything saved: `grep -rn 'term' /tmp/wix-docs/`), and
 `read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
 file when it fits read_file's 45K cap. **API responses are site data and never land in
-scratch** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
+never saved** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
 tools clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
 
 ## Gather context — the dynamic context report
@@ -120,11 +120,13 @@ await wx.spec(`
 
 ### Management recipes — check before composing admin flows
 
-~100 curated multi-step recipes (install apps, seed catalogs, set up whole verticals):
+~100 curated multi-step management (admin) flows across 23 categories — the largest are
+ecommerce (24), bookings (13), stores (9), cms (7), google-ads (7), sites (7), contacts (5),
+then get-paid, marketing, pricing-plans, events, blog, forms, restaurants, domains, media, …:
 
 ```js
-await wx.recipes();           // categories with counts
-await wx.recipes("stores");   // a category's list — or any task word: wx.recipes("coupon")
+await wx.mgmtRecipes();           // categories with counts
+await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.mgmtRecipes("coupon")
 await wx.page(url);           // read the chosen recipe — whole when small, saved + outline when
                               // big; then grep / read_file windows by the outline's line numbers
 ```
@@ -167,7 +169,6 @@ const mint = async (body) => {
 };
 // first visit:  mint({ clientId: WIX_CLIENT_ID, grantType: "anonymous" });
 // on expiry:    mint({ refreshToken: sessionStorage.getItem("wixRefresh"), grantType: "refresh_token" });
-//               a fresh anonymous mint is a NEW visitor — the old one's cart goes with it
 export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, { ...opts,
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```

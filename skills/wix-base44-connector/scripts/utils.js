@@ -1,7 +1,6 @@
-// Wix docs helpers for the Base44 sandbox — the scratch-lane set. Small results return
-// inline; anything over ~4,000 chars (exec results clip at ~5,000) is saved under the
-// scratch dir and comes back as { path, bytes, lines, outline } with the read tools
-// pre-pointed at it.
+// Wix docs helpers for the Base44 sandbox. Small results return inline; anything over
+// ~4,000 chars (exec results clip at ~5,000) is saved under /tmp/wix-docs and comes
+// back as { path, bytes, lines, outline } with the read tools pre-pointed at it.
 //
 // Load per exec (execs share no state) — from disk, network only as first-touch fallback:
 //   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
@@ -14,14 +13,13 @@
 // to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
 // round needed), pipelines for the rest (GNU grep/sed; awk is mawk; no rg).
 //
-// API responses are site data and stay OUT of scratch (scratch ships with the app):
-// post() never saves — project responses to facts.
+// API responses are site data and never saved — post() projects them to facts.
 
 const fs = require("fs");
 const path = require("path");
 
 const BUDGET = 4000;
-const SCRATCH = ".agents/skills/wix-base44-connector/scratch";
+const SCRATCH = "/tmp/wix-docs";
 
 const clip = (out) => {
   if (typeof out === "string")
@@ -48,7 +46,7 @@ async function post(url, body, token) {
 }
 
 function save(name, text) {
-  const dir = path.join(process.cwd(), SCRATCH);
+  const dir = SCRATCH;
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), text);
   return { path: SCRATCH + "/" + name, bytes: Buffer.byteLength(text), lines: text.split("\n").length };
@@ -60,7 +58,7 @@ const outlineOf = (lines, cap = 30) => {
   return { outline: heads.slice(0, cap), outlineOmitted: Math.max(0, heads.length - cap) };
 };
 
-// A ref is a scratch path or the URL it came from — resolve to lines, fetching+saving
+// A ref is a saved path or the URL it came from — resolve to lines, fetching+saving
 // URLs on first touch (the .md suffix is appended for extensionless docs URLs).
 // two path segments, not one: doc leaves repeat across products (every API has an
 // introduction.md), and a one-segment name makes resolveRef's cache return the WRONG document
@@ -69,9 +67,9 @@ const slugOf = (url) => url.replace(/\?.*$/, "").replace(/\.md$/, "")
 async function resolveRef(ref) {
   const isUrl = /^https?:/.test(ref);
   const name = isUrl ? slugOf(ref) : ref.split("/").pop();
-  const file = path.join(process.cwd(), SCRATCH, name);
+  const file = path.join(SCRATCH, name);
   if (fs.existsSync(file)) return { path: SCRATCH + "/" + name, lines: fs.readFileSync(file, "utf8").split("\n") };
-  if (!isUrl) throw new Error("no such scratch file: " + ref + " — pass a returned path or the source URL");
+  if (!isUrl) throw new Error("no such saved file: " + ref + " — pass a returned path or the source URL");
   const mdUrl = /\.[a-z]{2,5}$/.test(ref.replace(/\?.*$/, "")) ? ref : ref.replace(/\?.*$/, "") + ".md";
   const res = await fetch(mdUrl);
   if (!res.ok) throw new Error(res.status + " on " + mdUrl + " — not a docs page; take URLs from output, don't compose");
@@ -149,7 +147,7 @@ async function page(url) {
 
 // ── shell ─────────────────────────────────────────────────────────────────────
 
-// Compose native pipelines over scratch — grep -n, sed -n, mawk, sort, uniq, wc
+// Compose native pipelines over /tmp/wix-docs — grep -n, sed -n, mawk, sort, uniq, wc
 // (GNU grep/sed; awk is mawk; no rg). Cap your own output (| head -40); the return
 // clips regardless. grep's exit 1 means no match, not failure — the return says so.
 function bash(cmd) {
@@ -189,10 +187,12 @@ async function spec(code) {
 
 // ── management recipes ────────────────────────────────────────────────────────
 
-// ~100 curated multi-step admin flows. No arg → categories with counts; a category
-// name → its recipes; any other term → search every recipe's name + gist for it.
+// ~100 curated multi-step MANAGEMENT (admin) flows across 23 categories — ecommerce,
+// bookings, stores, cms, contacts, sites, get-paid, marketing, pricing-plans, events,
+// blog, forms, restaurants, domains, media, … No arg → categories with counts; a
+// category name → its recipes; any other term → search every recipe's name + gist.
 // Read the chosen url with page(url), then grep/window/fields.
-async function recipes(q) {
+async function mgmtRecipes(q) {
   const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
   const cat = f => (f.path.match(/^references\/([^/]+)\//) || [])[1];
   const row = f => ({ name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
@@ -214,4 +214,4 @@ async function recipes(q) {
   return clip(m.map(row));
 }
 
-module.exports = { post, clip, context, browse, search, page, bash, spec, recipes };
+module.exports = { post, clip, context, browse, search, page, bash, spec, mgmtRecipes };
