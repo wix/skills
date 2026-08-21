@@ -36,7 +36,22 @@ The request takes a `query` object that supports `filter`, `sort`, and `cursorPa
 }
 ```
 
-All three fields are optional — `{ "query": { "cursorPaging": { "limit": 50 } } }` lists every site.
+All three fields are optional — `{ "query": { "cursorPaging": { "limit": 50 } } }` lists every
+**`WIX`-namespace** site (see the namespace note below — it is not "every site").
+
+> ### Include headless sites — the most correct way to query
+>
+> By default the query returns only `WIX`-namespace sites; **headless sites are silently excluded**
+> — no error, they are simply absent. Anything built on a connected OAuth app (Base44 apps, custom
+> headless storefronts, most programmatically-created sites) lives under the **`HEADLESS`**
+> namespace. To query *all* of an account's sites, always filter on both namespaces:
+>
+> ```json
+> { "query": { "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } }, "cursorPaging": { "limit": 100 } } }
+> ```
+>
+> Make this your default. When you can't find a site you know exists, it is almost always a
+> headless site hidden by the default `WIX`-only view — add the namespace filter and it appears.
 
 **Request**:
 ```bash
@@ -180,12 +195,19 @@ async function listAllSites() {
 ## Common Use Cases
 
 ### List all sites
-Omit `filter` and page through with `cursorPaging` until `metadata.hasNext` is `false`.
+Filter on `{ "namespace": { "$in": ["WIX", "HEADLESS"] } }` (so headless sites are included) and
+page through with `cursorPaging` until `metadata.hasNext` is `false`.
 
 ### Find a specific site
-Prefer server-side `filter` (e.g. `{ "editorType": "EDITOR" }`) and `sort` over fetching
-everything and filtering client-side. Filterable fields match the site object (e.g. `name`,
-`displayName`, `editorType`, `published`).
+Prefer server-side `filter` and `sort` over fetching everything and filtering client-side — but
+know what is actually filterable, because a filter on a non-filterable field is **silently
+ignored** (it returns everything, as if no filter were set):
+
+- **Filterable** (`$eq`, `$in`, `$startsWith`, …): `id`, `name` (the URL slug), `namespace`,
+  `editorType`, `published`, `premium`, `domainConnected`, `folderId`, the date fields.
+- **Not filterable — sort only**: `displayName`. There is **no substring/`$contains` search** on
+  any field. To find a site by its human-readable name, list with the namespace filter and match
+  `displayName` client-side, or `$startsWith` on the `name` slug if you know its prefix.
 
 ---
 
