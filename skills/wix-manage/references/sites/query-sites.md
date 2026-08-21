@@ -27,8 +27,8 @@ and `cursorPaging` (max `limit` 100).
 
 ## Count before you enumerate
 
-An account can hold thousands of sites, and there is no server-side text filter (below), so
-paginating everything is the only way to search — count first and decide whether that's worth it:
+An account can hold thousands of sites. To find one by name, search (see "Find a site by name")
+rather than enumerate. To walk the whole list, count first and decide whether that's worth it:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/site-list/v2/sites/count' \
@@ -60,11 +60,30 @@ async function listAllSites(wixPost) {
 }
 ```
 
-## Find a specific site
+## Find a site by name
 
-`sites/query` filters reliably on `namespace`, `published`, and `premium`, but a filter on `name`
-or `displayName` does not narrow results. To find a site by name, `listAllSites()` and match on
-`displayName` in code.
+`sites/query` doesn't text-search (`name`/`displayName` filters don't narrow it). Search sites by
+name — substring match — with the meta-site-search service. **Note the host: `www.wix.com`, not
+`www.wixapis.com`.**
+
+```bash
+curl -X POST 'https://www.wix.com/meta-site-search-web/v2/search' \
+  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'Content-Type: application/json' \
+  -d '{
+    "filters": {
+      "searchTerm": "kintsugi",
+      "namespaceFilter": { "multi": { "namespaces": ["WIX", "HEADLESS"] } }
+    },
+    "paging": { "pageSize": 20 }
+  }'
+# → { "entries": [ { "metaSiteId": "58a49788-…" }, … ] }   metaSiteId is the site id
+```
+
+- The account token's own identity authorizes it — do **not** put `accountId`/`userId` in the body
+  (that forces a permission-gated path and fails with "No valid identity for search authorization").
+- Same namespace rule: include `namespaceFilter` or headless sites are excluded.
+- Entries carry `metaSiteId` (the site id); resolve names/other fields via `sites/query` or
+  `GetSiteContext` if you need them.
 
 ## Response — the `Site` object
 
