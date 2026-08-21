@@ -118,16 +118,19 @@ await wx.spec(`
     call: m.publicUrl,                                        // the callable https://www.wixapis.com/… URL
     body: m.requestBody?.content["application/json"].schema.properties,   // request fields + types
     responses: m.responses,                                  // the shape that comes back — code against it
-    filterable: m.queryMethodData?.queryFieldsCapabilitiesMap,   // for query/search methods (below)
+    filterable: m.queryMethodData?.queryFieldsCapabilitiesMap        // query methods
+             || m.searchMethodData?.searchFieldsCapabilitiesMap,     // search methods (the two never overlap)
     example: m.legacyExamples?.[0]?.content,                 // a working request/response, when present
   };
   // nested { $circular: "<name>" } types resolve via s.components.schemas["<name>"] — complete in THIS call
 `);
 ```
 
-`queryFieldsCapabilitiesMap` is the answer to "my filter returned the wrong rows / said `not
-declared as filterable`": each field lists the operators and sort directions it allows
-server-side; a field absent from the map cannot be filtered on — filter in code instead.
+The capabilities map (`queryFieldsCapabilitiesMap` for `query`, `searchFieldsCapabilitiesMap`
+for `search`) is the answer to "my filter returned the wrong rows / said `not declared as
+filterable`": each field lists the operators and sort directions it allows server-side. A field
+absent from the map cannot be filtered on — and a field appearing in the *response* is no evidence
+it is filterable. Filter in code when the map doesn't allow it.
 
 ### Management recipes — check before composing admin flows
 
