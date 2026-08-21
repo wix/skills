@@ -102,35 +102,29 @@ return wx.bash(`sed -n '/^## REST API/,/^## JavaScript SDK/p' ${pg.path} | grep 
 `search` also saves its raw content beside the inline hits — grep its `path` when a hit's six
 lines weren't enough.
 
-### The spec index — inspect a located method's exact schema
+### The spec index — a located method's exact schema
 
-`wx.spec(code)` runs JS over the Wix API spec to read the **exact schema of a method you already
-located** via search or browse — request body, response shape, enums, and which fields are
-filterable. It is not for finding an endpoint (search ranks; hand-scanning `lightIndex` does not),
-so arrive with a `docsUrl` from a previous call and match by it:
+Read the schema of a method you already have a `docsUrl` for (from search/browse):
 
 ```js
 await wx.spec(`
-  const url = "<docsUrl from search/browse>";
-  const s = await getResourceSchemaByUrl(url);       // API method pages only, not skill/article pages
+  const url = "<docsUrl from search/browse>";           // API method page, not a skill/article page
+  const s = await getResourceSchemaByUrl(url);
   const m = s.methods.find(x => x.docsUrl === url);
   return {
-    call: m.publicUrl,                                        // the callable https://www.wixapis.com/… URL
-    body: m.requestBody?.content["application/json"].schema.properties,   // request fields + types
-    responses: m.responses,                                  // the shape that comes back — code against it
-    filterable: m.queryMethodData?.queryFieldsCapabilitiesMap        // query methods
-             || m.searchMethodData?.searchFieldsCapabilitiesMap,     // search methods (the two never overlap)
-    example: m.legacyExamples?.[0]?.content,                 // a working request/response, when present
+    call: m.publicUrl,                                       // callable https://www.wixapis.com/… URL
+    body: m.requestBody?.content["application/json"].schema.properties,
+    responses: m.responses,
+    filterable: m.queryMethodData?.queryFieldsCapabilitiesMap      // query methods
+             || m.searchMethodData?.searchFieldsCapabilitiesMap,   // search methods
+    example: m.legacyExamples?.[0]?.content,
   };
-  // nested { $circular: "<name>" } types resolve via s.components.schemas["<name>"] — complete in THIS call
+  // { $circular: "<name>" } types resolve via s.components.schemas["<name>"] — complete in this call
 `);
 ```
 
-The capabilities map (`queryFieldsCapabilitiesMap` for `query`, `searchFieldsCapabilitiesMap`
-for `search`) is the answer to "my filter returned the wrong rows / said `not declared as
-filterable`": each field lists the operators and sort directions it allows server-side. A field
-absent from the map cannot be filtered on — and a field appearing in the *response* is no evidence
-it is filterable. Filter in code when the map doesn't allow it.
+`filterable` maps each field to its allowed operators + sort — filter server-side only on what it
+lists, else filter in code.
 
 ### Management recipes — check before composing admin flows
 
