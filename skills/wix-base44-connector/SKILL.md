@@ -102,21 +102,32 @@ return wx.bash(`sed -n '/^## REST API/,/^## JavaScript SDK/p' ${pg.path} | grep 
 `search` also saves its raw content beside the inline hits — grep its `path` when a hit's six
 lines weren't enough.
 
-### The spec index
+### The spec index — inspect a located method's exact schema
 
-Answers questions about pages you already found — arrive with a `docsUrl`, match by it. Also the
-only proof an API does NOT exist:
+`wx.spec(code)` runs JS over the Wix API spec to read the **exact schema of a method you already
+located** via search or browse — request body, response shape, enums, and which fields are
+filterable. It is not for finding an endpoint (search ranks; hand-scanning `lightIndex` does not),
+so arrive with a `docsUrl` from a previous call and match by it:
 
 ```js
 await wx.spec(`
-  const r = lightIndex.find(x => x.docsUrl === "<docsUrl from browse/search>");
-  return r.methods.map(m => ({ op: m.operationId.split(".").pop(), verb: m.httpMethod,
-                               call: m.publicUrl }));   // publicUrl is callable — path is PARTIAL
+  const url = "<docsUrl from search/browse>";
+  const s = await getResourceSchemaByUrl(url);       // API method pages only, not skill/article pages
+  const m = s.methods.find(x => x.docsUrl === url);
+  return {
+    call: m.publicUrl,                                        // the callable https://www.wixapis.com/… URL
+    body: m.requestBody?.content["application/json"].schema.properties,   // request fields + types
+    responses: m.responses,                                  // the shape that comes back — code against it
+    filterable: m.queryMethodData?.queryFieldsCapabilitiesMap,   // for query/search methods (below)
+    example: m.legacyExamples?.[0]?.content,                 // a working request/response, when present
+  };
+  // nested { $circular: "<name>" } types resolve via s.components.schemas["<name>"] — complete in THIS call
 `);
-// request fields next round: getResourceSchemaByUrl(docsUrl) →
-//   m.requestBody.content["application/json"].schema.properties — names and types, drill deeper
-//   per round; $circular stubs resolve via s.components.schemas["<name>"]
 ```
+
+`queryFieldsCapabilitiesMap` is the answer to "my filter returned the wrong rows / said `not
+declared as filterable`": each field lists the operators and sort directions it allows
+server-side; a field absent from the map cannot be filtered on — filter in code instead.
 
 ### Management recipes — check before composing admin flows
 
