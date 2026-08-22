@@ -314,6 +314,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Upload Media to Wix](references/media/upload-media-to-wix.md)
 **Technical:** Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
 
+### [Update Media Manager File Descriptors (Names, Labels, Alt Text)](references/media/update-media-file-descriptors.md)
+**Technical:** Updates existing Media Manager files (display name, labels, folder, internal tags) via UpdateFileDescriptor. Covers the required `fieldMask` parameter's real format (a comma-separated string, not an array or object, and undocumented on the method's docs page) and the fact that image `altText` cannot be set through this API today.
+
 ---
 
 ## Pricing Plans
