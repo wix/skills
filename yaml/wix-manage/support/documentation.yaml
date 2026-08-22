@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Support Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/support/contact-wix-support.md
+      title: Contact Wix Support
+      docsEntry: https://dev.wix.com/docs/api-reference/articles/ai-tools/wix-mcp
+      tags: [support]
