@@ -83,7 +83,7 @@ await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
 
 // { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
-// different corpus: WIX_HEADLESS (JS/headless client code) · BUILD_APPS · CLI.
+// different corpus: WIX_HEADLESS (headless / external apps) · BUILD_APPS · CLI.
 // Non-REST portals return article-style hits — the
 // method gists thin out, so read the saved path.
 await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
