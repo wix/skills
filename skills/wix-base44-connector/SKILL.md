@@ -81,6 +81,12 @@ await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/booki
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
+
+// { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
+// different corpus: SDK · WIX_HEADLESS (JS/headless client code) · BUSINESS_SOLUTIONS (concepts,
+// seeding) · VELO · WDS · BUILD_APPS · CLI. Non-REST portals return article-style hits — the
+// method gists thin out, so read the saved path.
+await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
 
 Go deeper for fields, enums, or absence — only the spec index proves absence.
