@@ -1,5 +1,5 @@
 // Wix docs helpers for the Base44 sandbox. Small results return inline; anything over
-// ~4,000 chars (exec results clip at ~5,000) is saved under /tmp/wix-docs and comes
+// ~4,000 chars (exec results clip at ~5,000) is saved under .agents/skills/wix-base44-connector/tmp and comes
 // back as { path, bytes, lines, outline } with the read tools pre-pointed at it.
 //
 // Load per exec (execs share no state) — from disk, network only as first-touch fallback:
@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BUDGET = 4000;
-const SCRATCH = "/tmp/wix-docs";
+const SCRATCH = ".agents/skills/wix-base44-connector/tmp";
 
 const clip = (out) => {
   if (typeof out === "string")
@@ -148,7 +148,7 @@ async function page(url) {
 
 // ── shell ─────────────────────────────────────────────────────────────────────
 
-// Compose native pipelines over /tmp/wix-docs — grep -n, sed -n, mawk, sort, uniq, wc
+// Compose native pipelines over .agents/skills/wix-base44-connector/tmp — grep -n, sed -n, mawk, sort, uniq, wc
 // (GNU grep/sed; awk is mawk; no rg). Cap your own output (| head -40); the return
 // clips regardless. grep's exit 1 means no match, not failure — the return says so.
 function bash(cmd) {
