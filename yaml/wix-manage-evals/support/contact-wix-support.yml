@@ -1,0 +1,32 @@
+name: support/contact-wix-support
+description: >-
+  Verifies the agent routes a real Wix support/billing question to the Contact
+  Wix Support recipe and points the user at wix.com/contact rather than an
+  unmonitored support@wix.com mailbox.
+triggerPrompt: >-
+  I noticed an unauthorized charge on my Wix account and need to get a real
+  person at Wix to look into it urgently. How do I contact Wix support?
+tags: [support]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/articles/ai-tools/wix-mcp/skills/contact-wix-support
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user reported a suspected unauthorized charge and asked how to reach real Wix support,
+      urgently.
+
+      Pass if the response:
+      - directs the user to wix.com/contact (while logged into their Wix account) as the channel
+        to reach Wix Customer Care, AND
+      - does not suggest emailing support@wix.com, AND
+      - reflects the urgency — e.g. suggests chat or callback rather than only the email option.
+
+      Fail if the response:
+      - suggests emailing support@wix.com as a way to reach Wix, OR
+      - claims there is no way to contact Wix support, OR
+      - tries to resolve the billing dispute itself via a management API call instead of directing
+        the user to Wix Support.
