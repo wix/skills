@@ -261,6 +261,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
 **Technical:** Direct links to payments and invoicing dashboard pages on manage.wix.com (payment links, invoices list, new invoice, invoice settings, recurring invoices, accept-payments settings), pairing each get-paid entity with its read API for "view it in your dashboard" links.
 
+### [Diagnose Checkout Payment Failures](references/get-paid/diagnose-checkout-payment-failures.md)
+**Technical:** Diagnoses why online checkout payments fail — especially when one payment method (e.g. Apple Pay/Google Pay) fails while another (e.g. cards) succeeds through the same provider. Checks Cashier transaction reason codes, then cross-checks the connected provider's declared `expressFlow`/`regularFlow` capabilities via Site Payment Method Types before concluding it's a platform bug.
+
 ---
 
 ## Google Ads
