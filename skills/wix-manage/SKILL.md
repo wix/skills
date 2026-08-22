@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, dashboard-navigation, support."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -411,3 +411,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.
+
+---
+
+## Support
+
+### [Contact Wix Support](references/support/contact-wix-support.md)
+**Technical:** The correct escalation path when a user needs a real human at Wix — billing, payouts, charges, a linked bank account, compliance corrections, account access, or anything else no Wix management API covers. Points to `wix.com/contact` (the ticketed Customer Care channel — chat, callback, or email). Explicitly do not suggest emailing `support@wix.com`: it is not a monitored inbox and creates no trackable case, which is especially risky for billing/payout/compliance matters.
