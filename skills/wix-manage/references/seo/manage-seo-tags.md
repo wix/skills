@@ -44,72 +44,22 @@ words fit more than one level, ask one short question before writing. An
 explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
 
-Work from the endpoints below rather than searching the API schemas for them.
-The reference documents two bases for this service, and the runnable examples
-use the second:
+All three APIs live under the **SEO** category of the Wix REST API reference.
+Read the chosen method's own reference article to build the request; these are
+the methods each level has:
 
-- `https://www.wixapis.com/promote/seo/v1` — used by the method schemas
-- `https://www.wixapis.com/seo-metatags-server/v1` — used by every curl example
-
-Send the service base your client is configured for. If a path returns `404`,
-retry it once on the other base before concluding anything about the method: a
-`404` here means the base was wrong, not that the feature is missing.
-
-| Level | Method | Call |
-|---|---|---|
-| Site | Get Site SEO Tags | `GET /site-seo-tags` |
-| Site | Set Site SEO Tags | `PATCH /site-seo-tags` |
-| Pattern | List SEO Patterns | `GET /seo-patterns` |
-| Pattern | Get SEO Pattern | `GET /seo-patterns/{pageType}` |
-| Pattern | List SEO Pattern Variables | `GET /seo-patterns/{pageType}/variables` |
-| Pattern | Set SEO Pattern | `PATCH /seo-patterns/{pageType}` |
-| Pattern | Create SEO Pattern | `POST /seo-patterns/{pageType}` |
-| Pattern | Reset SEO Pattern To Default | `POST /seo-patterns/{pageType}/reset-to-default` |
-| Item | List Item SEO Tags | `GET /item-seo-tags/{itemType}` |
-| Item | Get Item SEO Tags | `GET /item-seo-tags/{itemType}/{itemId}` |
-| Item | Set Item SEO Tags | `PATCH /item-seo-tags/{itemType}/{itemId}` |
-| Item | Bulk Set Item SEO Tags | `POST /bulk/item-seo-tags/set` |
-| Item | Reset Item SEO Tags To Default | `POST /item-seo-tags/{itemType}/{itemId}/reset-to-default` |
+| Level | Methods |
+|---|---|
+| Site | Get Site SEO Tags, Set Site SEO Tags |
+| Pattern | Get SEO Pattern, List SEO Patterns, List SEO Pattern Variables, Create SEO Pattern, Set SEO Pattern, Reset SEO Pattern To Default |
+| Item | Get Item SEO Tags, List Item SEO Tags, Set Item SEO Tags, Bulk Set Item SEO Tags, Reset Item SEO Tags To Default |
 
 `Set` takes a `fieldMask` naming the properties to change (`tags`,
-`focusKeywords` for an item; `pattern` for a pattern). Read the current value
-first, then send the complete set:
-
-```json
-PATCH /item-seo-tags/STORES_PRODUCT/{itemId}
-{
-  "itemSeoTags": {
-    "tags": [
-      { "type": "title", "children": "Winter collection | Ceramics studio" },
-      { "type": "meta", "props": {
-          "name": "description",
-          "content": "Stoneware mugs and bowls, thrown and glazed by hand." } }
-    ]
-  },
-  "fieldMask": "tags"
-}
-```
-
-A tag is `{type, props, children}`: `title` and `script` carry their text in
-`children`; `meta` and `link` carry theirs in `props` (`name`/`content` for a
-meta tag, `rel`/`href` for a link). The response returns the updated `tags` plus
+`focusKeywords` for an item; `pattern` for a pattern). A tag is
+`{type, props, children}`: `title` and `script` carry their text in `children`;
+`meta` and `link` carry theirs in `props` (`name`/`content` for a meta tag,
+`rel`/`href` for a link). The response returns the updated `tags` plus
 `resolvedTags`.
-
-Bulk writes take one `itemType` and an entry per item, each with its own
-`fieldMask`, and return a result per entry:
-
-```json
-POST /bulk/item-seo-tags/set
-{
-  "itemType": "STATIC_PAGE",
-  "returnEntity": true,
-  "entries": [
-    { "itemId": "c1dmp",
-      "itemSeoTags": { "tags": [ { "type": "title", "children": "Winter collection" } ] },
-      "fieldMask": "tags" }
-  ]
-}
-```
 
 ## Discover, never invent
 
@@ -209,8 +159,7 @@ value one level down — not the Wix built-in.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
   them is; say so instead of retrying.
 
-The paths, field masks, and tag shapes above are enough to build every call, so
-do not open a documentation search to rediscover them. Reading a method's
-reference article is still the right move for something this recipe does not
-carry — an unlisted error code, a field absent from the shapes here, or a
-request that came back `400`.
+Load the method's reference article before constructing requests so paths, field
+names, masks, permissions, and error schemas come from the live contract. Read
+the one method you are about to call rather than searching broadly, and do not
+re-read what this recipe already states.
