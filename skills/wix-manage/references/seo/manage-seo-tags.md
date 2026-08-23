@@ -44,8 +44,16 @@ words fit more than one level, ask one short question before writing. An
 explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
 
-Work from the endpoints below rather than searching the API schemas. Every path
-is relative to `https://www.wixapis.com/promote/seo/v1`.
+Work from the endpoints below rather than searching the API schemas for them.
+The reference documents two bases for this service, and the runnable examples
+use the second:
+
+- `https://www.wixapis.com/promote/seo/v1` — used by the method schemas
+- `https://www.wixapis.com/seo-metatags-server/v1` — used by every curl example
+
+Send the service base your client is configured for. If a path returns `404`,
+retry it once on the other base before concluding anything about the method: a
+`404` here means the base was wrong, not that the feature is missing.
 
 | Level | Method | Call |
 |---|---|---|
@@ -194,10 +202,15 @@ value one level down — not the Wix built-in.
 - **`ITEM_NOT_FOUND`:** re-discover the item ID; do not guess a new one.
 - **Invalid tags:** tags are validated before anything is saved, so nothing
   changed; fix the tag and resend the same complete set.
+- **`400` on a request you built from this recipe:** the shape is wrong for that
+  method. Read that method's reference article once, correct the request, and
+  send it again. Never resend the same shape, and never walk through variations
+  hoping one is accepted.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
   them is; say so instead of retrying.
 
-Everything needed to call these APIs is above: do not search the API schemas or
-re-read the reference for paths, field masks, or tag shapes. Consult the
-reference article for a specific method only when this recipe does not cover
-what you need — an unlisted error code, or a field absent from the shapes here.
+The paths, field masks, and tag shapes above are enough to build every call, so
+do not open a documentation search to rediscover them. Reading a method's
+reference article is still the right move for something this recipe does not
+carry — an unlisted error code, a field absent from the shapes here, or a
+request that came back `400`.
