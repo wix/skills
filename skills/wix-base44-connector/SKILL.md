@@ -74,7 +74,9 @@ An empty report = bad token, never an empty site.
 
 ```js
 // know the product? browse is deterministic — menuUrl alone orients (children + counts);
-// filter before listing methods, unfiltered listings clip
+// filter before listing methods. browse maps the REST (api-reference) portal ONLY — for
+// other portals (WIX_HEADLESS, BUILD_APPS) use search with { type } (below). Deprecated
+// methods are hidden by default (the header still counts them); pass deprecated: "SHOW" to see them.
 await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
                 { include: ["METHOD"], filter: "resched", depth: 4 });
 
@@ -83,9 +85,10 @@ await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
 
 // { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
-// different corpus: WIX_HEADLESS (headless / external apps) · BUILD_APPS · CLI.
-// Non-REST portals return article-style hits — the
-// method gists thin out, so read the saved path.
+// different corpus — and the way to reach non-REST portals, since browse is REST-only:
+//   WIX_HEADLESS — headless/external client code (visitor auth, JS SDK, quick-starts)
+//   BUILD_APPS   — building a Wix app (App Market / Blocks / dashboard extensions / OAuth / webhooks)
+// Non-REST portals return article-style hits (method gists thin out) — read the saved path.
 await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
 
