@@ -111,7 +111,7 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 
 // Semantic search — ranks, never says "no match". The reduced hits come back inline
 // AND the full raw content is saved for grep/window follow-ups. { type } picks the portal:
-// REST (default) · WIX_HEADLESS · BUILD_APPS · CLI.
+// REST (default) · WIX_HEADLESS.
 async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
   const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
     { search_term: term, document_type: type, maximum_results: max, lines_in_each_result: lines });
