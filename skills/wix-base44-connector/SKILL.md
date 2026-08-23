@@ -74,10 +74,9 @@ An empty report = bad token, never an empty site.
 
 ```js
 // know the product? browse is deterministic — menuUrl alone orients (children + counts);
-// filter before listing methods. browse spans several portals — REST (api-reference),
-// WIX_HEADLESS (go-headless), SDK, CLI, BUILD_APPS (not VELO/WDS) — just pass that portal's
-// menu URL. Deprecated methods are hidden by default (the header still counts them);
-// pass deprecated: "SHOW" to see them.
+// filter before listing methods. browse works for both portals this skill uses — REST
+// (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
+// Deprecated methods are hidden by default (the header still counts them); pass deprecated: "SHOW" to see them.
 await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
                 { include: ["METHOD"], filter: "resched", depth: 4 });
 // non-REST portal — same call, that portal's menu URL:
