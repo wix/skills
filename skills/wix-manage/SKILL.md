@@ -261,6 +261,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
 **Technical:** Direct links to payments and invoicing dashboard pages on manage.wix.com (payment links, invoices list, new invoice, invoice settings, recurring invoices, accept-payments settings), pairing each get-paid entity with its read API for "view it in your dashboard" links.
 
+### [Checkout Payment Button Unresponsive](references/get-paid/get-paid-troubleshoot-checkout-unresponsive-button.md)
+**Technical:** Diagnostic tree for when "Place Order & Pay" does nothing — no redirect, no order, no Cashier transaction. Distinguishes a provider-side decline from a platform/client-side bug via Abandoned Checkouts + Order Transactions + Cashier Transactions signals, and flags the benign `ecom-platform-providers` console warning that's commonly misdiagnosed as the root cause.
+
 ---
 
 ## Google Ads
