@@ -21,7 +21,7 @@ return product;
 
 ### By slug
 
-A site plugin on a product page has the **slug**, not the id. This is the one V3 read that wraps its result.
+Use this when you have a slug rather than an id — typically an Editor React Component that resolved the product from the page URL, since it gets no product context of its own. (A **site plugin** does get the id directly, from `widget.getProp('product-id')` — prefer `getProduct`.) This is the one V3 read that wraps its result.
 
 ```typescript
 const res = await productsV3.getProductBySlug(slug);

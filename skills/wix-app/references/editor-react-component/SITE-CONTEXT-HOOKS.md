@@ -60,6 +60,19 @@ Each returns a plain value, so there is nothing to unwrap or guard. They are
 React hooks — call them at the top of the component or hook body, never at module
 scope, inside a callback, or conditionally.
 
+### No Business-Entity Context
+
+These hooks report **page and site** state only. There is no hook for the business entity the component happens to sit next to — no `useCurrentProduct()` for a Stores product page, and no equivalent for a Bookings service or a blog post. Only **site plugins** receive that, via the slot's `widget.getProp('product-id')`; an Editor React Component is placed freely by the site owner and gets nothing.
+
+So resolve the entity yourself: take the URL from `useCurrentUrl()`, pull the slug off it, and look the entity up by slug — for Stores that is `productsV3.getProductBySlug(slug)`, whose result is **wrapped** in `{ product }` (see [`../stores/GET_PRODUCT.md`](../stores/GET_PRODUCT.md)).
+
+```tsx
+const url = useCurrentUrl();
+const slug = new URL(url).pathname.split('/').pop() ?? '';
+```
+
+Guard for the slug being absent — the owner can drop the component on any page, not just a product page.
+
 ### Read Values During Render
 
 Hook values are read on the server too, so their results are part of the server
