@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   On my Wix site, send everyone from /old-blog and everything under it to /blog. Tell me what
   redirects I already have and whether this changes any of them.
-tags: [aria, site-properties]
+tags: [seo]
 # A fresh site is required rather than optional here: on the shared multi-site account the agent
 # correctly stops to ask which site to act on, and no redirect work happens. The seeded redirect
 # below is the point of the scenario - without it there is nothing for the agent to discover and

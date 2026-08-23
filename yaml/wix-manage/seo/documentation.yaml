@@ -5,4 +5,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/seo/manage-url-redirects.md
       title: Manage URL Redirects on a Wix Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/redirects
-      tags: [aria, site-properties]
+      tags: [seo]

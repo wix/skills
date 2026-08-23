@@ -58,6 +58,98 @@ redirect is not the same as the user agreeing to lose a different one.
 **deletes** the redirect holding it. Never set it on your own initiative. Offer it
 only after reporting the conflict, and only if the user asks to replace.
 
+## The six methods and their request shapes
+
+Every path is under `https://www.wixapis.com/seo-redirects-service/v1`. Use these
+directly - do not go looking for the shapes in the docs first.
+
+| Method | Call |
+|---|---|
+| List Redirects | `GET /redirects` - no body, no parameters |
+| Get Redirect | `GET /redirects/{redirectId}` |
+| Create Redirect | `POST /create-redirect` - body below |
+| Delete Redirect | `DELETE /redirects/{redirectId}` - empty response |
+| Bulk Create Redirects | `POST /bulk/redirects/create` |
+| Bulk Delete Redirects | `POST /bulk/redirects/delete` |
+
+Create Redirect takes the redirect nested under `redirect`. `options` and
+`language` are optional, `id` only when preserving an existing redirect's
+identity:
+
+```json
+{
+  "redirect": {
+    "from": "/old-blog",
+    "to": "/blog",
+    "options": { "groupRedirect": true },
+    "language": "fr"
+  }
+}
+```
+
+The two bulk methods take flat lists. Bulk Create's `returnFullEntity` returns
+each created redirect in `results[].item`:
+
+```json
+{ "redirects": [ { "from": "/old-pricing", "to": "/pricing" } ], "returnFullEntity": true }
+```
+
+```json
+{ "redirectIds": ["5b07d9de-6a9f-494d-8066-a7b66c970270"] }
+```
+
+## Worked example: the request that deletes something
+
+The user asks to send `/old-blog` and everything under it to `/blog`.
+
+**1. List first.**
+
+```
+GET https://www.wixapis.com/seo-redirects-service/v1/redirects
+```
+
+```json
+{
+  "redirects": [
+    {
+      "id": "583fe7d7-2944-436f-870a-09eb6d2e52fa",
+      "from": "/blog",
+      "to": "/news",
+      "createdDate": "2026-08-20T09:12:44.000Z"
+    }
+  ]
+}
+```
+
+**2. Compare.** The new `to` is `/blog`, and an existing redirect's `from` is
+`/blog`. That is the deletion case. **End the turn here** - report that creating
+this redirect deletes `/blog` -> `/news` permanently, and that the two will not
+chain, then wait.
+
+**3. Only after the user agrees**, create it:
+
+```
+POST https://www.wixapis.com/seo-redirects-service/v1/create-redirect
+```
+
+```json
+{ "redirect": { "from": "/old-blog", "to": "/blog", "options": { "groupRedirect": true } } }
+```
+
+```json
+{
+  "redirect": {
+    "id": "9c4a1f2e-77b0-4b13-a2c8-6e0d3f5b8a91",
+    "from": "/old-blog",
+    "to": "/blog",
+    "options": { "groupRedirect": true }
+  }
+}
+```
+
+`/blog` -> `/news` is now gone. Say so - do not report it as still in place, and
+do not describe the result as `/old-blog` -> `/blog` -> `/news`.
+
 ## When a write fails
 
 Report the failure and stop. Do **not** retry with a different request shape, a
