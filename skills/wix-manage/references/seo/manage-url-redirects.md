@@ -1,6 +1,6 @@
 ---
 name: "Manage URL Redirects on a Wix Site"
-description: Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write.
+description: "Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
 ---
 
 # Manage URL Redirects on a Wix Site
