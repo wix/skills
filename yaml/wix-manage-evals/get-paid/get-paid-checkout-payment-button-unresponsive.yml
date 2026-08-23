@@ -1,0 +1,39 @@
+name: get-paid/get-paid-checkout-payment-button-unresponsive
+description: >-
+  Verifies the agent reads the checkout-payment-button-unresponsive recipe
+  when a merchant reports the "Place Order & Pay" button doing nothing, and
+  cross-checks abandoned checkouts / orders / Cashier transactions to tell a
+  provider-side decline apart from a client/platform-side bug, instead of
+  blaming the benign ecom-platform-providers console warning.
+triggerPrompt: >-
+  Customers say that when they click "Place Order and Pay" at checkout,
+  nothing happens — no redirect, no error, they just stay on the same page.
+  No new order shows up. What's going on?
+tags: [get-paid, stores]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/abandoned-checkout/introduction/skills/get-paid-checkout-payment-button-unresponsive
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user reports that clicking "Place Order and Pay" at checkout does
+      nothing — no redirect, no error, no new order.
+
+      Pass if the response:
+      - checks for a server-side trace of the attempt (abandoned checkouts,
+        eCommerce orders, Cashier transactions) to determine whether the
+        place-order request ever reached Wix's backend, AND
+      - if no such trace exists across repeated attempts, explains this is a
+        client/platform-side issue that isn't fixable via merchant-side
+        settings (reconnecting the provider, republishing), and recommends
+        escalating with reproduction details.
+
+      Fail if the response:
+      - jumps straight to "reconnect your payment provider" or "republish
+        your site" as the fix without checking for a backend trace first, OR
+      - blames a `ecom-platform-providers` / `ContextProviderFactory`
+        browser console warning as the root cause — that warning is benign
+        and expected on non-Wix-Studio sites.
