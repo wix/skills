@@ -25,10 +25,18 @@ return product;
 
 Use this when you have a slug rather than an id — typically an Editor React Component that resolved the product from the page URL, since it gets no product context of its own. (A **site plugin** does get the id directly, from `widget.getProp('product-id')` — prefer `getProduct`.)
 
+**Only V3 has a slug method.** V1 has `getProduct` and `getCollectionBySlug`, but no `getProductBySlug` — reach the product through the query builder instead.
+
 ```typescript
-const res = await productsV3.getProductBySlug(slug);
-const product = res.product!;  // product is optional in the raw type; ! matches SDK's strict-mode guarantee
-// ❌ res.variantsInfo / res.currency / res.inventory — all TS2339; every field lives on res.product
+if (v === 'V3_CATALOG') {
+  const res = await productsV3.getProductBySlug(slug);
+  const product = res.product!;  // product is optional in the raw type; ! matches SDK's strict-mode guarantee
+  // ❌ res.variantsInfo / res.currency / res.inventory — all TS2339; every field lives on res.product
+  return product;
+}
+// ❌ products.getProductBySlug(slug) — does not exist in V1
+const res = await products.queryProducts().eq('slug', slug).limit(1).find();
+return res.items[0];  // .items, not .products — and it may be undefined
 ```
 
 ---

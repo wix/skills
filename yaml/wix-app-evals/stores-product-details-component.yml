@@ -36,6 +36,9 @@ assertions:
       Product resolution: (a) An Editor React Component receives NO product context — it must derive the product from the page URL (e.g. a slug parsed off `useCurrentUrl()`), then look it up. Inventing a hook such as `useCurrentProduct()`, or reading `widget.getProp('product-id')` (that is the site-plugin API, and this is not a site plugin), is wrong.
       V3 field shapes: (b) Product types are reached through the namespace (`productsV3.V3Product`) — a bare `import { V3Product } from '@wix/stores'` is wrong, because the package root exports namespaces only. (c) The `getProductBySlug` result is unwrapped via its `product` field before any field is read; reading `variantsInfo`, `currency`, or `inventory` straight off the response is wrong. (d) Option choices are read from `option.choicesSettings?.choices`, NOT `option.choices`. (e) Per-variant stock is read from `variant.inventoryStatus` (e.g. `.inStock`), NOT `variant.inventory`; product-level availability is `product.inventory.availabilityStatus`. (f) Plain-text description comes from `plainDescription`; calling string methods such as `.replace()` on `description` is wrong because `description` is a `RichContent` document. (g) The catalog version is detected with `catalogVersioning.getCatalogVersion()` before any Stores read.
       Any one of items (a) through (f) got wrong scores no higher than 4. Score 0-10.
+  # Deliberately tight. This scenario exists because type-error retry loops made a
+  # real job breach SLO, so the budget is the signal — if it fails, close the doc
+  # gap that caused the retries rather than raising the ceiling.
   - type: time_limit
     maxDurationMs: 180000
   - type: cost
