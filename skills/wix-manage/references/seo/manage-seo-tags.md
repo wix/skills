@@ -55,7 +55,11 @@ the methods each level has:
 | Item | Get Item SEO Tags, List Item SEO Tags, Set Item SEO Tags, Bulk Set Item SEO Tags, Reset Item SEO Tags To Default |
 
 `Set` takes a `fieldMask` naming the properties to change (`tags`,
-`focusKeywords` for an item; `pattern` for a pattern). A tag is
+`focusKeywords` for an item; `pattern` for a pattern). Its shape differs by
+client and the reference does not spell this out: over REST it is a
+comma-separated **string** (`"fieldMask": "tags"`), while the SDK takes an
+**array** of strings (`fieldMask: ["tags"]`). Sending an array to REST fails
+with `INVALID_FIELD_MASK`. `publish` is a boolean. A tag is
 `{type, props, children}`: `title` and `script` carry their text in `children`;
 `meta` and `link` carry theirs in `props` (`name`/`content` for a meta tag,
 `rel`/`href` for a link). The response returns the updated `tags` plus
