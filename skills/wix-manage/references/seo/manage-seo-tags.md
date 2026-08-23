@@ -160,10 +160,28 @@ success.
 - When reporting what a page will render with, use the `resolvedTags` already
   returned by the last Get or Set — not a fresh call — and name the source of
   each tag (site, default pattern, user pattern, host page, or the item
-  itself). Naming the source of each reported tag is required, not optional. `hasOverride: false` does not mean built-in
-  defaults — the item may inherit from a customized pattern or the site.
+  itself). Naming the source of each reported tag is required, not optional.
+  `hasOverride: false` does not mean built-in defaults — the item may inherit
+  from a customized pattern or the site.
 - `resolvedTags` excludes tags added by site code or apps at render time, so
   present it as what Wix manages, not a literal copy of the rendered page head.
+
+`resolvedTags` is an array of `{tag, source, inheritedTag}` — the tag itself is
+nested under `tag`, not spread onto the entry:
+
+```json
+"resolvedTags": [
+  { "tag": { "type": "title", "children": "Winter collection | Ceramics studio" },
+    "source": "TAG_SOURCE_ITEM",
+    "inheritedTag": { "type": "title", "children": "Ceramics studio" } }
+]
+```
+
+`source` is one of `TAG_SOURCE_SITE`, `TAG_SOURCE_DEFAULT_PATTERN`,
+`TAG_SOURCE_USER_PATTERN`, `TAG_SOURCE_HOST_PAGE`, `TAG_SOURCE_ITEM`, or
+`TAG_SOURCE_UNSPECIFIED` when it cannot be determined. `inheritedTag` appears
+only when this source replaced a value a lower source had set, and holds the
+value one level down — not the Wix built-in.
 
 ## Recovery rules
 
@@ -179,5 +197,7 @@ success.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
   them is; say so instead of retrying.
 
-Load the current public API reference before constructing requests so field
-names, masks, permissions, and error schemas come from the live contract.
+Everything needed to call these APIs is above: do not search the API schemas or
+re-read the reference for paths, field masks, or tag shapes. Consult the
+reference article for a specific method only when this recipe does not cover
+what you need — an unlisted error code, or a field absent from the shapes here.
