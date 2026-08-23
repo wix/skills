@@ -12,7 +12,9 @@ Create a form on a Wix site that appears in the Forms & Submissions dashboard. T
 
 ## Create the form
 
-Call the Create Form endpoint with the `wix.form_app.form` namespace. The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) is usually already installed on sites.
+Call the Create Form endpoint with the `wix.form_app.form` namespace. This requires the **"Wix Forms" (New)** app — appDefId `225dd912-7dea-4738-8688-4b8c6955ffc2` — which is usually already installed on sites.
+
+> **Do not confuse this with "Wix Forms (Old)" (appDefId `14ce1214-b278-a7e4-1373-00cebd1bef7c`).** That is a different, legacy app ("Wix Forms & Payments") — installing it does **not** grant permissions on the `wix.form_app.form` namespace and Create Form will keep failing with `UNSUPPORTED_FORM_NAMESPACE` even after a successful-looking install. Always use `225dd912-7dea-4738-8688-4b8c6955ffc2` for this recipe. See [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix) for the disambiguated list.
 
 ```bash
 curl -X POST \
@@ -290,7 +292,15 @@ The `postSubmissionTriggers.upsertContact` object maps form field targets to con
 
 ### Prerequisites
 
-The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
+The **"Wix Forms" (New)** app (appDefId: `225dd912-7dea-4738-8688-4b8c6955ffc2`) must be installed on the site — not "Wix Forms (Old)" (`14ce1214-b278-a7e4-1373-00cebd1bef7c`), which does not own the `wix.form_app.form` namespace. It is usually pre-installed, but if the API returns a "missing installed app" error, install `225dd912-7dea-4738-8688-4b8c6955ffc2` first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
+
+### If the site already has "Wix Forms (Old)" installed
+
+Some older sites have only "Wix Forms (Old)" (`14ce1214-...`) installed, with no way to tell from the site itself. If you're unsure which Forms app a site has, call `GET form-schema-service/v4/forms/providers-config` — it lists every namespace the site can create forms under, keyed by the owning app's `appId`. A site with only the old app shows an entry like `{"namespace": "wix.old_form_app.form", "appId": "14ce1214-...", "restrictions": {"maxFieldsAmount": 16, ...}}` and **no** `wix.form_app.form` entry.
+
+**Do not create into `wix.old_form_app.form`, even though this endpoint lists it as a valid namespace for the site.** Its create/update permission is restricted to Wix's own internal service identity — no OAuth scope, API key, or Wix user token can ever satisfy it, so Create/Update Form calls into it always fail with an opaque `403 Forbidden` (empty body). This isn't a propagation delay or a missing-scope issue you can fix by reconnecting or re-granting permissions — it's a permanent, by-design restriction on that namespace, and it also caps forms at 16 fields even if it did work.
+
+The fix: install "Wix Forms" (New) (`225dd912-...`) **alongside** the old app — this is additive and doesn't require removing the old one — then create using the `wix.form_app.form` namespace as shown above. This works immediately with no other setup.
 
 ## Troubleshooting
 
@@ -300,8 +310,9 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
 | `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
-| `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
-| `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
+| `Permissions for given namespace not found` | The wrong Forms app is installed — most commonly "Wix Forms (Old)" (`14ce1214-b278-a7e4-1373-00cebd1bef7c`) instead of "Wix Forms" (New) (`225dd912-7dea-4738-8688-4b8c6955ffc2`) | Install/re-check for appDefId `225dd912-7dea-4738-8688-4b8c6955ffc2` specifically — installing the old app looks successful (`enabled: true`) but never activates this namespace. Retrying the identical request or waiting for propagation will not help since it's the wrong app, not a timing issue. |
+| `missing installed app` | Wix Forms (New) app not installed | Install app `225dd912-7dea-4738-8688-4b8c6955ffc2` (not `14ce1214-b278-a7e4-1373-00cebd1bef7c`) via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
+| `403 Forbidden` (empty body) on Create/Update Form | Namespace is `wix.old_form_app.form` — its write permission is service-identity-only, permanently unreachable via any external auth | Don't retry or re-auth. Install "Wix Forms" (New) (`225dd912-7dea-4738-8688-4b8c6955ffc2`) alongside the old app and use `wix.form_app.form` instead — see "If the site already has 'Wix Forms (Old)' installed" above |
 
 ## Related Documentation
 
