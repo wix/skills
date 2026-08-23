@@ -38,21 +38,70 @@ Match the user's request to the level that owns the change:
 | "All my product/blog/event pages should be titled like X" — a convention for every item of a page type | Pattern | **SEO Patterns** |
 | "Change the title of this page/product/post" — one specific item | Item | **Item SEO Tags** |
 
-All three APIs live under the **SEO** category of the Wix REST API reference.
-Read the chosen method's own reference article directly rather than searching
-schemas; these are the methods each level has:
-
-| Level | Methods |
-|---|---|
-| Site | Get Site SEO Tags, Set Site SEO Tags |
-| Pattern | Get SEO Pattern, List SEO Patterns, List SEO Pattern Variables, Create SEO Pattern, Set SEO Pattern, Reset SEO Pattern To Default |
-| Item | Get Item SEO Tags, List Item SEO Tags, Set Item SEO Tags, Bulk Set Item SEO Tags, Reset Item SEO Tags To Default |
-
 Work at the level that matches the change. Writing the same title onto many
 items is the same outcome as one pattern and much harder to undo. If the user's
 words fit more than one level, ask one short question before writing. An
 explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
+
+Work from the endpoints below rather than searching the API schemas. Every path
+is relative to `https://www.wixapis.com/promote/seo/v1`.
+
+| Level | Method | Call |
+|---|---|---|
+| Site | Get Site SEO Tags | `GET /site-seo-tags` |
+| Site | Set Site SEO Tags | `PATCH /site-seo-tags` |
+| Pattern | List SEO Patterns | `GET /seo-patterns` |
+| Pattern | Get SEO Pattern | `GET /seo-patterns/{pageType}` |
+| Pattern | List SEO Pattern Variables | `GET /seo-patterns/{pageType}/variables` |
+| Pattern | Set SEO Pattern | `PATCH /seo-patterns/{pageType}` |
+| Pattern | Create SEO Pattern | `POST /seo-patterns/{pageType}` |
+| Pattern | Reset SEO Pattern To Default | `POST /seo-patterns/{pageType}/reset-to-default` |
+| Item | List Item SEO Tags | `GET /item-seo-tags/{itemType}` |
+| Item | Get Item SEO Tags | `GET /item-seo-tags/{itemType}/{itemId}` |
+| Item | Set Item SEO Tags | `PATCH /item-seo-tags/{itemType}/{itemId}` |
+| Item | Bulk Set Item SEO Tags | `POST /bulk/item-seo-tags/set` |
+| Item | Reset Item SEO Tags To Default | `POST /item-seo-tags/{itemType}/{itemId}/reset-to-default` |
+
+`Set` takes a `fieldMask` naming the properties to change (`tags`,
+`focusKeywords` for an item; `pattern` for a pattern). Read the current value
+first, then send the complete set:
+
+```json
+PATCH /item-seo-tags/STORES_PRODUCT/{itemId}
+{
+  "itemSeoTags": {
+    "tags": [
+      { "type": "title", "children": "Winter collection | Ceramics studio" },
+      { "type": "meta", "props": {
+          "name": "description",
+          "content": "Stoneware mugs and bowls, thrown and glazed by hand." } }
+    ]
+  },
+  "fieldMask": "tags"
+}
+```
+
+A tag is `{type, props, children}`: `title` and `script` carry their text in
+`children`; `meta` and `link` carry theirs in `props` (`name`/`content` for a
+meta tag, `rel`/`href` for a link). The response returns the updated `tags` plus
+`resolvedTags`.
+
+Bulk writes take one `itemType` and an entry per item, each with its own
+`fieldMask`, and return a result per entry:
+
+```json
+POST /bulk/item-seo-tags/set
+{
+  "itemType": "STATIC_PAGE",
+  "returnEntity": true,
+  "entries": [
+    { "itemId": "c1dmp",
+      "itemSeoTags": { "tags": [ { "type": "title", "children": "Winter collection" } ] },
+      "fieldMask": "tags" }
+  ]
+}
+```
 
 ## Discover, never invent
 

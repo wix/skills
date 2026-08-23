@@ -8,7 +8,7 @@ triggerPrompt: >-
   "Handmade Ceramic Mug | Studio Shop" and its meta description to
   "A stoneware mug thrown and glazed by hand in our studio." Then show me what that product
   page will actually render with.
-tags: [aria, stores]
+tags: [seo, stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
