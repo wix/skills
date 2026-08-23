@@ -43,12 +43,23 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the Wix MCP let the agent fulfill the SEO tag update. Examine the tool-call
-      trace. Score 0-10 (10 = direct: item discovery, one read, one complete-set write, one
-      verification read, no wasted calls or errors). Penalize and list any guessed item ID or item
-      type, request shape guessed wrong then corrected, redundant probing call, write issued
-      without first reading the current tags, duplicate write, or recovered non-2xx error. For each
-      problem, name the likely skill, MCP, or docs gap.
-      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
+      trace. Score 0-10 (10 = direct: item discovery, one read, one complete-set write, report from
+      the write response, no wasted calls or errors).
+
+      HEAVY penalties (each costs 2-3 points):
+      - write issued without first reading the current tags
+      - guessed or fabricated item ID or item type
+      - duplicate write (same target written more than once)
+      - claimed success without verifying the outcome
+
+      LIGHT penalties (each costs at most 1 point):
+      - recovered non-2xx error caused by an MCP tool or docs gap, not by the recipe
+      - redundant documentation search before the first API call
+      - request shape guessed wrong then corrected (if the docs rendered the type ambiguously)
+
+      For each friction, name the likely cause: skill, MCP, or docs gap. A clean-but-slow path that
+      hits only light penalties should still score 7+.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected cause, or 'clean path' if none>"}.
 siteSetup:
   mode: template
   templateId: stores-v3-editor
