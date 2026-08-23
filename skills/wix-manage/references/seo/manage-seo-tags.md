@@ -168,7 +168,9 @@ value one level down — not the Wix built-in.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
   them is; say so instead of retrying.
 
-Load the method's reference article before constructing requests so paths, field
-names, masks, permissions, and error schemas come from the live contract. Read
-the one method you are about to call rather than searching broadly, and do not
-re-read what this recipe already states.
+This recipe carries everything needed for the common flows: the URL pattern,
+field masks, tag shapes, and `resolvedTags` structure. Do not read the
+method's reference article or search the API schemas before constructing
+requests — build the request from what is above. Read the reference article
+only when you hit an error this recipe does not cover, or when the user asks
+about a field or behavior not documented here.
