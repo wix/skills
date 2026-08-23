@@ -10,7 +10,7 @@ triggerPrompt: >-
   nothing happens — no redirect, no error, they just stay on the same page.
   No new order shows up. What's going on?
 tags: [get-paid, stores]
-maxTokens: 30000
+maxTokens: 300000
 assertions:
   - tool: ReadFullDocsArticle
     params:
