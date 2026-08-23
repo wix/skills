@@ -71,7 +71,7 @@ const url = useCurrentUrl();
 const slug = new URL(url).pathname.split('/').pop() ?? '';
 ```
 
-Guard for the slug being absent — the owner can drop the component on any page, not just a product page.
+Guard for the slug being absent — the owner can drop the component on any page, not just a product page. And `useCurrentUrl()` carries the ≥ 1.12.0 requirement noted at the top of this file; on an older pin it fails as `TS2305: has no exported member 'useCurrentUrl'`.
 
 ### Read Values During Render
 

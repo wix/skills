@@ -2,12 +2,14 @@
 
 ## Get a single product
 
-**The response shape differs per method** — unwrapping the wrong one puts `TS2339` on every field you then read.
+**V3 reads return a response object; `getProduct` is the exception that hands back the product itself.** Unwrapping the wrong one puts `TS2339` on every field you then read.
 
 | Call | Returns |
 |---|---|
-| `productsV3.getProduct(id)` | the product **directly** |
+| `productsV3.getProduct(id)` | the product **directly** — the exception |
 | `productsV3.getProductBySlug(slug)` | **wrapped** — `{ product }` |
+| `productsV3.searchProducts(opts)` | **wrapped** — `{ products, pagingMetadata }` |
+| `productsV3.countProducts()` | **wrapped** — `{ count }` |
 | `products.getProduct(id)` (V1) | **wrapped** — `{ product }` |
 
 ```typescript
@@ -21,7 +23,7 @@ return product;
 
 ### By slug
 
-Use this when you have a slug rather than an id — typically an Editor React Component that resolved the product from the page URL, since it gets no product context of its own. (A **site plugin** does get the id directly, from `widget.getProp('product-id')` — prefer `getProduct`.) This is the one V3 read that wraps its result.
+Use this when you have a slug rather than an id — typically an Editor React Component that resolved the product from the page URL, since it gets no product context of its own. (A **site plugin** does get the id directly, from `widget.getProp('product-id')` — prefer `getProduct`.)
 
 ```typescript
 const res = await productsV3.getProductBySlug(slug);

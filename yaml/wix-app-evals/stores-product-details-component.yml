@@ -4,7 +4,7 @@ triggerPrompt: |-
   Build an Editor React Component that a site owner can place on their Wix Stores product page to show extra details for the product on that page: each product option with its choice labels and swatch colours, whether each variant is in stock, and the product description as plain text.
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
-tags: [stores-versioning, get-product, site-context-hooks, editor-react-component]
+tags: [stores, stores-versioning, editor-react-component]
 assertions:
   - type: skill_was_called
     negate: false
