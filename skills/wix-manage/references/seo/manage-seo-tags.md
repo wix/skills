@@ -45,14 +45,19 @@ explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
 
 All three APIs live under the **SEO** category of the Wix REST API reference.
-Read the chosen method's own reference article to build the request; these are
-the methods each level has:
+Read the method you need directly from its reference article — do not search
+for it. The reference article URLs follow a fixed pattern:
 
-| Level | Methods |
-|---|---|
-| Site | Get Site SEO Tags, Set Site SEO Tags |
-| Pattern | Get SEO Pattern, List SEO Patterns, List SEO Pattern Variables, Create SEO Pattern, Set SEO Pattern, Reset SEO Pattern To Default |
-| Item | Get Item SEO Tags, List Item SEO Tags, Set Item SEO Tags, Bulk Set Item SEO Tags, Reset Item SEO Tags To Default |
+`https://dev.wix.com/docs/api-reference/business-management/seo/{api}/` + method slug
+
+| Level | API slug | Methods (slug) |
+|---|---|---|
+| Site | `site-seo-tags-v1` | Get Site SEO Tags (`get-site-seo-tags`), Set Site SEO Tags (`set-site-seo-tags`) |
+| Pattern | `seo-pattern-v1` | Get SEO Pattern (`get-seo-pattern`), List SEO Patterns (`list-seo-patterns`), List SEO Pattern Variables (`list-seo-pattern-variables`), Create SEO Pattern (`create-seo-pattern`), Set SEO Pattern (`set-seo-pattern`), Reset SEO Pattern To Default (`reset-seo-pattern-to-default`) |
+| Item | `item-seo-tags-v1` | Get Item SEO Tags (`get-item-seo-tags`), List Item SEO Tags (`list-item-seo-tags`), Set Item SEO Tags (`set-item-seo-tags`), Bulk Set Item SEO Tags (`bulk-set-item-seo-tags`), Reset Item SEO Tags To Default (`reset-item-seo-tags-to-default`) |
+
+For example, to read Set Item SEO Tags:
+`https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/set-item-seo-tags`
 
 `Set` takes a `fieldMask` naming the properties to change (`tags`,
 `focusKeywords` for an item; `pattern` for a pattern). Its shape differs by
