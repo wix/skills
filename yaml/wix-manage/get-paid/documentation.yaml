@@ -18,3 +18,7 @@ apiDoc:
       title: Get Paid Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid]
+    - file: ../../../skills/wix-manage/references/get-paid/get-paid-troubleshoot-checkout-unresponsive-button.md
+      title: "Get Paid: Checkout Payment Button Unresponsive"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/abandoned-checkout/introduction
+      tags: [get-paid, stores]
