@@ -8,6 +8,8 @@ This recipe is for reports like *"customers can't complete checkout,"* *"payment
 
 > **Read this first if the complaint singles out one payment method.** "Cards work, Apple Pay doesn't" (or vice versa) is very often **not** a bug at all — see [Step 3](#step-3--if-only-one-payment-method-fails-check-the-providers-declared-capabilities-first). Skipping straight to "the platform is broken" here wastes the owner's time chasing the wrong fix.
 
+> **A known false lead: don't chase a "failed to import ecom-platform-providers" (or similar) browser console warning.** If the report cites a JS console error/warning like `ContextProviderFactory: failed to import "ecom-platform-providers", rendering children without provider` as the cause of a checkout/payment failure, that warning is an **expected, benign fallback** — it fires whenever a Builder-only editor-context module (used to expose checkout data to site-plugin slots, e.g. a Loyalty Program checkout widget) isn't published for the current runtime. This happens on essentially every non-Wix-Studio (classic Editor) site's checkout, **working or broken**, and only affects that one slot's plugin — never core checkout, place-order, or payment-provider invocation. Two separate reports have already misdiagnosed this exact log line as blocking payments; skip it and go straight to Step 1.
+
 ## Step 1 — Pull the failing transactions
 
 Use [Transactions List](https://dev.wix.com/docs/api-reference/business-management/payments/cashier/payments/transaction/transactions-list) (`GET https://www.wixapis.com/payments/api/merchant/v2/transactions`), filtered to a recent time window, to find the failed attempts. For each failed transaction, note:
