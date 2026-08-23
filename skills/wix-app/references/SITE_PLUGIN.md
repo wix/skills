@@ -324,14 +324,14 @@ Site plugins can import and use Wix SDK modules directly — you do NOT need `cr
 ```typescript
 // ✅ CORRECT — Import SDK modules directly
 import { items } from "@wix/data";
-import { currentCart } from "@wix/ecom";
+import { currentCartV2 } from "@wix/ecom";
 import { products } from "@wix/stores";
 
 class MyPlugin extends HTMLElement {
   async loadData() {
     // Call SDK methods directly — no createClient needed
     const result = await items.query("MyCollection").find();
-    const cart = await currentCart.getCurrentCart();
+    const { cart } = await currentCartV2.getCurrentCart();
     const productList = await products.queryProducts().limit(10).find();
   }
 }
