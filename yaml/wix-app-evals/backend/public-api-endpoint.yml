@@ -1,0 +1,30 @@
+name: backend/public-api-endpoint
+description: A custom HTTP endpoint is a file under src/pages/api with typed APIRoute exports — the one extension type the CLI does NOT scaffold and that needs no extensions.ts registration.
+triggerPrompt: |-
+  My app needs an HTTP endpoint an external system can call: GET /api/reservations/:id returns one reservation as JSON, and POST /api/reservations creates one from a JSON body with name, email and partySize. Return proper status codes for a missing id, a malformed body and a reservation that doesn't exist.
+  APP_NAMESPACE: "@evalforge/reserve-b19dqx", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeReserveB19dqx" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeReserveB19dqx"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [backend-api, data-collection]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BACKEND_API.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built the endpoints correctly. Check: (1) Files live under `src/pages/api/` with `.ts` extensions, and the dynamic route uses bracket syntax (`src/pages/api/reservations/[id].ts` → `/api/reservations/:id`). (2) Handlers are named exports (`export const GET`/`POST`) typed with `APIRoute` from `astro`, each returning a `Response`. (3) The GET reads `params.id`, returns 400 when it is missing and 404 when no reservation matches. (4) The POST parses the JSON body, validates name/email/partySize and returns 400 with a JSON error on malformed input, 200/201 with the created record otherwise. (5) Responses set `Content-Type: application/json` and persistence uses the app-scoped collection id `@evalforge/reserve-b19dqx/<suffix>` with `auth.elevate` where required. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that outcome. Examine the tool-call trace. Score 0-10 (10 = direct). Penalize and LIST any of: attempting `wix generate` / `npm run generate` for the endpoint (Backend API is the one type the CLI does not scaffold — a failed generate call that had to be abandoned is a real friction, name it); hand-adding an `src/extensions.ts` registration or a builder file for the endpoint (it is auto-discovered from the file system); putting the files anywhere other than `src/pages/api/`; using the legacy "HTTP functions" API from the old CLI; a failed build or typecheck recovered later. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 1.5

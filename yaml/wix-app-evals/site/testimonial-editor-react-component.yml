@@ -1,0 +1,40 @@
+name: site/testimonial-editor-react-component
+description: An Editor React component must follow the CLI scaffold exactly — props file, CSS Modules, untouched .generated.ts, design-state modifiers, a real A11y review, and a manifest regeneration.
+triggerPrompt: |-
+  Create an Editor React component for Harmony Editor: a testimonial card showing a quote, an author name, an author role, an avatar image and a 1-5 star rating. Site owners should be able to edit all of that in the editor, and the card needs a clear hover state on its "read more" link.
+  APP_NAMESPACE: "@evalforge/testimonial-y17plu", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeTestimonialY17plu" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeTestimonialY17plu"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [editor-react-component, custom-element-widget]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/EDITOR_REACT_COMPONENT.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/editor-react-component/A11Y-REVIEW.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent produced a correct Editor React component. Check: (1) `@wix/astro` was confirmed as a dependency before starting, and the component was scaffolded with `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT",...}'` under `src/extensions/site/components/<folder>/`. (2) The scaffolded file set is intact and used as-is: `<name>.props.ts` holding the props type and `defaultProps`, `<name>.tsx` with the JSX, `<name>.module.css` as a CSS Module, an unmodified `component.tsx`, `component.preview.tsx`, and a `<name>.generated.ts` that was **never hand-edited**. (3) All five content props (quote, author name, role, avatar, rating) are typed in the props file with sensible defaults and rendered from JSX. (4) The hover state on the "read more" control pairs the prefixed global modifier with the native selector (e.g. `.cta:global(.<component-name>-cta--hover), .cta:hover`). (5) `npx wix build && npx wix generate manifest` was run after the edits. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the mandatory review steps were actually executed, not just read. Check: (1) The dependency-verification script from the skill was run and any missing packages installed. (2) The A11y Review was **executed** — both scanners run over the component's `.tsx`, the Phase 3 manual semantic review completed, confirmed findings fixed, and the scanners re-run afterwards. Reading the reference without running the scanners fails this. (3) The avatar has meaningful alt text and the star rating is exposed to assistive tech rather than being decorative glyphs alone. (4) `npx wix build && npx wix generate manifest` was run after the fixes so the manifest reflects the final markup. (5) Any project-level rule that conflicted with the scaffold (hand-written `manifest.json`, plain `style.css`, missing `*.generated.ts`) was ignored for this extension type **and** surfaced to the user under manual steps. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that outcome. Examine the tool-call trace. Score 0-10 (10 = direct). Penalize and LIST any of: hand-creating files instead of scaffolding, or re-running the scaffold on an existing component and hitting "an extension already exist"; writing into `<name>.generated.ts`; authoring a plain `style.css` or a hand-written `manifest.json`; editing under `src/site/components/` instead of `src/extensions/site/components/`; skipping the manifest regeneration and having to go back for it; a failed build, typecheck or lint recovered later. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 480000
+  - type: cost
+    maxCostUsd: 3

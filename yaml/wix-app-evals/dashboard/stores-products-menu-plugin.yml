@@ -1,0 +1,40 @@
+name: dashboard/stores-products-menu-plugin
+description: A menu item in a Wix Stores dashboard more-actions menu is a configuration-only Dashboard Menu Plugin whose action names exactly one of pageId/modalId — and only the Stores vertical slot file should be read.
+triggerPrompt: |-
+  Add a "Sync to warehouse" item to the more actions menu on the Wix Stores Products page in my dashboard. Clicking it should open a popup where the store owner confirms the sync. Nothing else in the app should change.
+  APP_NAMESPACE: "@evalforge/whsync-m52bqe", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeWhsyncM52bqe" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeWhsyncM52bqe"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [dashboard-menu-plugin, dashboard-modal, dashboard-plugin]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_MENU_PLUGIN.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/dashboard-menu-plugin/stores-slots.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/dashboard-menu-plugin/blog-slots.md, references/dashboard-menu-plugin/bookings-slots.md, references/dashboard-menu-plugin/restaurants-slots.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built a working Stores products more-actions menu item. Check: (1) A `DASHBOARD_MENU_PLUGIN` extension was scaffolded via `wix generate --params`, and it is configuration-only — **no React component file for the menu plugin itself**. (2) `extendsSlotId` is a real Wix Stores products-page more-actions slot ID from the Stores slot reference, not invented. (3) `action` contains **exactly one** of `pageId` / `modalId` — here a `modalId` pointing at the `id` of a Dashboard Modal extension that actually exists in the project. (4) That Dashboard Modal was scaffolded too and implements the confirm/cancel dialog. (5) `iconKey` is a real icon name from `@wix/wix-ui-icons-common`, looked up rather than guessed. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that outcome. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted reads, no rework). Penalize and LIST any of: reading slot files for verticals other than Wix Stores (the skill says read only the matching vertical); confusing a dashboard **menu** plugin with a dashboard **plugin** and scaffolding the wrong type; writing a React component for the menu plugin; putting both `pageId` and `modalId` in `action`, or referencing a modal/page id that does not exist; guessing an `iconKey` from memory instead of looking it up via the `wix-design-system` skill; a failed build or typecheck recovered later. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 1.5

@@ -1,0 +1,35 @@
+name: site/product-page-site-plugin
+description: Adding UI into a fixed slot on a Wix Stores product page is a SITE_PLUGIN — colon-joined slotId, HTMLElement element file, and a panel driven by widget.getProp/setProp.
+triggerPrompt: |-
+  On the Wix Stores product page, show a "ships in 24h" trust badge underneath the add-to-cart area. The site owner should be able to edit the badge text and turn it off from the editor panel, and the badge should only appear for the product currently on the page.
+  APP_NAMESPACE: "@evalforge/trustbadge-w40hcs", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeTrustbadgeW40hcs" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeTrustbadgeW40hcs"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [site-plugin, custom-element-widget]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/SITE_PLUGIN.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/site-plugin/SLOTS.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built a working Stores product-page site plugin. Check: (1) A `SITE_PLUGIN` extension was scaffolded via `wix generate --params`, producing all three files (plugin `.tsx`, panel `.tsx`, builder) plus the logo and `src/extensions.ts` registration. (2) `slotId` is the colon-joined `<componentId>:<slotId>` form for a real Wix Stores product-page slot, taken from the slots reference or `wix schema generate --type SITE_PLUGIN` — not invented. (3) The plugin element extends `HTMLElement`, declares kebab-case `observedAttributes`, and renders from `connectedCallback`/`attributeChangedCallback` with defaults for missing attributes. (4) The panel uses WDS inside `WixDesignSystemProvider > SidePanel > SidePanel.Content` and reads/writes with `widget.getProp('kebab-case-name')` / `widget.setProp('kebab-case-name', value)` from `@wix/editor`. (5) The plugin uses the slot's `productId` plugin API property so the badge reflects the current product, and the off-switch actually suppresses rendering. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that outcome. Examine the tool-call trace. Score 0-10 (10 = direct). Penalize and LIST any of: choosing a custom element widget or an Editor React component instead of a site plugin (this one targets a fixed slot on a Wix app page); a `slotId` that is not the colon-joined `<componentId>:<slotId>` form, or one guessed rather than looked up; camelCase prop names in `getProp`/`setProp` or in `observedAttributes`; a `marketData.description` of 130 characters or more; hand-writing the builder file, logo or `src/extensions.ts` entry; a failed build or typecheck recovered later. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 360000
+  - type: cost
+    maxCostUsd: 2

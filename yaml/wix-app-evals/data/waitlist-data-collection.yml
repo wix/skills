@@ -1,0 +1,35 @@
+name: data/waitlist-data-collection
+description: A pure storage request is a DATA_COLLECTION extension only — correct field types, namespace-scoped ids and PRIVILEGED write permissions, with no dashboard page invented on top.
+triggerPrompt: |-
+  Add storage to my app for a product waitlist. Each entry has the visitor's email, the product they're waiting for, the date they joined, whether they've been notified, and an optional note. Site visitors must be able to join the waitlist from the site, but only the site owner should be able to read, edit or remove entries. Don't build any UI for it yet — just the storage.
+  APP_NAMESPACE: "@evalforge/waitlist-r58gmh", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeWaitlistR58gmh" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeWaitlistR58gmh"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [data-collection, dashboard-page]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent modelled the waitlist collection correctly. Check: (1) A `DATA_COLLECTION` extension was scaffolded via `wix generate --params` with a valid `collectionName`, and the shared `data-collections.extension.ts` aggregator plus `src/extensions.ts` were left to the CLI — not hand-edited. (2) The placeholder `fields` were replaced with the real schema and the types fit the data (`TEXT`/`URL` for email, `DATETIME` or `DATE` for the join date, `BOOLEAN` for notified, `TEXT` for the note). (3) `idSuffix` is the bare suffix, while any example API call uses the full scoped id `@evalforge/waitlist-r58gmh/<suffix>` matching `idSuffix` exactly — no camelCase or PascalCase drift. (4) `dataPermissions` match the request: insert allowed for site visitors, read/update/remove restricted to `PRIVILEGED`. (5) `displayField` and any needed `indexes` are set sensibly. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent stayed inside the request. Examine the tool-call trace and the final tree. Score 0-10 (10 = direct: exactly the one extension asked for). Penalize and LIST any of: **creating a dashboard page, modal or any UI extension the user explicitly said not to build** (caps the score at 3); hand-editing the aggregator file or `src/extensions.ts`; inventing an app namespace instead of using the one in the prompt, or leaving `<app-namespace>` placeholders without listing the replacement as a manual action item; a permissions setup that lets anyone edit or delete entries; a failed build or typecheck recovered later; probing reads a clearer skill would avoid. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 240000
+  - type: cost
+    maxCostUsd: 1.5

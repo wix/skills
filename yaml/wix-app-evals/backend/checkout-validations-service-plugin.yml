@@ -1,0 +1,35 @@
+name: backend/checkout-validations-service-plugin
+description: A checkout rule that blocks or warns is an ECOM_VALIDATIONS service plugin returning documented violations with the right severity — not a shipping, discount or event extension.
+triggerPrompt: |-
+  Block checkout when the cart total is under $25, telling the buyer how much more they need to add. Also warn — but don't block — when the cart contains more than 20 units of a single item, in case it was a mistake.
+  APP_NAMESPACE: "@evalforge/cartrules-h63yjs", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeCartrulesH63yjs" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeCartrulesH63yjs"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [service-plugin, backend-event]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/SERVICE_PLUGIN.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/service-plugin/VALIDATIONS.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent implemented the two checkout rules correctly. Check: (1) A `SERVICE_PLUGIN` extension with `pluginType: ECOM_VALIDATIONS` was scaffolded via `wix generate --params`. (2) `validations.provideHandlers({ getValidationViolations })` from `@wix/ecom/service-plugins` is implemented and returns the documented `violations` shape. (3) The under-$25 rule produces a blocking violation (`Severity.ERROR`) whose description states the remaining amount; the boundary ($25 exactly) is allowed through. (4) The >20-units rule produces a `Severity.WARNING` violation targeted at the offending line item, not a blocking one. (5) Empty carts, missing totals and missing line items are handled without throwing. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that implementation. Examine the tool-call trace. Score 0-10 (10 = direct). Penalize and LIST any of: **editing handler code before calling `ReadFullDocsMethodSchema` on the getValidationViolations docs URL** (mandatory in the skill — caps the score at 3); choosing the wrong extension type (a backend event, a discount trigger, or a backend API endpoint instead of the validations SPI); inventing violation/severity field names then correcting them; reading service-plugin reference files for SPIs this task does not use; a failed build or typecheck recovered later; redundant probing calls a clearer skill would avoid. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 1.5

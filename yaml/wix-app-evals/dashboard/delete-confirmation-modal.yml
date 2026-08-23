@@ -1,0 +1,35 @@
+name: dashboard/delete-confirmation-modal
+description: A destructive-action confirmation on a dashboard page must be a Dashboard Modal extension driven by openModal/observeState/closeModal — not a WDS <Modal /> rendered inside the page.
+triggerPrompt: |-
+  Build a dashboard page that lists my saved discount campaigns in a table, with a "Delete" action on each row. Deleting must ask the user to confirm first, showing the campaign name in the confirmation dialog, and only delete once they confirm.
+  APP_NAMESPACE: "@evalforge/campaigns-a71kdp", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeCampaignsA71kdp" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeCampaignsA71kdp"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [dashboard-modal, dashboard-page, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_MODAL.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built a working delete-with-confirmation flow. Check: (1) A dashboard page lists campaigns and each row has a delete action. (2) A separate Dashboard Modal extension exists, scaffolded via `wix generate --params '{"extensionType":"DASHBOARD_MODAL",...}'` — folder, .tsx, config file, builder file and the `src/extensions.ts` registration all came from the CLI, none of them hand-written. (3) The page opens it with `dashboard.openModal({ modalId, params })` and passes the campaign name/id through `params`. (4) The modal reads those params with `dashboard.observeState()` and closes with `dashboard.closeModal({ confirmed: true|false })` — a structured-clone-safe payload, no functions or class instances. (5) The opener awaits `modalClosed` and only deletes when the result says confirmed. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent reached that outcome. Examine the tool-call trace and the final code. Score 0-10 (10 = direct: right extension type first try, no rework). Penalize and LIST any of: a WDS `<Modal />` or a hand-rolled React modal rendered inside the dashboard page (a Dashboard Page cannot use `<Modal />` — this alone caps the score at 3); using `extensionId` instead of `modalId` in `openModal()`; reading the modal params by any means other than `dashboard.observeState()`; hand-writing any file or UUID the CLI scaffolds; a build or typecheck error that had to be recovered from; redundant or probing calls that clearer skill/docs content would have avoided. For each item, name the likely skill or docs gap behind it. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 1.5

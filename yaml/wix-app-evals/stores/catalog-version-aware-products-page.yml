@@ -1,0 +1,40 @@
+name: stores/catalog-version-aware-products-page
+description: Any Stores flow must detect the catalog version first and implement both V1 and V3 paths — cursor paging on V3, no sort on V3 product queries, and both permission sets reported.
+triggerPrompt: |-
+  Build a dashboard page that lists the products in the connected store — name, price and stock status — with paging, so the owner can browse the whole catalog. It has to work on any site my app is installed on.
+  APP_NAMESPACE: "@evalforge/catalog-n26vte", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeCatalogN26vte" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeCatalogN26vte"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [stores, stores-versioning, dashboard-page, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/STORES_VERSIONING.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/stores/QUERY.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent handled Stores catalog versioning correctly. Check: (1) `catalogVersioning.getCatalogVersion()` is called **before any other Stores operation**, its result cached, and `STORES_NOT_INSTALLED` handled gracefully (empty results, no throw). (2) **Both** code paths exist: V1 via `products` and V3 via `productsV3` — a single-version implementation fails this outright. (3) Paging matches the version: V1 offset (`.skip(n)`, `totalCount` available), V3 cursor (`.skipTo(cursor)`, `cursors.next` + `hasNext()`, **no "page X of Y" UI** since V3 has no total). (4) Field access is version-correct: V1 `priceData.price` vs V3 `variantsInfo.variants[i].price.actualPrice.amount`; V3 prices are strings; V3 enums are UPPER_CASE; stock status compared as UPPER_SNAKE_CASE on both. (5) The required scopes are reported back to the user, including `SCOPE.STORES.CATALOG_READ_LIMITED` plus both the V1 and V3 read scopes. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the dashboard page itself. Check: (1) The products list is a `@wix/patterns` `Table`/`Grid` driven by a collection state hook inside a `CollectionPage` shell — not a hand-written `<table>` or a manually assembled WDS table. (2) The patterns provider lives in a parent component, in a separate file from the one calling the collection hook. (3) Paging is wired through the patterns collection state rather than reimplemented by hand. (4) `@wix/design-system` supplies only leaf UI, and `@wix/design-system/styles.global.css` is imported in the main component entry file only. (5) No `@wix/auto-patterns` import and no `patterns.json` anywhere in the project. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent got there. Examine the tool-call trace. Score 0-10 (10 = direct). Penalize and LIST any of: passing `sort` to a V3 product query (TypeScript accepts it but real V3 sites fail with "Field '_createdDate' is not declared as sortable" — the skill says omit it); using `.skip()` on a V3 query or expecting `totalCount` from one; writing the V1 path first and retrofitting V3 (or vice versa) rather than branching from the start; guessing V3 field paths and correcting them after a type error; writing JSX before enumerating `node_modules/@wix/patterns/dist/docs/index.json`; a failed build or typecheck recovered later. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 480000
+  - type: cost
+    maxCostUsd: 3
