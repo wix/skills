@@ -9,7 +9,7 @@ triggerPrompt: >-
   immediately with no error shown. Both go through the same connected payment
   provider. Is this a bug on Wix's end?
 tags: [get-paid, stores]
-maxTokens: 30000
+maxTokens: 300000
 assertions:
   - tool: ReadFullDocsArticle
     params:
