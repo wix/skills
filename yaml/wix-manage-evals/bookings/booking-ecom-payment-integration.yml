@@ -1,0 +1,37 @@
+name: bookings/booking-ecom-payment-integration
+description: >-
+  Verifies the agent reads the booking system integration gaps reference and explains
+  the undocumented booking-to-ecommerce payment pattern using the Cart V2 flow.
+triggerPrompt: >-
+  I created a paid appointment booking through the Wix Bookings API, but I don't see how
+  the customer actually pays. Why do bookings need the ecommerce APIs, and what is the
+  exact sequence of calls to take payment for a booking? Just written REST instructions,
+  no live API call.
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/booking-system-integration-gaps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has a paid booking and wants to know why ecommerce APIs are needed and the exact
+      call sequence to take payment. Evaluate both the final response and any Wix API/tool calls made.
+      Intent: explain the undocumented Bookings -> Ecommerce integration and the Cart V2 payment flow.
+
+      Pass if the response:
+      - explains the booking system only reserves the time slot and the ecommerce system handles all
+        pricing, tax, and payment, AND
+      - uses the booking ID as the ecom `catalogItemId` (with the Wix Bookings appId in the catalogReference), AND
+      - creates a cart via `POST /ecom/v2/carts` with `catalogItems`, AND
+      - calculates the cart to obtain a `priceVerificationToken` and then places the order via
+        `POST /ecom/v2/carts/{cartId}/place-order` passing that token, AND
+      - states that booking status (CONFIRMED) is independent of payment/order status.
+
+      Fail if the response:
+      - uses Checkout V1 (e.g. `/ecom/v1/checkouts`, a create-checkout step, `createOrder`, or `lineItems`
+        instead of `catalogItems`), OR
+      - claims the Bookings API processes the payment itself, OR
+      - omits the create-cart or place-order step, OR
+      - ties booking confirmation directly to payment success.

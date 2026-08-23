@@ -16,7 +16,7 @@ export function CartProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   // The cart helpers throw on refusal with a buyer-readable reason — an empty cart, or line items
-  // whose availability.status isn't AVAILABLE. Hold the message so the drawer can show it; without
+  // whose status isn't IN_STOCK. Hold the message so the drawer can show it; without
   // this the rejection is unhandled and the shopper sees the spinner stop with nothing said.
   const [error, setError] = useState(null);
 
@@ -28,7 +28,7 @@ export function CartProvider({ children }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refreshCart]);
 
-  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantity || 0), 0);
+  const itemCount = (cart?.lineItems ?? []).reduce((n, li) => n + (li.quantityInfo?.confirmedQuantity || 0), 0);
 
   // Every mutation runs through here so a rejection always lands somewhere visible. `run` keeps the
   // cart untouched on failure — the server stays the source of truth — and re-reads it for anything
