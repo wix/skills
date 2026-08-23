@@ -314,6 +314,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Upload Media to Wix](references/media/upload-media-to-wix.md)
 **Technical:** Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
 
+### [Set Image Alt Text](references/media/set-image-alt-text.md)
+**Technical:** MANDATORY read before attempting to set an image's alt text. The raw Media Manager file has no writable `altText` — `UpdateFileDescriptor` with `media` in its `fieldMask` returns 200 but silently no-ops. Alt text is only writable per-placement: Stores product media (Catalog V3), Blog post `heroImage`, Rich Content image/gallery nodes, and Pro Gallery items. No API exists for a page Image component's alt text. Use for "set alt text for this image", "add accessibility text to my images", or "update image alt attribute".
+
 ---
 
 ## Pricing Plans
