@@ -45,6 +45,13 @@ Handle `STORES_NOT_INSTALLED` gracefully — return empty results, do not throw.
 | Info sections | inline `additionalInfoSections` | `infoSectionsV3` |
 | Subscriptions | dedicated subscriptions API | inline `subscriptionDetails` on product |
 
+`@wix/stores` exports **namespaces, not types**. Reach types through the namespace — `import { V3Product } from '@wix/stores'` is `TS2724`.
+
+```typescript
+import { productsV3 } from '@wix/stores';
+type Product = productsV3.V3Product;  // ✅
+```
+
 ---
 
 ## Permissions
@@ -78,6 +85,7 @@ Handle `STORES_NOT_INSTALLED` gracefully — return empty results, do not throw.
 9. **V3 paging is cursor-only — no offset, no total count.** The V3 builder uses `.skipTo(cursor)` (not V1's `.skip(n)`), and the result has `cursors.next` + `hasNext()` but no `totalCount`. Don't build "page X of Y" UI for V3 — use Next/Previous.
 10. **V3 product sort fields fail at runtime even when TypeScript accepts them.** TS allows `'_createdDate' | '_updatedDate' | 'slug' | 'visible'`, but real V3 sites return `Field '_createdDate' is not declared as sortable`. **Omit `sort` on V3 product queries** unless verified on a live V3 site.
 11. **Stock status is UPPER_SNAKE_CASE on both versions** — `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK`, plus `PREORDER` on V3. Never compare against lowercase.
+12. **`description` is a `RichContent` document in V3, not a string.** String methods on it are `TS2339` (`Property 'replace' does not exist on type 'RichContent | ""'`). For plain text read `plainDescription` instead.
 
 ---
 
@@ -93,7 +101,10 @@ For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.co
 | `priceData.currency` | `currency` (top-level, requested field) |
 | `sku`, `weight` (single variant) | `variantsInfo.variants[0].sku` / `physicalProperties.weight` |
 | `stock.quantity`, `stock.trackInventory` | Inventory Items API (`inventoryItemsV3`) |
-| `stock.inventoryStatus` | `inventory.availabilityStatus` |
+| `stock.inventoryStatus` (product-level) | `inventory.availabilityStatus` |
+| `variants[i].stock.inStock` | `variantsInfo.variants[i].inventoryStatus.inStock` — the variant field is `inventoryStatus`; `variant.inventory` does not exist (`TS2339`) |
+| `productOptions[i].choices` | `options[i].choicesSettings.choices` — nested in V3; see [stores/GET_PRODUCT.md](stores/GET_PRODUCT.md) |
+| `description` (HTML string) | `description` is a `RichContent` document; `plainDescription` is the string form |
 | `productType: "physical"` | `productType: "PHYSICAL"` (upper-case) |
 | `additionalInfoSections[i]` | `infoSections[i]` (now requires `uniqueName`) |
 | `customTextFields[i]` | `modifiers[i]` with `freeTextSettings` |
@@ -125,7 +136,7 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 ## Detailed references
 
 - [stores/QUERY.md](stores/QUERY.md) — list/query products, pagination, price and stock display
-- [stores/GET_PRODUCT.md](stores/GET_PRODUCT.md) — getProduct, options/choices, modifiers, variant choices
+- [stores/GET_PRODUCT.md](stores/GET_PRODUCT.md) — getProduct, getProductBySlug and per-method response shapes, options/choices, modifiers, variant choices
 - [stores/WRITE.md](stores/WRITE.md) — create, update, delete products
 - [stores/INVENTORY.md](stores/INVENTORY.md) — inventory read and write operations
 - [stores/CATEGORIES.md](stores/CATEGORIES.md) — collections (V1) ↔ categories (V3)

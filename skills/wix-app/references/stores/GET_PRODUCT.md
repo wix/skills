@@ -2,6 +2,14 @@
 
 ## Get a single product
 
+**The response shape differs per method** — unwrapping the wrong one puts `TS2339` on every field you then read.
+
+| Call | Returns |
+|---|---|
+| `productsV3.getProduct(id)` | the product **directly** |
+| `productsV3.getProductBySlug(slug)` | **wrapped** — `{ product }` |
+| `products.getProduct(id)` (V1) | **wrapped** — `{ product }` |
+
 ```typescript
 if (v === 'V3_CATALOG') {
   const product = await productsV3.getProduct(id);  // returns Product directly
@@ -9,6 +17,16 @@ if (v === 'V3_CATALOG') {
 }
 const { product } = await products.getProduct(id);  // V1 wraps in { product }
 return product;
+```
+
+### By slug
+
+A site plugin on a product page has the **slug**, not the id. This is the one V3 read that wraps its result.
+
+```typescript
+const res = await productsV3.getProductBySlug(slug);
+const product = res.product!;  // product is optional in the raw type; ! matches SDK's strict-mode guarantee
+// ❌ res.variantsInfo / res.currency / res.inventory — all TS2339; every field lives on res.product
 ```
 
 ---
@@ -46,7 +64,7 @@ if (v === 'V3_CATALOG') {
 }
 ```
 
-**In a site plugin on a product page**: get `productId` from `widget.getProp('product-id')`, then call the appropriate version's `getProduct` — same pattern as above.
+**In a site plugin on a product page**: get `productId` from `widget.getProp('product-id')`, then call the appropriate version's `getProduct` — same pattern as above. When you have the slug instead of the id, use [`getProductBySlug`](#by-slug) and mind the wrapper.
 
 ---
 
