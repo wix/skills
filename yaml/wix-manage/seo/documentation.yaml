@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix SEO Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/seo/manage-url-redirects.md
+      title: Manage URL Redirects on a Wix Site
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/redirects
+      tags: [seo]
+    - file: ../../../skills/wix-manage/references/seo/manage-seo-tags.md
+      title: Manage a Wix Site's SEO Tags
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1
+      tags: [seo]

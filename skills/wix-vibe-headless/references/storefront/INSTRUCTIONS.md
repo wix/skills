@@ -237,6 +237,8 @@ render.
 
 ## Using the client from your own UI (cart, hand-built images)
 
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
+
 ```jsx
 import { Link } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
@@ -246,15 +248,20 @@ import { useCart } from "@/context/CartContext";
 //   addToCart(productId, variantId?, qty=1, { modifierChoices?, customTextFields? }?),
 //   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
 // Every mutation catches its own failure into `error` (the shipped CartDrawer renders it), so a
-// refusal — an empty cart, or a line item that stopped being AVAILABLE — reaches the buyer instead
+// refusal — an empty cart, or a line item whose status left IN_STOCK — reaches the buyer instead
 // of becoming an unhandled rejection.
 //
-// Cart money: every amount is { amount, convertedAmount, formattedAmount, formattedConvertedAmount } —
-// show a formatted one so the currency symbol and grouping come from Wix. Read
-// `cart.subtotalAfterDiscounts` rather than `cart.subtotal`: the two match until a cart-level coupon
-// applies, and then `subtotal` is the pre-discount figure. `cart.discount` + `cart.appliedDiscounts`
-// carry the reduction. Never sum line items yourself — tax and shipping resolve at checkout.
-// `lineItems[].availability.quantityAvailable` is the stock cap for a quantity control.
+// Cart money: every amount is a ConvertedMoney { amount, convertedAmount } with NO formatted string —
+// `amount` is in the site currency, `convertedAmount` in the display currency; format the number
+// yourself (Intl.NumberFormat with the cart's currency —
+// `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode`) so the symbol and grouping
+// match the locale. The V2 cart has no `subtotalAfterDiscounts`/`discount`/`appliedDiscounts`: it
+// carries only a raw `cart.subtotal` (ConvertedMoney). The authoritative discounted totals come from
+// a currentCartV2 estimate/calculate `summary.priceSummary`, not the cart — call that when you need
+// the after-coupon figure; otherwise show `cart.subtotal`. Never sum line items yourself — tax and
+// shipping resolve at checkout.
+// A line's `status` (IN_STOCK / PARTIALLY_IN_STOCK / OUT_OF_STOCK) tells a quantity control whether
+// another increment is still fulfillable.
 
 function CartCount() {                                   // header badge
   const { itemCount, setIsOpen } = useCart();
@@ -294,7 +301,7 @@ const { products: inCategory } = await queryProductsByCategory(menu[0].id, { lim
 
 // product.plainDescription is HTML → render as HTML (the PDP does this):
 <div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
-// image urls live at: product.media.main.image.url  ·  cart lineItems[].image.url
+// image urls live at: product.media.main.image.url  ·  cart lineItems[].attributes.image.url
 ```
 
 Fallback only — when you hit an error or need something not shown here (coupons, members, a field
