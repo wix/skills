@@ -10,7 +10,7 @@ This recipe documents how to convert CMS collections into sellable product catal
 
 Converting a CMS collection to a catalog enables:
 - Items in the collection become purchasable products
-- Integration with Wix Cart and Checkout APIs
+- Integration with the Wix Cart API (Cart V2, which unifies cart and checkout)
 - Real-time price and availability from your CMS data
 
 ## Prerequisites
@@ -73,7 +73,7 @@ POST https://www.wixapis.com/wix-data/v2/collections/add-plugin
 Most Wix sites with Stores, Bookings, or similar apps already have eCommerce installed. Check by querying the Cart API:
 
 ```
-POST https://www.wixapis.com/ecom/v1/carts
+POST https://www.wixapis.com/ecom/v2/carts
 ```
 
 ## Step 3: Use Catalog Items in Cart
@@ -87,12 +87,12 @@ e593b0bd-b783-45b8-97c2-873d42aacaf4
 ### Add CMS Catalog Item to Cart
 
 ```
-POST https://www.wixapis.com/ecom/v1/carts/{cartId}/add-to-cart
+POST https://www.wixapis.com/ecom/v2/carts/{cartId}/add-line-items
 ```
 
 ```json
 {
-  "lineItems": [
+  "catalogItems": [
     {
       "catalogReference": {
         "appId": "e593b0bd-b783-45b8-97c2-873d42aacaf4",
@@ -133,4 +133,4 @@ CMS Catalogs are best for simple product catalogs. For complex eCommerce needs, 
 
 - [CMS Schema Management](cms-schema-management.md)
 - [CMS Data Operations](cms-data-items-crud.md)
-- [Wix Cart API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/introduction)
+- [Wix Cart API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/introduction)
