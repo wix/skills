@@ -156,6 +156,11 @@ const handleSave = async () => {
 When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](dashboard-page/API_SPEC.md) for details on how to use API specs in dashboard pages.
 
 
+## UX Success Model
+
+Before designing the page, translate the prompt into a complete workflow: what the user must understand, focus on, investigate, act on, and see confirmed — plus which view and drill-in surface fits, and which data sources must line up. See [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md), including the evaluation checklist to run before calling a dashboard done.
+
+
 ## Layout Guidelines
 
 Content layout inside the page shell — the 6px base unit, the 12-column grid, spacing tokens, form/display/marketing/wizard layouts: see [WDS Layout Reference](dashboard-page/WDS_LAYOUT.md).
