@@ -139,7 +139,7 @@ are routed and work.
   `BLOG_POST`, `BLOG_CATEGORY`, `BOOKINGS_SERVICE`, `EVENTS_PAGE`,
   `PORTFOLIO_PROJECTS`, `PORTFOLIO_COLLECTIONS`, `RESTAURANTS_MENU_PAGE`.
 - To find an item's ID when the user refers to it by name (e.g. a product
-  name), query the vertical's own API first (e.g. Wix Stores query-products)
+  name), query the vertical's own API first (e.g. Wix Stores v3: `POST /stores/v3/products/query`)
   to get the product ID, then use that ID as the `itemId` with item type
   `STORES_PRODUCT`. Do not call List Item SEO Tags and scan through all items
   to match by name — use the vertical API.
@@ -178,14 +178,16 @@ mean "reset".
 The user asks: *"Set the SEO title of my product 'Handmade Mug' to 'Handmade
 Ceramic Mug | Studio Shop' and its description to 'A stoneware mug.'"*
 
-**Step 1 — find the product ID.** Query the Stores API by name, not the SEO API:
+**Step 1 — find the product ID.** Query the Stores **v3** API by name (v1 is
+deprecated and returns 400):
 
 ```
-POST https://www.wixapis.com/stores/v1/products/query
-{ "query": { "filter": { "name": "Handmade Mug" } } }
+POST https://www.wixapis.com/stores/v3/products/query
+{ "query": { "filter": { "name": { "$eq": "Handmade Mug" } } } }
 ```
 
-Take the product's `id` from the response. The item type is `STORES_PRODUCT`.
+Take the product's `id` from `products[0].id` in the response. The item type
+is `STORES_PRODUCT`.
 
 **Step 2 — read the current tags.**
 
@@ -229,10 +231,16 @@ issue another Get — the write response is the confirmation.
 - **Guessing the item type.** Use the values in the Discover section. A store
   product is `STORES_PRODUCT`, not `StoresProduct`, `product`, or `Product`.
 - **Calling List Item SEO Tags to find a product by name.** List returns IDs
-  and tags, not product names. Query the vertical's own API (e.g. Stores) by
+  and tags, not product names. Query the vertical's own API (e.g. Stores v3: `POST /stores/v3/products/query`) by
   name first, then use the ID.
 - **Issuing a verification Get after a successful Set.** The Set response
   already carries `resolvedTags`. A second read is redundant.
+- **Using the Products v1 API (`/stores/v1/products/query`).** It is deprecated
+  and returns 400. Use v3: `POST /stores/v3/products/query` with a filter like
+  `{"query": {"filter": {"name": {"$eq": "Product Name"}}}}`.
+- **Retrying a 400 with a different request shape without checking why.** A 400
+  means the shape was wrong. Compare against the shapes in this recipe, fix the
+  mismatch, send once. Three retries with guessed shapes is three wasted calls.
 
 Tags can currently be written only for the site's primary language: leave
 `language` unset on every write. There is no revision checking — the last write
