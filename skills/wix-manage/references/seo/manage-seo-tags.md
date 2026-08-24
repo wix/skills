@@ -174,6 +174,67 @@ To remove an item's own tags so it inherits again, call **Reset Item SEO Tags To
 Default** (or **Reset SEO Pattern To Default**) — never set an empty list to
 mean "reset".
 
+## Worked example: set a product's SEO title and description
+
+The user asks: *"Set the SEO title of my product 'Handmade Mug' to 'Handmade
+Ceramic Mug | Studio Shop' and its description to 'A stoneware mug.'"*
+
+**Step 1 — find the product ID.** Query the Stores API by name, not the SEO API:
+
+```
+POST https://www.wixapis.com/stores/v1/products/query
+{ "query": { "filter": { "name": "Handmade Mug" } } }
+```
+
+Take the product's `id` from the response. The item type is `STORES_PRODUCT`.
+
+**Step 2 — read the current tags.**
+
+```
+GET https://www.wixapis.com/promote/seo/v1/item-seo-tags/STORES_PRODUCT/{productId}
+```
+
+The response carries `itemSeoTags.tags` (the item's own tags) and
+`resolvedTags` (what the page renders with, each with a source).
+
+**Step 3 — merge and write.** Take the full `tags` array from step 2, replace
+or add the title and description, and send the complete set back:
+
+```json
+PATCH /item-seo-tags/STORES_PRODUCT/{productId}
+{
+  "itemSeoTags": {
+    "tags": [
+      { "type": "title", "children": "Handmade Ceramic Mug | Studio Shop" },
+      { "type": "meta", "props": { "name": "description", "content": "A stoneware mug." } }
+    ]
+  },
+  "fieldMask": "tags"
+}
+```
+
+**Step 4 — report from the response.** The Set response returns the updated
+`tags` and `resolvedTags`. Report each resolved tag with its source. Do not
+issue another Get — the write response is the confirmation.
+
+## Common agent mistakes — do not make these
+
+- **Searching the API schemas or reading the reference article before the first
+  call.** The request shapes are in this recipe. Read the reference article only
+  after a 400 you cannot explain from the shapes here.
+- **Using `searchWixAPISpec` or `searchWixAPIs` to find the SEO endpoints.**
+  The method table and shapes are above; spec search wastes a turn.
+- **Sending `fieldMask` as an array over REST.** Over REST it is a
+  comma-separated string: `"fieldMask": "tags"`. The SDK's `["tags"]` array
+  returns `INVALID_FIELD_MASK`.
+- **Guessing the item type.** Use the values in the Discover section. A store
+  product is `STORES_PRODUCT`, not `StoresProduct`, `product`, or `Product`.
+- **Calling List Item SEO Tags to find a product by name.** List returns IDs
+  and tags, not product names. Query the vertical's own API (e.g. Stores) by
+  name first, then use the ID.
+- **Issuing a verification Get after a successful Set.** The Set response
+  already carries `resolvedTags`. A second read is redundant.
+
 Tags can currently be written only for the site's primary language: leave
 `language` unset on every write. There is no revision checking — the last write
 wins and dashboard edits write to the same data, so read immediately before

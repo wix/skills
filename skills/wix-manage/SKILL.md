@@ -36,6 +36,11 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## SEO
 
+> **Routing rule (READ FIRST).** For every request to read or change a site's SEO tags — titles, meta descriptions, social share tags, canonical links, structured data, indexing directives, or SEO patterns — use the available full-documentation reading capability to retrieve and read the canonical [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md) recipe before using API schema search. Every SEO write replaces the target's tags in full, so the recipe's read-before-write sequence has to be loaded before the first call.
+
+### [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md)
+**Technical:** Reads and writes a site's SEO tags at three levels — site-wide tags, page-type patterns, and a single item's tags — choosing the level that matches the change. Discovers item IDs and pattern variables instead of hardcoding them, reads before every full-replace write, handles bulk writes with per-item results, and reports resolved tags with the source each one came from.
+
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 **Technical:** Reads, creates, and deletes URL redirects through the public SEO Redirects API. Distinguishes exact from group redirects, handles language-scoped redirects on multilingual sites, reads per-item results from bulk responses, and confirms before writes, because creating a redirect can permanently delete an existing one.
 
