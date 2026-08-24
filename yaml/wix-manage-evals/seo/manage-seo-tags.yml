@@ -12,7 +12,7 @@ tags: [seo, stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-site-s-seo-tags
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/skills/manage-a-wix-site-s-seo-tags
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

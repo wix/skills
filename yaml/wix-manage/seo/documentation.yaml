@@ -8,5 +8,5 @@ apiDoc:
       tags: [seo]
     - file: ../../../skills/wix-manage/references/seo/manage-seo-tags.md
       title: Manage a Wix Site's SEO Tags
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1
       tags: [seo]
