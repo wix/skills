@@ -6,24 +6,27 @@ initial prompt, and the Wix connector is already configured.
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless` and `wix-docs` are the complete build and seed path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **The Wix skills installed below are the complete build and seed path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
-Install two skills — they land under `.agents/skills/`:
+Install three skills — they land under `.agents/skills/`:
 - **`wix-vibe-headless`** — the storefront build + seed guide (STEPs 2–3): your main source of truth.
-- **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
-  doesn't cover.
+- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
+  catalogs, business setup).
+- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, API
+  contracts, and the docs **fallback** — find + read the Wix API docs for anything
+  `wix-vibe-headless` doesn't cover.
 
-Run this through exec_tool, exactly as written — installs both skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
 
 ```js
 const { execSync } = require('child_process');
 const { existsSync, readdirSync } = require('fs');
 const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-docs']) {
+for (const skill of ['wix-vibe-headless', 'wix-manage', 'wix-base44-connector']) {
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
@@ -58,7 +61,7 @@ cleanup truly seems needed, ask the user first.
 Seed by calling the storefront's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.js` via
 its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
-shape → the **`wix-docs`** skill.
+shape → the **`wix-base44-connector`** skill's doc discovery.
 
 **Auth for these admin calls is the already-configured Wix headless connector — nothing else.** Get its
 access token and send it as a bearer token:
@@ -73,7 +76,8 @@ Inline via exec_tool, `base44` is already declared — use it directly; do **not
 inline it throws *"Identifier 'base44' has already been declared."*).
 
 **Product images.** Generate with **Base44's built-in image generation**, then attach via the
-storefront seed module's image-attach step — `wix-docs` if the module doesn't cover it.
+storefront seed module's image-attach step — `wix-base44-connector` doc discovery if the module
+doesn't cover it.
 
 **Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
 from the **completed** `generate_image` result and pass it straight into your single `setupStore`
@@ -101,4 +105,4 @@ const res = await fetch("https://www.wixapis.com/<api-path>", {
 return await res.json();
 ```
 
-`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via `wix-docs`.
+`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via the `wix-base44-connector` skill's doc discovery.

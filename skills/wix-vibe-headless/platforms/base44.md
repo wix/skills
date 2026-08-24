@@ -6,19 +6,22 @@ initial prompt, and the Wix connector is already configured; use it for all admi
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless` and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **The Wix skills installed below are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
-Install two skills — they land under `.agents/skills/`:
+Install three skills — they land under `.agents/skills/`:
 - **`wix-vibe-headless`** — the client build **and** seed guide (STEPs 3–4): your main source of
   truth. Seeding lives here too, per-vertical under `references/<vertical>/seed/`.
-- **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
-  doesn't cover.
+- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
+  catalogs, business setup).
+- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, API
+  contracts, and the docs **fallback** — find + read the Wix API docs for anything
+  `wix-vibe-headless` doesn't cover.
 
-Run this through exec_tool, exactly as written — installs both skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
 **Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
 
@@ -46,7 +49,7 @@ const VERTICALS = ['storefront'];        // ← set from the prompt; list every 
 const WIX_CLIENT_ID = '<client id from the prompt>';
 const WIX_METASITE_ID = '<site id from the prompt>';
 const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-docs']) {
+for (const skill of ['wix-vibe-headless', 'wix-manage', 'wix-base44-connector']) {
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
@@ -103,7 +106,7 @@ cleanup truly seems needed, ask the user first.
 Seed by calling your vertical's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` via
 its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
-shape → the **`wix-docs`** skill.
+shape → the **`wix-base44-connector`** skill's doc discovery.
 
 **Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
 access token and send it as a bearer token:
@@ -119,8 +122,8 @@ inline it throws *"Identifier 'base44' has already been declared."*).
 
 **Entity images.** For image-bearing entities (store products, blog covers, bookings services,
 restaurant items, portfolio projects, event heroes, CMS items), generate with **Base44's built-in
-image generation**, then attach via the vertical seed module's image-attach step — `wix-docs` if the
-module doesn't cover that entity.
+image generation**, then attach via the vertical seed module's image-attach step —
+`wix-base44-connector` doc discovery if the module doesn't cover that entity.
 
 **Seed images with the FINAL url, in one call.** Seeding writes to Wix, so use the real
 `https://media.base44.com/...` url from the **completed** `generate_image` result and pass it straight
@@ -147,6 +150,6 @@ Once the site is built and seeded:
 ## Later admin requests
 
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
-`wix-docs` — all over the connector.
+`wix-base44-connector` doc discovery — all over the connector.
 
 version: v1338
