@@ -1,0 +1,81 @@
+name: blog/parent-index-navigation
+description: >-
+  When the skills index lists a product area's recipes page instead of its individual recipes, the
+  agent has to open that page to reach the recipe it needs. This verifies the two hops happen in
+  order for a task that a recipe covers: area page first, then the recipe, then the API — rather
+  than the agent guessing the API from the area page's summary alone.
+triggerPrompt: >-
+  Publish a blog post titled "Autumn Menu" with a short paragraph about our new seasonal dishes.
+tags: [discovery]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install the Wix Blog app so the site has a blog to post to
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 14bcded7-0066-7c35-14d7-466cb3f09103
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/blog-recipes
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Publish a blog post titled \"Autumn Menu\" with a short
+      paragraph about our new seasonal dishes."
+
+      The skills index in this run lists a blog recipes page
+      (.../blog/skills/blog-recipes) rather than the individual blog recipes. That page names the
+      area's recipes and links to them; the create recipe (.../blog/skills/how-to-create-blog-posts)
+      holds the actual field shapes, the author-memberId requirement, and the rich-content body
+      format.
+
+      The site is freshly provisioned with only the Wix Blog app installed, so it has NO site
+      members, and a post needs `memberId` — the id of a site member created via
+      POST https://www.wixapis.com/members/v1/members.
+
+      Judge the tool-call trace and the final answer together. Score:
+
+      - 9-10: the agent read the blog recipes page, then read the create recipe, then published a
+        post titled "Autumn Menu" successfully (2xx) with a rich-content body and a memberId it
+        resolved through the Members API. Both reads happened before the first Blog write call.
+      - 7-8: the same outcome, but with one extra exploratory read or one recoverable wrong-shape
+        request along the way.
+      - 4-6: the post was published, but the agent skipped the create recipe — it worked from the
+        area page's summary, a docs search, or the API spec instead. Note which.
+      - 3: the post was published but the agent never opened the blog recipes page at all (it
+        reached the recipe some other way), or the body was sent as a plain string rather than
+        rich content.
+      - 0-2: no post was published, the publish call failed (non-2xx), the title is wrong, the
+        agent only explained how instead of doing it, or it stopped to ask the user a question
+        instead of acting.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence naming the order of the docs reads and
+      the Blog call that published the post>"}.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how cleanly the two-hop discovery path worked. Examine the
+      tool-call trace. Score 0-10 (10 = direct: area page, recipe, API, no detours).
+
+      Penalize and LIST any of: an area recipes page opened for an area unrelated to blogging; more
+      than two area recipes pages opened in total; a docs or spec search issued before the blog
+      recipes page was read; a call that returned a non-2xx error even if the agent recovered; a
+      request body shape guessed wrong then corrected.
+
+      For each issue, name the likely cause — an unclear area page, a missing link on it, a recipe
+      that omits a field, or index wording that did not make the two-hop path obvious.
+
+      Return ONLY {"score":<0-10>,"reason":"<issues found, or 'none'>"}.

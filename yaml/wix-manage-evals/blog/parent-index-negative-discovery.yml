@@ -1,0 +1,74 @@
+name: blog/parent-index-negative-discovery
+description: >-
+  The failure mode a per-area index introduces is a task with no covering recipe: the agent must
+  read the area's recipes page, treat it as exhaustive for that area, and move on to docs discovery
+  — rather than opening other areas' pages looking for something that is not there, or claiming a
+  recipe covers the task.
+triggerPrompt: >-
+  Delete every draft blog post on my site.
+tags: [discovery]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install the Wix Blog app so the site has a blog to work against
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 14bcded7-0066-7c35-14d7-466cb3f09103
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/blog-recipes
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Delete every draft blog post on my site."
+
+      The skills index in this run lists product-area recipes pages (URLs ending in
+      `-recipes`) rather than individual recipes. The blog area has recipes for creating posts and
+      for dashboard navigation — none of them covers deleting draft posts. The Blog API does
+      support it (Bulk Delete Draft Posts,
+      POST https://www.wixapis.com/blog/v3/bulk/draft-posts/delete), so the correct behaviour is to
+      check the blog area page, find nothing covering deletion, and go to docs discovery
+      (SearchWixRESTDocumentation, BrowseWixRESTDocsMenu, or SearchWixAPISpec) for the method.
+
+      Judge the tool-call trace and the final answer together. Score:
+
+      - 9-10: the agent opened the blog recipes page, did not open any other area recipes page,
+        moved to docs discovery for the delete method, and either deleted the draft posts
+        successfully (2xx) or correctly reported there were none to delete.
+      - 7-8: the same, but with one additional area recipes page opened, or one recoverable
+        non-2xx call on the way to the right method.
+      - 4-6: the task was completed, but the agent opened three or more area recipes pages
+        (trawling) before reaching docs discovery. Name the pages it opened.
+      - 3: the agent asserted that a recipe covers deleting draft posts, or cited the blog recipes
+        page as the source of the delete call it made.
+      - 0-2: the agent claimed the operation is impossible, gave up, asked the user a question
+        instead of acting, or made a destructive call against the wrong entity (published posts,
+        categories, members) instead of draft posts.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence listing which area pages were opened and
+      how the delete method was found>"}.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how efficiently the agent established that no recipe covered
+      the task. Examine the tool-call trace. Score 0-10 (10 = one area page read, then straight to
+      the right docs method).
+
+      Count and LIST: how many `-recipes` area pages were opened; how many docs or spec searches
+      were issued; any non-2xx calls; any point where the agent re-read a page it had already read.
+
+      For each inefficiency, name the likely cause — index wording that did not say the area pages
+      are exhaustive, an area page that reads as if it covers more than it does, or a missing
+      fallback instruction.
+
+      Return ONLY {"score":<0-10>,"reason":"<counts and issues, or 'none'>"}.
