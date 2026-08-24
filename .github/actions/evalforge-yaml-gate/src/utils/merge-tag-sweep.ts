@@ -64,8 +64,8 @@ export async function resolveSweepSet(
 }
 
 /** Turns one EvalRun's per-scenario result rows into confirm.ts's generic AttemptOutcome shape.
- * Sibling to gate.ts's toAttemptOutcomes, not a reuse of it — there's no with/without pair here,
- * just "did main pass this scenario." */
+ * There's no with/without pair here as in a PR-time comparison — just "did main pass this
+ * scenario" — so the rows fold straight into an outcome per scenario. */
 export function rowsToOutcomes(rows: EvalRunResultRow[]): AttemptOutcome[] {
   return foldScenarioIterations(rows).map(outcome => ({
     scenarioId: outcome.scenarioId,
