@@ -58,6 +58,8 @@ reference article URLs follow this pattern (for edge cases not covered here):
 
 ## REST request and response shapes
 
+Use these shapes directly — do not go looking for them in the docs first.
+
 Build requests from the shapes below. Do not search the API schemas or read
 the reference article to construct them.
 
@@ -128,9 +130,7 @@ returns `INVALID_FIELD_MASK`. `publish` is a boolean.
 `TAG_SOURCE_ITEM`, or `TAG_SOURCE_UNSPECIFIED`. `inheritedTag` appears only when
 this source replaced a value a lower source had set.
 
-All paths are relative to the service base. The reference documents two bases
-(`promote/seo/v1` in schemas, `seo-metatags-server/v1` in curl examples); both
-are routed and work.
+All paths are relative to `https://www.wixapis.com/promote/seo/v1`.
 
 ## Discover, never invent
 
@@ -139,7 +139,7 @@ are routed and work.
   `BLOG_POST`, `BLOG_CATEGORY`, `BOOKINGS_SERVICE`, `EVENTS_PAGE`,
   `PORTFOLIO_PROJECTS`, `PORTFOLIO_COLLECTIONS`, `RESTAURANTS_MENU_PAGE`.
 - To find an item's ID when the user refers to it by name (e.g. a product
-  name), find the item through the MCP's search tools or the vertical's own API
+  name), use Search Products v3: `POST /stores/v3/products/search`
   to get the product ID, then use that ID as the `itemId` with item type
   `STORES_PRODUCT`. Do not call List Item SEO Tags and scan through all items
   to match by name — use the vertical API.
@@ -178,16 +178,19 @@ mean "reset".
 The user asks: *"Set the SEO title of my product 'Handmade Mug' to 'Handmade
 Ceramic Mug | Studio Shop' and its description to 'A stoneware mug.'"*
 
-**Step 1 — find the product ID.** Use the Wix MCP's product search to find the
-product by name. The `name` field is **not filterable** on the Query Products
-endpoint (it returns 400), so search instead:
+**Step 1 — find the product ID.** Search Products v3 by name:
 
-- Through the MCP: search for "Stores" products, then filter results by name.
-- Or call **List Item SEO Tags** for item type `STORES_PRODUCT` — this returns
-  all product IDs on the site. On a site with few products (like this one),
-  it's the fastest path.
+```
+POST https://www.wixapis.com/stores/v3/products/search
+{ "search": { "search": { "expression": "Handmade Mug" } } }
+```
 
-Take the product's `id` from the response. The item type is `STORES_PRODUCT`.
+```json
+{ "products": [{ "id": "a1b2c3d4-...", "name": "Handmade Mug", ... }] }
+```
+
+Take `products[0].id`. The item type is `STORES_PRODUCT`. Do not use Query
+Products with a `name` filter — `name` is not filterable and returns 400.
 
 **Step 2 — read the current tags.**
 
@@ -195,8 +198,21 @@ Take the product's `id` from the response. The item type is `STORES_PRODUCT`.
 GET https://www.wixapis.com/promote/seo/v1/item-seo-tags/STORES_PRODUCT/{productId}
 ```
 
-The response carries `itemSeoTags.tags` (the item's own tags) and
-`resolvedTags` (what the page renders with, each with a source).
+```json
+{
+  "itemSeoTags": {
+    "tags": [],
+    "hasOverride": false,
+    "resolvedTags": [
+      { "tag": { "type": "title", "children": "Handmade Mug | My Site" },
+        "source": "TAG_SOURCE_DEFAULT_PATTERN" }
+    ]
+  }
+}
+```
+
+`tags` is empty because the item has no overrides yet. `resolvedTags` shows
+what the page currently renders with and where each tag comes from.
 
 **Step 3 — merge and write.** Take the full `tags` array from step 2, replace
 or add the title and description, and send the complete set back:
@@ -223,22 +239,21 @@ issue another Get — the write response is the confirmation.
 - **Searching the API schemas or reading the reference article before the first
   call.** The request shapes are in this recipe. If you get a 400, compare your
   request against the shapes in this recipe — do not go to the docs.
-- **Using `searchWixAPISpec` or `searchWixAPIs` to find the SEO endpoints.**
-  The method table and shapes are above; spec search wastes a turn.
+- **Searching for the SEO endpoints through API spec tools.** The shapes are
+  above; searching wastes a turn.
 - **Sending `fieldMask` as an array over REST.** Over REST it is a
   comma-separated string: `"fieldMask": "tags"`. The SDK's `["tags"]` array
   returns `INVALID_FIELD_MASK`.
 - **Guessing the item type.** Use the values in the Discover section. A store
   product is `STORES_PRODUCT`, not `StoresProduct`, `product`, or `Product`.
-- **Calling List Item SEO Tags expecting product names.** List returns IDs
-  and tags, not product names. However, on a site with few products, listing
-  all `STORES_PRODUCT` items and matching the ID from context is acceptable.
+
 - **Issuing a verification Get after a successful Set.** The Set response
   already carries `resolvedTags`. A second read is redundant.
-- **Using the Products v1 API or filtering by `name` on Query Products.** v1
-  is deprecated (returns 400), and `name` is not a filterable field on v3
-  Query Products (also returns 400). Use the MCP's product search or List
-  Item SEO Tags for `STORES_PRODUCT` instead.
+- **Using Products v1 or filtering by `name` on Query Products.** Both return
+  400. Use Search Products v3: `POST /stores/v3/products/search` with
+  `{"search":{"search":{"expression":"..."}}}`.
+- **Calling List Item SEO Tags expecting product names.** List returns IDs
+  and tags, not names. Use Search Products to find the ID by name first.
 - **Retrying a 400 with a different request shape without checking why.** A 400
   means the shape was wrong. Compare against the shapes in this recipe, fix the
   mismatch, send once. Three retries with guessed shapes is three wasted calls.
