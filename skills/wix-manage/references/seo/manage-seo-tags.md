@@ -45,8 +45,9 @@ explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
 
 All three APIs live under the **SEO** category of the Wix REST API reference.
-Read the method you need directly from its reference article — do not search
-for it. The reference article URLs follow a fixed pattern:
+The request shapes are in the section below — construct requests from them, not
+from the reference articles. If you need a reference article later (to handle
+an error this recipe does not cover), its URL follows this pattern:
 
 `https://dev.wix.com/docs/api-reference/business-management/seo/{api}/` + method slug
 
@@ -55,9 +56,6 @@ for it. The reference article URLs follow a fixed pattern:
 | Site | `site-seo-tags-v1` | Get Site SEO Tags (`get-site-seo-tags`), Set Site SEO Tags (`set-site-seo-tags`) |
 | Pattern | `seo-pattern-v1` | Get SEO Pattern (`get-seo-pattern`), List SEO Patterns (`list-seo-patterns`), List SEO Pattern Variables (`list-seo-pattern-variables`), Create SEO Pattern (`create-seo-pattern`), Set SEO Pattern (`set-seo-pattern`), Reset SEO Pattern To Default (`reset-seo-pattern-to-default`) |
 | Item | `item-seo-tags-v1` | Get Item SEO Tags (`get-item-seo-tags`), List Item SEO Tags (`list-item-seo-tags`), Set Item SEO Tags (`set-item-seo-tags`), Bulk Set Item SEO Tags (`bulk-set-item-seo-tags`), Reset Item SEO Tags To Default (`reset-item-seo-tags-to-default`) |
-
-For example, to read Set Item SEO Tags:
-`https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/set-item-seo-tags`
 
 ## REST request and response shapes
 
@@ -138,12 +136,20 @@ are routed and work.
 ## Discover, never invent
 
 - An item is addressed by an **item type and item ID together**, not by URL.
-  Call **List Item SEO Tags** for an item type to discover the IDs on the site,
-  or take the item's ID from the public API of its own vertical (for example, a
-  product or blog post ID). Never fabricate an item ID.
+  Common item types: `STATIC_PAGE`, `STORES_PRODUCT`, `STORES_CATEGORY`,
+  `BLOG_POST`, `BLOG_CATEGORY`, `BOOKINGS_SERVICE`, `EVENTS_PAGE`,
+  `PORTFOLIO_PROJECTS`, `PORTFOLIO_COLLECTIONS`, `RESTAURANTS_MENU_PAGE`.
+- To find an item's ID when the user refers to it by name (e.g. a product
+  name), query the vertical's own API first (e.g. Wix Stores query-products)
+  to get the product ID, then use that ID as the `itemId` with item type
+  `STORES_PRODUCT`. Do not call List Item SEO Tags and scan through all items
+  to match by name — use the vertical API.
+- Never fabricate an item ID. If you cannot find the item through its vertical
+  API or List Item SEO Tags, ask the user.
 - Item types exist on a site only when the business solution providing them is
   installed. The authoritative list of supported item types is in the
-  `UNSUPPORTED_ITEM_TYPE` error message; do not hardcode one.
+  `UNSUPPORTED_ITEM_TYPE` error message; do not hardcode one beyond the common
+  values listed above.
 - Before writing a pattern, call **List SEO Pattern Variables** for the page
   type and build the pattern only from returned variables. Never invent a
   variable name.
