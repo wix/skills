@@ -279,6 +279,20 @@ the user has no way to open a file.
   dead end. If a Wix feedback tool is available in your environment, you may
   offer to send feedback noting their interest; that is the only channel that
   reaches the team. Do not retry or fall back to another site-creation tool.
+- **NOT_ENABLED exception — service-business data fallback.** Not every
+  blocked migration is an ecommerce catalog. For a service business (salons,
+  studios, clinics, consultants — typically already has Bookings/Blog/Forms
+  installed rather than Stores), the source site has no page-clone
+  substitute, but its **data** can still be recreated with separate, ungated
+  REST APIs: [Bulk Create Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)
+  and [Bulk Create Resources](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/bulk-create-resources)
+  (`POST /bookings/v2/bulk/services/create` and `.../bulk/resources/create`)
+  recreate the source's service menu and staff/rooms, and [Bulk Create Draft Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts)
+  (`POST /blog/v3/bulk/draft-posts/create`) recreates blog content. As with
+  the commerce fallback above, only offer this after delivering the
+  NOT_ENABLED message, and only once the user confirms they want the
+  underlying data (services, staff, posts) recreated rather than a visual
+  clone of the source pages — it won't reproduce layout, theme, or design.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
   required field is missing (`request`/`message` must be 1–20000 chars),
