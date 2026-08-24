@@ -40,7 +40,14 @@ function checkCli() {
   emit('cli_ok', { version });
 }
 
-// ── 2. Login (human-in-the-loop device code; forward the CLI's own events) ───
+// ── 2. Reuse an existing session, or start device login ──────────────────────
+function hasExistingSession() {
+  const r = capture(WIX[0], [...WIX.slice(1), 'whoami']);
+  if (r.status !== 0) return false;
+  emit('logged_in');
+  return true;
+}
+
 function login() {
   return new Promise((resolve) => {
     const child = spawn(WIX[0], [...WIX.slice(1), 'login'], { shell: isWin, env: AGENT_ENV });
@@ -90,4 +97,4 @@ function login() {
 
 // ── main ────────────────────────────────────────────────────────────────────
 checkCli();
-await login();
+if (!hasExistingSession()) await login();
