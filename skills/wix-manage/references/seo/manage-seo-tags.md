@@ -59,16 +59,81 @@ for it. The reference article URLs follow a fixed pattern:
 For example, to read Set Item SEO Tags:
 `https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/set-item-seo-tags`
 
-`Set` takes a `fieldMask` naming the properties to change (`tags`,
-`focusKeywords` for an item; `pattern` for a pattern). Its shape differs by
-client and the reference does not spell this out: over REST it is a
-comma-separated **string** (`"fieldMask": "tags"`), while the SDK takes an
-**array** of strings (`fieldMask: ["tags"]`). Sending an array to REST fails
-with `INVALID_FIELD_MASK`. `publish` is a boolean. A tag is
-`{type, props, children}`: `title` and `script` carry their text in `children`;
-`meta` and `link` carry theirs in `props` (`name`/`content` for a meta tag,
-`rel`/`href` for a link). The response returns the updated `tags` plus
-`resolvedTags`.
+## REST request and response shapes
+
+Build requests from the shapes below. Do not search the API schemas or read
+the reference article to construct them.
+
+### Set Item SEO Tags — `PATCH /item-seo-tags/{itemType}/{itemId}`
+
+```json
+{
+  "itemSeoTags": {
+    "tags": [
+      { "type": "title", "children": "Page title here" },
+      { "type": "meta", "props": { "name": "description", "content": "Description here" } }
+    ]
+  },
+  "fieldMask": "tags"
+}
+```
+
+### Get Item SEO Tags — `GET /item-seo-tags/{itemType}/{itemId}`
+
+No request body. Returns `itemSeoTags` with `tags`, `resolvedTags`,
+`hasOverride`, `publishStatus`, and `hostPageId`.
+
+### List Item SEO Tags — `GET /item-seo-tags/{itemType}?paging.limit=100`
+
+No request body. Returns `itemSeoTagsList[]` and `pagingMetadata` with cursors.
+
+### Set Site SEO Tags — `PATCH /site-seo-tags`
+
+```json
+{
+  "siteSeoTags": {
+    "tags": [
+      { "type": "meta", "props": { "name": "google-site-verification", "content": "token" } }
+    ]
+  },
+  "fieldMask": "tags"
+}
+```
+
+### Set SEO Pattern — `PATCH /seo-patterns/{pageType}`
+
+```json
+{
+  "seoPattern": {
+    "pattern": {
+      "tags": [
+        { "type": "title", "children": "{{item.name}} | {{site.name}}" }
+      ]
+    }
+  },
+  "fieldMask": "pattern"
+}
+```
+
+### Common rules across all shapes
+
+A tag is `{type, props, children}`: `title` and `script` carry their text in
+`children`; `meta` and `link` carry theirs in `props` (`name`/`content` for a
+meta tag, `rel`/`href` for a link).
+
+`fieldMask` over REST is a comma-separated **string** (`"fieldMask": "tags"`);
+the SDK takes an **array** (`fieldMask: ["tags"]`). Sending an array to REST
+returns `INVALID_FIELD_MASK`. `publish` is a boolean.
+
+`resolvedTags` in any Get or Set response is an array of
+`{tag, source, inheritedTag}`. `source` is one of `TAG_SOURCE_SITE`,
+`TAG_SOURCE_DEFAULT_PATTERN`, `TAG_SOURCE_USER_PATTERN`, `TAG_SOURCE_HOST_PAGE`,
+`TAG_SOURCE_ITEM`, or `TAG_SOURCE_UNSPECIFIED`. `inheritedTag` appears only when
+this source replaced a value a lower source had set.
+
+All paths are relative to the service base. The reference documents two bases
+(`promote/seo/v1` in schemas, `seo-metatags-server/v1` in curl examples); both
+are routed and work.
 
 ## Discover, never invent
 
@@ -133,22 +198,6 @@ success.
 - `resolvedTags` excludes tags added by site code or apps at render time, so
   present it as what Wix manages, not a literal copy of the rendered page head.
 
-`resolvedTags` is an array of `{tag, source, inheritedTag}` — the tag itself is
-nested under `tag`, not spread onto the entry:
-
-```json
-"resolvedTags": [
-  { "tag": { "type": "title", "children": "Winter collection | Ceramics studio" },
-    "source": "TAG_SOURCE_ITEM",
-    "inheritedTag": { "type": "title", "children": "Ceramics studio" } }
-]
-```
-
-`source` is one of `TAG_SOURCE_SITE`, `TAG_SOURCE_DEFAULT_PATTERN`,
-`TAG_SOURCE_USER_PATTERN`, `TAG_SOURCE_HOST_PAGE`, `TAG_SOURCE_ITEM`, or
-`TAG_SOURCE_UNSPECIFIED` when it cannot be determined. `inheritedTag` appears
-only when this source replaced a value a lower source had set, and holds the
-value one level down — not the Wix built-in.
 
 ## Recovery rules
 
