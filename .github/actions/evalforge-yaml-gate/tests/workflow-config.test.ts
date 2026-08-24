@@ -15,8 +15,8 @@ describe('EvalForge YAML Gate Workflow', () => {
       expect(workflowContent).toContain('timeout-minutes');
     });
 
-    it('sets timeout-minutes to 60', () => {
-      expect(workflowContent).toMatch(/timeout-minutes:\s*60/);
+    it('sets timeout-minutes to 120', () => {
+      expect(workflowContent).toMatch(/timeout-minutes:\s*120/);
     });
 
     it('increases timeout beyond default 30 minutes', () => {

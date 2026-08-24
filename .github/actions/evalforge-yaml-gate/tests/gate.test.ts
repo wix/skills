@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { scenarioIdsToRun, scenariosToRun } from '../src/utils/gate';
+import { scenarioIdsToRun, scenariosToRun, toAttemptOutcomes } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '@wix/evalforge-core';
+import type { ScenarioComparison } from '../src/utils/eval-pipeline';
 
 const scenario = (name: string): LoadedScenario => ({
   path: `yaml/wix-manage-evals/${name}.yml`,
@@ -14,17 +15,17 @@ const scenario = (name: string): LoadedScenario => ({
   } satisfies Scenario,
 });
 
+const head = new Map<string, LoadedScenario>([
+  ['blog/changed', scenario('blog/changed')],
+  ['blog/unchanged', scenario('blog/unchanged')],
+  ['marketing/social', scenario('marketing/social')],
+]);
+
 // remoteScenarioFiltersForGate and stripInactiveForeignDraftTags now live in
 // @wix/evalforge-core and are covered by its tests/plan-pr-scenario-sync.test.ts.
 // What stays here is wix-manage's own doc-coverage selection.
 
 describe('scenariosToRun', () => {
-  const head = new Map<string, LoadedScenario>([
-    ['blog/changed', scenario('blog/changed')],
-    ['blog/unchanged', scenario('blog/unchanged')],
-    ['marketing/social', scenario('marketing/social')],
-  ]);
-
   it('includes scenarios whose own YAML changed in this PR (existing behavior)', () => {
     const out = scenariosToRun({
       headScenarios: head,
@@ -83,5 +84,41 @@ describe('scenarioIdsToRun', () => {
       ['blog/changed', scenario('blog/changed')],
     ]);
     expect(() => scenarioIdsToRun(selected, new Map())).toThrow('Missing EvalForge scenario IDs for: blog/changed');
+  });
+});
+
+const comparison = (over: Partial<ScenarioComparison>): ScenarioComparison => ({
+  scenarioId: 'id-1',
+  scenarioName: 'blog/changed',
+  required: true,
+  reason: '',
+  with: { passed: 3, failed: 0, totalCostUsd: 0, totalTokens: 1000, durationMs: 1, assertions: [] },
+  without: { passed: 3, failed: 0, totalCostUsd: 0, totalTokens: 1000, durationMs: 1, assertions: [] },
+  ...over,
+});
+
+describe('toAttemptOutcomes', () => {
+  const headWithBudget = new Map<string, LoadedScenario>([['blog/changed', (() => {
+    const s = scenario('blog/changed');
+    s.scenario.maxTokens = 500;
+    return s;
+  })()]]);
+
+  it('marks a clean scenario as passed', () => {
+    const out = toAttemptOutcomes([comparison({})], head);
+    expect(out).toEqual([{ scenarioId: 'id-1', scenarioName: 'blog/changed', failed: false, reasons: [] }]);
+  });
+
+  it('marks both-runs-failed-judge as an llm-judge failure', () => {
+    const failedRun = { passed: 0, failed: 1, totalCostUsd: 0, totalTokens: 100, durationMs: 1, assertions: [{ name: 'j', type: 'llm_judge', status: 'failed' }] };
+    const out = toAttemptOutcomes([comparison({ with: failedRun, without: failedRun })], head);
+    expect(out[0].failed).toBe(true);
+    expect(out[0].reasons).toContain('llm-judge');
+  });
+
+  it('marks a token-budget violation', () => {
+    const out = toAttemptOutcomes([comparison({})], headWithBudget); // totalTokens 1000 > maxTokens 500
+    expect(out[0].failed).toBe(true);
+    expect(out[0].reasons).toContain('token-budget');
   });
 });
