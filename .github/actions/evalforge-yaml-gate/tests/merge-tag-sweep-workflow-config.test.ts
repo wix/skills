@@ -53,6 +53,10 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
     expect(workflowContent).toContain('infra-error');
   });
 
+  it('has a repo-variable kill switch so the sweep can be stopped without a code change', () => {
+    expect(workflowContent).toContain("if: vars.MERGE_TAG_SWEEP_ENABLED != 'false'");
+  });
+
   it('reuses the existing Slack webhook secret', () => {
     expect(workflowContent).toContain('SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}');
   });

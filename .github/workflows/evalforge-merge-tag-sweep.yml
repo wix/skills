@@ -18,6 +18,10 @@ permissions:
 
 jobs:
   sweep:
+    # Kill switch: set the MERGE_TAG_SWEEP_ENABLED repo variable to 'false' to stop the
+    # sweep without shipping a code change. It spends real eval budget and posts to
+    # Slack, so it needs a dial that does not require a PR to turn.
+    if: vars.MERGE_TAG_SWEEP_ENABLED != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
