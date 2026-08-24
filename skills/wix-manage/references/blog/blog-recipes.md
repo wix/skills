@@ -10,7 +10,7 @@ site has no members yet, one must be created first; the create recipe covers
 this. Post bodies are Ricos rich content, not plain strings or HTML; images go
 through the Media Manager before they can be referenced. For rich-content
 authoring beyond the basics see
-[Rich Content](../rich-content/author-ricos-rich-content.md).
+[Rich Content](https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content).
 
 Use **How to Create Blog Posts** for anything that writes: drafting,
 publishing, categories and tags, cover images, bulk creation. Use **Blog
@@ -20,11 +20,11 @@ dashboard" link.
 
 ## Recipes
 
-### [How to Create Blog Posts](how-to-create-blog-posts.md)
+### [How to Create Blog Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts)
 Use when creating, publishing or bulk-loading posts — including resolving the
 author member, Ricos bodies, image upload, and category/tag assignment.
 
-### [Blog Dashboard Navigation](blog-dashboard-navigation.md)
+### [Blog Dashboard Navigation](https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/blog-dashboard-navigation)
 Use when the user wants a dashboard link — posts list, drafts, categories,
 tags, writers, comment moderation, analytics, monetization or settings — or to
 pair an API result with the page where the user can see it.
