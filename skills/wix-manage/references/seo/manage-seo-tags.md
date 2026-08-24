@@ -45,9 +45,8 @@ explicit request to change a specific tag at a clear level is already
 confirmation to make that write.
 
 All three APIs live under the **SEO** category of the Wix REST API reference.
-The request shapes are in the section below — construct requests from them, not
-from the reference articles. If you need a reference article later (to handle
-an error this recipe does not cover), its URL follows this pattern:
+The request shapes are in the section below — construct requests from them. The
+reference article URLs follow this pattern (for edge cases not covered here):
 
 `https://dev.wix.com/docs/api-reference/business-management/seo/{api}/` + method slug
 
@@ -220,8 +219,8 @@ issue another Get — the write response is the confirmation.
 ## Common agent mistakes — do not make these
 
 - **Searching the API schemas or reading the reference article before the first
-  call.** The request shapes are in this recipe. Read the reference article only
-  after a 400 you cannot explain from the shapes here.
+  call.** The request shapes are in this recipe. If you get a 400, compare your
+  request against the shapes in this recipe — do not go to the docs.
 - **Using `searchWixAPISpec` or `searchWixAPIs` to find the SEO endpoints.**
   The method table and shapes are above; spec search wastes a turn.
 - **Sending `fieldMask` as an array over REST.** Over REST it is a
@@ -277,16 +276,16 @@ success.
 - **`ITEM_NOT_FOUND`:** re-discover the item ID; do not guess a new one.
 - **Invalid tags:** tags are validated before anything is saved, so nothing
   changed; fix the tag and resend the same complete set.
-- **`400` on a request you built from this recipe:** the shape is wrong for that
-  method. Read that method's reference article once, correct the request, and
-  send it again. Never resend the same shape, and never walk through variations
-  hoping one is accepted.
+- **`400` on a request you built from this recipe:** compare the request you
+  sent against the shapes in this recipe's "REST request and response shapes"
+  section. Fix the mismatch — a wrong nesting level, a missing wrapper key, or
+  `fieldMask` sent as an array instead of a string — and send again. Never
+  resend the same shape, and never walk through variations hoping one is
+  accepted.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
   them is; say so instead of retrying.
 
-This recipe carries everything needed for the common flows: the URL pattern,
-field masks, tag shapes, and `resolvedTags` structure. Do not read the
-method's reference article or search the API schemas before constructing
-requests — build the request from what is above. Read the reference article
-only when you hit an error this recipe does not cover, or when the user asks
-about a field or behavior not documented here.
+This recipe is self-contained for the common flows: request shapes, field
+masks, tag structure, `resolvedTags` format, discovery, and error handling are
+all above. Do not read the method's reference article and do not search the
+API schemas — build every request from this recipe alone.
