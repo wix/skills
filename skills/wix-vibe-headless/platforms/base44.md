@@ -12,13 +12,17 @@ Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
-Install two skills — they land under `.agents/skills/`:
+Install four skills — they land under `.agents/skills/`:
 - **`wix-vibe-headless`** — the client build **and** seed guide (STEPs 3–4): your main source of
   truth. Seeding lives here too, per-vertical under `references/<vertical>/seed/`.
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
   doesn't cover.
+- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
+  catalogs, business setup).
+- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, doc
+  discovery, API contracts.
 
-Run this through exec_tool, exactly as written — installs both skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all four skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
 **Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
 
@@ -46,7 +50,7 @@ const VERTICALS = ['storefront'];        // ← set from the prompt; list every 
 const WIX_CLIENT_ID = '<client id from the prompt>';
 const WIX_METASITE_ID = '<site id from the prompt>';
 const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-docs']) {
+for (const skill of ['wix-vibe-headless', 'wix-docs', 'wix-manage', 'wix-base44-connector']) {
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,

@@ -12,18 +12,22 @@ Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
-Install two skills — they land under `.agents/skills/`:
+Install four skills — they land under `.agents/skills/`:
 - **`wix-vibe-headless`** — the storefront build + seed guide (STEPs 2–3): your main source of truth.
 - **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
   doesn't cover.
+- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
+  catalogs, business setup).
+- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, doc
+  discovery, API contracts.
 
-Run this through exec_tool, exactly as written — installs both skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all four skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
 
 ```js
 const { execSync } = require('child_process');
 const { existsSync, readdirSync } = require('fs');
 const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-docs']) {
+for (const skill of ['wix-vibe-headless', 'wix-docs', 'wix-manage', 'wix-base44-connector']) {
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
