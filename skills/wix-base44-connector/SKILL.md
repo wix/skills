@@ -18,7 +18,7 @@ the connector's, server-side only.
 
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
-base44/functions/* ──(admin token)───► wixapis.com   work that needs the owner's identity
+base44/functions/… ──(admin token)───► wixapis.com   work that needs the owner's identity
 exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
 ```
 
@@ -30,12 +30,12 @@ none of it needs a backend function.** Public reads
 included (the visitor token queries public content directly), and per-visitor state is scoped to
 the CALLER — an API that acts on "the current visitor's" data resolves the visitor from the
 token, so only the visitor token reaches that visitor's own state. One shared visitor client
-carries it all (Write the code, below). `base44/functions/*` appear only where work
+carries it all (Write the code, below). `base44/functions/…` appear only where work
 needs the owner's identity — elevated-permission ops a visitor triggers, webhooks, scheduled
 jobs — and for the app's non-Wix backend.
 
 **An admin tool for the owner** — dashboard, back office. Admin pages and agent act as the
-owner, using the secret admin token: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
+owner, using the secret admin token: `pages → base44/functions/… ──(admin token)──► wixapis.com`.
 
 ## The helpers
 
@@ -164,11 +164,11 @@ const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix
 const data = await wx.post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
   { query: { cursorPaging: { limit: 10 } } }, accessToken);
 // let it throw — the thrown message is your result; .catch hides the answer
-return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts?.[0] });
-//  ↑ one real row, whole — the shapes you code against live here, not in key names
+return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts[0] });
+// one real row, whole — the shapes you code against live here, not in key names
 ```
 
-The same call deploys as `base44/functions/*` (work the app does as the owner) — shipped code
+The same call deploys as `base44/functions/…` (work the app does as the owner) — shipped code
 carries its own four-line fetch; the helpers are a build tool, not a runtime dependency.
 
 ### A visitor client — src/lib/wixClient.js
