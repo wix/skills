@@ -51,6 +51,12 @@ const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
+Two of the helpers appear in every snippet below, so know their contracts: **`wx.post(url, body,
+accessToken)`** is the one JSON transport — Content-Type and Bearer set for you, non-2xx **throws**
+with the status and the first 300 chars of the API's own error. **`wx.clip(value)`** caps what you
+return: small values pass through, oversized ones come back as `{ truncated, total, head }`, and
+`undefined` fields render as `null` — so an absent field stays visible instead of being erased.
+
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
 under `.agents/skills/wix-base44-connector/tmp/` and returns `{ path, bytes, lines, outline }` —
 the outline is the map. Read a saved file the way you already know how:
