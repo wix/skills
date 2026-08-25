@@ -6,7 +6,7 @@ Dashboard pages appear in the site owner's Wix dashboard and enable site adminis
 
 At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
 
-1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up in the generated docs at `node_modules/@wix/patterns/dist/docs/` (start with `index.json`). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up with this skill's `scripts/patterns.cjs` (start with `list`). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the `wix-design-system` skill.
 3. **Custom React last** — only when neither library has it.
 
@@ -27,7 +27,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** read the patterns component inventory once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites).
+**Then, before writing UI:** run `node $PATTERNS list` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites).
 
 ## Capabilities
 
@@ -87,7 +87,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Examples
 
-Each output below names the library that owns each part. Confirm every patterns component and prop in `node_modules/@wix/patterns/dist/docs/` before use — these examples name the shape, not a verified API.
+Each output below names the library that owns each part. Confirm every patterns component and prop with `node $PATTERNS docs <Name>` before use — these examples name the shape, not a verified API.
 
 ### Data Management Table
 

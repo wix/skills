@@ -2,15 +2,19 @@
 
 ## Prerequisites
 
-The docs are pre-built at `node_modules/@wix/patterns/dist/docs/` (160+ markdown files + `index.json`), shipped by `@wix/patterns` **1.367.0** or later.
+This skill bundles `scripts/patterns.cjs`. It locates the docs itself (pnpm, Yarn PnP, workspaces, symlinks) and prints them. **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of a doc path.
 
 ```bash
-cat node_modules/@wix/patterns/dist/docs/index.json
+PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
+
+node $PATTERNS list                        # inventory, by category
+node $PATTERNS docs <Name1> <Name2> ...    # print those docs in ONE call
+node $PATTERNS docs <Name> --refs          # ...following cross-references one level
 ```
 
-If it prints the inventory, the prerequisite is satisfied
+`list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
 
-**If it fails, do not install or upgrade `@wix/patterns`.** Report to user.
+**If it exits non-zero, do not install or upgrade `@wix/patterns`.** The package is absent or predates 1.367.0 (the first version shipping `dist/docs/`). Report to user.
 
 ## Library Architecture
 
@@ -35,7 +39,7 @@ Each collection type follows the same Component + State + Hook pattern:
 | TableFolders     | `TableFolders`     | `TableFoldersState`     | `useTableFolders()`             |
 | GridFolders      | `GridFolders`      | `GridFoldersState`      | `useGridFolders()`              |
 
-This table covers the common collection types — the full, authoritative list is in `node_modules/@wix/patterns/dist/docs/index.json`.
+This table covers the common collection types — `node $PATTERNS list` has the full, authoritative one.
 
 Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
@@ -118,19 +122,25 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 **Don't guess which components or props exist — read the doc files first.**
 
-### Finding the right file
+### Finding the right name
 
-- **By name:** Read `node_modules/@wix/patterns/dist/docs/index.json` — it maps every component name to its doc file and category.
-- **By browsing:** List the `dist/docs/` folder. Filenames match component names directly (e.g., `Table.md`, `useTableCollection.md`). Note some names contain spaces (`AI Assistant.md`) or dots (`CollectionPage.Header.md`) — quote paths when searching.
-- **By concept:** Search filenames for keywords (e.g., "filter"). Check `index.json` categories — related components share a category prefix.
+Use the `node $PATTERNS list` output from [Prerequisites](#prerequisites) — it groups every name by category, and related components share a prefix. Don't run it twice.
+
+Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did you mean: Table`). Quote names containing spaces: `node $PATTERNS docs "AI Assistant"`.
 
 ### Reading doc files
 
-`index.json` only tells you a component exists — read its doc file before using it. Each doc contains the component's category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+The inventory only tells you a component exists — read its doc before using it. Each doc has the category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+
+Pass every name you need in **one** call; docs come back separated by `---`:
+
+```bash
+node $PATTERNS docs Table useTableCollection TableState
+```
 
 ### Following cross-references
 
-Docs contain relative Storybook URLs like `[TableState](./?path=/story/...--tablestate)`. To resolve these, **use the link text as the filename**: `[TableState](...)` -> read `TableState.md`.
+Docs link to related names as Storybook URLs (`[TableState](./?path=/story/...--tablestate)`). The script resolves the link text back to a component and, after printing, lists the cross-referenced names it did not print plus the command to fetch them. Take what you need from that list rather than chasing every link; `--refs` follows one level automatically.
 
 Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs.
 
