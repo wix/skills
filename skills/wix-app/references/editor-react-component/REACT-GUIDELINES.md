@@ -1,173 +1,89 @@
-# React Component Implementation Guide
+# React Implementation Guide
 
-This guide defines rules and guidance on **how to implement** production-quality Editor React components for Wix CLI applications. Editor React components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
+Use this reference when planning or editing the component's React implementation.
+The entry workflow remains authoritative; this file owns implementation decisions.
 
-**Topic reference files:**
-- [`PARTS.md`](PARTS.md) — What qualifies as a named part (mandatory filter)
-- [`DESIGN-STATES.md`](DESIGN-STATES.md) — Which design states a part supports, and how to author them
-- [`ACCESSIBILITY.md`](ACCESSIBILITY.md) — ARIA/a11y rules and patterns
-- [`DIRECTIONALITY.md`](DIRECTIONALITY.md) — RTL/LTR rules and patterns
-- [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
-- [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md) — Standard SDK event handler props, DOM wiring, custom callbacks
-- [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
-- [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
+## Plan the Component
 
-## React 18 features are not supported
+For a new component, make every decision below. For an edit, revisit only the
+contracts changed by the request:
 
-The Wix runtime does not currently support React 18 features. Stick
-to React 17-compatible APIs and avoid libraries that depend on
-React 18 features.
+1. Elect the best semantic root and identify independently editable inner parts.
+2. Separate user-authored content and stable behavior from derived values and
+   visual styling.
+3. Identify interaction and selectable states affected by the request.
+4. Keep implementation behavior internal unless the component specification
+   requests a public callback.
+5. Identify runtime concerns such as browser APIs, autoplay, editor-only
+   behavior, or live site context before implementation.
 
-# Part 0: Component Behavior Guide
+## Implementation Rules
 
-Understand the component and infer its behavior. Extract what is provided; use reasonable defaults for anything not specified.
+### Runtime Compatibility
 
-1. **Identity** — Component name.
-2. **Structure** — Elect the root element per [`PARTS.md`](PARTS.md) Step 0, then identify named inner parts by applying the mandatory filter in [`PARTS.md`](PARTS.md) to every candidate element before accepting it as a part. Include content/data props (labels, items, types, required vs optional) and configuration (toggles, choices, ranges, modes).
-3. **Interactions** — Clicks, hover/focus; what is exposed as event props vs handled internally. If the component's primary content is a **playable animation** (Lottie/JSON, animated GIF/SVG, canvas/WebGL loop, video-like surface), it gets a play/pause control — follow [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md).
-4. **States** — For every part, decide which design states it supports (native: `hover`/`focus`/`disabled`/`invalid`; custom: `selected`/`active`/`open`/… ) by applying the heuristic in [`DESIGN-STATES.md`](DESIGN-STATES.md), and record them in the plan. These become the editor's per-element state styling controls.
-
-**Understanding → implementation (checklist):** For every part, decide `elementProps` vs CSS-only and which design states it supports ([`DESIGN-STATES.md`](DESIGN-STATES.md)); build the props interface (data + behavior); wire interaction in React (`useState`, `useEffect`, refs, native event handlers); give every named inner element an `elementProps` entry and spread it + merge its `className` ([`COMPONENT-API.md`](COMPONENT-API.md)); generate TS + CSS. Infer reasonable defaults where anything is unspecified.
-
-# Part 1: Standards & Conventions
-
-These are the mandatory patterns and conventions for all components.
-
-## 1.1 Mandatory Features
-
-Every component MUST include:
-
-### Direction Support (RTL/LTR)
-
-Direction support is mandatory — see [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
-
-### Accessibility ARIA Support
-
-See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
+- Use React 18-compatible APIs. Do not use React 19-only runtime features.
+- Keep rendering SSR-safe and deterministic. Do not access browser globals
+  during render or derive initial output from time-dependent/generated values.
 
 ### TypeScript
 
-- All components must be fully typed
-- NO `any` types
-- Export all prop interfaces
-- Use proper React types (`React.FC`, `React.ReactNode`, etc.)
-- **Array type syntax:** Use `Array<T>` instead of `T[]` (e.g., `Array<Item>` not `Item[]`)
-- **Array element types:** `T` must be an object with named keys — `Array<{ key: ValueType, ... }>` or a named interface that is itself a keyed object. Never `Array<string>`, `Array<number>`, `Array<boolean>`, or `Array<DataType>` (`Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText`, etc.). See [`COMPONENT-API.md`](COMPONENT-API.md) for full rules.
-- **Component function pattern:**
-  - Use inline arrow functions with `export const`
-  - Accept `props` as the argument (do NOT destructure in function signature)
-  - Destructure props inside the component body
+- Fully type component props and export the props type.
+- Do not use `any`.
+- Use `Array<T>` rather than `T[]`; exported array elements must be objects with
+  named keys.
+- Export the component as an arrow function, accept `props` as its argument,
+  and destructure inside the function body.
 
-## 1.2 Implementation Standards
+```tsx
+export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
+  const { heading } = props;
+  return <article>{heading}</article>;
+};
+```
 
-### When to Use elementProps
+### Props and State
 
-See [`COMPONENT-API.md`](COMPONENT-API.md) for full elementProps rules and the decision tree.
+- Keep `id`, `className`, `direction`, and `a11y` in the public contract.
+- Compute simple derived values during render instead of duplicating them in
+  props or state.
+- When local state intentionally mirrors a prop, synchronize it when that prop
+  changes. Do not use effect-managed state for a value that can be derived
+  during render.
+- Keep implementation-only handlers internal. Expose a callback only when the
+  specification makes it part of the component API.
 
-### React & Runtime Standards
+### Structure and Parts
 
-All components MUST follow these patterns:
+- Apply the root contract to the elected semantic root; do not add a wrapper
+  solely to hold `id`, `dir`, classes, or ARIA attributes.
+- Give every named inner part a matching `elementProps` entry and spread it onto
+  that element. Merge its injected `className` on raw HTML elements.
+- Keep structural wrappers and decorative elements module-class-only.
+- Use semantic HTML for controls, lists, navigation, headings, and landmarks.
 
-**1. SSR-Safe Implementation**
+### Accessibility and Direction
 
-- NO browser APIs at module scope (window, document, navigator, etc.)
-- Guard browser APIs with typeof checks or useEffect
-- All browser-dependent logic must run client-side only
+- Route ARIA through the typed `a11y` contract.
+- Put `dir={direction}` and the unconditional fallback-direction class on the
+  elected root. Use logical CSS properties; use runtime direction hooks only
+  when direction changes JavaScript behavior.
 
-See [`REACT-PATTERNS.md`](REACT-PATTERNS.md) §1.1 for code examples.
+### Code Quality
 
-**2. Clean Code**
+- Leave no TypeScript errors, unused imports, TODO placeholders, or template
+  commentary in the final component.
+- Prefer clear names and small internal components over long inline JSX blocks.
+- Preserve useful comments that explain non-obvious behavior; remove comments
+  that merely narrate the code or were copied from examples.
 
-- NO TypeScript errors
-- NO unused variables or imports
-- NO comments in React component files — code should be self-documenting through clear naming
-- NO TODO comments in generated code
-- **Remove ALL comments from the final component** — including any comments from templates/examples
+## Implementation Checklist
 
-**3. Data-Driven Components (NO children in exported props)**
-
-See [`COMPONENT-API.md`](COMPONENT-API.md) for full rules and patterns.
-
-**4. Breakpoint-Responsive Properties (NO props for visual variations)**
-
-See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) for full rules and patterns.
-
-**5. Reactive to Prop Changes**
-
-- Components MUST react to prop changes
-- If state is derived from props, use `useEffect` with prop dependencies
-- State initialized from props should update when props change
-
-**6. Event Handler Scope (Internal by Default)**
-
-Unless explicitly specified as a component capability/API in the specification, all event handlers are **internal** and NOT exposed as props.
-
-**Internal handlers (default):**
-
-- Used for component behavior (autoplay, animations, state management)
-- NOT exposed in the component's props interface
-
-**External handlers (only when specified):**
-
-- Only expose handlers that are explicitly listed as component capabilities
-- Use the standard SDK prop names and DOM wiring rules from [`FUNCTION-HANDLERS.md`](FUNCTION-HANDLERS.md)
-
-**Child component handlers:**
-
-- Internal sub-components receive handlers from parent via props
-- These are still internal to the main component
-
-## 1.3 Implementation Workflow
-
-### Step 1: Analyze Component Parts
-
-For each part of the component, decide:
-
-**CSS class only if**:
-
-- ✅ Purely visual/decorative
-- ✅ No data or configuration needed
-- ✅ No direction override needed
-- ✅ No custom behavior needed
-
-**Use elementProps if**:
-
-- ✅ Needs data/content
-- ✅ Needs direction override
-- ✅ Has state or behavior
-- ✅ Needs event handlers
-
-For the same part, also decide which **design states** it supports (native + custom) per [`DESIGN-STATES.md`](DESIGN-STATES.md).
-
-See [`COMPONENT-API.md`](COMPONENT-API.md) and [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) for the decision trees.
-
-### Step 2: Build Props Interface
-
-Combine:
-
-1. Data/content props (from specification)
-2. Behavior props (from specification)
-3. Mandatory React props (direction, a11y, className, id)
-4. elementProps (only for parts that need it)
-
-### Step 3: Implement
-
-Follow Part 2 templates with mandatory patterns applied. For each part's supported design states, author the interactive markup / class toggles and the state CSS per [`DESIGN-STATES.md`](DESIGN-STATES.md).
-
-# Part 2: CSS Rules
-
-All CSS authoring rules — root layout, naming, RTL, state styles,
-transitions, etc. — live in [`CSS-GUIDELINES.md`](CSS-GUIDELINES.md).
-
-See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and [`COMPONENT-API.md`](COMPONENT-API.md) for the prop vs CSS vs `elementProps` decision trees.
-
-# Part 3: Examples & Reference
-
-## 3.1 Implementation Checklist
-
-**Phase 1: Analysis** — Parse information, map component structure and supported design states (see Part 0)
-
-**Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; toggle custom-state classes from data ([`DESIGN-STATES.md`](DESIGN-STATES.md))
-
-**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md)). If the request uses the words **branded**, **themed**, or **brand-aware**, also apply [`BRANDED-COMPONENTS.md`](BRANDED-COMPONENTS.md) before writing CSS.
+- [ ] The semantic root owns the top-level component contract.
+- [ ] Props contain content and behavior, not breakpoint styling decisions.
+- [ ] Every named inner part has global/module classes and `elementProps` wiring.
+- [ ] Native and custom design states in scope are wired to their affected parts.
+- [ ] Render output is deterministic and SSR-safe.
+- [ ] Direction and accessibility contracts are wired to the correct elements.
+- [ ] Public handlers use supported SDK names; internal handlers stay internal.
+- [ ] CSS changed by the request keeps editable selectors flat and scoped.
+- [ ] The accessibility review runs after JSX edits.

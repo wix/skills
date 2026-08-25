@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, SEO, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -35,6 +35,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ---
 
 ## SEO
+
+### [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md)
+**Technical:** Reads and writes SEO tags (titles, descriptions, social tags, structured data, indexing) at three levels: site-wide, page-type patterns, and individual items. Always read before write — every Set replaces in full.
 
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 **Technical:** Reads, creates, and deletes URL redirects through the public SEO Redirects API. Distinguishes exact from group redirects, handles language-scoped redirects on multilingual sites, reads per-item results from bulk responses, and confirms before writes, because creating a redirect can permanently delete an existing one.

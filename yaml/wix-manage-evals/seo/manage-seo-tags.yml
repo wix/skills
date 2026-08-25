@@ -1,0 +1,80 @@
+name: seo/manage-seo-tags
+description: >-
+  Verifies that the agent updates one store product's SEO tags at the item level: it discovers the
+  real item ID, reads the current tags before writing, sends the complete tag set back on the
+  full-replace write, and confirms the result by reading resolved tags.
+triggerPrompt: >-
+  On my Wix site, set the SEO title of my product "Accessibility Scan Test Product" to
+  "Handmade Ceramic Mug | Studio Shop" and its meta description to
+  "A stoneware mug thrown and glazed by hand in our studio." Then show me what that product
+  page will actually render with.
+tags: [seo, stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/skills/manage-a-wix-site-s-seo-tags
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to set one store product's SEO title and meta description, then see what the
+      product page will render with.
+
+      Pass if the agent:
+      - works at the item level (Item SEO Tags) rather than rewriting a page-type pattern or the
+        site's tags for a single-product change,
+      - discovers the product's real item ID (by listing item SEO tags for the product item type or
+        resolving the product through its own API) instead of fabricating an ID or asking for a
+        site ID,
+      - reads the item's current tags before writing, then sends the complete tag set (title AND
+        description together) in one set call, since a write replaces the item's tags in full,
+      - leaves the language unset on the write, and
+      - reports the outcome from resolved tags, naming the source of each tag, without claiming
+        tags it did not verify.
+
+      Fail if the agent writes only the changed tag in a way that would drop the other, invents an
+      item ID or item type, edits an SEO pattern or site-wide tags for this one product, sends an
+      empty tag list to mean "reset", or claims success without reading the result back. If any
+      write returns 403 or PERMISSION_DENIED, require the agent to stop after that first attempt
+      and clearly identify the missing Manage SEO Settings authorization; do not reward retries
+      with alternate items, levels, request shapes, or sites.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the SEO tag update. Examine the tool-call
+      trace. Score 0-10 (10 = direct: item discovery, one read, one complete-set write, report from
+      the write response, no wasted calls or errors).
+
+      HEAVY penalties (each costs 2-3 points):
+      - write issued without first reading the current tags
+      - guessed or fabricated item ID or item type
+      - duplicate write (same target written more than once)
+      - claimed success without verifying the outcome
+
+      LIGHT penalties (each costs at most 1 point):
+      - recovered non-2xx error caused by an MCP tool or docs gap, not by the recipe
+      - redundant documentation search before the first API call
+      - request shape guessed wrong then corrected (if the docs rendered the type ambiguously)
+
+      For each friction, name the likely cause: skill, MCP, or docs gap. A clean-but-slow path that
+      hits only light penalties should still score 7+.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected cause, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed product whose SEO tags the agent will set
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Accessibility Scan Test Product
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "19.50" } }
+                  physicalProperties: {}
+                  visible: true
