@@ -81,6 +81,13 @@ One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
 An empty report = bad token, never an empty site.
 
+No OAuth app in the report? Create one — the returned `id` IS the `clientId`:
+
+```js
+const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
+  { oAuthApp: { name: "My App" } }, accessToken);   // oAuthApp.id is the visitor clientId
+```
+
 ## Learn Wix — find the APIs, learn their contracts
 
 ```js
