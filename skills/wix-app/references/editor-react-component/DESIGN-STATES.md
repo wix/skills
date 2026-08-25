@@ -1,11 +1,21 @@
 # Design States
 
-A design state styles an element differently per interaction (`hover`,
-`focus`, `disabled`, `invalid`) or per a selectable value in its data
-(`selected`, `active`, `open`, …). Author states in the component's `.tsx`
-and `.module.css`.
+Use this reference when a named part changes appearance through interaction or
+a selectable value. A design state styles an element differently for an
+eligible interaction (`hover`, `focus`, `disabled`, `invalid`) or per a
+selectable value in its data (`selected`, `active`, `open`, …). Author states
+in the component's `.tsx` and `.module.css`.
 
-## 1. Which states each element supports
+## Contents
+
+- [Choose Supported States](#1-choose-supported-states)
+- [Name the State Class](#2-name-the-state-class)
+- [Author CSS](#3-author-css)
+- [Wire React](#4-wire-react)
+- [Use Prop-Triggered States on the Root Only](#5-use-prop-triggered-states-on-the-root-only)
+- [Checklist](#checklist)
+
+## 1. Choose Supported States
 
 | Element | Author these states |
 |---|---|
@@ -17,43 +27,37 @@ and `.module.css`.
 | None of the above | no states — resting style only |
 
 An explicit `role` overrides the tag's implicit semantics: `<input role="button">`
-is a non-input control, and `<div role="checkbox">` is an input field.
+is a non-input control, while `<div role="checkbox">` is an input field.
 
 A `focus` design state is an editor styling control, not the keyboard focus
 indicator itself. Do not add a global `--focus` modifier to a non-input control
-unless the user explicitly asks for an editable focus state. A control that
-restyles its own `outline`, `background`, or `border` MUST still carry a
-standalone `:focus-visible` rule — that rule is its only keyboard affordance.
+unless the user explicitly requests editable focus styling. A control that
+restyles its own outline, background, or border must still carry a standalone
+`:focus-visible` rule as its keyboard affordance.
 
 A custom state may also be driven by a root-level boolean prop (e.g.
-`isFeatured`) instead of by markup or item data — see §5.
+`isFeatured`) instead of by markup or item data — see §5. For an active-item
+component, drive each item's `--active` class by comparing its index with the
+active-index prop rather than storing a per-item boolean.
 
-For **active-item components** (tabs, slideshow, steps), the `--active` state on
-each item is driven by comparing the item's index to the active-index prop
-(`index === activeItem`), not by a per-item boolean flag — see
-[Active-item components](COMPONENT-API.md#active-item-components-one-body-visible-at-a-time)
-in [`COMPONENT-API.md`](COMPONENT-API.md).
-
-## 2. Name the state class
+## 2. Name the State Class
 
 Flat: the element's own global class + `--<state>`. Because inner-part
-global classes are prefixed with the component name (see
-[`CSS-GUIDELINES.md`](CSS-GUIDELINES.md)), the state class is prefixed too —
+global classes are prefixed with the component name, the state class is prefixed too —
 e.g. `pricing-card-cta--hover`, `pricing-card-plan-row--selected`. Never bare
 (`cta--hover` would collide with other components on the page) and never
 nested (`card__row--selected`).
 
-## 3. CSS
+## 3. Author CSS
 
 Put the resting value in the bare class; put only the state override in the
 state selector.
 
 - **Native design state** — pair the pseudo-class with the `:global` modifier.
   Every exposed native state needs both selectors in the same rule; do not
-  split the pair across states (for example, pseudo-only `hover` plus
-  global-only `disabled`). A standalone `:focus-visible` accessibility rule on
-  a non-input control is intentionally not an editor design state and therefore
-  has no `:global` modifier.
+  split the pair across states. A standalone `:focus-visible` accessibility
+  rule on a non-input control is not an editor design state and has no global
+  modifier.
 - **Custom** — the `:global` modifier alone.
 
 The bare selector is the short **module** class (`.cta`); the `:global(...)`
@@ -79,10 +83,11 @@ state class is the **prefixed** global one.
 }
 ```
 
-## 4. React
+## 4. Wire React
 
 - **Native** — render the correct interactive element (`<button>`, an
-  interactive `role`, or a handler). Nothing else needed.
+  interactive `role`, or a handler). No custom state class is needed, but the
+  element must still satisfy the accessibility contract for its semantics.
 - **Custom** — toggle the global state class from the element's data.
 - **Inner elements** — every named inner element gets an `elementProps` entry;
   spread it so editor-driven states reach it. On a raw HTML element also merge
@@ -90,7 +95,8 @@ state class is the **prefixed** global one.
   spread alone suffices (it merges `className` itself). The `elementProps` key
   stays the **short** part name (`cta`) even though the element's global class
   is prefixed (`pricing-card-cta`) — don't rename the key to match the class.
-  See [`COMPONENT-API.md`](COMPONENT-API.md).
+
+Wire native and custom states as follows:
 
 ```tsx
 <button
@@ -101,12 +107,20 @@ state class is the **prefixed** global one.
   {label}
 </button>
 
-<li className={classNames('pricing-card-plan-row', styles.planRow, row.selected && 'pricing-card-plan-row--selected')}>
+<li
+  {...elementProps?.planRow}
+  className={classNames(
+    'pricing-card-plan-row',
+    styles.planRow,
+    row.selected && 'pricing-card-plan-row--selected',
+    elementProps?.planRow?.className,
+  )}
+>
   {row.label}
 </li>
 ```
 
-## 5. Prop-triggered states (root only)
+## 5. Use Prop-Triggered States on the Root Only
 
 A **prop-triggered** state is a custom state switched by a single boolean
 **prop**, rather than by interactive markup (native) or a per-item data flag
@@ -150,3 +164,13 @@ Rules:
 Prefer a native state (interactive markup) or a class trigger (per-item data
 such as `row.selected`) whenever one fits — those are the common cases and work
 at any depth. Reach for a prop trigger only for a root-level boolean switch.
+
+## Checklist
+
+- [ ] Each named part declares only states its semantics or data supports.
+- [ ] Eligible native design-state selectors pair the pseudo-class with the
+      prefixed global modifier.
+- [ ] Non-input controls retain a standalone `:focus-visible` keyboard indicator.
+- [ ] Custom state classes are flat, global, and prefixed by component and part.
+- [ ] Named inner parts spread and merge their `elementProps` entry.
+- [ ] `ElementState<boolean>` is used only for a component-level root state.
