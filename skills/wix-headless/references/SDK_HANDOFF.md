@@ -32,7 +32,9 @@ For the current `createClient` + auth-strategy shape, link:
 ### 3 · Per-capability packages + API docs (package from the map; recipe for shapes)
 For each loaded capability, give the host the **package(s)** from the map below and point it at the capability's **inline recipe** (`references/inline-recipes/how-to-code-*.md`) — the pinned API shape, methods, version, and failure modes live there; don't re-summarize them here. The map is the source of truth for *which* packages; the recipe is the source of truth for *how* to call them. **The recipes are local — Read them with the file tool, don't curl.**
 
-| Capability | Package(s) | Recipe — the pinned frontend contract |
+Before implementing a capability, Read the local recipe linked in its row.
+
+| Capability | Package(s) | Required recipe |
 |---|---|---|
 | stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | `how-to-code-a-store.md` — Catalog V3 read + cart/checkout. |
 | blog | `@wix/blog` (+ `@wix/ricos` to render `richContent`; **`@wix/comments` + `@wix/members`** when the blog has comments/members; `@wix/blog` `likes` when the site has members) | `how-to-code-a-blog.md` — Blog V3 read/render + member features (likes, comments). Supplement: <https://dev.wix.com/docs/sdk/business-solutions/blog.md>. |
