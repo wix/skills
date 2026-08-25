@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide (site context, doc discovery, API contracts, who calls Wix from where), and scripts/utils.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, decide frontend vs backend for a Wix call."
+description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide, and scripts/utils.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, set up or manage the connected Wix site, decide frontend vs backend for a Wix call."
 ---
 
 # Building on Wix from Base44
