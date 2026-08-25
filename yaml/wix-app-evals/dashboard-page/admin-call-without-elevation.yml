@@ -12,6 +12,11 @@ assertions:
     skillNames: [wix-app]
     referenceFiles:
       wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/WIX_PATTERNS_DOCS.md]
   - type: build_passed
     command: npm run build
   - type: llm_judge
@@ -20,9 +25,9 @@ assertions:
     prompt: |-
       This is the negative counterpart to the Editor React component Locations scenario. Same two methods — `locations.queryLocations` and `locations.archiveLocation`, both admin-only — but a dashboard extension runs as the **Wix user**, not as a site visitor. A site owner holds the Manage Locations permission, so the page calls the SDK directly. Routing this through a backend endpoint is unnecessary indirection, and `auth.elevate` in dashboard page code does not work at all.
 
-      Check: (1) The dashboard page imports the Locations SDK and calls `queryLocations` and `archiveLocation` directly from page code. (2) There is **no** `auth.elevate` call anywhere in the project. (3) **No HTTP endpoint was created under `src/pages/api/`** to proxy these calls — if the agent built one, it over-applied the site-extension routing rule to a host that doesn't need it. (4) The list refreshes after an archive, and the default location — which cannot be archived — is handled rather than offered as archivable. (5) The agent surfaced adding the Locations scopes in Dev Center as a manual step.
+      Check: (1) The dashboard page imports the Locations SDK and calls `queryLocations` and `archiveLocation` directly from page code. (2) There is **no** `auth.elevate` call anywhere in the project. (3) **These two Locations calls are not proxied through any backend extension** — no HTTP endpoint, web method, or other server hop created solely to reach them. If the agent built one, it over-applied the site-extension routing rule to a host that doesn't need it. (4) The list refreshes after an archive, and the default location — which cannot be archived — is handled rather than offered as archivable. The locations list and its row actions come from `@wix/patterns` rather than a hand-written table or a raw WDS assembly, per the Patterns Docs Gate. (5) The agent surfaced adding the Locations scopes in Dev Center as a manual step.
 
-      An agent that notes the role caveat — that a collaborator without the Manage Locations role would still be refused — should not be penalized for mentioning it, only for acting on it by adding an endpoint. Score 0-10. Score 3 or below if a backend endpoint or `auth.elevate` appears.
+      Judge these two operations only. "Dashboard extension" does not mean "never route" in general — some methods require elevation even from a dashboard, and elevation only works in backend code, so routing is correct for those. An agent that notes the role caveat — that a collaborator without the Manage Locations role would still be refused — should not be penalized for mentioning it, only for acting on it by adding a server hop for these calls. Score 0-10. Score 3 or below if `archiveLocation` or `queryLocations` is proxied, or if `auth.elevate` appears.
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7

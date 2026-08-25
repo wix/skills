@@ -12,6 +12,11 @@ assertions:
     skillNames: [wix-app]
     referenceFiles:
       wix-app: [references/CUSTOM_ELEMENT_WIDGET.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
   - type: build_passed
     command: npm run build
   - type: llm_judge

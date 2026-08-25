@@ -259,15 +259,20 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 1. **Site extensions never run as the app.** Editor React components, custom element widgets, site plugins, and embedded scripts run as the site visitor or member. Dashboard extensions run as the Wix user, so they can usually call admin methods directly — but check the method: some still require elevation, and a role-limited collaborator may not have the role a method demands. Only backend extensions — Backend API, Backend Event, Service Plugin — run as the app.
 2. **`auth.elevate` only works in backend code.** In a site or editor extension it isn't a style problem, it doesn't work.
 
-**No field in the reference tells you which identity a method needs.** Don't try to derive one — the scope name doesn't track identity (`queryLocations` is `READ-LOCATIONS` but admin-only; `addLineItemsToCurrentCart` carries `MANAGE-ADMIN` but is visitor-callable), and the SDK schema line renders `wixClientAdmin` for *every* method in the machine-readable docs, visitor-callable ones included. Read the method's own documentation for authentication requirements, and when you can't confirm a visitor or member may call it, route it out.
+**Sort the call by who it acts on behalf of — not by its scope name.**
 
-**Callable directly from a site extension** — don't route these:
+**Acts for the current visitor or member → call it directly, and never elevate it.** Their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order placed against no buyer, a booking with no attendee. This is a property, not a list: a method that operates on "my" or "the current" anything belongs here even if you haven't seen it before.
 
-- Wix Data `items.*`, which enforces per-collection permissions (see [SITE_PLUGIN.md](references/SITE_PLUGIN.md)).
-- Public catalog reads such as `products.queryProducts` / `productsV3.queryProducts`.
-- Session-resolved `current*`/`my*` methods — `currentCartV2.*`, `members.getCurrentMember`, `loyalty.accounts.getCurrentMemberAccount`. **Never elevate these:** they resolve the entity from the caller's session identity, so elevating retargets the operation to the app instead of the visitor.
+**Acts on the business as a whole → route it out and elevate.** `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management.
 
-Everything else a site extension can't confirm — `archiveLocation`, `queryLocations`, order and inventory writes, booking confirmation — goes in a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevated there and called with `httpClient.fetchWithAuth()` against `new URL(import.meta.url).origin` so the caller's identity reaches the endpoint. Elevation bypasses Wix's permission check, so re-check in the endpoint whatever the elevated call assumes about the caller — an endpoint reachable by any site visitor must not perform an owner-only operation on request alone.
+Two cases turn on configuration rather than identity:
+
+- **Wix Data `items.*` follows the collection's `dataPermissions`.** The scaffolded default is `itemRead: 'ANYONE'` with `itemInsert`/`itemUpdate`/`itemRemove` set to `'PRIVILEGED'`, so reads work from a site extension and writes don't. Fix that by setting permissions to match the access context (see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)), not by routing.
+- **Catalog reads are public for base fields only.** `fields: ["MERCHANT_DATA"]` and non-visible products need `SCOPE.STORES.PRODUCT_READ_ADMIN` and must be routed.
+
+**When you're unsure about a method:** there's no structured identity field in the reference, and neither the scope name nor the SDK schema line carries the signal — `queryLocations` is `READ-LOCATIONS` yet admin-only, and the schema line reads `wixClientAdmin` for every method in the machine-readable docs. Some pages *do* state it in prose (`get-my-member`: "This method requires visitor or member authentication"); that note is authoritative when present. Its absence is not evidence either way — treat the method as unconfirmed and route it out.
+
+Routing out means a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevated there and called with `httpClient.fetchWithAuth()` so the caller's identity reaches the endpoint. Elevation bypasses Wix's permission check, so re-check in the endpoint whatever the elevated call assumes about the caller — an endpoint reachable by any site visitor must not perform an owner-only operation on request alone.
 
 Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
 

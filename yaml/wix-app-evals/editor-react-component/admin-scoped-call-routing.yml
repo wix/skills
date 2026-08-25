@@ -1,5 +1,5 @@
 name: editor-react-component/admin-scoped-call-routing
-description: Editor React component needing wixClientAdmin Locations methods — both the list and the archive must be routed through a backend endpoint that elevates, not called or elevated inside the component
+description: Editor React component needing admin-only Locations methods — both the list and the archive must be routed through a backend endpoint that elevates, not called or elevated inside the component
 triggerPrompt: |-
   Build an Editor React component for my app that shows the site's business locations, and lets the site owner archive a location from the component. Use the Wix Locations API.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
