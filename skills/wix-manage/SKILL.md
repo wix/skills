@@ -373,6 +373,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Sites
 
+### [Branches and Test Sites](references/sites/branches-and-test-sites.md)
+**Technical:** Create and manage Branches (test sites) via the Branches API. Critical caveat: a branch clones the source branch's current draft, not the published/live snapshot — if the draft has drifted from live, the branch, editor, and Site History all show the same stale design, and there's no API to restore/sync a branch from what's currently live.
+
 ### [Create Site from Template](references/sites/create-site-from-template.md)
 **Technical:** Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 
