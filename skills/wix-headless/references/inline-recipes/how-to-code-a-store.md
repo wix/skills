@@ -54,8 +54,8 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to request params (note the redirect session's `checkoutId`, which is just the cart's `_id`).
 
 ```jsonc
-// Request CURRENCY on every product read — it is what populates formattedAmount.
-const PRODUCT_FIELDS = ['CURRENCY'];
+// Request CURRENCY and PLAIN_DESCRIPTION on every product read — they populate formattedAmount and plainDescription.
+const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
 // productsV3.queryProducts({ fields: PRODUCT_FIELDS }).…find()  →  result.items[]
 // productsV3.searchProducts({ ..., fields: PRODUCT_FIELDS })    →  result.products[]
 product = {
@@ -94,14 +94,14 @@ Each section below is a **self-contained storefront feature** — implement only
 ### Listing products (and the `_id` rule)
 
 Query products with `productsV3.queryProducts()` / `.searchProducts()`. **Every product listing,
-category search, and detail read must request `CURRENCY`**. Without it, `formattedAmount` is omitted
-and a product card renders an unsymbolled number such as `34.99` instead of a localized price.
+category search, and detail read must request `CURRENCY` and `PLAIN_DESCRIPTION`**. Without `CURRENCY`, `formattedAmount` is omitted
+and a product card renders an unsymbolled number such as `34.99` instead of a localized price. Without `PLAIN_DESCRIPTION`, `product.plainDescription` is absent for cards and detail pages.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md?apiView=SDK>
 
 **⚠️ `queryProducts()` returns a builder, not a Promise.** Pass requested fields when needed, then chain `.eq(...)`/`.limit(...)`/`.find()` — for example:
 
 ```js
-const PRODUCT_FIELDS = ['CURRENCY'];
+const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
 const { items } = await productsV3
   .queryProducts({ fields: PRODUCT_FIELDS })
   .limit(50)
