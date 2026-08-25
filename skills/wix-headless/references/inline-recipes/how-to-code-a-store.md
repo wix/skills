@@ -54,13 +54,16 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to request params (note the redirect session's `checkoutId`, which is just the cart's `_id`).
 
 ```jsonc
-// productsV3.queryProducts().…find()  →  result.items[]
-// productsV3.searchProducts({...})    →  result.products[]
+// Request CURRENCY on every product read — it is what populates formattedAmount.
+const PRODUCT_FIELDS = ['CURRENCY'];
+// productsV3.queryProducts({ fields: PRODUCT_FIELDS }).…find()  →  result.items[]
+// productsV3.searchProducts({ ..., fields: PRODUCT_FIELDS })    →  result.products[]
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
-  actualPriceRange:    { minValue: { amount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
-  compareAtPriceRange: { minValue: { amount } },  // strike-through price
+  currency,                                       // present when CURRENCY is requested
+  actualPriceRange:    { minValue: { amount, formattedAmount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
+  compareAtPriceRange: { minValue: { amount, formattedAmount } },  // strike-through price
   inventory: { availabilityStatus },              // product-level stock, "IN_STOCK"
   media: { main: { image } },                     // image is a wix:image:// id → resolve it (see Rendering images)
   plainDescription,                               // plain string; description.nodes is the rich-text form
@@ -90,10 +93,22 @@ Each section below is a **self-contained storefront feature** — implement only
 
 ### Listing products (and the `_id` rule)
 
-Query products with `productsV3.queryProducts()` / `.searchProducts()`.
+Query products with `productsV3.queryProducts()` / `.searchProducts()`. **Every product listing,
+category search, and detail read must request `CURRENCY`**. Without it, `formattedAmount` is omitted
+and a product card renders an unsymbolled number such as `34.99` instead of a localized price.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md?apiView=SDK>
 
-**⚠️ `queryProducts()` takes NO arguments — it returns a builder, not a Promise.** Chain `.eq(...)`/`.limit(...)`/`.find()` on it (e.g. `await productsV3.queryProducts().limit(50).find()`). Passing a query object (`queryProducts({...})`) does **not** type-check and returns a `Promise` that has no `.limit`/`.eq`/`.find` to chain — if the SDK reference page shows a `(query, options)→Promise` signature, trust the installed no-arg builder over that example. (`searchProducts` is the one that *does* take a query — see category filtering below.)
+**⚠️ `queryProducts()` returns a builder, not a Promise.** Pass requested fields when needed, then chain `.eq(...)`/`.limit(...)`/`.find()` — for example:
+
+```js
+const PRODUCT_FIELDS = ['CURRENCY'];
+const { items } = await productsV3
+  .queryProducts({ fields: PRODUCT_FIELDS })
+  .limit(50)
+  .find();
+```
+
+Do not pass a search/filter object to `queryProducts`; use `searchProducts` for that (see category filtering below). Reuse the same `PRODUCT_FIELDS` constant for every product read so home, shop, category, and detail pages cannot drift.
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
@@ -101,7 +116,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
 
-**Price** comes from `actualPriceRange.minValue.amount` (see the cheat-sheet) — **not** `price.actualPrice.amount` (the seed/write shape), which reads `undefined` → `$NaN`.
+**Price:** after requesting `CURRENCY`, render `actualPriceRange.minValue.formattedAmount` (and the matching `compareAtPriceRange` value) directly. Fall back to raw `.amount` only if the formatted value is unexpectedly absent. Never use `price.actualPrice.amount`: that is the seed/write shape and reads `undefined` → `$NaN`.
 
 ### Category navigation — list categories live
 
@@ -125,6 +140,7 @@ const res = await categories.queryCategories({
 ```js
 const { products } = await productsV3.searchProducts({
   filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
+  fields: PRODUCT_FIELDS,
 });
 ```
 
