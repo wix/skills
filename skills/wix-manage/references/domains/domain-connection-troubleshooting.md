@@ -32,6 +32,24 @@ If the call itself fails with a permission/authorization error rather than retur
 surface the raw error. Say diagnostics aren't available right now and go straight to the dashboard
 link below.
 
+### `IN_PROGRESS` for far longer than 48 hours, with `actualDnsRecords` empty
+
+The API has no status for "this domain isn't a real registered domain" — a domain string that was
+typo'd when connecting it, or was never actually registered anywhere, also reports `IN_PROGRESS` with
+`dnsResolverIncludesWixNs: false` and `actualDnsRecords: []` and can stay that way forever, since it's
+indistinguishable from a domain that's genuinely still propagating. Don't tell the user to "keep
+waiting" indefinitely. If the user says they connected this domain a long time ago (well past 48
+hours) and it's never moved off `IN_PROGRESS`:
+
+- Double-check the exact spelling of the domain the user gave you against what's actually connected to
+  the site (e.g. via the site's connected domains), rather than retyping it from memory or from an
+  earlier message — a single mistyped character produces exactly this symptom.
+- If you have a way to do a plain public DNS/NS lookup independent of Wix's APIs, use it to check
+  whether the domain resolves at all on the public internet. If it doesn't (e.g. an NXDOMAIN-style
+  result), the domain was likely never actually registered, or was registered under a different
+  spelling than what's connected — the fix is to correct/re-purchase the domain, not to keep waiting
+  for propagation.
+
 ## 2. SSL / HTTPS errors after DNS has succeeded
 
 There is no API to check SSL certificate issuance status. Wix provisions the certificate
