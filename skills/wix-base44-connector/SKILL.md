@@ -154,8 +154,8 @@ then get-paid, marketing, pricing-plans, events, blog, forms, restaurants, domai
 ```js
 await wx.mgmtRecipes();           // categories with counts
 await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.mgmtRecipes("coupon")
-await wx.page(url);           // read the chosen recipe — whole when small, saved + outline when
-                              // big; then grep / read_file windows by the outline's line numbers
+// each row points at its recipe: `file` when the wix-manage skill is installed — read_file it
+// straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
 ```
 
 A matching recipe beats composing the flow from single endpoints: it carries ordering and

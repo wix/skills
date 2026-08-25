@@ -198,8 +198,14 @@ async function spec(code) {
 async function mgmtRecipes(q) {
   const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
   const cat = f => (f.path.match(/^references\/([^/]+)\//) || [])[1];
-  const row = f => ({ name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
-                      url: base + f.path, kb: Math.round(f.size / 1024) });
+  // the recipes ARE the wix-manage skill's references — when that skill is installed,
+  // point at the file on disk (read_file it) instead of the network url
+  const row = f => {
+    const local = ".agents/skills/wix-manage/" + f.path;
+    return { name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
+             ...(fs.existsSync(local) ? { file: local } : { url: base + f.path }),
+             kb: Math.round(f.size / 1024) };
+  };
   if (!q) {
     const cats = {};
     for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }
