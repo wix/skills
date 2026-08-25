@@ -58,20 +58,21 @@ const wx = (() => { const m = { exports: {} };
 - `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
 - `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint + docsUrl + gist
-- `wx.page(docsUrl)` — read a doc page; whole when small, else saved + outline
-- `wx.bash(cmd)` — shell over saved files
+- `wx.page(docsUrl)` — read a doc page
+- `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(code)` — run `code` against the spec index for a method's exact schema
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 
-Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
-under `.agents/skills/wix-base44-connector/tmp/` and returns `{ path, bytes, lines, outline }` —
-the outline is the map. Read a saved file the way you already know how:
-`wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
-across everything saved: `grep -rn 'term' .agents/skills/wix-base44-connector/tmp/`), and
-`read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
-file when it fits read_file's 45K cap. **API responses are site data and never land in
-never saved** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
-tools clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
+Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
+A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
+`{ path, bytes, lines, outline }` — the outline is your map into the file. Work a saved file in
+two moves: find with `wx.bash("grep -n 'term' <path> | head -40")` (or across every save:
+`grep -rn 'term' .agents/skills/wix-base44-connector/tmp/`), then quote with `read_file` — an
+`offset`/`limit` window at the lines grep named, or the whole file when it fits the 45K cap.
+
+Three ground rules for execs. **API responses are site data — don't save them; project them to
+facts.** Fetch URLs with `fetch()`, never the website/browser tools — those clip at 10,000 chars
+silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
 
 ## Gather context — the dynamic context report
 
