@@ -182,6 +182,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 **Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
 
+### [Domain Connection Troubleshooting](references/domains/domain-connection-troubleshooting.md)
+**Technical:** Diagnose why an already-connected domain isn't resolving or shows an SSL error — checks DNS propagation status via the DNS Propagation API and explains the record-level failure. Use this instead of the connect flow above when the domain is already bound and the user reports the site is down or unreachable.
+
 ---
 
 ## eCommerce

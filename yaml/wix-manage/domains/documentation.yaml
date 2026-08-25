@@ -10,3 +10,7 @@ apiDoc:
       title: Domains Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/domain-connection-troubleshooting.md
+      title: Domain Connection Troubleshooting
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains/dns-propagation
+      tags: [domains]
