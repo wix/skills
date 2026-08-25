@@ -55,6 +55,10 @@ This includes the `states` block for any design states — it is generated from 
 
 File where you can override the generated manifest from `<componentName>.generated.ts`. Only include overrides that appear in the boilerplate component — do not add extra overrides beyond what the boilerplate provides.
 
+## Identity of SDK Calls
+
+A component runs on the live site as the **site visitor or member**, never as the app, and `auth.elevate` doesn't work here at all — only in backend code. Call the SDK directly by default; route out only a method acting on the business as a whole, which a visitor genuinely cannot perform. Full rule: [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
+
 ## Workflow
 
 1. **MANDATORY** — always use the scaffold; never substitute with manual file creation.

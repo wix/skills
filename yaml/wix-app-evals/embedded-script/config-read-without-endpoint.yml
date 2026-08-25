@@ -1,0 +1,41 @@
+name: embedded-script/config-read-without-endpoint
+description: Embedded script configured through dynamic parameters and a companion dashboard page — the injected script runs as the site visitor, so serving its config or its dismissal state from an elevated backend endpoint is both unnecessary and an exposure
+triggerPrompt: |-
+  Add a site-wide announcement bar to my app — an embedded script that shows a promotional message with a coupon code at the top of every page. Visitors should be able to dismiss it, and it shouldn't come back for them once dismissed. I want to edit the message and the coupon code, and turn the bar on and off, from the app's dashboard.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [embedded-script, dashboard-page, backend-api]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/EMBEDDED_SCRIPT.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      An embedded script is HTML injected into the site page, so it runs as the **site visitor** — never as the app — and `auth.elevate` does not work there at all. Everything this task needs is already visitor-side: the message, coupon code, and enabled flag reach the script as dynamic parameters that Wix substitutes into HTML attribute values at injection time, and "don't show it again" is per-visitor state that belongs in `localStorage` or a cookie.
+
+      The specific defect: an agent that builds an endpoint under `src/pages/api/` — elevated or not — to serve the bar's configuration at runtime, or to record dismissals server-side. The config path is already provided by the platform, and the dismissal has no server-side owner: the visitor is anonymous, so an elevated endpoint writing per-visitor state either has nothing to key on or exposes an unauthenticated write.
+
+      Check: (1) The configuration arrives as dynamic parameters on the embedded script extension — a `TEXT` message, a `TEXT` coupon code, and a `BOOLEAN` enable/disable toggle — not fetched at runtime. (2) **No endpoint was created under `src/pages/api/`** for the config or the dismissal, and there is **no** `auth.elevate` anywhere in the project. (3) Dismissal is stored client-side and checked before the bar renders. (4) A companion dashboard page loads and saves the parameters with `embeddedScripts` from `@wix/app-management`, converting values to and from strings. (5) `{{parameterKey}}` placeholders appear **only inside HTML attribute values** — rendered as data attributes on a config element and read back via `dataset`, never interpolated into a `<script>` body — and the boolean is compared against the string `"true"`. (6) The script honours the enable toggle and exits early without breaking the page; at module scope that early exit is `throw new Error(...)`, not a bare `return`, with the main logic in a named async function. (7) CSS classes and element IDs are prefixed so they cannot collide with site styles. (8) The agent surfaced the manual Dev Center step — enabling `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` — and that the script must be re-embedded after a release that changes its content.
+
+      Score 0-10. Score 2 or below if `auth.elevate` appears anywhere — it cannot work in an injected script and signals the identity of the host was never established. Score 4 or below if an endpoint under `src/pages/api/` serves the configuration or the dismissal state.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It scaffolded with `wix generate --params` supplying all five required fields, and chose a `scriptType` and `placement` it can justify for a visible, dismissible bar rather than defaulting blindly. (2) It read the Embedded Script reference before writing the HTML, and did not have to discover the attribute-only template-variable rule or the module-scope `return` restriction by failing a build first. (3) It did not scaffold a backend endpoint and then delete it. (4) It built the companion dashboard page as a separate `DASHBOARD_PAGE` extension rather than trying to configure the script from the site side. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 240000
+  - type: cost
+    maxCostUsd: 1.5
