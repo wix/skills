@@ -16,6 +16,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
+  - [ ] **🛑 SDK-First Gate (MANDATORY before any Data Collection):** Confirmed the data is NOT owned by an existing Wix app (orders, products, bookings, contacts, invoices, reviews…) — if it is, use that app's SDK module instead of CMS (see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms))
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
@@ -43,6 +44,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 | ❌ WRONG                                    | ✅ CORRECT                                     |
 | ------------------------------------------- | ---------------------------------------------- |
+| Creating a CMS Data Collection for data an existing Wix app already owns (orders, products, bookings, contacts, invoices, reviews…) | Use that domain's SDK module — see [WIX_SDK_MODULES.md](references/WIX_SDK_MODULES.md) |
+| Concluding "no SDK exists for this, I'll build it on CMS" without a single MCP search | Check the [SDK module map](references/WIX_SDK_MODULES.md), then `SearchWixSDKDocumentation` — decide CMS only after both come up empty |
 | Hand-writing builder files, folders, UUIDs, or extension registration | Run `wix generate --params` — it owns scaffolding |
 | Implementing without reading the extension reference | Always read the relevant reference file first |
 | Using MCP discovery without checking refs   | Check reference files first                    |
@@ -59,7 +62,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 1. **What are you trying to build?**
    - Admin interface → Dashboard Extensions
    - Backend logic → Backend Extensions
-   - Data storage / CMS collections → Data Collection
+   - Data storage / CMS collections → Data Collection (app-owned data only — Wix-app data goes through its SDK module, see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms))
    - Editor React component → Site Extensions (app projects only)
 
 2. **Who will see it?**
@@ -83,7 +86,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 ## Decision Flow (Not sure?)
 
 - **Admin:** Admin screen in the site owner's dashboard? → Dashboard Page — build its UI with `@wix/patterns` first, `@wix/design-system` for whatever patterns does not cover (see [Component Selection Order](#component-selection-order)). Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
-- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
+- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app-owned data? → Data Collection (never for data a Wix app already owns — see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms)).
 - **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ---
@@ -192,14 +195,36 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 | App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
+| Wix SDK Module Map (SDK-first, never CMS for Wix app data) | [WIX_SDK_MODULES.md](references/WIX_SDK_MODULES.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
+
+---
+
+## SDK-First Rule (Existing Wix App Data Is Never CMS)
+
+**CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
+
+Before creating (or inferring) any Data Collection:
+
+1. **Check the entity against the SDK module map** — [WIX_SDK_MODULES.md](references/WIX_SDK_MODULES.md) lists every Wix business domain and its `@wix/*` package. Red flags that the data is Wix-owned: orders, refunds, transactions, products, inventory, cart, checkout, bookings, services, staff, contacts, members, invoices, payments, coupons, subscriptions, events, tickets, reviews, form submissions, blog posts, restaurant menus, reservations, loyalty points, gift cards.
+2. **If unsure, search before deciding** — run `SearchWixSDKDocumentation` for the entity. **Never conclude CMS with zero MCP calls.**
+3. **CMS is only for app-owned data** — configuration, rules, and records your app itself introduces that no Wix app manages.
+
+| User asks for | ❌ Wrong | ✅ Correct |
+| --- | --- | --- |
+| "Dashboard around site refunds" | New `refunds` collection | `@wix/ecom` order transactions / `@wix/payments` refunds |
+| "Manage my products" | New `products` collection | `@wix/stores` (with the V1/V3 versioning check) |
+| "Show upcoming bookings" | New `bookings` collection | `@wix/bookings` |
+| "Store shipping-fee rules my app applies at checkout" | — | Data Collection ✅ (app-owned config) |
 
 ---
 
 ## Data Collection Inference
 
 **CRITICAL:** Data collections are often needed implicitly — don't wait for the user to explicitly say "create a CMS collection." Infer the need automatically.
+
+**⚠️ Apply the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) first.** The indicators below apply only to data your app itself owns — the same phrases ("save", "manage", "dashboard to manage X") do NOT justify a collection when X is an entity a Wix app already manages.
 
 **Skip this section if the user provides a collection ID directly** (e.g., an existing site-level collection). In that case, use the provided ID as-is — no Data Collection extension or namespace scoping needed.
 
@@ -288,13 +313,14 @@ Use the Extension Types Reference Table and decision content above. State extens
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
+- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix eCommerce, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations — find the right `@wix/*` package in the [SDK module map](references/WIX_SDK_MODULES.md) first, then discover methods via MCP
 
 **Decision table:**
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
 | "Display store products"             | ✅ YES (MCP discovery)               | Wix Stores API — **include Stores Versioning reference** |
+| "Dashboard for orders / refunds"     | ✅ YES (MCP discovery)               | Wix eCommerce API (`@wix/ecom`) — **NEVER a CMS collection** (see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms)) |
 | "Show booking calendar"              | ✅ YES (MCP discovery)               | Wix Bookings API not in reference files             |
 | "Send emails to users"               | ✅ YES (MCP discovery)               | Wix Triggered Emails not in reference files         |
 | "Get member info"                    | ✅ YES (MCP discovery)               | Wix Members API not in reference files              |
