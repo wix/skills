@@ -14,7 +14,11 @@ node $PATTERNS docs <Name> --refs          # ...following cross-references one l
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
 
-**If it exits non-zero, do not install or upgrade `@wix/patterns`.** The package is absent or predates 1.367.0 (the first version shipping `dist/docs/`). Report to user.
+If it exits non-zero, `@wix/patterns` is absent or predates 1.367.0 (the first version shipping `dist/docs/`). Install the latest version, then re-run `list` once:
+
+```bash
+npm install @wix/patterns@^1.367.0
+```
 
 ## Library Architecture
 

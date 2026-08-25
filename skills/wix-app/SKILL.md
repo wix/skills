@@ -21,7 +21,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`. Never inspect `node_modules` by hand.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns@^1.367.0` if it reports the package missing or too old. Never inspect `node_modules` by hand.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `list` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -121,7 +121,7 @@ Then read the doc for each name you plan to use, including the state types they 
 node $PATTERNS docs Table useTableCollection TableState
 ```
 
-If the script exits non-zero, `@wix/patterns` is missing or older than 1.367.0. **Do not install or upgrade it** — stop and tell the user, per [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is also not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+If the script exits non-zero, `@wix/patterns` is missing or older than 1.367.0 — install it (`npm install @wix/patterns@^1.367.0`) and re-run `list`, per [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 
 Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 

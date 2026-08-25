@@ -64,8 +64,7 @@ const pkgRoot = findPkgRoot();
 if (!pkgRoot) {
   fail([
     `Error: ${PKG} is not installed in this project.`,
-    `Do NOT install or upgrade it yourself — tell the user that dashboard page UI`,
-    `needs ${PKG} >= ${MIN_VERSION} and let them decide.`,
+    `Install it, then re-run this command:  npm install ${PKG}@^${MIN_VERSION}`,
   ]);
 }
 
@@ -83,8 +82,7 @@ const indexPath = path.join(docsDir, 'index.json');
 if (!fs.existsSync(indexPath)) {
   fail([
     `Error: ${PKG}@${installedVersion} ships no dist/docs/ (needs >= ${MIN_VERSION}).`,
-    `Do NOT install or upgrade it yourself — report this to the user and stop.`,
-    `Component docs are unavailable, so patterns components cannot be looked up.`,
+    `Upgrade it, then re-run this command:  npm install ${PKG}@^${MIN_VERSION}`,
   ]);
 }
 
