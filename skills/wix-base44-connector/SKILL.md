@@ -22,18 +22,20 @@ base44/functions/* ──(admin token)───► wixapis.com   work that needs
 exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
 ```
 
-**A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
-its own: your app IS its frontend. **The complete visitor experience —
+**A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the verticals.
+Your app is the site's frontend — whether the site is headless (no pages of its own) or your
+frontend extends an existing site. **The complete visitor experience —
 every page, every read, every action a visitor takes — is browser calls on the visitor token;
 none of it needs a backend function.** Public reads
-included (the visitor token queries the catalog directly), and `carts/current/*` + checkout act
-on the CALLER's cart, so only the visitor token reaches the visitor's cart. One file carries it
-all: `src/lib/wixClient.js` (Write the code, below). `base44/functions/*` appear only where work
+included (the visitor token queries public content directly), and per-visitor state is scoped to
+the CALLER — an API that acts on "the current visitor's" data resolves the visitor from the
+token, so only the visitor token reaches that visitor's own state. One shared visitor client
+carries it all (Write the code, below). `base44/functions/*` appear only where work
 needs the owner's identity — elevated-permission ops a visitor triggers, webhooks, scheduled
 jobs — and for the app's non-Wix backend.
 
-**An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
-is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
+**An admin tool for the owner** — dashboard, back office. Admin pages and agent act as the
+owner, using the secret admin token: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
 
 ## The helpers
 
