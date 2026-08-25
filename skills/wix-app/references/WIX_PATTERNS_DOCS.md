@@ -2,17 +2,15 @@
 
 ## Prerequisites
 
-The docs are pre-built at `node_modules/@wix/patterns/dist/docs/` (160+ markdown files + `index.json`). This requires `@wix/patterns` version **1.367.0** or later. Verify they exist:
+The docs are pre-built at `node_modules/@wix/patterns/dist/docs/` (160+ markdown files + `index.json`), shipped by `@wix/patterns` **1.367.0** or later.
 
 ```bash
-ls node_modules/@wix/patterns/dist/docs/   # expect ~165 .md files + index.json
+cat node_modules/@wix/patterns/dist/docs/index.json
 ```
 
-If the directory is missing, install the package at the minimum version:
+If it prints the inventory, the prerequisite is satisfied
 
-```bash
-npm install @wix/patterns@^1.367.0
-```
+**If it fails, do not install or upgrade `@wix/patterns`.** Report to user.
 
 ## Library Architecture
 

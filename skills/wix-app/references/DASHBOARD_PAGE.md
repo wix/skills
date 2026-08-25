@@ -27,13 +27,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** confirm `@wix/patterns` is a dependency and its docs are present.
-
-```bash
-ls node_modules/@wix/patterns/dist/docs/index.json
-```
-
-If it's missing, add the package (`^1.367.0` or later — earlier versions don't ship `dist/docs/`) and install. Without this, the patterns lookup in step 1 of [Component Selection Order](../SKILL.md#component-selection-order) silently finds nothing and the page gets built entirely from WDS.
+**Then, before writing UI:** read the patterns component inventory once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites).
 
 ## Capabilities
 

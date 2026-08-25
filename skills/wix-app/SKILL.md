@@ -21,7 +21,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and list the component inventory with `cat node_modules/@wix/patterns/dist/docs/index.json`.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `cat node_modules/@wix/patterns/dist/docs/index.json`.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `index.json` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -120,7 +120,7 @@ Then read the doc file for each name you plan to use, including the state types 
 cd node_modules/@wix/patterns/dist/docs && cat Table.md useTableCollection.md TableState.md
 ```
 
-If `dist/docs/` does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+If `dist/docs/` does not exist, `@wix/patterns` is missing or older than 1.367.0. **Do not install or upgrade it** — stop and tell the user, per [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is also not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 
 Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 
