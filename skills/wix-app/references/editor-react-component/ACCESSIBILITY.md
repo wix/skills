@@ -1,139 +1,222 @@
-# Accessibility (ARIA)
+# Accessibility Implementation and Review
 
-Rules and patterns for ARIA accessibility support in Editor React components.
+Use this reference while authoring Editor React Component props and JSX and
+after every JSX edit.
 
----
+## Contents
 
-## Rules
+- [Implementation Contract](#implementation-contract)
+- [Review Scope](#review-scope)
+- [Automated Scanners](#automated-scanners)
+- [Finding Triage](#finding-triage)
+- [Manual Review](#manual-review)
+- [Pre-Fix Checks for Non-Interactive Controls](#pre-fix-checks-for-non-interactive-controls)
+- [Completion Criteria](#completion-criteria)
 
-### All ARIA Attributes Through the `a11y` Prop
+## Implementation Contract
 
-- **NEVER** add individual ARIA properties like `ariaLabel?: string`, `ariaDescribedBy?: string`, `role?: string`, etc. to a component's props interface.
-- **ALL** accessibility attributes MUST come through the `a11y?: A11y` prop.
-- The `A11y` type includes: `ariaLabel`, `ariaDescribedBy`, `ariaLabelledBy`, `role`, `ariaHidden`, `ariaLive`, and all other ARIA attributes.
-- Users provide ARIA values through the `a11y` prop: `<Component a11y={{ ariaLabel: "..." }} />`
+### Route ARIA Through `a11y`
 
-### ARIA Label Rules
-
-ARIA labels are user-facing content and must NEVER be hardcoded as string literals in JSX.
-
-**Three patterns (in order of preference):**
-
-1. **No aria-label (preferred)** — Visible text content is sufficient:
-
-   ```tsx
-   <Button>Play</Button> // Visible text ✅
-   ```
-
-2. **User-configurable** — Via a11y prop (for root or element-specific labels, per requirements):
-
-   ```tsx
-   // User provides: <ComponentName a11y={{ ariaLabel: "Background music" }} />
-   // Component applies to root (using the a11y-to-HTML conversion utility):
-   {...(a11y && convertA11yKeysToHtmlFormat(a11y))}
-
-   // Or for inner elements (if requirements specify):
-   // elementProps.button.a11y gets passed to the button element
-   ```
-
-3. **System-required** — Via constants.ts (when requirements specify non-configurable label):
-
-   ```tsx
-   // constants.ts
-   export const ARIA_LABELS = {
-     playButton: 'Play audio',
-     muteButton: 'Mute audio',
-   } as const;
-
-   // component.tsx
-   import { ARIA_LABELS } from './constants';
-   <Button aria-label={ARIA_LABELS.playButton}>▶</Button>;
-   ```
-
-**❌ NEVER hardcode string literals:**
+Do not add individual public props such as `ariaLabel`, `ariaDescribedBy`, or
+`role`. Use the platform `A11y` type and convert it at the semantic target.
 
 ```tsx
-// ❌ WRONG - hardcoded strings
-<Button aria-label="Play">▶</Button>
-<Button aria-label={isPlaying ? "Pause" : "Play"}>▶</Button>
-<Slider aria-label="Volume" />
+import type { A11y, Direction } from '@wix/editor-react-types';
+import { convertA11yKeysToHtmlFormat } from '@wix/react-component-utils';
+
+export type TabsProps = {
+  id?: string;
+  className?: string;
+  direction?: Direction;
+  a11y?: A11y;
+};
+
+<nav {...(a11y && convertA11yKeysToHtmlFormat(a11y))}>{tabs}</nav>;
 ```
 
-**Why this matters:**
+Apply root accessibility to the elected root. If requirements assign
+accessibility to a named inner part, route it through that part's
+`elementProps.<name>.a11y` contract and convert it on the actual semantic
+element.
 
-- Hardcoded strings cannot be translated or customized
-- User-provided labels take precedence when available
-- Constants allow centralized management and potential future translation
+### Provide Accessible Names
 
-### Detecting Icon-Only Interactive Elements
+Use this priority order:
 
-**Icon-only elements require aria-labels.** Detect with this checklist:
+1. Prefer visible text that already names the control.
+2. Use user-configurable `a11y` when the name depends on site-owner content.
+3. Use the project's translation mechanism or a `constants.ts` value only for a
+   stable system-owned label required by the component contract.
 
-| Element Content       | Needs aria-label? | Example                                   |
-| --------------------- | ----------------- | ----------------------------------------- |
-| Visible text only     | ❌ No             | `<Button>Play</Button>`                   |
-| Icon component + text | ❌ No             | `<Button><PlayIcon />Play</Button>`       |
-| Icon/emoji only       | ✅ YES            | `<Button>▶</Button>`                     |
-| Image only            | ✅ YES            | `<Button><img src="play.png" /></Button>` |
-| SVG only              | ✅ YES            | `<Button><svg>...</svg></Button>`         |
-
-**Critical:** If button/link contains ONLY visual elements (icons, emojis, images, SVG) with NO text node, it MUST have aria-label from constants.
-
-**Pattern for dynamic labels:**
+Never hardcode an `aria-label` string directly in JSX.
 
 ```tsx
 // constants.ts
 export const ARIA_LABELS = {
-  playButton: 'Play audio',
-  pauseButton: 'Pause audio',
+  playButton: 'Play animation',
+  pauseButton: 'Pause animation',
 } as const;
 
-// component.tsx
-<Button
+// component JSX
+<button
   aria-label={isPlaying ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton}
 >
-  {isPlaying ? '⏸' : '▶'}
-</Button>;
+  {isPlaying ? <PauseIcon /> : <PlayIcon />}
+</button>;
 ```
 
----
+Icon-only controls require an accessible name. Controls with visible text,
+including an icon plus visible text, usually do not need another ARIA label.
 
-## Common Mistake: Individual ARIA Properties Instead of A11y Type
+### Preserve Semantic Ownership
 
-**❌ Wrong:**
+- Put roles, labels, descriptions, keyboard handling, and focusability on the
+  element that owns the behavior, not on a layout wrapper.
+- Prefer native elements over recreating their semantics with `role`.
+- Hide decorative-only output with `aria-hidden="true"` when appropriate.
+- Preserve heading, list, navigation, and landmark semantics through wrappers.
+- Keep hidden or collapsed state consistent across visuals, focusability, and
+  the accessibility tree.
 
-```typescript
-import type { Direction } from '@wix/editor-react-types';
+## Review Scope
 
-export interface TabsProps {
-  id?: string;
-  className?: string;
-  direction?: Direction;
-  ariaLabel?: string; // ❌ Individual ARIA prop
-  ariaDescribedBy?: string; // ❌ Individual ARIA prop
-  role?: string; // ❌ Individual ARIA prop
-}
+Run this review after creating or editing JSX.
+
+| Request | Scan and inspect |
+| --- | --- |
+| Specific file | That file and rendered wrappers or shared components it imports |
+| A component name or "this component" | All hand-edited files in its component folder plus relevant shared imports |
+| Full audit | Every component under `src/extensions/site/components/` plus relevant shared imports |
+
+Exclude `*.generated.ts`; it is regenerated from JSX and CSS.
+Imported shared components are inspection context, not automatic edit scope.
+Report a confirmed shared-component issue instead of changing a broadly reused
+primitive unless the requested fix requires that shared change and its impact is
+understood.
+
+## Automated Scanners
+
+`<SKILL_ROOT>` is the absolute directory containing the active `SKILL.md`. Run
+both commands from the consumer Wix package so dependencies resolve from that
+project. Pass `.tsx` or `.jsx` paths relative to the current directory.
+
+```bash
+node <SKILL_ROOT>/scripts/scan-a11y-eslint.cjs <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-code.cjs <file1> [file2] ...
 ```
 
-**✅ Correct:**
+Do not treat scanner startup failure as a clean result. The ESLint scanner
+reports JSX accessibility rules. The semantic scanner follows imports up to
+four levels and emits resolution evidence and confidence. Neither scanner
+covers every Editor React Component contract, so complete the manual review
+even when both return zero findings.
 
-```typescript
-import type { A11y, Direction } from '@wix/editor-react-types';
-import { convertA11yKeysToHtmlFormat } from '@wix/react-component-utils';
+## Finding Triage
 
-export interface TabsProps {
-  id?: string;
-  className?: string;
-  direction?: Direction;
-  a11y?: A11y;  // ✅ All ARIA attributes through this prop
-}
+For every finding:
 
-// Usage:
-<Tabs a11y={{ ariaLabel: "Navigation", role: "navigation" }} />
+1. Trace the rendered semantic element through local and shared components.
+2. Deduplicate findings for the same issue and location; keep the finding with
+   stronger evidence.
+3. Assign `confirmed`, `false-positive`, or `not-relevant`.
+4. Fix only confirmed findings.
 
-// In component:
-{...(a11y && convertA11yKeysToHtmlFormat(a11y))}
-```
+Scanner output is a lead, not permission to edit blindly.
 
-**Why:** The `A11y` type from `@wix/editor-react-types` provides a standardized way to handle ALL ARIA attributes (ariaLabel, ariaDescribedBy, ariaLabelledBy, role, ariaHidden, ariaLive, etc.). Individual ARIA props fragment the API and make it harder to use.
+### Confidence and Action
 
+| Confidence | Evidence | Action |
+| --- | --- | --- |
+| High | The rendered element and static props directly establish the issue. | Confirm and fix when the change is safe and local. |
+| Medium | Props or partial component resolution strongly imply the semantics. | Inspect surrounding code, then confirm or discard. |
+| Low | Heuristics or unresolved runtime spreads are the main evidence. | Trace further and fix only after confirmation. |
+| Unknown | The semantic target cannot be resolved. | Leave unchanged and report the ambiguity when material. |
+
+Confidence establishes whether a finding is real, not whether its fix is safe.
+Apply confirmed local, behavior-preserving fixes. Leave a confirmed issue
+unchanged only when product intent is unknowable or the fix requires risky,
+non-local behavior changes.
+
+### Semantic Resolution Order
+
+Resolve rendered behavior in this order:
+
+1. Flagged JSX element and static props
+2. Explicit polymorphic props such as `as="a"` or `component="button"`
+3. Local component implementation
+4. Installed package source or declarations
+5. Prop evidence such as `href`, `to`, `src`, `alt`, and `role`
+6. Component-name heuristics
+
+Follow local imports to their rendered root. For package imports, inspect the
+resolved package entry when available. Do not assign more confidence than the
+evidence supports.
+
+## Manual Review
+
+Verify all of the following after triaging scanner output.
+
+### Semantic Targeting
+
+- `a11y` is typed and converted on the correct semantic element.
+- Wrappers and polymorphic components preserve their documented semantics.
+- Configurable heading or tag choices reach the rendered element.
+- Extension overrides preserve generated accessibility fields.
+
+### Names and Visual Content
+
+- Icon-only controls have configurable or stable system-owned names.
+- Visually hidden text remains in the accessibility tree when needed.
+- Meaningful images and icons are named; decorative repetitions are hidden.
+- Accessibility strings are not hardcoded directly in JSX.
+
+### Hidden Content and Focus
+
+- Hidden or collapsed state agrees across visuals, focusability, and the
+  accessibility tree.
+- Invisible content cannot receive focus unless the interaction requires it.
+- Disabled and inert states behave consistently for keyboard and assistive
+  technology users.
+
+### Interaction and Structure
+
+- Interactive-looking elements use native semantics or complete role, focus,
+  and keyboard behavior.
+- `onClick` on a non-interactive tag is checked, including conditional spreads.
+- Nested interactive children and existing focus management are inspected
+  before semantics are added to a wrapper.
+- Lists, headings, landmarks, tabs, menus, dialogs, and breadcrumbs keep their
+  intended structure.
+- The root implements the direction contract, and every `ReactNode` slot
+  isolates nested content with `dir="ltr"`.
+
+## Pre-Fix Checks for Non-Interactive Controls
+
+Before adding `role="button"`, `tabIndex`, and keyboard handlers to a non-native
+control, verify:
+
+1. **Interactive children:** it cannot contain a link, button, input, or another
+   interactive component in the active branch.
+2. **Focus ownership:** existing `tabIndex` or accessibility spreads have a
+   clear merge order and one authoritative source.
+3. **Interaction condition:** the same condition gates pointer, focus, and
+   keyboard behavior and excludes disabled or editor-controlled states when
+   needed.
+4. **Accessible-name scope:** the label intentionally names the component or
+   action and persists in every state where it is needed.
+
+Prefer a native element when it preserves product behavior.
+
+## Completion Criteria
+
+The accessibility review is complete only when:
+
+- both scanners start successfully;
+- every finding is triaged;
+- confirmed issues are fixed when safe;
+- the manual review is complete; and
+- both scanners are rerun on every changed `.tsx` or `.jsx` file.
+
+Preserve visual and runtime behavior. Fix the semantic owner: root, named inner
+part, shared primitive, or call site. Then return to the main workflow for the
+Wix build, manifest generation, TypeScript check, and relevant project tests.

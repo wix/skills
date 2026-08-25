@@ -1,187 +1,82 @@
-# Component Directionality (RTL/LTR)
+# Directionality (RTL/LTR)
 
-Rules and patterns for direction support in Editor React components.
+Use these rules for component direction, logical layout, nested content, and
+direction-dependent JavaScript.
 
----
+## Contents
 
-## Rules
+- [Root Contract](#root-contract)
+- [Logical CSS](#logical-css)
+- [Direction-Dependent Transforms](#direction-dependent-transforms)
+- [Direction-Dependent JavaScript](#direction-dependent-javascript)
+- [Nested `ReactNode` Content](#nested-reactnode-content)
+- [Checklist](#checklist)
 
-Direction support is mandatory for every component. The pattern uses native HTML `dir` attributes for standards-compliant, accessible directionality support, with mandatory fallback classes on root components.
+## Root Contract
 
-### Direction Resolution
+Every component accepts `direction?: Direction`. Put `dir={direction}` and the
+fallback class on the elected root; do not add a wrapper for them. Apply the
+fallback class unconditionally so it works whenever `dir` is absent. Preserve
+the scaffolded `dir`, root class, and `.fallbackDirection:not([dir])` wiring;
+the generated component already demonstrates this contract.
 
-```typescript
-const subComponentDirection = elementProps?.subComponent?.direction;
-```
+Do not set fallback direction with a React condition or a custom direction CSS
+variable.
 
-- Sub-component directions only applied when explicitly set (to override inherited direction)
-- When undefined: inherits direction from parent via CSS inheritance
-- Root component always gets fallback class
+## Logical CSS
 
-### Direction Anti-Patterns
+Use logical inline-axis properties instead of physical left/right properties:
 
-```scss
-/* ❌ Don't use CSS variables for direction */
-.component { direction: var(--component-direction, ltr); }
-```
-
-```tsx
-/* ❌ Don't use conditional logic for fallback class */
-className={classNames({
-  [styles.fallbackDirection]: !direction
-})}
-```
-
-### RTL in SCSS
-
-Use logical CSS properties — never physical `left`/`right`-only layouts. See §2.1 below.
-
----
-
-## Patterns
-
-### Root Element Pattern
-
-Apply on main component only. `dir` and the fallback class go on whatever element is the root — never add a wrapper `<div>` to host them (see [`PARTS.md`](PARTS.md) Step 0).
-
-```typescript
-<div
-  id={id}
-  dir={direction}
-  className={classNames(
-    'profile-card',
-    styles.root,
-    className,
-    styles.fallbackDirection,
-  )}
->
-```
-
-```typescript
-/* Root is the component's own semantic element — same attribute, same classes */
-<button
-  type="button"
-  id={id}
-  dir={direction}
-  className={classNames(
-    'like-button',
-    styles.root,
-    className,
-    styles.fallbackDirection,
-  )}
->
-```
-
-```scss
-.fallbackDirection:not([dir]) {
-  direction: var(--wix-opt-in-direction);
+```css
+.element {
+  inset-inline-start: 0;
+  padding-inline-start: 8px;
+  margin-inline-end: 4px;
+  border-inline-end: 1px solid currentColor;
 }
 ```
 
-**Imports:**
+Block-axis properties such as `top`, `bottom`, and `padding-block` do not need
+directional conversion.
 
-```typescript
-import type { Direction } from '@wix/editor-react-types';
-```
+## Direction-Dependent Transforms
 
-### Child Element Direction
+For directional transforms, use the platform multiplier:
 
-Only when explicitly specified:
-
-```typescript
-const labelDirection = elementProps?.label?.direction;
-
-<span
-  dir={labelDirection}
->
-```
-
-### Runtime Direction Checking
-
-**Site direction hook:**
-
-Use the hook **only** when direction drives JavaScript behavior (keyboard navigation, animation logic, conditional rendering). For purely visual RTL, use logical CSS properties instead — see below.
-
-```typescript
-import { useLanguageDirection } from '@wix/react-component-utils';
-
-const siteDirection = useLanguageDirection();
-const isRTL = siteDirection === 'rtl';
-```
-
-See [`SITE-CONTEXT-HOOKS.md`](SITE-CONTEXT-HOOKS.md) for the full set of site context hooks.
-
-**Fallback chain (for child components):**
-
-```typescript
-const isRTL = (direction || parentDirection || siteDirection) === 'rtl';
-```
-
-**CSS Variable**
-
-Use css variable `--wix-opt-in-direction-multiplier` when direction only affects visual appearance (transforms, spacing, layout):
-
-```scss
-.scrollButton {
+```css
+.arrow {
   scale: var(--wix-opt-in-direction-multiplier, 1) 1;
 }
 ```
 
-### RTL Support — Use Logical CSS Properties
+## Direction-Dependent JavaScript
 
-**✅ Correct:**
-
-```scss
-.element {
-  inset-inline-start: 0; // Instead of left
-  inset-inline-end: 0; // Instead of right
-  padding-inline-start: 8px; // Instead of padding-left
-  margin-inline-end: 4px; // Instead of margin-right
-}
-```
-
-**❌ Wrong:**
-
-```scss
-.element {
-  padding-left: 8px;
-  [dir='rtl'] & {
-    padding-right: 8px; // Manual RTL - avoid
-  }
-}
-```
-
-Use logical CSS properties (e.g., `margin-inline-start` not `margin-left`) for RTL support.
-
----
-
-## Common Mistake: Manual RTL Handling
-
-**❌ Wrong:**
-
-```scss
-.element {
-  padding-left: 8px;
-  [dir='rtl'] & {
-    padding-right: 8px; // Manual overrides
-  }
-}
-```
-
-**✅ Correct:**
-
-```scss
-.element {
-  padding-inline-start: 8px; // Auto RTL/LTR
-}
-```
-
-## Container Components and RTL Inheritance
-
-Elements that render `React.ReactNode` content MUST have `dir="ltr"` to prevent RTL inheritance from the parent component:
+Use `useLanguageDirection()` only when direction changes JavaScript behavior,
+such as arrow-key order, scroll math, animation direction, or conditional
+rendering. Purely visual direction belongs in logical CSS.
 
 ```tsx
-<Accordion.Content dir="ltr">
-  {item.content} {/* React.ReactNode */}
-</Accordion.Content>
+import { useLanguageDirection } from '@wix/react-component-utils';
+
+const siteDirection = useLanguageDirection();
+const resolvedDirection = direction ?? siteDirection;
+const isRtl = resolvedDirection === 'rtl';
 ```
+
+## Nested `ReactNode` Content
+
+Put `dir="ltr"` on the element that renders a `ReactNode` content prop. This
+isolates arbitrary nested content from the parent component's direction so each
+nested component can resolve its own contract.
+
+```tsx
+<div dir="ltr">{item.content}</div>
+```
+
+## Checklist
+
+- [ ] Root props include `direction?: Direction`.
+- [ ] The elected root has `dir={direction}` and the unconditional fallback class.
+- [ ] Direction-sensitive CSS uses logical properties.
+- [ ] Runtime direction hooks are used only for JavaScript behavior.
+- [ ] Every `ReactNode` content slot renders under `dir="ltr"`.
