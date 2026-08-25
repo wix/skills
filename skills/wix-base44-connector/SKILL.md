@@ -165,7 +165,7 @@ const data = await wx.post("https://www.wixapis.com/contacts/v5/contacts/query",
   { query: { cursorPaging: { limit: 10 } } }, accessToken);
 // let it throw — the thrown message is your result; .catch hides the answer
 return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts[0] });
-// one real row, whole — the shapes you code against live here, not in key names
+// `first` is one complete record — read the real field shapes off it; don't code from remembered key names
 ```
 
 The same call deploys as `base44/functions/…` (work the app does as the owner) — shipped code
