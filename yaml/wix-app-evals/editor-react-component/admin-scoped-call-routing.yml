@@ -1,0 +1,39 @@
+name: editor-react-component/admin-scoped-call-routing
+description: Editor React component that needs an app-scoped Locations operation — the write must be routed through a backend endpoint that elevates, not called or elevated inside the component
+triggerPrompt: |-
+  Build an Editor React component for my app that shows the site's business locations, and lets the site owner archive a location from the component. Use the Wix Locations API.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [editor-react-component, backend-api]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/EDITOR_REACT_COMPONENT.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BACKEND_API.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      `locations.archiveLocation` requires the app-level scope `SCOPE.DC-MULTILOCATION.MANAGE-LOCATIONS`. An Editor React component runs as a site visitor or member, and `auth.elevate` from `@wix/essentials` only works in backend code — so the archive call cannot happen inside the component.
+
+      Evaluate whether the agent routed it correctly. Check: (1) No `auth.elevate` call and no direct `archiveLocation` call appears anywhere under `src/site/` — the component itself must not attempt the write. (2) An HTTP endpoint exists under `src/pages/api/` that wraps `locations.archiveLocation` with `auth.elevate`. (3) The component reaches that endpoint over `fetch` rather than importing the SDK method for the write. (4) The endpoint performs its own authorization check before archiving, rather than archiving for any caller that reaches it — elevation bypasses Wix's permission check, so an unguarded endpoint is a real hole. (5) The agent surfaced adding the `Manage Locations` scope in Dev Center as a manual step.
+
+      Score 0-10. Score 3 or below if the component calls `archiveLocation` or `auth.elevate` directly, regardless of how good the rest of the code is.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took, not just the final files. Check: (1) It recognised before writing code that the archive operation is app-scoped and cannot run in the component, rather than discovering it by trial and error after a failure. (2) It did not try to determine the answer by fetching the method's API reference page hunting for identity restrictions — that page lists permission scopes only, and an "(with elevated permissions)" example is also present on read methods, so it is not a reliable signal. (3) It read the Backend API reference before creating the endpoint. Score 0-10.
+  - type: time_limit
+    maxDurationMs: 180000
+  - type: cost
+    maxCostUsd: 1

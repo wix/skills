@@ -23,6 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
+  - [ ] Routed admin-scoped SDK calls to a backend extension (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
@@ -51,6 +52,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
 | Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
+| Calling `auth.elevate`, or an admin-scoped SDK method, from a component, widget, or dashboard page | Put the call in a backend extension and elevate there — elevation only works in backend code |
 
 ---
 
@@ -246,6 +248,23 @@ When a Data Collection is created alongside other extensions that reference the 
 5. **Request both V1 and V3 permission scopes** for every Stores operation
 
 This is non-negotiable — V1 and V3 are NOT backwards compatible.
+
+---
+
+## Identity and Elevation Requirement
+
+**Applies when any extension calls an SDK method whose permission scope manages business data** — scopes named `Manage …`, `…MANAGE-…`, or `…_WRITE`.
+
+Two rules decide where the call goes:
+
+1. **Frontend extensions never run as the app.** Editor React components, custom element widgets, site plugins, and embedded scripts run as the site visitor or member. Dashboard extensions run as the Wix user, limited by that user's roles. Only backend extensions — Backend API, Backend Event, Service Plugin — run as the app.
+2. **`auth.elevate` only works in backend code.** In a frontend extension it isn't a style problem, it doesn't work.
+
+So when a frontend extension needs an operation its identity can't perform, put the operation in a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevate there, and call the endpoint from the frontend. **The endpoint must do its own authorization check** — elevation bypasses Wix's, so anyone who can reach the endpoint gets the elevated operation.
+
+Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
+
+> **Don't try to infer this from the method's reference page.** The machine-readable docs list **Permission Scopes** but not identity restrictions, and an *"(with elevated permissions)"* example appears on read methods too. Decide from the extension type.
 
 ---
 
