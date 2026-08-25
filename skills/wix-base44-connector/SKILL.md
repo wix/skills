@@ -51,11 +51,17 @@ const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
-Two of the helpers appear in every snippet below, so know their contracts: **`wx.post(url, body,
-accessToken)`** is the one JSON transport — Content-Type and Bearer set for you, non-2xx **throws**
-with the status and the first 300 chars of the API's own error. **`wx.clip(value)`** caps what you
-return: small values pass through, oversized ones come back as `{ truncated, total, head }`, and
-`undefined` fields render as `null` — so an absent field stays visible instead of being erased.
+`wx` exports nine helpers:
+
+- `wx.post(url, body, token?)` — the one JSON transport: Bearer from `token`, non-2xx **throws** the API's own error
+- `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
+- `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
+- `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint + docsUrl + gist
+- `wx.page(docsUrl)` — read a doc page; whole when small, else saved + outline
+- `wx.bash(cmd)` — shell over saved files
+- `wx.spec(code)` — run `code` against the spec index for a method's exact schema
+- `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 
 Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
 under `.agents/skills/wix-base44-connector/tmp/` and returns `{ path, bytes, lines, outline }` —
