@@ -263,14 +263,22 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 **Acts for the current visitor or member → call it directly, and never elevate it.** Their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order placed against no buyer, a booking with no attendee. This is a property, not a list: a method that operates on "my" or "the current" anything belongs here even if you haven't seen it before.
 
+**The platform filters the result by caller → call it directly; elevating removes the filter.** Routing these isn't just indirection — it returns data the direct call would have withheld:
+
+- **Wix Data `items.*`** follows the collection's `dataPermissions`. The scaffolded default is `itemRead: 'ANYONE'` with `itemInsert`/`itemUpdate`/`itemRemove` set to `'PRIVILEGED'`, so reads work from a site extension and writes don't. Fix that by setting permissions to match the access context (see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)), not by routing.
+- **Catalog reads** return base fields to anyone; `fields: ["MERCHANT_DATA"]` and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`.
+- **`members.getMember` / `members.queryMembers`** withhold `PRIVATE` members from visitor and member callers. Elevating a member directory or "meet the team" widget leaks every private member to any visitor who can reach the endpoint.
+
 **Acts on the business as a whole → route it out and elevate.** `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management.
 
-Two cases turn on configuration rather than identity:
+**When you're unsure about a method**, check in this order:
 
-- **Wix Data `items.*` follows the collection's `dataPermissions`.** The scaffolded default is `itemRead: 'ANYONE'` with `itemInsert`/`itemUpdate`/`itemRemove` set to `'PRIVILEGED'`, so reads work from a site extension and writes don't. Fix that by setting permissions to match the access context (see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)), not by routing.
-- **Catalog reads are public for base fields only.** `fields: ["MERCHANT_DATA"]` and non-visible products need `SCOPE.STORES.PRODUCT_READ_ADMIN` and must be routed.
+1. **The REST endpoint path**, which is in the method's reference. A `/member/`, `/my-`, or `/current` segment means it acts on the caller's own entity — call it directly. `requestCancellation` is `/pricing-plans/v2/member/orders/{id}/cancel` (caller's own subscription) while the sibling `cancelOrder` is `/pricing-plans/v2/orders/{id}/cancel` (business-side), and neither name says so.
+2. **A prose authentication note**, which a minority of pages carry — `get-my-member`: "This method requires visitor or member authentication." Authoritative when present, but one-directional: it can only ever confirm *call directly*, never *route out*, so its absence decides nothing.
 
-**When you're unsure about a method:** there's no structured identity field in the reference, and neither the scope name nor the SDK schema line carries the signal — `queryLocations` is `READ-LOCATIONS` yet admin-only, and the schema line reads `wixClientAdmin` for every method in the machine-readable docs. Some pages *do* state it in prose (`get-my-member`: "This method requires visitor or member authentication"); that note is authoritative when present. Its absence is not evidence either way — treat the method as unconfirmed and route it out.
+Neither the scope name nor the SDK schema line carries the signal: `queryLocations` is `READ-LOCATIONS` yet admin-only, and the schema line reads `wixClientAdmin` for every method in the machine-readable docs.
+
+If all of that leaves it unconfirmed, route it out — but know the asymmetry: routing a business-side method costs a hop, while routing a visitor-acting or caller-filtered one is a correctness or privacy bug. When the method plausibly acts for the visitor, resolve it rather than defaulting.
 
 Routing out means a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevated there and called with `httpClient.fetchWithAuth()` so the caller's identity reaches the endpoint. Elevation bypasses Wix's permission check, so re-check in the endpoint whatever the elevated call assumes about the caller — an endpoint reachable by any site visitor must not perform an owner-only operation on request alone.
 
