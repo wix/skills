@@ -1,9 +1,10 @@
 # Branded / Themed Components
 
-Apply automatically — without being asked — whenever the user requests a
-**branded**, **themed**, or **brand-aware** component.
+Use this reference only when the prompt explicitly requests a **branded**,
+**themed**, or **brand-aware** component. Do not infer this requirement from a
+generic request for polished styling.
 
----
+## Rules
 
 Import theme tokens from `@wix/react-component-schema/theme-variables.module.css`
 using CSS Modules `@value`, then consume with `var()`.
@@ -24,6 +25,14 @@ using CSS Modules `@value`, then consume with `var()`.
 
 **Body:** `wst-paragraph-1..3-font` / `wst-paragraph-1..3-color`
 
-❌ Don't use `var(--wst-*)` directly — import the `@value` alias first.  
-❌ Don't use `@import` — CSS Modules doesn't process `@value` aliases from `@import`; `@value` is the only mechanism that resolves them at build time.  
-❌ Don't use `wst-base-1-color` for text — it typically resolves to white and is invisible on the default white background. Use `wst-heading-*-color` / `wst-paragraph-*-color` for text, or `wst-base-2-color` if you need a base contrast color.  
+- Do not use `var(--wst-*)` directly; import the `@value` alias first.
+- Do not use `@import`; CSS Modules resolves theme aliases through `@value`.
+- Do not use `wst-base-1-color` for text. Prefer heading/paragraph color tokens,
+  or `wst-base-2-color` when a base contrast color is required.
+
+## Checklist
+
+- [ ] Theme values are imported from `theme-variables.module.css` with `@value`.
+- [ ] Imported aliases are consumed through `var()`.
+- [ ] Typography uses heading/paragraph font and color token pairs.
+- [ ] Text colors remain legible on the selected background token.

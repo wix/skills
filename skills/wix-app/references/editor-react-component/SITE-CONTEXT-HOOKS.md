@@ -1,16 +1,18 @@
 # Site Context Hooks
 
-Rules and patterns for reading **runtime site context** in Editor React
-components — the site's page tree, the current URL, the language direction, and
-editor mode. None of these can be carried by a prop.
+Use this reference when the component must read **live runtime context** that the
+site owner cannot author as component data: the site page tree, current URL,
+language direction, editor mode, or reduced-motion preference.
 
 All of them come from hooks in `@wix/react-component-utils`, already a base
 dependency. No additional install is needed, but the hooks require
 `@wix/react-component-utils` ≥ 1.12.0.
 
----
+Verify the installed version before using these hooks. If it is older than
+1.12.0, report the version mismatch instead of writing code against unavailable
+exports or silently upgrading the package.
 
-## When this applies
+## Apply When
 
 Apply only when the component genuinely needs live site context:
 
@@ -25,15 +27,24 @@ Apply only when the component genuinely needs live site context:
 - **Behavior must differ inside the editor** — suppressing autoplay, network
   calls, or timers while the site owner is designing
 
+When behavior differs only in editor rendering, keep the main component's live
+contract unchanged and add the editor-only gate to the generated
+`component.preview.tsx` while preserving its wrappers.
+
 The test is whether the site owner **authors** the data. A hook reports state the
 owner cannot write — which page is being rendered, what the site's URL is. Data
 the owner chooses belongs in props, even when it happens to point at site
-pages — see [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and
-[`COMPONENT-API.md`](COMPONENT-API.md). Purely visual RTL needs no hook
-either — use logical CSS properties, see
-[`DIRECTIONALITY.md`](DIRECTIONALITY.md).
+pages. Purely visual RTL needs no hook either; use logical CSS properties.
 
----
+## Contents
+
+- [Rules](#rules)
+- [Read Values During Render](#read-values-during-render)
+- [Walking the Page Tree](#walking-the-page-tree)
+- [Building a Link to a Page](#building-a-link-to-a-page)
+- [Direction-Dependent Logic](#direction-dependent-logic)
+- [Avoid Direction Logic for Visual CSS](#avoid-direction-logic-for-visual-css)
+- [Checklist](#checklist)
 
 ## Rules
 
@@ -47,8 +58,8 @@ either — use logical CSS properties, see
 | `useSiteUrl()` | `string` | The site's public base URL |
 | `useCurrentUrl()` | `string` | Full URL of the page being rendered |
 | `useLanguageDirection()` | `'ltr' \| 'rtl'` | The site's language direction |
-| `useIsEditMode()` | `boolean` | `true` in editor design mode — see [`COMPONENT-PREVIEW.md`](COMPONENT-PREVIEW.md) |
-| `useReducedMotion()` | `boolean` | `true` when the OS requests reduced motion — see [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) |
+| `useIsEditMode()` | `boolean` | `true` in editor design mode |
+| `useReducedMotion()` | `boolean` | `true` when the OS requests reduced motion |
 
 All import from the same place:
 
@@ -63,7 +74,7 @@ scope, inside a callback, or conditionally.
 ### Read Values During Render
 
 Hook values are read on the server too, so their results are part of the server
-markup — see [`SSR.md`](SSR.md). Use the value directly.
+markup. Use the value directly.
 
 **✅ Correct:**
 
@@ -78,8 +89,6 @@ const resolvedUrl = useSiteUrl();
 const [siteUrl, setSiteUrl] = useState('');
 useEffect(() => setSiteUrl(resolvedUrl), []);
 ```
-
----
 
 ## Patterns
 
@@ -164,11 +173,9 @@ const onKeyDown = (event: React.KeyboardEvent) => {
 };
 ```
 
----
+## Avoid Direction Logic for Visual CSS
 
-## Common Mistake: Direction Logic Instead of Logical CSS
-
-Calling `useLanguageDirection()` to pick between physical CSS properties.
+Do not call `useLanguageDirection()` to choose between physical CSS properties.
 
 **❌ Wrong:**
 
@@ -180,8 +187,16 @@ const isRTL = useLanguageDirection() === 'rtl';
 
 **✅ Correct:**
 
-```scss
+```css
 .element {
-  padding-inline-start: 8px; // Auto RTL/LTR, no hook needed
+  padding-inline-start: 8px;
 }
 ```
+
+## Checklist
+
+- [ ] A hook supplies live context that cannot be represented by authored props.
+- [ ] Hooks are called unconditionally inside a component or custom hook.
+- [ ] Hook values are read during render rather than copied through an effect.
+- [ ] Page-tree traversal filters popups and guards parent cycles.
+- [ ] Direction hooks affect JavaScript behavior, not visual CSS choices.
