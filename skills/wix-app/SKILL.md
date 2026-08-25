@@ -23,7 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
-  - [ ] Site/editor extensions only: routed every SDK call not confirmed visitor/member-callable to a backend extension (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
+  - [ ] Site/editor extensions only: sorted every SDK call three ways — acts for the caller and filtered by caller stay in the extension, business-wide gets routed to a backend extension (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
@@ -53,7 +53,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
 | Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
-| Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `getCurrentMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
+| Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `members.getMyMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
+| Elevating a read the platform filters by caller (`members.getMember`/`queryMembers`, `items.*`, catalog) to "make it return more" | Call it directly — elevating removes the filter and returns data the visitor was never entitled to |
 
 ---
 
@@ -263,7 +264,7 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 **Acts for the current visitor or member → call it directly, and never elevate it.** Their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order placed against no buyer, a booking with no attendee. This is a property, not a list: a method that operates on "my" or "the current" anything belongs here even if you haven't seen it before.
 
-**The platform filters the result by caller → call it directly; elevating removes the filter.** Routing these isn't just indirection — it returns data the direct call would have withheld:
+**The platform filters the result by caller → call it directly.** Routing these isn't just indirection: an elevated call can return data the direct call withheld, so a "fix" for a sparse result becomes a leak.
 
 - **Wix Data `items.*`** follows the collection's `dataPermissions`. The scaffolded default is `itemRead: 'ANYONE'` with `itemInsert`/`itemUpdate`/`itemRemove` set to `'PRIVILEGED'`, so reads work from a site extension and writes don't. Fix that by setting permissions to match the access context (see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)), not by routing.
 - **Catalog reads** return base fields to anyone; `fields: ["MERCHANT_DATA"]` and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`.
@@ -271,10 +272,10 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 **Acts on the business as a whole → route it out and elevate.** `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management.
 
-**When you're unsure about a method**, check in this order:
+**When you're unsure about a method**, two things in its reference can confirm it acts for the caller. Both are one-directional — they confirm *call directly*, never *route out* — so absence decides nothing:
 
-1. **The REST endpoint path**, which is in the method's reference. A `/member/`, `/my-`, or `/current` segment means it acts on the caller's own entity — call it directly. `requestCancellation` is `/pricing-plans/v2/member/orders/{id}/cancel` (caller's own subscription) while the sibling `cancelOrder` is `/pricing-plans/v2/orders/{id}/cancel` (business-side), and neither name says so.
-2. **A prose authentication note**, which a minority of pages carry — `get-my-member`: "This method requires visitor or member authentication." Authoritative when present, but one-directional: it can only ever confirm *call directly*, never *route out*, so its absence decides nothing.
+- **A prose authentication note**, which a minority of pages carry — `get-my-member`: "This method requires visitor or member authentication."
+- **A whole path segment** of `member`, `my-*`, or `current` in the REST endpoint URL. `requestCancellation` is `/pricing-plans/v2/member/orders/{id}/cancel` (caller's own) while the sibling `cancelOrder` is `/pricing-plans/v2/orders/{id}/cancel` (business-side), and neither name says so. Match segments, not substrings: `/members/v1/members/{id}` is `getMember`, a bucket-2 filtered read, not a caller-owned one. Recall is low — `placeOrder` is `/ecom/v2/carts/{cartId}/place-order` and carries no such segment despite acting squarely for the visitor — so treat a hit as corroboration and a miss as nothing.
 
 Neither the scope name nor the SDK schema line carries the signal: `queryLocations` is `READ-LOCATIONS` yet admin-only, and the schema line reads `wixClientAdmin` for every method in the machine-readable docs.
 
