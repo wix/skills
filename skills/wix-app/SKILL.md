@@ -21,7 +21,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and list the component inventory with `cat node_modules/@wix/patterns/dist/docs/index.json`.
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `index.json` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
@@ -107,15 +108,21 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
-**Confirm every name and prop against the generated docs — do not guess:**
+**Looking a component up takes two reads.** `index.json` maps component name → doc file → category — that is all it holds. Start there for what exists:
 
 ```bash
 cat node_modules/@wix/patterns/dist/docs/index.json
 ```
 
-If that path does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+Then read the doc file for each name you plan to use, including the state types they cross-reference in link text (`[TableState](...)` → `TableState.md`). Props and import paths exist only there, and patterns is not a flat namespace — `@wix/patterns/page`, `/provider`, `/form` — so an import from memory is a guess. One command covers it:
 
-`index.json` maps component name → doc file + category; doc filenames match component names (`Table.md`, `useTableCollection.md`). Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
+```bash
+cd node_modules/@wix/patterns/dist/docs && cat Table.md useTableCollection.md TableState.md
+```
+
+If `dist/docs/` does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+
+Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 
 ### 2. `@wix/design-system` — everything inside the shell
 

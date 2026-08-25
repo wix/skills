@@ -128,7 +128,7 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Reading doc files
 
-Each doc contains the component's category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+`index.json` only tells you a component exists — read its doc file before using it. Each doc contains the component's category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
 
 ### Following cross-references
 
