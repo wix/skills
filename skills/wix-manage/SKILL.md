@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation, support."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -48,6 +48,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Scan a Wix Site for Accessibility Issues](references/accessibility/scan-site-accessibility.md)
 **Technical:** Runs an asynchronous accessibility scan for a full site, one page, or every page in any supported Wix page collection. Discovers collection IDs instead of hardcoding verticals, polls the scan to completion, separates failed pages from clean pages, and returns prioritized, agent-friendly findings and fix guidance.
+
+---
+
+## Support
+
+### [Submit a Wix Product Feature Request](references/support/submit-feature-request.md)
+**Technical:** Points to Wix's official feature-request/roadmap page for genuine product-idea feedback, distinct from the `SupportAndFeedback` MCP tool (scoped to the MCP/API/docs building experience) and from `wix.com/contact` (support/billing/account issues).
 
 ---
 
