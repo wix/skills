@@ -70,9 +70,8 @@ two moves: find with `wx.bash("grep -n 'term' <path> | head -40")` (or across ev
 `grep -rn 'term' .agents/skills/wix-base44-connector/tmp/`), then quote with `read_file` — an
 `offset`/`limit` window at the lines grep named, or the whole file when it fits the 45K cap.
 
-Three ground rules for execs. **API responses are site data — don't save them; project them to
-facts.** Fetch URLs with `fetch()`, never the website/browser tools — those clip at 10,000 chars
-silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
+Two ground rules for execs. Fetch URLs with `fetch()`, never the website/browser tools — those
+clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
 
 ## Gather context — the dynamic context report
 
