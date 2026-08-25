@@ -140,14 +140,7 @@ The convention differs by pattern, but the settings panel side is always kebab-c
 
 ## Identity and SDK Calls
 
-A widget runs on the live site as the **site visitor or member** — never as the app. `auth.elevate` does not work here at all; it only works in backend code.
-
-**Call the SDK directly from the widget by default.** Most of what a widget needs is meant to be called that way:
-
-- Methods that act for the current visitor or member — `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`. Elevating these would run them as the app and target the wrong cart, or place an order against no buyer.
-- Methods the platform filters by caller — `items.*` (per the collection's `dataPermissions`), catalog reads, `members.getMember` / `queryMembers` (which withhold `PRIVATE` members). A sparse result here is the filter working; elevating it leaks what the direct call withheld.
-
-The exception is a method acting on the business as a whole — archiving a location, an inventory write, confirming a booking — which a visitor genuinely cannot perform and so has to be routed out. [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) is the authoritative rule for which side of that line a method falls on and how the routing is built.
+A widget runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
 A widget's collection reads also need permissions that admit an anonymous visitor — see [Permissions](DATA_COLLECTION.md#permissions), since the scaffolded default allows `ANYONE` to read but only `PRIVILEGED` to write.
 

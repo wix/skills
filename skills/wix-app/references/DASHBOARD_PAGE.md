@@ -37,7 +37,7 @@ If it's missing, add the package (`^1.367.0` or later — earlier versions don't
 
 ## Capabilities
 
-A dashboard page runs as the **Wix user**, not as a site visitor — so admin methods are normally called directly from page code, and adding a backend hop to reach one is unnecessary indirection. `auth.elevate` doesn't work in dashboard code either; it works only in backend extensions, so a method that genuinely requires elevation is the one case worth routing. Full rule: [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
+A dashboard page runs as the **Wix user**, so admin methods are normally called directly from page code — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
 ### Data Operations (Wix Data SDK)
 

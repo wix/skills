@@ -346,7 +346,7 @@ await wixClient.items.query(...); // Wrong — API surface differs through clien
 
 ### Identity of SDK Calls in Site Plugins
 
-A plugin runs as the **site visitor or member** — never as the app. `auth.elevate` does not work in plugin code at all; it only works in backend code.
+A plugin runs as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
 The three calls above are correct exactly as written, and each for a different reason:
 
@@ -355,10 +355,6 @@ The three calls above are correct exactly as written, and each for a different r
 | `items.query(...)` | Wix Data enforces the collection's `dataPermissions` per caller — the scaffolded default reads as `ANYONE`. See [Permissions](DATA_COLLECTION.md#permissions) |
 | `currentCartV2.getCurrentCart()` | Resolves the cart from the caller's session. Elevating it would return the app's cart, not the visitor's |
 | `products.queryProducts()` | Catalog base fields are public. `MERCHANT_DATA` and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN` — don't request them from a plugin |
-
-**Do not "fix" a sparse or empty result by routing the call to a backend endpoint and elevating it.** For a session-resolved method it retargets the operation; for a caller-filtered read it returns data the visitor was never entitled to.
-
-A method acting on the business as a whole — archiving a location, an inventory write, confirming a booking — is the exception a plugin does have to route out. [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) is the authoritative rule for which side of that line a method falls on and how the routing is built.
 
 ### Performance Considerations
 

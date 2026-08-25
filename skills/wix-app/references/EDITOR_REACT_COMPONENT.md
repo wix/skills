@@ -57,7 +57,7 @@ File where you can override the generated manifest from `<componentName>.generat
 
 ## Identity of SDK Calls
 
-A component runs on the live site as the **site visitor or member**, never as the app, and `auth.elevate` doesn't work here at all — only in backend code. Call the SDK directly by default; route out only a method acting on the business as a whole, which a visitor genuinely cannot perform. Full rule: [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
+A component runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
 ## Workflow
 

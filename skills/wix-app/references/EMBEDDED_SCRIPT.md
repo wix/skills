@@ -108,10 +108,6 @@ The `<script type="module">` block runs at module scope, where Rollup (used by A
 
 See the [Complete Example](#complete-example-coupon-popup) below for the full skeleton.
 
-## Identity of Data Calls
-
-The injected script runs in the site page as the **site visitor or member**, never as the app, and `auth.elevate` doesn't work there at all — only in backend code. So reach for data directly by default; a `fetch()` to one of your own `/api/*` endpoints is warranted only for an operation acting on the business as a whole, which a visitor genuinely cannot perform. Full rule: [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
-
 ## Examples
 
 ### Analytics Tracking
