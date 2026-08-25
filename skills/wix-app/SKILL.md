@@ -23,7 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
-  - [ ] Site/editor extensions only: routed every `wixClientAdmin` SDK call to a backend extension (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
+  - [ ] Site/editor extensions only: routed every SDK call not confirmed visitor/member-callable to a backend extension (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
@@ -52,8 +52,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
 | Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
-| Calling `auth.elevate`, or a `wixClientAdmin` SDK method, from a site or editor extension | Put the call in a backend extension and elevate there — elevation only works in backend code |
-| Elevating a `wixClientMember`/`wixClientVisitor` method (`currentCart*`, `getCurrentMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
+| Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
+| Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `getCurrentMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
 
 ---
 
@@ -256,15 +256,18 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 **Applies whenever an extension calls a Wix SDK method.** Decide where the call runs before writing it.
 
-1. **Site extensions never run as the app.** Editor React components, custom element widgets, site plugins, and embedded scripts run as the site visitor or member. Dashboard extensions run as the Wix user, limited by that user's roles — a dashboard page may call admin methods directly. Only backend extensions — Backend API, Backend Event, Service Plugin — run as the app.
+1. **Site extensions never run as the app.** Editor React components, custom element widgets, site plugins, and embedded scripts run as the site visitor or member. Dashboard extensions run as the Wix user, so they can usually call admin methods directly — but check the method: some still require elevation, and a role-limited collaborator may not have the role a method demands. Only backend extensions — Backend API, Backend Event, Service Plugin — run as the app.
 2. **`auth.elevate` only works in backend code.** In a site or editor extension it isn't a style problem, it doesn't work.
 
-**The identity a method needs is on its SDK reference schema line, not in its scope name.** `wixClientAdmin.…` needs the app or a Wix user; `wixClientMember.…` and `wixClientVisitor.…` are callable from a site extension. Scope names don't track identity, so don't trigger on `Manage`/`WRITE`:
+**No field in the reference tells you which identity a method needs.** Don't try to derive one — the scope name doesn't track identity (`queryLocations` is `READ-LOCATIONS` but admin-only; `addLineItemsToCurrentCart` carries `MANAGE-ADMIN` but is visitor-callable), and the SDK schema line renders `wixClientAdmin` for *every* method in the machine-readable docs, visitor-callable ones included. Read the method's own documentation for authentication requirements, and when you can't confirm a visitor or member may call it, route it out.
 
-- `locations.queryLocations` is a plain read (`SCOPE.DC-MULTILOCATION.READ-LOCATIONS`) but is `wixClientAdmin` — it needs routing and elevation like any write.
-- `currentCartV2.addLineItemsToCurrentCart` carries `SCOPE.ECOM.MANAGE-ADMIN` but is `wixClientMember` — call it directly. **Never elevate a `currentCart*` method:** it resolves the cart from the caller's session identity, so elevating targets the app's cart instead of the visitor's.
+**Callable directly from a site extension** — don't route these:
 
-When a site extension needs a `wixClientAdmin` method, put it in a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevate there, and call it with `httpClient.fetchWithAuth()` so the caller's identity reaches the endpoint. Elevation bypasses Wix's permission check, so re-check in the endpoint whatever the elevated call assumes about the caller — an endpoint reachable by any site visitor must not perform an owner-only operation on request alone.
+- Wix Data `items.*`, which enforces per-collection permissions (see [SITE_PLUGIN.md](references/SITE_PLUGIN.md)).
+- Public catalog reads such as `products.queryProducts` / `productsV3.queryProducts`.
+- Session-resolved `current*`/`my*` methods — `currentCartV2.*`, `members.getCurrentMember`, `loyalty.accounts.getCurrentMemberAccount`. **Never elevate these:** they resolve the entity from the caller's session identity, so elevating retargets the operation to the app instead of the visitor.
+
+Everything else a site extension can't confirm — `archiveLocation`, `queryLocations`, order and inventory writes, booking confirmation — goes in a Backend API endpoint (see [BACKEND_API.md](references/BACKEND_API.md)), elevated there and called with `httpClient.fetchWithAuth()` against `new URL(import.meta.url).origin` so the caller's identity reaches the endpoint. Elevation bypasses Wix's permission check, so re-check in the endpoint whatever the elevated call assumes about the caller — an endpoint reachable by any site visitor must not perform an owner-only operation on request alone.
 
 Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
 
