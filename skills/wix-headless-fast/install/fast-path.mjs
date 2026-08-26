@@ -6,14 +6,15 @@
 //   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json \
 //        [--vertical storefront] [--stack astro] [--folder-name <npm-safe-name>]
 //
-// It emits ONE JSON event per line and exits after seeding, with the dependency install
-// still running detached in the background (log + completion marker reported in the final
-// event). Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code +
-// deps + lockfile → start `npm ci || npm install` detached → seed from the plan.
+// It emits ONE JSON event per line and exits in ~35s with BOTH long steps — the dependency
+// install AND the seed — running detached in the background (logs + completion markers
+// reported in the final event), so the caller can build the brand layer while they finish.
+// Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code + deps +
+// lockfile → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -90,25 +91,26 @@ const install = spawn("sh", ["-c", "npm ci --ignore-scripts || npm install --ign
 install.unref();
 emit("install_started", { log: installLog, doneMarker: "node_modules/.package-lock.json" });
 
-// ---- 4 · seed from the plan ----------------------------------------------------------------------
+// ---- 4 · start the seed, detached ----------------------------------------------------------------
+// The seed includes a Wix-side provisioning wait of unpredictable length (10-80s); running it
+// in the caller's foreground would idle the agent for exactly that long. Detach it like the
+// install: result JSON + exit-code marker land as files the caller syncs on before release.
 const seedDir = join(SKILL_ROOT, "references", vertical, "seed");
 const seedFile = existsSync(join(seedDir, "seed-store.mjs"))
   ? join(seedDir, "seed-store.mjs")
   : null;
 if (!seedFile) fail("seed", `no seed module found under ${seedDir}`);
-emit("seeding", { vertical });
-try {
-  const seed = await import(pathToFileURL(seedFile).href);
-  const ctx = seed.makeCtx({ cwd: projectDir });
-  const result = await seed.setupStore(ctx, plan);
-  emit("seeded", {
-    products: result.products?.length ?? 0,
-    categories: result.categories?.length ?? 0,
-    imagesAttached: result.imagesAttached ?? 0,
-  });
-} catch (e) {
-  fail("seed", e.message);
-}
+const seedResultFile = join(projectDir, "seed-result.json");
+const seedLog = join(projectDir, "seed.log");
+const seedDoneMarker = join(projectDir, ".seed-exit");
+const planAbs = resolve(planPath);
+const seedChild = spawn(
+  "sh",
+  ["-c", `node "${seedFile}" "${planAbs}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
+  { cwd: projectDir, detached: true, stdio: "ignore" },
+);
+seedChild.unref();
+emit("seeding_started", { vertical, resultFile: seedResultFile, log: seedLog, doneMarker: seedDoneMarker });
 
 // ---- done ----------------------------------------------------------------------------------------
 emit("ready_for_brand_layer", {
@@ -118,5 +120,6 @@ emit("ready_for_brand_layer", {
   productsUrl: deployResult.productsUrl,
   categoriesUrl: deployResult.categoriesUrl,
   install: { log: installLog, doneMarker: "node_modules/.package-lock.json" },
-  next: "theme SiteLayout + write the home page; then wait for the install marker, build, release",
+  seed: { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" },
+  next: "theme SiteLayout + write the home page; then wait for BOTH done markers, verify .seed-exit is 0 (else read seed.log and re-run the seed module), build, release",
 });

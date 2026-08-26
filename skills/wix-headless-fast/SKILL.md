@@ -56,13 +56,14 @@ re-litigate them.
    node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json
    ```
 
-   It emits one JSON event per line: **scaffolds** the project, **deploys** the shipped code
-   (patching `package.json` with every dependency the code imports, and placing the
-   pre-resolved lockfile), **starts** `npm ci --ignore-scripts || npm install --ignore-scripts`
-   detached in the background (its log and completion marker are in the events), and **seeds**
-   from the plan. The final `ready_for_brand_layer` event carries the project dir, siteId, and
-   ready-made dashboard links. Takes ~1 min; relay notable events. On an `error` event, recover
-   just that step via the manual path below, then continue.
+   It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
+   **deploys** the shipped code (patching `package.json` with every dependency the code
+   imports, and placing the pre-resolved lockfile), then **starts two detached background
+   jobs** — the dependency install (`npm ci --ignore-scripts || npm install --ignore-scripts`)
+   and the **seed** — whose logs and completion markers are in the events. The final
+   `ready_for_brand_layer` event carries the project dir, siteId, ready-made dashboard links,
+   and both markers. Relay notable events. On an `error` event, recover just that step via the
+   manual path below, then continue.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
@@ -76,8 +77,11 @@ re-litigate them.
    `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: the home page, the
    layout's header/footer/tokens, and the copy — composing the shipped pieces. Read the
    INSTRUCTIONS first, and don't open the shipped files themselves.
-5. **When the install has completed** (its marker file, `node_modules/.package-lock.json`,
-   exists)**, build & release once** (managed):
+5. **When both background jobs have completed** — the install's marker
+   (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
+   seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
+   your summary — if non-zero, read `seed.log` and re-run the seed module manually). Then
+   **build & release once** (managed):
    `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
    it once more and then build). Don't build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
