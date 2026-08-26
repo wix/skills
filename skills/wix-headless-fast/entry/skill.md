@@ -40,12 +40,10 @@ version, install or upgrade Node first — do **not** work around it:
 ## Phase 1 — Run the bootstrap (deterministic, shared)
 
 Download and run the shared bootstrap script. It verifies the Wix CLI and handles login,
-emitting **one JSON event per line** on stdout. **Run it in the FOREGROUND and relay its
-events** — it exits on its own once the CLI is verified and a session exists (seconds, when
-already logged in). Only when a login is actually needed does it pause on `awaiting_user`;
-surface the URL + code and keep the process in the foreground until it completes. **Never end
-your turn/run while the bootstrap — or any process you started — is still running: a
-non-interactive run is never resumed, so ending the turn kills the work.**
+emitting **one JSON event per line** on stdout. **Run it and relay its events** — it exits on
+its own once the CLI is verified and a session exists (seconds, when already logged in). Only
+when a login is actually needed does it pause on `awaiting_user`; surface the URL + code and
+let it keep running until the login completes.
 
 The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives
 `wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first
