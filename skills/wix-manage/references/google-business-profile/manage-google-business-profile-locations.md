@@ -43,10 +43,19 @@ calling them.
 { "query": { "paging": { "limit": 100 } } }
 ```
 
-On a fresh, unconnected site, make exactly those two calls: read the connection
-once, query the Wix-stored locations once, then report the empty result and the
-future import steps. Do not call List GBP Accounts or any other Google-backed
-method until the connection is `VALID`.
+Make **Get Connection** first, then branch before making any other call:
+
+- `403` or `PERMISSION_DENIED` — stop. The next action is the final response;
+  explain that the current Wix identity cannot inspect the site's GBP state.
+  Do not query locations, inspect installed apps, search documentation, or try
+  another endpoint.
+- `NEVER_CONNECTED`, `NEEDS_RECONNECT`, or `CONNECTION_NOT_FOUND` — make one
+  **Query GBP Locations** call, report the Wix-stored result, explain the future
+  import steps, and stop.
+- `VALID` — proceed with the requested Google-backed flow.
+
+Do not call List GBP Accounts or another Google-backed method until the
+connection is `VALID`.
 
 ## Check the connection first
 
