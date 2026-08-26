@@ -55,8 +55,11 @@ re-litigate them.
 3. **Create runs (empty directory): run the fast path** — one deterministic call:
 
    ```bash
-   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json
+   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <storefront|bookings>
    ```
+
+   `--vertical` is required and picks which shipped code deploys AND which seed runs — use
+   the vertical you resolved from the Verticals table.
 
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
    **deploys** the shipped code (patching `package.json` with every dependency the code
