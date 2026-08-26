@@ -37,7 +37,7 @@ If it's missing, add the package (`^1.367.0` or later — earlier versions don't
 
 ## Capabilities
 
-A dashboard page runs as the **Wix user**, so admin methods are normally called directly from page code — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
+A dashboard page runs as the **Wix user** — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before deciding where an SDK call runs.
 
 ### Data Operations (Wix Data SDK)
 

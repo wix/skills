@@ -217,7 +217,7 @@ const archived = await elevatedArchive(locationId); // locationId read from the 
 
 **Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself** — otherwise every caller who can reach it gets the elevated operation, and only `httpClient.fetchWithAuth()` (see [Frontend Integration](#frontend-integration)) sends the caller's identity for the handler to check; a bare `fetch` sends nothing and leaves the endpoint open.
 
-What you can establish depends on the host: a dashboard caller is a Wix user whose roles already limit them, so the elevated call is usually redundant — prefer calling the SDK directly from the page. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
+What you can establish depends on the host: a dashboard caller is a Wix user, whose roles already limit them. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
 
 ## Build, Deploy, and Delete
 
