@@ -43,6 +43,14 @@ re-litigate them.
 
 ## The run
 
+> **The waiting rule (applies to every step below):** the ONLY way to wait for anything — a
+> scaffold, an install, a seed, a build — is a **foreground blocking command**: the process
+> itself run in the foreground, or a single `until <completion check>; do sleep 5; done` call
+> with a generous tool timeout. **Never wait by ending your turn**, arming a watcher and
+> stopping, or "pausing until it finishes" — in a non-interactive run, ending the turn kills
+> every background task you started and the run itself. Runs have died exactly this way, on
+> three different steps.
+
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
    different React framework or the directory already holds a non-Astro React project. A
    non-React frontend is out of scope → `wix-headless`.
@@ -55,8 +63,9 @@ re-litigate them.
    - existing project not yet on Wix → `CI=1 npm create @wix/new@latest init` in place;
    - already has `wix.config.json` → neither; it's an iterate run.
 
-   The scaffold takes ~30s to provision the site — **write the seed plan (the vertical's
-   `SEED.md` plan file) while it runs** instead of waiting; the plan depends only on the brief.
+   **Draft the seed plan (the vertical's `SEED.md` plan file) BEFORE scaffolding** — it depends
+   only on the brief — then run the scaffold in the **foreground** (~30s). Don't background the
+   scaffold; everything after this step needs its output.
 3. **Deploy the shipped code — BEFORE installing dependencies** (from the project root):
    `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` (react stack: add
    `--client-id` if there is no `wix.config.json` to read the public id from). Besides copying
