@@ -2,9 +2,12 @@
 
 Unlike the other verticals, CMS ships **no UI**. A CMS is schema-driven — every collection is
 different — so there are no meaningful "list/detail" components to hand you. You **build the UI
-yourself** (list, detail, home, forms) in your own framework and design tokens, calling the shipped
-**utils**. Everything talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor token)
-using the official Wix Data endpoints — never hand-build a Wix Data URL, never mock items.
+yourself** (list, detail, home) in your own framework and design tokens, calling the shipped
+**utils**. **A visitor-fillable form is the `forms` vertical, not `cms`** — come here only when the
+app must read the entries back (a public gallery, a listing, a member's "my submissions"); a visitor
+cannot read Forms submissions. Everything talks to Wix directly over the public `WIX_CLIENT_ID`
+(anonymous visitor token) using the official Wix Data endpoints — never hand-build a Wix Data URL,
+never mock items.
 
 ## What ships (utils only)
 

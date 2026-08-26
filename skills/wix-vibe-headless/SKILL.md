@@ -119,30 +119,27 @@ Each vertical's UI + helpers ship in `references/<vertical>/app/`; copy that dir
 | The user wants… | Vertical | Read |
 |---|---|---|
 | Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
-| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Appointments: services, time slots, booking, checkout — **and the form attached to a bookable service** | **bookings** | `references/bookings/INSTRUCTIONS.md` |
 | Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` |
-| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` |
+| Events: browse, event page, RSVP, ticketing — **an RSVP is here, not `forms`**, even for one occasion with no tickets | **events** | `references/events/INSTRUCTIONS.md` |
 | Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
 | Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
-| Any visitor-fillable form: contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration | **forms** | `references/forms/INSTRUCTIONS.md` |
-| CMS content: list/detail, filter/search, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` |
+| Any visitor-fillable form: contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration. **Not** an event RSVP (`events`) or a per-service booking form (`bookings`) | **forms** | `references/forms/INSTRUCTIONS.md` |
+| CMS content: list/detail, filter/search, data CRUD. **A visitor-fillable form is `forms`** — cms only when the app must read the entries back | **cms** | `references/cms/INSTRUCTIONS.md` |
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
 | Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` |
 
-**⚠️ A form is `forms`, not `cms`.** Any form a visitor fills in and submits is the **forms** vertical
-— "contact form" most of all. **Lead capture is the most common case, not the boundary**, and whether
-a submission also becomes a CRM contact is an optional per-field mapping. Wiring a form to a CMS
-collection with `insertDataItem` works, and is the wrong build: it gives up the dashboard form
-builder, spam protection, submission notifications and that contact mapping, and it needs the owner to
-set collection permissions by hand before a visitor can submit at all. Route to **cms** only when the
-app must **read the entries back** (a public gallery, a listing, a member's "my submissions") — a
-visitor genuinely cannot read Forms submissions. Submit-only → **forms**.
+**⚠️ Anything a visitor fills in and submits is `forms` — with three exceptions:**
 
-Two boundaries: **an RSVP is `events`** — confirming attendance to an event or occasion (a wedding,
-party, or gathering) is the **events** vertical, which ships a built-in RSVP registration form; route
-there even for a single occasion with no tickets. **A per-service booking form is `bookings`** — the
-form attached to a bookable service belongs there. Use `forms` only when neither an event nor a
-bookable service is involved.
+1. **The app must read the entries back → `cms`.** A public gallery, a listing, a member's "my
+   submissions". A visitor cannot read Forms submissions, so those need a collection. Submit-only is
+   always `forms`: a form wired to `insertDataItem` works, but gives up the dashboard form builder,
+   spam protection, submission notifications and CRM contact mapping, and needs the owner to set
+   collection permissions by hand before anyone can submit at all.
+2. **Confirming attendance to an event or occasion → `events`.** A wedding, party or gathering —
+   events ships a built-in RSVP registration form. Route there even for a single occasion with no
+   tickets.
+3. **A form attached to a bookable service → `bookings`.**
 
 ### When the request doesn't name a Wix Business Solution — ask, or check the site
 
