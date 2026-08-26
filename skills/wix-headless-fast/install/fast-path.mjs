@@ -4,7 +4,7 @@
 // or for connect/iterate runs (which must NOT scaffold and don't use this script).
 //
 //   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json \
-//        [--vertical storefront] [--stack astro] [--folder-name <npm-safe-name>]
+//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>]
 //
 // It emits ONE JSON event per line and exits in ~35s with BOTH long steps — the dependency
 // install AND the seed — running detached in the background (logs + completion markers
@@ -32,10 +32,18 @@ const flag = (name) => {
 };
 const businessName = flag("business-name");
 const planPath = flag("plan");
-const vertical = flag("vertical") ?? "storefront";
+const vertical = flag("vertical");
 const stack = flag("stack") ?? "astro";
-if (!businessName || !planPath) {
-  fail("args", 'usage: fast-path.mjs --business-name "<Brand>" --plan plan.json [--vertical storefront] [--stack astro]');
+// --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong
+// seed against the plan — fail loudly with the discovered choices instead.
+const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
+  .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
+  .map((d) => d.name);
+if (!businessName || !planPath || !vertical) {
+  fail("args", `usage: fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <${knownVerticals.join("|")}> [--stack astro]`);
+}
+if (!knownVerticals.includes(vertical)) {
+  fail("args", `unknown vertical "${vertical}" — shipped verticals: ${knownVerticals.join(", ")}`);
 }
 if (!existsSync(planPath)) fail("args", `plan file not found: ${planPath}`);
 const plan = JSON.parse(readFileSync(planPath, "utf8"));
