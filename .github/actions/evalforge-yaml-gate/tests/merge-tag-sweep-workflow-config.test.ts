@@ -57,6 +57,31 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
     expect(workflowContent).toContain("if: vars.MERGE_TAG_SWEEP_ENABLED != 'false'");
   });
 
+  it('allows a job budget above the worst-case three sequential 30-minute polls', () => {
+    const match = workflowContent.match(/timeout-minutes:\s*(\d+)/);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThanOrEqual(95);
+  });
+
+  it('notifies even when the sweep step reports no verdict at all', () => {
+    expect(workflowContent).toContain('Post Slack notification (job failed with no verdict)');
+    expect(workflowContent).toContain('failure()');
+  });
+
+  it('surfaces the skipped-retries caveat so a single-attempt verdict is not read as a majority', () => {
+    expect(workflowContent).toContain('confirm-skip-reason');
+    expect(workflowContent).toContain('$skip_reason');
+  });
+
+  it('fails loudly when Slack rejects a payload, rather than dropping the alert', () => {
+    expect(workflowContent).not.toMatch(/curl -s -X POST/);
+    expect(workflowContent).toContain('--fail-with-body');
+  });
+
+  it('does not let git quote non-ASCII paths out of matching the doc and scenario patterns', () => {
+    expect(workflowContent).toContain('core.quotePath=false');
+  });
+
   it('reuses the existing Slack webhook secret', () => {
     expect(workflowContent).toContain('SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}');
   });

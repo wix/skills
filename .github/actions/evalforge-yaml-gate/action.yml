@@ -97,6 +97,8 @@ outputs:
     description: 'GitHub handle of the merging PR author, or the raw commit author name if no PR was found (merge-tag-sweep mode only)'
   merged-by-url:
     description: 'Link to the merging PR, or to the commit if no PR was found (merge-tag-sweep mode only)'
+  confirm-skip-reason:
+    description: 'Set when retries were skipped, explaining why the verdict rests on a single attempt (merge-tag-sweep mode only)'
   infra-error:
     description: 'Set when the sweep itself could not run (EvalForge unreachable, run creation failed) — distinct from a confirmed scenario failure (merge-tag-sweep mode only)'
 runs:

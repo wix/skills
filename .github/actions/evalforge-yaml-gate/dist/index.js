@@ -67656,7 +67656,23 @@ function rowsToOutcomes(rows) {
         reasons: outcome.failingAssertionNames ?? [],
     }));
 }
+/**
+ * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
+ * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
+ * Without this the job would only go red, and a red check on a `main` commit is not a signal
+ * anyone is watching for; the Slack message is the whole point of this mode.
+ */
 async function runMergeTagSweep() {
+    try {
+        await sweep();
+    }
+    catch (e) {
+        const message = `Merge-tag sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+    }
+}
+async function sweep() {
     const config = (0, config_1.getMergeSweepConfig)();
     const workspace = (0, workspace_1.workspaceRoot)();
     const octokit = github.getOctokit(config.githubToken);
@@ -67667,7 +67683,9 @@ async function runMergeTagSweep() {
     }
     const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
     const classified = (0, github_1.classifyChanges)(changedFiles);
-    const { scenarios: headScenarios } = (0, evals_1.loadEvals)(workspace);
+    const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
+    for (const e of loadErrors)
+        core.warning(`Scenario load issue (${e.path}): ${e.message}`);
     const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     const changedEvalPaths = new Set([
         ...classified.evalsAdded.map(f => f.filename),
@@ -67718,6 +67736,9 @@ async function runMergeTagSweep() {
         core.setFailed(message);
         return;
     }
+    // Set before the completeness check: a run that was created and then failed or was cancelled
+    // is exactly the case where the reader most wants the link.
+    core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
     if (initial.status.status !== 'completed' || initial.status.aggregateMetrics.totalAssertions === 0) {
         const reason = initial.status.status !== 'completed'
             ? `the eval run ${initial.status.status === 'cancelled' ? 'was cancelled' : `ended as "${initial.status.status}"`}`
@@ -67727,7 +67748,6 @@ async function runMergeTagSweep() {
         core.setFailed(message);
         return;
     }
-    core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
     const initialOutcomes = rowsToOutcomes(initial.status.results);
     const initialFailures = initialOutcomes.filter(o => o.failed);
     if (initialFailures.length === 0) {
@@ -67737,7 +67757,6 @@ async function runMergeTagSweep() {
         return;
     }
     let confirmResult;
-    let retriesFailed = false;
     try {
         confirmResult = await (0, confirm_1.confirmOnFail)(initialOutcomes, async (ids) => {
             const retry = await runOnce(`${runName}-retry`, ids);
@@ -67746,7 +67765,6 @@ async function runMergeTagSweep() {
     }
     catch (e) {
         core.error(`Merge-tag sweep retry failed: ${e instanceof Error ? e.message : String(e)}`);
-        retriesFailed = true;
         confirmResult = {
             verdicts: initialFailures.map(o => ({
                 scenarioId: o.scenarioId, scenarioName: o.scenarioName,
@@ -67758,11 +67776,19 @@ async function runMergeTagSweep() {
     }
     const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
     const recovered = confirmResult.verdicts.filter(v => !v.confirmed);
+    // When retries were skipped, every verdict stands on a single attempt. Saying "confirmed"
+    // without saying that would promise a majority-of-three vote the run never took.
+    const skipNote = confirmResult.skipReason === 'broad-failure'
+        ? `no retries run — ${initialFailures.length} scenarios failed at once, treated as signal rather than noise`
+        : confirmResult.skipReason === 'rerun-error'
+            ? 'no retries run — the retry itself failed, so the first attempt stands'
+            : '';
+    core.setOutput('confirm-skip-reason', skipNote);
     core.setOutput('confirmed-failed-count', String(confirmed.length));
     core.setOutput('recovered-count', String(recovered.length));
     core.setOutput('confirmed-failed-scenarios', confirmed.map(v => `${v.scenarioName} (${v.reasons.join(', ')})`).join('\n'));
-    if (retriesFailed)
-        core.warning('Merge-tag sweep: retry infrastructure failed — first-attempt failures stand');
+    if (skipNote)
+        core.warning(`Merge-tag sweep: ${skipNote}`);
     if (confirmed.length > 0) {
         const fallback = {
             name: github.context.payload.head_commit?.author?.name ?? 'unknown',
