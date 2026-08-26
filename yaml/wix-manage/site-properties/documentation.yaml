@@ -14,4 +14,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/site-properties/site-properties-recipes.md
       title: Site Properties Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
-      tags: [manage-index, site-properties]
+      tags: [wix-manage-index, site-properties]

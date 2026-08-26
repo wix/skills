@@ -22,4 +22,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/get-paid/get-paid-recipes.md
       title: Get Paid Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
-      tags: [manage-index, get-paid]
+      tags: [wix-manage-index, get-paid]

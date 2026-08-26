@@ -15,4 +15,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/restaurants/restaurants-recipes.md
       title: Restaurants Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
-      tags: [manage-index, restaurants]
+      tags: [wix-manage-index, restaurants]

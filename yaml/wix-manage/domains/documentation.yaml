@@ -14,4 +14,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/domains/domains-recipes.md
       title: Domains Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
-      tags: [manage-index, domains]
+      tags: [wix-manage-index, domains]

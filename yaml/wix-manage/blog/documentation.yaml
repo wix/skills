@@ -15,4 +15,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/blog/blog-recipes.md
       title: Blog Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
-      tags: [manage-index, blog]
+      tags: [wix-manage-index, blog]

@@ -18,4 +18,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/marketing/marketing-recipes.md
       title: Marketing Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
-      tags: [manage-index, marketing]
+      tags: [wix-manage-index, marketing]

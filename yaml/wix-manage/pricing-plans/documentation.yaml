@@ -18,4 +18,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/pricing-plans/pricing-plans-recipes.md
       title: Pricing Plans Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
-      tags: [manage-index, pricing-plans]
+      tags: [wix-manage-index, pricing-plans]

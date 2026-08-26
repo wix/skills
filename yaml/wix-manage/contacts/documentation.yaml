@@ -26,4 +26,4 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/contacts/contacts-recipes.md
       title: Contacts Recipes
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
-      tags: [manage-index, contacts]
+      tags: [wix-manage-index, contacts]
