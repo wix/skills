@@ -9,10 +9,16 @@
 //                  client id into src/wix/config.ts (pass --client-id, or it's read from
 //                  wix.config.json's appId when present).
 //
-// ONE mechanism: recursive copy with force:false — only files that AREN'T there yet are
-// written, so a re-run restores missing files without clobbering edits, and a later call can
-// add a vertical safely. Verticals ship at disjoint paths (src/wix/<vertical>/,
-// src/components/<vertical>/, …), so they never collide with each other.
+// TWO mechanisms, driven by the same vertical arguments:
+// 1. Recursive file copy with force:false — only files that AREN'T there yet are written, so
+//    a re-run restores missing files without clobbering edits, and a later call can add a
+//    vertical safely. Verticals ship at disjoint paths (src/wix/<vertical>/,
+//    src/components/<vertical>/, …), so they never collide with each other.
+// 2. package.json dependency patch — after the copy, any dependency the copied code imports
+//    that is absent from BOTH dependencies and devDependencies is added to dependencies
+//    (fill-only: an existing version range always wins). The script never runs npm install —
+//    it only makes package.json truthful about what src/ imports; installing is the caller's
+//    one command afterwards.
 import { cpSync, existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,11 +28,31 @@ const REF = join(SKILL_ROOT, "references");
 const PROJECT = process.cwd();
 const SRC = join(PROJECT, "src");
 const CONFIG_TS = join(SRC, "wix", "config.ts");
+const PKG_JSON = join(PROJECT, "package.json");
 
 // The vertical registry: every directory under references/ that ships an app/ is a vertical.
 const VERTICALS = readdirSync(REF, { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(REF, d.name, "app")) && d.name !== "shared")
   .map((d) => d.name);
+
+// What the shipped code imports, declared per layer (version ranges are the ones the shipped
+// code was verified against). react/astro/typescript/@wix/astro* are scaffold-owned — never
+// listed here. A new vertical adds its own entry; the patch logic below never changes.
+const SHARED_DEPS = { "@wix/sdk": "^1.21.5" };
+const VERTICAL_DEPS = {
+  storefront: {
+    core: {
+      "@wix/stores": "^1.0.888",
+      "@wix/categories": "^1.0.220",
+      "@wix/ecom": "^1.0.2451",
+      "@wix/redirects": "^1.0.125",
+    },
+    astro: {
+      "@wix/seo": "^1.0.79",
+      "@wix/essentials": "^1.0.6",
+    },
+  },
+};
 
 const COPY = { recursive: true, force: false, errorOnExist: false };
 
@@ -53,12 +79,30 @@ if (!["astro", "react"].includes(stack)) {
 cpSync(join(REF, "shared", "app"), SRC, COPY);
 
 const unknown = requested.filter((v) => !VERTICALS.includes(v));
+const wantedDeps = { ...SHARED_DEPS };
 for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
   cpSync(join(REF, vertical, "app"), SRC, COPY);
   if (stack === "astro" && existsSync(join(REF, vertical, "app-astro"))) {
     cpSync(join(REF, vertical, "app-astro"), SRC, COPY);
   }
+  const deps = VERTICAL_DEPS[vertical] ?? {};
+  Object.assign(wantedDeps, deps.core, stack === "astro" ? deps.astro : undefined);
   result.verticals.push(vertical);
+}
+
+// ---- dependency patch (fill-only) ----------------------------------------------------------------
+if (result.verticals.length && existsSync(PKG_JSON)) {
+  const pkg = JSON.parse(readFileSync(PKG_JSON, "utf8"));
+  pkg.dependencies ??= {};
+  const present = { ...pkg.devDependencies, ...pkg.dependencies };
+  const added = Object.entries(wantedDeps).filter(([name]) => !(name in present));
+  for (const [name, range] of added) pkg.dependencies[name] = range;
+  if (added.length) writeFileSync(PKG_JSON, JSON.stringify(pkg, null, 2) + "\n");
+  result.depsAdded = added.map(([name]) => name);
+  if (added.length) result.note = [result.note, "run `npm install --ignore-scripts` to pick up depsAdded"].filter(Boolean).join("; ");
+} else if (result.verticals.length) {
+  result.depsAdded = [];
+  result.note = [result.note, "no package.json here — run deploy from the project root"].filter(Boolean).join("; ");
 }
 
 if (unknown.length) {
