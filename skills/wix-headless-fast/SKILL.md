@@ -62,8 +62,8 @@ re-litigate them.
    it fills in missing files/deps, never overwrites edits.
 4. **Start ONE dependency install in the background and keep working:** launch
    `npm install --ignore-scripts` as a background task **now**, and do step 5 while it runs —
-   don't sit and wait on it, don't poll it, and never run a second install. It's the longest
-   step (~2 min); everything in step 5 is independent of `node_modules`.
+   don't sit polling it. It's the longest step (~2 min); everything in step 5 is independent of
+   `node_modules`.
 5. **While the install runs — seed and build the brand layer:**
    - **Seed** per the vertical's `seed/SEED.md`: write a plain-data plan from the brief and run
      the seed script (it needs no `node_modules`; it installs the vertical's Wix app itself).
@@ -72,10 +72,14 @@ re-litigate them.
    - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
      header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
      first, and don't open the shipped files themselves.
-6. **When the install finishes: build & release once** (managed): `npx @wix/cli@latest build`
-   then `npx @wix/cli@latest release`. Don't build+release mid-flow; backend content is fetched
-   at runtime, so a re-release never "refreshes" seeded data. Close with the live URL and the
-   dashboard link `https://manage.wix.com/dashboard/<siteId>`.
+6. **Sync on the install, then build & release once** (managed). When step 5 is done, run
+   `npm install --ignore-scripts` again **in the foreground** — this is the sync barrier: it
+   returns in seconds if the background install finished, and completes the work itself if it
+   didn't (npm is idempotent). **Never end the run while an install is pending or before the
+   release has happened — the deliverable is the released site, not prepared work.** Then
+   `npx @wix/cli@latest build` and `npx @wix/cli@latest release`. Don't build+release mid-flow;
+   backend content is fetched at runtime, so a re-release never "refreshes" seeded data. Close
+   with the live URL and the dashboard link `https://manage.wix.com/dashboard/<siteId>`.
 
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.
