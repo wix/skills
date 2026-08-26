@@ -1,5 +1,6 @@
 import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
+import type { DocsEntryProblem } from './docs-entry-check';
 import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
@@ -63,6 +64,27 @@ export function formatTooManyNewSkills(count: number, limit: number, files: stri
     'Please either:',
     '- Split across multiple PRs',
     '- Update existing skills instead of creating new ones',
+  ]);
+}
+
+export function formatDocsEntryProblems(problems: DocsEntryProblem[]): string {
+  const lines = problems.map((p) => {
+    const ref = `\`${p.yamlPath}\` → "${p.title}": \`${p.docsEntry}\``;
+    switch (p.kind) {
+      case 'portal-not-found':
+        return `- ${ref} — does not match any docs portal. Check the URL for typos.`;
+      case 'node-not-found':
+        return `- ${ref} — this page does not exist in the docs menu. If you just created the category, wait a minute and re-run this check.`;
+      case 'not-a-category':
+        return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` Use the category that groups it: \`${p.suggestion}\`` : ''}`;
+    }
+  });
+  return render('❌', 'Invalid docsEntry', [
+    '`docsEntry` must be the URL of a **category** in the docs menu (a page that groups APIs) — the skill is published under it at `<docsEntry>/skills/<slug>`. Pointing at an individual API page silently fails after merge: the skill never appears in the menu.',
+    '',
+    'Copy the URL with the "Copy Docs Entry" button in the docs menu (it only appears on categories) instead of the browser address bar.',
+    '',
+    ...lines,
   ]);
 }
 
