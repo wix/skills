@@ -65,7 +65,9 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
 
   it('notifies even when the sweep step reports no verdict at all', () => {
     expect(workflowContent).toContain('Post Slack notification (job failed with no verdict)');
-    expect(workflowContent).toContain('failure()');
+    // Cancellation, not just failure: a job killed by timeout-minutes reports the cancelled
+    // conclusion, so guarding on failure() alone would miss the case the step exists for.
+    expect(workflowContent).toContain('(failure() || cancelled())');
   });
 
   it('surfaces the skipped-retries caveat so a single-attempt verdict is not read as a majority', () => {

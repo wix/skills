@@ -170,8 +170,11 @@ jobs:
       # while reading config, the job hitting its timeout mid-retry — would otherwise be
       # reported only as a red check on a main commit, which nobody is watching.
       - name: Post Slack notification (job failed with no verdict)
+        # `cancelled()` as well as `failure()`: a job killed by `timeout-minutes` reports the
+        # cancelled conclusion, not a failed one, and the timeout is precisely one of the cases
+        # this step exists to catch.
         if: >-
-          failure()
+          (failure() || cancelled())
           && steps.sweep.outputs.infra-error == ''
           && (steps.sweep.outputs.confirmed-failed-count == '' || steps.sweep.outputs.confirmed-failed-count == '0')
         env:
