@@ -1,0 +1,79 @@
+/* Shipped storefront component styles — structural only, themed entirely by the tokens
+   below. Theme the store by overriding the --sf-* tokens (in your global stylesheet or
+   Layout), not by editing component markup or this file's rules. */
+:root {
+  --sf-surface: var(--surface, #ffffff);
+  --sf-text: var(--text, #16181d);
+  --sf-muted: var(--muted, #6b7280);
+  --sf-border: var(--border, #e5e7eb);
+  --sf-primary: var(--primary, #16181d);
+  --sf-on-primary: var(--on-primary, #ffffff);
+  --sf-danger: #c0392b;
+  --sf-radius: var(--radius, 8px);
+}
+
+/* Product card (reference) */
+.sf-card { display: block; color: inherit; text-decoration: none; }
+.sf-card-media { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: var(--sf-radius); background: var(--sf-border); }
+.sf-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sf-card-media .sf-hover { position: absolute; inset: 0; opacity: 0; transition: opacity 0.2s; }
+.sf-card:hover .sf-hover { opacity: 1; }
+.sf-badge { position: absolute; top: 10px; left: 10px; background: var(--sf-surface); color: var(--sf-text); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.sf-badge.sf-badge-right { left: auto; right: 10px; }
+.sf-card-name { margin: 10px 0 2px; font-size: 14px; font-weight: 600; }
+.sf-card-price { font-size: 14px; color: var(--sf-muted); display: flex; gap: 8px; align-items: baseline; }
+.sf-card-price .sf-compare { text-decoration: line-through; opacity: 0.6; }
+.sf-card-options { font-size: 12px; color: var(--sf-muted); margin-top: 2px; }
+
+/* Grid (reference) */
+.sf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+.sf-skeleton { aspect-ratio: 1; border-radius: var(--sf-radius); background: var(--sf-border); animation: sf-pulse 1.4s ease-in-out infinite; }
+@keyframes sf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.sf-empty { padding: 64px 0; text-align: center; color: var(--sf-muted); }
+
+/* Category bar */
+.sf-cats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.sf-cat { border: 1px solid var(--sf-border); background: none; color: var(--sf-text); border-radius: 999px; padding: 8px 18px; font-size: 14px; cursor: pointer; }
+.sf-cat.sf-on { background: var(--sf-primary); color: var(--sf-on-primary); border-color: var(--sf-primary); }
+
+/* Variant picker */
+.sf-opt { margin-bottom: 18px; }
+.sf-opt-label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--sf-muted); margin-bottom: 8px; }
+.sf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sf-chip { border: 1px solid var(--sf-border); background: none; color: var(--sf-text); border-radius: 999px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+.sf-chip.sf-on { background: var(--sf-primary); color: var(--sf-on-primary); border-color: var(--sf-primary); }
+.sf-chip:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+.sf-swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--sf-border); cursor: pointer; padding: 0; }
+.sf-swatch.sf-on { border-color: var(--sf-primary); box-shadow: 0 0 0 2px var(--sf-surface), 0 0 0 4px var(--sf-primary); }
+.sf-swatch:disabled { opacity: 0.35; cursor: not-allowed; }
+.sf-modifier-input { width: 100%; border: 1px solid var(--sf-border); border-radius: var(--sf-radius); background: var(--sf-surface); color: var(--sf-text); padding: 10px 12px; font-size: 14px; }
+
+/* Buttons */
+.sf-btn { background: var(--sf-primary); color: var(--sf-on-primary); border: none; border-radius: 999px; padding: 14px 32px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.sf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sf-btn-full { width: 100%; }
+.sf-error { color: var(--sf-danger); font-size: 13px; margin-top: 8px; }
+
+/* Cart button */
+.sf-cart-btn { position: relative; background: none; border: none; color: inherit; cursor: pointer; display: inline-flex; align-items: center; padding: 6px; }
+.sf-cart-count { position: absolute; top: -2px; right: -4px; min-width: 18px; height: 18px; border-radius: 999px; background: var(--sf-primary); color: var(--sf-on-primary); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+
+/* Cart drawer */
+.sf-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 200; display: flex; justify-content: flex-end; }
+.sf-drawer { width: min(400px, 100vw); height: 100%; background: var(--sf-surface); color: var(--sf-text); display: flex; flex-direction: column; }
+.sf-drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--sf-border); font-weight: 700; }
+.sf-drawer-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--sf-muted); }
+.sf-drawer-items { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.sf-line { display: flex; gap: 14px; margin-bottom: 20px; }
+.sf-line-img { width: 64px; height: 64px; border-radius: var(--sf-radius); object-fit: cover; background: var(--sf-border); flex-shrink: 0; }
+.sf-line-body { flex: 1; min-width: 0; }
+.sf-line-name { font-size: 14px; font-weight: 600; }
+.sf-line-desc { font-size: 12px; color: var(--sf-muted); margin-top: 2px; }
+.sf-line-price { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.sf-line-warn { font-size: 12px; color: var(--sf-danger); margin-top: 4px; }
+.sf-qty { display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--sf-border); border-radius: 999px; padding: 2px 8px; margin-top: 8px; }
+.sf-qty button { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--sf-text); padding: 2px 6px; }
+.sf-qty button:disabled { opacity: 0.4; cursor: not-allowed; }
+.sf-remove { background: none; border: none; color: var(--sf-muted); font-size: 12px; cursor: pointer; text-decoration: underline; margin-top: 6px; padding: 0; }
+.sf-drawer-foot { border-top: 1px solid var(--sf-border); padding: 20px 24px; }
+.sf-subtotal { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 14px; }
