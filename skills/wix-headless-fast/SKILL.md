@@ -84,7 +84,9 @@ re-litigate them.
    it once more and then build). Don't build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
-   `https://manage.wix.com/dashboard/<siteId>`.
+   `https://manage.wix.com/dashboard/<siteId>`. **Copy the live URL verbatim from the
+   `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
+   a 404).
 
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.

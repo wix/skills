@@ -122,6 +122,22 @@ if (result.verticals.length === 1 && existsSync(PKG_JSON) && !existsSync(PROJECT
   }
 }
 
+// ---- ready-made links -----------------------------------------------------------------------------
+// Emit the siteId and the dashboard deep links so nothing downstream re-derives or retypes them.
+const WIX_CONFIG = join(PROJECT, "wix.config.json");
+if (existsSync(WIX_CONFIG)) {
+  const config = JSON.parse(readFileSync(WIX_CONFIG, "utf8"));
+  const siteId = config.siteId ?? config.projectId;
+  if (siteId) {
+    result.siteId = siteId;
+    result.dashboardUrl = `https://manage.wix.com/dashboard/${siteId}`;
+    if (result.verticals.includes("storefront")) {
+      result.productsUrl = `https://manage.wix.com/dashboard/${siteId}/wix-stores/products`;
+      result.categoriesUrl = `https://manage.wix.com/dashboard/${siteId}/wix-stores/categories/list`;
+    }
+  }
+}
+
 if (unknown.length) {
   result.error = `unknown vertical(s) ${unknown.map((v) => `"${v}"`).join(", ")} — available: ${VERTICALS.join(", ")}`;
 }
