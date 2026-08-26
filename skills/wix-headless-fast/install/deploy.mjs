@@ -105,6 +105,23 @@ if (result.verticals.length && existsSync(PKG_JSON)) {
   result.note = [result.note, "no package.json here — run deploy from the project root"].filter(Boolean).join("; ");
 }
 
+// ---- shipped lockfile (single vertical only) ------------------------------------------------------
+// A pre-resolved package-lock.json covering the scaffold + this vertical's deps ships at
+// references/<vertical>/lock/<stack>/package-lock.json. Placing it lets `npm ci` skip the whole
+// resolution phase (seconds instead of minutes). URLs are canonical registry.npmjs.org form —
+// npm substitutes the locally configured registry (mirrors/proxies) at fetch time. Placed only
+// when the project has no lock of its own; if it ever drifts out of sync, `npm ci` fails fast
+// and the `|| npm install` fallback self-heals.
+const PROJECT_LOCK = join(PROJECT, "package-lock.json");
+if (result.verticals.length === 1 && existsSync(PKG_JSON) && !existsSync(PROJECT_LOCK)) {
+  const shippedLock = join(REF, result.verticals[0], "lock", stack, "package-lock.json");
+  if (existsSync(shippedLock)) {
+    cpSync(shippedLock, PROJECT_LOCK);
+    result.lockDeployed = true;
+    result.note = [result.note, "install with `npm ci --ignore-scripts || npm install --ignore-scripts`"].filter(Boolean).join("; ");
+  }
+}
+
 if (unknown.length) {
   result.error = `unknown vertical(s) ${unknown.map((v) => `"${v}"`).join(", ")} — available: ${VERTICALS.join(", ")}`;
 }
