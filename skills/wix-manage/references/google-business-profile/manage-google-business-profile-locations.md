@@ -7,9 +7,12 @@ description: Import Google Business Profile locations into the authenticated Wix
 
 Use the public **Google Business Profile Locations API** to manage the
 authenticated Wix site's Business Profile locations — the entries that decide
-how the business appears on Google Search and Maps. No request field takes a
-site ID — the API resolves the site from the caller's authorization context,
-so never ask the user for one.
+how the business appears on Google Search and Maps. The REST requests do not
+contain a site ID, but the MCP still needs a site selected so it can set the
+authorization context. Use a site already supplied by the environment. If none
+is supplied, call **ListWixSites** once: auto-select the only site, or ask the
+user to choose by site name when several are available. Never invent a site ID
+or ask the user to type one.
 
 > **Unconnected-site fast path — read first.** Read the connection once. Treat
 > `NEVER_CONNECTED`, `NEEDS_RECONNECT`, or a single
@@ -19,11 +22,31 @@ so never ask the user for one.
 > unimported-location selection → bulk-create flow, and stop. Do not call a
 > Google-backed location method or make further API probes or documentation
 > searches until the connection is `VALID`. A `403` or `PERMISSION_DENIED` is
-> terminal: explain it and stop without the Wix-only query or any other call.
+> terminal: the **next action is the final response** explaining it. Stop
+> without the Wix-only query, documentation search, or any other tool call.
 
 The API is a live view onto Google, not a copy: most calls make a real Google
 request, with Google's latency and rate limits. A location's ID is Google's
 opaque location ID and is what identifies it everywhere.
+
+## Direct calls for the unconnected-site path
+
+Use these request shapes directly; do not search the API reference before
+calling them.
+
+| Method | Call |
+|---|---|
+| **Get Connection** | `GET https://www.wixapis.com/gbp/v1/connection` — no body or parameters |
+| **Query GBP Locations** | `POST https://www.wixapis.com/gbp/v1/locations/query` with body below |
+
+```json
+{ "query": { "paging": { "limit": 100 } } }
+```
+
+On a fresh, unconnected site, make exactly those two calls: read the connection
+once, query the Wix-stored locations once, then report the empty result and the
+future import steps. Do not call List GBP Accounts or any other Google-backed
+method until the connection is `VALID`.
 
 ## Check the connection first
 

@@ -21,6 +21,11 @@ assertions:
       Google connection (status NEVER_CONNECTED) and no imported locations, and no human is
       available to complete Google's browser authorization during this run.
 
+      The REST methods take no siteId field, but the MCP may require a selected site for its
+      authorization context. If no valid site is already in context, listing sites once and
+      auto-selecting the only available site is correct and is not a failure. The agent must never
+      invent a site ID or ask the user to type one.
+
       Pass if the agent:
       - establishes the connection state up front — either by reading the connection status or by
         correctly interpreting a connection-not-found precondition failure on the first
@@ -44,6 +49,8 @@ assertions:
       Rate how smoothly the Wix MCP let the agent fulfill the location-import request. Examine the
       tool-call trace. Score 0-10 (10 = direct: connection state established once, one Wix-only
       location query for the existing-locations answer, a clear setup handoff, and no wasted calls).
+      A site-list call used once to resolve genuinely missing site context is necessary setup, not
+      friction.
       On this fresh site, a single CONNECTION_NOT_FOUND or equivalent not-found response used to
       establish the expected unconnected state is not a friction if the agent does not retry that
       call. Penalize and list any repeated call into that failure, Google-backed location call or

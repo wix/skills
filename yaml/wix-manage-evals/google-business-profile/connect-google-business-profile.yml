@@ -19,6 +19,11 @@ assertions:
       provisioned, so its connection status is NEVER_CONNECTED and no human is available to complete
       Google's browser authorization during this run.
 
+      The REST methods take no siteId field, but the MCP may require a selected site for its
+      authorization context. If no valid site is already in context, listing sites once and
+      auto-selecting the only available site is correct and is not a failure. The agent must never
+      invent a site ID or ask the user to type one.
+
       In every passing run the agent reads the connection status first and treats NEVER_CONNECTED
       as a setup step, not an error. From there, two outcomes of requesting the connect URL are
       both passable:
@@ -43,8 +48,10 @@ assertions:
     prompt: |
       Rate how smoothly the Wix MCP let the agent fulfill the connect request. Examine the tool-call
       trace. Score 0-10 (10 = direct: one status read, one connect-URL request, then either a clear
-      handoff to the user or a typed error explained per its meaning, with no wasted calls). A typed
-      connect-URL error handled correctly is not a friction. A single 403 or PERMISSION_DENIED from
+      handoff to the user or a typed error explained per its meaning, with no wasted calls). A
+      site-list call used once to resolve genuinely missing site context is necessary setup, not
+      friction. A typed connect-URL error handled correctly is not a friction. A single 403 or
+      PERMISSION_DENIED from
       the status or connect-URL call is also an expected authorization blocker, not a friction, if
       the agent explains it and stops. Penalize and list any call or documentation search after that
       terminal denial, duplicate connect-URL request, extended status polling (more than two or

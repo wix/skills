@@ -6,9 +6,12 @@ description: Connect the authenticated Wix site to a Google Business Profile acc
 # Connect a Wix Site to Google Business Profile
 
 Use the public **Google Business Profile Connection API** to link the
-authenticated Wix site to a Google Business Profile account. No request field
-takes a site ID — the API resolves the site from the caller's authorization
-context, so never ask the user for one. A connection is the prerequisite for Google-backed work in the Google
+authenticated Wix site to a Google Business Profile account. The REST requests
+do not contain a site ID, but the MCP still needs a site selected so it can set
+the authorization context. Use a site already supplied by the environment. If
+none is supplied, call **ListWixSites** once: auto-select the only site, or ask
+the user to choose by site name when several are available. Never invent a site
+ID or ask the user to type one. A connection is the prerequisite for Google-backed work in the Google
 Business Profile Locations API — establish it before importing or managing
 locations.
 
@@ -16,13 +19,29 @@ locations.
 > `NEVER_CONNECTED`, request one connect URL and hand it to the owner; for
 > `VALID`, stop unless the user asked for other Google-backed work. A `403`,
 > `PERMISSION_DENIED`, or other terminal recovery-rule error ends the flow:
-> explain it and make no further API probes, documentation searches, alternate
-> request-shape attempts, or calls against another site. Only the explicitly
+> the **next action is the final response** explaining the blocker. Make no
+> further tool call: no API probe, documentation search, alternate request
+> shape, or call against another site. Only the explicitly
 > retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits another connect-URL
 > attempt.
 
 Wix stores the Google credentials server-side. The API never returns tokens or
 any Google identity — only whether a connection exists and its dates.
+
+## Direct calls for this flow
+
+These are the complete request shapes needed for a fresh connection. Use them
+directly; do not search the API reference before calling them.
+
+| Method | Call |
+|---|---|
+| **Get Connection** | `GET https://www.wixapis.com/gbp/v1/connection` — no body or parameters |
+| **Get Connect URL** | `GET https://www.wixapis.com/gbp/v1/connect-url` — no body or parameters |
+
+For the common `NEVER_CONNECTED` path the only API calls are one **Get
+Connection**, then one **Get Connect URL**. If either returns `403` or
+`PERMISSION_DENIED`, stop immediately and explain it; do not look for another
+method or request shape.
 
 ## Check the status first
 
@@ -109,7 +128,7 @@ Wix's grant inside the Google account.
   alternate API or method. Explain that the current Wix identity is not
   authorized to manage the site's Google connection.
 
-Before the first call, load only the specific public method reference needed to
-construct that request so fields and errors come from the live contract. Once a
-status or typed error selects a branch above, do not search or browse for an
-alternate API, method, or request shape.
+The direct calls above are self-contained for the normal connect path. Consult a
+specific public method reference only for an edge case not covered here, and
+only before making a call. Once a status or typed error selects a branch above,
+do not search or browse for an alternate API, method, or request shape.
