@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, builds only the brand layer (home, layout, theme, copy), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout). Triggers: build me a store fast, storefront with shipped components, wix headless fast, connect Wix Stores with ready-made SDK code."
+description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout). Triggers: build me a store fast, storefront with shipped components, wix headless fast, connect Wix Stores with ready-made SDK code."
 ---
 
 # Wix Headless Fast
@@ -34,10 +34,12 @@ re-litigate them.
   auth is ambient (no client, no id); on any other React setup the same file runs a manual
   visitor client off the public client id in `src/wix/config.ts`. The deploy step configures
   this — nothing to wire by hand.
-- **Copy as-is; extend by calling.** Wire the exported hooks/components/functions; never
-  rewrite their internals, re-route them through API routes, or re-derive a request shape. For
-  a genuine gap, add a new function in the data layer (or consult the `wix-docs` skill for the
-  API contract) — never edit the shipped ones.
+- **Data as-is; presentation is yours.** The data layer, hooks, and cart chrome are wired
+  as-is — never rewrite their internals, re-route them through API routes, or re-derive a
+  request shape (for a genuine gap, add a new function in the data layer, or consult the
+  `wix-docs` skill for the API contract). The presentation components ship only as
+  **references**: the vertical's INSTRUCTIONS names the surfaces you design and implement
+  yourself on the shipped hooks (for storefront: card, grid, shop + PDP surfaces, home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 
@@ -73,10 +75,13 @@ re-litigate them.
    but **never run a second npm install concurrently**: two npms in one `node_modules` race and
    redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
    **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
-4. **Build the brand layer while the install finishes** — in the project dir from the
-   `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: the home page, the
-   layout's header/footer/tokens, and the copy — composing the shipped pieces. Read the
-   INSTRUCTIONS first, and don't open the shipped files themselves.
+4. **Design and build the presentation while the install finishes** — in the project dir from
+   the `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: set the `@theme`
+   tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
+   shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
+   home page) — designed to fit the brief, not copied from the reference components. Read the
+   INSTRUCTIONS first; the hook/DTO contracts are inlined there, so don't open the shipped
+   files themselves.
 5. **When both background jobs have completed** — the install's marker
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
