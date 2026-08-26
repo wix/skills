@@ -1,0 +1,84 @@
+---
+// The site chrome for every storefront page — THIS is the file you theme and brand.
+// Replace the token values, the header, and the footer with the site's own design; keep:
+//   - the <slot name="seo-tags" /> in <head> (the product page's owner-editable SEO lands there)
+//   - the storefront.css import (shipped component styles, themed by the tokens below)
+//   - one <CartButton> in the header and one <CartDrawer> per page (both client:only —
+//     they read browser cart state and must not server-render)
+import CartButton from "../components/storefront/CartButton";
+import CartDrawer from "../components/storefront/CartDrawer";
+import "../styles/storefront.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <slot name="seo-tags" />
+    <style is:global>
+      /* Design tokens — theme the whole store here (shipped components read the --sf-* set,
+         which defaults to these). */
+      :root {
+        --surface: #ffffff;
+        --text: #16181d;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --primary: #16181d;
+        --on-primary: #ffffff;
+        --radius: 8px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--surface);
+        color: var(--text);
+      }
+      a { color: inherit; }
+      .site-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 100;
+      }
+      .site-nav { display: flex; gap: 20px; align-items: center; font-size: 14px; }
+      .site-main { max-width: 1280px; margin: 0 auto; padding: 32px 24px 96px; }
+      .site-footer {
+        border-top: 1px solid var(--border);
+        padding: 32px 24px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" style="font-weight: 700; text-decoration: none;">Brand Name</a>
+      <nav class="site-nav">
+        <a href="/shop">Shop</a>
+        <CartButton client:only="react" />
+      </nav>
+    </header>
+    <main class="site-main">
+      <slot />
+    </main>
+    <footer class="site-footer">© Brand Name</footer>
+    <CartDrawer client:only="react" />
+  </body>
+</html>
