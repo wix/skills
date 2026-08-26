@@ -54,3 +54,8 @@ apiDoc:
       title: Bookings Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
+
+    - file: ../../../skills/wix-manage/references/bookings/bookings-recipes.md
+      title: Bookings Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [manage-index, bookings]

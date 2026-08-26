@@ -10,3 +10,8 @@ apiDoc:
       title: Site Settings Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
       tags: [site-properties]
+
+    - file: ../../../skills/wix-manage/references/site-properties/site-properties-recipes.md
+      title: Site Properties Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
+      tags: [manage-index, site-properties]

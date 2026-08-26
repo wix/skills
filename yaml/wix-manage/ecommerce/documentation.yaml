@@ -160,3 +160,8 @@ apiDoc:
       title: "Goal: Sell Gift Cards"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecommerce-recipes.md
+      title: Ecommerce Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [manage-index, ecommerce]

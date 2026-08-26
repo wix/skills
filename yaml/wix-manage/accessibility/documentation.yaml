@@ -6,3 +6,8 @@ apiDoc:
       title: Scan a Wix Site for Accessibility Issues
       docsEntry: https://dev.wix.com/docs/api-reference/site/accessibility
       tags: [aria, stores]
+
+    - file: ../../../skills/wix-manage/references/accessibility/accessibility-recipes.md
+      title: Accessibility Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/site/accessibility
+      tags: [manage-index, accessibility]

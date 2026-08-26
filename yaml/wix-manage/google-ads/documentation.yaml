@@ -30,3 +30,8 @@ apiDoc:
       title: Retrieve Google Ads Billing and Payment Details
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+
+    - file: ../../../skills/wix-manage/references/google-ads/google-ads-recipes.md
+      title: Google Ads Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [manage-index, google-ads]

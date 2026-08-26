@@ -11,3 +11,8 @@ apiDoc:
       title: Forms Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
       tags: [forms]
+
+    - file: ../../../skills/wix-manage/references/forms/forms-recipes.md
+      title: Forms Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
+      tags: [manage-index, forms]

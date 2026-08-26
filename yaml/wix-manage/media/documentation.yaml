@@ -6,3 +6,8 @@ apiDoc:
       title: Upload Media to Wix
       docsEntry: https://dev.wix.com/docs/api-reference/assets/media
       tags: [media]
+
+    - file: ../../../skills/wix-manage/references/media/media-recipes.md
+      title: Media Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/media
+      tags: [manage-index, media]

@@ -10,3 +10,8 @@ apiDoc:
       title: Analytics Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
       tags: [analytics]
+
+    - file: ../../../skills/wix-manage/references/analytics/analytics-recipes.md
+      title: Analytics Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
+      tags: [manage-index, analytics]
