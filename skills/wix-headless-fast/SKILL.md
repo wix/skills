@@ -70,26 +70,33 @@ re-litigate them.
    shell `&` is NOT tracked — it dies with your turn), don't background it: run the single
    install in the foreground after the seed is launched, and accept the serial cost.
 5. **While the install runs — seed and build the brand layer:**
-   - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2
-     (it needs no `node_modules`; it installs the vertical's Wix app itself). It may also run
-     as a tracked background task — the brand layer doesn't need its result (content is
-     live-queried). Seeding is **additive**: never delete or overwrite existing content; if a
-     cleanup seems needed, ask.
+   - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2,
+     in the **foreground** — it takes ~20s, needs no `node_modules`, and installs the
+     vertical's Wix app itself. Seeding is **additive**: never delete or overwrite existing
+     content; if a cleanup seems needed, ask.
    - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
      header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
      first, and don't open the shipped files themselves.
-6. **Sync on every background task, then build & release once** (managed). When step 5's own
-   work is done, **wait for each background task you started (install, seed) to report
-   completion** — the task's completion notification, or a bounded wait on its status. Two hard
-   rules: **never start a second `npm install` while one may still be running** (two npms in
-   one `node_modules` race and redo each other's work — this costs minutes, it doesn't save
-   them), and **never end the run while any task is pending or before the release has happened
-   — the deliverable is the released site, not prepared work.** Only if a background install
-   demonstrably died (its task ended with an error / `node_modules` absent) run
-   `npm install --ignore-scripts` once in the foreground as recovery. Then
-   `npx @wix/cli@latest build` and `npx @wix/cli@latest release`. Don't build+release mid-flow;
-   backend content is fetched at runtime, so a re-release never "refreshes" seeded data. Close
-   with the live URL and the dashboard link `https://manage.wix.com/dashboard/<siteId>`.
+6. **Sync on the install with ONE foreground blocking command, then build & release once**
+   (managed). When step 5 is done, run — as a normal foreground call with a generous tool
+   timeout (10 min):
+
+   ```bash
+   until [ -f node_modules/.package-lock.json ]; do sleep 5; done
+   ```
+
+   (`node_modules/.package-lock.json` is npm's completion artifact.) **This is the only valid
+   way to wait.** Never wait by ending your turn, going idle, or arming a watcher and stopping
+   — in a non-interactive run, ending the turn kills your background tasks and the run; runs
+   have died exactly this way. Two more hard rules: **never start a second `npm install` while
+   one may still be running** (two npms in one `node_modules` race and redo each other's work),
+   and **never end the run before the release has happened — the deliverable is the released
+   site, not prepared work.** If the wait times out, check the install task's output; only if
+   it demonstrably died, run `npm install --ignore-scripts` once in the foreground as recovery.
+   Then `npx @wix/cli@latest build` and `npx @wix/cli@latest release`. Don't build+release
+   mid-flow; backend content is fetched at runtime, so a re-release never "refreshes" seeded
+   data. Close with the live URL and the dashboard link
+   `https://manage.wix.com/dashboard/<siteId>`.
 
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.
