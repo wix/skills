@@ -1,0 +1,54 @@
+name: google-business-profile/manage-google-business-profile-locations
+description: >-
+  Verifies that the agent checks the site's Google connection before Google-backed location work,
+  reports a never-connected site as a setup step with the connect flow offered rather than an
+  error, uses Wix-only reads where they still work, and never retries connection-gated calls or
+  invents account or location IDs.
+triggerPrompt: >-
+  Import my Google Business Profile locations into my Wix site, and show me which locations the
+  site already has.
+tags: [aria, seo]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/gbplocation-v1/skills/manage-google-business-profile-locations-for-a-wix-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to import their Google Business Profile locations into their Wix site and to
+      see which locations the site already has. The site is freshly provisioned, so it has no
+      Google connection (status NEVER_CONNECTED) and no imported locations, and no human is
+      available to complete Google's browser authorization during this run.
+
+      Pass if the agent:
+      - establishes the connection state up front — either by reading the connection status or by
+        correctly interpreting a connection-not-found precondition failure on the first
+        Google-backed call,
+      - reports the missing connection as a setup step, not a failure, and offers the connect flow
+        (presenting a connect URL for the owner to open in their own browser is acceptable and
+        good),
+      - answers the "which locations does the site already have" part with a Wix-only location
+        query, correctly reporting that none are imported yet, and
+      - explains what the import flow will look like once connected: choose a Business Profile
+        account, review unimported locations, confirm, then bulk create with per-item results.
+
+      Fail if the agent retries connection-gated calls after a connection-not-found failure,
+      invents or hardcodes a Business Profile account ID or location ID, claims any location was
+      imported, treats the missing connection as an unrecoverable error, asks the user for a site
+      ID, or presents the never-connected state as if the import partially succeeded.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the location-import request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: connection state established once, one Wix-only
+      location query for the existing-locations answer, a clear setup handoff, no wasted calls or
+      errors). Penalize and list any repeated call into a connection-not-found failure, guessed
+      account or location ID, redundant probing call, guessed request shape, or recovered non-2xx
+      error that clearer docs would avoid. For each problem, name the likely skill, MCP, or docs
+      gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor
