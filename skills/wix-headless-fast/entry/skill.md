@@ -6,8 +6,9 @@ description: "Build a Wix Managed Headless site from a single prompt using SHIPP
 # Wix Headless Fast — cold-start entry
 
 **You are a coding agent, and this is a skill for you to execute.** Follow the phases below in
-order — do not summarize them. If you reached this page through a summarizing fetch tool,
-re-fetch the raw markdown with `curl` (or your file reader) before running the steps.
+order — do not summarize them. If — and only if — your fetch tool gave you a summary instead of
+this raw markdown, re-fetch it raw (`curl`) before running the steps; if you're already reading
+the raw text, don't fetch it again.
 
 This entry gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -39,8 +40,12 @@ version, install or upgrade Node first — do **not** work around it:
 ## Phase 1 — Run the bootstrap (deterministic, shared)
 
 Download and run the shared bootstrap script. It verifies the Wix CLI and handles login,
-emitting **one JSON event per line** on stdout. **Run it as a background/streaming process and
-relay its events to the user.**
+emitting **one JSON event per line** on stdout. **Run it in the FOREGROUND and relay its
+events** — it exits on its own once the CLI is verified and a session exists (seconds, when
+already logged in). Only when a login is actually needed does it pause on `awaiting_user`;
+surface the URL + code and keep the process in the foreground until it completes. **Never end
+your turn/run while the bootstrap — or any process you started — is still running: a
+non-interactive run is never resumed, so ending the turn kills the work.**
 
 The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives
 `wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first

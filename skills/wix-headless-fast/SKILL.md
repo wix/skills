@@ -54,29 +54,39 @@ re-litigate them.
      the created folder;
    - existing project not yet on Wix → `CI=1 npm create @wix/new@latest init` in place;
    - already has `wix.config.json` → neither; it's an iterate run.
+
+   The scaffold takes ~30s to provision the site — **write the seed plan (the vertical's
+   `SEED.md` plan file) while it runs** instead of waiting; the plan depends only on the brief.
 3. **Deploy the shipped code — BEFORE installing dependencies** (from the project root):
    `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` (react stack: add
    `--client-id` if there is no `wix.config.json` to read the public id from). Besides copying
    the files, it **patches `package.json` with every dependency the shipped code imports**
    (fill-only), so the single install in the next step covers everything. Re-running is safe —
    it fills in missing files/deps, never overwrites edits.
-4. **Start ONE dependency install in the background and keep working:** launch
-   `npm install --ignore-scripts` as a background task **now**, and do step 5 while it runs —
-   don't sit polling it. It's the longest step (~2 min); everything in step 5 is independent of
-   `node_modules`.
+4. **Start ONE dependency install and keep working:** launch `npm install --ignore-scripts` as
+   a **tracked** background task (the kind your environment notifies you about on completion)
+   and do step 5 while it runs — it's the longest step (~2 min) and everything in step 5 is
+   independent of `node_modules`. If your environment has no tracked background tasks (a plain
+   shell `&` is NOT tracked — it dies with your turn), don't background it: run the single
+   install in the foreground after the seed is launched, and accept the serial cost.
 5. **While the install runs — seed and build the brand layer:**
-   - **Seed** per the vertical's `seed/SEED.md`: write a plain-data plan from the brief and run
-     the seed script (it needs no `node_modules`; it installs the vertical's Wix app itself).
-     Seeding is **additive**: never delete or overwrite existing content; if a cleanup seems
-     needed, ask.
+   - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2
+     (it needs no `node_modules`; it installs the vertical's Wix app itself). It may also run
+     as a tracked background task — the brand layer doesn't need its result (content is
+     live-queried). Seeding is **additive**: never delete or overwrite existing content; if a
+     cleanup seems needed, ask.
    - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
      header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
      first, and don't open the shipped files themselves.
-6. **Sync on the install, then build & release once** (managed). When step 5 is done, run
-   `npm install --ignore-scripts` again **in the foreground** — this is the sync barrier: it
-   returns in seconds if the background install finished, and completes the work itself if it
-   didn't (npm is idempotent). **Never end the run while an install is pending or before the
-   release has happened — the deliverable is the released site, not prepared work.** Then
+6. **Sync on every background task, then build & release once** (managed). When step 5's own
+   work is done, **wait for each background task you started (install, seed) to report
+   completion** — the task's completion notification, or a bounded wait on its status. Two hard
+   rules: **never start a second `npm install` while one may still be running** (two npms in
+   one `node_modules` race and redo each other's work — this costs minutes, it doesn't save
+   them), and **never end the run while any task is pending or before the release has happened
+   — the deliverable is the released site, not prepared work.** Only if a background install
+   demonstrably died (its task ended with an error / `node_modules` absent) run
+   `npm install --ignore-scripts` once in the foreground as recovery. Then
    `npx @wix/cli@latest build` and `npx @wix/cli@latest release`. Don't build+release mid-flow;
    backend content is fetched at runtime, so a re-release never "refreshes" seeded data. Close
    with the live URL and the dashboard link `https://manage.wix.com/dashboard/<siteId>`.
