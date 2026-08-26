@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast-entry
-description: "Build a Wix Managed Headless site from a single prompt using SHIPPED, verified storefront code (the wix-headless-fast skill) — the deterministic first steps (system prerequisites and Wix CLI login) are handled by the shared bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skills and hands the run to wix-headless-fast, falling back to wix-headless for verticals it doesn't ship. Triggers: build me a store fast, fast headless storefront, wix headless fast entry."
+description: "Build a Wix Managed Headless site from a single prompt using SHIPPED, verified storefront code (the wix-headless-fast skill) — the deterministic first steps (system prerequisites and Wix CLI login) are handled by the shared bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skill and hands it the run. Triggers: build me a store fast, fast headless storefront, wix headless fast entry."
 ---
 
 # Wix Headless Fast — cold-start entry
@@ -67,29 +67,22 @@ node bootstrap.mjs
 | `logged_in` / `success` | Login done — continue. |
 | `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
 
-## Phase 2 — Install the skills and hand off
+## Phase 2 — Install the skill and hand off
 
-Install the Wix skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix
-CLI command):
+Install the skill (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI
+command):
 
 ```bash
-CI=1 npx skills@latest add wix/skills --yes
+CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
 ```
 
-The skills land in `.agents/skills/` — including both `wix-headless-fast` and `wix-headless`.
+It lands at `.agents/skills/wix-headless-fast/`. Then **open
+`.agents/skills/wix-headless-fast/SKILL.md` and follow it** — it owns the rest of the run:
+resolve the stack, scaffold, deploy the shipped code, seed, build the brand layer, release.
+(If the request needs a vertical the skill doesn't ship yet — see its SKILL.md § Verticals —
+say so plainly and point the user at the `wix-headless` skill instead of improvising.)
 
-Then route by what the request needs:
-
-- The request matches a vertical `wix-headless-fast` ships (see its SKILL.md § Verticals —
-  currently **storefront**: products, categories, variants, cart, checkout) → **open
-  `wix-headless-fast/SKILL.md` and follow it.** It owns the rest of the run: resolve the stack,
-  scaffold, deploy the shipped code, seed, build the brand layer, release.
-- The request needs a vertical it doesn't ship, or a non-React frontend → **open
-  `wix-headless/SKILL.md` instead** and follow that skill's full flow.
-
-Either way:
-
-- **Don't** scaffold, install apps, or seed by hand here — the skill you hand off to does all
-  of that. This entry stops at *logged in*.
+- **Don't** scaffold, install apps, or seed by hand here — the skill does all of that. This
+  entry stops at *logged in*.
 - You're already authenticated from Phase 1, so the skill's CLI auth step will pass without
   prompting again.
