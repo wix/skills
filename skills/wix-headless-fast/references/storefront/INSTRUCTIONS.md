@@ -92,11 +92,9 @@ public client id into `wix/config.ts`; nothing else to configure.
 
 ## Point the user to their dashboard
 
-Content editing happens in the Wix dashboard — give the owner these links (substitute the
-`siteId` from `wix.config.json`):
-
-- Products — `https://manage.wix.com/dashboard/{siteId}/wix-stores/products`
-- Categories — `https://manage.wix.com/dashboard/{siteId}/wix-stores/categories/list`
+Content editing happens in the Wix dashboard — give the owner the dashboard, products, and
+categories links. **The deploy step's JSON output already printed them ready-made**
+(`dashboardUrl`, `productsUrl`, `categoriesUrl`) — copy them from there, don't re-derive.
 
 Real payments additionally need a premium plan + a connected payment method (dashboard) —
 mention it, don't treat it as a code failure.
