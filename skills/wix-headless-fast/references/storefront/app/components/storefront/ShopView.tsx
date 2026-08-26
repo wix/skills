@@ -1,5 +1,5 @@
-// The full shop surface: live category filter bar + product grid. Mount as-is (Astro:
-// one island with server-fetched initial data; SPA: no props needed).
+// The full shop surface: live category filter bar + product grid, styled from the @theme
+// tokens. Mount as-is (Astro: one island with server-fetched initial data; SPA: no props).
 import { useShop } from "../../hooks/storefront/useShop";
 import type { Category, ProductSummary } from "../../wix/storefront/types";
 import ProductGrid, { type ProductGridProps } from "./ProductGrid";
@@ -13,6 +13,13 @@ export interface ShopViewProps {
   LinkComponent?: ProductGridProps["LinkComponent"];
   CardComponent?: ProductGridProps["CardComponent"];
 }
+
+const pill = (active: boolean) =>
+  `rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+    active
+      ? "border-primary bg-primary text-primary-foreground"
+      : "border-border text-foreground hover:bg-secondary"
+  }`;
 
 export default function ShopView({
   initialProducts,
@@ -30,19 +37,15 @@ export default function ShopView({
   return (
     <div>
       {categories.length > 1 && (
-        <div className="sf-cats" role="group" aria-label="Categories">
-          <button
-            type="button"
-            className={activeCategoryId === null ? "sf-cat sf-on" : "sf-cat"}
-            onClick={() => setActiveCategoryId(null)}
-          >
+        <div className="mb-8 flex flex-wrap gap-2" role="group" aria-label="Categories">
+          <button type="button" className={pill(activeCategoryId === null)} onClick={() => setActiveCategoryId(null)}>
             All
           </button>
           {categories.map((c) => (
             <button
               key={c.id}
               type="button"
-              className={activeCategoryId === c.id ? "sf-cat sf-on" : "sf-cat"}
+              className={pill(activeCategoryId === c.id)}
               onClick={() => setActiveCategoryId(c.id)}
             >
               {c.name}
@@ -50,7 +53,7 @@ export default function ShopView({
           ))}
         </div>
       )}
-      {error && <p className="sf-error">{error}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       <ProductGrid
         products={loading ? null : products}
         emptyMessage={emptyMessage}

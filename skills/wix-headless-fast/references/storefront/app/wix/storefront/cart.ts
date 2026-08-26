@@ -7,6 +7,7 @@
 // missing required selection — surface the message to the buyer, don't swallow it.
 import { currentCartV2 } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";
+import { productsV3 } from "@wix/stores";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
 import { formatMoney } from "../money";
@@ -14,6 +15,41 @@ import type { Cart, CartLine } from "./types";
 
 const cartApi = wixModule(currentCartV2);
 const redirects = wixModule(redirectsModule);
+const productsApi = wixModule(productsV3);
+
+// The V2 cart does NOT return line-item images (attributes.image is typed but comes back
+// absent — verified against a live cart), so images are joined from the catalog by the
+// line's catalogItemId and cached for the session.
+const lineImageCache = new Map<string, string>();
+
+async function fillLineImages(lines: CartLine[], raws: RawCart[]): Promise<void> {
+  const wanted = new Map<string, number[]>(); // productId -> line indexes
+  raws.forEach((raw, i) => {
+    if (lines[i].imageUrl) return;
+    const pid = raw.source?.catalogReference?.catalogItemId;
+    if (!pid) return;
+    const cached = lineImageCache.get(pid);
+    if (cached !== undefined) {
+      lines[i].imageUrl = cached;
+      return;
+    }
+    wanted.set(pid, [...(wanted.get(pid) ?? []), i]);
+  });
+  if (!wanted.size) return;
+  try {
+    const res = await productsApi
+      .queryProducts()
+      .in("_id", [...wanted.keys()])
+      .find();
+    for (const p of (res.items ?? []) as RawCart[]) {
+      const url = imgSrc(p.media?.main, 300, 300);
+      lineImageCache.set(p._id, url);
+      for (const i of wanted.get(p._id) ?? []) lines[i].imageUrl = url;
+    }
+  } catch {
+    /* images are a nicety — the cart stays correct without them */
+  }
+}
 
 // Public app id of the Wix Stores catalog — required inside every catalogReference.
 const WIX_STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -66,7 +102,9 @@ async function readCartWithSubtotal(raw: RawCart | null): Promise<Cart> {
   } catch {
     /* estimate is a display nicety — the cart itself is still valid */
   }
-  return toCart(raw, subtotal);
+  const cart = toCart(raw, subtotal);
+  await fillLineImages(cart.lines, raw.lineItems as RawCart[]);
+  return cart;
 }
 
 /** Read the visitor's current cart. An empty Cart (not an error) when none exists yet. */
