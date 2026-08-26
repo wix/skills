@@ -63,12 +63,14 @@ re-litigate them.
    the files, it **patches `package.json` with every dependency the shipped code imports**
    (fill-only), so the single install in the next step covers everything. Re-running is safe —
    it fills in missing files/deps, never overwrites edits.
-4. **Start ONE dependency install and keep working:** launch `npm install --ignore-scripts` as
-   a **tracked** background task (the kind your environment notifies you about on completion)
-   and do step 5 while it runs — it's the longest step (~2 min) and everything in step 5 is
-   independent of `node_modules`. If your environment has no tracked background tasks (a plain
-   shell `&` is NOT tracked — it dies with your turn), don't background it: run the single
-   install in the foreground after the seed is launched, and accept the serial cost.
+4. **Start ONE dependency install and keep working:** launch
+   `npm ci --ignore-scripts || npm install --ignore-scripts` as a **tracked** background task
+   (the kind your environment notifies you about on completion) and do step 5 while it runs.
+   Deploy placed a pre-resolved `package-lock.json`, so `npm ci` usually finishes in seconds to
+   ~1 min; the `|| npm install` fallback covers a stale/out-of-sync lock. Everything in step 5
+   is independent of `node_modules`. If your environment has no tracked background tasks (a
+   plain shell `&` is NOT tracked — it dies with your turn), don't background it: run the
+   single install command in the foreground after the seed is launched.
 5. **While the install runs — seed and build the brand layer:**
    - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2,
      in the **foreground** — it takes ~20s, needs no `node_modules`, and installs the
