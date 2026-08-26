@@ -27,29 +27,31 @@ is `SiteLayout.astro`, which you edit (below).
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — mount as-is (drawer once per page) |
 | `components/storefront/VariantPicker.tsx` | swatches/pills/modifiers — used by ProductDetailView |
 | `components/storefront/ProductCard.tsx` · `ProductGrid.tsx` | **reference** tile + grid — correct as-is; designing your own on the same DTOs is encouraged (pass `CardComponent` to ShopView/ProductGrid) |
-| `styles/storefront.css` | structural styles for the above, themed by `--sf-*` tokens |
+| `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, font — same token family as the official Wix templates). Every shipped component styles itself from these tokens |
 
 Astro stack additionally gets:
 
 | file | what it is |
 |---|---|
-| `layouts/SiteLayout.astro` | the site chrome — **this is yours to theme**: tokens, header, footer. Keep the `<slot name="seo-tags" />`, the css import, and the CartButton/CartDrawer mounts |
+| `layouts/SiteLayout.astro` | the site chrome — **yours to brand**: header, footer, nav. Keep the `<slot name="seo-tags" />`, the global.css import, and the CartButton/CartDrawer mounts |
 | `pages/shop.astro` | SSR listing → ShopView island — wire as-is |
 | `pages/products/[slug].astro` | SSR PDP with owner-editable SEO (`wixMetadata` + `<SEO.Tags>`) — wire as-is |
 
 ## What you build
 
-The **home page**, the **layout/branding** (tokens in `SiteLayout.astro`, header, footer), and
+The **home page**, the **theme** (edit the `@theme` token block in `styles/global.css` — a dark
+brand is just flipped token values), the **layout chrome** (header/footer in `SiteLayout.astro`), and
 the **copy** — composing shipped pieces. A featured strip on home is `fetchProducts()` in
 frontmatter + `<ProductGrid client:load products={…} />`; nav is a link to `/shop` plus the
-shipped `CartButton`. Style everything you add from the same tokens.
+shipped `CartButton`. Style everything you add with Tailwind utilities reading the same tokens
+(`bg-primary`, `text-muted-foreground`, `rounded-lg`, …).
 
 ### Wiring — Astro (default)
 
 Deploy already placed pages, layout, and islands. Remaining work: build `pages/index.astro`
-(home) on `SiteLayout`, theme the tokens/header/footer, adjust copy. **Theme `SiteLayout.astro`
-in ONE edit pass** — read it once, then rewrite the token block + header + footer together in a
-single Write/Edit, not token-by-token. Every island mounts with `client:load` when it renders
+(home) on `SiteLayout`, set the brand's tokens in `styles/global.css` (**one edit** of the
+`@theme` block), and brand the header/footer in `SiteLayout.astro` (**one edit pass** — read it
+once, rewrite header+footer together). Every island mounts with `client:load` when it renders
 primary content with SSR props, `client:only="react"` when it reads browser-only state (the
 shipped mounts already do this correctly).
 
@@ -58,7 +60,7 @@ shipped mounts already do this correctly).
 No pages ship — write thin route wrappers in the project's router:
 
 ```tsx
-import "./styles/storefront.css";           // once, at the app entry
+import "./styles/global.css";               // once, at the app entry (needs @tailwindcss/vite in vite.config plugins)
 import ShopView from "./components/storefront/ShopView";
 import ProductDetailView from "./components/storefront/ProductDetailView";
 import CartButton from "./components/storefront/CartButton";
@@ -82,8 +84,9 @@ public client id into `wix/config.ts`; nothing else to configure.
   (API contracts: the `wix-docs` skill).
 - Don't wrap shipped calls in your own API routes — they run client-side by design. A backend
   route is only for a genuinely privileged (elevated) read, which nothing here needs.
-- Theme via the tokens (`SiteLayout` / `--sf-*`), never by restyling shipped component markup
-  or adding a parallel theme file.
+- Theme via the `@theme` tokens in `styles/global.css`, never by restyling shipped component
+  markup or adding a parallel theme file. Your own markup uses Tailwind utilities on the same
+  tokens.
 - Checkout only through the shipped cart (`checkout()` / `checkoutUrl()`) — never a hand-built
   checkout URL.
 - Live data or the shipped empty state — never mock products, prices, reviews, or counts.
@@ -115,5 +118,5 @@ a color option, ≥1 on sale) unless the brief says otherwise.
       a reload (same visitor token).
 - [ ] Checkout button redirects to Wix-hosted checkout.
 - [ ] PDP view-source carries the SEO tags (Astro) and a sale product shows the strikethrough.
-- [ ] Home/header/footer are yours, themed via tokens; shipped files unedited.
+- [ ] Home/header/footer are yours; brand set via the `@theme` tokens; shipped files unedited.
 - [ ] Dashboard links handed to the owner.

@@ -114,7 +114,7 @@ references/<vertical>/
     wix/<vertical>/    #   types.ts (DTOs) + data layer (calls via ../sdk, images via ../media)
     hooks/<vertical>/  #   React hooks (SSR-friendly: accept initial data)
     components/<vertical>/  # routing-free components (plain <a> default + LinkComponent prop)
-    styles/<vertical>.css   # structural styles on --sf-* style tokens
+    styles/global.css  # Tailwind v4 + the @theme design tokens (shared token family)
   app-astro/           # Astro overlay importing ONLY from the core:
     pages/…            #   SSR fetch → DTO props → client:load islands; item pages carry
                        #   wixMetadata + <SEO.Tags>; chrome islands are client:only

@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Wix+Madefor+Text:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+/* ─── THE design system ─────────────────────────────────────────────────────────────────
+   Theme the entire store by editing THIS @theme block (same token family as the official
+   Wix headless templates). Every shipped component styles itself from these via Tailwind
+   utilities (bg-primary, text-muted-foreground, rounded-lg, …) — change a token, everything
+   follows. A dark theme is just flipped values (dark background/foreground, adjusted
+   secondary/border). Don't restyle shipped component markup; restyle the tokens. */
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(230 24% 14%);
+  --color-primary: hsl(230 24% 14%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(228 24% 96%);
+  --color-secondary-foreground: hsl(230 24% 14%);
+  --color-muted-foreground: hsl(228 8% 46%);
+  --color-border: hsl(220 14% 90%);
+
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
+
+  --font-sans: 'Wix Madefor Text', system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+@layer utilities {
+  .eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+}
