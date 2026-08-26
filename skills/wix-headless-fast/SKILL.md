@@ -48,8 +48,8 @@ re-litigate them.
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
    different React framework or the directory already holds a non-Astro React project. A
    non-React frontend is out of scope → `wix-headless`.
-2. **Draft the seed plan** (the vertical's `SEED.md` plan file) — it depends only on the
-   brief. Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
+2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
+   the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
    read tokens into context).
 3. **Create runs (empty directory): run the fast path** — one deterministic call:
@@ -80,8 +80,10 @@ re-litigate them.
    tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
    shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
    home page) — designed to fit the brief, not copied from the reference components. Read the
-   INSTRUCTIONS first; the hook/DTO contracts are inlined there, so don't open the shipped
-   files themselves.
+   INSTRUCTIONS now (not earlier — its contracts matter only from this step on); the hook/DTO
+   contracts are inlined there, so don't open the shipped files themselves. **Author your
+   surfaces in as few messages as possible** — batch multiple Write calls in one message
+   (components are independent files); don't pay a round-trip per file.
 5. **When both background jobs have completed** — the install's marker
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
