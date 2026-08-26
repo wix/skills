@@ -1,6 +1,6 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
 //   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
-//   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
+//   (storefront | bookings | blog | cms | forms | portfolio | pricing-plans | events | members | restaurants)
 // Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
 // Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
@@ -19,7 +19,7 @@ const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
-const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
+const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
