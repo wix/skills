@@ -46,40 +46,38 @@ re-litigate them.
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
    different React framework or the directory already holds a non-Astro React project. A
    non-React frontend is out of scope → `wix-headless`.
-2. **Scaffold / connect (managed).** Requires Node ≥ 20.11 and a logged-in Wix CLI
+2. **Draft the seed plan** (the vertical's `SEED.md` plan file) — it depends only on the
+   brief. Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
-   read tokens into context). Then:
-   - empty directory → `CI=1 npm create @wix/new@latest -- headless --folder-name <name>
-     --business-name "<Brand>" --site-template --skip-install --no-publish`, then work inside
-     the created folder;
-   - existing project not yet on Wix → `CI=1 npm create @wix/new@latest init` in place;
-   - already has `wix.config.json` → neither; it's an iterate run.
+   read tokens into context).
+3. **Create runs (empty directory): run the fast path** — one deterministic call:
 
-   **Draft the seed plan (the vertical's `SEED.md` plan file) before scaffolding** — it depends
-   only on the brief — then run the scaffold (~30s); everything after this step needs its
-   output.
-3. **Deploy the shipped code — BEFORE installing dependencies** (from the project root):
-   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` (react stack: add
-   `--client-id` if there is no `wix.config.json` to read the public id from). Besides copying
-   the files, it **patches `package.json` with every dependency the shipped code imports**
-   (fill-only), so the single install in the next step covers everything. Re-running is safe —
-   it fills in missing files/deps, never overwrites edits.
-4. **Run ONE dependency install:**
-   `npm ci --ignore-scripts || npm install --ignore-scripts`. Deploy placed a pre-resolved
-   `package-lock.json`, so `npm ci` usually finishes in seconds to ~1 min; the `|| npm install`
-   fallback covers a stale/out-of-sync lock. It can run in the background while you do step 5 —
-   everything there is independent of `node_modules`. **Never run a second `npm install`
-   concurrently with the first** — two npms in one `node_modules` race and redo each other's
-   work.
-5. **While the install runs — seed and build the brand layer:**
-   - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2
-     — it takes ~20s, needs no `node_modules`, and installs the vertical's Wix app itself.
-     Seeding is **additive**: never delete or overwrite existing content; if a cleanup seems
-     needed, ask.
-   - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
-     header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
-     first, and don't open the shipped files themselves.
-6. **When the install has completed, build & release once** (managed):
+   ```bash
+   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json
+   ```
+
+   It emits one JSON event per line: **scaffolds** the project, **deploys** the shipped code
+   (patching `package.json` with every dependency the code imports, and placing the
+   pre-resolved lockfile), **starts** `npm ci --ignore-scripts || npm install --ignore-scripts`
+   detached in the background (its log and completion marker are in the events), and **seeds**
+   from the plan. The final `ready_for_brand_layer` event carries the project dir, siteId, and
+   ready-made dashboard links. Takes ~1 min; relay notable events. On an `error` event, recover
+   just that step via the manual path below, then continue.
+
+   **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
+   `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
+   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` from the project root
+   (react stack: add `--client-id` if there is no `wix.config.json` to read the public id
+   from); then ONE `npm ci --ignore-scripts || npm install --ignore-scripts` (backgroundable —
+   but **never run a second npm install concurrently**: two npms in one `node_modules` race and
+   redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
+   **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
+4. **Build the brand layer while the install finishes** — in the project dir from the
+   `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: the home page, the
+   layout's header/footer/tokens, and the copy — composing the shipped pieces. Read the
+   INSTRUCTIONS first, and don't open the shipped files themselves.
+5. **When the install has completed** (its marker file, `node_modules/.package-lock.json`,
+   exists)**, build & release once** (managed):
    `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
    it once more and then build). Don't build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
