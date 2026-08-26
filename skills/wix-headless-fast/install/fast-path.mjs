@@ -12,7 +12,7 @@
 // Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code + deps +
 // lockfile → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, openSync, readFileSync } from "node:fs";
+import { existsSync, openSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -96,9 +96,10 @@ emit("install_started", { log: installLog, doneMarker: "node_modules/.package-lo
 // in the caller's foreground would idle the agent for exactly that long. Detach it like the
 // install: result JSON + exit-code marker land as files the caller syncs on before release.
 const seedDir = join(SKILL_ROOT, "references", vertical, "seed");
-const seedFile = existsSync(join(seedDir, "seed-store.mjs"))
-  ? join(seedDir, "seed-store.mjs")
-  : null;
+const seedName = existsSync(seedDir)
+  ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs"))
+  : undefined;
+const seedFile = seedName ? join(seedDir, seedName) : null;
 if (!seedFile) fail("seed", `no seed module found under ${seedDir}`);
 const seedResultFile = join(projectDir, "seed-result.json");
 const seedLog = join(projectDir, "seed.log");

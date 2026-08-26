@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout). Triggers: build me a store fast, storefront with shipped components, wix headless fast, connect Wix Stores with ready-made SDK code."
+description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout) and bookings (services, appointment/class time slots, staff, booking form, checkout-or-place). Triggers: build me a store fast, take appointments/bookings fast, storefront with shipped components, wix headless fast, connect Wix Stores or Wix Bookings with ready-made SDK code."
 ---
 
 # Wix Headless Fast
@@ -105,6 +105,7 @@ comes from the shipped code, and real errors surface at build/release.
 | The user wants… | Vertical | Playbook |
 |---|---|---|
 | Online store: products, categories, variants, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
+| Appointments/classes: services, time slots, staff, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
 
 A request that doesn't match a shipped vertical isn't this skill's fast path — route it to
 `wix-headless` rather than improvising an unshipped vertical here.

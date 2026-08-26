@@ -58,6 +58,18 @@ const VERTICAL_DEPS = {
       "@wix/essentials": "^1.0.6",
     },
   },
+  bookings: {
+    core: {
+      "@wix/bookings": "^1.0.1650",
+      "@wix/auto_sdk_ecom_cart-v-2": "^1.0.192",
+      "@wix/forms": "^1.0.500",
+      "@wix/redirects": "^1.0.125",
+    },
+    astro: {
+      "@wix/seo": "^1.0.79",
+      "@wix/essentials": "^1.0.6",
+    },
+  },
 };
 
 const COPY = { recursive: true, force: false, errorOnExist: false };
