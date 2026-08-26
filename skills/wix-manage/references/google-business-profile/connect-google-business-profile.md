@@ -12,6 +12,15 @@ context, so never ask the user for one. A connection is the prerequisite for Goo
 Business Profile Locations API — establish it before importing or managing
 locations.
 
+> **Bounded connect path — read first.** Read the connection once. For
+> `NEVER_CONNECTED`, request one connect URL and hand it to the owner; for
+> `VALID`, stop unless the user asked for other Google-backed work. A `403`,
+> `PERMISSION_DENIED`, or other terminal recovery-rule error ends the flow:
+> explain it and make no further API probes, documentation searches, alternate
+> request-shape attempts, or calls against another site. Only the explicitly
+> retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits another connect-URL
+> attempt.
+
 Wix stores the Google credentials server-side. The API never returns tokens or
 any Google identity — only whether a connection exists and its dates.
 
@@ -96,8 +105,11 @@ Wix's grant inside the Google account.
   connection and the API will not guess which one is meant. Not a caller error
   and not retryable — report it and direct the user to contact Wix support.
 - **Permission denied:** stop after the first `403` or `PERMISSION_DENIED`.
-  Do not retry with another request shape or site. Explain that the current
-  Wix identity is not authorized to manage the site's Google connection.
+  Do not retry with another request shape or site, and do not search for an
+  alternate API or method. Explain that the current Wix identity is not
+  authorized to manage the site's Google connection.
 
-Load the current public API reference before constructing requests so field
-names, statuses, permissions, and error schemas come from the live contract.
+Before the first call, load only the specific public method reference needed to
+construct that request so fields and errors come from the live contract. Once a
+status or typed error selects a branch above, do not search or browse for an
+alternate API, method, or request shape.

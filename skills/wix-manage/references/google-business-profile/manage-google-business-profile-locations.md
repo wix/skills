@@ -11,6 +11,16 @@ how the business appears on Google Search and Maps. No request field takes a
 site ID — the API resolves the site from the caller's authorization context,
 so never ask the user for one.
 
+> **Unconnected-site fast path — read first.** Read the connection once. Treat
+> `NEVER_CONNECTED`, `NEEDS_RECONNECT`, or a single
+> `CONNECTION_NOT_FOUND`/not-found response from that connection check as the
+> same setup state. Query Wix-only GBP locations once to answer what the site
+> already has, report the result, explain the connect → account selection →
+> unimported-location selection → bulk-create flow, and stop. Do not call a
+> Google-backed location method or make further API probes or documentation
+> searches until the connection is `VALID`. A `403` or `PERMISSION_DENIED` is
+> terminal: explain it and stop without the Wix-only query or any other call.
+
 The API is a live view onto Google, not a copy: most calls make a real Google
 request, with Google's latency and rate limits. A location's ID is Google's
 opaque location ID and is what identifies it everywhere.
@@ -124,10 +134,13 @@ wait, verify, comply, or resolve the conflict.
 - **Rate limited (`429`):** wait, then retry; interleaved writes share one
   budget per profile.
 - **Permission denied:** stop after the first `403` or `PERMISSION_DENIED`.
-  Do not retry with other locations, request shapes, or sites. Deleting
-  locations requires the site's `GBP_ADMIN` role.
+  Do not retry with other locations, request shapes, or sites, and do not
+  search for an alternate API or method. Deleting locations requires the
+  site's `GBP_ADMIN` role.
 
 The same API also covers reviews and replies, photos and bulk media uploads,
 attributes, verification, performance insights, and location admins — load the
-current public API reference before constructing any request so field names,
-filters, permissions, and error schemas come from the live contract.
+specific public method reference needed before constructing a request so field
+names, filters, permissions, and errors come from the live contract. Once a
+connection state or typed error selects a branch above, do not search or browse
+for an alternate API, method, or request shape.

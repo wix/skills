@@ -43,11 +43,13 @@ assertions:
     prompt: |
       Rate how smoothly the Wix MCP let the agent fulfill the location-import request. Examine the
       tool-call trace. Score 0-10 (10 = direct: connection state established once, one Wix-only
-      location query for the existing-locations answer, a clear setup handoff, no wasted calls or
-      errors). Penalize and list any repeated call into a connection-not-found failure, guessed
-      account or location ID, redundant probing call, guessed request shape, or recovered non-2xx
-      error that clearer docs would avoid. For each problem, name the likely skill, MCP, or docs
-      gap.
+      location query for the existing-locations answer, a clear setup handoff, and no wasted calls).
+      On this fresh site, a single CONNECTION_NOT_FOUND or equivalent not-found response used to
+      establish the expected unconnected state is not a friction if the agent does not retry that
+      call. Penalize and list any repeated call into that failure, Google-backed location call or
+      documentation search after the unconnected state is known, guessed account or location ID,
+      redundant probing call, guessed request shape, or other recovered non-2xx error that clearer
+      docs would avoid. For each problem, name the likely skill, MCP, or docs gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
 siteSetup:
   mode: template

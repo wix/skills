@@ -44,11 +44,13 @@ assertions:
       Rate how smoothly the Wix MCP let the agent fulfill the connect request. Examine the tool-call
       trace. Score 0-10 (10 = direct: one status read, one connect-URL request, then either a clear
       handoff to the user or a typed error explained per its meaning, with no wasted calls). A typed
-      connect-URL error handled correctly is not a friction. Penalize and list any duplicate
-      connect-URL request, extended status polling (more than two or three reads when no human can
-      authorize), attempt to fetch the connect URL, guessed request shape, redundant probing call,
-      or recovered non-2xx error that clearer docs would avoid. For each problem, name the likely
-      skill, MCP, or docs gap.
+      connect-URL error handled correctly is not a friction. A single 403 or PERMISSION_DENIED from
+      the status or connect-URL call is also an expected authorization blocker, not a friction, if
+      the agent explains it and stops. Penalize and list any call or documentation search after that
+      terminal denial, duplicate connect-URL request, extended status polling (more than two or
+      three reads when no human can authorize), attempt to fetch the connect URL, guessed request
+      shape, redundant probing call, or other recovered non-2xx error that clearer docs would avoid.
+      For each problem, name the likely skill, MCP, or docs gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
 siteSetup:
   mode: template
