@@ -39,9 +39,10 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 - `imageUrl` — a real, fetchable https URL; Wix re-hosts it server-side. Omit to seed text-only.
 - `categories` — category name → product NAMES. Omit when the brief names none.
 
-**Seed a catalog that exercises the shipped UI**: unless the brief says otherwise, give at
-least one product a color option and put one product on sale — truthfully to the business (a
-ceramics studio has glaze colors; a bakery doesn't).
+**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
+shape, not a full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise
+the shipped UI**: give at least one product a color option and put one product on sale —
+truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
