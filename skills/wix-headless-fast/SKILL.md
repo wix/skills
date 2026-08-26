@@ -51,22 +51,30 @@ re-litigate them.
    read tokens into context). Then:
    - empty directory → `CI=1 npm create @wix/new@latest -- headless --folder-name <name>
      --business-name "<Brand>" --site-template --skip-install --no-publish`, then work inside
-     the created folder (install deps with `npm install --ignore-scripts`);
+     the created folder;
    - existing project not yet on Wix → `CI=1 npm create @wix/new@latest init` in place;
    - already has `wix.config.json` → neither; it's an iterate run.
-3. **Deploy the shipped code** (from the project root):
+3. **Deploy the shipped code — BEFORE installing dependencies** (from the project root):
    `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` (react stack: add
-   `--client-id` if there is no `wix.config.json` to read the public id from). Re-running is
-   safe — it fills in missing files, never overwrites edits.
-4. **Seed the backend** per the vertical's `seed/SEED.md` — write a plain-data plan from the
-   brief and run the seed script. It installs the vertical's Wix app itself. Seeding is
-   **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
-5. **Build the brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
-   header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
-   before touching any shipped file.
-6. **Release once, at the very end** (managed): `npx @wix/cli@latest build` then
-   `npx @wix/cli@latest release`. Don't build+release mid-flow; backend content is fetched at
-   runtime, so a re-release never "refreshes" seeded data. Close with the live URL and the
+   `--client-id` if there is no `wix.config.json` to read the public id from). Besides copying
+   the files, it **patches `package.json` with every dependency the shipped code imports**
+   (fill-only), so the single install in the next step covers everything. Re-running is safe —
+   it fills in missing files/deps, never overwrites edits.
+4. **Start ONE dependency install in the background and keep working:** launch
+   `npm install --ignore-scripts` as a background task **now**, and do step 5 while it runs —
+   don't sit and wait on it, don't poll it, and never run a second install. It's the longest
+   step (~2 min); everything in step 5 is independent of `node_modules`.
+5. **While the install runs — seed and build the brand layer:**
+   - **Seed** per the vertical's `seed/SEED.md`: write a plain-data plan from the brief and run
+     the seed script (it needs no `node_modules`; it installs the vertical's Wix app itself).
+     Seeding is **additive**: never delete or overwrite existing content; if a cleanup seems
+     needed, ask.
+   - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
+     header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
+     first, and don't open the shipped files themselves.
+6. **When the install finishes: build & release once** (managed): `npx @wix/cli@latest build`
+   then `npx @wix/cli@latest release`. Don't build+release mid-flow; backend content is fetched
+   at runtime, so a re-release never "refreshes" seeded data. Close with the live URL and the
    dashboard link `https://manage.wix.com/dashboard/<siteId>`.
 
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness

@@ -4,7 +4,12 @@ A complete Wix Stores storefront ships as files: catalog + variants + cart + Wix
 checkout, typed end-to-end. You wire routes and build the brand layer; you don't write
 commerce code.
 
-## The file map (deployed into `src/` — you don't need to open these)
+## The file map (deployed into `src/`)
+
+**Don't read the shipped files** — this table and the typed export signatures are the whole
+contract, and every shape you need is in this playbook. Open a shipped file's source **only**
+on a real fallback: a runtime error, or a field this playbook doesn't cover. The one exception
+is `SiteLayout.astro`, which you edit (below).
 
 | file | what it is |
 |---|---|
@@ -42,9 +47,11 @@ shipped `CartButton`. Style everything you add from the same tokens.
 ### Wiring — Astro (default)
 
 Deploy already placed pages, layout, and islands. Remaining work: build `pages/index.astro`
-(home) on `SiteLayout`, theme the tokens/header/footer, adjust copy. Every island mounts with
-`client:load` when it renders primary content with SSR props, `client:only="react"` when it
-reads browser-only state (the shipped mounts already do this correctly).
+(home) on `SiteLayout`, theme the tokens/header/footer, adjust copy. **Theme `SiteLayout.astro`
+in ONE edit pass** — read it once, then rewrite the token block + header + footer together in a
+single Write/Edit, not token-by-token. Every island mounts with `client:load` when it renders
+primary content with SSR props, `client:only="react"` when it reads browser-only state (the
+shipped mounts already do this correctly).
 
 ### Wiring — React SPA (Vite etc.)
 
