@@ -33,7 +33,7 @@ jobs:
           mode: sync
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
-          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evalforge-project-id: ${{ vars.STUDIO2_PIPELINE_PROJECT_ID }}
           evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
           evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}

@@ -4,7 +4,7 @@ triggerPrompt: |-
   Build a custom element widget for my app that shows a "meet our members" directory on the site — pull the site's actual members and show each one's display name and profile photo for visitors to browse. Also show the logged-in member their own profile at the top when they are signed in.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
-templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
 tags: [custom-element-widget, backend-api]
 assertions:
   - type: skill_was_called
