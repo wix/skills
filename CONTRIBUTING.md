@@ -36,7 +36,7 @@ When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
 2. Add a short entry to the relevant section in `skills/wix-manage/SKILL.md`.
-3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`. The `docsEntry` must be the URL of a **category** in the docs menu, not an individual API page — copy it with the "Copy Docs Entry" button (it only appears on categories). The PR gate rejects a `docsEntry` that does not resolve to a category.
+3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button), not an individual API page.
 4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
