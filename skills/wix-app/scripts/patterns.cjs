@@ -101,9 +101,30 @@ const names = Object.keys(index);
 
 const byLower = new Map(names.map((n) => [n.toLowerCase(), n]));
 
+// Some docs are keyed with spaces — `More Actions`, `AI Assistant`, `Sortable
+// Columns` — while the export is one word. An agent writing `MoreActions` has the
+// right name and would otherwise get "not a documented name", so match on letters
+// and digits alone as well.
+const squash = (x) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+const bySquashed = new Map();
+for (const n of names) if (!bySquashed.has(squash(n))) bySquashed.set(squash(n), n);
+
+// index.json is keyed by the Storybook label, which is not always the exported
+// symbol — `ToolbarFilters` documents `CollectionToolbarFilters`, `ExportTo`
+// documents `ExportButton`. Newer versions carry the symbols on each entry, so a
+// name taken from real code resolves to its doc. Absent on older versions, in
+// which case a symbol lookup simply misses, as before.
+const bySymbol = new Map();
+for (const n of names) {
+  for (const sym of index[n].symbols || []) {
+    if (!bySymbol.has(sym.toLowerCase())) bySymbol.set(sym.toLowerCase(), n);
+  }
+}
+
 function resolveName(input) {
   if (Object.prototype.hasOwnProperty.call(index, input)) return input;
-  return byLower.get(input.toLowerCase()) || null;
+  const lower = input.toLowerCase();
+  return byLower.get(lower) || bySymbol.get(lower) || bySquashed.get(squash(input)) || null;
 }
 
 function editDistance(a, b) {
