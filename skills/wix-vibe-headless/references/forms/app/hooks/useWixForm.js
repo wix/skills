@@ -4,7 +4,7 @@
 // has a different field set and no "contact form" component could ship for it. You build the markup
 // — see `references/forms/INSTRUCTIONS.md`, "Build the UI".
 //
-//   const { form, values, setValues, submit, validate, errors, loading, read } =
+//   const { form, values, setValues, bind, submit, validate, errors, loading, read } =
 //     useWixForm(WIX_FORMS.contact.formId);
 //
 // The fields to render are the RAW field objects Wix returned — no projection, nothing hidden. Take
@@ -250,6 +250,9 @@ function focusControl(formEl, name) {
  *     // for a multi-choice field, an OBJECT for an address. Bind every control's `value` to it.
  *   setValues: (next: object | ((prev: object) => object)) => void,
  *     // The plain React setter — `setValues((v) => ({ ...v, [name]: value }))` from onChange.
+ *   bind: (target: string) => object,
+ *     // The props a text-ish control needs, ready to spread: name, value, onChange, onBlur and the
+ *     // two aria attributes. `<input {...bind(target)} type="email" required />`.
  *   submit: (event?: SubmitEvent) => Promise<boolean>,
  *     // Use as `onSubmit`. Validates, submits, and resolves TRUE when the submission was created —
  *     // that resolved true IS the success signal (a visitor can't read submissions back), so flip
@@ -353,6 +356,22 @@ export function useWixForm(formId) {
     [fields, values],
   );
 
+  // Everything a text-ish control needs, in one spread: `<input {...bind("email_a1b2")} type="email" />`.
+  // Covers input / textarea / select. A checkbox or radio group carries `checked` instead of `value`
+  // and a file input can't be controlled at all — wire those two by hand (INSTRUCTIONS.md, step 2),
+  // keeping the same `name`, `onBlur` and `aria-*` contract.
+  const bind = useCallback(
+    (target) => ({
+      name: target,
+      value: values[target] ?? "",
+      onChange: (event) => setValues((prev) => ({ ...prev, [target]: event.target.value })),
+      onBlur: () => validate(target),
+      "aria-describedby": `err-${target}`,
+      "aria-invalid": errors[target] ? true : undefined,
+    }),
+    [values, errors, validate],
+  );
+
   const submit = useCallback(
     async (event) => {
       event?.preventDefault?.();
@@ -402,5 +421,5 @@ export function useWixForm(formId) {
     [fields, form, values],
   );
 
-  return { form, values, setValues, submit, validate, errors, loading, read };
+  return { form, values, setValues, bind, submit, validate, errors, loading, read };
 }

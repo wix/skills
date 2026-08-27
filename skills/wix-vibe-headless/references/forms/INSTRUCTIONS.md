@@ -5,8 +5,8 @@ request / intake or registration — any form a visitor fills in and submits. Wh
 also becomes a CRM contact is a per-field mapping, not a different vertical.
 
 This vertical ships **no UI**: the owner picks the fields in their dashboard, so every form has a
-different field set and no "contact form" component could ship for it. You generate one control per
-field from the live schema, using the shipped utils. Everything runs on the public `WIX_CLIENT_ID`
+different field set and no "contact form" component could ship for it. You write one control per
+field — the shipped utils supply the schema behind it, the state, the validation and the submit. Everything runs on the public `WIX_CLIENT_ID`
 (anonymous visitor token) — no SDK, no backend, no elevated credential.
 
 > **⚠️ A visitor-fillable form is FORMS, not CMS.** Wiring one to `insertDataItem` works, and is the
@@ -22,7 +22,7 @@ field from the live schema, using the shipped utils. Everything runs on the publ
 | `lib/wix-form-schema-utils.js` | **Reading the raw schema** — `orderedInputs`, `submitTextOf`, and per field `targetOf`, `labelOf`, `isRequired`, `validationOf`, `componentOf`, `optionsOf`, `inputTypeOf`, `componentTypeOf`, `choicesOf`, `addressPartsOf`, `phoneCountryOf`, `isMulti`/`isFile`/`isNumber`/`isAddress`. No React, no REST; the hook hands them back as `read`. |
 | `rest/wix-forms.js` | Schema transport: `getForm`, `listForms`, plus `phoneExample` (what a visitor is shown), `normalizePhone` (what goes on the wire), `setSiteCountry`. |
 | `rest/wix-forms-submissions.js` | Write transport: `toSubmissionValues`, `createSubmission`, `SUBMITTED_OK`, the file flow (`getMediaUploadUrl`, `uploadSubmissionFile`, `uploadFormFiles`), `submissionViolations`. |
-| `hooks/useWixForm.js` | The form's non-visual half: `useWixForm(formId)` → `{ form, values, setValues, submit, validate, errors, loading, read }`. Also exports `validateField`, `mapSubmissionErrors`, `FORM_ERROR`. Not on React? Those plus `lib/` are the load-bearing part; port the state around them. |
+| `hooks/useWixForm.js` | The form's non-visual half: `useWixForm(formId)` → `{ form, values, setValues, bind, submit, validate, errors, loading, read }`. Also exports `validateField`, `mapSubmissionErrors`, `FORM_ERROR`. Not on React? Those plus `lib/` are the load-bearing part; port the state around them. |
 | `wix-config.js` *(shared)* | the two ids, written by the install step. |
 | `wix-forms.config.js` *(generated)* | **the gate** — `WIX_FORMS`: each form's `formId` + read-back `targets`, written by the seed after verification. |
 | `WixManageBanner` *(shared)* | Dev-only manage banner — mount it in your Layout. |
@@ -39,14 +39,14 @@ field from the live schema, using the shipped utils. Everything runs on the publ
 
 ## Build the UI
 
-Render from the **live schema**, always: field set, order, labels, `required`, validation rules and
-choice options all come from it, so an owner's dashboard edit reaches the site with no code change
-and the submission map can't desync. A dropdown, tricky validation or several forms on a page are not
-reasons to hardcode — that's exactly what the schema carries.
+**The schema is the source of truth, whatever the markup looks like.** Every `target`, label,
+`required` flag, constraint and choice option comes from it, and so does the submission map — nothing
+about a field is yours to invent.
 
-*(The one exception: an explicitly design-led brief where the form is a fixed part of a hand-crafted
-layout and dashboard-editability is not a goal. Even then take the `target`s from
-`WIX_FORMS.<key>.targets` — a key that isn't an exact schema `target` 400s the whole submission.)*
+**The markup is yours to author.** Write a JSX element per field (step 5) when the layout matters,
+which on a designed page it usually does. Loop over `read.orderedInputs(form)` with a branch per
+control type instead when the owner will keep editing the form, and a dashboard change should reach
+the site with no code touch. The per-field wiring is identical either way.
 
 The JSDoc in `hooks/useWixForm.js` and `lib/wix-form-schema-utils.js` covers what each util does;
 this covers which control a field wants and where the obvious implementation is wrong. Markup and
@@ -61,7 +61,7 @@ import { WIX_FORMS } from "@/rest/wix-forms.config";   // written by the seed �
 const { form, values, setValues, submit, validate, errors, loading, read } =
   useWixForm(WIX_FORMS.contact.formId);
 
-const fields = read.orderedInputs(form);   // the raw fields to render, in the owner's layout order
+const fields = read.orderedInputs(form);   // what the form contains, in the owner's layout order
 ```
 
 | | |
@@ -69,6 +69,7 @@ const fields = read.orderedInputs(form);   // the raw fields to render, in the o
 | `form` | the Form exactly as Wix returned it (`null` until loaded). Nothing stripped or renamed. |
 | `values` | state, keyed by `target`: string for text/choice/date, **array** for multi-choice and files, **object** for an address. Seeded from the schema's defaults. |
 | `setValues` | plain React setter — `setValues((v) => ({ ...v, [name]: value }))`. |
+| `bind(target)` | the props a text-ish control needs, ready to spread: `name`, `value`, `onChange`, `onBlur`, `aria-describedby`, `aria-invalid`. |
 | `submit(event)` | use as `onSubmit`; resolves **`true`** only when the submission was created. |
 | `validate(target?)` | one field, one address subfield, or the whole form. Returns whether it passed. |
 | `errors` | control name → visitor-facing message; `errors[FORM_ERROR]` is form-level. |
@@ -95,19 +96,20 @@ setSiteCountry("GB");
 
 ### 2 · Render one control per field
 
-Map over `fields`. Every control carries the same four things:
+Author them or loop over them — every control carries the same four things, and `bind(target)` from
+the hook supplies the first three:
 
-1. **`name={read.targetOf(field)}`** — the immutable storage key, and also the state key, the error
+1. **`name` = the field's `target`** — the immutable storage key, and also the state key, the error
    key and the submission key. Keying everything by it makes the submission right by construction;
    it's how a blocked submit finds the control to focus, and it drives autofill.
-2. **`value` from `values[target]`, written back through `setValues`.** (A file input can't be
-   controlled — it takes only `onChange`.)
-3. **`onBlur={() => validate(target)}`** — not on the first keystroke of an untouched field, which
+2. **`value` from `values[target]`, written back through `setValues`.** (A choice group carries
+   `checked` instead; a file input can't be controlled at all and takes only `onChange`.)
+3. **`onBlur` → `validate(target)`** — not on the first keystroke of an untouched field, which
    reddens a required field before the visitor types. Once flagged, re-check as they type from an
    **effect on the value**: React hasn't committed the new value when `onChange` runs, so a check
    there judges the value they just replaced.
-4. **A real `<label>` from `read.labelOf(field)`, and an error node** — see step 6 for the wiring
-   both need.
+4. **A real `<label>`, and an error node** — see step 6 for the wiring both need. `bind` sets the
+   error node's `aria-describedby`/`id` pair (`err-${target}`); you render the node itself.
 
 **Stamp the schema's constraints as native attributes.** They reinforce the JS checks and drive
 mobile keyboards:
@@ -215,8 +217,8 @@ The hook's `submit` runs this before it sends anything:
 
 So `values[target]` holds `File` objects until submit, and validation checks the count (`required`,
 `fileLimit`) since no string rule applies. Three render consequences: the input can't be controlled
-(wire `onChange`, list the picked filenames yourself); clearing it after success needs a `key` bump,
-because resetting state leaves the browser's own "1 file selected" text; and uploads run inside
+(wire `onChange`, list the picked filenames yourself); clearing it after success needs a `key` you
+bump in `handleSubmit`, because resetting state leaves the browser's own "1 file selected" text; and uploads run inside
 `loading`, so the button's progress state matters more here.
 
 **A signature** shares `WIX_FILE`, so a file input accepts one — but the honest control is a canvas:
@@ -272,19 +274,20 @@ visitor a payment step: surface it **inside** the success state, never as a fail
 
 **No captcha** at the default protection level — don't add captcha plumbing speculatively.
 
-### 5 · The states around the form
+### 5 · The whole component
+
+Author one JSX element per field, using the `target`s the seed wrote and the constraints the schema
+states. `bind(target)` supplies the wiring every control shares — `name`, `value`, `onChange`,
+`onBlur`, `aria-describedby`, `aria-invalid` — so a field is a label, a control and its error node:
 
 ```jsx
 export default function ContactForm() {
-  const { form, values, setValues, submit, validate, errors, loading, read } =
+  const { form, values, bind, setValues, submit, validate, errors, loading, read } =
     useWixForm(WIX_FORMS.contact.formId);
   const [sent, setSent] = useState(false);
-  const [resetKey, setResetKey] = useState(0);   // bump on success to clear file inputs
 
   async function handleSubmit(event) {
-    const ok = await submit(event);
-    setSent(ok);
-    if (ok) setResetKey((k) => k + 1);
+    setSent(await submit(event));   // true only when the submission was created
   }
 
   if (loading && !form) return <p>Loading…</p>;
@@ -302,15 +305,36 @@ export default function ContactForm() {
     );
   }
 
-  const fields = read.orderedInputs(form);
-  if (fields.length === 0) return <p>This form has no fields yet — add them in your Wix dashboard.</p>;
-
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {fields.map((field) => (
-        <Field key={read.targetOf(field)} field={field} values={values} setValues={setValues}
-               errors={errors} validate={validate} resetKey={resetKey} />
-      ))}
+      <label>
+        <span>Your email<span aria-hidden="true"> *</span></span>
+        <input {...bind("email_a1b2")} type="email" required autoComplete="email" />
+        <p className="error" id="err-email_a1b2" role="alert">{errors.email_a1b2}</p>
+      </label>
+
+      <label>
+        <span>How can we help?</span>
+        <textarea {...bind("message_c3d4")} rows={5} maxLength={500} />
+        <p className="error" id="err-message_c3d4" role="alert">{errors.message_c3d4}</p>
+      </label>
+
+      {/* A choice group carries `checked` rather than `value`, so wire it by hand — same name,
+          same onBlur, and the aria-* on the fieldset because no single radio can hold them. */}
+      <fieldset aria-describedby="err-budget_e5f6" aria-invalid={Boolean(errors.budget_e5f6) || undefined}>
+        <legend>Budget</legend>
+        {["Under £5k", "£5k–£20k", "Over £20k"].map((option) => (
+          <label key={option}>
+            <input type="radio" name="budget_e5f6" value={option}
+                   checked={values.budget_e5f6 === option}
+                   onChange={() => setValues((v) => ({ ...v, budget_e5f6: option }))}
+                   onBlur={() => validate("budget_e5f6")} />
+            {option}
+          </label>
+        ))}
+        <p className="error" id="err-budget_e5f6" role="alert">{errors.budget_e5f6}</p>
+      </fieldset>
+
       <p role="alert">{errors[FORM_ERROR]}</p>
       <button type="submit" disabled={loading}>
         {loading ? "Sending…" : (read.submitTextOf(form) || "Submit")}
@@ -320,8 +344,16 @@ export default function ContactForm() {
 }
 ```
 
-`Field` is yours — one branch per control (step 2). `noValidate` keeps your messages instead of the
-browser's bubbles; the native constraints still drive keyboards and assistive tech.
+The `target`s (`email_a1b2`, …) come from `WIX_FORMS.<key>.targets` — **never invent or shorten one**,
+since a key that isn't an exact schema `target` 400s the whole submission. Everything else on each
+control comes from that field's schema entry (step 2): its label, its `required`, its length/pattern
+bounds, its choice options. `noValidate` keeps your messages instead of the browser's bubbles; the
+native constraints still drive keyboards and assistive tech.
+
+**Authoring beats looping here**, because the layout is the point: a two-column name row, a budget
+group styled as cards, copy between sections. **Loop instead when the owner will keep editing the
+form** — `read.orderedInputs(form).map(...)` with a branch per control type keeps a dashboard change
+reaching the site with no code touch. Either way the wiring per field is what's above.
 
 Two things the shell doesn't show:
 
@@ -353,7 +385,8 @@ Don't reach for `role="form"`, an `aria-label` on an input that already has a `<
 
 - A visitor-fillable form is this vertical, not `cms`.
 - Read and write only through the shipped helpers — never hand-build a Wix Forms URL.
-- Never hardcode a field list; never detect a control by its `target` name.
+- Never invent a `target`, label, option or constraint — every one comes from the schema (authored
+  markup included). Never detect a control by its `target` name either.
 - Read fields through the accessors, not by reaching into `inputOptions` — the block names are enum
   derived, and the accessors map every one of them.
 - Key every control by `target`: `values[target]`, `errors[target]`, `name`. Address subfields use
@@ -421,7 +454,8 @@ Substitute the site's `metaSiteId`:
 
 - [ ] `wix-forms.config.js` exists; every `formId` comes from `WIX_FORMS`, none typed by hand.
 - [ ] `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] Relabel a field in the dashboard, reload: the new label appears with no code change.
+- [ ] Looped form: relabel a field in the dashboard, reload, the new label appears with no code
+      change. Authored form: every `target` in the JSX matches `WIX_FORMS.<key>.targets` exactly.
 - [ ] Every field `read.orderedInputs(form)` returns has a control — long answer is a `<textarea>`,
       choice groups render their options, an address renders its subfields — or what you skipped
       isn't `required`.
