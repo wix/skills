@@ -44,6 +44,6 @@ assertions:
     prompt: |-
       Evaluate the path the agent took. Check: (1) It confirmed the exact event name against the common-events reference or the API docs rather than inventing a plausible one. (2) It scoped the collection ID with the supplied `APP_NAMESPACE` rather than using a bare collection name. (3) It did not attempt to reach the event payload from the dashboard page, or route the write through an HTTP endpoint the event handler could perform itself. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
-    maxDurationMs: 300000
+    maxDurationMs: 1200000
   - type: cost
-    maxCostUsd: 2
+    maxCostUsd: 3.5

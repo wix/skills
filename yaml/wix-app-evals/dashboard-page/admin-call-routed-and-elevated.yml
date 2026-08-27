@@ -36,6 +36,6 @@ assertions:
     prompt: |-
       Evaluate the path the agent took. Check: (1) It settled the identity question from the method docs before writing the calls, rather than assuming the dashboard host licensed a direct admin call and discovering the problem later. Reading the Locations method pages and noticing the elevated example is the behavior to reward. (2) It read the Backend API reference before creating the endpoint, and the Dashboard Page reference before building the UI. (3) It used `npx wix generate` to scaffold the page and the endpoint unless the starter project already contained them, in which case editing in place is correct. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5

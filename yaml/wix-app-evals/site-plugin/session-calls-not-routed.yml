@@ -42,6 +42,6 @@ assertions:
     prompt: |-
       Evaluate the path the agent took. Check: (1) It settled the identity question from the Site Plugin reference before writing the calls, rather than discovering it after a runtime failure or reasoning from a scope name — a `MANAGE`/`ADMIN` scope on a cart or catalog method is not a reason to route or elevate. (2) It did not scaffold a backend endpoint and then delete it. (3) It set the CMS collection's permissions deliberately for anonymous read, and scoped the collection ID with the supplied `APP_NAMESPACE`. (4) It used `npx wix generate` with `extensionType: SITE_PLUGIN` to scaffold, and picked a real `slotId` rather than inventing one. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5

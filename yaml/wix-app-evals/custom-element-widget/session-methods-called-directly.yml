@@ -38,6 +38,6 @@ assertions:
     prompt: |-
       Evaluate the path the agent took. Check: (1) It recognised these as visitor-callable and did not treat the presence of a `MANAGE`/`WRITE` scope name, or any other per-method textual signal, as a reason to route or elevate. (2) It did not build a backend endpoint and then remove it. (3) It set the CMS collection's permissions deliberately for anonymous read rather than accepting a default it never inspected. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5

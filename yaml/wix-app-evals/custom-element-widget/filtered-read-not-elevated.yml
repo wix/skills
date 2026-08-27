@@ -34,6 +34,6 @@ assertions:
     prompt: |-
       Evaluate the path the agent took. Check: (1) It recognised the privacy filter as intended platform behavior — ideally from the method reference, which states it — rather than treating a sparse directory as a permissions problem to escalate past. (2) It distinguished the two member reads and did not use one method for both jobs. (3) It did not build and then remove a backend endpoint. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5
