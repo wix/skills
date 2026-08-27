@@ -10,7 +10,7 @@
 //
 // Plan shape (see SEED.md):
 //   { "menus": [{ "name", "description"?, "sections": [{ "name", "description"?,
-//                 "items": [{ "name", "description"?, "price", "imageUrl"? }] }] }],
+//                 "items": [{ "name", "description"?, "price", "imageUrl"? | "imagePrompt"? }] }] }],
 //     "ordering"?: true | { "address"? },        // menu-first add-on; address is STEP 0
 //     "reservations"?: true | { "partySize"? { "min","max" }, "address"? } }
 //
@@ -22,6 +22,7 @@
 // setup-restaurant-reservations.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const MENUS_APP_ID = "b278a256-2757-4f19-9313-c05c783bec92";
@@ -185,13 +186,10 @@ export async function createMenu(ctx, menu) {
   };
 }
 
-// Restaurants binds an item image by Wix Media file ID — an external url must be imported first.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// Restaurants binds an item image by Wix Media file ID — an external url must be imported
+// first; a plan `imagePrompt` is generated (Wix AI, 1 credit) then imported. Both live in the
+// shared util (parallel, resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // Image pass. Update Item is a FULL-ENTITY REPLACE with NO field mask — each entry MUST echo
 // the item's current `revision` AND `priceInfo`, or it fails 428 MISSING_ITEM_PRICING and the
@@ -338,27 +336,31 @@ export async function setupRestaurants(ctx, plan) {
   const createdMenus = [];
   for (const m of menusPlan) createdMenus.push(await createMenu(ctx, m));
 
-  // image pass — import each item's url to Wix Media (restaurants binds by file id), then
-  // bulk full-replace with revision + priceInfo echoed. Never block on image failure.
+  // image pass — resolve each item's image (import by url / generate by prompt) in ONE
+  // parallel wave (restaurants binds by file id), then bulk full-replace with revision +
+  // priceInfo echoed. Never block on image failure.
   let imagesAttached = 0;
   const imageItems = [];
   menusPlan.forEach((m, mi) => {
     const flat = m.sections.flatMap((s) => s.items || []);
     flat.forEach((it, i) => {
       const created = createdMenus[mi]?.items?.[i];
-      if (it.imageUrl && created?.id) imageItems.push({ ...created, imageUrl: it.imageUrl, name: it.name });
+      if ((it.imageUrl || it.imagePrompt) && created?.id) {
+        imageItems.push({ ...created, imageUrl: it.imageUrl, imagePrompt: it.imagePrompt, name: it.name });
+      }
     });
   });
-  const toAttach = [];
-  for (const it of imageItems) {
-    try {
-      const file = await importImage(ctx, it.imageUrl, `${it.name || "item"}.png`);
-      toAttach.push({ id: it.id, revision: it.revision ?? "1", price: it.price,
-        image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
-    } catch {
-      /* skip this item's image */
-    }
-  }
+  const files = await resolveItemImages(ctx, imageItems.map((it) => ({
+    url: it.imageUrl,
+    prompt: it.imagePrompt,
+    displayName: `${it.name || "item"}.png`,
+  })));
+  const toAttach = imageItems
+    .map((it, i) => (files[i]
+      ? { id: it.id, revision: it.revision ?? "1", price: it.price,
+          image: { id: files[i].id, url: files[i].url, width: 1024, height: 1024 } }
+      : null))
+    .filter(Boolean);
   if (toAttach.length) {
     try {
       await attachItemImages(ctx, toAttach);

@@ -14,8 +14,8 @@ node <SKILL_ROOT>/references/blog/seed/seed-blog.mjs plan.json
 `plan.json` is plain data — write it from the brief. **Default to 3 posts** (the seed shows
 the shape; the owner writes the rest in the dashboard) and make them exercise the UI: group
 them into 2 categories when the brief has natural sections, tag a couple, vary the content
-blocks (heading + paragraphs + a quote or list per post), and give every post a
-`coverImageUrl` (verified — a feed without covers looks broken).
+blocks (heading + paragraphs + a quote or list per post), and give every post a cover — a
+feed without covers looks broken.
 
 ```json
 {
@@ -49,8 +49,13 @@ blocks (heading + paragraphs + a quote or list per post), and give every post a
   cover (code, inline images), pass a pre-built Ricos `richContent` on the post instead.
 - `category`/`categories`/`tags` are display **names** — created idempotently and resolved to
   ids internally. Optional: skip them entirely when the brief doesn't group posts.
-- `coverImageUrl` — a plain https image URL; the script imports it into Wix Media (Blog binds
-  covers by file id, not URL) and re-publishes the post. A failed cover never blocks the run.
+- Cover — the default is a `coverImagePrompt` (AI-generated, ~1 Wix AI credit per image,
+  account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting — always
+  ending "no text, no watermarks". Use `coverImageUrl` ONLY for an asset the user actually
+  supplied (their own photo/URL; verify it with `curl -sI` → 200; imported into Wix Media —
+  Blog binds covers by file id, not URL) — never a stock-photo or guessed URL. Covers resolve
+  in parallel and never block the seed; a failed cover leaves that post text-only (the script
+  re-publishes each post it covers).
 - Posts are created **published** — an unpublished post never reaches visitors. The bulk
   create returns 200 even on partial failure: check each `posts[].success` in the result.
 

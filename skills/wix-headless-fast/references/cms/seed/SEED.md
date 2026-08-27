@@ -2,9 +2,9 @@
 
 Seed by **running `seed-cms.mjs` with a plan file** — don't hand-write the REST calls.
 The script mints its own site token via the Wix CLI (logged-in session + `wix.config.json`
-required), installs the Wix Data (CMS) app if needed, and creates everything in order:
-per collection — create (schema + permissions) → import IMAGE urls into Wix Media →
-bulk-insert items → wire multi-references → verify persistence.
+required), installs the Wix Data (CMS) app if needed, resolves every IMAGE value into Wix
+Media in one parallel wave, and creates everything in order: per collection — create
+(schema + permissions) → bulk-insert items → wire multi-references → verify persistence.
 
 ```bash
 # from the project root (where wix.config.json lives):
@@ -15,8 +15,7 @@ node <SKILL_ROOT>/references/cms/seed/seed-cms.mjs plan.json
 schemas, and the items the pages will render. Write it from the brief. Default to **one or
 two content collections with ~3–6 items each** (the seed shows the shape; the owner adds the
 rest in the dashboard). Give any collection that gets a detail page a `slug` TEXT field, and
-every content item a verified `imageUrl` on an IMAGE field (a content site without images
-looks broken).
+every content item an image on an IMAGE field (a content site without images looks broken).
 
 ```json
 {
@@ -58,9 +57,13 @@ looks broken).
   schema doesn't have (the API would silently drop it).
 - Field `type` — `TEXT`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `URL`, `EMAIL`, `IMAGE`,
   `RICH_TEXT` (an HTML string, stored verbatim), `REFERENCE`, `MULTI_REFERENCE`.
-- `IMAGE` values are external image URLs (verified) — the script imports each into Wix Media
-  (`POST /site-media/v1/files/import`) and stores the permanent `file.url`; on import failure
-  the item stays text-only (never blocks).
+- `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, ~1 Wix AI credit per
+  image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
+  always ending "no text, no watermarks". Use an https URL string ONLY for an asset the user
+  actually supplied (their own photo/URL; verify it with `curl -sI` → 200; imported into Wix
+  Media, the permanent `file.url` is stored) — never a stock-photo or guessed URL. Images
+  resolve in parallel and never block the seed; a failed image leaves that field unset (the
+  item stays text-only).
 - `DATE`/`DATETIME` values are ISO strings — the script wraps them as `{ "$date": iso }`.
 - References: **order collections so targets come first.** A `REFERENCE` value is the target
   item's index in its collection's `items` array; `MULTI_REFERENCE` is an array of indices

@@ -36,10 +36,13 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
   carrying the product's price/compareAtPrice/quantity) — keep option counts small.
 - `compareAtPrice` (> `price`) — the "was" price: strikethrough on the PDP, sale badge data on
   the tile.
-- `imageUrl` — **include one for every product** (a store without product images looks broken:
-  gray boxes on tiles, PDP, and cart). It must be a real, fetchable https URL — **verify each
-  resolves (e.g. a quick `curl -sI` → 200) before seeding**; a guessed URL seeds a broken
-  image. Wix re-hosts it server-side. Seed text-only only when the user explicitly asks.
+- **Give every product an image** (a store without product images looks broken: gray boxes on
+  tiles, PDP, and cart) — the default is an `imagePrompt` (AI-generated, ~1 Wix AI credit
+  per image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
+  always ending "no text, no watermarks". Use `imageUrl` ONLY for an asset the user actually
+  supplied (their own photo/URL; verify it with `curl -sI` → 200) — never a stock-photo or
+  guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
+  that product text-only. Seed text-only only when the user explicitly asks.
 - `categories` — category name → product NAMES. Omit when the brief names none.
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
