@@ -47,6 +47,8 @@ async function req(ctx, path, { method = "POST", body } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3
   // WRITE path becomes usable later than the read path, so the first bulk-create can 428 even
   // after the read probe clears. Wait it out (~80s budget); other errors throw immediately.
+  // ⚠️ An errored bulk create (seen live with a bare 429 {}) may still have APPLIED
+  // server-side — creation is idempotent by name in setupStore for exactly that reason.
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(API + path, {
       method,
@@ -192,6 +194,24 @@ export async function installStoresApp(ctx) {
   await waitForCatalogV3(ctx);
 }
 
+// Existing products by exact name (for idempotent reruns). `name` is NOT filterable on the
+// V3 query — fetch a page and match client-side (seed catalogs are small). Empty map on any
+// failure — falling back to create-everything is the additive behavior we had before.
+export async function queryProductsByNames(ctx, names) {
+  const out = new Map();
+  if (!names.length) return out;
+  try {
+    const wanted = new Set(names);
+    const r = await req(ctx, "/stores/v3/products/query", { body: { query: { cursorPaging: { limit: 100 } } } });
+    for (const p of r.products ?? []) {
+      if (wanted.has(p.name) && !out.has(p.name)) out.set(p.name, { id: p.id, slug: p.slug, revision: p.revision });
+    }
+  } catch (e) {
+    console.error(`product name pre-check failed (creating everything): ${String(e.message).slice(0, 120)}`);
+  }
+  return out;
+}
+
 export async function bulkCreateProducts(ctx, products) {
   const body = {
     returnEntity: true,
@@ -285,8 +305,17 @@ export async function attachProductImages(ctx, items) {
 export async function setupStore(ctx, { products = [], categories = {} } = {}) {
   await installStoresApp(ctx);
 
-  const created = await bulkCreateProducts(ctx, products);
-  const withNames = created.map((p, i) => ({ ...p, name: products[i]?.name }));
+  // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
+  // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
+  // exist yet makes that rerun safe instead of a duplicator.
+  const existing = await queryProductsByNames(ctx, products.map((p) => p.name));
+  const toCreate = products.filter((p) => !existing.has(p.name));
+  const created = toCreate.length ? await bulkCreateProducts(ctx, toCreate) : [];
+  const createdByName = new Map(created.map((p, i) => [toCreate[i]?.name, p]));
+  const withNames = products.map((p) => {
+    const hit = createdByName.get(p.name) ?? existing.get(p.name);
+    return { ...(hit ?? {}), name: p.name };
+  });
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
 
   const names = Object.keys(categories);
