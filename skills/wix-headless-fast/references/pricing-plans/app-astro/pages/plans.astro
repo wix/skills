@@ -1,0 +1,21 @@
+---
+// Plans & Pricing — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR pricing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import PlansView from "../components/pricing-plans/PlansView";
+import { fetchPlans } from "../wix/pricing-plans/plans";
+import type { PlanSummary } from "../wix/pricing-plans/types";
+
+let plans: PlanSummary[] = [];
+try {
+  plans = await fetchPlans();
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Plans & Pricing">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Plans &amp; Pricing</h1>
+  <PlansView client:load initialPlans={plans} />
+</SiteLayout>
