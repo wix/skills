@@ -67,17 +67,7 @@ Create state with the hook -> pass it to the component's `state` prop -> wrap in
 
 The provider **must** be in a separate parent component from the page content. Hooks like `useTableCollection` require the provider's context to already exist above them in the React tree.
 
-**Wrong — the hook sits above its own provider:**
-```tsx
-function BadApp() {
-  const state = useTableCollection({ /* ... */ }); // fails at runtime: no provider context yet
-  return (
-    <WixPatternsProvider>
-      <CollectionPage><Table state={state} /></CollectionPage>
-    </WixPatternsProvider>
-  );
-}
-```
+**Wrong:** calling `useTableCollection` in the same component that renders `WixPatternsProvider`. The hook runs before the provider it needs exists above it, so it throws at runtime — the JSX nesting looks right, which is what makes this one hard to spot.
 
 **Correct — provider in root, page in a separate file:**
 ```tsx
@@ -97,7 +87,14 @@ import { Table, useTableCollection } from '@wix/patterns';
 import { CollectionPage } from '@wix/patterns/page';
 
 function MyCollectionPage() {
-  const state = useTableCollection({ /* ... */ }); // works — provider is above this component
+  // works — the provider context exists above this component
+  const state = useTableCollection({
+    queryName: 'my-items',
+    itemKey: (item) => item.id,
+    itemName: (item) => item.name,
+    fetchData: async () => ({ items: [], total: 0 }),
+    filters: {},
+  });
   return (
     <CollectionPage>
       <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
