@@ -10,8 +10,7 @@ write data-access logic; you never skip designing.
 ## The file map (deployed into `src/`)
 
 **Don't read the shipped files** — this table and the contracts below are everything you
-need. Open a shipped file's source only on a real fallback (runtime error / uncovered field),
-or to read the reference component's pattern.
+need. Open a shipped file's source only on a real fallback (runtime error / uncovered field).
 
 | file | what it is |
 |---|---|
@@ -20,8 +19,10 @@ or to read the reference component's pattern.
 | `wix/cms/items.ts` | `queryItems`, `getItemById`, `getItemBy`, `countItems`, `insertItem`, `updateItem`, `patchItemFields`, `removeItem` |
 | `hooks/cms/useCollection.ts` | list state + skip paging — contract below |
 | `hooks/cms/useItem.ts` | one item by `_id` or slug field — contract below |
-| `components/cms/CollectionView.tsx` (+ `CollectionCard`) | **REFERENCE implementation** — a field-map-driven grid; build your own instead of shipping it |
 | `styles/global.css` | the design system: Tailwind v4 + the `@theme` token block (shared across verticals) |
+
+There are **no shipped components** — the data layer and hooks are the machinery; every
+component is yours.
 
 Astro stack additionally gets:
 
