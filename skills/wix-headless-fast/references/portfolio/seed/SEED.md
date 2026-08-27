@@ -50,13 +50,14 @@ rows (Role, Year, Client…).
 - `collection` — a collection **title from this plan**; resolved to its created id. A project
   without one belongs to no collection (reachable only from an all-projects list).
 - `details` — optional `[{ label, text }]` rows; render on the project page. Omit for none.
-- Every image field takes either a url (`coverImageUrl` / `items[].imageUrl` — a real https
-  URL, verified with `curl -sI` → 200 before seeding; imported into Wix Media — Portfolio
-  binds by file id, a raw url renders nothing) or a prompt (`coverImagePrompt` /
-  `items[].imagePrompt` — AI-generated, **1 Wix AI credit per image**, account-billed):
-  brand-contextual — subject, aesthetic/mood, palette, lighting — always ending "no text, no
-  watermarks". All images — covers and gallery items alike — resolve in one parallel wave and
-  never block the seed; a failed image skips just that item/cover. The **cover** is the
+- Every image field's default is a prompt (`coverImagePrompt` / `items[].imagePrompt` —
+  AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
+  aesthetic/mood, palette, lighting — always ending "no text, no watermarks". Use a url
+  (`coverImageUrl` / `items[].imageUrl`) ONLY for an asset the user actually supplied (their
+  own photo/URL; verify it with `curl -sI` → 200; imported into Wix Media — Portfolio binds
+  by file id, a raw url renders nothing) — never a stock-photo or guessed URL. All images —
+  covers and gallery items alike — resolve in one parallel wave and never block the seed; a
+  failed image skips just that item/cover. The **cover** is the
   listing thumbnail; **items** are the detail-page gallery — separate entities, both wanted.
   If a project has only a cover, reuse its url as item 1 so the gallery isn't empty.
 - `sortOrder` (1, 2, 3…) sets the gallery render order.
