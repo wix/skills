@@ -66972,20 +66972,25 @@ const menuUrl = (portalId) => `https://dev.wix.com/docs/api/v1/cache/get-cached-
 const DEV_WIX_PREFIX = 'https://dev.wix.com';
 function loadDocsEntryIndex(workspace) {
     const index = new Map();
-    const found = glob_1.glob.sync(paths_1.DOC_YAML_GLOB, {
+    const yamlPaths = glob_1.glob.sync(paths_1.DOC_YAML_GLOB, {
         cwd: workspace,
         nodir: true,
         ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
     });
-    for (const rel of found) {
-        const abs = (0, node_path_1.resolve)(workspace, rel);
-        const parsed = jsYaml.load((0, node_fs_1.readFileSync)(abs, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) ?? {};
-        for (const e of parsed.apiDoc?.docs ?? []) {
-            if (!e.file || !e.docsEntry || !e.title)
+    for (const yamlPath of yamlPaths) {
+        const yamlAbsolutePath = (0, node_path_1.resolve)(workspace, yamlPath);
+        const parsedYaml = jsYaml.load((0, node_fs_1.readFileSync)(yamlAbsolutePath, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) ?? {};
+        for (const entry of parsedYaml.apiDoc?.docs ?? []) {
+            if (!entry.file || !entry.docsEntry || !entry.title)
                 continue;
-            const fileAbs = (0, node_path_1.resolve)((0, node_path_1.dirname)(abs), e.file);
-            const fileRel = (0, node_path_1.relative)(workspace, fileAbs).split('\\').join('/');
-            index.set(fileRel, { file: fileRel, yamlPath: rel, title: e.title, docsEntry: e.docsEntry });
+            const skillFileAbsolutePath = (0, node_path_1.resolve)((0, node_path_1.dirname)(yamlAbsolutePath), entry.file);
+            const skillFilePath = (0, node_path_1.relative)(workspace, skillFileAbsolutePath).split('\\').join('/');
+            index.set(skillFilePath, {
+                file: skillFilePath,
+                yamlPath,
+                title: entry.title,
+                docsEntry: entry.docsEntry,
+            });
         }
     }
     return index;
@@ -66997,52 +67002,52 @@ function loadDocsEntryIndex(workspace) {
  * exactly the entries the pipeline will try to place in the menu after merge.
  */
 function changedDocsEntries(workspace, baseWorkspace) {
-    const head = loadDocsEntryIndex(workspace);
-    const base = loadDocsEntryIndex(baseWorkspace);
-    return [...head.values()].filter((t) => base.get(t.file)?.docsEntry !== t.docsEntry);
+    const headIndex = loadDocsEntryIndex(workspace);
+    const baseIndex = loadDocsEntryIndex(baseWorkspace);
+    return [...headIndex.values()].filter((target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry);
 }
-function normalizePath(path) {
-    return path.replace(/\/+$/, '');
+function stripTrailingSlashes(url) {
+    return url.replace(/\/+$/, '');
 }
-function portalPrefix(portal) {
+function portalUrlPrefix(portal) {
     const docsUrl = portal.config?.docsUrl;
     if (!docsUrl?.basename)
         return null;
-    return DEV_WIX_PREFIX + normalizePath(`${docsUrl.basename}${docsUrl.path ?? ''}`);
+    return DEV_WIX_PREFIX + stripTrailingSlashes(`${docsUrl.basename}${docsUrl.path ?? ''}`);
 }
 /** Longest portal prefix the docsEntry falls under, or null */
 function resolvePortal(docsEntry, portals) {
-    const entry = normalizePath(docsEntry);
-    let best = null;
+    const docsEntryUrl = stripTrailingSlashes(docsEntry);
+    let bestMatch = null;
     for (const portal of portals) {
-        const prefix = portalPrefix(portal);
+        const prefix = portalUrlPrefix(portal);
         if (!prefix || !portal.id)
             continue;
-        if (entry !== prefix && !entry.startsWith(prefix + '/'))
+        if (docsEntryUrl !== prefix && !docsEntryUrl.startsWith(prefix + '/'))
             continue;
-        if (!best || prefix.length > best.prefix.length)
-            best = { portal, prefix };
+        if (!bestMatch || prefix.length > bestMatch.prefix.length)
+            bestMatch = { portal, prefix };
     }
-    if (!best)
+    if (!bestMatch)
         return null;
-    return { ...best, nodePath: entry.slice(best.prefix.length) };
+    return { ...bestMatch, nodePath: docsEntryUrl.slice(bestMatch.prefix.length) };
 }
 function findNode(nodes, url, nearestCategory) {
     for (const node of nodes) {
         if (node.url === url)
             return { node, nearestCategoryAncestor: nearestCategory };
-        const nextCategory = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
-        const found = findNode(node.children ?? [], url, nextCategory);
-        if (found)
-            return found;
+        const nearestForChildren = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
+        const match = findNode(node.children ?? [], url, nearestForChildren);
+        if (match)
+            return match;
     }
     return null;
 }
 async function fetchJson(url) {
-    const res = await fetch(url);
-    if (!res.ok)
-        throw new Error(`GET ${url} responded ${res.status}`);
-    return res.json();
+    const response = await fetch(url);
+    if (!response.ok)
+        throw new Error(`GET ${url} responded ${response.status}`);
+    return response.json();
 }
 /**
  * Checks each docsEntry against the live docs menu — the same public menu the docs
@@ -67055,38 +67060,38 @@ async function validateDocsEntries(targets) {
     const problems = [];
     try {
         const { portals = [] } = (await fetchJson(PORTALS_URL));
-        const menus = new Map();
+        const menusByPortalId = new Map();
         for (const target of targets) {
-            const resolved = resolvePortal(target.docsEntry, portals);
-            if (!resolved) {
+            const resolvedPortal = resolvePortal(target.docsEntry, portals);
+            if (!resolvedPortal) {
                 problems.push({ ...target, kind: 'portal-not-found' });
                 continue;
             }
-            const portalId = resolved.portal.id;
-            let menu = menus.get(portalId);
+            const portalId = resolvedPortal.portal.id;
+            let menu = menusByPortalId.get(portalId);
             if (!menu) {
                 menu = (await fetchJson(menuUrl(portalId)));
-                menus.set(portalId, menu);
+                menusByPortalId.set(portalId, menu);
             }
-            const lookup = resolved.nodePath ? findNode(menu, resolved.nodePath) : null;
-            if (!lookup) {
+            const nodeLookup = resolvedPortal.nodePath ? findNode(menu, resolvedPortal.nodePath) : null;
+            if (!nodeLookup) {
                 problems.push({ ...target, kind: 'node-not-found' });
                 continue;
             }
-            if (lookup.node.menuNodeType !== 'CATEGORY') {
+            if (nodeLookup.node.menuNodeType !== 'CATEGORY') {
                 problems.push({
                     ...target,
                     kind: 'not-a-category',
-                    nodeType: lookup.node.menuNodeType,
-                    suggestion: lookup.nearestCategoryAncestor?.url
-                        ? resolved.prefix + lookup.nearestCategoryAncestor.url
+                    nodeType: nodeLookup.node.menuNodeType,
+                    suggestion: nodeLookup.nearestCategoryAncestor?.url
+                        ? resolvedPortal.prefix + nodeLookup.nearestCategoryAncestor.url
                         : undefined,
                 });
             }
         }
     }
-    catch (e) {
-        return { problems: [], serviceError: e instanceof Error ? e.message : String(e) };
+    catch (error) {
+        return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
     }
     return { problems };
 }

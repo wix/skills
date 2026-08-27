@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { dirname, posix, relative, resolve as resolvePath } from 'node:path';
+import { dirname, relative, resolve as resolvePath } from 'node:path';
 import { glob } from 'glob';
 import * as jsYaml from 'js-yaml';
 import { DOC_YAML_GLOB } from './paths';
@@ -49,19 +49,25 @@ type MenuNode = {
 
 function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
   const index = new Map<string, DocsEntryTarget>();
-  const found = glob.sync(DOC_YAML_GLOB, {
+  const yamlPaths = glob.sync(DOC_YAML_GLOB, {
     cwd: workspace,
     nodir: true,
     ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
   });
-  for (const rel of found) {
-    const abs = resolvePath(workspace, rel);
-    const parsed = (jsYaml.load(readFileSync(abs, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) as DocYaml) ?? {};
-    for (const e of parsed.apiDoc?.docs ?? []) {
-      if (!e.file || !e.docsEntry || !e.title) continue;
-      const fileAbs = resolvePath(dirname(abs), e.file);
-      const fileRel = relative(workspace, fileAbs).split('\\').join('/');
-      index.set(fileRel, { file: fileRel, yamlPath: rel, title: e.title, docsEntry: e.docsEntry });
+  for (const yamlPath of yamlPaths) {
+    const yamlAbsolutePath = resolvePath(workspace, yamlPath);
+    const parsedYaml =
+      (jsYaml.load(readFileSync(yamlAbsolutePath, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) as DocYaml) ?? {};
+    for (const entry of parsedYaml.apiDoc?.docs ?? []) {
+      if (!entry.file || !entry.docsEntry || !entry.title) continue;
+      const skillFileAbsolutePath = resolvePath(dirname(yamlAbsolutePath), entry.file);
+      const skillFilePath = relative(workspace, skillFileAbsolutePath).split('\\').join('/');
+      index.set(skillFilePath, {
+        file: skillFilePath,
+        yamlPath,
+        title: entry.title,
+        docsEntry: entry.docsEntry,
+      });
     }
   }
   return index;
@@ -74,21 +80,21 @@ function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
  * exactly the entries the pipeline will try to place in the menu after merge.
  */
 export function changedDocsEntries(workspace: string, baseWorkspace: string): DocsEntryTarget[] {
-  const head = loadDocsEntryIndex(workspace);
-  const base = loadDocsEntryIndex(baseWorkspace);
-  return [...head.values()].filter(
-    (t) => base.get(t.file)?.docsEntry !== t.docsEntry,
+  const headIndex = loadDocsEntryIndex(workspace);
+  const baseIndex = loadDocsEntryIndex(baseWorkspace);
+  return [...headIndex.values()].filter(
+    (target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry,
   );
 }
 
-function normalizePath(path: string): string {
-  return path.replace(/\/+$/, '');
+function stripTrailingSlashes(url: string): string {
+  return url.replace(/\/+$/, '');
 }
 
-function portalPrefix(portal: Portal): string | null {
+function portalUrlPrefix(portal: Portal): string | null {
   const docsUrl = portal.config?.docsUrl;
   if (!docsUrl?.basename) return null;
-  return DEV_WIX_PREFIX + normalizePath(`${docsUrl.basename}${docsUrl.path ?? ''}`);
+  return DEV_WIX_PREFIX + stripTrailingSlashes(`${docsUrl.basename}${docsUrl.path ?? ''}`);
 }
 
 /** Longest portal prefix the docsEntry falls under, or null */
@@ -96,16 +102,16 @@ function resolvePortal(
   docsEntry: string,
   portals: Portal[],
 ): { portal: Portal; prefix: string; nodePath: string } | null {
-  const entry = normalizePath(docsEntry);
-  let best: { portal: Portal; prefix: string } | null = null;
+  const docsEntryUrl = stripTrailingSlashes(docsEntry);
+  let bestMatch: { portal: Portal; prefix: string } | null = null;
   for (const portal of portals) {
-    const prefix = portalPrefix(portal);
+    const prefix = portalUrlPrefix(portal);
     if (!prefix || !portal.id) continue;
-    if (entry !== prefix && !entry.startsWith(prefix + '/')) continue;
-    if (!best || prefix.length > best.prefix.length) best = { portal, prefix };
+    if (docsEntryUrl !== prefix && !docsEntryUrl.startsWith(prefix + '/')) continue;
+    if (!bestMatch || prefix.length > bestMatch.prefix.length) bestMatch = { portal, prefix };
   }
-  if (!best) return null;
-  return { ...best, nodePath: entry.slice(best.prefix.length) };
+  if (!bestMatch) return null;
+  return { ...bestMatch, nodePath: docsEntryUrl.slice(bestMatch.prefix.length) };
 }
 
 type NodeLookup = { node: MenuNode; nearestCategoryAncestor?: MenuNode };
@@ -113,17 +119,17 @@ type NodeLookup = { node: MenuNode; nearestCategoryAncestor?: MenuNode };
 function findNode(nodes: MenuNode[], url: string, nearestCategory?: MenuNode): NodeLookup | null {
   for (const node of nodes) {
     if (node.url === url) return { node, nearestCategoryAncestor: nearestCategory };
-    const nextCategory = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
-    const found = findNode(node.children ?? [], url, nextCategory);
-    if (found) return found;
+    const nearestForChildren = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
+    const match = findNode(node.children ?? [], url, nearestForChildren);
+    if (match) return match;
   }
   return null;
 }
 
 async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} responded ${res.status}`);
-  return res.json();
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`GET ${url} responded ${response.status}`);
+  return response.json();
 }
 
 /**
@@ -137,41 +143,41 @@ export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<D
   const problems: DocsEntryProblem[] = [];
   try {
     const { portals = [] } = (await fetchJson(PORTALS_URL)) as { portals?: Portal[] };
-    const menus = new Map<string, MenuNode[]>();
+    const menusByPortalId = new Map<string, MenuNode[]>();
 
     for (const target of targets) {
-      const resolved = resolvePortal(target.docsEntry, portals);
-      if (!resolved) {
+      const resolvedPortal = resolvePortal(target.docsEntry, portals);
+      if (!resolvedPortal) {
         problems.push({ ...target, kind: 'portal-not-found' });
         continue;
       }
 
-      const portalId = resolved.portal.id!;
-      let menu = menus.get(portalId);
+      const portalId = resolvedPortal.portal.id!;
+      let menu = menusByPortalId.get(portalId);
       if (!menu) {
         menu = (await fetchJson(menuUrl(portalId))) as MenuNode[];
-        menus.set(portalId, menu);
+        menusByPortalId.set(portalId, menu);
       }
 
-      const lookup = resolved.nodePath ? findNode(menu, resolved.nodePath) : null;
-      if (!lookup) {
+      const nodeLookup = resolvedPortal.nodePath ? findNode(menu, resolvedPortal.nodePath) : null;
+      if (!nodeLookup) {
         problems.push({ ...target, kind: 'node-not-found' });
         continue;
       }
 
-      if (lookup.node.menuNodeType !== 'CATEGORY') {
+      if (nodeLookup.node.menuNodeType !== 'CATEGORY') {
         problems.push({
           ...target,
           kind: 'not-a-category',
-          nodeType: lookup.node.menuNodeType,
-          suggestion: lookup.nearestCategoryAncestor?.url
-            ? resolved.prefix + lookup.nearestCategoryAncestor.url
+          nodeType: nodeLookup.node.menuNodeType,
+          suggestion: nodeLookup.nearestCategoryAncestor?.url
+            ? resolvedPortal.prefix + nodeLookup.nearestCategoryAncestor.url
             : undefined,
         });
       }
     }
-  } catch (e) {
-    return { problems: [], serviceError: e instanceof Error ? e.message : String(e) };
+  } catch (error) {
+    return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
   }
 
   return { problems };
