@@ -63,7 +63,7 @@ jobs:
           # Inline rather than repo vars: neither is a secret, and in the workflow file they
           # appear in the diff, get reviewed when they change, and document what the gate
           # evaluates against. As repo vars they could be edited silently.
-          capability-id: ad0b7e36-e85b-40b1-902b-d67bb3c90363
+          capability-id: 6eb9e9b8-6fd7-4b6d-b846-cde489899ff2
           agent-id: 76093ada-d1ad-42a4-9f49-743673763b00
           # These repo variables are what this repo runs; the action's own defaults are what other
           # consumers get, since the README documents using this action from other repos and they
