@@ -125,6 +125,7 @@ function buildPlan(plan) {
 
 // ---- operations ----------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installPricingPlansApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -138,6 +139,7 @@ export async function installPricingPlansApp(ctx) {
 
 // Create the plan(s) — Plans V3 has NO bulk-create: one POST per plan. Keep plan.id: the
 // frontend orders by it AND it is the coverage externalId.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan.md
 export async function createPlans(ctx, plans) {
   const out = [];
   for (const plan of plans) {
@@ -157,6 +159,7 @@ export async function createPlans(ctx, plans) {
 
 // 2a: READ the auto-created program definition (the Plans app creates it; you never create
 // it). Provisioning is ~immediate but async — retry ONCE after a short backoff, don't loop.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/program-definitions/introduction.md
 export async function getProgramDefinition(ctx, planId) {
   const path = `/benefit-programs/v1/program-definitions/by-namespace-and-external-id?externalId=${planId}&namespace=${encodeURIComponent(PP_NAMESPACE)}`;
   try {
@@ -174,6 +177,7 @@ export async function getProgramDefinition(ctx, planId) {
 // price "0" = unlimited (default; no creditConfiguration). Limited pack: pass creditAmount →
 // price "1" + details.creditConfiguration (a SIBLING of benefits[], NOT inside a benefit —
 // nesting it 400s with "Price should be 0 when credit pool is not set up").
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pool-definitions/create-pool-definition.md
 export async function createPoolDefinition(ctx, programDefinitionId, { creditAmount } = {}) {
   const limited = creditAmount != null;
   const details = {
@@ -205,6 +209,7 @@ export async function createPoolDefinition(ctx, programDefinitionId, { creditAmo
 // 2c: bulk-create the benefit items — ONE item per covered service (externalId = bookings
 // service id). Up to 100 per call; category is an empty string; namespace/providerAppId
 // repeat 2b's values.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/items/bulk-create-items.md
 export async function createBenefitItems(ctx, itemSetId, serviceIds) {
   return req(ctx, "/benefit-programs/v1/bulk/items/create", {
     body: {

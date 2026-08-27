@@ -12,6 +12,8 @@
 // Generation costs 1 Wix AI credit per image, billed to the account behind the site.
 // Authoritative reference: wix-headless/references/IMAGE_GENERATION.md.
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { basename, extname } from "node:path";
 
 const API = "https://www.wixapis.com";
 // Order = cheap-and-permissive first (runware ~0.009 credits/img, ~5s, loosest content
@@ -42,6 +44,7 @@ async function req(ctx, path, body, timeoutMs = 45_000) {
  * Generate one image; returns its short-lived URL (import it immediately). Tries each model
  * once — a per-model failure (bad params, 5xx, credit exhaustion, timeout) falls through to
  * the next; throws only after all models failed.
+ * docs: no public reference for /runwareschemaless/v1/request — see wix-headless/references/IMAGE_GENERATION.md
  */
 export async function generateImage(ctx, prompt, { width = 1024, height = 1024 } = {}) {
   let lastErr;
@@ -70,7 +73,40 @@ export async function generateImage(ctx, prompt, { width = 1024, height = 1024 }
   throw lastErr;
 }
 
+const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".avif": "image/avif" };
+
+/**
+ * Upload a LOCAL file (a path on this machine — the user's own asset) into Wix Media;
+ * returns { id, url } (permanent). Two steps per the Upload API: generate-upload-url, then
+ * PUT the bytes to it — the PUT response carries the file descriptor.
+ * docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-upload-url.md
+ */
+export async function uploadImage(ctx, path, displayName) {
+  const ext = extname(path).toLowerCase();
+  const mimeType = MIME[ext];
+  if (!mimeType) throw new Error(`unsupported image extension: ${path}`);
+  const bytes = readFileSync(path); // throws loud on a wrong path (caught per-item by resolveItemImages)
+  // fileName's extension MUST match the real file type — a mismatch (slug.png for a .jpg) is
+  // rejected; keep the caller's display name, swap in the file's own extension.
+  const fileName = (displayName ?? basename(path)).replace(/\.[a-z0-9]+$/i, "") + ext;
+  const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", {
+    mimeType,
+    fileName,
+  });
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": mimeType },
+    body: bytes,
+    signal: AbortSignal.timeout(120_000),
+  });
+  const json = await res.json().catch(() => ({}));
+  const f = json.file || json;
+  if (!res.ok || !f?.id) throw new Error(`upload failed (${res.status}): ${JSON.stringify(json).slice(0, 200)}`);
+  return { id: f.id, url: f.url };
+}
+
 /** Import an external/generated URL into Wix Media; returns { id, url } (permanent). */
+// docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
 export async function importImage(ctx, url, displayName = "image.png") {
   const r = await req(ctx, "/site-media/v1/files/import", { url, mimeType: "image/png", displayName });
   const f = r.file || r;
@@ -80,16 +116,23 @@ export async function importImage(ctx, url, displayName = "image.png") {
 
 /**
  * THE seed entry point. Resolves a batch of image specs to Wix Media files in ONE parallel
- * wave. Each spec: { url } (verified external URL — imported as-is) OR { prompt } (generated,
- * 1 credit) — plus optional displayName, width, height. Returns an array aligned with the
- * input: { id, url } per success, null per failure or empty spec. Never throws.
+ * wave. Each spec: { path } (LOCAL file — the user's own asset, uploaded) OR { url }
+ * (verified external URL — imported) OR { prompt } (generated, ~1 credit) — plus optional
+ * displayName, width, height. Returns an array aligned with the input: { id, url } per
+ * success, null per failure or empty spec. Never throws.
  */
 export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000 } = {}) {
-  const deadline = new Promise((r) => setTimeout(() => r(null), perImageBudgetMs));
+  // unref: the budget timer must never keep the seed process alive after the work is done —
+  // a lingering timer delays the seed's exit (and the run's .seed-exit marker) by the budget.
+  const deadline = new Promise((r) => {
+    const t = setTimeout(() => r(null), perImageBudgetMs);
+    t.unref?.();
+  });
   const results = await Promise.allSettled(
     (specs ?? []).map(async (s) => {
-      if (!s || (!s.url && !s.prompt)) return null;
+      if (!s || (!s.path && !s.url && !s.prompt)) return null;
       const resolve = (async () => {
+        if (s.path) return uploadImage(ctx, s.path, s.displayName);
         const source = s.url ?? (await generateImage(ctx, s.prompt, { width: s.width, height: s.height }));
         return importImage(ctx, source, s.displayName ?? "image.png");
       })();

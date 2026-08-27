@@ -1,6 +1,8 @@
 // Event reads (Wix Events V3, the `wixEventsV2` module) — the only file that touches raw
 // event entities. Everything it returns is a plain DTO from ./types. Copy as-is; extend by
 // adding functions, not by editing these.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event-by-slug.md
 import { wixEventsV2 } from "@wix/events";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

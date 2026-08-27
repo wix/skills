@@ -3,6 +3,7 @@
 // install, but getCurrentMember returns profile DATA only once the Wix Members Area app is
 // installed (the seed installs it). Copy as-is; extend by adding functions, not by editing
 // these.
+// docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/members/get-my-member.md
 import { members } from "@wix/members";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

@@ -15,8 +15,8 @@
 //       "items": [{ "<fieldKey>": value, ... }] }] }
 // Reference fields: order collections so targets come FIRST. A REFERENCE value is the
 // target item's index in ITS collection's items array; MULTI_REFERENCE is an array of
-// indices. An IMAGE value is a verified https url STRING or { "prompt": "..." }
-// (AI-generated).
+// indices. An IMAGE value is a verified https url STRING, { "prompt": "..." }
+// (AI-generated), or { "path": "..." } (a local file the user supplied, uploaded).
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
@@ -80,6 +80,7 @@ async function reqRetryOnce(ctx, path, opts) {
 // ---- operations ----------------------------------------------------------------------------------
 
 // Idempotent; strictly only needed when a data call errors WDE0110 (app not installed).
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installDataApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -117,6 +118,7 @@ function buildField(f, collectionId) {
 const displayNameOf = (id) => String(id).replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 // The permissions block is MANDATORY. 409 WDE0104 (already exists) is fine — additive.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-collections/create-data-collection.md
 export async function createCollection(ctx, { id, displayName, fields = [], permissions }) {
   try {
     await reqRetryOnce(ctx, "/wix-data/v2/collections", { body: { collection: {
@@ -139,6 +141,7 @@ export async function createCollection(ctx, { id, displayName, fields = [], perm
 export { importImage } from "../../shared/seed/images.mjs";
 
 // Ids come from results[].dataItem.id (there is no results[].item key).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-items.md
 export async function bulkInsertItems(ctx, dataCollectionId, dataItems) {
   const r = await reqRetryOnce(ctx, "/wix-data/v2/bulk/items/insert", { body: {
     dataCollectionId,
@@ -156,6 +159,7 @@ export async function bulkInsertItems(ctx, dataCollectionId, dataItems) {
 
 // Body key is dataItemReferences with referringItemFieldName/referringItemId/referencedItemId
 // — the natural-looking `references` shape is rejected with 400 WDE0080.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
 export async function insertReferences(ctx, dataCollectionId, dataItemReferences) {
   if (!dataItemReferences.length) return 0;
   const r = await req(ctx, "/wix-data/v2/bulk/items/insert-references", {
@@ -165,6 +169,7 @@ export async function insertReferences(ctx, dataCollectionId, dataItemReferences
 }
 
 // A 200 on insert does NOT prove persistence — query back and count.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-data-items.md
 export async function verifyItems(ctx, dataCollectionId) {
   const r = await reqRetryOnce(ctx, "/wix-data/v2/items/query", { body: { dataCollectionId } });
   return (r.dataItems ?? []).length;
@@ -232,6 +237,7 @@ async function resolveAllImages(ctx, collections) {
         keys.push(imageKey(col.id, i, key));
         specs.push({
           url: typeof value === "string" ? value : undefined,
+          path: typeof value === "object" ? value.path : undefined,
           prompt: typeof value === "object" ? value.prompt : undefined,
           displayName: `${col.id}-${i}-${key}.png`,
         });

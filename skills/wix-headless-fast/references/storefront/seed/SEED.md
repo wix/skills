@@ -39,9 +39,9 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 - **Give every product an image** (a store without product images looks broken: gray boxes on
   tiles, PDP, and cart) — the default is an `imagePrompt` (AI-generated, ~1 Wix AI credit
   per image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
-  always ending "no text, no watermarks". Use `imageUrl` ONLY for an asset the user actually
-  supplied (their own photo/URL; verify it with `curl -sI` → 200) — never a stock-photo or
-  guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
+  always ending "no text, no watermarks". For an asset the user actually supplied use `imagePath` (a file on
+  this machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with
+  `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
   that product text-only. Seed text-only only when the user explicitly asks.
 - `categories` — category name → product NAMES. Omit when the brief names none.
 

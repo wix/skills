@@ -1,6 +1,8 @@
 // Post reads (Wix Blog V3) — the only file that touches raw post entities. Everything it
 // returns is a plain DTO from ./types. Copy as-is; extend by adding functions, not by editing
 // these. Blog posts are NOT CMS collections — always @wix/blog, never @wix/data.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post-by-slug.md
 import { posts as postsModule } from "@wix/blog";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

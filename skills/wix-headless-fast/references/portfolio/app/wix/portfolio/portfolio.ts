@@ -1,6 +1,10 @@
 // Portfolio reads (Wix Portfolio v1) — the only file that touches raw portfolio entities.
 // Read-only vertical: no cart, no checkout, no @wix/ecom. Everything it returns is a plain
 // DTO from ./types. Copy as-is; extend by adding functions, not by editing these.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/list-collections.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/list-projects.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/list-project-items.md
+// docs: https://dev.wix.com/docs/sdk/core-modules/sdk/media.md
 import {
   collections as collectionsModule,
   projects as projectsModule,

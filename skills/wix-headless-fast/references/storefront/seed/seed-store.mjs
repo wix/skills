@@ -79,6 +79,7 @@ function isProvisioning(status, json) {
   return status === 428 && /provision/i.test(json?.message || "");
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
 async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
@@ -182,6 +183,7 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }) {
 
 // ---- operations ---------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installStoresApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -212,6 +214,7 @@ export async function queryProductsByNames(ctx, names) {
   return out;
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
 export async function bulkCreateProducts(ctx, products) {
   const body = {
     returnEntity: true,
@@ -240,6 +243,8 @@ export async function bulkCreateProducts(ctx, products) {
 
 // The bulk create stocks a variant via its choices; an OPTION-LESS product's single default
 // variant is NOT stocked by it and lands OUT_OF_STOCK — stock those explicitly.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items.md
 async function stockOptionlessProducts(ctx, created) {
   const need = created.filter((p) => !p.hasOptions && p.id);
   if (!need.length) return;
@@ -258,6 +263,7 @@ async function stockOptionlessProducts(ctx, created) {
 }
 
 // Categories share the @wix/stores tree revision — concurrent creates 409, so: sequential.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
 export async function createCategories(ctx, names) {
   const out = [];
   for (const name of names) {
@@ -269,6 +275,7 @@ export async function createCategories(ctx, names) {
   return out;
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md
 export async function addProductsToCategories(ctx, mapping) {
   for (const [categoryId, productIds] of Object.entries(mapping)) {
     await req(ctx, `/categories/v1/bulk/categories/${categoryId}/add-items`, {
@@ -284,6 +291,7 @@ export async function addProductsToCategories(ctx, mapping) {
 // current revision is read right before the update, so attach any number of times, any pass.
 // Wix re-hosts each url server-side; the media can take a little while to appear on read-back
 // (propagation) — normal, not a failure.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products.md
 export async function attachProductImages(ctx, items) {
   if (!items?.length) return;
   const ids = items.map((it) => it.id);
@@ -333,6 +341,7 @@ export async function setupStore(ctx, { products = [], categories = {} } = {}) {
   // bulk-attach. Failures leave the product text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, withNames.map((p, i) => ({
     url: products[i]?.imageUrl,
+    path: products[i]?.imagePath,
     prompt: products[i]?.imagePrompt,
     displayName: `${p.slug || "product"}.png`,
   })));

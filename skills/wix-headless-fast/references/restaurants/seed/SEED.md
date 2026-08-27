@@ -14,9 +14,9 @@ node <SKILL_ROOT>/references/restaurants/seed/seed-restaurants.mjs plan.json
 of 2–3 items each** (the seed shows the shape; the owner adds the rest in the dashboard),
 every item with an image (a menu without photos looks broken) — the default is an
 `imagePrompt` (AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual —
-subject, aesthetic/mood, palette, lighting — always ending "no text, no watermarks". Use
-`imageUrl` ONLY for an asset the user actually supplied (their own photo/URL; verify it with
-`curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never
+subject, aesthetic/mood, palette, lighting — always ending "no text, no watermarks". For an asset the user actually
+supplied use `imagePath` (a file on this machine — uploaded to Wix Media) or `imageUrl`
+(their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never
 block the seed, a failed image leaves that item text-only — and both add-ons on for a
 restaurant that takes orders and reservations:
 
