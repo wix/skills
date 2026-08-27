@@ -128,7 +128,7 @@ Pass every name you need in **one** call; docs come back separated by `---`:
 node $PATTERNS docs Table useTableCollection TableState
 ```
 
-Each name comes back as its import line and props table, plus a usage example when you ask for one or two names — batching more drops the examples so the later components' props still fit. The first line of the output tells you how many lines the whole answer is, so **read it rather than piping it through `head`**: the props table is the payload, and trimming is how you end up guessing at prop names. If one component needs more than the table, ask for that one with `--full`.
+Each name returns its import line and props table; ask for one or two names and you also get a usage example (batching more drops examples so the later props still fit). The first output line gives the total length, so **read it rather than piping through `head`** — trimming costs you the props, and then you are guessing at prop names. Need more than the table? `--full`, one component at a time.
 
 ### Types the docs don't cover
 
