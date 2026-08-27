@@ -14,8 +14,11 @@
 import { randomUUID } from "node:crypto";
 
 const API = "https://www.wixapis.com";
-// Fallbacks for repeated model failures; google:4@2 rejects steps/CFGScale and free-form sizes.
-const MODELS = ["google:4@2", "bfl:5@1", "runware:400@1"];
+// Order = cheap-and-permissive first (runware ~0.009 credits/img, ~5s, loosest content
+// filter), then google (best fidelity, ~0.14, ~25s; rejects steps/CFGScale and free-form
+// sizes), then bfl (strictest filter — refuses trademark-ish prompts). A refusal or failure
+// falls through to the next model.
+const MODELS = ["runware:400@1", "google:4@2", "bfl:5@1"];
 /** Allowed dimensions: 1024×1024 (square — entities), 1376×768 (16:9 hero), 1200×896 (4:3). */
 export const IMAGE_SIZES = { square: [1024, 1024], hero: [1376, 768], editorial: [1200, 896] };
 
