@@ -16,6 +16,8 @@ const updateTestScenario = vi.fn().mockResolvedValue(undefined);
 const deleteTestScenario = vi.fn().mockResolvedValue(undefined);
 const createOrReuseSkillVersion = vi.fn();
 const createAndRunEvalRun = vi.fn();
+const listCapabilityVersions = vi.fn().mockResolvedValue([]);
+const deleteCapabilityVersion = vi.fn().mockResolvedValue(undefined);
 
 // pulls.get is real: with a bare `{}` the call threw a TypeError that isDraftTagActive's catch
 // swallowed into `true`, so the FOREIGN_DRAFT tests below passed via the error path rather than
@@ -47,6 +49,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
     EvalForgeClient: vi.fn().mockImplementation(() => ({
       listTestScenarios, listTestScenariosByTag, createTestScenario, updateTestScenario,
       deleteTestScenario, createOrReuseSkillVersion, createAndRunEvalRun,
+      listCapabilityVersions, deleteCapabilityVersion,
     })),
   };
 });
@@ -116,6 +119,8 @@ beforeEach(async () => {
   listTestScenarios.mockResolvedValue([]);
   listTestScenariosByTag.mockResolvedValue([]);
   createTestScenario.mockResolvedValue({ id: 'created-id' });
+  listCapabilityVersions.mockResolvedValue([]);
+  deleteCapabilityVersion.mockResolvedValue(undefined);
 });
 
 async function harness(configOverrides: Partial<GateConfig> = {}) {
@@ -272,6 +277,19 @@ describe('runGate — the happy path', () => {
     expect(createOrReuseSkillVersion).toHaveBeenCalledWith(
       'cap', 'proj', 'pr-42-merge99', 42, [{ path: 'SKILL.md', content: '# skill' }],
     );
+  });
+
+  it('prunes the PR\'s superseded versions, keeping the current commit\'s', async () => {
+    const { runGate } = await harness();
+    listCapabilityVersions.mockResolvedValue([
+      { id: 'ver-1', capabilityId: 'cap', version: 'pr-42-merge99' },
+      { id: 'ver-0', capabilityId: 'cap', version: 'pr-42-oldsha1' },
+    ]);
+
+    await runGate();
+
+    expect(deleteCapabilityVersion).toHaveBeenCalledWith('cap', 'proj', 'ver-0');
+    expect(deleteCapabilityVersion).not.toHaveBeenCalledWith('cap', 'proj', 'ver-1');
   });
 
   it('collects from the configured skill dir', async () => {
