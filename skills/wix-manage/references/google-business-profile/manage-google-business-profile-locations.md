@@ -19,8 +19,10 @@ user to type one.
 > `CONNECTION_NOT_FOUND`/not-found response from that connection check as the
 > same setup state. Query Wix-only GBP locations once to answer what the site
 > already has, report the result, explain the connect → account selection →
-> unimported-location selection → bulk-create flow, and stop. Do not call a
-> Google-backed location method or make further API probes or documentation
+> unimported-location selection → bulk-create flow, and stop — after that one
+> query the **next action is the final response**, with no other tool call. Do
+> not call a Google-backed location method, probe for Business Profile
+> accounts, guess an endpoint, or make further API probes or documentation
 > searches until the connection is `VALID`. A `403` or `PERMISSION_DENIED` is
 > terminal: the **next action is the final response** explaining it. Stop
 > without the Wix-only query, documentation search, or any other tool call.
@@ -51,11 +53,13 @@ Make **Get Connection** first, then branch before making any other call:
   another endpoint.
 - `NEVER_CONNECTED`, `NEEDS_RECONNECT`, or `CONNECTION_NOT_FOUND` — make one
   **Query GBP Locations** call, report the Wix-stored result, explain the future
-  import steps, and stop.
+  import steps, and stop. The next action is the final response.
 - `VALID` — proceed with the requested Google-backed flow.
 
-Do not call List GBP Accounts or another Google-backed method until the
-connection is `VALID`.
+Do not call **List GBP Accounts** or another Google-backed method until the
+connection is `VALID` — account discovery requires the connection, and its
+request shape is not the locations query. Never guess an endpoint that is not
+in the table above or in the loaded reference.
 
 ## Check the connection first
 
