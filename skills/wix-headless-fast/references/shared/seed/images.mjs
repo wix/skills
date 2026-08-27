@@ -22,7 +22,7 @@ const MODELS = ["runware:400@1", "google:4@2", "bfl:5@1"];
 /** Allowed dimensions: 1024×1024 (square — entities), 1376×768 (16:9 hero), 1200×896 (4:3). */
 export const IMAGE_SIZES = { square: [1024, 1024], hero: [1376, 768], editorial: [1200, 896] };
 
-async function req(ctx, path, body, timeoutMs = 90_000) {
+async function req(ctx, path, body, timeoutMs = 45_000) {
   const res = await fetch(API + path, {
     method: "POST",
     headers: {
@@ -84,12 +84,18 @@ export async function importImage(ctx, url, displayName = "image.png") {
  * 1 credit) — plus optional displayName, width, height. Returns an array aligned with the
  * input: { id, url } per success, null per failure or empty spec. Never throws.
  */
-export async function resolveItemImages(ctx, specs) {
+export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000 } = {}) {
+  const deadline = new Promise((r) => setTimeout(() => r(null), perImageBudgetMs));
   const results = await Promise.allSettled(
     (specs ?? []).map(async (s) => {
       if (!s || (!s.url && !s.prompt)) return null;
-      const source = s.url ?? (await generateImage(ctx, s.prompt, { width: s.width, height: s.height }));
-      return importImage(ctx, source, s.displayName ?? "image.png");
+      const resolve = (async () => {
+        const source = s.url ?? (await generateImage(ctx, s.prompt, { width: s.width, height: s.height }));
+        return importImage(ctx, source, s.displayName ?? "image.png");
+      })();
+      // Hard per-image budget: even a pathological multi-model hang costs the seed at most
+      // perImageBudgetMs of wall clock (the wave is parallel, so it's paid once, not per item).
+      return Promise.race([resolve, deadline]);
     }),
   );
   return results.map((r) => (r.status === "fulfilled" ? r.value : null));
