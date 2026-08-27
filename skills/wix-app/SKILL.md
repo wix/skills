@@ -244,13 +244,6 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 
 If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
-| User asks for | ❌ Wrong | ✅ Correct |
-| --- | --- | --- |
-| "Dashboard around site refunds" | New `refunds` collection | `@wix/ecom` order transactions / `@wix/payments` refunds |
-| "Manage my products" | New `products` collection | `@wix/stores` (with the V1/V3 versioning check) |
-| "Show upcoming bookings" | New `bookings` collection | `@wix/bookings` |
-| "Store shipping-fee rules my app applies at checkout" | — | Data Collection ✅ (app-owned config) |
-
 ---
 
 ## Data Collection Inference
