@@ -76,7 +76,7 @@ export function formatDocsEntryProblems(problems: DocsEntryProblem[]): string {
       case 'node-not-found':
         return `- ${ref} — this page does not exist in the docs menu. If you just created the category, wait a minute and re-run this check.`;
       case 'not-a-category':
-        return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` Use the category that groups it: \`${p.suggestion}\`` : ''}`;
+        return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` You could use the category that groups it (\`${p.suggestion}\`), or pick/create a different one.` : ' Point it at an existing category, or create one in the docs menu.'}`;
     }
   });
   return render('❌', 'Invalid docsEntry', [

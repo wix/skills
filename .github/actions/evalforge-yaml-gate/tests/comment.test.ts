@@ -92,16 +92,18 @@ describe('comment formatters', () => {
     expect(out).toContain('does not exist in the docs menu');
     expect(out).toContain('an API page, not a category');
     expect(out).toContain('https://dev.wix.com/docs/api-reference/parent');
+    expect(out).toContain('or pick/create a different one');
     expect(out).toContain('yaml/wix-manage/seo/documentation.yaml');
     expect(out).toContain(c.COMMENT_MARKER);
   });
 
-  it('formatDocsEntryProblems calls a SECTION target a section and omits a missing suggestion', () => {
+  it('formatDocsEntryProblems calls a SECTION target a section and falls back when there is no suggestion', () => {
     const out = c.formatDocsEntryProblems([
       { file: 'f.md', yamlPath: 'y.yaml', title: 'A', docsEntry: 'https://dev.wix.com/docs/api-reference/tools', kind: 'not-a-category', nodeType: 'SECTION' },
     ]);
     expect(out).toContain('a section, not a category');
-    expect(out).not.toContain('Use the category that groups it');
+    expect(out).not.toContain('the category that groups it');
+    expect(out).toContain('Point it at an existing category, or create one in the docs menu.');
   });
 
   it('formatEvalPassed includes pass rate + run link', () => {
