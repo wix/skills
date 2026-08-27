@@ -196,10 +196,29 @@ async function spec(code) {
 // category name → its recipes; any other term → search every recipe's name + gist.
 // Read the chosen url with page(url), then grep/window/fields.
 async function mgmtRecipes(q) {
-  const { base, files } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
+  // the recipes ARE the wix-manage skill's references — when that skill is installed, both the
+  // listing and the files come straight off disk; the manifest fetch is only the not-installed path
+  const ROOT = ".agents/skills/wix-manage/references";
+  let files;
+  if (fs.existsSync(ROOT)) {
+    files = [];
+    const walk = rel => {
+      for (const e of fs.readdirSync(ROOT + rel, { withFileTypes: true })) {
+        if (e.isDirectory()) { walk(rel + "/" + e.name); continue; }
+        const file = ROOT + rel + "/" + e.name, head = fs.readFileSync(file, "utf8").slice(0, 1000);
+        files.push({ path: "references" + rel + "/" + e.name, file, size: fs.statSync(file).size,
+                     name: (head.match(/^name:\s*"?(.+?)"?\s*$/m) || [])[1] || e.name,
+                     description: (head.match(/^description:\s*"?(.+?)"?\s*$/m) || [])[1] || "" });
+      }
+    };
+    walk("");
+  } else {
+    const { base, files: manifest } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
+    files = manifest.map(f => ({ ...f, url: base + f.path }));
+  }
   const cat = f => (f.path.match(/^references\/([^/]+)\//) || [])[1];
   const row = f => ({ name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
-                      url: base + f.path, kb: Math.round(f.size / 1024) });
+                      ...(f.file ? { file: f.file } : { url: f.url }), kb: Math.round(f.size / 1024) });
   if (!q) {
     const cats = {};
     for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }

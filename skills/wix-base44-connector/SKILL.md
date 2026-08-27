@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on Wix from the Base44 builder sandbox — this file is the complete guide (site context, doc discovery, API contracts, who calls Wix from where), and scripts/utils.js is its helper module, loaded from disk per exec. Triggers: build a Base44 app on a connected Wix site, look up a Wix API from the sandbox, decide frontend vs backend for a Wix call."
+description: "Build on Wix from Base44: gather the connected site's context (installed apps and their ids, OAuth clientId, locale, currency, CMS collections), find any Wix API and learn its exact contract (docs search and browse, method pages, the spec index's request/response schemas), follow curated management recipes for multi-step admin flows, and route each call to the right identity — the public visitor token in pages, the secret admin token server-side."
 ---
 
 # Building on Wix from Base44
@@ -18,22 +18,24 @@ the connector's, server-side only.
 
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
-base44/functions/* ──(admin token)───► wixapis.com   work that needs the owner's identity
+base44/functions/… ──(admin token)───► wixapis.com   work that needs the owner's identity
 exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
 ```
 
-**A site for visitors** — storefront, blog, booking. Headless means the Wix site has no pages of
-its own: your app IS its frontend. **The complete visitor experience —
+**A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the verticals.
+Your app is the site's frontend — whether the site is headless (no pages of its own) or your
+frontend extends an existing site. **The complete visitor experience —
 every page, every read, every action a visitor takes — is browser calls on the visitor token;
 none of it needs a backend function.** Public reads
-included (the visitor token queries the catalog directly), and `carts/current/*` + checkout act
-on the CALLER's cart, so only the visitor token reaches the visitor's cart. One file carries it
-all: `src/lib/wixClient.js` (Write the code, below). `base44/functions/*` appear only where work
+included (the visitor token queries public content directly), and per-visitor state is scoped to
+the CALLER — an API that acts on "the current visitor's" data resolves the visitor from the
+token, so only the visitor token reaches that visitor's own state. One shared visitor client
+carries it all (Write the code, below). `base44/functions/…` appear only where work
 needs the owner's identity — elevated-permission ops a visitor triggers, webhooks, scheduled
 jobs — and for the app's non-Wix backend.
 
-**An admin tool for the owner** — dashboard, back office. The pages act as the owner, whose token
-is a secret: `pages → base44/functions/* ──(admin token)──► wixapis.com`.
+**An admin tool for the owner** — dashboard, back office. Admin pages and agent act as the
+owner, using the secret admin token: `pages → base44/functions/… ──(admin token)──► wixapis.com`.
 
 ## The helpers
 
@@ -49,15 +51,24 @@ const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
-Results ≤ 4,000 chars come back inline (exec results clip at ~5,000); anything bigger is saved
-under `.agents/skills/wix-base44-connector/tmp/` and returns `{ path, bytes, lines, outline }` —
-the outline is the map. Read a saved file the way you already know how:
-`wx.bash("grep -n 'term' <path> | head -40")` to find (GNU grep/sed, awk is mawk, no rg;
-across everything saved: `grep -rn 'term' .agents/skills/wix-base44-connector/tmp/`), and
-`read_file` to quote — a window via `offset`/`limit` at the lines grep named, or the whole
-file when it fits read_file's 45K cap. **API responses are site data and never land in
-never saved** — project them to facts. Fetch every URL inside exec with `fetch()` — website/browser
-tools clip at 10,000 chars silently. One exec per round; timeout 10s, up to 120 via `{timeout}`.
+`wx` exports nine helpers:
+
+- `wx.post(url, body, token?)` — the one JSON transport: Bearer from `token`, non-2xx **throws** the API's own error
+- `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
+- `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
+- `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint + docsUrl + gist
+- `wx.page(docsUrl)` — read a doc page
+- `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
+- `wx.spec(code)` — run `code` against the spec index for a method's exact schema
+- `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
+
+Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
+A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
+`{ path, bytes, lines, outline }` — the outline is your map into the file. Work a saved file in
+two moves: find with `wx.bash("grep -n 'term' <path> | head -40")` (or across every save:
+`grep -rn 'term' .agents/skills/wix-base44-connector/tmp/`), then quote with `read_file` — an
+`offset`/`limit` window at the lines grep named, or the whole file when it fits the 45K cap.
 
 ## Gather context — the dynamic context report
 
@@ -143,8 +154,8 @@ then get-paid, marketing, pricing-plans, events, blog, forms, restaurants, domai
 ```js
 await wx.mgmtRecipes();           // categories with counts
 await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.mgmtRecipes("coupon")
-await wx.page(url);           // read the chosen recipe — whole when small, saved + outline when
-                              // big; then grep / read_file windows by the outline's line numbers
+// each row points at its recipe: `file` when the wix-manage skill is installed — read_file it
+// straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
 ```
 
 A matching recipe beats composing the flow from single endpoints: it carries ordering and
@@ -162,11 +173,11 @@ const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix
 const data = await wx.post("https://www.wixapis.com/contacts/v5/contacts/query",   // spec-index publicUrl
   { query: { cursorPaging: { limit: 10 } } }, accessToken);
 // let it throw — the thrown message is your result; .catch hides the answer
-return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts?.[0] });
-//  ↑ one real row, whole — the shapes you code against live here, not in key names
+return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts[0] });
+// `first` is one complete record — read the real field shapes off it; don't code from remembered key names
 ```
 
-The same call deploys as `base44/functions/*` (work the app does as the owner) — shipped code
+The same call deploys as `base44/functions/…` (work the app does as the owner) — shipped code
 carries its own four-line fetch; the helpers are a build tool, not a runtime dependency.
 
 ### A visitor client — src/lib/wixClient.js
@@ -199,4 +210,12 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 // 200 ⇒ every visitor-facing page in the app is this same call, no server between
 // a lean default response isn't the whole shape — contracts often define a fields param
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
+```
+
+No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time) —
+the returned `id` IS the `clientId`:
+
+```js
+const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
+  { oAuthApp: { name: "My App" } }, accessToken);   // oAuthApp.id is the visitor clientId
 ```

@@ -1,14 +1,22 @@
-# Animated Components (Play/Pause Control)
+# Animated Components
 
-Rules and patterns for components whose primary content is a **playable
-animation** — a Lottie/JSON animation, an animated GIF/SVG, a canvas/WebGL
-loop, or a video-like surface.
+Use this reference when the component's primary content is a **playable
+animation**—a Lottie/JSON animation, an animated GIF/SVG, a canvas/WebGL loop,
+or a video-like surface.
 
-Every such component MUST ship an on-stage **play/pause button**.
+Every such component must ship an on-stage **play/pause button**.
 
----
+## Contents
 
-## When this applies
+- [Apply When](#apply-when)
+- [Required Contract](#required-contract)
+- [Define Props](#1-define-props)
+- [Manage Playback State](#2-manage-playback-state)
+- [Add the Play/Pause Button](#3-add-the-playpause-button)
+- [Suppress Autoplay in `component.preview.tsx`](#4-suppress-autoplay-in-componentpreviewtsx)
+- [Checklist](#checklist)
+
+## Apply When
 
 Apply automatically — without being asked — whenever the component has an
 `autoPlay` prop **or** its primary content is a **startable / loopable**
@@ -22,25 +30,28 @@ animation a visitor would reasonably want to start or stop:
 
 **Key rule:** If the component accepts an `autoPlay` prop — even if the
 underlying mechanism is a `setInterval` advancing an index rather than a media
-player — it MUST expose a play/pause button so visitors can stop the
+player, it must expose a play/pause button so visitors can stop the
 auto-advancing behavior. "Autoplay" is a behavior contract, not an
 implementation detail.
 
----
+## Required Contract
 
-## What to add (checklist)
-
-1. **Props** — `autoPlay`, `loop`, `pauseButtonVisibility`
+1. **Props** — for a new component, use `autoPlay` when it can start
+   automatically, `loop` only when repeat behavior is supported, and
+   `pauseButtonVisibility` for the on-stage control. When editing, preserve
+   existing playback prop names and add only the missing safety contract.
 2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
-3. **Play/pause button** — overlay `<button>` with inline SVG icon + CSS positioning and optional hover-only visibility; **must be a named part** (`classNames('component-name-play-button', styles.playButton)`) with a hover design state and a standalone `:focus-visible` keyboard indicator
+3. **Play/pause button** — overlay `<button>` with inline SVG icon and CSS
+   positioning; it must be a named part with `elementProps` wiring, a hover
+   design state, and a standalone `:focus-visible` keyboard indicator
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
 5. **Respect `prefers-reduced-motion`** — suppress autoplay when the OS requests reduced motion
 
----
+## 1. Define Props
 
-## 1. Props
-
-Playback controls are **behavior** props (see [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md)):
+Playback controls are behavior props. `pauseButtonVisibility` is the documented
+exception to the usual visual-visibility rule because editor preview must be
+able to force the safety control visible.
 
 ```typescript
 import type { A11y, Direction } from '@wix/editor-react-types';
@@ -59,12 +70,17 @@ export interface MyAnimationProps {
 
   /** Show play/pause button. Default `'showOnHover'`. */
   pauseButtonVisibility?: 'showAlways' | 'showOnHover';
+
+  elementProps?: {
+    playButton?: { className?: string };
+  };
 }
 ```
 
----
+The example shows a looping animation. Omit `loop` when the component does not
+support repeat behavior; do not add it only to match the example.
 
-## 2. Playback state
+## 2. Manage Playback State
 
 Track play/pause state with `useState`. Initialize it from `autoPlay` and the OS reduced-motion preference — when the visitor has requested reduced motion, the animation starts paused:
 
@@ -97,9 +113,7 @@ const handleResume = () => setIsPlaying(true);
 
 Pass `isPlaying` to the animation renderer and toggle between `handlePause` / `handleResume` on button click.
 
----
-
-## 3. Play/pause button
+## 3. Add the Play/Pause Button
 
 Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size, stroke, and fill should feel native to the component's design.
 
@@ -126,31 +140,54 @@ Position the button absolutely so it overlays the content without pushing other 
   /* e.g. background: rgba(255, 255, 255, 1); */
 }
 
-/* Keyboard indicator only — deliberately unpaired: focus is not an editor
-   design state on a non-input control. Do not add a --focus modifier here. */
+/* Keyboard indicator only: focus is not an editor design state on a non-input
+   control unless editable focus styling was explicitly requested. */
 .playButton:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 ```
 
+Define stable system-owned labels outside JSX:
+
+```ts
+// constants.ts
+export const ARIA_LABELS = {
+  playButton: 'Play animation',
+  pauseButton: 'Pause animation',
+} as const;
+```
+
+Set the visibility data attribute on the existing elected root, preserving its
+full root contract:
+
 ```tsx
-{/* ✅ Named part: play/pause is always a named part — site owners can style it independently */}
+data-pause-button-visibility={pauseButtonVisibility ?? 'showOnHover'}
+```
+
+Wire the named part completely:
+
+```tsx
 <button
   type="button"
-  className={classNames('my-animation-play-button', styles.playButton)}
+  {...elementProps?.playButton}
+  className={classNames(
+    'my-animation-play-button',
+    styles.playButton,
+    elementProps?.playButton?.className,
+  )}
   onClick={isPlaying ? handlePause : handleResume}
-  aria-label={isPlaying ? 'Pause' : 'Play'}
+  aria-label={
+    isPlaying ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton
+  }
 >
   {isPlaying ? <PauseIcon /> : <PlayIcon />}
 </button>
 ```
 
 ```css
-/* pauseButtonVisibility visibility behavior — descendant CSS is allowed here
-   because these rules control the button's *visibility*, not its styling surface.
-   The button itself is a named part (classNames('...-play-button', styles.playButton))
-   and must carry both a global class and design-state selectors (see above). */
+/* Narrow behavior-only exception documented in CSS-GUIDELINES.md. Keep editable
+   appearance on .playButton and use this relationship only for visibility. */
 
 /* showOnHover (default) */
 .root[data-pause-button-visibility="showOnHover"] .playButton {
@@ -166,37 +203,44 @@ Position the button absolutely so it overlays the content without pushing other 
 /* showAlways — no extra CSS needed; button is visible by default */
 ```
 
----
+## 4. Suppress Autoplay in `component.preview.tsx`
 
-## 4. Modify `component.preview.tsx` for autoplay suppression
+The Wix CLI scaffold generates `component.preview.tsx`. For animated components,
+modify its passthrough preview component without replacing the generated
+defaults or fallback-placeholder wiring.
 
-For animated components, modify the generated `component.preview.tsx` to suppress autoplay in editor design mode. See [`COMPONENT-PREVIEW.md`](COMPONENT-PREVIEW.md) for how the preview file works.
+### Adapt the generated `component.preview.tsx`
 
-### Target state of `component.preview.tsx`
-
-Replace the generated passthrough with the following. Replace `MyComponent` with the real component name.
+Add `useIsEditMode` to the existing `@wix/react-component-utils` import. In the
+generated preview component, replace only the passthrough return with the gated
+props below. Keep the generated `withFallbackPlaceholder`, required-data fields,
+root class, and `withDefaults` export unchanged.
 
 ```tsx
-import React from 'react';
-import MyComponent from './component';
-import { useIsEditMode } from '@wix/react-component-utils';
-
-export default function MyComponentPreview(
-  props: React.ComponentProps<typeof MyComponent>,
-) {
+const MyAnimationPreview: FC<ComponentProps<typeof Component>> = (props) => {
   const isEditMode = useIsEditMode();
 
   return (
-    <MyComponent
+    <Component
       {...props}
       autoPlay={isEditMode ? false : props.autoPlay}
       pauseButtonVisibility={isEditMode ? 'showAlways' : props.pauseButtonVisibility}
     />
   );
-}
+};
 ```
 
-In editor design mode (`isEditMode` is `true`) → `autoPlay` is forced to `false` and `pauseButtonVisibility` is forced to `'showAlways'` so the site owner can always see and interact with the button.  
+In editor design mode (`isEditMode` is `true`) → `autoPlay` is forced to `false` and `pauseButtonVisibility` is forced to `'showAlways'` so the site owner can always see and interact with the button.
 In preview mode (`isEditMode` is `false`) → both use the user's configured values.
 
----
+## Checklist
+
+- [ ] Autoplaying or loopable primary content has an on-stage play/pause control.
+- [ ] Autoplay and pause-control props use the documented contract; `loop` is
+      present only when repeat behavior is supported.
+- [ ] Reduced motion starts paused and never restarts playback automatically.
+- [ ] The play/pause button is a fully wired named part with a stable accessible name.
+- [ ] Hover has a paired editor design state; `:focus-visible` remains a
+      standalone keyboard indicator.
+- [ ] Hover-only visibility changes behavior, not the button's editable styling surface.
+- [ ] The preview preserves generated wrappers and forces autoplay off in design mode.

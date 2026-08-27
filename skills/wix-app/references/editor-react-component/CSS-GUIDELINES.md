@@ -1,519 +1,223 @@
-# CSS guidelines
+# CSS Guidelines
 
-These rules govern the CSS authored for each generated site
-component. The rules exist so the rendered component is editable in
-the Wix visual editor, fits any user-resizable container, and can be
-parsed by zeroConfig to produce a correct manifest. Each rule states
-_why_; when an edge case isn't covered literally, follow the intent.
+Use these rules for the scaffolded `<component-name>.module.css` file and any
+colocated CSS Modules owned by internal sub-components. Keep existing visual
+decisions outside the request unchanged. These rules keep the component
+editable by zero config, responsive to its Wix-owned container, and safe in
+both LTR and RTL layouts.
 
-## Naming and class application
+## Contents
 
-### Apply classes via the `classnames` helper; merge `className` on the root
+- [Classes and Named Parts](#classes-and-named-parts)
+- [Selector Rules](#selector-rules)
+- [Root Layout](#root-layout)
+- [Sizing Through the Tree](#sizing-through-the-tree)
+- [Responsiveness and Direction](#responsiveness-and-direction)
+- [Editable Values](#editable-values)
+- [Interaction and Motion](#interaction-and-motion)
+- [Default Visual Quality](#default-visual-quality)
+- [Checklist](#checklist)
 
-All CSS lives in a single CSS module file imported as `import styles from './[ComponentName].module.css';`. There is no separate global CSS import.
+## Classes and Named Parts
 
-There are two kinds of classes, determined by whether the element is a named part:
+Apply classes with `classnames`:
 
-| Element type | className | Why |
-|---|---|---|
-| Named part | `classNames('profile-card-heading', styles.heading)` | Global string → zeroConfig creates an editor element; module class → applies the component's own CSS |
-| Non-part (layout/structural) | `styles.contentWrapper` | Module class only — invisible to zeroConfig, no spurious editor element created |
+| Element | Classes |
+| --- | --- |
+| Elected root | `'<component-name>'`, `styles.root`, incoming `className`, fallback-direction class |
+| Named inner part | `'<component-name>-<part-name>'`, its module class, injected `elementProps` class |
+| Structural/decorative non-part | Module class only |
 
-**Named parts** get both a global plain string and a module class. The global string is what zeroConfig scans: use `'<component-name>'` for the root and **`'<component-name>-<part-name>'` for every inner part** (kebab-case) — always prefix inner parts with the component name. The root here is the element elected per [`PARTS.md`](PARTS.md) Step 0, which is the component's own semantic element (`<button>`, `<a>`, `<ul>`) when the component reduces to one. The module class is what carries the component's structural CSS for that element; it stays short (`styles.heading`) because module classes are hashed and scoped, so they never need the prefix.
-
-**Why prefix inner parts:** the global string is a literal class that ends up on the live page, and its design-state variants are derived from it (`<component-name>-<part>--<state>`, e.g. `profile-card-cta--hover`). Those state classes are applied at runtime as global literals, so they must be unique across every component that can share a page — a bare `cta--hover` would collide between two different components. Prefixing with the component name guarantees uniqueness.
-
-**Non-part elements** (layout wrappers, grouping containers, structural helpers) get only a module class. CSS module classes are mangled and invisible to zeroConfig.
-
-The root also merges the consumer-provided `className` prop via the `classnames` helper.
-
-**Why:** zeroConfig creates one editor element per global class. A global class on a non-part produces a spurious editor element with no meaningful surface. The root's global class is unavoidable, which is why the root must be an element that deserves it.
-
-```tsx
-import classNames from 'classnames';
-import styles from './ProfileCard.module.css';
-
-// ✅ Root: global string + module class + consumer className
-// (a <div> here only because this component lays out several sibling parts)
-<div className={classNames(className, 'profile-card', styles.root)} id={id}>
-
-  {/* ✅ Named part: prefixed global string + short module class */}
-  <h2 className={classNames('profile-card-heading', styles.heading)}>{heading}</h2>
-
-  {/* ✅ Named part: interactive elements always get both classes */}
-  <button type="button" className={classNames('profile-card-cta', styles.cta)}>
-    {ctaLabel}
-  </button>
-
-  {/* ✅ Non-part layout wrapper: module class only */}
-  <div className={styles.contentWrapper}>
-    <span className={classNames('profile-card-label', styles.label)}>{label}</span>
-  </div>
-</div>
-
-// ✅ Internal sub-components — same pattern on part slots
-<CardHeader className={classNames('profile-card-header', styles.header)}>
-  <CardTitle className={classNames('profile-card-title', styles.title)}>{title}</CardTitle>
-</CardHeader>
-```
-
-A component that reduces to one control is the other shape, and it has exactly one
-part — its root ([`PARTS.md`](PARTS.md) Step 0). The text it renders and any decoration
-stay inside that root, on module classes:
+The global class lets zero config create an editor element. Prefix every inner
+part with the component name to prevent collisions between components. The
+module class carries the component's default CSS. Preserve the scaffolded root
+pattern. For a new named part, add only the wiring the scaffold cannot infer:
+spread its `elementProps` entry and merge the injected class.
 
 ```tsx
-// ✅ The <button> is the root: unprefixed global string, no elementProps entry
-<button
-  type="button"
-  id={id}
-  dir={direction}
-  className={classNames('like-button', styles.root, className, styles.fallbackDirection)}
+<h2
+  {...elementProps?.heading}
+  className={classNames(
+    'profile-card-heading',
+    styles.heading,
+    elementProps?.heading?.className,
+  )}
 >
-  {label}
-
-  {/* ✅ Decoration: module class only, out of the a11y tree, not a part */}
-  <span className={styles.burst} aria-hidden="true" />
-</button>
+  {heading}
+</h2>
 ```
 
-### Use single-class selectors
+If a component reduces to one meaningful control, link, media surface, or list,
+that semantic element is the root. Do not wrap it just to host root props.
 
-Every selector is exactly one class, written as a flat top-level
-rule. Compound selectors (`.a.b`), descendant
-selectors (`.a .b`), child combinators (`.a > .b`), sibling
-combinators (`.a + .b`), tag selectors, and CSS nesting (the `&`
-syntax) are not permitted in component CSS.
+## Selector Rules
 
-**Why:** zeroConfig pairs each editor element with the single CSS
-rule keyed on its class. A compound or relational selector means
-either two elements share a rule or one element's appearance depends
-on context — either way the editor cannot decide which rule to
-modify when a user changes a property. CSS nesting compiles to
-descendant selectors and has the same effect.
-
-A state modifier on the element's own class (`.title:hover`,
-`.title:global(.profile-card-title--featured)`) is allowed — see [`DESIGN-STATES.md`](DESIGN-STATES.md).
+Use flat, top-level selectors. Each selector must target one class plus an
+optional state pseudo-class or global state modifier.
 
 ```css
-/* ✅ Do: Single-class selector — unambiguous mapping to an editor control */
-.profile-card {
-}
-.title {
-}
-.content {
+.heading {
+  color: #1e293b;
 }
 
-/* ❌ Compound selector — rule applies only when both classes match the same element */
-.profile-card.featured {
-}
-
-/* ❌ Descendant selector — rule depends on ancestor structure */
-.profile-card .title {
-}
-
-/* ❌ Child combinator — rule depends on direct parent */
-.profile-card > .content {
-}
-
-/* ❌ Sibling combinator — rule depends on a sibling element */
-.title + .subtitle {
-}
-
-/* ❌ CSS nesting — compiles to a descendant selector */
-.profile-card {
-  & .title {
-    color: black;
-  }
+.cta:global(.profile-card-cta--hover),
+.cta:hover {
+  background: #4f46e5;
 }
 ```
 
-## Layout and responsiveness
+Do not use compound selectors, tag selectors, child/sibling combinators, or CSS
+nesting for editable styling. They make an element's editor surface depend on
+DOM context.
 
-### Root fills its container
+Narrow exception: a relationship selector may control behavior-only visibility
+when the behavior requires ancestor state and the rule does not define editable
+appearance. A hover-revealed play/pause control is the canonical case. Keep all
+of the control's size, color, border, typography, and state styling on its own
+single-class rules.
 
-The root element sets `width: 100%`, `height: 100%`, and
-`box-sizing: border-box`. The component never assumes a specific
-pixel size for its outer box.
+## Root Layout
 
-**Why:** Wix users place components in resizable slots whose
-dimensions aren't known at authoring time. A root with hardcoded
-width or height overflows or leaves gaps inside its slot.
+The root must fill the available inline size and use border-box sizing:
 
 ```css
-/* ✅ Do: Root fills any slot the user creates */
-.profile-card {
+.root {
+  --display: flex;
   width: 100%;
-  height: 100%;
   box-sizing: border-box;
 }
 ```
 
-### Pipe sizing through every layer below the root
+Add `height: 100%` only when the editor extension gives the component a pixel
+height or the requested behavior requires a bounded height. Omit it when the
+extension uses `LAYOUT.SIZING_TYPE.content`; the component's content must then
+establish its block size.
 
-Every element between the platform-sized root and the leaf content
-must explicitly participate in the sizing chain — one unsized
-wrapper collapses the entire subtree to intrinsic size.
+Set `--display` on the root; do not set root `display` directly. The platform
+resolves and overrides this custom property. Inner elements use `display`
+normally.
 
-Use `flex: 1; min-width: 0` (or `min-height: 0` on the block axis)
-on children that should grow, and `flex: 0 0 auto` on children that
-should stay fixed-size.
+Choose the simplest root shape that fits the component:
 
-**Why:** flex/grid children default to `auto` sizing and shrink to
-content. A wrapper `<div>` without explicit sizing breaks the chain
-even when the root fills its slot correctly.
+- column: `--display: flex; flex-direction: column`
+- row: `--display: flex; flex-direction: row`
+- split layout: `--display: grid; grid-template-columns: 1fr 1fr`
+- responsive collection: `--display: grid; grid-template-columns: repeat(auto-fit, minmax(...))`
+
+Do not hardcode the root's pixel dimensions. Installation defaults belong in
+the extension file.
+
+## Sizing Through the Tree
+
+- Put `box-sizing: border-box` on every component selector.
+- In a bounded axis, use `flex: 1` with `min-width: 0` or `min-height: 0` for
+  children that grow.
+- Use `flex: 0 0 auto` for controls that retain intrinsic size.
+- Ensure every wrapper between the root and bounded growing content
+  participates in the sizing chain. Do not create a block-axis sizing chain for
+  a content-height component.
 
 ```css
-/* ✅ Do: grower fills remaining space */
-.wrapper {
+.content {
+  box-sizing: border-box;
   display: flex;
   flex: 1;
   min-width: 0;
 }
 
-/* ✅ Do: fixed child keeps intrinsic size */
 .control {
+  box-sizing: border-box;
   flex: 0 0 auto;
 }
 ```
 
-### Set `box-sizing: border-box` on every selector
+## Responsiveness and Direction
 
-Apply `box-sizing: border-box` to every class in component CSS, not
-just the root. The default `content-box` is never wanted in this
-codebase.
+Respond to the component container, not the browser viewport. Prefer intrinsic
+flex/grid sizing, `minmax()`, `auto-fit`, `1fr`, and `clamp()`. Do not add
+viewport `@media` rules; Wix owns page breakpoints.
 
-**Why:** the editor exposes padding and border-width as live
-controls. With `content-box`, increasing either grows the element's
-outer box, which makes neighbouring elements visibly shift while the
-user is dragging a slider — the component "shakes" in the editor.
-`border-box` keeps the outer dimension stable; padding and border
-eat into the existing box instead, so the layout stays still while
-the user tunes values.
+Use logical inline-axis properties so layout flips automatically in RTL:
 
 ```css
-/* ✅ Do: border-box — outer size stays stable while the editor tunes padding and border */
-.profile-card,
-.title,
-.button {
-  box-sizing: border-box;
-}
-
-/* ❌ content-box — outer size grows when the editor adjusts padding or border */
-.profile-card {
-  box-sizing: content-box; /* the default — don't rely on it */
-}
-```
-
-### Adapt to container size, not viewport
-
-Layout responds to the size of the component's parent, not to the
-browser viewport. Use intrinsic flex/grid sizing (`auto-fit`,
-`minmax(...)`, `1fr`) and `clamp()` for fluid scaling. `@media`
-queries keyed on viewport dimensions (`width`, `height`,
-`orientation`) are not permitted in component CSS.
-
-**Why:** the Wix editor owns viewport-level breakpoints. A component
-that branches on viewport width competes with the editor's
-responsiveness model and renders the same container size differently
-across viewports, breaking the editor's WYSIWYG contract.
-
-```css
-/* ✅ Do: Container-driven sizing — adapts to the slot, not the viewport */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(1rem, 2.5vw, 2rem);
-}
-
-/* ❌ Viewport breakpoint — fights the editor's responsiveness model */
-@media (max-width: 768px) {
-  .card-grid {
-    grid-template-columns: 1fr;
-  }
-}
-```
-
-### Use logical properties on the inline axis
-
-For any property that should flip between LTR and RTL — horizontal
-margin, padding, border, positional offset — use logical properties
-keyed on the inline axis: `margin-inline`, `margin-inline-start`,
-`margin-inline-end`, `padding-inline`, `padding-inline-start`,
-`padding-inline-end`, `border-inline-start`, `border-inline-end`,
-`inset-inline-start`, `inset-inline-end`. Do not use `margin-left` /
-`margin-right`, `padding-left` / `padding-right`, `border-left` /
-`border-right`, `left`, or `right`.
-
-Block-axis properties (`margin-top`, `margin-bottom`, `padding-top`,
-`padding-bottom`, `border-top`, `border-bottom`, `top`, `bottom`)
-stay as physical properties — they don't flip with text direction
-in horizontal writing modes, which is what site components ship in.
-
-**Why:** the Wix editor lets the site owner switch a site's text
-direction between LTR and RTL. Logical inline properties flip
-automatically with `direction: rtl` set by an ancestor, so one CSS
-file produces correct layouts in both directions. Physical
-left/right properties stay locked regardless of direction, which
-breaks RTL layouts (icons end up on the wrong side of text, padding
-piles up on the wrong edge, sticky offsets point the wrong way).
-
-```css
-/* ✅ Do: Inline logical properties — flip automatically in RTL */
-.profile-card {
+.content {
   padding-inline: 24px;
   margin-inline-start: 8px;
-  border-inline-start: 4px solid currentColor;
-}
-
-/* ❌ Don't: Physical left/right — stays locked in RTL and breaks the layout */
-.profile-card {
-  padding-left: 24px;
-  padding-right: 24px;
-  margin-left: 8px;
-  border-left: 4px solid currentColor;
-}
-
-/* ✅ Do: Block axis stays physical — top/bottom don't flip with direction */
-.banner {
-  position: sticky;
-  top: 0;
-  padding-block: 12px;
+  border-inline-start: 1px solid currentColor;
+  inset-inline-end: 0;
 }
 ```
 
-### Set the root layout via `--display`, never `display`
+Avoid `left`, `right`, `margin-left`, `padding-right`, and similar physical
+inline-axis properties. Physical block-axis properties such as `top` and
+`margin-bottom` are fine.
 
-The root rule declares `--display: <value>` and does not set
-`display` itself. The platform reads `--display` and applies the
-resolved `display` value at runtime. This rule applies to the root
-selector only — inner element classes set `display` directly as
-normal.
+## Editable Values
 
-**Why:** the editor toggles a component's visibility (and other
-display modes) by overriding the `--display` custom property on the
-root. If the root rule also sets `display` directly, that
-declaration wins over the platform's override and the editor has to
-rewrite the rule to take effect, which is fragile. Inner elements
-aren't toggled this way, so they use `display` normally.
+Keep static styling in the CSS Module, not JSX `style` objects. Use literal CSS
+values when no interpolation is needed; do not create a React prop or CSS custom
+property for routine values that zero config already surfaces.
+
+Use this pattern:
 
 ```css
-/* ✅ Do: Root declares --display only — platform applies it, editor can override */
-.profile-card {
-  --display: flex;
-}
-
-/* ❌ Don't: Root sets display directly — competes with the platform override */
-.profile-card {
-  --display: flex;
-  display: var(--display);
-}
-
-/* ✅ Do: Inner elements set display normally — the --display rule is root-only */
-.header {
-  display: flex;
-  align-items: center;
-}
-```
-
-### Choose one of four layout shapes for the component root
-
-A component's root layout typically fits one of four shapes — reach
-for the simplest one that satisfies the design.
-
-**Why:** a small, shared vocabulary of layouts produces predictable
-manifests and predictable editor behavior. The editor's
-auto-generated controls (gap, padding, alignment) are tuned for
-these shapes.
-
-```css
-/* ✅ Do: Single column — stacked content (profile card, pricing card, CTA block) */
-.profile-card {
-  --display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 1rem;
-  padding: clamp(1rem, 3vw, 2rem);
-}
-
-/* ✅ Do: Two-column split — media + text pair (testimonial, feature row, media card) */
-.media-card {
-  --display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(1rem, 3vw, 2rem);
-  align-items: center;
-}
-
-/* ✅ Do: Multi-column grid — list of children (product list, testimonial list, gallery) */
-.testimonial-list {
-  --display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(1rem, 2.5vw, 2rem);
-}
-
-/* ✅ Do: Inline row — fixed controls on edges, growing center
-   (numeric stepper, search bar, toolbar, split button, pagination).
-   Pair with stretch-chain rules: controls flex: 0 0 auto,
-   center area flex: 1; min-width: 0. */
-.numeric-stepper {
-  --display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-```
-
-## CSS variables and props
-
-### Use literal CSS values; introduce a variable only when interpolation requires it
-
-Write CSS values as literals. Introduce a CSS custom property _only_
-when the value is consumed inside a CSS function or compound
-expression that cannot be written as a plain value — for example
-inside `repeat()`, `calc()`, `min()`, `max()`, or `clamp()`. Do not
-add a React prop for a value the user wouldn't meaningfully tune.
-
-**Why:** every CSS variable that crosses into a React prop becomes a
-control in the editor. Exposing routine values like `gap` or
-`padding` as props clutters the editor UI, and the editor already
-auto-surfaces those properties from the CSS rule itself —
-duplicating them as props gives the user two competing controls for
-the same thing.
-
-```css
-/* ❌ Don't: Unnecessary variable — value isn't interpolated anywhere */
-.profile-card {
-  --gap: 16px;
-  gap: var(--gap);
-}
-
-/* ✅ Do: Literal value — nothing to interpolate */
-.profile-card {
+.root {
   gap: 16px;
+  padding: 24px;
+  background: #ffffff;
 }
 
-/* ✅ Do: Variable required — value is consumed inside repeat() */
-.card-grid {
+.grid {
   --columns: 3;
   grid-template-columns: repeat(var(--columns), 1fr);
 }
 ```
 
-## Other rules
+A dynamic runtime value that cannot be represented statically may use a narrowly
+scoped CSS custom property set from JSX, but keep the actual style rule in CSS
+and do not expose a visual prop solely for that purpose.
 
-### Keep all styling in CSS
+## Interaction and Motion
 
-Static styling lives in the component's CSS. Do not use the JSX
-`style={{ ... }}` attribute on rendered elements. Dynamic values
-that genuinely vary per instance go through CSS custom properties
-(see the rule above), still set in CSS.
-
-**Why:** zeroConfig reads CSS rules to derive the editor's control
-surface. An inline `style` attribute is invisible to the extractor,
-so any value baked into JSX cannot be edited in the visual editor —
-the user sees no control for it.
-
-```tsx
-// ❌ Inline style — invisible to zeroConfig, no editor control
-<div className="profile-card" style={{ padding: 20, borderRadius: 8 }} />
-
-// ✅ Do: Defaults in CSS — surfaced to the editor as controls
-<div className="profile-card" />
-```
+- Set `pointer-events: auto` on the root and each interactive element.
+- Pair native interaction selectors with the matching editor-injected global
+  state modifier. Toggle custom state modifiers from component data.
+- Do not add decorative transitions or animations.
+- When motion is functionally required, list the exact transition properties;
+  never use `transition: all` or an implicit `all` shorthand.
 
 ```css
-/* ✅ Do: Defaults belong in CSS so the editor can surface them */
-.profile-card {
-  padding: 20px;
-  border-radius: 8px;
-  background: #ffffff; /* Use `background`, never `background-color` — the schema key is "background"; zeroConfig can't match "background-color" so the default is lost in the design panel */
-}
-```
-
-### Default aesthetic: polished and generous
-
-When the user does not specify a visual style, default to a polished,
-modern look. The editor lets the user override every value, so a
-refined default costs nothing.
-
-| Property | Guidance |
-|---|---|
-| `border-radius` | 8–12 px containers, `50%` for controls and interactive groups (buttons, pills, input rows) |
-| `box-shadow` | Prefer soft, diffused shadows over hard borders (e.g. `0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.08)`) |
-| Spacing | 8–16 px inside controls, 16–32 px for containers. Avoid cramped layouts |
-| Typography | Body ≥ 16 px, labels ≥ 14 px, headings larger. `font-weight: 500`–`600` |
-| Palette | Root background transparent (blends with page). Use subtle fills (`#f1f5f9`/`#e2e8f0`) on *inner controls* only (buttons, input areas, pill containers). Text `#1e293b`/`#334155`, borders `#e2e8f0`. `#475569` for large/secondary text only |
-| Accent | Use a muted accent color (e.g. `#6366f1`, `#7c83db`) sparingly on interactive icons, active indicators, and primary actions — just enough to signal interactivity without dominating |
-| Contrast | WCAG AA minimum: 4.5:1 body text, 3:1 large text / UI controls |
-| Hierarchy | Interactive elements visually distinct from static via weight, fill, or elevation |
-| Touch targets | Interactive elements ≥ 44×44 px |
-
-### Design states
-
-Style interaction and selection states (`hover`, `focus`, `disabled`,
-`selected`, …) per [`DESIGN-STATES.md`](DESIGN-STATES.md).
-
-### Don't add transitions or animations unless functionally required
-
-Component CSS does not declare `transition` or `animation` for
-decorative purposes. Use them only when the motion is part of the
-component's behavior (e.g. an accordion panel sliding open, a
-carousel translating between slides). When transitions are required,
-list the specific properties — never `transition: all`,
-`transition-property: all`, or the implicit `all` of a duration-only
-shorthand (`transition: 0.2s ease`).
-
-**Why:** the editor mutates many CSS properties live as the user
-configures the component — colors, font, padding, border width,
-even layout properties on parent classes. Animating those mutations
-makes the editor visibly laggy: values meant to update instantly
-slide instead.
-
-```css
-/* ❌ Don't: decorative transition with no functional reason */
-.button {
-  transition: background-color 0.2s ease;
-}
-
-/* ❌ Don't: transition: all — animates every property the editor touches */
-.button {
-  transition: all 0.2s ease;
-}
-
-/* ❌ Don't: implicit all — duration-only shorthand resolves to transition-property: all */
-.button {
-  transition: 0.2s ease;
-}
-
-/* ✅ Do: Functional transition with specific properties named (e.g. accordion expand) */
 .panel {
   transition: height 0.2s ease;
 }
 ```
 
-**Media playback is functional, not decorative.** When the component's content
-*is* a playing animation (Lottie/JSON, animated GIF/SVG, canvas/WebGL, video),
-letting it play is allowed — the motion is the content. Such components get a
-play/pause control positioned in CSS. See
-[`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md).
+## Default Visual Quality
 
-### Set `pointer-events: auto` on the root and every interactive element
+When creating a component and the request has no visual direction, use a
+restrained accessible default. When editing an existing component, preserve its
+visual language unless the request changes it.
 
-The root selector and every nested class that the user can click,
-hover, or focus (links, buttons, controls) explicitly set
-`pointer-events: auto`.
+- body text at least 16px and labels at least 14px
+- WCAG AA contrast (4.5:1 body text, 3:1 large text and UI controls)
+- touch targets at least 44 by 44px
+- clear hierarchy and visible focus states
+- generous but consistent spacing
+- transparent root backgrounds unless the design requires a surface
 
-**Why:** the editor renders components inside wrappers that disable
-pointer events at the wrapper level so the editor itself can capture
-clicks for selection. Explicit `auto` on the component's own
-elements ensures interaction reaches them at runtime on the
-published site, where the wrapper is gone.
+Avoid prescribing a brand palette in a generic component. Only when the prompt
+explicitly requests branded or themed output, use its named brand tokens rather
+than hardcoded generic color choices.
 
-```css
-/* ✅ Do: pointer-events: auto — interaction reaches component elements through the editor wrapper */
-.profile-card,
-.title,
-.button {
-  pointer-events: auto;
-}
-```
+## Checklist
 
+- [ ] The scaffolded component and each extracted internal sub-component own
+      their styles through colocated CSS Modules.
+- [ ] Global classes exist only for the root and named inner parts.
+- [ ] Selectors are flat except for a documented behavior-only exception.
+- [ ] The root uses `--display`, fills the applicable configured axes, and uses
+      border-box sizing.
+- [ ] A sizing chain exists only on bounded growing axes.
+- [ ] Layout is container-driven and uses logical inline properties.
+- [ ] Static styling stays in CSS; custom properties exist only when needed.
+- [ ] Interactive elements expose pointer events and accessible design states.
