@@ -45,11 +45,10 @@ export function makeCtx({ cwd = process.cwd() } = {}) {
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3
-  // WRITE path becomes usable later than the read path, so the first bulk-create can 428 —
-  // or answer a bare 429 {} (same cold-path race wearing the rate-limit status; and a real
-  // rate limit wants the same backoff). Wait both out (~80s budget); other errors throw
-  // immediately. ⚠️ An errored bulk create may still have applied server-side — creation is
-  // made idempotent by name in setupStore for exactly that reason.
+  // WRITE path becomes usable later than the read path, so the first bulk-create can 428 even
+  // after the read probe clears. Wait it out (~80s budget); other errors throw immediately.
+  // ⚠️ An errored bulk create (seen live with a bare 429 {}) may still have APPLIED
+  // server-side — creation is idempotent by name in setupStore for exactly that reason.
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(API + path, {
       method,
@@ -62,7 +61,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok) return json;
-    if ((isProvisioning(res.status, json) || res.status === 429) && attempt < 40) {
+    if (isProvisioning(res.status, json) && attempt < 40) {
       await sleep(2000);
       continue;
     }
