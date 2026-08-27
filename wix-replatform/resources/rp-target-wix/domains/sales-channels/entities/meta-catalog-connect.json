@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "meta-catalog-connect",
+  "displayName": "Meta Catalog (Facebook, Instagram, WhatsApp)",
+  "capability": "commerce.facebook-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": "wix.stores_channels.feed.v1.catalog",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "facebook-for-woocommerce",
+      "confidence": "high",
+      "note": "Meta for WooCommerce's catalog-sync outcome (products visible in a Facebook/Instagram/WhatsApp catalog) has a native Wix equivalent; the plugin's own per-product settings (fb_visibility, _wc_facebook_google_product_category, etc.) do not carry over — see pitfalls."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant connects via Wix dashboard + Meta Commerce Manager",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "per-product-settings-not-portable",
+      "severity": "warning",
+      "summary": "The connect flow below reproduces the sync OUTCOME, not the plugin's per-product configuration. Meta for WooCommerce's fb_visibility, _wc_facebook_product_image_source, _wc_facebook_google_product_category, _wc_facebook_gender, and _wc_facebook_color_attribute have no receiving field: wix.stores_channels.marketplace_overrides.v1.product_override (the live, GA per-product channel-override mechanism) implements only googleProductOverrides/youtubeProductOverrides in its oneof — no facebookProductOverrides variant exists (verified via docs-schema MCP fqdn_schema, 2026-08-16). Report these as accepted, reported loss."
+    }
+  ],
+  "mappingGuidance": [
+    "Tell the merchant to follow manualSteps below to reconnect the catalog fresh in Wix; do not attempt to carry over the plugin's stored per-product Meta settings, which have nowhere to write to."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-adding-your-wix-store-products-to-a-meta-catalog"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.feed.v1.catalog (BuildMarketplaceCatalogFeedUrlV2 / GetMarketplaceCatalogFeedV2 — Get Catalog Link) and wix.stores_channels.facebook_feed.v1.facebook_checkout_router (GenerateFacebookCheckoutUrl / FacebookCheckoutRoute — Get Checkout URL), both GA — verified via docs-schema MCP, 2026-08-16"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.marketplace_overrides.v1.product_override — the per-product override oneof (MarketplaceSpecificOverrides) implements googleProductOverrides/youtubeProductOverrides only, confirming no per-product Facebook override surface exists"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "A catalog created in Meta Commerce Manager (external, Meta-side setup — Wix does not create it).",
+    "steps": [
+      { "actor": "merchant", "text": "In the Wix dashboard, go to Catalog > Sales Channels > Meta Catalog, click Get Catalog Link, and copy the generated feed URL." },
+      { "actor": "external", "text": "In Meta Commerce Manager, add the copied URL as the catalog's data feed." },
+      { "actor": "merchant", "text": "Back in the Wix dashboard, click Get Checkout URL under Meta Catalog and copy it." },
+      { "actor": "external", "text": "In Meta Commerce Manager, set that URL as the catalog's checkout URL so shoppers who buy from Meta are routed to Wix checkout." }
+    ],
+    "mechanism": "Pull-based: Meta polls the Wix-hosted feed URL on its own schedule, so any product change in Wix republishes automatically on the next pull — there is no push/webhook from Wix. Digital products are excluded from the feed. Native Facebook/Instagram Shops checkout inside the Wix dashboard was discontinued by Meta in April 2024; this feed+checkout-redirect flow is the current mechanism.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-adding-your-wix-store-products-to-a-meta-catalog" },
+      { "type": "internal-fqdn", "path": "wix.stores_channels.feed.v1.catalog; wix.stores_channels.facebook_feed.v1.facebook_checkout_router" }
+    ]
+  }
+}

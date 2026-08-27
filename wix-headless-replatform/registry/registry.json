@@ -1,0 +1,36 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "wix-headless-replatform",
+  "homepage": "https://github.com/wix/skills",
+  "items": [
+    {
+      "name": "button",
+      "type": "registry:ui",
+      "revision": "shadcn-default-ac60ef5",
+      "sourceHash": "b77b5c3f3f739353a51966400697dbc49dd6e15ea4f7c44cd0d4e8a9680c5b08",
+      "capabilitiesRef": "items/button/shadcn-default-ac60ef5/capabilities.json",
+      "capabilitiesHash": "f53c94e9f826d39b54a46d2ad4a2c99eeb833b72747cb62a6e5932189cd82e64",
+      "contractRef": "items/button/shadcn-default-ac60ef5/contract.md",
+      "contractHash": "bf3e6dc863a84dbbd86b0891b65dee83dd8bb5a75773f56ea97cc3f5a2936ccd",
+      "approvalRef": "approvals/button/shadcn-default-ac60ef5.json",
+      "licenseRef": "licenses/shadcn-ui-ac60ef5-MIT.txt",
+      "dependencies": {
+        "@astrojs/react": "6.0.2",
+        "@radix-ui/react-slot": "1.3.3",
+        "@tailwindcss/vite": "4.3.3",
+        "class-variance-authority": "0.7.1",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "tailwindcss": "4.3.3"
+      },
+      "files": [
+        {
+          "path": "items/button/shadcn-default-ac60ef5/button.tsx",
+          "target": "src/components/ui/button.tsx",
+          "type": "registry:ui",
+          "sha256": "b77b5c3f3f739353a51966400697dbc49dd6e15ea4f7c44cd0d4e8a9680c5b08"
+        }
+      ]
+    }
+  ]
+}

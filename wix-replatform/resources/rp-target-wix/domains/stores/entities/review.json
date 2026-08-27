@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "review",
+  "displayName": "Product Review",
+  "capability": "commerce.product-reviews",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Review",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "stores/product",
+    "crm/contact"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product_review",
+      "routes": [
+        "/wc/v3/products/reviews"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Wix Reviews",
+    "endpoint": "POST /reviews/v1/bulk/reviews/create",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": true
+  },
+  "alternateWrites": [
+    {
+      "surface": "Wix Reviews",
+      "endpoint": "POST /reviews/v1/reviews",
+      "when": "Single-review create. Use for retries of bulk failures and for the tail of a batch; the required-parameter sets differ (see the required-field-asymmetry pitfall)."
+    },
+    {
+      "surface": "Wix Reviews",
+      "endpoint": "POST /reviews/v1/bulk/reviews/moderate",
+      "when": "Second pass after create, to force the imported moderation state (APPROVED / REJECTED). moderation.moderationStatus is read-only on create."
+    },
+    {
+      "surface": "Wix Reviews",
+      "endpoint": "PATCH /reviews/v1/reviews/{reviewId}/reply",
+      "when": "Third pass, only if the source carries merchant replies to reviews; reply is read-only on create."
+    }
+  ],
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for review facts the native object cannot carry — the verified-purchase badge, ratings of 0, over-length bodies, and the source review ID/author email when no contact is created. Native reviews stay the primary record; the CMS shadow is evidence, not display."
+    }
+  ],
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "contact-required-per-review",
+      "severity": "blocker",
+      "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore CREATES OR RESOLVES A CONTACT PER DISTINCT REVIEWER — a CRM side effect well beyond the catalog, and reviewers are frequently not customers. Resolve each reviewer by email through Query Contacts first, create only on miss, and disclose the contact count at the execution gate."
+    },
+    {
+      "code": "moderation-status-read-only-on-create",
+      "severity": "warning",
+      "summary": "moderation.moderationStatus is read-only on create; a created review starts as SUBMITTED and is then moved by the site's moderation rules to APPROVED / IN_MODERATION / REJECTED. Source approval state (WooCommerce approved vs hold vs spam vs trash) survives only via a second pass — Bulk Update Moderation Status (POST /reviews/v1/bulk/reviews/moderate), whose status enum accepts APPROVED or REJECTED only (not IN_MODERATION), is filter-based, and returns a jobId (asynchronous — completion is not observable in the create response)."
+    },
+    {
+      "code": "verified-badge-not-writable",
+      "severity": "warning",
+      "summary": "review.verified (the verified-owner/verified-purchase badge) is read-only on create and has no documented import path. WooCommerce's per-review `verified` flag CANNOT CARRY — this is a reportable faithfulness loss on every imported review, not a rounding error, because the badge is the trust signal shoppers read."
+    },
+    {
+      "code": "rating-1-to-5-only",
+      "severity": "warning",
+      "summary": "content.rating is an integer with Min 1 / Max 5, and it is required on single create. WooCommerce permits rating 0 (\"no rating\" — a review with text and no stars), which cannot be created natively. A run must pick a policy per source site: drop those rows to the CMS shadow, or coerce to a rating the merchant approves. Never silently coerce."
+    },
+    {
+      "code": "one-review-per-author-per-entity",
+      "severity": "warning",
+      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — the reference store had 0 collisions across 120 reviews, which makes this easy to miss on a first run."
+    },
+    {
+      "code": "body-plain-text-3000",
+      "severity": "warning",
+      "summary": "content.body is plain text with maxLength 3000 (content.title also maxLength 3000, author.authorName maxLength 100, content.media maxItems 10, entityId maxLength 36). WooCommerce review bodies are HTML — strip tags before the write, and ledger every review whose stripped body exceeds 3000 characters with the chosen policy (truncate or divert to the CMS shadow)."
+    },
+    {
+      "code": "stores-namespace-only",
+      "severity": "warning",
+      "summary": "namespace supports \"stores\" only — \"Currently, only Wix Stores is fully integrated with the Wix Reviews app.\" entityId must be the Wix Stores PRODUCT ID (maxLength 36), so the product crosswalk must be complete and the products must already exist before any review write. Reviews of non-product entities (WordPress post/page comments) have no home here; they belong to blog/comment."
+    },
+    {
+      "code": "required-field-asymmetry",
+      "severity": "warning",
+      "summary": "The two create surfaces do not require the same fields. Create Review requires review.namespace, review.entityId, review.content, review.content.rating (author.contactId is not in its required list despite the prose). Bulk Create requires reviews.namespace, reviews.entityId, reviews.content, reviews.author, reviews.author.contactId — but NOT reviews.content.rating. Send the full set on both paths rather than relying on either list."
+    },
+    {
+      "code": "docs-endpoint-path-inconsistency",
+      "severity": "warning",
+      "summary": "The Create Review and Set Reply reference pages print two different base paths: the Schema \"URL:\" line says https://www.wixapis.com/reviews/api/v1/reviews while the curl example on the same page says https://www.wixapis.com/reviews/v1/reviews. Bulk Create is consistent at /reviews/v1/bulk/reviews/create. This entity records the /reviews/v1/... form (the executable examples); confirm live before promoting verification above docs."
+    },
+    {
+      "code": "bulk-batch-100",
+      "severity": "warning",
+      "summary": "Bulk Create takes minItems 1 / maxItems 100 reviews per call and returns per-item results with originalIndex and a success flag (entities only when returnEntity is true). Chunk at 100, always request returnEntity so the crosswalk can record server-assigned review IDs, and treat partial failure as normal — the call succeeds while individual items fail."
+    }
+  ],
+  "mappingGuidance": [
+    "Import order: products first (entityId is a Wix product ID), then contacts for reviewers, then reviews. Write via POST /reviews/v1/bulk/reviews/create in chunks of 100 with returnEntity=true, recording sourceReviewId -> Wix review ID in the crosswalk.",
+    "REVIEWER CONTACTS ARE A SIDE EFFECT THE USER MUST APPROVE AT THE REVIEW GATE. Every imported review needs author.contactId, so importing reviews grows the site's CRM by one contact per distinct reviewer email — on the reference store that is 108 distinct reviewer emails behind 120 reviews, most of whom are not customers and would otherwise never appear in Contacts. Present the distinct-reviewer count, state that these contacts are created by the review import (not by the customer import), and let the user choose: import reviews with their contacts, or skip reviews.",
+    "Carry the original review date with review.reviewDate (writable at create, format date-time) — the docs designate it as the import path: \"This should match createdDate, except for reviews imported from another system.\" createdDate is read-only and will be the import timestamp, so reviewDate is the only faithful date.",
+    "Approval state needs a second pass. Create everything, then group the created review IDs by the source status and call POST /reviews/v1/bulk/reviews/moderate once per target status (APPROVED for WooCommerce approved, REJECTED for spam/trash). WooCommerce `hold` has no exact native equivalent — IN_MODERATION is not settable through the bulk moderate enum — so decide with the user whether held reviews are left to the site's moderation rules, rejected, or skipped entirely.",
+    "Map author.authorName from the WooCommerce reviewer display name (maxLength 100) and author.contactId from the resolved contact. If authorName is omitted, Wix falls back to the member name for members and to null otherwise — always send it explicitly so anonymous reviewers do not lose their display name.",
+    "Record in the faithfulness ledger, per run: reviews whose `verified` badge was lost, reviews with source rating 0, reviews whose stripped body exceeded 3000 characters, and reviews dropped by the one-per-author-per-entity collision policy."
+  ],
+  "setupRequirements": [
+    "Wix Reviews app",
+    "Wix Stores app (Reviews is only integrated with Wix Stores, and the products must already exist)",
+    "SCOPE.DC-REVIEWS.MANAGE-REVIEWS",
+    "Contacts write access (SCOPE.DC-CONTACTS.MANAGE-CONTACTS) — every review requires a contact ID",
+    "User approval at the review gate for the reviewer-contact side effect"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/review-object",
+      "note": "object page, fetched 2026-08-16. DOC TREE LOCATION: the Reviews API lives under CRM > Community > Feedback & Moderation, NOT under business-solutions/stores — which is why the 2026-08-11 stores docs-survey sweep (docsRoots api-reference/business-solutions/stores) missed it entirely. This entity is filed in the stores domain because namespace supports \"stores\" only and entityId is a Stores product ID; the survey row that claims it lives in the crm domain. Do not 'rediscover' this."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/introduction",
+      "note": "fetched 2026-08-16. Verbatim: \"The Wix Reviews API allows you to: Import reviews from other sites and export reviews to other sites.\" Also: namespace \"stores\" only; \"Every review needs a contact\" (resolve via Query Contacts by email); \"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\"; rating 1-5."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/create-review",
+      "note": "fetched 2026-08-16. Scope SCOPE.DC-REVIEWS.MANAGE-REVIEWS. Required: review, review.namespace, review.entityId, review.content, review.content.rating. curl example POSTs https://www.wixapis.com/reviews/v1/reviews (the Schema URL line on the same page prints /reviews/api/v1/reviews). Validations: entityId maxLength 36, content.title maxLength 3000, content.body maxLength 3000, content.media maxItems 10, author.contactId format GUID + immutable, authorName maxLength 100, reviewDate format date-time (WRITABLE at create). Read-only on the response: id, createdDate, updatedDate, reply, foundHelpful, foundUnhelpful, helpfulness, moderation (whole object), revision, verified, origin, relevanceScore, publishCount."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/bulk-create-review",
+      "note": "fetched 2026-08-16. POST https://www.wixapis.com/reviews/v1/bulk/reviews/create; reviews array minItems 1, maxItems 100; required reviews, reviews.namespace, reviews.entityId, reviews.content, reviews.author, reviews.author.contactId (content.rating is NOT in the bulk required list). returnEntity flag; results carry itemMetadata {id, originalIndex, success, error}."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/bulk-update-moderation-status",
+      "note": "fetched 2026-08-16. POST https://www.wixapis.com/reviews/v1/bulk/reviews/moderate; filter + status; status enum is UNKNOWN / APPROVED / REJECTED only; returns jobId (asynchronous)."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/set-reply",
+      "note": "fetched 2026-08-16. PATCH /reviews/v1/reviews/{reviewId}/reply, required message — replies are a separate call because review.reply is read-only on create."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews-moderation-business-flow",
+      "note": "fetched 2026-08-16. \"To import or migrate multiple reviews, call Bulk Create Review.\" Created reviews land at moderationStatus SUBMITTED and are then moved by moderation rules. Prerequisites stated: Wix Stores must be installed, the products must exist, and each review requires a contact ID."
+    },
+    {
+      "type": "review-decision",
+      "path": "internal design decision, 2026-07-30",
+      "note": "added specifically so mapper/codegen stop reporting 'No verified native Wix product-review primitive was identified for this workflow'. Broader mapper/codegen/execution support for reviews may still need follow-up work."
+    },
+    {
+      "type": "live-run",
+      "path": "tests/fixtures/wordpress/rest-index-scope.json",
+      "note": "source side, observed live on the reference store 2026-08-16: /wc/v3/products/reviews carries 120 reviews (114 approved + 6 hold) across 108 distinct reviewer emails; 0 (reviewer_email, product_id) collisions. Already classified backend_data/sample by the /wc/v3/products* catch-all rule in lib/wp-route-classifier.js — the fixture pins that so a future narrowing of the catch-all cannot silently drop reviews."
+    }
+  ],
+  "notes": "Authored 2026-08-16. Before this file no domain entity claimed a product-review capability, so every run dropped its source reviews into a pending row despite Wix having a native, explicitly import-oriented API. Docs-verified only — nothing here has been exercised live, hence verification=docs / reliability=unknown / importSafe=false. importSafe is false because a review import writes into CRM (a contact per distinct reviewer) as well as the catalog, which is a side effect a user must accept at the gate, not a silent consequence. Promote verification after a live subset write that exercises bulk create + the moderation second pass."
+}

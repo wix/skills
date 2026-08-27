@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "ticket-definition",
+  "displayName": "Event Ticket Definition",
+  "capability": "content.event-ticket-definitions",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Events Ticket Definition",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Events Ticket Definitions V3",
+    "endpoint": "POST /events/v3/ticket-definitions",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "Create with { ticketDefinition: { eventId, name, pricingMethod, feeType, initialLimit?, hidden? } }. eventId, name, pricingMethod and feeType are all required. Verified live on a DRAFT event, so definitions can be staged before the event is published; hidden:true keeps a definition unpurchasable. DELETE /events/v3/ticket-definitions/{id} works. Max 100 definitions per event."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "definitions-not-sales",
+      "severity": "blocker",
+      "summary": "A ticket definition is the purchasable ticket type (name, price, limits) — importing it does not carry sold tickets. Past ticket sales remain not importable (domain pitfall ticket-order-history-not-importable, owner tracker EVNT-01)."
+    },
+    {
+      "code": "past-event-definitions-unverified",
+      "severity": "warning",
+      "summary": "Still unverified whether definitions attach to already-ended events (the 2026-08-16 probe used a far-future draft event). For past events the definition is likely pointless without its sales. Import definitions for upcoming events; ledger past ones."
+    },
+    {
+      "code": "ticketing-events-only",
+      "severity": "blocker",
+      "summary": "Create fails with 428 INVALID_EVENT_TYPE unless the event's registration.initialType is TICKETING, and initialType is IMMUTABLE (docs) — an event created for RSVP can never take ticket definitions. Decide RSVP vs TICKETING at event-create time from the source data; a source event with both attendee lists and ticket types cannot be represented as one Wix event."
+    },
+    {
+      "code": "name-capped-at-30-chars",
+      "severity": "warning",
+      "summary": "`name` is minLength 1 / maxLength 30 (description 500, policyText 1000). Source ticket-type names routinely exceed 30 characters — truncate deterministically and ledger it rather than letting the create 400."
+    },
+    {
+      "code": "free-ticket-fee-type",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: a free ticket is pricingMethod.fixedPrice.value \"0\" plus feeType NO_FEE (the response echoes free:true, pricingType STANDARD, value normalised to \"0.00\"). NO_FEE is only accepted for free tickets and legacy users — paid tickets must pick FEE_INCLUDED or FEE_ADDED_AT_CHECKOUT, a merchant decision that belongs in the mapping review, not a default."
+    },
+    {
+      "code": "canonical-vs-alias-path",
+      "severity": "warning",
+      "summary": "The docs canonical host path is /events-ticket-definitions/v3/ticket-definitions; /events/v3/ticket-definitions is an accepted alias (both returned 200 on 2026-08-16, creating one definition each). They are the same resource — do not call both in one import or you double-create."
+    }
+  ],
+  "mappingGuidance": [
+    "Create the event first with registration.initialType TICKETING and use its crosswalked ID in eventId; ticket definitions are per-event and initialType cannot be changed later.",
+    "Map source ticket types (e.g. Event Tickets ticket name/price/capacity) to name (≤30 chars), pricingMethod.fixedPrice (or pricingOptions for tiered prices, guestPrice for pay-what-you-want) and initialLimit; omit initialLimit for unlimited tickets.",
+    "Set salePeriod from the source sale window when present (startDate before endDate, else 428 INVALID_SALE_PERIOD); use hidden:true to stage definitions that should not go on sale at import time."
+  ],
+  "setupRequirements": [
+    "Wix Events app",
+    "SCOPE.DC-EVENTS.MANAGE-TICKET-DEF"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/ticket-definition-object",
+      "note": "object page: eventId, name, pricingMethod, salePeriod, initialLimit, limitPerCheckout"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/create-ticket-definition"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/reference-run",
+      "note": "finding #17: surface found uncarried by the events docs-menu walk"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: free hidden definition (initialLimit 5, ILS) created on a far-future DRAFT ticketing event via both the /events/v3 alias and the canonical /events-ticket-definitions/v3 path → 200 each; GET read back; both definitions and the event deleted"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Ticket Definitions V3). Promoted to verified-live 2026-08-16 by a create/read/delete probe on a draft ticketing event; the probe also pinned the required feeType, the 30-char name cap, and the TICKETING-only/immutable-initialType constraint."
+}

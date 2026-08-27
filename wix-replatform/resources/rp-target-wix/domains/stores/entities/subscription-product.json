@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "subscription-product",
+  "displayName": "Stores Subscription Product Settings",
+  "capability": "commerce.subscription-products",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Product (subscriptionDetails)",
+    "verifiedFqdn": "wix.stores.catalog.v3.product",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "subscription-product-settings",
+      "routes": [
+        "/wc/v3/products"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Products",
+    "endpoint": "POST /stores/v3/products",
+    "writerId": "createStoresProduct",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fieldContractRef": {
+    "entity": "stores/product",
+    "contractPath": "product.subscriptionDetails",
+    "note": "Single direction of truth: the field-level facts (required paths, frequency enum, interval/description constraints, readback behavior) live in stores/product fieldContracts[] (live-create-and-readback, verified 2026-07-26). This entity does not restate them; consult stores/product at mapping time."
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "expiry-signup-trial-reported-loss",
+      "severity": "warning",
+      "summary": "Subscription expiry/length, initial signup price, and free trial have NO product.subscriptionDetails field. Decided by Spec Owner 2026-08-16: these are reported loss — ledger them as fidelity_loss entries in the migration report; they are NOT CMS-carried. Do not invent an extended-field or CMS home for them."
+    },
+    {
+      "code": "rides-product-create",
+      "severity": "info",
+      "summary": "Not a standalone record: subscription settings ride the owning product's Catalog V3 create (product.subscriptionDetails.subscriptions[]). Plan this capability inside the stores/product import pass; there is no separate write surface, and patch/update coverage of subscriptionDetails remains unverified (see stores/product)."
+    }
+  ],
+  "mappingGuidance": [
+    "Mapping confirmed by Spec Owner 2026-08-16: WooCommerce subscription-product settings (e.g. Subscriptions For WooCommerce wps_sfw_* postmeta) land in product.subscriptionDetails.subscriptions[] via Catalog V3 Create Product — source cadence unit -> frequency, cadence count -> interval, per the live-verified field contract on stores/product.",
+    "A product the source sells only as a subscription should set subscriptionDetails.allowOneTimePurchases=false; set true only when the source sells both forms.",
+    "Ledger expiry/length, initial signup price, and free trial as fidelity_loss per record that carries them (see expiry-signup-trial-reported-loss); everything else in the source settings maps or is a plugin-side flag with no Wix meaning."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "object page: subscriptionDetails lives on the Catalog V3 product object"
+    },
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/stores/entities/product.json",
+      "note": "fieldContracts[] product.subscriptionDetails — live-create-and-readback verified 2026-07-26 (migration-20260726-01); the verification this entity's preferredWrite inherits"
+    },
+    {
+      "type": "review-decision",
+      "path": "signed off by Spec Owner, 2026-08-16",
+      "note": "capability claimed here rather than folded into commerce.catalog-product; expiry/signup-fee/free-trial = reported loss"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16 (RE-verification, not inheritance): the inherited stores/product field contract was re-exercised on a second site rather than assumed. POST /stores/v3/products with subscriptionDetails { allowOneTimePurchases: false, subscriptions: [{ title, description, frequency: MONTH, interval: 1, autoRenewal: true }] } → 200 on two probe products; GET readback preserved every sent field, added a server-assigned subscriptions[].id and a server-defaulted visible: true, and kept allowOneTimePurchases: false. Confirms the 2026-07-26 contract still holds on the current Catalog V3 surface. Probe products deleted afterwards."
+    }
+  ],
+  "notes": "Authored 2026-08-16 from the signed-off mapping decision (commerce.subscription-products). preferredWrite.verification is verified-live: the write path and field contract were live-verified on stores/product 2026-07-26 AND independently re-verified under this entity by a create/readback/delete probe on 2026-08-16 (second site, current API) — this file is not relying on inheritance alone. Newly observed 2026-08-16: readback adds subscriptions[].visible (server-defaulted true), which is not in the stores/product fieldContracts readback map."
+}

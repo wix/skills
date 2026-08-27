@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "entity": "item-seo-tags",
+  "displayName": "Item SEO Tags",
+  "capability": "content.seo-meta",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Item SEO Tags",
+    "verifiedFqdn": null,
+    "idPolicy": "natural-key",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "yoastHeadJson",
+      "sourcePlugin": "wordpress-seo",
+      "routes": [
+        "/wp/v2/posts",
+        "/wc/v3/products",
+        "/wp/v2/categories"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "rankMathPostMeta",
+      "sourcePlugin": "seo-by-rank-math",
+      "routes": [],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Item SEO Tags V1",
+    "endpoint": "POST /promote/seo/v1/bulk/item-seo-tags/set",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": true
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "item-id-is-the-wix-id-not-the-source-id",
+      "severity": "blocker",
+      "summary": "An item is addressed by `{itemType}:{itemId}` where itemId is the WIX GUID of an already-created item (a page, a Blog post, a Stores product). SEO tags therefore import in a SECOND pass, after the owning entity has been written and its id recorded in the crosswalk. There is no create-by-source-id path here, which is why crosswalkRequired is true."
+    },
+    {
+      "code": "one-item-type-per-bulk-call",
+      "severity": "warning",
+      "summary": "Bulk Set Item SEO Tags takes a single `itemType` for the whole request and at most 100 entries (minItems 1, maxItems 100; tags maxItems 100 per item, focusKeywords maxItems 5). Batch by item type, then by 100. An unsupported item type or one that does not support bulk rejects the WHOLE call (UNSUPPORTED_ITEM_TYPE 400, BULK_NOT_SUPPORTED_FOR_ITEM_TYPE 428) with no per-entry results, so handle whole-call failure separately from per-entry failure (itemMetadata.originalIndex / bulkActionMetadata.totalFailures). Per-entry writes are idempotent, so retry only the failures."
+    },
+    {
+      "code": "static-page-publish-flag-hides-the-write",
+      "severity": "warning",
+      "summary": "For an item type that keeps a separate draft and published revision (STATIC_PAGE), an entry with `publish: true` updates only the PUBLISHED revision - Get/List Item SEO Tags keep returning the pre-call values for that item, and publishStatus always reports PUBLISH_STATUS_UNSPECIFIED for STATIC_PAGE because there is no live-revision read path. A verification read that compares what was written will look like a failed write. Verify static pages through Site > Viewer > Resolve Static Page SEO Tags, or accept the read-back gap in the ledger."
+    },
+    {
+      "code": "item-level-write-shadows-the-pattern",
+      "severity": "warning",
+      "summary": "Item tags sit at the TOP of the precedence chain (site -> Wix default pattern -> user pattern -> host page -> item). Materialising a WordPress SEO title that was itself produced by a Yoast/Rank Math TEMPLATE onto every item converts an inherited value into a thousand hard overrides that the Wix user cannot undo from one place. Import per-item tags only where the source proves a genuine per-item override (see the wordpress-seo profile's `post-seo-override-signal` entity); route template-derived values to seo/seo-pattern instead."
+    },
+    {
+      "code": "custom-flag-is-not-an-override-signal",
+      "severity": "warning",
+      "summary": "`tag.custom` marks a tag as an entry from the site's Advanced/Custom Tags list ONLY. Standard tags (title, description, Open Graph) always resolve with `custom: false` even when their content came from a manually saved per-page override, so it cannot be used to verify that a manual SEO edit landed. Worse, when ResolveStaticPageSeoTags is called without `seoData` the per-page data is read only from the Vibe/managed-headless override store, which holds nothing for classic Wix Editor or Wix Studio pages - there `false` means 'this API could not tell'."
+    },
+    {
+      "code": "primary-language-only",
+      "severity": "warning",
+      "summary": "`language` is read-only on a write and sending it fails with LANGUAGE_NOT_SUPPORTED: tags can be written only for the site's primary language. Per-locale SEO meta from a multilingual WordPress source (WPML/Polylang alongside Yoast) has no import path today - ledger it."
+    },
+    {
+      "code": "unsupported-item-type-is-per-site",
+      "severity": "warning",
+      "summary": "Item types documented as examples are STATIC_PAGE, BLOG_POST and STORES_PRODUCT, plus WIX_DATA_PAGE_ITEM-{pageId} for an item on a CMS-driven dynamic page. The real list depends on which business solutions the site has, and the docs say to read it from the UNSUPPORTED_ITEM_TYPE error message rather than hard-coding it. Probe once at setup time; a WordPress taxonomy-term SEO record (category/tag/product-category, all of which carry yoast_head_json) has NO confirmed item type and must not be assumed."
+    }
+  ],
+  "mappingGuidance": [
+    "A tag is `{type, props, children, meta, custom, disabled}` where type is one of `title` | `meta` | `script` | `link`. Title -> {type:'title', children:'<the title>'}. Meta description -> {type:'meta', props:{name:'description', content:'...'}}. Canonical -> {type:'link', props:{rel:'canonical', href:'...'}}. Open Graph -> {type:'meta', props:{property:'og:title'|'og:description'|'og:image'|'og:type'|'og:url', content:'...'}}. Twitter -> {type:'meta', props:{name:'twitter:card'|..., content:'...'}}. JSON-LD -> {type:'script', props:{type:'application/ld+json'}, children:'<the JSON>'}.",
+    "From Yoast: yoast_head_json.title -> title tag; .description -> meta description (absent when the post has none - do NOT substitute .og_description, which Yoast derives from the excerpt); .canonical -> link rel=canonical; .og_* / .twitter_* -> the matching meta tags; .robots -> {type:'meta', props:{name:'robots', content:'index, follow, ...'}}; .schema -> a script tag. See the wordpress-seo profile for which of these are genuine overrides versus computed defaults.",
+    "Focus keyphrases map to `focusKeywords[]` ({term, isMain, origin}), max 5, and are NOT rendered on the page - they only feed Wix's SEO tools. Yoast `_yoast_wpseo_focuskw` and Rank Math `rank_math_focus_keyword` land here with isMain: true.",
+    "A write is a full replacement of what the fieldMask names (`tags`, `focusKeywords`), with no revision check. Read the item first (GET /promote/seo/v1/item-seo-tags/{itemType}/{itemId}) and send the complete set; never send a partial tags array expecting a merge.",
+    "`origin` is derived from the CALLER, not the request, and is not stored - reads always return ORIGIN_UNSPECIFIED. ORIGIN_MIGRATION exists in the enum, so a migration caller Wix recognises is labelled automatically; do not try to set it.",
+    "Two roads reach the same data, and the cheaper one is usually right. Wix Blog draft posts and Catalog V3 products carry a `seoData` (SeoSchema: the same `tags[]` plus `settings.preventAutoRedirect`) field on their own create/update call, so a blog post or product imported with its SEO already attached needs NO second pass here. Use this entity for (a) item types whose create call has no seoData, chiefly STATIC_PAGE, (b) a repair/backfill pass over items already created, and (c) reading back `resolvedTags` to verify. See stores/product and blog/post.",
+    "`resolvedTags[]` (read-only) reports the tags an item is expected to render with, each labelled TAG_SOURCE_SITE | TAG_SOURCE_DEFAULT_PATTERN | TAG_SOURCE_USER_PATTERN | TAG_SOURCE_HOST_PAGE | TAG_SOURCE_ITEM. That is the only place the precedence chain is reported, and it is the right post-import check: an item whose title still resolves with TAG_SOURCE_DEFAULT_PATTERN did not receive its override. It excludes tags added by site code or apps at render time, so it is not a literal copy of the rendered head.",
+    "`hasOverride: false` does not mean the item shows Wix defaults - it may inherit from a pattern, the site tags, or the host page. Never use it as 'nothing was imported here'."
+  ],
+  "setupRequirements": [
+    "SCOPE.PROMOTE.MANAGE-SEO (writes)",
+    "SCOPE.PROMOTE.VIEW-SEO (reads and post-import verification)",
+    "The owning items must already exist and be crosswalked (Blog posts, Stores products, static pages)"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/item-seo-tags-object",
+      "note": "object page: id format {itemType}:{itemId}, tags[] shape, focusKeywords, hasOverride, resolvedTags + TagSource enum, hostPageId, publishStatus, language, origin (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/bulk-set-item-seo-tags",
+      "note": "POST https://www.wixapis.com/promote/seo/v1/bulk/item-seo-tags/set; single itemType per call, entries 1-100, per-entry fieldMask, publish/returnEntity flags, idempotent retries, errors UNSUPPORTED_ITEM_TYPE / BULK_NOT_SUPPORTED_FOR_ITEM_TYPE, scope SCOPE.PROMOTE.MANAGE-SEO (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/set-item-seo-tags",
+      "note": "PATCH https://www.wixapis.com/promote/seo/v1/item-seo-tags/{itemType}/{itemId}; errors INVALID_FIELD_MASK / INVALID_TAGS / UNSUPPORTED_ITEM_TYPE / ITEM_NOT_FOUND (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/introduction",
+      "note": "the three-level precedence chain, full-replacement writes, no revision checking, per-site item-type coverage (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "the alternative path: product.seoData is a SeoSchema (tags[] + settings.preventAutoRedirect) written on the product's own create call (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/wordpress-seo.json",
+      "note": "source side: yoast_head_json is the RESOLVED output, _yoast_wpseo_* registered meta is the override signal"
+    }
+  ],
+  "notes": "Authored 2026-08-16 with the seo domain. Docs-verified only; no live write has been exercised. This entity is the standalone road to per-item SEO; the per-entity `seoData` field on blog/post and stores/product is the cheaper road for those two types and should be preferred when the item is being created anyway (see mappingGuidance)."
+}

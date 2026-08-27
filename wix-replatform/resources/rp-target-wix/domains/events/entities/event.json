@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "event",
+  "displayName": "Event",
+  "capability": "content.events",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Event",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "event",
+      "sourcePlugin": "the-events-calendar",
+      "routes": [
+        "/tribe/events/v1/events",
+        "/wp/v2/tribe_events"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "event",
+      "routes": [
+        "Events V3"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Events V3",
+    "endpoint": "POST /events/v3/events",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only for source-only event metadata, or for recurring-series rules the Wix schedule cannot express."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "past-dates-unverified",
+      "severity": "warning",
+      "summary": "Backdating is not documented either way. Historical events are the common migration case, so confirm a past startDate is accepted before promising event history; if rejected, past events fall back to CMS."
+    },
+    {
+      "code": "daily-guest-summary-on-create",
+      "severity": "warning",
+      "summary": "A created event is automatically set up to email daily summaries of new guests to the business address, with no documented way to disable it. Creating past events as drafts is the likely mitigation but is unverified."
+    },
+    {
+      "code": "required-location-and-schedule",
+      "severity": "warning",
+      "summary": "title, location.name, dateAndTimeSettings and registration.initialType are all required. A source event with no venue needs an explicit placeholder rather than an omitted field."
+    },
+    {
+      "code": "rsvp-and-tickets-are-separate-work",
+      "severity": "blocker",
+      "summary": "Creating the event does not carry its attendees. RSVPs need a separate import with disableNotifications set; ticketed orders have no import path at all."
+    }
+  ],
+  "mappingGuidance": [
+    "Create with draft: true for past or unpublished source events, then publish only what should be publicly listed.",
+    "Fold source venue and organizer records into the event's location and organizer fields — Wix does not model them as separate importable entities.",
+    "Deduplicate recurring-series expansions by parent event before writing, or one source series becomes many Wix events."
+  ],
+  "setupRequirements": [
+    "Wix Events app",
+    "SCOPE.DC-EVENTS.MANAGE-EVENTS"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/event-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event"
+    },
+    {
+      "type": "wix-docs-search",
+      "path": "searched: event, calendar, RSVP, ticketing across business-solutions/events (2026-08-02)"
+    },
+    
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 3/3 events created as drafts and read back by crosswalk ID (initial payload-shape 400s fixed in-run)"
+    }
+  ]
+}

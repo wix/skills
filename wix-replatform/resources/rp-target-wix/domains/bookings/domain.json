@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "domain": "bookings",
+  "docsRoots": [
+    "api-reference/business-solutions/bookings",
+    "api-reference/business-management/calendar"
+  ],
+  "displayName": "Wix Bookings",
+  "ownerHint": "Bookings (services, bookings, sessions/schedules, availability, staff, resources, policies) domain owners",
+  "wixAppsRequired": [
+    "Wix Bookings"
+  ],
+  "defaultImportOrder": [
+    "service",
+    "service-add-on",
+    "booking"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "bookings-app-not-installed-by-default",
+      "severity": "blocker",
+      "summary": "The Wix Bookings app (appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97) must be installed before any write in this domain, and it is not present on a fresh headless site. The app id is documented on the Booking object (booking.appId) and the Booking Policy object (policy.appId), which both state that entities are displayed in Wix Bookings only when associated with that app id or with no app id at all. Verified live 2026-08-12: `/bookings/v2/services` and `/bookings/v2/resources/query` both answer with ordinary 200s/validation errors (never an 'app not installed' error) even when the app instance is absent from `GET /apps-installer-service/v1/app-instances` — a plausible response from either endpoint is not proof the app is installed. Create Service instead fails with a plain 'form Form with id 00000000-0000-0000-0000-000000000000 doesn't exist', which reads like a form problem but is actually the app-install gap. Install it first (see rp-execute-setup SKILL.md 'Installing / enabling Wix apps'); doing so auto-provisions the default booking form and one default 'Business Owner' staff resource as a side effect. Treat the install as a setup gate, mirroring pricing-plans-app-required."
+    },
+    {
+      "code": "bookings-is-notification-heavy",
+      "severity": "blocker",
+      "summary": "Wix Bookings sends customer-facing email and SMS on booking lifecycle transitions. Two documented request-level controls exist on Bookings Writer V2 and they point in OPPOSITE directions: participantNotification.notifyParticipants defaults to false (the ad-hoc message is off unless asked for), while sendSmsReminder defaults to TRUE - an SMS goes to contactDetails.phone 24 hours before the session unless every create call explicitly sets sendSmsReminder:false. Neither flag is documented to govern the site's own Bookings automation emails (booking confirmation, reminders, staff alerts), and no suppression flag for those is documented anywhere in the tree. Until that is proven, every booking write in this domain is a guarded write: importSafe stays false and the site-wide notification mute is the only control we can actually prove."
+    },
+    {
+      "code": "staff-and-resources-are-a-prerequisite-graph",
+      "severity": "warning",
+      "summary": "An appointment service cannot be created without at least one entry in staffMemberIds, and those are RESOURCE GUIDs (staffMember.resourceId), not staff-member GUIDs - the Create Service page says so explicitly. A source platform that models 'who provides this' loosely (or not at all, as WooCommerce booking-product plugins generally do) still needs a staff member provisioned on Wix first. Treat staff/resource provisioning as a setup step that precedes the service import, and record the placeholder staff member in the faithfulness ledger when the source has no provider concept. Note that installing the Bookings app auto-provisions one default 'Business Owner' staff resource that can be reused."
+    },
+    {
+      "code": "category-required-for-visibility",
+      "severity": "warning",
+      "summary": "Create Service documents that a service without an assigned category.id is not visible on the live site. Category assignment is therefore part of a correct service import, not cosmetic; Categories V2 (Create Category) is the surface, and the source's product category is the natural input."
+    },
+    {
+      "code": "session-is-not-a-bookings-endpoint",
+      "severity": "warning",
+      "summary": "A Service's one-time or recurring date/time is not written through any '/bookings/v2/...' endpoint. It is an ordinary Calendar V3 event (`POST /calendar/v3/events`) on the schedule the service auto-creates (`service.schedule.id`). See domains/bookings/entities/service.json evidence and rp-target-wix/lib/wix-writers.js `createCalendarEvent`."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/architecture",
+      "note": "domain root; menu walked 2026-08-16 (Services, Staff Members, Resources, Pricing, Policies, Time Slots, Bookings, Calendar, Skills)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar",
+      "note": "second docs root: Bookings' own Calendar > Schedules and Sessions menu node is EMPTY - the schedule/session/participation surfaces live under Business Management > Calendar (Schedules V3, Schedule Time Frames V3, Events V3, Event Views V3, Participations V3). Verified by fetching both menu pages 2026-08-16; the Service object's schedule.id field links straight into that tree."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/wix-forms-integration"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "the source side this domain was authored against: WPS Bookings for WooCommerce 3.12.0, live on the reference store 2026-08-16"
+    },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real Create Service / Create (Calendar V3) Event calls against a live site, plus Install App / Clone Form bisection to root-cause FORM_NOT_FOUND."
+    }
+  ]
+}
