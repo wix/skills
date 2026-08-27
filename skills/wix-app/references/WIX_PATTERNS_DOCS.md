@@ -128,7 +128,7 @@ Pass every name you need in **one** call; docs come back separated by `---`:
 node $PATTERNS docs Table useTableCollection TableState
 ```
 
-Each name comes back as import line + API/props table + one usage example; the design prose is left out, which is what keeps a six-name call readable. **Don't pipe this through `head`** — a long doc keeps its props table near the end (`ToolbarFilters.md`: line 1,554 of 1,580), so trimming the output leaves you with prose and no props, guessing at prop names. If one component needs more, ask for that one with `--full`.
+Each name comes back as its import line and props table, plus a usage example when you ask for one or two names — batching more drops the examples so the later components' props still fit. The first line of the output tells you how many lines the whole answer is, so **read it rather than piping it through `head`**: the props table is the payload, and trimming is how you end up guessing at prop names. If one component needs more than the table, ask for that one with `--full`.
 
 ### Types the docs don't cover
 

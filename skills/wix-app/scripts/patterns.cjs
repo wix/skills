@@ -229,7 +229,7 @@ function firstUsageFence(text) {
 
 const FALLBACK_CAP = 150;
 
-function compactDoc(body) {
+function compactDoc(body, withExample) {
   const sections = splitSections(body);
   const api = sections.filter((s) => s.heading && s.heading.startsWith('## API'));
 
@@ -248,10 +248,14 @@ function compactDoc(body) {
   const parts = [];
   if (imp) parts.push('```tsx\n' + imp + '\n```');
 
-  const example = firstUsageFence(body);
-  if (example) parts.push(example);
-
+  // API before the example, deliberately. The props table is the payload; if
+  // anything downstream truncates this output, it has to lose the example.
   for (const s of api) parts.push(s.lines.join('\n').trim());
+
+  if (withExample) {
+    const example = firstUsageFence(body);
+    if (example) parts.push(example);
+  }
 
   const kept = parts.join('\n\n');
   const omitted = body.split('\n').length - kept.split('\n').length;
@@ -299,10 +303,23 @@ function cmdDocs(args) {
   // not `requested.length`, which still counts the ones that were skipped and
   // would buy the refs of refs an extra level of expansion.
   const rootCount = queue.length;
+
+  // One or two names: show a usage example each. More than that and the examples
+  // are what push a later component's props out of reach of anything reading
+  // only the first N lines — so drop them and say so.
+  // --refs grows the queue after this point, so a one-name --refs call would
+  // otherwise keep examples for a dozen docs.
+  const withExamples = !withRefs && queue.length <= 2;
+
   const pending = new Set();
   const printed = [];
   let omittedTotal = 0;
 
+  // Output is buffered so the first line can state the total size. Whether to
+  // pipe this through `head` is decided before any output exists, so a footer
+  // saying "that was all of it" arrives too late to be read — a header survives
+  // the pipe and tells the agent the next call needs no trimming.
+  const chunks = [];
   for (let i = 0; i < queue.length; i++) {
     const name = queue[i];
     const file = path.join(docsDir, index[name].file);
@@ -314,13 +331,12 @@ function cmdDocs(args) {
       continue;
     }
 
-    const rendered = full ? { text: body.trim(), omitted: 0 } : compactDoc(body);
-    omittedTotal += rendered.omitted;
+    const doc = full ? { text: body.trim(), omitted: 0 } : compactDoc(body, withExamples);
+    omittedTotal += doc.omitted;
 
-    if (printed.length) console.log('\n---\n');
-    console.log(`# ${name}  (${index[name].category}, ${index[name].file})`);
-    console.log('');
-    console.log(rendered.text.trim());
+    chunks.push(
+      `# ${name}  (${index[name].category}, ${index[name].file})\n\n${doc.text.trim()}`,
+    );
     printed.push(name);
 
     for (const ref of crossRefs(body)) {
@@ -334,12 +350,21 @@ function cmdDocs(args) {
     }
   }
 
+  const bodyOut = chunks.join('\n\n---\n\n');
+  const lineCount = bodyOut.split('\n').length;
+  console.log(
+    `<< ${printed.length} doc${printed.length === 1 ? '' : 's'}, ${lineCount} lines: import + API${withExamples && !full ? ' + example' : ''}. This is the whole answer — read it, don't pipe it through head. >>`,
+  );
+  console.log('');
+  console.log(bodyOut);
+
   if (!full && omittedTotal > 0) {
     console.log('\n---\n');
-    console.log(
-      `Compact view: import + API + one example. ${omittedTotal} lines of design prose omitted.`,
-    );
-    console.log(`Need the rest of one doc? ${self()} docs ${printed[0]} --full`);
+    const what = withExamples
+      ? `${omittedTotal} lines of design prose omitted.`
+      : `${omittedTotal} lines omitted, including the usage examples — those are shown when you ask for one or two names at a time.`;
+    console.log(what);
+    console.log(`The whole file for one component: ${self()} docs ${printed[0]} --full`);
   }
 
   const remaining = [...pending].filter((n) => !printed.includes(n)).sort();
