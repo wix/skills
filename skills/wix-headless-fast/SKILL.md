@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout) and bookings (services, appointment/class time slots, staff, booking form, checkout-or-place). Triggers: build me a store fast, take appointments/bookings fast, storefront with shipped components, wix headless fast, connect Wix Stores or Wix Bookings with ready-made SDK code."
+description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout), bookings (services, appointment/class time slots, staff, booking form, checkout-or-place), blog (posts, categories/tags, rich content), cms (structured content collections), events (listing, RSVP, ticket sales), members (login, gated pages, account), portfolio (project collections, media galleries), pricing-plans (plan grid, hosted purchase), restaurants (menus, online ordering, table reservations). Triggers: build me a store/blog/booking/event/restaurant/portfolio site fast, take appointments fast, sell tickets or membership plans headless, wix headless fast, connect a Wix business app with ready-made SDK code."
 ---
 
 # Wix Headless Fast
@@ -109,9 +109,20 @@ comes from the shipped code, and real errors surface at build/release.
 |---|---|---|
 | Online store: products, categories, variants, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
 | Appointments/classes: services, time slots, staff, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Blog: post feed, categories/tags, rich-content post pages | **blog** | `references/blog/INSTRUCTIONS.md` |
+| Structured content collections (directory, recipes, listings) with pages designed per schema | **cms** | `references/cms/INSTRUCTIONS.md` |
+| Events: listing, event pages, free RSVP, ticket sales via hosted checkout | **events** | `references/events/INSTRUCTIONS.md` |
+| Member accounts: login/sign-up, gated pages, account page | **members** | `references/members/INSTRUCTIONS.md` |
+| Portfolio/showcase: collections of projects, project pages with media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
+| Membership/subscription plans: pricing page, plan detail, hosted purchase | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
+| Restaurant: menu with photos, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
 
-A request that doesn't match a shipped vertical isn't this skill's fast path — route it to
-`wix-headless` rather than improvising an unshipped vertical here.
+Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
+accounts) deploys them together — fast-path takes one vertical; deploy the rest with
+`node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
+starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
+this skill's fast path — route it to `wix-headless` rather than improvising an unshipped
+vertical here.
 
 ## Adding a vertical (structure contract)
 

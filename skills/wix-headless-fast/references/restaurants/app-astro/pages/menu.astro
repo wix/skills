@@ -1,0 +1,22 @@
+---
+// Menu page — the full menu tree fetched SERVER-SIDE (SEO: dish names in view-source) and
+// handed to the island as DTO props. Keep this frontmatter; swap the island import to YOUR
+// menu component. The island is client:load — add-to-order needs the browser.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import MenuView from "../components/restaurants/MenuView";
+import { fetchMenus } from "../wix/restaurants/menu";
+import type { MenuData } from "../wix/restaurants/types";
+
+let menus: MenuData[] = [];
+try {
+  menus = await fetchMenus();
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Menu">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Menu</h1>
+  <MenuView client:load initialMenus={menus} />
+</SiteLayout>
