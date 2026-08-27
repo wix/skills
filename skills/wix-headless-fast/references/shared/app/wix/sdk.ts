@@ -13,7 +13,7 @@
 // tokens persist to localStorage — never re-minted per load (a fresh anonymous mint is a NEW
 // visitor and silently empties the cart).
 import { createClient, OAuthStrategy, EMPTY_TOKENS } from "@wix/sdk";
-import type { TokenStorage, Tokens } from "@wix/sdk";
+import type { IOAuthStrategy, TokenStorage, Tokens } from "@wix/sdk";
 import { WIX_CLIENT_ID } from "./config";
 
 const STORAGE_KEY = `wix-session-${WIX_CLIENT_ID ?? "ambient"}`;
@@ -55,4 +55,13 @@ const client = WIX_CLIENT_ID
 export function wixModule<T>(module: T): T {
   // The cast bridges the SDK's internal Descriptors constraint; the in/out type is identical.
   return client ? (client.use(module as unknown as Record<string, unknown>) as unknown as T) : module;
+}
+
+/**
+ * The manual-mode auth strategy (member-login handshake, loggedIn()), or null under ambient
+ * auth, where `@wix/astro` owns the session end-to-end. Only wix/members/auth.ts branches on
+ * this — app code reads the session through the members hooks instead.
+ */
+export function wixAuth(): IOAuthStrategy | null {
+  return client ? client.auth : null;
 }

@@ -1,0 +1,18 @@
+---
+// Member-gated account page — the gate lives HERE, server-side (a client-side check flashes
+// gated UI). fetchCurrentMember never throws: null = anonymous → bounce to the built-in
+// login route. ⚠️ The return param is `returnToUrl` — NOT `returnUrl` (silently dropped,
+// the member lands on "/"). This page needs the Wix Members Area app installed (the seed
+// installs it) — without it a LOGGED-IN member also reads null here and loops through login.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import AccountView from "../components/members/AccountView";
+import { fetchCurrentMember } from "../wix/members/members";
+
+const member = await fetchCurrentMember();
+if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent("/account")}`);
+---
+
+<SiteLayout title="My account">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">My account</h1>
+  <AccountView client:load initialMember={member} />
+</SiteLayout>

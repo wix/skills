@@ -1,0 +1,12 @@
+---
+// Reservations page. The surface is client:only — availability is timezone- and
+// party-specific, so nothing useful can server-render. Swap the island import to YOUR
+// reservation component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import ReservationView from "../components/restaurants/ReservationView";
+---
+
+<SiteLayout title="Reservations" description="Reserve a table">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Reserve a table</h1>
+  <ReservationView client:only="react" />
+</SiteLayout>

@@ -70,6 +70,55 @@ const VERTICAL_DEPS = {
       "@wix/essentials": "^1.0.6",
     },
   },
+  blog: {
+    core: {
+      "@wix/blog": "^1.0.645",
+      "@wix/ricos": "^11.12.0",
+    },
+    astro: {
+      "@wix/seo": "^1.0.79",
+      "@wix/essentials": "^1.0.10", // WIX_APPS.blogs needs ≥1.0.10
+    },
+  },
+  cms: {
+    core: {
+      "@wix/data": "^1.0.512",
+    },
+  },
+  events: {
+    core: {
+      "@wix/events": "^1.0.860",
+      "@wix/redirects": "^1.0.125",
+    },
+    astro: {
+      "@wix/seo": "^1.0.79",
+      "@wix/essentials": "^1.0.10",
+    },
+  },
+  members: {
+    core: {
+      "@wix/members": "^1.0.511",
+    },
+  },
+  portfolio: {
+    core: {
+      "@wix/portfolio": "^1.0.229",
+    },
+  },
+  "pricing-plans": {
+    core: {
+      "@wix/pricing-plans": "^1.0.378",
+      "@wix/redirects": "^1.0.125",
+    },
+  },
+  restaurants: {
+    core: {
+      "@wix/restaurants": "^1.0.525",
+      "@wix/table-reservations": "^1.0.397",
+      "@wix/ecom": "^1.0.2454",
+      "@wix/redirects": "^1.0.125",
+    },
+  },
 };
 
 const COPY = { recursive: true, force: false, errorOnExist: false };
