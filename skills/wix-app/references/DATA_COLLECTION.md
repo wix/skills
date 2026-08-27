@@ -1,7 +1,7 @@
 
 # Wix Data Collection Builder
 
-> **🛑 STOP — is this data really yours to model?** Data collections are ONLY for data your app itself owns (configuration, rules, app-specific records). Data owned by an existing Wix app — orders, refunds, products, inventory, bookings, contacts, members, invoices, coupons, events, reviews, form submissions, etc. — is accessed through that app's SDK module, never modeled as CMS. Check [WIX_SDK_MODULES.md](WIX_SDK_MODULES.md) before creating any collection.
+> **🛑 STOP — is this data really yours to model?** Data collections are ONLY for data your app itself owns (configuration, rules, app-specific records). Data owned by an existing Wix app — orders, refunds, products, inventory, bookings, contacts, members, invoices, coupons, events, reviews, form submissions, etc. — is accessed through that app's SDK module, never modeled as CMS. Check the SDK-First Rule's entity → SDK module map in the skill's SKILL.md before creating any collection.
 
 Creates CMS data collections for Wix CLI apps. The data collections extension allows your app to automatically create CMS collections when it's installed on a site. Collections store structured data that can be accessed from dashboard pages, site pages, backend code, and external applications.
 
