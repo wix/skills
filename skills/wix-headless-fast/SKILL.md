@@ -55,7 +55,7 @@ re-litigate them.
 3. **Create runs (empty directory): run the fast path** — one deterministic call:
 
    ```bash
-   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <storefront|bookings>
+   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <vertical>
    ```
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
@@ -83,7 +83,9 @@ re-litigate them.
    tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
    shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
    home page) — designed to fit the brief, not copied from the reference components. Read the
-   INSTRUCTIONS now (not earlier — its contracts matter only from this step on); the hook/DTO
+   INSTRUCTIONS and the shared floors — `references/shared/DESIGN.md` +
+   `references/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
+   step on); the hook/DTO
    contracts are inlined there, so don't open the shipped files themselves. **Author your
    surfaces in as few messages as possible** — batch multiple Write calls in one message
    (components are independent files); don't pay a round-trip per file.

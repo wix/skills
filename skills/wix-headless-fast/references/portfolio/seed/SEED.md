@@ -52,7 +52,7 @@ rows (Role, Year, Client…).
 - `details` — optional `[{ label, text }]` rows; render on the project page. Omit for none.
 - Every image field's default is a prompt (`coverImagePrompt` / `items[].imagePrompt` —
   AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
-  aesthetic/mood, palette, lighting — always ending "no text, no watermarks". For an asset the user actually supplied
+  aesthetic/mood, palette, lighting — always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied
   use a path (`coverImagePath` / `items[].imagePath` — a file on this machine, uploaded to
   Wix Media) or a url (`coverImageUrl` / `items[].imageUrl` — their own hosted URL; verify it
   with `curl -sI` → 200) — never a stock-photo or guessed URL. All images —
