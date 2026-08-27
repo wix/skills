@@ -86,6 +86,10 @@ triple, the options objects and the validation shapes are the ones Wix actually 
 exceptions: **Donation** comes from About Form Fields, and **Custom price** is the one field with no
 shipped example — it is composed from the property reference.)
 
+*(Authoring side: which JSON creates each field. The rendering side — which control each one wants
+and what its value looks like — is the matching table in `INSTRUCTIONS.md`; they join on
+`identifier`.)*
+
 | field                             | `identifier`            | `inputType`  | `componentType`           | submits | requires            |
 |-----------------------------------|-------------------------|--------------|---------------------------|---------|---------------------|
 | **Text & number**                 |                         |              |                           |         |                     |
@@ -94,7 +98,6 @@ shipped example — it is composed from the property reference.)
 | Number                            | `NUMBER_INPUT`          | `NUMBER`     | `NUMBER_INPUT`            | number  |                     |
 | Rating                            | `RATING_INPUT`          | `NUMBER`     | `RATING_INPUT`            | number  |                     |
 | Link                              | `URL_INPUT`             | `STRING`     | `TEXT_INPUT`              | string  |                     |
-| Password                          | `PASSWORD`              | `STRING`     | `PASSWORD`                | string  |                     |
 | **Choice**                        |                         |              |                           |         |                     |
 | Dropdown                          | `DROPDOWN`              | `STRING`     | `DROPDOWN`                | string  |                     |
 | Single choice                     | `RADIO_GROUP`           | `STRING`     | `RADIO_GROUP`             | string  |                     |
@@ -250,28 +253,6 @@ owner's dashboard, or on the first real submission.
             "textInputOptions": {
               "label": "Portfolio link",
               "showLabel": true
-            }
-          }
-        }
-      },
-      {
-        "id": "a0d72e94-6f18-4c3b-85d0-e21739bc6a48",
-        "identifier": "PASSWORD",
-        "fieldType": "INPUT",
-        "inputOptions": {
-          "target": "portal_password_8a25",
-          "pii": true,
-          "required": true,
-          "inputType": "STRING",
-          "stringOptions": {
-            "validation": {
-              "minLength": 8
-            },
-            "componentType": "PASSWORD",
-            "passwordOptions": {
-              "label": "Client portal password",
-              "showLabel": true,
-              "placeholder": "At least 8 characters"
             }
           }
         }

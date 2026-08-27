@@ -9,7 +9,7 @@
 // members and cms names both, and its CMS helpers then come from the skill instead of being
 // hand-written. Order matters only where two verticals ship a file at the SAME path (both have
 // components/…, pages/…): the first one listed wins, since the copy never overwrites. Verticals whose
-// file sets don't overlap (cms ships utils only, no UI) combine freely.
+// file sets don't overlap (cms and forms ship utils only, no UI) combine freely.
 // paths are the Base44 sandbox's /app. Re-running is non-destructive: it fills in only missing files,
 // never overwriting the agent's edits (see COPY), so a later call can add a vertical safely.
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.

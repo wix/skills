@@ -37,7 +37,7 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
 | events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.js` |
 | portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.js` |
 | restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.js` |
-| forms | `wix-forms.js` — any visitor-fillable form: read the schema, project it to inputs, create a submission | *(none — REST shapes in `seed/SEED.md`)* |
+| forms | `wix-forms.js`, `wix-forms-submissions.js` — any visitor-fillable form: read the schema; upload attachments, create a submission (schema accessors ship alongside in `lib/wix-form-schema-utils.js`) | *(none — REST shapes in `seed/SEED.md`)* |
 | cms | `wix-cms.js` — Wix Data collections: list / detail / filter | `seed-cms.js` |
 | pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.js` |
 | members | `wix-members-auth.js` — custom login/signup (email+password, social, SSO), session, account | *(none — members sign up at runtime; nothing to seed)* |
