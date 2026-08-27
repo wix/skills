@@ -8,11 +8,11 @@ description: Import Google Business Profile locations into the authenticated Wix
 Use the public **Google Business Profile Locations API** to manage the
 authenticated Wix site's Business Profile locations — the entries that decide
 how the business appears on Google Search and Maps. The REST requests do not
-contain a site ID, but the MCP still needs a site selected so it can set the
-authorization context. Use a site already supplied by the environment. If none
-is supplied, call **ListWixSites** once: auto-select the only site, or ask the
-user to choose by site name when several are available. Never invent a site ID
-or ask the user to type one.
+contain a site ID — the site comes from the caller's authorization context.
+Use the site the environment already supplies; if no site is selected, list
+the user's sites once and auto-select the only one, or ask the user to choose
+by site name when several are available. Never invent a site ID or ask the
+user to type one.
 
 > **Unconnected-site fast path — read first.** Read the connection once. Treat
 > `NEVER_CONNECTED`, `NEEDS_RECONNECT`, or a single

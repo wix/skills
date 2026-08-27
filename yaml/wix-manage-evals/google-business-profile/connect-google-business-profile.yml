@@ -6,11 +6,11 @@ description: >-
   is connected without the status saying so.
 triggerPrompt: >-
   Connect my Wix site to Google Business Profile so I can manage my business locations from Wix.
-tags: [aria, seo]
+tags: [seo]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/connection-v1/skills/connect-a-wix-site-to-google-business-profile
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/skills/connect-a-wix-site-to-google-business-profile
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

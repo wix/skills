@@ -7,11 +7,11 @@ description: Connect the authenticated Wix site to a Google Business Profile acc
 
 Use the public **Google Business Profile Connection API** to link the
 authenticated Wix site to a Google Business Profile account. The REST requests
-do not contain a site ID, but the MCP still needs a site selected so it can set
-the authorization context. Use a site already supplied by the environment. If
-none is supplied, call **ListWixSites** once: auto-select the only site, or ask
-the user to choose by site name when several are available. Never invent a site
-ID or ask the user to type one. A connection is the prerequisite for Google-backed work in the Google
+do not contain a site ID — the site comes from the caller's authorization
+context. Use the site the environment already supplies; if no site is selected,
+list the user's sites once and auto-select the only one, or ask the user to
+choose by site name when several are available. Never invent a site ID or ask
+the user to type one. A connection is the prerequisite for Google-backed work in the Google
 Business Profile Locations API — establish it before importing or managing
 locations.
 

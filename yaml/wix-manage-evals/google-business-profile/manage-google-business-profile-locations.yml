@@ -7,11 +7,11 @@ description: >-
 triggerPrompt: >-
   Import my Google Business Profile locations into my Wix site, and show me which locations the
   site already has.
-tags: [aria, seo]
+tags: [seo]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/gbplocation-v1/skills/manage-google-business-profile-locations-for-a-wix-site
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/skills/manage-google-business-profile-locations-for-a-wix-site
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
