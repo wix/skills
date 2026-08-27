@@ -59,9 +59,9 @@ every content item an image on an IMAGE field (a content site without images loo
   `RICH_TEXT` (an HTML string, stored verbatim), `REFERENCE`, `MULTI_REFERENCE`.
 - `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, ~1 Wix AI credit per
   image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
-  always ending "no text, no watermarks". Use an https URL string ONLY for an asset the user
-  actually supplied (their own photo/URL; verify it with `curl -sI` → 200; imported into Wix
-  Media, the permanent `file.url` is stored) — never a stock-photo or guessed URL. Images
+  always ending "no text, no watermarks". For an asset the user actually supplied use
+  `{ "path": "..." }` (a file on this machine — uploaded to Wix Media) or an https URL string
+  (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images
   resolve in parallel and never block the seed; a failed image leaves that field unset (the
   item stays text-only).
 - `DATE`/`DATETIME` values are ISO strings — the script wraps them as `{ "$date": iso }`.

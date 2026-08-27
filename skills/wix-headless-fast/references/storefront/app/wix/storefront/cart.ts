@@ -5,6 +5,11 @@
 //
 // Failures are loud: these throw on out-of-stock lines, an empty cart at checkout, and a
 // missing required selection — surface the message to the buyer, don't swallow it.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
 import { currentCartV2 } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";
 import { productsV3 } from "@wix/stores";

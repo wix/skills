@@ -12,6 +12,8 @@
 // The visitor token IS the identity of the current cart / member session, so in manual mode
 // tokens persist to localStorage — never re-minted per load (a fresh anonymous mint is a NEW
 // visitor and silently empties the cart).
+// docs: https://dev.wix.com/docs/sdk/core-modules/sdk/oauth-strategy.md
+// docs: https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/about-the-astro-integration.md
 import { createClient, OAuthStrategy, EMPTY_TOKENS } from "@wix/sdk";
 import type { IOAuthStrategy, TokenStorage, Tokens } from "@wix/sdk";
 import { WIX_CLIENT_ID } from "./config";

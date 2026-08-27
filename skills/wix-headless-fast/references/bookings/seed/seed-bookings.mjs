@@ -87,6 +87,7 @@ function buildService(s) {
 
 // ---- operations ----------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installBookingsApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -99,6 +100,7 @@ export async function installBookingsApp(ctx) {
 }
 
 // ⚠️ staffMemberIds takes resourceId, NOT the staff id.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members.md
 export async function queryStaff(ctx) {
   const r = await req(ctx, "/bookings/v1/staff-members/query", {
     body: { query: {}, fields: ["RESOURCE_DETAILS"] },
@@ -123,6 +125,8 @@ export async function queryStaffWithRetry(ctx, { tries = 15, delayMs = 2000 } = 
 }
 
 // Every service needs a category.id or it's invisible on the live site. Idempotent by name.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category.md
 export async function createCategories(ctx, names) {
   const existing = await req(ctx, "/bookings/v2/categories/query", { body: { query: {} } });
   const byName = new Map((existing.categories ?? []).map((c) => [c.name, { id: c.id, name: c.name }]));
@@ -140,6 +144,7 @@ export async function createCategories(ctx, names) {
 }
 
 // Bulk-create services (APPOINTMENT + CLASS mixed). Run AFTER staff + categories.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services.md
 export async function createServices(ctx, services) {
   const body = { services: services.map(buildService), returnEntity: true };
   const r = await req(ctx, "/bookings/v2/bulk/services/create", { body });
@@ -159,6 +164,7 @@ export async function createServices(ctx, services) {
 
 // CLASS only: schedule sessions (bulk Calendar Events V3). start/end are LOCAL wall-clock
 // "YYYY-MM-DDThh:mm:ss" (no Z), today-or-future.
+// docs: https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event.md
 export async function scheduleClassSessions(ctx, sessions) {
   const body = {
     events: sessions.map((s) => ({
@@ -186,6 +192,7 @@ export async function scheduleClassSessions(ctx, sessions) {
 export { importImage } from "../../shared/seed/images.mjs";
 
 // Writes under media.mainMedia + media.coverMedia (writing media.image 200s but silently drops).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service.md
 export async function attachServiceImage(ctx, it) {
   return req(ctx, `/bookings/v2/services/${it.serviceId}`, {
     method: "PATCH",
@@ -247,6 +254,7 @@ export async function setupBookings(ctx, { services = [], staffResourceId } = {}
   // attach. Failures leave the service text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => ({
     url: services[i]?.imageUrl,
+    path: services[i]?.imagePath,
     prompt: services[i]?.imagePrompt,
     displayName: `${c?.slug || "service"}.png`,
   })));

@@ -1,5 +1,7 @@
 // Category + tag reads (Wix Blog V3) — the only file that touches raw taxonomy entities.
 // Everything it returns is a plain DTO from ./types. Copy as-is; extend by adding functions.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 import { categories as categoriesModule, tags as tagsModule } from "@wix/blog";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

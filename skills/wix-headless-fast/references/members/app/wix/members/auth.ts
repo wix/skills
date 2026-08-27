@@ -15,6 +15,8 @@
 // ⚠️ Manual preconditions: the connected site must be PUBLISHED, and `<origin>/callback`
 // must be in the OAuth app's allowedRedirectUris — a manual post-release step; `wix release`
 // registers only the origin. See INSTRUCTIONS → "Wiring — React SPA".
+// docs: https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/handle-member-login-using-wix-s-astro-integration.md
+// docs: https://dev.wix.com/docs/sdk/core-modules/sdk/oauth-strategy.md
 import type { OauthData } from "@wix/sdk";
 import { WIX_CLIENT_ID } from "../config";
 import { wixAuth } from "../sdk";

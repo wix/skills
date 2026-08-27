@@ -55,6 +55,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
  * Install the Wix Members Area app (idempotent in effect: re-running against a site that
  * already has it errors — recorded in the result, not thrown, since "already installed" and
  * a real failure aren't distinguishable from the response).
+ * docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
  */
 export async function installMembersAreaApp(ctx) {
   try {

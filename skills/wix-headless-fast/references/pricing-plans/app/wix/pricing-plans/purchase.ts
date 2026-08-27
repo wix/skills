@@ -3,6 +3,7 @@
 // the order form, and payment itself — so this works from an anonymous visitor session.
 // Never create the order yourself (orders.createOnlineOrder needs a logged-in member and
 // still leaves payment unhandled); never hand-build a checkout URL. Copy as-is.
+// docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 import { redirects as redirectsModule } from "@wix/redirects";
 import { wixModule } from "../sdk";
 

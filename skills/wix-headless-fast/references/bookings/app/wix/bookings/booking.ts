@@ -1,6 +1,14 @@
 // Availability, the booking form, and the createBooking → Cart V2 → checkout-or-place
 // sequence. The payload shapes here are exact and easy to get subtly wrong — copy as-is;
 // extend by calling these exports, never by editing them. Failures are loud.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-event-time-slots.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/calculate-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/place-order.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
+// docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary.md
 import {
   availabilityTimeSlots,
   eventTimeSlots,

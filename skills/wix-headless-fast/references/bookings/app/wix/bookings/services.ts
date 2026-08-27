@@ -1,6 +1,8 @@
 // Service reads (Wix Bookings Services V2) — the only file that touches raw service
 // entities. Everything it returns is a plain DTO from ./types. Copy as-is; extend by adding
 // functions, not by editing these.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories.md
 import { services as servicesModule, categoriesV2 } from "@wix/bookings";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

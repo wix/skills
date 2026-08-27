@@ -57,6 +57,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 // ---- operations ----------------------------------------------------------------------------------
 
 // Idempotent — re-installing returns 200.
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installPortfolioApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -69,10 +70,12 @@ export async function installPortfolioApp(ctx) {
 }
 
 // Read-only listing helpers (partial re-seeds, verification).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/list-collections.md
 export async function listCollections(ctx) {
   const r = await req(ctx, "/portfolio/v1/collections", { method: "GET" });
   return (r.collections ?? []).map((c) => ({ id: c.id, title: c.title, slug: c.slug }));
 }
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/list-projects.md
 export async function listProjects(ctx) {
   const r = await req(ctx, "/portfolio/v1/projects", { method: "GET" });
   return (r.projects ?? []).map((p) => ({ id: p.id, title: p.title, slug: p.slug }));
@@ -81,6 +84,7 @@ export async function listProjects(ctx) {
 // STEP 1 — collections. The display name is `title`, not `name`; `slug` auto-generates from
 // the title; `hidden` defaults to false = shown (omit it — send true only to hide). No
 // bulk-create: one call per collection.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/create-collection.md
 export async function createCollections(ctx, collections) {
   const out = [];
   for (const c of collections) {
@@ -95,6 +99,7 @@ export async function createCollections(ctx, collections) {
 // STEP 2 — projects, AFTER collections: collectionIds must hold real ids from createCollections
 // (they are NOT validated — a wrong/missing id silently orphans the project). `details` is an
 // optional [{ label, text }] array. No bulk-create: one call per project.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/create-project.md
 export async function createProjects(ctx, projects) {
   const out = [];
   for (const p of projects) {
@@ -119,6 +124,7 @@ export { importImage } from "../../shared/seed/images.mjs";
 
 // Cover = the listing-card thumbnail. PATCH per entity, echoing the current revision (missing/
 // stale revision fails); height + width are required alongside the imported file id.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/update-project.md
 export async function attachProjectCovers(ctx, items) {
   for (const it of items) {
     await req(ctx, `/portfolio/v1/projects/${it.id}`, {
@@ -127,6 +133,7 @@ export async function attachProjectCovers(ctx, items) {
     });
   }
 }
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/update-collection.md
 export async function attachCollectionCovers(ctx, items) {
   for (const it of items) {
     await req(ctx, `/portfolio/v1/collections/${it.id}`, {
@@ -138,6 +145,7 @@ export async function attachCollectionCovers(ctx, items) {
 
 // The detail-page gallery is a SEPARATE `item` entity — one POST per image; sortOrder (1,2,3…)
 // sets render order. Lowercase `items` — `/Items` 404s. There is NO public list endpoint.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/create-project-item.md
 export async function createProjectItems(ctx, items) {
   const out = [];
   for (const it of items) {
@@ -178,13 +186,13 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
   projects.forEach((p, pi) => {
     for (const it of p.items ?? []) {
       galleryRefs.push({ pi, it, spec: specs.length });
-      specs.push({ url: it.imageUrl, prompt: it.imagePrompt, displayName: `${it.title || "item"}.png` });
+      specs.push({ path: it.imagePath, url: it.imageUrl, prompt: it.imagePrompt, displayName: `${it.title || "item"}.png` });
     }
   });
   const projCoverAt = specs.length;
-  projects.forEach((p) => specs.push({ url: p.coverImageUrl, prompt: p.coverImagePrompt, displayName: `${p.title || "project"}-cover.png` }));
+  projects.forEach((p) => specs.push({ path: p.coverImagePath, url: p.coverImageUrl, prompt: p.coverImagePrompt, displayName: `${p.title || "project"}-cover.png` }));
   const colCoverAt = specs.length;
-  collections.forEach((c) => specs.push({ url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
+  collections.forEach((c) => specs.push({ path: c.coverImagePath, url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
   const files = await resolveItemImages(ctx, specs);
   const dims = { height: 1024, width: 1024 };
 

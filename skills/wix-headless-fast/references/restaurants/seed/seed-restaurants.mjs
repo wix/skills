@@ -60,6 +60,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- app installs --------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 async function installApp(ctx, appDefId) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -75,6 +76,7 @@ export async function installOrdersApp(ctx) { return installApp(ctx, ORDERS_APP_
 export async function installTableReservationsApp(ctx) { return installApp(ctx, TABLE_RESERVATIONS_APP_ID); }
 
 /** True when the Menus API answers — i.e. the app is already on the site. */
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/list-menus.md
 export async function menusAppPresent(ctx) {
   try {
     await req(ctx, "/restaurants/menus/v1/menus", { method: "GET" });
@@ -94,6 +96,11 @@ export async function menusAppPresent(ctx) {
  * run installed the app onto a site that didn't have it (menusAppPresent was false) — then
  * everything present is provably the install's own sample. Polls briefly (the sample
  * provisions async), then deletes children before parents. No-op when nothing appears.
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/list-sections.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-delete-items.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-delete-sections.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/delete-menu.md
  */
 export async function removeSampleMenu(ctx, { tries = 8, delayMs = 2000 } = {}) {
   let menus = [];
@@ -127,6 +134,9 @@ export async function removeSampleMenu(ctx, { tries = 8, delayMs = 2000 } = {}) 
  * visible:true is baked in at every level — required to render on the live site.
  * Returns { menuId, name, sectionIds, itemIds, items: [{ id, revision, price }] } — the
  * per-item revision/price feed the image pass (Update Item is a full replace).
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-create-items.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-create-sections.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu.md
  */
 export async function createMenu(ctx, menu) {
   // STEP 1 — bulk-create every item across all sections in ONE request.
@@ -196,6 +206,7 @@ export { importImage } from "../../shared/seed/images.mjs";
 // image does NOT apply. `image` is an OBJECT { id, url, height, width } (never a bare string);
 // the binding field is the Wix Media file `id`.
 // items: [{ id, revision, price, image: { id, url, height, width } }]
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-update-item.md
 export async function attachItemImages(ctx, items) {
   return req(ctx, "/restaurants/menus/v1/bulk/items/update", {
     body: {
@@ -218,6 +229,9 @@ export async function attachItemImages(ctx, items) {
 // "testing only" and checkout breaks — a placeholder must be flagged to the owner.
 // location: { name, timeZone, email?, phone?, address: { country, subdivision, city,
 //             postalCode, streetAddress: { number, name }, formattedAddress } }
+// docs: https://dev.wix.com/docs/api-reference/business-management/locations/list-locations.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/locations/create-location.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/locations/update-location.md
 export async function setBusinessLocation(ctx, location) {
   const list = await req(ctx, "/locations/v1/locations", { method: "GET" });
   const def = (list.locations ?? []).find((l) => l.default);
@@ -239,6 +253,7 @@ export async function setBusinessLocation(ctx, location) {
 // Delivery attached, every menu ordering-enabled) — these helpers VERIFY it; they never POST
 // an operation. Each micro-service is on its OWN host prefix — do not normalize.
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
 export async function listOperations(ctx) {
   const r = await req(ctx, "/restaurants-operations/v1/operations", { method: "GET" });
   return r.operations ?? [];
@@ -255,6 +270,7 @@ export async function listOperationsWithRetry(ctx, { tries = 15, delayMs = 2000 
 }
 
 // Normally already ENABLED — only PATCH when DISABLED/PAUSED_UNTIL. revision mandatory + current.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/update-operation.md
 export async function enableOperation(ctx, operationId, revision) {
   return req(ctx, `/restaurants-operations/v1/operations/${operationId}`, {
     method: "PATCH",
@@ -262,12 +278,14 @@ export async function enableOperation(ctx, operationId, revision) {
   });
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/query-menu-ordering-settings.md
 export async function queryMenuOrderingSettings(ctx) {
   const r = await req(ctx, "/menu-ordering-settings/v1/menu-ordering-settings/query", { body: { query: {} } });
   return r.menuOrderingSettings ?? [];
 }
 
 // Only when an entry shows onlineOrderingEnabled:false / operationId:"none".
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/update-menu-ordering-settings.md
 export async function updateMenuOrderingSettings(ctx, settingsId, patch) {
   return req(ctx, `/menu-ordering-settings/v1/menu-ordering-settings/${settingsId}`, {
     method: "PATCH",
@@ -281,6 +299,7 @@ export async function updateMenuOrderingSettings(ctx, settingsId, patch) {
 // be created via this API — discover, configure, enable. Post-Jan-2026 field names:
 // partySize (not partiesSize), approval (not manualApproval).
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/list-reservation-locations.md
 export async function listReservationLocations(ctx) {
   const r = await req(ctx, "/table-reservations/reservation-locations/v1/reservation-locations", { method: "GET" });
   return r.reservationLocations ?? [];
@@ -297,6 +316,7 @@ export async function listReservationLocationsWithRetry(ctx, { tries = 15, delay
 
 // Partial PATCH; revision mandatory; works on a non-premium site. The `location` object
 // (address/name) is IMMUTABLE here — only touch `configuration`.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/update-reservation-location.md
 export async function updateReservationLocation(ctx, reservationLocationId, revision, configuration) {
   return req(ctx, `/table-reservations/reservation-locations/v1/reservation-locations/${reservationLocationId}`, {
     method: "PATCH",
@@ -306,6 +326,7 @@ export async function updateReservationLocation(ctx, reservationLocationId, revi
 
 // PREMIUM-ONLY: on a non-premium site this THROWS `428 PREMIUM_ONLY` — expected and
 // non-fatal; the caller records it and continues (never retry-spiral, never fail the seed).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/update-reservation-location.md
 export async function enableOnlineReservations(ctx, reservationLocationId, revision) {
   return req(ctx, `/table-reservations/reservation-locations/v1/reservation-locations/${reservationLocationId}`, {
     method: "PATCH",
@@ -352,6 +373,7 @@ export async function setupRestaurants(ctx, plan) {
   });
   const files = await resolveItemImages(ctx, imageItems.map((it) => ({
     url: it.imageUrl,
+    path: it.imagePath,
     prompt: it.imagePrompt,
     displayName: `${it.name || "item"}.png`,
   })));
