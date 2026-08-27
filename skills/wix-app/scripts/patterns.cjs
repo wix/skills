@@ -207,9 +207,24 @@ function splitSections(body) {
 
 // Only 3 of 167 docs have an `## Import` heading, but 131 carry an import
 // statement somewhere in a code fence — so match the statement, not a section.
-function firstImport(body) {
-  const m = body.match(/^import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*\s,]+?)\s*from\s*'[^']+';?$/m);
-  return m ? m[0] : null;
+//
+// Taking the *first* statement is wrong: in 31 of 167 docs it is `import React
+// from 'react'` or a WDS import from an example (EntityPage, CollectionPage.Header
+// and DateRangeFilter all start that way), and a confidently wrong import line is
+// worse than none. Prefer the patterns import that names this component.
+function firstImport(body, name) {
+  // [\s\S] inside the braces: patterns docs wrap long specifier lists across
+  // lines, and a line-bounded match returns the useless prefix `import {`.
+  const all = [
+    ...body.matchAll(/^import\s+(?:type\s+)?(?:\{[\s\S]*?\}|[\w*\s,]+?)\s*from\s*'([^']+)';?/gm),
+  ];
+  const patterns = all.filter((m) => m[1].startsWith(PKG));
+  if (patterns.length === 0) return null;
+
+  const key = (x) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const wanted = key(name || '');
+  const named = patterns.find((m) => key(m[0]).includes(wanted) && wanted);
+  return (named || patterns[0])[0];
 }
 
 // The first fence in a doc is usually the import line, and some docs open with
@@ -229,7 +244,7 @@ function firstUsageFence(text) {
 
 const FALLBACK_CAP = 150;
 
-function compactDoc(body, withExample) {
+function compactDoc(body, withExample, name) {
   const sections = splitSections(body);
   const api = sections.filter((s) => s.heading && s.heading.startsWith('## API'));
 
@@ -244,7 +259,7 @@ function compactDoc(body, withExample) {
     };
   }
 
-  const imp = firstImport(body);
+  const imp = firstImport(body, name);
   const parts = [];
   if (imp) parts.push('```tsx\n' + imp + '\n```');
 
@@ -331,7 +346,7 @@ function cmdDocs(args) {
       continue;
     }
 
-    const doc = full ? { text: body.trim(), omitted: 0 } : compactDoc(body, withExamples);
+    const doc = full ? { text: body.trim(), omitted: 0 } : compactDoc(body, withExamples, name);
     omittedTotal += doc.omitted;
 
     chunks.push(
