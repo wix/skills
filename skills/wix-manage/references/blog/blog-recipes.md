@@ -18,13 +18,22 @@ Dashboard Navigation** when the user asks where something lives in the
 dashboard, or when a result should come back with a "view it in your
 dashboard" link.
 
+**Open the recipe before calling any API.** This page names the area's recipes and says
+when to reach for each one; the endpoints, request shapes, required fields and field names
+live only in the recipes themselves.
+
 ## Recipes
 
 ### [How to Create Blog Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts)
-Use when creating, publishing or bulk-loading posts — including resolving the
-author member, Ricos bodies, image upload, and category/tag assignment.
+**Technical:** Creates and publishes blog posts using Blog Posts API. Covers resolving
+the required author memberId (including creating an author member when the site has
+none), Ricos rich content format, image upload via Media Manager, category/tag
+assignment, and bulk post creation.
 
 ### [Blog Dashboard Navigation](https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/blog-dashboard-navigation)
-Use when the user wants a dashboard link — posts list, drafts, categories,
-tags, writers, comment moderation, analytics, monetization or settings — or to
-pair an API result with the page where the user can see it.
+**Technical:** Builds direct links to Wix Blog dashboard pages on manage.wix.com — posts
+list (published and draft tabs), categories, tags, writers, comment moderation, blog
+analytics, monetization, and settings. Pairs each main Blog entity with its read API so
+you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the
+user asks where something is in the Wix dashboard, wants a direct link to a dashboard
+page, or you need a dashboard URL to include with the result of an API operation.

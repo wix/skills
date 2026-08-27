@@ -10,84 +10,142 @@ Two habits make this area work. First, **load the store's context before recomme
 
 The recommendation recipes are layered: a **goal** recipe owns classification and routing for one kind of ask, and its **flow** recipe is the sub-step it hands off to. Enter through a goal, never directly through a flow. If the user asks broadly for ideas rather than one action, start from the unified strategy recipe.
 
+**Open the recipe before calling any API.** This page names the area's recipes and says
+when to reach for each one; the endpoints, request shapes, required fields and field names
+live only in the recipes themselves.
+
 ## Start here
 
 ### [eCommerce: Load Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context)
-Use before any recommendation or promotion work — loads site currency, country, industry and recent order and visitor figures.
+**Technical:** eCommerce L1 context loader — calls
+wix-profile-client/v4/profile/metasite (NOT site-properties) to load siteId, country,
+currency, industry, last-30-day visitors/orders/GPV. Skip if already loaded.
 
 ### [Recommend: eCommerce Strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy)
-Use when the user asks broadly for ideas or 'what should I do' — analyses the site across domains and produces a short list of actions.
+**Technical:** Unified eCommerce recommendation skill — analyzes site data across ALL
+domains (discounts, shipping, and future domains) and generates up to 5 actionable
+recommendations. Entry point for requests about earning more from the visitors a store
+already has: sales, promotions, discounts, coupons, clearance, holiday deals, AOV,
+shipping. Out of scope — traffic acquisition (SEO, ads, social, content); route \"grow
+my traffic\" requests to marketing instead. Tracking is built-in.
 
 ### [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
-Use alongside any generated recommendations — the tracking calls that record what was suggested.
+**Technical:** Cross-cutting tracking API for AI-generated recommendations across
+eCommerce categories (checkout, shipping, pricing). ALWAYS LOAD BEFORE generating a
+"give me N recommendations / concrete actions" response, in addition to the category
+recipe.
 
 ## Pricing and promotions
 
 ### [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-promotions)
-Open this first for any discount, coupon, sale, ribbon or bundle question — it owns the boundary rules and routes onward.
+**Technical:** Pricing & Promotions boundary owner — discounts, coupons, sales, ribbons,
+bundles. **Always load this dispatcher first when a question touches both discount work
+and refunds, payments, product-price edits, or shipping rates** — the rules for which
+side owns each topic live in this file, not in this README line.
 
 ### [Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
-Use to create a coupon, including converting a coupon recommendation into a real one.
+**Technical:** PREFERRED recipe for converting a COUPON recommendation (mechanism:
+COUPON) into a Wix coupon. Use THIS entry — NOT the legacy setup-coupons entry which is
+superseded. Maps scope/discountType/conditions to Coupons V2 API fields.
 
 ### [Pricing: Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule)
-Use for automatic discounts — percentage or fixed amount, scoped catalog-wide, to collections, or to specific products.
+**Technical:** Configures automatic discount rules using the eCommerce Discount Rules
+API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide,
+specific collections, or individual products), scheduling active periods, and the
+find-by-name + update pattern.
 
 ### [Pricing: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying)
-Use when a discount exists but is not applying at checkout — a diagnostic path through status, time window, scope and app install.
+**Technical:** Diagnostic tree for when a discount rule exists but isn't applying at
+checkout. Checks active status, time window, scope targeting, revision, and app
+installation.
 
 ## Shipping
 
 ### [Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping)
-Open this first for any shipping-setup question — rates, regions, pickup, free shipping — it owns the boundary and routes onward.
+**Technical:** Shipping-setup boundary owner for an eCommerce store. **Always load this
+dispatcher first whenever a question touches shipping setup** — rates, regions, pickup,
+free-shipping thresholds, and diagnosing wrong/missing shipping. Order fulfillment (mark
+shipped, tracking, labels, invoices) is currently handled outside the routing tree.
 
 ### [Shipping: Set Up Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates)
-Use to configure rate types (flat, tiered, free), conditions, and a free-shipping threshold calibrated against order value.
+**Technical:** Configures shipping option rates — rate types (flat, tiered, free),
+condition types and operators, free shipping threshold calibration, AOV sanity check,
+per-item penalty avoidance, and tier gap detection.
 
 ### [Shipping: Set Up Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions)
-Use for delivery profiles and regions — destinations, carriers, backup rates, and externally managed regions.
+**Technical:** Configures delivery profiles and regions — creating profiles, adding
+regions with destinations, assigning carriers, enabling backup rates, and handling
+externally managed regions.
 
 ### [Shipping: Set Up Pickup / Local Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/local-delivery)
-Use to offer in-store pickup or local delivery at checkout, via the Pickup carrier on a delivery profile.
+**Technical:** Configures a pickup option for an online store so customers can choose
+in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup
+carrier, add a delivery region, and attach the carrier with a free pickup rate.
 
 ### [Shipping: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping)
-Use to add a free-shipping option with a threshold validated against the catalog's price distribution.
+**Technical:** Creates a free shipping option with an AOV-calibrated threshold to reduce
+cart abandonment and increase average order value. Validates threshold against catalog
+price distribution.
 
 ### [Shipping: Optimize Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates)
-Use to review an existing rate structure — flat-to-tiered conversion, tier gaps, and per-item penalties.
+**Technical:** Analyzes catalog price distribution and current rate structure to
+recommend optimal shipping rate strategy. Handles flat-to-tiered conversion, tier gap
+detection, and per-item penalty removal.
 
 ### [Shipping: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-fix-coverage-gaps)
-Use when an active delivery region has no shipping options at all, leaving customers unable to check out.
+**Technical:** Coverage gap = active delivery region with ZERO Shipping Options (NOT
+zero carriers or no backup rate). Step 1: POST /ecom/v1/delivery-profiles/query. Step 2:
+POST /ecom/v1/shipping-options/query — count options per region; gap = active region
+with count 0. Step 3: POST /ecom/v1/shipping-options to create standard shipping for
+each gap region.
 
 ### [Shipping: API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference)
-Use for the exact Shipping Options endpoints and request shapes when a recipe above is not enough.
+**Technical:** Shipping Options API: POST /ecom/v1/shipping-options/query (list all),
+POST /ecom/v1/shipping-options (create), PATCH /ecom/v1/shipping-options/{id} (update),
+DELETE /ecom/v1/shipping-options/{id} (delete). Delivery Profiles API: POST
+/ecom/v1/delivery-profiles/query. Base: https://www.wixapis.com/ecom
 
 ## Goals (enter here for recommendations)
 
 ### [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)
-Use for upsell, average-order-value or 'boost my sales' asks — owns the lever map across discounts, shipping and bundles.
+**Technical:** UPSELL_BOOST goal — always load BEFORE recommending AOV / upsell / "boost
+my sales" / shipping-threshold actions. Owns the cross-domain lever map (discount +
+shipping + bundle) for open-ended sales prompts.
 
 ### [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
-Use for clearance, overstock, slow-moving or dead-stock asks.
+**Technical:** STOCK_MOVER clearance goal — always load BEFORE recommending any
+clearance / overstock / slow-stock / dead-inventory action.
 
 ### [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
-Use for holiday, event or date-tied promotions — and note it takes priority when a seasonal signal competes with an upsell one.
+**Technical:** SEASONAL goal — always load BEFORE recommending any holiday / event /
+date-tied promotion. Owns the priority rule (holiday beats UPSELL_BOOST when both
+signals are present).
 
 ### [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
-Use for bundling, cross-sell, multi-item or 'buy together' asks.
+**Technical:** BUNDLE_AND_SAVE goal — always load BEFORE recommending bundling /
+cross-sell / multi-item / "buy together" actions.
 
 ### [Goal: Sell Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-sell-gift-cards)
-Use for gift-card asks — sizes denominations from the site's own order values and catalog prices.
+**Technical:** SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy
+orchestrator. Sizes a gift card product from the site's own AOV and catalog prices
+(preset denominations, custom amount range, expiration policy) and gates on the site
+already selling gift cards. Sub-step, NOT a direct entry point — load Recommend:
+eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking.
 
 ## Flows (sub-steps, reached from a goal above)
 
 ### [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
-Reached from Goal: Increase AOV — do not enter directly.
+**Technical:** UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns
+classification and routing); this is a sub-step, NOT a direct entry from README.
 
 ### [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover)
-Reached from Goal: Clear Inventory — do not enter directly.
+**Technical:** Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it
+owns the routing); this is a sub-step.
 
 ### [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion)
-Reached from Goal: Seasonal Revenue — do not enter directly.
+**Technical:** SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns
+classification and routing); this is a sub-step, NOT a direct entry from README.
 
 ### [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
-Reached from Goal: Drive Cross-Sells — do not enter directly.
+**Technical:** BUNDLE_AND_SAVE sub-flow — load [Goal: Drive Cross-Sells] FIRST (it owns
+classification and routing); this is a sub-step, NOT a direct entry from README.

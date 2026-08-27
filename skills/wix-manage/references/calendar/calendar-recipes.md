@@ -7,7 +7,13 @@ description: "Business availability and working hours — set the default busine
 
 Base availability lives on the business schedule as working-hours calendar events. The most common failure here is reaching for the Site Properties API, which looks like it should hold opening hours but does not affect bookability — the recipe covers the correct call and that distinction. Individual staff schedules and per-service policies belong to Bookings, not here.
 
+**Open the recipe before calling any API.** This page names the area's recipes and says
+when to reach for each one; the endpoints, request shapes, required fields and field names
+live only in the recipes themselves.
+
 ## Recipes
 
 ### [Configure Default Business Hours](https://dev.wix.com/docs/api-reference/business-management/calendar/skills/configure-default-business-hours)
-Use when setting or changing the hours a business is open and bookable, including which API actually governs availability.
+**Technical:** Uses Calendar Events API to create WORKING_HOURS events on the business
+schedule. Covers the critical distinction between Calendar Events API (correct) vs Site
+Properties API (incorrect) for setting base availability.
