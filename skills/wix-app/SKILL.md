@@ -22,7 +22,12 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. A bare filtered table answers none of "how many", "which one needs my attention", or "why did this happen", and a bare table is the default outcome when the workflow was never named. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md).
+  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and [Collection Toolkit](references/dashboard-page/COLLECTION_TOOLKIT.md) for which component serves each need.
+    - [ ] **The page shows aggregate numbers, not only rows** (`SummaryBar`) — unless the prompt asks for a single record. "How many, and which ones need me" is why someone opens a dashboard.
+    - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
+    - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
+
+    A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns` if it reports the package missing or too old. The patterns docs are only ever read through that script — never by hand from `node_modules`.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `patterns.cjs docs <Name1> <Name2> ...` — and `patterns.cjs types <Name>` for any patterns type you name in your own code. `list` gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
@@ -212,6 +217,7 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
+| Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
 
 ---
 

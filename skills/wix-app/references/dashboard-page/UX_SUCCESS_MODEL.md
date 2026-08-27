@@ -130,6 +130,8 @@ Choose the smallest interface that gives users enough context and room to comple
 | **Entity page** | The task involves complex details, multi-section editing, history, or related information. | The user has enough space and structure to complete deeper work. |
 | **Inline or expanded row** | The user needs a quick inspection or simple action. | Detail appears without creating a separate workspace. |
 
+Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in [Collection Toolkit](COLLECTION_TOOLKIT.md). Patterns has no side panel; that one is WDS.
+
 
 ## Data Success
 
