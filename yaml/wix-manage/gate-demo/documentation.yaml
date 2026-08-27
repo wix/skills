@@ -1,0 +1,8 @@
+apiDoc:
+  title: Docs Entry Gate Demo
+
+  docs:
+    - file: ../../../skills/wix-manage/references/gate-demo/docs-entry-gate-demo.md
+      title: Docs Entry Gate Demo
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/redirects/redirect-v1
+      tags: [seo]
