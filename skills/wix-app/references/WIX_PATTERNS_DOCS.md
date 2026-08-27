@@ -4,23 +4,25 @@
 
 This skill bundles `scripts/patterns.cjs`. It locates the docs itself (pnpm, Yarn PnP, workspaces, symlinks) and prints them. **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of a doc path.
 
-```bash
-PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
+Invoke it by absolute path — no shell variable. One does not survive to the next Bash call, and `wix-design-system` bundles its helper the same way, so a `$PATTERNS` beside its `$WDS` is how one ends up holding the other's path.
 
-node $PATTERNS list                        # inventory, by category
-node $PATTERNS docs <Name1> <Name2> ...    # import + API + one example, per name
-node $PATTERNS docs <Name> --full          # ...the whole doc, design prose included
-node $PATTERNS docs <Name> --refs          # ...following cross-references one level
-node $PATTERNS types <Name1> <Name2> ...   # the TypeScript types the props are written in
+```bash
+node <this-skill-dir>/scripts/patterns.cjs list   # inventory, by category
 ```
+
+Subcommands, same prefix each time. The script echoes the resolved path in its own hints, so copy it from there after the first call.
+
+| Subcommand | Gives you |
+| --- | --- |
+| `list` | every documented name, by category |
+| `docs <Name1> <Name2> ...` | import + API + one example, per name |
+| `docs <Name> --full` | the whole doc, design prose included |
+| `docs <Name> --refs` | cross-references, one level |
+| `types <Name1> <Name2> ...` | the TypeScript types the props are written in |
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
 
-If it exits non-zero, `@wix/patterns` is absent or predates 1.367.0 (the first version shipping `dist/docs/`). Install the latest version, then re-run `list` once:
-
-```bash
-npm install @wix/patterns@^1.367.0
-```
+If it exits non-zero, `@wix/patterns` is absent or too old to ship `dist/docs/`. The error names the install command — run it, then `list` once more.
 
 ## Library Architecture
 
@@ -37,13 +39,13 @@ Provider                     <- WixPatternsProvider or WixPatternsBMProvider
 
 Each collection type follows the same Component + State + Hook pattern:
 
-| Collection       | Component          | State Type              | Hook                            |
-|------------------|--------------------|-------------------------|---------------------------------|
-| Table            | `Table`            | `TableState`            | `useTableCollection()`          |
-| Grid             | `Grid`             | `GridState`             | `useGridCollection()`           |
-| TableGridSwitch  | `TableGridSwitch`  | `TableGridSwitchState`  | `useTableGridSwitchCollection()`|
-| TableFolders     | `TableFolders`     | `TableFoldersState`     | `useTableFolders()`             |
-| GridFolders      | `GridFolders`      | `GridFoldersState`      | `useGridFolders()`              |
+| Component | State Type | Hook |
+| --- | --- | --- |
+| `Table` | `TableState` | `useTableCollection()` |
+| `Grid` | `GridState` | `useGridCollection()` |
+| `TableGridSwitch` | `TableGridSwitchState` | `useTableGridSwitchCollection()` |
+| `TableFolders` | `TableFoldersState` | `useTableFolders()` |
+| `GridFolders` | `GridFoldersState` | `useGridFolders()` |
 
 Common types only; `list` has the authoritative set.
 
@@ -114,9 +116,9 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Finding the right name
 
-Use the `node $PATTERNS list` output from [Prerequisites](#prerequisites) — it groups every name by category, and related components share a prefix. Don't run it twice.
+Use the `list` output from [Prerequisites](#prerequisites) — it groups every name by category, and related components share a prefix. Don't run it twice.
 
-Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did you mean: Table`). Quote names containing spaces: `node $PATTERNS docs "AI Assistant"`.
+Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did you mean: Table`). Quote names containing spaces: `docs "AI Assistant"`.
 
 ### Reading doc files
 
@@ -125,7 +127,7 @@ The inventory only tells you a component exists — read its doc before using it
 Pass every name you need in **one** call; docs come back separated by `---`:
 
 ```bash
-node $PATTERNS docs Table useTableCollection TableState
+patterns.cjs docs Table useTableCollection TableState
 ```
 
 Each name returns its import line and props table; ask for one or two names and you also get a usage example (batching more drops examples so the later props still fit). The first output line gives the total length, so **read it rather than piping through `head`** — trimming costs you the props, and then you are guessing at prop names. Need more than the table? `--full`, one component at a time.
@@ -135,7 +137,7 @@ Each name returns its import line and props table; ask for one or two names and 
 The docs cover components and props, not the TypeScript types those props are written in — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — and several are re-exported from `@wix/bex-core` rather than declared here. Guess the path and you get `@wix/bex-core/dist/types/...` in the tree: a deep import into a package this project never declared.
 
 ```bash
-node $PATTERNS types RangeItem CursorQuery
+patterns.cjs types RangeItem CursorQuery
 ```
 
 It prints the import to actually write — always from `@wix/patterns`, even for a type declared elsewhere — plus the declaration. Use it whenever you name one of these types in your own code.
@@ -179,4 +181,3 @@ Anything page- or collection-shaped (page shell, header, table, grid, filters, s
 
 - **Compound components** have separate docs per sub-part: `CollectionPage.md`, `CollectionPage.Header.md`, `CollectionPage.Content.md`.
 - **Hook docs** list configuration options as props in the API table.
-- **Type docs** (e.g., `TableState.md`) describe the shape of state objects.

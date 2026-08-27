@@ -2,7 +2,7 @@
 
 What makes a generated dashboard page actually *succeed* for the person using it. Use this to turn a vague prompt ("help me manage order exceptions") into concrete requirements, and as the checklist before calling a dashboard done.
 
-Source: [FeatureVibe Product Doc](https://docs.google.com/document/d/1874rP_5_uMLzfF_kMGWYuSLvsW_PXVh4REg7pJeixT4/edit)
+Ported from the FeatureVibe dashboard product doc.
 
 > **North Star.** A successful dashboard helps a site owner or collaborator **understand what matters, complete the intended task, and trust the result**. It fulfills the user's prompt through a clear workflow, the right presentation, and trustworthy business data.
 

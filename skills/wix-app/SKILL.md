@@ -120,20 +120,19 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
-**Looking a component up takes two calls**, both through this skill's `scripts/patterns.cjs` — it finds the docs in `node_modules` for you, so never go looking yourself. Start with what exists:
+**Looking a component up takes two calls**, both through this skill's `scripts/patterns.cjs` — it finds the docs in `node_modules` for you, so never go looking yourself. Spell the path out in each call rather than holding it in a shell variable: a variable does not survive to the next Bash call, and the `wix-design-system` skill ships its own helper the same way, so short names beside each other get crossed. Start with what exists:
 
 ```bash
-PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
-node $PATTERNS list
+node <this-skill-dir>/scripts/patterns.cjs list
 ```
 
 Then read the doc for each name you plan to use, including the state types they cross-reference. Props and import paths exist only there, and patterns is not a flat namespace — `@wix/patterns/page`, `/provider`, `/form` — so an import from memory is a guess. Pass them all at once:
 
 ```bash
-node $PATTERNS docs Table useTableCollection TableState
+node <this-skill-dir>/scripts/patterns.cjs docs Table useTableCollection TableState
 ```
 
-Each name comes back as its import line, props table, and one example. For a TypeScript type rather than a component — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — use `node $PATTERNS types <Name>`; it gives the import to write and the declaration, which is what keeps a deep `@wix/bex-core/dist/types/...` path out of the tree.
+Each name comes back as its import line, props table, and one example. For a TypeScript type rather than a component — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — use the script's `types <Name>`; it gives the import to write and the declaration, which is what keeps a deep `@wix/bex-core/dist/types/...` path out of the tree.
 
 If the script exits non-zero it prints the exact install command for this project — run it, then re-run `list`. See [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 

@@ -37,6 +37,7 @@ jobs:
     outputs:
       wix_app: ${{ steps.changes.outputs.wix_app }}
       evalforge: ${{ steps.changes.outputs.evalforge }}
+      changed_refs: ${{ steps.changes.outputs.changed_refs }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
@@ -61,6 +62,14 @@ jobs:
             echo "wix_app=false" >> "$GITHUB_OUTPUT"
           fi
 
+          # Reference files this PR touches, for the fetch-limit gate below. Only files that
+          # still exist are listed, so a deletion doesn't fail the gate on a missing path.
+          refs=$(echo "$changed" | grep -E '^skills/[^/]+/references/.*\.md$' || true)
+          present=""
+          for f in $refs; do [ -f "$f" ] && present="${present:+$present,}$f"; done
+          echo "changed_refs=$present" >> "$GITHUB_OUTPUT"
+          echo "Changed reference files: ${present:-none}"
+
           # evalforge-core plus both actions that bundle it. A change to core affects both
           # actions' committed bundles, so any of these paths exercises the whole set.
           #
@@ -84,7 +93,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' }}
+        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' || needs.detect.outputs.changed_refs != '' }}
         with:
           node-version: '24'
 
@@ -112,6 +121,14 @@ jobs:
         if: ${{ needs.detect.outputs.wix_app == 'true' }}
         working-directory: .github/wix-app-typecheck
         run: node extract.mjs
+
+      # Some agents truncate a fetched file at ~10k chars, so anything past that is
+      # silently lost — usually the checklist or conclusion the file is linked for.
+      # Scoped to the files this PR touches: the repo has a pre-existing tail of
+      # over-limit files, and a whole-repo gate could only ever be red.
+      - name: skills — changed reference files fit the fetch limit
+        if: ${{ needs.detect.outputs.changed_refs != '' }}
+        run: node scripts/check-truncation.mjs --fail --files='${{ needs.detect.outputs.changed_refs }}'
 
       # ── evalforge: typecheck the shared package and both actions ────────────────────
       # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.12.0 via
