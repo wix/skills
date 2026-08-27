@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -303,6 +303,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
 **Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
+
+---
+
+## Google Business Profile
+
+**Routing — how a business appears on Google Search and Maps.** A Google connection is the prerequisite for all Google-backed location work: check it first, and route "connect / reconnect / disconnect Google" to the connection recipe.
+
+### [Connect a Wix Site to Google Business Profile](references/google-business-profile/connect-google-business-profile.md)
+**Technical:** Establishes, checks, and removes the site's Google Business Profile connection. Reads the connection status (`NEVER_CONNECTED` / `VALID` / `NEEDS_RECONNECT`), requests a single-use 15-minute connect URL for the site owner to authorize in their own browser, confirms completion by re-reading the status, and warns before any reconnect that permanently removes the site's imported locations. Never auto-retries the non-idempotent connect-URL call.
+
+### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
+**Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
 
 ---
 
