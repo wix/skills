@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, builds only the brand layer (home, layout, theme, copy), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout). Triggers: build me a store fast, storefront with shipped components, wix headless fast, connect Wix Stores with ready-made SDK code."
+description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout) and bookings (services, appointment/class time slots, staff, booking form, checkout-or-place). Triggers: build me a store fast, take appointments/bookings fast, storefront with shipped components, wix headless fast, connect Wix Stores or Wix Bookings with ready-made SDK code."
 ---
 
 # Wix Headless Fast
@@ -34,10 +34,12 @@ re-litigate them.
   auth is ambient (no client, no id); on any other React setup the same file runs a manual
   visitor client off the public client id in `src/wix/config.ts`. The deploy step configures
   this — nothing to wire by hand.
-- **Copy as-is; extend by calling.** Wire the exported hooks/components/functions; never
-  rewrite their internals, re-route them through API routes, or re-derive a request shape. For
-  a genuine gap, add a new function in the data layer (or consult the `wix-docs` skill for the
-  API contract) — never edit the shipped ones.
+- **Data as-is; presentation is yours.** The data layer, hooks, and cart chrome are wired
+  as-is — never rewrite their internals, re-route them through API routes, or re-derive a
+  request shape (for a genuine gap, add a new function in the data layer, or consult the
+  `wix-docs` skill for the API contract). The presentation components ship only as
+  **references**: the vertical's INSTRUCTIONS names the surfaces you design and implement
+  yourself on the shipped hooks (for storefront: card, grid, shop + PDP surfaces, home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 
@@ -46,45 +48,57 @@ re-litigate them.
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
    different React framework or the directory already holds a non-Astro React project. A
    non-React frontend is out of scope → `wix-headless`.
-2. **Scaffold / connect (managed).** Requires Node ≥ 20.11 and a logged-in Wix CLI
+2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
+   the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
-   read tokens into context). Then:
-   - empty directory → `CI=1 npm create @wix/new@latest -- headless --folder-name <name>
-     --business-name "<Brand>" --site-template --skip-install --no-publish`, then work inside
-     the created folder;
-   - existing project not yet on Wix → `CI=1 npm create @wix/new@latest init` in place;
-   - already has `wix.config.json` → neither; it's an iterate run.
+   read tokens into context).
+3. **Create runs (empty directory): run the fast path** — one deterministic call:
 
-   **Draft the seed plan (the vertical's `SEED.md` plan file) before scaffolding** — it depends
-   only on the brief — then run the scaffold (~30s); everything after this step needs its
-   output.
-3. **Deploy the shipped code — BEFORE installing dependencies** (from the project root):
-   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` (react stack: add
-   `--client-id` if there is no `wix.config.json` to read the public id from). Besides copying
-   the files, it **patches `package.json` with every dependency the shipped code imports**
-   (fill-only), so the single install in the next step covers everything. Re-running is safe —
-   it fills in missing files/deps, never overwrites edits.
-4. **Run ONE dependency install:**
-   `npm ci --ignore-scripts || npm install --ignore-scripts`. Deploy placed a pre-resolved
-   `package-lock.json`, so `npm ci` usually finishes in seconds to ~1 min; the `|| npm install`
-   fallback covers a stale/out-of-sync lock. It can run in the background while you do step 5 —
-   everything there is independent of `node_modules`. **Never run a second `npm install`
-   concurrently with the first** — two npms in one `node_modules` race and redo each other's
-   work.
-5. **While the install runs — seed and build the brand layer:**
-   - **Seed** per the vertical's `seed/SEED.md`: run the seed script with the plan from step 2
-     — it takes ~20s, needs no `node_modules`, and installs the vertical's Wix app itself.
-     Seeding is **additive**: never delete or overwrite existing content; if a cleanup seems
-     needed, ask.
-   - **Brand layer** per the vertical's `INSTRUCTIONS.md`: the home page, the layout's
-     header/footer/tokens, and the copy — composing the shipped pieces. Read the INSTRUCTIONS
-     first, and don't open the shipped files themselves.
-6. **When the install has completed, build & release once** (managed):
+   ```bash
+   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <storefront|bookings>
+   ```
+
+   `--vertical` is required and picks which shipped code deploys AND which seed runs — use
+   the vertical you resolved from the Verticals table.
+
+   It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
+   **deploys** the shipped code (patching `package.json` with every dependency the code
+   imports, and placing the pre-resolved lockfile), then **starts two detached background
+   jobs** — the dependency install (`npm ci --ignore-scripts || npm install --ignore-scripts`)
+   and the **seed** — whose logs and completion markers are in the events. The final
+   `ready_for_brand_layer` event carries the project dir, siteId, ready-made dashboard links,
+   and both markers. Relay notable events. On an `error` event, recover just that step via the
+   manual path below, then continue.
+
+   **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
+   `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
+   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` from the project root
+   (react stack: add `--client-id` if there is no `wix.config.json` to read the public id
+   from); then ONE `npm ci --ignore-scripts || npm install --ignore-scripts` (backgroundable —
+   but **never run a second npm install concurrently**: two npms in one `node_modules` race and
+   redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
+   **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
+4. **Design and build the presentation while the install finishes** — in the project dir from
+   the `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: set the `@theme`
+   tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
+   shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
+   home page) — designed to fit the brief, not copied from the reference components. Read the
+   INSTRUCTIONS now (not earlier — its contracts matter only from this step on); the hook/DTO
+   contracts are inlined there, so don't open the shipped files themselves. **Author your
+   surfaces in as few messages as possible** — batch multiple Write calls in one message
+   (components are independent files); don't pay a round-trip per file.
+5. **When both background jobs have completed** — the install's marker
+   (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
+   seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
+   your summary — if non-zero, read `seed.log` and re-run the seed module manually). Then
+   **build & release once** (managed):
    `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
    it once more and then build). Don't build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
-   `https://manage.wix.com/dashboard/<siteId>`.
+   `https://manage.wix.com/dashboard/<siteId>`. **Copy the live URL verbatim from the
+   `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
+   a 404).
 
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.
@@ -94,6 +108,7 @@ comes from the shipped code, and real errors surface at build/release.
 | The user wants… | Vertical | Playbook |
 |---|---|---|
 | Online store: products, categories, variants, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
+| Appointments/classes: services, time slots, staff, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
 
 A request that doesn't match a shipped vertical isn't this skill's fast path — route it to
 `wix-headless` rather than improvising an unshipped vertical here.
@@ -110,7 +125,7 @@ references/<vertical>/
     wix/<vertical>/    #   types.ts (DTOs) + data layer (calls via ../sdk, images via ../media)
     hooks/<vertical>/  #   React hooks (SSR-friendly: accept initial data)
     components/<vertical>/  # routing-free components (plain <a> default + LinkComponent prop)
-    styles/<vertical>.css   # structural styles on --sf-* style tokens
+    styles/global.css  # Tailwind v4 + the @theme design tokens (shared token family)
   app-astro/           # Astro overlay importing ONLY from the core:
     pages/…            #   SSR fetch → DTO props → client:load islands; item pages carry
                        #   wixMetadata + <SEO.Tags>; chrome islands are client:only
