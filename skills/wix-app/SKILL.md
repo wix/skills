@@ -21,6 +21,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
+  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. A bare filtered table answers none of "how many", "which one needs my attention", or "why did this happen", and a bare table is the default outcome when the workflow was never named. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md).
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns@^1.367.0` if it reports the package missing or too old. Never inspect `node_modules` by hand.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `list` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
@@ -202,6 +203,7 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
+| Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
 
 ---
 

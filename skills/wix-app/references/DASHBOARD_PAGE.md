@@ -2,6 +2,12 @@
 
 Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
 
+## Plan the Workflow Before the Components
+
+A dashboard page is a workflow, not a screen. The site owner has to understand the situation, focus on what needs attention, investigate one record, act, and see the result confirmed — so translate the prompt into those needs before choosing any component: which view fits, which drill-in surface, which data sources have to line up.
+
+Do this first because a bare filtered table answers "what are all the records" and none of "how many", "which one needs my attention", or "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done.
+
 ## UI Libraries — Read Before Writing Any JSX
 
 At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
@@ -148,11 +154,6 @@ const handleSave = async () => {
 ## API Spec Support
 
 When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](dashboard-page/API_SPEC.md) for details on how to use API specs in dashboard pages.
-
-
-## UX Success Model
-
-Before designing the page, translate the prompt into a complete workflow: what the user must understand, focus on, investigate, act on, and see confirmed — plus which view and drill-in surface fits, and which data sources must line up. See [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md), including the evaluation checklist to run before calling a dashboard done.
 
 
 ## Layout Guidelines
