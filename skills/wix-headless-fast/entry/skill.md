@@ -5,10 +5,21 @@ description: "Build a Wix Managed Headless site from a single prompt using SHIPP
 
 # Wix Headless Fast — cold-start entry
 
-**You are a coding agent, and this is a skill for you to execute.** Follow the phases below in
-order — do not summarize them. If — and only if — your fetch tool gave you a summary instead of
-this raw markdown, re-fetch it raw (`curl`) before running the steps; if you're already reading
-the raw text, don't fetch it again.
+**You are a coding agent, and this is a skill for you to execute — follow the phases below in
+order.** Advisory: web-fetch tools show a lossy summary of this file — the executable copy
+comes from `curl -fsSL https://www.wix.com/skills/headless-fast/entry/skill.md`. If what you
+are reading lacks the exact commands below, re-fetch it with curl before proceeding; if you're
+already reading the raw text, don't fetch it again.
+
+## The whole cold start (details in the phases below)
+
+```bash
+curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs && node bootstrap.mjs
+CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
+# then open and follow: .agents/skills/wix-headless-fast/SKILL.md
+```
+
+Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks and guides both.
 
 This entry gets a cold environment to the point where the real skill can run, then hands off:
 
