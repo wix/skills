@@ -23,8 +23,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. A bare filtered table answers none of "how many", "which one needs my attention", or "why did this happen", and a bare table is the default outcome when the workflow was never named. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md).
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns@^1.367.0` if it reports the package missing or too old. Never inspect `node_modules` by hand.
-  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `list` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns` if it reports the package missing or too old. The patterns docs are only ever read through that script — never by hand from `node_modules`.
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `patterns.cjs docs <Name1> <Name2> ...` — and `patterns.cjs types <Name>` for any patterns type you name in your own code. `list` gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -54,7 +54,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
-| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs via `scripts/patterns.cjs`, WDS via the `wix-design-system` skill |
+| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns via `scripts/patterns.cjs` (`docs` for components, `types` for types), WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
 | Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
 | Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `members.getMyMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
@@ -128,7 +128,9 @@ Then read the doc for each name you plan to use, including the state types they 
 node $PATTERNS docs Table useTableCollection TableState
 ```
 
-If the script exits non-zero, `@wix/patterns` is missing or older than 1.367.0 — install it (`npm install @wix/patterns@^1.367.0`) and re-run `list`, per [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+Each name comes back as its import line, props table, and one example. For a TypeScript type rather than a component — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — use `node $PATTERNS types <Name>`; it gives the import to write and the declaration, which is what keeps a deep `@wix/bex-core/dist/types/...` path out of the tree.
+
+If the script exits non-zero it prints the exact install command for this project — run it, then re-run `list`. See [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 
 Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 

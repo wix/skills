@@ -33,7 +33,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** run `node $PATTERNS list` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites).
+**Then, before writing UI:** run `node <this-skill-dir>/scripts/patterns.cjs list` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
 
 ## Capabilities
 
@@ -95,7 +95,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Examples
 
-Each output below names the library that owns each part. Confirm every patterns component and prop with `node $PATTERNS docs <Name>` before use — these examples name the shape, not a verified API.
+Each output below names the library that owns each part. Confirm every patterns component and prop with `node <this-skill-dir>/scripts/patterns.cjs docs <Name>` before use — these examples name the shape, not a verified API.
 
 ### Data Management Table
 

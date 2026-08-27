@@ -8,8 +8,10 @@ This skill bundles `scripts/patterns.cjs`. It locates the docs itself (pnpm, Yar
 PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
 
 node $PATTERNS list                        # inventory, by category
-node $PATTERNS docs <Name1> <Name2> ...    # print those docs in ONE call
+node $PATTERNS docs <Name1> <Name2> ...    # import + API + one example, per name
+node $PATTERNS docs <Name> --full          # ...the whole doc, design prose included
 node $PATTERNS docs <Name> --refs          # ...following cross-references one level
+node $PATTERNS types <Name1> <Name2> ...   # the TypeScript types the props are written in
 ```
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
@@ -43,7 +45,7 @@ Each collection type follows the same Component + State + Hook pattern:
 | TableFolders     | `TableFolders`     | `TableFoldersState`     | `useTableFolders()`             |
 | GridFolders      | `GridFolders`      | `GridFoldersState`      | `useGridFolders()`              |
 
-This table covers the common collection types — `node $PATTERNS list` has the full, authoritative one.
+Common types only; `list` has the authoritative set.
 
 Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
@@ -57,29 +59,19 @@ Create state with the hook -> pass it to the component's `state` prop -> wrap in
 | `WixPatternsEssentialsProvider` | Yoshi Fullstack.                                                                     |
 | `WixPatternsBaseProvider`       | App does **not** run under a Giza/WixEssentials environment and you inject services (i18n, sentry) yourself. |
 
-Prefer `WixPatternsProvider` unless the project is on one of the specific Yoshi flows above — it is the documented recommendation for most apps, and it resolves the environment for you rather than making you pick.
-
 **Confirm the import path in the provider's own doc file** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
 
 ### Keep Provider and Page Separate
 
 The provider **must** be in a separate parent component from the page content. Hooks like `useTableCollection` require the provider's context to already exist above them in the React tree.
 
-**Wrong — provider and page in the same component:**
+**Wrong — the hook sits above its own provider:**
 ```tsx
 function BadApp() {
-  const state = useTableCollection({
-    queryName: 'my-items',
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    fetchData: async () => ({ items: [], total: 0 }),
-    filters: {},
-  }); // fails at runtime — no provider context above this component
+  const state = useTableCollection({ /* ... */ }); // fails at runtime: no provider context yet
   return (
     <WixPatternsProvider>
-      <CollectionPage>
-        <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
-      </CollectionPage>
+      <CollectionPage><Table state={state} /></CollectionPage>
     </WixPatternsProvider>
   );
 }
@@ -103,13 +95,7 @@ import { Table, useTableCollection } from '@wix/patterns';
 import { CollectionPage } from '@wix/patterns/page';
 
 function MyCollectionPage() {
-  const state = useTableCollection({
-    queryName: 'my-items',
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    fetchData: async () => ({ items: [], total: 0 }),
-    filters: {},
-  }); // works — the provider context exists above this component
+  const state = useTableCollection({ /* ... */ }); // works — provider is above this component
   return (
     <CollectionPage>
       <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
@@ -134,13 +120,25 @@ Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did
 
 ### Reading doc files
 
-The inventory only tells you a component exists — read its doc before using it. Each doc has the category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+The inventory only tells you a component exists — read its doc before using it. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
 
 Pass every name you need in **one** call; docs come back separated by `---`:
 
 ```bash
 node $PATTERNS docs Table useTableCollection TableState
 ```
+
+Each name comes back as import line + API/props table + one usage example; the design prose is left out, which is what keeps a six-name call readable. **Don't pipe this through `head`** — a long doc keeps its props table near the end (`ToolbarFilters.md`: line 1,554 of 1,580), so trimming the output leaves you with prose and no props, guessing at prop names. If one component needs more, ask for that one with `--full`.
+
+### Types the docs don't cover
+
+The docs cover components and props, not the TypeScript types those props are written in — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — and several are re-exported from `@wix/bex-core` rather than declared here. Guess the path and you get `@wix/bex-core/dist/types/...` in the tree: a deep import into a package this project never declared.
+
+```bash
+node $PATTERNS types RangeItem CursorQuery
+```
+
+It prints the import to actually write — always from `@wix/patterns`, even for a type declared elsewhere — plus the declaration. Use it whenever you name one of these types in your own code.
 
 ### Following cross-references
 
