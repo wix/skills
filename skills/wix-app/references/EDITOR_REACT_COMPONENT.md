@@ -28,6 +28,10 @@ Supplementary files such as `constants.ts`, hooks, or internal sub-components
 are allowed when the implementation needs them. Keep the scaffolded files and
 their responsibilities intact.
 
+## Identity of SDK Calls
+
+A component runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
+
 ## Workflow
 
 1. **Scaffold only when creating.** If the component folder does not exist, run:
@@ -118,6 +122,7 @@ component or edit `*.generated.ts` as a reference-driven fix.
 | An interactive or selectable part is created or changed—for example a button, link, input, tab, accordion trigger, or carousel control—or a custom state is added | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Public event callbacks are added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output are introduced | [`SSR.md`](editor-react-component/SSR.md) |
+| A CSS feature or DOM API that is not clearly long-established is introduced, or the user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
 | Primary content is playable, looped, or autoplaying | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) and [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Runtime site pages, URLs, JavaScript direction, or reduced-motion context is needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) |
@@ -131,6 +136,9 @@ component or edit `*.generated.ts` as a reference-driven fix.
 - Apply `dir={direction}` and the unconditional fallback-direction class to the
   elected root. Use logical CSS properties for direction-sensitive layout.
 - Keep render output deterministic and avoid browser globals during render.
+- Use only Baseline Widely Available CSS features and DOM APIs, or ones that
+  fall back to them. When a design needs a feature that is not, build the
+  supported alternative.
 - Route ARIA through the typed `a11y` contract; do not add one-off ARIA props.
 - Give every named inner part a global class, a CSS Module class, and a matching
   `elementProps` entry. The elected root uses top-level props instead.
