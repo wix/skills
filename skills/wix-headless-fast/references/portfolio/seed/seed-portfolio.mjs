@@ -9,12 +9,12 @@
 // project's gallery items, and imports+attaches cover images. Prints a JSON result to stdout.
 //
 // Plan shape (see SEED.md):
-//   { "collections": [{ "title", "description"?, "hidden"?, "coverImageUrl"? }],
+//   { "collections": [{ "title", "description"?, "hidden"?, "coverImageUrl"? | "coverImagePrompt"? }],
 //     "projects":    [{ "title", "description"?, "hidden"?,
 //                       "collection"? (title),        // resolved to that collection's id
 //                       "details"?: [{ "label", "text" }],
-//                       "coverImageUrl"?,
-//                       "items"?: [{ "sortOrder", "title"?, "imageUrl" }] }] }
+//                       "coverImageUrl"? | "coverImagePrompt"?,
+//                       "items"?: [{ "sortOrder", "title"?, "imageUrl" | "imagePrompt" }] }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. A fresh Portfolio
 // install ships its own sample content ("My Portfolio" + sample projects); removing it is the
@@ -22,6 +22,7 @@
 // authoritative source recipe: wix-headless/references/inline-recipes/setup-portfolio.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const PORTFOLIO_APP_ID = "d90652a2-f5a1-4c7c-84c4-d4cdcc41f130";
@@ -111,13 +112,10 @@ export async function createProjects(ctx, projects) {
 }
 
 // Portfolio binds covers + gallery items by Wix Media file ID — an external url must be
-// imported first; a raw url renders nothing.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// imported first (a raw url renders nothing); a plan `imagePrompt`/`coverImagePrompt` is
+// generated (Wix AI, 1 credit) then imported. Both live in the shared util (parallel,
+// resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // Cover = the listing-card thumbnail. PATCH per entity, echoing the current revision (missing/
 // stale revision fails); height + width are required alongside the imported file id.
@@ -172,56 +170,63 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
     })),
   );
 
-  const toImage = async (url, name) => {
-    const file = await importImage(ctx, url, name);
-    return { imageId: file.id, height: 1024, width: 1024 };
-  };
-
-  // Gallery items (import each image; a failed import skips just that item).
-  const itemsFlat = [];
-  for (let i = 0; i < projects.length; i++) {
-    for (const it of projects[i].items ?? []) {
-      if (!it.imageUrl) continue;
-      try {
-        const img = await toImage(it.imageUrl, `${it.title || "item"}.png`);
-        itemsFlat.push({ projectId: projs[i].id, sortOrder: it.sortOrder, title: it.title, ...img });
-      } catch {
-        /* skip this item's image */
-      }
+  // Pass 2 — images: gallery items + project covers + collection covers, flattened into ONE
+  // parallel wave (import by url / generate by prompt), then mapped back to each attach.
+  // A failed image skips just that item/cover; the seed's exit never depends on images.
+  const specs = [];
+  const galleryRefs = [];
+  projects.forEach((p, pi) => {
+    for (const it of p.items ?? []) {
+      galleryRefs.push({ pi, it, spec: specs.length });
+      specs.push({ url: it.imageUrl, prompt: it.imagePrompt, displayName: `${it.title || "item"}.png` });
     }
-  }
-  const items = itemsFlat.length ? await createProjectItems(ctx, itemsFlat) : [];
+  });
+  const projCoverAt = specs.length;
+  projects.forEach((p) => specs.push({ url: p.coverImageUrl, prompt: p.coverImagePrompt, displayName: `${p.title || "project"}-cover.png` }));
+  const colCoverAt = specs.length;
+  collections.forEach((c) => specs.push({ url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
+  const files = await resolveItemImages(ctx, specs);
+  const dims = { height: 1024, width: 1024 };
 
-  // Covers (import each; a failed import skips just that cover — the entity stays text-only).
-  const projCovers = [];
-  for (let i = 0; i < projects.length; i++) {
-    if (!projects[i].coverImageUrl) continue;
-    try {
-      const img = await toImage(projects[i].coverImageUrl, `${projects[i].title || "project"}-cover.png`);
-      projCovers.push({ id: projs[i].id, revision: projs[i].revision, ...img });
-    } catch {
-      /* skip */
-    }
+  const itemsFlat = galleryRefs
+    .map(({ pi, it, spec }) => (files[spec] && projs[pi]?.id
+      ? { projectId: projs[pi].id, sortOrder: it.sortOrder, title: it.title, imageId: files[spec].id, ...dims }
+      : null))
+    .filter(Boolean);
+  let items = [];
+  try {
+    if (itemsFlat.length) items = await createProjectItems(ctx, itemsFlat);
+  } catch {
+    /* the remaining gallery items stay unseeded */
   }
-  if (projCovers.length) await attachProjectCovers(ctx, projCovers);
 
-  const colCovers = [];
-  for (let i = 0; i < collections.length; i++) {
-    if (!collections[i].coverImageUrl) continue;
-    try {
-      const img = await toImage(collections[i].coverImageUrl, `${collections[i].title || "collection"}-cover.png`);
-      colCovers.push({ id: cols[i].id, revision: cols[i].revision, ...img });
-    } catch {
-      /* skip */
-    }
+  const projCovers = projs
+    .map((p, i) => (files[projCoverAt + i] && p.id
+      ? { id: p.id, revision: p.revision, imageId: files[projCoverAt + i].id, ...dims }
+      : null))
+    .filter(Boolean);
+  const colCovers = cols
+    .map((c, i) => (files[colCoverAt + i] && c.id
+      ? { id: c.id, revision: c.revision, imageId: files[colCoverAt + i].id, ...dims }
+      : null))
+    .filter(Boolean);
+  let coversAttached = 0;
+  try {
+    if (projCovers.length) { await attachProjectCovers(ctx, projCovers); coversAttached += projCovers.length; }
+  } catch {
+    /* those projects stay cover-less */
   }
-  if (colCovers.length) await attachCollectionCovers(ctx, colCovers);
+  try {
+    if (colCovers.length) { await attachCollectionCovers(ctx, colCovers); coversAttached += colCovers.length; }
+  } catch {
+    /* those collections stay cover-less */
+  }
 
   return {
     collections: cols,
     projects: projs,
     itemsCreated: items.length,
-    coversAttached: projCovers.length + colCovers.length,
+    coversAttached,
   };
 }
 

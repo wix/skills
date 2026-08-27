@@ -13,7 +13,7 @@
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
 //                                   "choices": ["S","M"] | [{ "name", "colorCode" }] }],
-//                    "imageUrl"?, "altText"? }],
+//                    "imageUrl"? | "imagePrompt"?, "altText"? }],
 //     "categories"?: { "<category name>": ["<product name>", ...] } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
@@ -21,6 +21,7 @@
 // source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -299,12 +300,25 @@ export async function setupStore(ctx, { products = [], categories = {} } = {}) {
     if (Object.keys(mapping).length) await addProductsToCategories(ctx, mapping);
   }
 
+  // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
+  // bulk-attach. Failures leave the product text-only; the seed's exit never depends on images.
+  const files = await resolveItemImages(ctx, withNames.map((p, i) => ({
+    url: products[i]?.imageUrl,
+    prompt: products[i]?.imagePrompt,
+    displayName: `${p.slug || "product"}.png`,
+  })));
   const imageItems = withNames
-    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
-    .filter((it) => it.url);
-  if (imageItems.length) await attachProductImages(ctx, imageItems);
+    .map((p, i) => (files[i] && p.id ? { id: p.id, url: files[i].url, altText: products[i]?.altText ?? p.slug } : null))
+    .filter(Boolean);
+  let imagesAttached = 0;
+  try {
+    if (imageItems.length) await attachProductImages(ctx, imageItems);
+    imagesAttached = imageItems.length;
+  } catch {
+    /* never block on image failure — the products stay text-only */
+  }
 
-  return { products: withNames, categories: cats, imagesAttached: imageItems.length };
+  return { products: withNames, categories: cats, imagesAttached };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------

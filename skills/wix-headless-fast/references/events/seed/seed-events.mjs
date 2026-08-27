@@ -14,13 +14,14 @@
 //                  "startDate", "endDate" (future ISO-8601 UTC), "timeZoneId",
 //                  "location" ({name,type:"VENUE",address} | {name,type:"ONLINE"} | {locationTbd:true,name}),
 //                  "ticketTiers"?: [{ "name" (≤30 chars), "price" (decimal STRING), "description"?, "initialLimit"? }],
-//                  "category"? (name), "imageUrl"?, "rsvpResponseType"? }] }
+//                  "category"? (name), "imageUrl"? | "imagePrompt"?, "rsvpResponseType"? }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
 // wix-headless/references/inline-recipes/setup-events.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const EVENTS_APP_ID = "140603ad-af8d-84a5-2c80-a0f60cb47351";
@@ -169,13 +170,10 @@ export async function assignEventsToCategory(ctx, categoryId, eventIds) {
 }
 
 // Events binds mainImage by Wix Media file ID — an external url must be imported first
-// (a raw url as the id stores 200 but renders nothing).
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// (a raw url as the id stores 200 but renders nothing); a plan `imagePrompt` is generated
+// (Wix AI, 1 credit) then imported. Both live in the shared util (parallel, resilient,
+// never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // mainImage is an Image OBJECT; height/width are REQUIRED or it won't render. Events V3 uses
 // NO revision — partial PATCH keyed by event.id. Works before OR after publish.
@@ -208,7 +206,7 @@ export async function setupEvents(ctx, { events = [] } = {}) {
       ? await createTicketTiers(ctx, e.id, ev.ticketTiers.map((t) => ({ ...t, currency: t.currency ?? siteCurrency })))
       : [];
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, ticketCount: tiers.length });
+    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length });
   }
 
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
@@ -218,12 +216,19 @@ export async function setupEvents(ctx, { events = [] } = {}) {
     if (eventIds.length) await assignEventsToCategory(ctx, c.id, eventIds);
   }
 
+  // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
+  // attach. Failures leave the event text-only; the seed's exit never depends on images.
+  const files = await resolveItemImages(ctx, created.map((e) => ({
+    url: e.imageUrl,
+    prompt: e.imagePrompt,
+    displayName: `${e.slug || "event"}.png`,
+  })));
   let imagesAttached = 0;
-  for (const e of created) {
-    if (!e.imageUrl) continue;
+  for (let i = 0; i < created.length; i++) {
+    const e = created[i];
+    if (!files[i]) continue;
     try {
-      const file = await importImage(ctx, e.imageUrl, `${e.slug || "event"}.png`);
-      await setEventMainImage(ctx, { eventId: e.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: e.slug });
+      await setEventMainImage(ctx, { eventId: e.id, id: files[i].id, url: files[i].url, height: 1024, width: 1024, altText: e.slug });
       imagesAttached++;
     } catch {
       /* never block on image failure — the event stays text-only */

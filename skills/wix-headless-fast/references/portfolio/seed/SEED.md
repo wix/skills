@@ -13,9 +13,9 @@ node <SKILL_ROOT>/references/portfolio/seed/seed-portfolio.mjs plan.json
 
 `plan.json` is plain data — write it from the brief. **Default to 2 collections × 2 projects
 each** (the seed shows the shape; the owner adds the rest in the dashboard) and make them
-exercise the UI: every collection and project gets a verified `coverImageUrl`, every project
-gets 2–3 gallery `items` (a portfolio without images looks broken), and a couple of projects
-get `details` rows (Role, Year, Client…).
+exercise the UI: every collection and project gets a cover, every project gets 2–3 gallery
+`items` (a portfolio without images looks broken), and a couple of projects get `details`
+rows (Role, Year, Client…).
 
 ```json
 {
@@ -50,10 +50,15 @@ get `details` rows (Role, Year, Client…).
 - `collection` — a collection **title from this plan**; resolved to its created id. A project
   without one belongs to no collection (reachable only from an all-projects list).
 - `details` — optional `[{ label, text }]` rows; render on the project page. Omit for none.
-- `coverImageUrl` / `items[].imageUrl` — plain image urls; the script imports each into Wix
-  Media (Portfolio binds by file id — a raw url renders nothing). The **cover** is the listing
-  thumbnail; **items** are the detail-page gallery — separate entities, both wanted. If a
-  project has only a cover, reuse its url as item 1 so the gallery isn't empty.
+- Every image field takes either a url (`coverImageUrl` / `items[].imageUrl` — a real https
+  URL, verified with `curl -sI` → 200 before seeding; imported into Wix Media — Portfolio
+  binds by file id, a raw url renders nothing) or a prompt (`coverImagePrompt` /
+  `items[].imagePrompt` — AI-generated, **1 Wix AI credit per image**, account-billed):
+  brand-contextual — subject, aesthetic/mood, palette, lighting — always ending "no text, no
+  watermarks". All images — covers and gallery items alike — resolve in one parallel wave and
+  never block the seed; a failed image skips just that item/cover. The **cover** is the
+  listing thumbnail; **items** are the detail-page gallery — separate entities, both wanted.
+  If a project has only a cover, reuse its url as item 1 so the gallery isn't empty.
 - `sortOrder` (1, 2, 3…) sets the gallery render order.
 - `hidden` defaults to shown — omit it; send `hidden: true` only to hide an entity.
 - Gallery items seed as images only; the owner adds videos in the dashboard.

@@ -12,7 +12,7 @@
 // Plan shape (see SEED.md):
 //   { "categories"?: [name], "tags"?: [name],
 //     "posts": [{ "title", "content": [blocks] | "richContent"?, "category"?|"categories"?,
-//                 "tags"?, "coverImageUrl"? }] }
+//                 "tags"?, "coverImageUrl"? | "coverImagePrompt"? }] }
 //   content blocks: { type:"heading", text, level? } | { type:"paragraph", text }
 //     | { type:"quote", text } | { type:"bulleted"|"ordered", items:[text,…] }
 //
@@ -21,6 +21,7 @@
 // wix-headless/references/inline-recipes/setup-blog.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
@@ -186,13 +187,10 @@ export async function createTags(ctx, names) {
   return ensureLabels(ctx, "tags", "/blog/v3/tags", (name) => ({ label: name }), names);
 }
 
-// Blog binds a post cover by Wix Media file ID — an external url must be imported first.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// Blog binds a post cover by Wix Media file ID — an external url must be imported first; a
+// plan `coverImagePrompt` is generated (Wix AI, 1 credit) then imported. Both live in the
+// shared util (parallel, resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // covers: [{ postId, fileId }] where fileId is the Wix Media file.id from importImage. Per
 // post: PATCH /blog/v3/draft-posts/{id} (NOT POST …/{id}/update — that 404s), setting
@@ -243,17 +241,17 @@ export async function setupBlog(ctx, { posts = [], categories = [], tags = [] } 
     };
   }), { memberId });
 
-  const covers = [];
-  for (let i = 0; i < created.length; i++) {
-    const url = posts[i]?.coverImageUrl;
-    if (!created[i]?.id || !created[i]?.success || !url) continue;
-    try {
-      const file = await importImage(ctx, url, `post-${i}.png`);
-      covers.push({ postId: created[i].id, fileId: file.id });
-    } catch {
-      /* never block on image failure — the post stays text-only */
-    }
-  }
+  // Pass 2 — covers: resolve (import by url / generate by prompt) in one parallel wave, then
+  // attach (PATCH + re-publish per post). Failures leave the post text-only; the seed's exit
+  // never depends on images.
+  const files = await resolveItemImages(ctx, created.map((c, i) => (
+    c?.id && c?.success
+      ? { url: posts[i]?.coverImageUrl, prompt: posts[i]?.coverImagePrompt, displayName: `post-${i}.png` }
+      : null
+  )));
+  const covers = created
+    .map((c, i) => (files[i] ? { postId: c.id, fileId: files[i].id } : null))
+    .filter(Boolean);
   const coversAttached = covers.length ? await attachPostCovers(ctx, covers) : 0;
 
   return { posts: created, categories: cats, tags: tgs, coversAttached };
