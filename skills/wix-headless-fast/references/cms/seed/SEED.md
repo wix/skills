@@ -59,7 +59,7 @@ every content item an image on an IMAGE field (a content site without images loo
   `RICH_TEXT` (an HTML string, stored verbatim), `REFERENCE`, `MULTI_REFERENCE`.
 - `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, ~1 Wix AI credit per
   image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
-  always ending "no text, no watermarks". For an asset the user actually supplied use
+  always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use
   `{ "path": "..." }` (a file on this machine — uploaded to Wix Media) or an https URL string
   (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images
   resolve in parallel and never block the seed; a failed image leaves that field unset (the

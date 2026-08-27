@@ -51,7 +51,7 @@ feed without covers looks broken.
   ids internally. Optional: skip them entirely when the brief doesn't group posts.
 - Cover — the default is a `coverImagePrompt` (AI-generated, ~1 Wix AI credit per image,
   account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting — always
-  ending "no text, no watermarks". For an asset the user actually supplied use
+  ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use
   `coverImagePath` (a file on this machine — uploaded to Wix Media) or `coverImageUrl` (their
   own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Covers resolve
   in parallel and never block the seed; a failed cover leaves that post text-only (the script

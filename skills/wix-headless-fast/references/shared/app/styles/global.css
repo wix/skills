@@ -6,7 +6,14 @@
    Wix headless templates). Every shipped component styles itself from these via Tailwind
    utilities (bg-primary, text-muted-foreground, rounded-lg, …) — change a token, everything
    follows. A dark theme is just flipped values (dark background/foreground, adjusted
-   secondary/border). Don't restyle shipped component markup; restyle the tokens. */
+   secondary/border). Don't restyle shipped component markup; restyle the tokens.
+
+   Choosing values: argue polarity from the business — light is not "cheap" (wellness/food
+   usually read better light); never dark-by-default for "premium". Palette: one dominant +
+   accents from ADJACENT hues (~30° arc), 2-4 colors total. Every background/foreground pair
+   you set must hit WCAG 4.5:1 (3:1 for text ≥24px); body copy never below 16px/1.5. Derive
+   from THIS brand — a look repeated across projects is a failure, not a shortcut. The user's
+   explicit direction beats all of this except the contrast floor. */
 @theme {
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(230 24% 14%);
