@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "domain": "forms",
+  "docsRoots": [
+    "api-reference/crm/forms"
+  ],
+  "displayName": "Wix Forms",
+  "ownerHint": "Wix Forms (form schemas, form submissions) domain owners — the Forms APIs sit under the CRM docs tree, not Business Solutions",
+  "wixAppsRequired": [
+    "Wix Forms"
+  ],
+  "defaultImportOrder": [
+    "form",
+    "form-submission"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "forms-app-required",
+      "severity": "blocker",
+      "summary": "The Wix Forms app (`wix_forms`) must be installed before any write in this domain. The Form Submissions docs state plainly that the API 'only works with the Wix Forms app' and tell callers to confirm with GetAppInstance; Create Form additionally rejects an unknown namespace with 400 UNSUPPORTED_FORM_NAMESPACE. Verify during setup, not at import time."
+    },
+    {
+      "code": "submission-create-has-no-suppression-flag",
+      "severity": "blocker",
+      "summary": "Create Submission (POST /forms/v4/submissions) exposes exactly four inputs — submission, additionalMetadata, captchaToken — and NO notification control: no disableNotifications, no suppressNotifications, no flowControlSettings, no participantNotification. Creating a submission fires the Submission Created domain event, which is the documented trigger surface for Wix Automations (the Forms glossary calls these 'post-submission triggers: automated actions that are executed after a form submission is received'), and the site owner's 'new form submission' notification is exactly such an automation. No docs page in this tree states whether Create Submission emails anyone. Treat every submission create as a potential owner-facing and submitter-facing send until proven silent on a live site; the only control we know of is the site-wide MuteSite policy, which is not a per-call flag and is not applied to existing sites by default."
+    },
+    {
+      "code": "form-caps-and-gated-field-types",
+      "severity": "warning",
+      "summary": "Two independent limits, both enforced by FAILING the create rather than degrading. (1) Counts: each namespace has a provider-set maxForms, maxFields and maxDeletedForms, readable live with List Forms Providers Configs (GET /form-schema-service/v4/forms/providers-config); exceeding one returns 400 FORM_FIELDS_COUNT_EXCEEDED / NAMESPACE_FORMS_COUNT_EXCEEDED / FORM_SIZE_EXCEEDED. Note deleted forms occupy their own cap, so a re-run that deletes and recreates schemas can exhaust maxDeletedForms. (2) Field types: About Form Fields marks File upload and Signature as requiring a Premium plan; Product, Fixed price, Custom price and Donation as requiring Premium plan + Wix eCommerce; Appointment as requiring Wix Meetings; Service picker and Multi-service picker as requiring Wix Services. Check both during setup discovery, not at import time."
+    },
+    {
+      "code": "namespace-decides-behaviour",
+      "severity": "warning",
+      "summary": "Every form schema belongs to an app namespace, and the namespace decides both which app renders the form and what status a submission is created in. Imported WordPress forms belong in `wix.form_app.form` (Wix Forms). Do not create schemas in another app's namespace (wix.bookings.v2.bookings, wix.ecom.v1.checkout, wix.pricing_plans.v1.custom_form, …) to make a form 'appear' somewhere — those namespaces carry that app's business logic, including PENDING submissions that are deleted if never confirmed."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/introduction",
+      "note": "domain root; menu walked 2026-08-16. NOTE: Wix Forms is NOT under api-reference/business-solutions — the whole tree lives under api-reference/crm/forms (Form Schemas, Form Submissions, Service Plugins, Chat Settings, Interactive Form Sessions, Other Services → Intake Forms, Skills, Form Schema Templates)."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/introduction",
+      "note": "'form' and 'form schema' are used interchangeably; namespace table for apps made by Wix (Wix Forms = wix.form_app.form); deleted schemas go to a 90-day trash bin and permanently deleting a schema deletes all of its submissions (read 2026-08-16)"
+    },
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/SKILL.md",
+      "note": "the only notification control available to this domain is the site-level MuteSite primitive; it is applied to new target sites and is opt-in for existing sites — it is not a per-call suppression flag"
+    }
+  ]
+}

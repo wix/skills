@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "entity": "site-seo-tags",
+  "displayName": "Site SEO Tags",
+  "capability": "content.site-seo-tags",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Site SEO Tags",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Site SEO Tags V1",
+    "endpoint": "PATCH /promote/seo/v1/site-seo-tags",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "site-noindex-is-writable-here",
+      "severity": "blocker",
+      "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on the reference store 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+    },
+    {
+      "code": "only-site-wide-tags-accepted",
+      "severity": "warning",
+      "summary": "Only og:image (default social share image), a site-level robots directive, search-engine verification tags (google-site-verification, msvalidate.01, p:domain_verify, yandex-verification - one per provider) and other site-wide name/content meta are valid here. A title, description or canonical belongs to a page and is rejected with INVALID_TAGS; use seo/item-seo-tags or seo/seo-pattern."
+    },
+    {
+      "code": "embed-tags-are-read-only",
+      "severity": "info",
+      "summary": "`embedTags[]` returns verification tags a Wix user added through the dashboard's SEO settings, which are stored as HTML embeds rather than as site tags. They are never included in `tags` and cannot be written here, so a read-then-write round trip does not preserve them - they simply stay where they are. Empty also when they cannot be retrieved, so an empty array is not proof there are none."
+    },
+    {
+      "code": "full-replacement-no-revision-check",
+      "severity": "warning",
+      "summary": "PATCH with a fieldMask replaces the named field in full and there is no revision check (INVALID_FIELD_MASK when the mask is empty or names an unwritable field). Read the current tags, merge, and send the complete set."
+    }
+  ],
+  "mappingGuidance": [
+    "The migratable content here is thin and deliberate: the site's default Open Graph share image and the search-engine VERIFICATION tags. Everything else a WordPress SEO plugin keeps at site level - title/meta templates per post type, breadcrumb settings, social profile URLs, knowledge-graph organisation data - is either a pattern (seo/seo-pattern) or reconfigure-in-wix.",
+    "Verification tags are worth carrying because they preserve an existing Google Search Console / Bing property association across the platform switch. In WordPress they live in plugin OPTIONS (Yoast: wpseo `googleverify`/`msverify`; Rank Math: `rank-math-options-general`), which are NOT exposed over REST - they arrive only from a user-supplied export or by asking the user. Treat them as blocked: user-file, never as absent.",
+    "Site tags are the BOTTOM of the precedence chain, so anything set here is overridden by a pattern, the host page, or the item. Setting a site-wide description is not a way to give every page a description.",
+    "`language` is always empty: site SEO tags are not language specific, one set applies to every language version."
+  ],
+  "setupRequirements": [
+    "SCOPE.PROMOTE.MANAGE-SEO (writes)",
+    "SCOPE.PROMOTE.VIEW-SEO (reads)"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/site-seo-tags-object",
+      "note": "object page: supported site-wide tags (og:image, robots noindex/none, verification providers), embedTags read-only, language always empty, origin derived from caller (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/set-site-seo-tags",
+      "note": "PATCH https://www.wixapis.com/promote/seo/v1/site-seo-tags; errors INVALID_FIELD_MASK / INVALID_TAGS; scope SCOPE.PROMOTE.MANAGE-SEO (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/wordpress-seo.json",
+      "note": "source side: Yoast site-level settings live in wp_options and are not REST-readable"
+    }
+  ],
+  "notes": "Authored 2026-08-16 with the seo domain. No WordPress plugin profile claims content.site-seo-tags today, because the source-side values sit in plugin options that REST does not expose; the entity exists so the Site SEO Tags V1 surface has an owner and so the noindex trap is written down before someone copies it across."
+}

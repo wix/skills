@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "docsRoots": [],
+  "displayName": "Wix Sales Channels",
+  "ownerHint": "Stores multichannel/marketplace integrations — the \"Sales Channels\" section of the Wix Stores dashboard (Catalog > Sales Channels)",
+  "wixAppsRequired": [
+    "Wix Stores"
+  ],
+  "defaultImportOrder": [
+    "meta-catalog-connect",
+    "google-youtube-connect",
+    "tiktok-catalog-connect",
+    "pinterest-catalog-connect",
+    "amazon-shop-connect",
+    "ebay-shop-connect"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "no-public-rest-surface",
+      "severity": "info",
+      "summary": "Every entity in this domain is a merchant-executed connect flow inside the Wix dashboard (and, for several channels, the third-party dashboard too) — not a public dev.wix.com REST API. docsRoots is intentionally empty: there is no dev.wix.com business-solutions menu to survey here (the docs-survey requirement is satisfied with an empty roots/surfaces pair, not skipped). Evidence for these entities is the internal Business Schema/FQDN registry (docs-schema MCP) plus support.wix.com, not dev.wix.com."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/setting-up-sales-channels"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.* (39 FQDNs under this namespace as of 2026-08-16: feed/catalog builder, marketplace actions/settings/overrides, per-channel gateways and feed pushers) — enumerated via docs-schema MCP fqdn_lookup"
+    }
+  ]
+}

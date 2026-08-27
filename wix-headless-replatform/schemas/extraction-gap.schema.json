@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/extraction-gap.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "ownerUnitId", "scope", "status", "missingFields", "reason", "evidenceRefs", "dependencyClosure", "affectedAcceptance", "attempts", "remainingAttempts", "assumptions", "omissions"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "kind": { "const": "extraction-gap" },
+    "id": { "type": "string", "minLength": 1 },
+    "ownerUnitId": { "type": "string", "minLength": 1 },
+    "scope": { "enum": ["local", "global"] },
+    "status": { "enum": ["recoverable", "provisional", "resolved", "needs-user-decision", "global-blocker"] },
+    "missingFields": { "type": "array", "items": { "type": "string" } },
+    "reason": { "type": "string", "minLength": 1 },
+    "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "dependencyClosure": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "affectedAcceptance": { "type": "array", "items": { "type": "string" } },
+    "attempts": { "type": "array", "maxItems": 2 },
+    "remainingAttempts": { "type": "integer", "minimum": 0, "maximum": 2 },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "omissions": { "type": "array", "items": { "type": "string" } },
+    "unblockAction": { "type": ["string", "null"] },
+    "userDecision": { "type": ["object", "null"] },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

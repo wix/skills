@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "pinterest-catalog-connect",
+  "displayName": "Pinterest Catalogs",
+  "capability": "commerce.pinterest-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": "wix.stores_channels.feed.v1.catalog",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "pinterest-for-woocommerce",
+      "confidence": "medium",
+      "note": "No WooCommerce plugin profile authored yet for a Pinterest catalog plugin (e.g. Pinterest for WooCommerce); this alias is a forward-pointer for when one is profiled."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant verifies the site with Pinterest, then copies a feed link",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "site-verification-step-is-unique-to-this-channel",
+      "severity": "info",
+      "summary": "Unlike Meta/TikTok, Pinterest requires a site-ownership verification step (a Pinterest-issued HTML tag pasted into Wix Custom Code) BEFORE the catalog-link step. A runbook that skips straight to \"Get Catalog Link\" will fail — the merchant must verify the site first."
+    }
+  ],
+  "mappingGuidance": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-selling-store-products-on-pinterest"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.feed.v1.catalog — BuildMarketplaceCatalogFeedUrlV2Request.FeedFile enum includes PINTEREST_XML (ALPHA maturity) — verified via docs-schema MCP, 2026-08-16"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "A Pinterest business account.",
+    "steps": [
+      { "actor": "external", "text": "On Pinterest, under site claim settings, click Claim next to Websites and Copy the HTML verification tag." },
+      { "actor": "merchant", "text": "In the Wix dashboard, add that snippet via Custom Code (Add Custom Code) so Pinterest can verify site ownership." },
+      { "actor": "merchant", "text": "Go to Catalog > Sales Channels > Pinterest Catalog, click Get Catalog Link, and copy it." },
+      { "actor": "external", "text": "Upload/connect that link as the product catalog in the Pinterest business account." }
+    ],
+    "mechanism": "Pull-based feed; once the site is verified, product listings, updates, and price changes sync to Pinterest automatically/in real time per Wix's own description.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-selling-store-products-on-pinterest" },
+      { "type": "internal-fqdn", "path": "wix.stores_channels.feed.v1.catalog (PINTEREST_XML)" }
+    ]
+  }
+}

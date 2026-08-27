@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-merchant-note",
+  "displayName": "eCommerce Order Merchant Note (Activity)",
+  "capability": "commerce.payment-gateway-notes",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "eCommerce Order Activity (MERCHANT_COMMENT)",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "ecom/order"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_note",
+      "routes": [
+        "/wc/v3/orders/{parentId}/notes"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "ecomOrderActivity",
+      "routes": [
+        "eCommerce Orders API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders/{orderId}/activities/add",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "follow-up-write-after-import",
+      "severity": "blocker",
+      "summary": "Order.activities[] is read-only on Create/Import Order — a merchant note can NEVER ride the order import payload. It must be a separate Add Activities call AFTER Import Order creates the order, using the crosswalked Wix order id."
+    },
+    {
+      "code": "timestamps-not-backdatable",
+      "severity": "warning",
+      "summary": "Add Activities stamps authorEmail and createdDate at call time (both read-only on the activity) — the activity will show the migration identity and migration date, and cannot be backdated to the source note's author/timestamp. If provenance matters, prefix the source author and original date into merchantComment.message text. VERIFIED LIVE 2026-08-16: the created activity came back with createdDate = the call instant and authorEmail = the LOGIN EMAIL BEHIND THE MIGRATION TOKEN (not the site owner, not a service identity) — so every migrated note is publicly attributed in the dashboard to whoever minted the token. Say so in the execution plan; a partner-run migration will otherwise stamp the partner's address across the merchant's order history."
+    },
+    {
+      "code": "order-placed-activity-precedes-the-note",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-08-16: Import Order auto-creates one ORDER_PLACED activity on every imported order before any note is added, so activities[] is never empty and a merchant note is always at index >= 1. Readback assertions must locate the note by activityType MERCHANT_COMMENT, not by activities[0]."
+    },
+    {
+      "code": "commingled-source-notes",
+      "severity": "warning",
+      "summary": "On the source side, a plugin's note is a genuine WooCommerce order note commingled with ALL other order notes (system-generated and other plugins') at /wc/v3/orders/{id}/notes — no meta key or note-type marker isolates it. Selecting which notes to migrate requires content inspection at import time, not just the read channel."
+    },
+    {
+      "code": "message-cap-5000",
+      "severity": "warning",
+      "summary": "merchantComment.message is 1–5000 chars. Longer source notes (or notes bloated by the provenance prefix) must be truncated or split into multiple activities; record any truncation in the migration ledger."
+    }
+  ],
+  "mappingGuidance": [
+    "Mapping confirmed by Spec Owner 2026-08-16: source order notes (including payment-gateway plugin notes) map to eCom order activities — POST /ecom/v1/orders/{orderId}/activities/add with activityType MERCHANT_COMMENT and merchantComment.message (max 5000 chars) — called as a follow-up write AFTER Import Order creates the order.",
+    "Sequencing: import the order first (ecom/order via importOrder), resolve the Wix order id from the crosswalk, then add activities. Add Activities is currently documented to support MERCHANT_COMMENT only; up to 300 activities per request, but each request targets a single order.",
+    "Author and timestamp are stamped at call time and cannot be backdated. Preserve provenance inside the message text, e.g. '[source note — {author}, {original ISO date}] {note text}', keeping the total within 5000 chars.",
+    "Source notes are commingled with system and other plugins' notes on the source order — inspect note content at import time to decide which notes carry over; do not blindly replay every source order note.",
+    "No exported writer exists yet in rp-target-wix/lib/wix-writers.js (writerId null) — plan this as a direct REST call in the generated import script until a writer is added."
+  ],
+  "setupRequirements": [
+    "Order crosswalk (source order id -> Wix order id) populated by the order import before any activity write."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/add-activities",
+      "note": "Add Activities schema, markdown fetched 2026-08-16: POST https://www.wixapis.com/ecom/v1/orders/{orderId}/activities/add; up to 300 activities per request; orderActivities.activityType required; currently supports MERCHANT_COMMENT only; merchantComment.message minLength 1 / maxLength 5000; activity authorEmail and createdDate are read-only (stamped at call time)."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
+      "note": "Order object page (read 2026-08-16): activities (Array<Activity>) confirmed on the Order object; read-only on Create/Import Order per the import-order request schema (activities absent from the writable request body)."
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/ecom/entities/order.json",
+      "note": "Sibling entity's mappingGuidance records the same activities follow-up write verified live 2026-08-12 (10/10 order notes) on the probe run; this entity stays verification: docs until a run promotes it directly under its own capability."
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
+      "note": "commerce.payment-gateway-notes pending-register entry (researched 2026-08-11 with the plugin-rest-child read channel, finding #21); resolved by this entity 2026-08-16."
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: POST /ecom/v1/orders/{orderId}/activities/add with one MERCHANT_COMMENT activity on a freshly imported order → 200; GET on the order read the message back verbatim, including the '[source note — {author}, {ISO date}] …' provenance prefix. Before the call activities[] held only the auto-created ORDER_PLACED entry; after it, the MERCHANT_COMMENT entry carried a server id, createdDate = call time, and authorEmail = the token holder's login email. Probe order d4643149 deleted afterwards."
+    }
+  ],
+  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by an import-then-add-activity probe under this entity's own capability on the probe site. writerId stays null — the direct-REST plan is unchanged; a dedicated writer in rp-target-wix/lib/wix-writers.js is still the open gap."
+}
