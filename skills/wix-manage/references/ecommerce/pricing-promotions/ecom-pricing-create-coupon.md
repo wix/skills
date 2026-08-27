@@ -12,10 +12,25 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 
 ## Required APIs
 
-- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /v2/coupons`
-- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /v2/coupons/{id}`
-- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /v2/coupons/query`
-- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /v2/coupons/{id}`
+- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /stores/v2/coupons`
+- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /stores/v2/coupons/{id}`
+- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /stores/v2/coupons/query`
+- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /stores/v2/coupons/{id}`
+
+---
+
+## Collect the required coupon details before creating
+
+A coupon code and usage limit are not enough to define a coupon. Before any mutation, make sure the user has supplied:
+
+- The coupon code.
+- Exactly one coupon type and its required value: percentage off, money off, fixed price, free shipping, or Buy X Get Y.
+- What the coupon applies to: all items in a Wix app, one specific item/collection, or a minimum subtotal.
+- Any requested schedule. If no future start is requested, treat an explicit create request as immediate and calculate `startTime` from the current time; never copy an example timestamp.
+
+Use a supplied campaign name as `name`; if the user supplies only a code, the code itself is an acceptable deterministic display name. Never invent a discount type, discount amount, target scope, or future schedule as a “sensible default.” If any required business choice is missing, ask one concise question that collects the missing values and stop before calling the API. For example, for “Create coupon code LIMIT100 with 100 total uses,” ask what discount it should give and what it should apply to.
+
+An explicit request to create the coupon authorizes the mutation once all required details are settled; do not add a redundant confirmation step.
 
 ---
 
@@ -47,10 +62,7 @@ Before creating a coupon, check for code conflicts and existing promotions on th
         "code": "SUMMER20",
         "percentOffRate": 20,
         "scope": {
-          "namespace": "stores",
-          "group": {
-            "name": "product"
-          }
+          "namespace": "stores"
         },
         "startTime": 1717200000000,
         "expirationTime": 1719792000000,
@@ -91,10 +103,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SPRING15",
     "percentOffRate": 15,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "usageLimit": 200,
@@ -167,10 +176,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SAVE10",
     "moneyOffAmount": 10,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "active": true
@@ -232,9 +238,11 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 | Scope target | `namespace` | `group.name` | `group.entityId` |
 |---|---|---|---|
-| All store products | `"stores"` | `"product"` | Omit (applies to all) |
+| All store products | `"stores"` | Omit | Omit |
 | Specific product | `"stores"` | `"product"` | Product UUID |
 | Specific collection | `"stores"` | `"collection"` | Collection UUID |
+
+For Wix Stores, if `group` is present, `group.entityId` is required. Therefore `{ "namespace": "stores", "group": { "name": "product" } }` is invalid; use `{ "namespace": "stores" }` for all products.
 
 ---
 
@@ -246,7 +254,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Recommendation `scope` | Coupon `scope` |
 |---|---|
-| `SITE` | `{ "namespace": "stores", "group": { "name": "product" } }` (all products, no entityId) |
+| `SITE` | `{ "namespace": "stores" }` (all products; omit `group`) |
 | `CATEGORY` | `{ "namespace": "stores", "group": { "name": "collection", "entityId": "<first categoryId>" } }` |
 | `ITEMS` | `{ "namespace": "stores", "group": { "name": "product", "entityId": "<first productId>" } }` |
 
@@ -268,7 +276,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 |---|---|
 | `minSubTotal > 0` | Use `minimumSubtotal` instead of `scope` (they are oneOf — cannot use both) |
 | `minItemQuantity > 0` | **Not natively supported by Coupons API**. Mention in the coupon name (e.g., "Buy 3+, use code BUNDLE15") but the API cannot enforce item quantity. |
-| `startDate` | Convert to UNIX epoch milliseconds: `Date.parse("2026-06-01") → 1748736000000`. Set as `startTime`. |
+| `startDate` | Convert to UNIX epoch milliseconds: `Date.parse("2026-06-01T00:00:00Z") → 1780272000000`. Set as `startTime`. Never copy a timestamp from an example. |
 | `endDate` | Convert to UNIX epoch milliseconds. Set as `expirationTime`. |
 
 ### Code generation
@@ -314,8 +322,8 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
         "entityId": "electronics-collection-uuid"
       }
     },
-    "startTime": 1748736000000,
-    "expirationTime": 1751328000000,
+    "startTime": 1780272000000,
+    "expirationTime": 1782777600000,
     "usageLimit": 100,
     "limitPerCustomer": 1,
     "active": true
@@ -340,7 +348,8 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Error | Cause | Fix |
 |---|---|---|
-| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores", "group": { "name": "product" } }` for site-wide, or set `minimumSubtotal` |
+| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores" }` for all Wix Stores products, or set `minimumSubtotal` |
+| `"The provided combination of scope and coupon type is invalid"` with `group=product, entityId=empty` | A Stores `group` was supplied without its required entity ID | Omit `group` for all products, or add the specific product/collection `entityId` |
 | Duplicate code | Another coupon uses the same code | Generate a different code |
 | Invalid startTime | Value too low (must be epoch ms, not seconds) | Multiply by 1000 if in seconds |
 | Both scope and minimumSubtotal set | These are oneOf — cannot use both | Choose scope OR minimumSubtotal |
