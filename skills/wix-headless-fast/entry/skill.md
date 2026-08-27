@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast-entry
-description: "Build a Wix Managed Headless site from a single prompt using SHIPPED, verified @wix/sdk code (the wix-headless-fast skill) — the deterministic first steps (system prerequisites and Wix CLI login) are handled by the shared bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skill and hands it the run. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants. Triggers: build me a store/blog/booking/events/portfolio/restaurant site fast, sell tickets or membership plans headless, wix headless fast entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants. Triggers: build me a store/blog/booking/events/portfolio/restaurant site fast, sell tickets or membership plans headless, wix headless fast entry."
 ---
 
 # Wix Headless Fast — cold-start entry
