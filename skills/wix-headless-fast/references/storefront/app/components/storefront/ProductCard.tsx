@@ -1,7 +1,6 @@
-// Grid tile — a REFERENCE implementation over the ProductSummary DTO. It's correct and
-// complete (badges, sale price, hover image, quick-add), but the layout is deliberately
-// plain: designing your own card that fits the brand is encouraged — build it on the same
-// ProductSummary fields and keep quick-add wired through useCart().
+// Grid tile — a REFERENCE implementation over the ProductSummary DTO. Complete and correct
+// (badges, sale price, hover image, quick-add); styled entirely from the @theme tokens via
+// Tailwind utilities. Designing your own card on the same DTO is encouraged.
 import type { ComponentType, ReactNode } from "react";
 import type { ProductSummary } from "../../wix/storefront/types";
 import { useCart } from "../../hooks/storefront/useCart";
@@ -39,30 +38,59 @@ export default function ProductCard({
       : product.price;
 
   return (
-    <div className="sf-card">
-      <LinkComponent href={productHref(product.slug)}>
-        <div className="sf-card-media">
-          {product.imageUrl && <img src={product.imageUrl} alt={product.name} loading="lazy" />}
-          {product.hoverImageUrl && (
-            <img className="sf-hover" src={product.hoverImageUrl} alt="" loading="lazy" aria-hidden="true" />
+    <div className="group">
+      <LinkComponent href={productHref(product.slug)} className="block no-underline">
+        <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary">
+          {product.imageUrl && (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            />
           )}
-          {product.ribbon && <span className="sf-badge">{product.ribbon}</span>}
-          {soldOut && <span className="sf-badge sf-badge-right">Sold out</span>}
-          {product.preorder && <span className="sf-badge sf-badge-right">Pre-order</span>}
+          {product.hoverImageUrl && (
+            <img
+              src={product.hoverImageUrl}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            />
+          )}
+          {product.ribbon && (
+            <span className="absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
+              {product.ribbon}
+            </span>
+          )}
+          {soldOut && (
+            <span className="absolute right-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-muted-foreground backdrop-blur">
+              Sold out
+            </span>
+          )}
+          {product.preorder && (
+            <span className="absolute right-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
+              Pre-order
+            </span>
+          )}
         </div>
-        <p className="sf-card-name">{product.name}</p>
-        <p className="sf-card-price">
-          <span>{priceLabel}</span>
-          {product.compareAtPrice && <span className="sf-compare">{product.compareAtPrice}</span>}
+        <p className="mt-3 text-sm font-medium text-foreground">{product.name}</p>
+        <p className="mt-0.5 flex items-baseline gap-2 text-sm">
+          <span className="text-foreground">{priceLabel}</span>
+          {product.compareAtPrice && (
+            <span className="text-muted-foreground line-through">{product.compareAtPrice}</span>
+          )}
         </p>
-        {product.optionsSummary && <p className="sf-card-options">{product.optionsSummary}</p>}
+        {product.optionsSummary && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{product.optionsSummary}</p>
+        )}
       </LinkComponent>
       {product.quickAddable && (
         <button
           type="button"
-          className="sf-chip"
           disabled={busy}
           onClick={() => addToCart(product.id).catch(() => {})}
+          className="mt-2 rounded-full border border-border px-4 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
         >
           Add to cart
         </button>

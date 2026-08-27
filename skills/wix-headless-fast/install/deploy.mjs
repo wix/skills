@@ -38,13 +38,31 @@ const VERTICALS = readdirSync(REF, { withFileTypes: true })
 // What the shipped code imports, declared per layer (version ranges are the ones the shipped
 // code was verified against). react/astro/typescript/@wix/astro* are scaffold-owned — never
 // listed here. A new vertical adds its own entry; the patch logic below never changes.
-const SHARED_DEPS = { "@wix/sdk": "^1.21.5" };
+const SHARED_DEPS = {
+  "@wix/sdk": "^1.21.5",
+  // The shipped components style themselves with Tailwind v4 utilities reading the @theme
+  // tokens in styles/global.css (the same system the official Wix headless templates use).
+  "tailwindcss": "^4.1.7",
+  "@tailwindcss/vite": "^4.1.7",
+};
 const VERTICAL_DEPS = {
   storefront: {
     core: {
       "@wix/stores": "^1.0.888",
       "@wix/categories": "^1.0.220",
       "@wix/ecom": "^1.0.2451",
+      "@wix/redirects": "^1.0.125",
+    },
+    astro: {
+      "@wix/seo": "^1.0.79",
+      "@wix/essentials": "^1.0.6",
+    },
+  },
+  bookings: {
+    core: {
+      "@wix/bookings": "^1.0.1650",
+      "@wix/auto_sdk_ecom_cart-v-2": "^1.0.192",
+      "@wix/forms": "^1.0.500",
       "@wix/redirects": "^1.0.125",
     },
     astro: {
@@ -119,6 +137,44 @@ if (result.verticals.length === 1 && existsSync(PKG_JSON) && !existsSync(PROJECT
     cpSync(shippedLock, PROJECT_LOCK);
     result.lockDeployed = true;
     result.note = [result.note, "install with `npm ci --ignore-scripts || npm install --ignore-scripts`"].filter(Boolean).join("; ");
+  }
+}
+
+// ---- astro config: wire the Tailwind vite plugin ---------------------------------------------------
+// The blank scaffold's astro.config.mjs has no Tailwind wiring. Fill-only, like everything
+// else: patch only when the plugin isn't referenced yet, and only when both anchors are found.
+const ASTRO_CONFIG = join(PROJECT, "astro.config.mjs");
+if (stack === "astro" && result.verticals.length && existsSync(ASTRO_CONFIG)) {
+  const config = readFileSync(ASTRO_CONFIG, "utf8");
+  if (config.includes("@tailwindcss/vite")) {
+    result.astroConfig = "tailwind_already_wired";
+  } else if (config.includes("export default defineConfig({")) {
+    const patched =
+      `import tailwindcss from "@tailwindcss/vite";\n` +
+      config.replace(
+        "export default defineConfig({",
+        "export default defineConfig({\n  vite: { plugins: [tailwindcss()] },",
+      );
+    writeFileSync(ASTRO_CONFIG, patched);
+    result.astroConfig = "tailwind_wired";
+  } else {
+    result.astroConfig = "UNPATCHED — add `vite: { plugins: [tailwindcss()] }` (import from @tailwindcss/vite) to astro.config.mjs by hand";
+  }
+}
+
+// ---- ready-made links -----------------------------------------------------------------------------
+// Emit the siteId and the dashboard deep links so nothing downstream re-derives or retypes them.
+const WIX_CONFIG = join(PROJECT, "wix.config.json");
+if (existsSync(WIX_CONFIG)) {
+  const config = JSON.parse(readFileSync(WIX_CONFIG, "utf8"));
+  const siteId = config.siteId ?? config.projectId;
+  if (siteId) {
+    result.siteId = siteId;
+    result.dashboardUrl = `https://manage.wix.com/dashboard/${siteId}`;
+    if (result.verticals.includes("storefront")) {
+      result.productsUrl = `https://manage.wix.com/dashboard/${siteId}/wix-stores/products`;
+      result.categoriesUrl = `https://manage.wix.com/dashboard/${siteId}/wix-stores/categories/list`;
+    }
   }
 }
 

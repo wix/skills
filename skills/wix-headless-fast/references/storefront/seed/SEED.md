@@ -36,12 +36,16 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
   carrying the product's price/compareAtPrice/quantity) — keep option counts small.
 - `compareAtPrice` (> `price`) — the "was" price: strikethrough on the PDP, sale badge data on
   the tile.
-- `imageUrl` — a real, fetchable https URL; Wix re-hosts it server-side. Omit to seed text-only.
+- `imageUrl` — **include one for every product** (a store without product images looks broken:
+  gray boxes on tiles, PDP, and cart). It must be a real, fetchable https URL — **verify each
+  resolves (e.g. a quick `curl -sI` → 200) before seeding**; a guessed URL seeds a broken
+  image. Wix re-hosts it server-side. Seed text-only only when the user explicitly asks.
 - `categories` — category name → product NAMES. Omit when the brief names none.
 
-**Seed a catalog that exercises the shipped UI**: unless the brief says otherwise, give at
-least one product a color option and put one product on sale — truthfully to the business (a
-ceramics studio has glaze colors; a bakery doesn't).
+**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
+shape, not a full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise
+the shipped UI**: give at least one product a color option and put one product on sale —
+truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
