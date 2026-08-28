@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on Wix from Base44: gather the connected site's context (installed apps and their ids, OAuth clientId, locale, currency, CMS collections), find any Wix API and learn its exact contract (docs search and browse, method pages, the spec index's request/response schemas), follow curated management recipes for multi-step admin flows, and route each call to the right identity — the public visitor token in pages, the secret admin token server-side."
+description: "Build on the connected Wix site from a Base44 app — site management/admin, front-end code, and backend functions: discover and call any Wix API, gather the site's context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
 ---
 
 # Building on Wix from Base44
