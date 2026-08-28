@@ -42,9 +42,10 @@ already on `main` by the time it runs. Eval runs are not fully deterministic, so
 scenario is rerun (up to two retries) and only counts as a regression when a majority of the
 attempts fail; only a confirmed regression posts to Slack, naming the merging PR's author. A
 tag matching more than 20 scenarios samples rather than running everything, to keep a broad tag
-from re-running dozens of scenarios on every merge that touches it. Setting the
-`MERGE_TAG_SWEEP_ENABLED` repository variable to `false` turns the sweep off without a code
-change.
+from re-running dozens of scenarios on every merge that touches it. It posts through its own
+`MERGE_TAG_SWEEP_SLACK_WEBHOOK_URL` secret, so its alerts land in a dedicated channel rather
+than alongside the weekly run's summaries. Setting the `MERGE_TAG_SWEEP_ENABLED` repository
+variable to `false` turns the sweep off without a code change.
 
 ## wix-app scenarios: the PR eval gate
 

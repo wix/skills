@@ -69,7 +69,7 @@ jobs:
       - name: Post Slack notification
         if: always() && steps.sweep.outputs.confirmed-failed-count != '' && steps.sweep.outputs.confirmed-failed-count != '0'
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.MERGE_TAG_SWEEP_SLACK_WEBHOOK_URL }}
           CONFIRMED_COUNT: ${{ steps.sweep.outputs.confirmed-failed-count }}
           RECOVERED_COUNT: ${{ steps.sweep.outputs.recovered-count }}
           CONFIRMED_SCENARIOS: ${{ steps.sweep.outputs.confirmed-failed-scenarios }}
@@ -137,7 +137,7 @@ jobs:
       - name: Post Slack notification (infra error)
         if: always() && steps.sweep.outputs.infra-error != ''
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.MERGE_TAG_SWEEP_SLACK_WEBHOOK_URL }}
           ERROR_MESSAGE: ${{ steps.sweep.outputs.infra-error }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -178,7 +178,7 @@ jobs:
           && steps.sweep.outputs.infra-error == ''
           && (steps.sweep.outputs.confirmed-failed-count == '' || steps.sweep.outputs.confirmed-failed-count == '0')
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.MERGE_TAG_SWEEP_SLACK_WEBHOOK_URL }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
