@@ -359,7 +359,7 @@ Build the request from `item.channel` (`name` + the `accountId` from STEP 4b), `
 - Otherwise, build it from the STEP 3 table row for your channel + `type`: the text field (`caption` for Instagram/Facebook/LinkedIn/X, `description` for YouTube/Pinterest/GBP/TikTok), the media (`mediaWrapper`, or `imageUrl`/`videoUrl` for a single item), and any channel-specific IDs from the STEP 4b account object, plus `title` where the channel uses one.
 - Instagram and story types require media.
 
-**Attribution (always set this).** Set `item.consumerInfo` to `{ "name": "wix-skills-social" }` on **every** create-draft call, for every channel. `consumerInfo.name` identifies what created the post — the Social Media Marketing dashboard sets `social-marketing`, and this recipe sets `wix-skills-social`. Send `name` only; the other `consumerInfo` fields are set by the Publisher and ignored on input.
+**Attribution (always set this).** Set `item.consumerInfo` to `{ "name": "wix-skills-social" }` on **every** create-draft call, for every channel. `consumerInfo.name` identifies what created the post — the Social Media Marketing dashboard sets `social-marketing`, and this recipe sets `wix-skills-social`. Set it on the draft: `name` is applied on creation only, and Update Item ignores it.
 
 **Idempotency (retry safety).** Set a stable, caller-defined `item.referenceId` on the draft. The Publisher enforces its uniqueness — a second item created/published with the same `referenceId` is rejected with `REFERENCE_ID_ALREADY_EXIST` instead of posting a duplicate. So if a create or publish call times out, retry with the **same** `referenceId` rather than risk double-posting.
 
