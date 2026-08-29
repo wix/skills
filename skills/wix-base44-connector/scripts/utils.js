@@ -246,4 +246,12 @@ async function mgmtRecipes(q) {
   return clip(m.map(row));
 }
 
-module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes };
+// Install a Wix app on the site (Apps Installer). Use when discovery finds an API but its app is
+// not installed yet — that is a one-call prerequisite, not a dead end. appDefId from search or the
+// Apps-Created-by-Wix table; siteId from context (the site report).
+async function installApp(appDefId, siteId, token) {
+  return post("https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    { tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId } }, token);
+}
+
+module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp };

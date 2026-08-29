@@ -51,7 +51,7 @@ const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
-`wx` exports nine helpers:
+`wx` exports these helpers:
 
 - `wx.post/get/patch/put/del(url, [body], token?)` — JSON transports, one per verb (`get`/`del` take no body): Bearer from `token`, non-2xx **throws** the API's own error
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
@@ -62,6 +62,7 @@ const wx = (() => { const m = { exports: {} };
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
+- `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
 A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
