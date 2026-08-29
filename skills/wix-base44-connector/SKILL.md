@@ -22,7 +22,7 @@ base44/functions/… ──(admin token)───► wixapis.com   work that nee
 exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
 ```
 
-**A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the verticals.
+**A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the business solutions.
 Your app is the site's frontend — whether the site is headless (no pages of its own) or your
 frontend extends an existing site. **The complete visitor experience —
 every page, every read, every action a visitor takes — is browser calls on the visitor token;
@@ -104,6 +104,22 @@ await wx.search("pause a pricing plan subscription and resume it");
 // JS SDK, quick-starts). It returns article-style hits (method gists thin out) — read the saved path.
 await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
+
+Products and their capabilities — the common ones, partial lists:
+
+- **Stores** — products · categories · product options and variants · inventory · promotions · *+7 more*
+- **Bookings** — services · appointments · classes · staff members · time slots · waitlists · *+7 more*
+- **eCommerce** — cart · checkout · orders · order fulfillment · discount rules · *+7 more*
+- **Events** — events · ticket definitions · RSVP · check-in · *+6 more*
+- **Restaurants** — menus · items · item modifiers · online orders · reservations · *+9 more*
+- **Blog** — posts · draft posts · categories · tags · *+3 more*
+- **CMS** — data items · data collections · collection permissions · external databases · *+4 more*
+- **Pricing Plans** — plans · orders · recurring subscriptions · free trial periods · *+4 more*
+- **Members & Contacts** — contacts · labels · extended fields · members · badges · *+7 more*
+- **Forms** — form schemas · form submissions · interactive form sessions · *+3 more*
+- **Loyalty** — loyalty points · earning rules · tiers · rewards · *+5 more*
+
+Full list — all 36 products, their capabilities and docs paths: `references/CAPABILITY_MAP.md`.
 
 Go deeper for fields, enums, or absence — only the spec index proves absence.
 
