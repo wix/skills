@@ -4,6 +4,7 @@
 // installed (the seed installs it). Copy as-is; extend by adding functions, not by editing
 // these.
 // docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/members/get-my-member.md
+// `@wix/members` is the shipped package; `@wix/site-members` is Developer Preview.
 import { members } from "@wix/members";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

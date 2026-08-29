@@ -13,7 +13,7 @@ node <SKILL_ROOT>/references/restaurants/seed/seed-restaurants.mjs plan.json
 `plan.json` is plain data — write it from the brief. **Default to one menu with ~3 sections
 of 2–3 items each** (the seed shows the shape; the owner adds the rest in the dashboard),
 every item with an image (a menu without photos looks broken) — the default is an
-`imagePrompt` (AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual —
+`imagePrompt` (AI-generated, account-billed per image — ~0.01 on the default model): brand-contextual —
 subject, aesthetic/mood, palette, lighting — always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually
 supplied use `imagePath` (a file on this machine — uploaded to Wix Media) or `imageUrl`
 (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never

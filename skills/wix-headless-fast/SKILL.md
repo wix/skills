@@ -94,8 +94,9 @@ re-litigate them.
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
    your summary — if non-zero, read `seed.log` and re-run the seed module manually). Then
    **build & release once** (managed):
-   `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
-   it once more and then build). Don't build+release mid-flow; backend content is fetched at
+   `CI=1 npx @wix/cli@latest build` then `CI=1 npx @wix/cli@latest release` (if the install
+   failed, run it once more and then build). A release that dies on `ECONNRESET`/`ETIMEDOUT`/
+   `STATE_MISMATCH` is transient — retry it serially up to 3×; a build failure is a real error. Don't build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
    `https://manage.wix.com/dashboard/<siteId>`. **Copy the live URL verbatim from the
@@ -118,6 +119,7 @@ comes from the shipped code, and real errors surface at build/release.
 | Portfolio/showcase: collections of projects, project pages with media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
 | Membership/subscription plans: pricing page, plan detail, hosted purchase | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
 | Restaurant: menu with photos, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
+| Contact/lead forms | not shipped | `wix-headless` |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
 accounts) deploys them together — fast-path takes one vertical; deploy the rest with
@@ -125,6 +127,11 @@ accounts) deploys them together — fast-path takes one vertical; deploy the res
 starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
 this skill's fast path — route it to `wix-headless` rather than improvising an unshipped
 vertical here.
+
+Each vertical's seed and INSTRUCTIONS cite `wix-headless/references/…` recipes as the
+authoritative source for an uncovered API shape. That skill is a separate install —
+`CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes` — needed only for such a
+fallback read.
 
 ## Adding a vertical (structure contract)
 

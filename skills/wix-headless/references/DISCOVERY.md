@@ -61,11 +61,11 @@ Counts are deliberately small (the seed shows the shape, not a full catalog).
 Resolve an `imagery` flag — whether to generate AI images for seeded content (and, when building a frontend, for page surfaces). **Default OFF** (text-only): seed with no imagery; the user can add images later.
 
 - If the prompt **signals imagery** ("with photos", "product photos", "AI images", "hero image"), set `imagery: on`.
-- Otherwise **ask one question** — text-only (default) vs AI-generated images, noting it costs ~1 Wix AI credit per image. Default to off on no answer.
+- Otherwise **ask one question** — text-only (default) vs AI-generated images, noting each image costs a fraction of a Wix AI credit (~0.01 on the default model). Default to off on no answer.
 
-**Bound the *cost*, not just the on/off decision.** `imagery: on` authorizes the *feature*, not unlimited *volume* — a single "imagery throughout" phrase can otherwise fan out to dozens of images (≈1 Wix AI credit each) with the spend never surfaced. So when imagery resolves on:
+**Bound the *cost*, not just the on/off decision.** `imagery: on` authorizes the *feature*, not unlimited *volume* — a single "imagery throughout" phrase can otherwise fan out to dozens of images (each at its model's rate — `IMAGE_GENERATION.md` § Credits) with the spend never surfaced. So when imagery resolves on:
 
-- **Surface the projected cost** in the brief pre-work line (§5): state the plan in credits — *"~N images ≈ N Wix AI credits"* — so the spend is visible even when nobody asked about volume. Always safe, no interactivity.
+- **Surface the projected cost** in the brief pre-work line (§5): state the plan in credits — *"~N images, ~C Wix AI credits"* at the model's rate — so the spend is visible even when nobody asked about volume. Always safe, no interactivity.
 - **Apply a per-run image cap** (`imageCap`, default **~12**). Generate up to the cap; for surfaces/entities beyond it, render the **themed-block fallback** instead of generating (see below). Log what was capped so it's not silently dropped.
 - **Confirm only when interactive *and* over the cap** — never a mandatory "always ask" gate. A non-interactive run honors the cap and fills the rest with themed blocks; it never stalls.
 

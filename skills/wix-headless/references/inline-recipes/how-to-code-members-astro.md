@@ -73,6 +73,7 @@ if (!me) return Astro.redirect('/api/auth/login?returnToUrl=/account');
 ```
 
 - **Guard the SSR call in `try/catch`** — an unguarded throw truncates the response mid-stream (white screen; `astro.md` A3). An anonymous visitor is a normal state, not an error: catch → treat as logged-out → redirect to login.
+- **⚠️ Gating on `getCurrentMember` needs the Members Area app installed** (the profile layer above). Without it a **logged-in** member also reads `null` here and gets bounced back to the login route — a redirect loop that looks like broken login. When the app may be absent, gate on **identity** (does the request carry a member session) and use `getCurrentMember` only to *display* profile data.
 - **Don't render account/gated UI as a client island that checks auth in the browser.** Resolve identity server-side and gate the route; render only what a member should see. (Same reasoning as the blog-comment API-endpoint path — avoid the browser-auth detour.)
 - For an **action** that only *some* callers may take (post a comment, place a member order), don't gate the whole page: render the control always, and on submit POST to a `src/pages/api/*.ts` endpoint that resolves the session and, if the caller isn't a member, redirects to `/api/auth/login?returnToUrl=…`.
 
@@ -84,6 +85,7 @@ if (!me) return Astro.redirect('/api/auth/login?returnToUrl=/account');
 import { members } from '@wix/members';
 const { member } = await members.getCurrentMember({ fieldsets: ['FULL'] });
 // member.profile?.nickname, member.profile?.photo, member.loginEmail, member.contactId, member.roles
+// first/last name live on member.contact?.firstName / member.contact?.lastName — member.profile.firstName is undefined
 ```
 
 - **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`members.getCurrentMember`** — calling `members.getMyMember(...)` throws `is not a function` at runtime. This bites because a logged-out smoke test never reaches the call; it only fails once a real member loads the page.

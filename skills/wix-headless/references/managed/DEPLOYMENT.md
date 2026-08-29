@@ -12,13 +12,14 @@ CI=1 npx @wix/cli@latest release
 
 - Publishes whatever the managed project is configured to deploy to Wix's hosting/CDN, and brings the live site up.
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
-- The published URL is printed on stdout (`Site published on <url>`).
+- The published URL is printed on stdout (`Site published on <url>`). **Copy it verbatim** — a retyped subdomain hands the user a 404.
+- `release` returns before the site serves: a first request in the next ~5–30s can 500. Wait and retry before reading that as a failed run.
 
 ## Give the user both links — the live site **and** the dashboard
 
 When you close the run, surface **two** links, not one:
 
-1. **The live site URL** — the `Site published on <url>` value from release above.
+1. **The live site URL** — the `Site published on <url>` value from release above, copied verbatim.
 2. **The site dashboard (Business Manager)** — `https://manage.wix.com/dashboard/<SITE_ID>`, where `<SITE_ID>` is the `siteId` held in scratch (read from `wix.config.json`). This is where the owner manages the site behind the headless frontend — view store orders, edit content, manage members, etc. **Always include it**: a headless site has no editor button, so without this link the owner has no obvious way back into their own backend, and the seeded content/apps look unreachable.
 
 Present them plainly, e.g.:
@@ -67,6 +68,7 @@ as you deliver the links above; send only after an explicit yes.
 
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
+- **Member login needs the site published at all** — the handshake fails against an unpublished project regardless of what is registered.
 - **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it. The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
 
 ```bash

@@ -23,7 +23,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 |---|---|---|
 | Products (list, get, search, filter) | `@wix/stores` | `productsV3` |
 | Variants (to resolve `variantId`) | `@wix/stores` | `readOnlyVariantsV3` |
-| Categories | `@wix/stores` | `categories` |
+| Categories | `@wix/categories` | `categories` |
 | Cart (add / get / checkout) | `@wix/ecom` | `currentCartV2` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
 
@@ -54,32 +54,38 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to request params (note the redirect session's `checkoutId`, which is just the cart's `_id`).
 
 ```jsonc
-// Request CURRENCY and PLAIN_DESCRIPTION on every product read — they populate formattedAmount and plainDescription.
-const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
-// productsV3.queryProducts({ fields: PRODUCT_FIELDS }).…find()  →  result.items[]
-// productsV3.searchProducts({ ..., fields: PRODUCT_FIELDS })    →  result.products[]
+// CURRENCY populates formattedAmount; MEDIA_ITEMS_INFO populates media.itemsInfo (the gallery); the detail read adds PLAIN_DESCRIPTION + VARIANT_OPTION_CHOICE_NAMES.
+// `fields` is searchProducts' SECOND argument (its options object) — put it inside the search object and it is silently ignored → no CURRENCY → unformatted prices.
+const LIST_FIELDS   = ['CURRENCY', 'MEDIA_ITEMS_INFO'];
+const DETAIL_FIELDS = [...LIST_FIELDS, 'PLAIN_DESCRIPTION', 'VARIANT_OPTION_CHOICE_NAMES'];
+// productsV3.queryProducts({ fields: LIST_FIELDS }).…find()       →  result.items[]
+// productsV3.searchProducts({ filter }, { fields: LIST_FIELDS })  →  result.products[]
+// productsV3.getProductBySlug(slug, { fields: DETAIL_FIELDS })    →  result.product
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
   currency,                                       // present when CURRENCY is requested
-  actualPriceRange:    { minValue: { amount, formattedAmount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
+  actualPriceRange:    { minValue: { amount, formattedAmount } },  // PRICE   (NOT price.actualPrice.amount — a product carries ranges only → $NaN; that path exists on a VARIANT)
   compareAtPriceRange: { minValue: { amount, formattedAmount } },  // strike-through price
-  inventory: { availabilityStatus },              // product-level stock, "IN_STOCK"
+  inventory: { availabilityStatus, preorderStatus },  // stock: IN_STOCK | OUT_OF_STOCK | PARTIALLY_OUT_OF_STOCK; preorderStatus 'ENABLED' on an OOS product → "Pre-order"
   media: { main: { image } },                     // image is a wix:image:// id → resolve it (see Rendering images)
-  plainDescription,                               // plain string; description.nodes is the rich-text form
+  plainDescription,                               // an HTML string — render as HTML; description.nodes is the rich-text form
 }
 
-// readOnlyVariantsV3.queryVariants().eq('productData.productId', product._id).find()  →  result.items[]
-// variants are a SEPARATE resource — queryProducts / getProduct return variantsInfo: null
+// list/search reads carry NO variant data; the DETAIL read does — getProduct / getProductBySlug return variantsInfo.variants[] when VARIANT_OPTION_CHOICE_NAMES is requested.
+// readOnlyVariantsV3.queryVariants().eq('productData.productId', product._id).find()  →  result.items[]   // for variant-centric queries across products
 variant = {
   variantId,                                      // → cart options.variantId   (use variant.variantId ?? variant._id)
   optionChoices: [{ optionChoiceNames: { optionName, choiceName } }],  // match the buyer's Size/Color selection
+  price: { actualPrice: { amount, formattedAmount } },  // VARIANT-level price (formattedAmount with CURRENCY); the product level carries ranges instead
   inventoryStatus: { inStock },                   // variant-level stock (boolean)
 }
 
 // currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: returns { cart } — destructure it
-lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, attributes: { image } }
-// price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
+lineItem = { _id, status, name: { original }, quantityInfo: { confirmedQuantity }, pricing: { unitPrice: { amount } }, source: { catalogReference: { catalogItemId } } }
+// _id → the lineItemId for update/remove (NOT the product id); status → 'IN_STOCK', or a reason to block checkout
+// price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself; .amount is site currency, .convertedAmount the buyer's display currency); qty → quantityInfo.confirmedQuantity
+// image → NOT on the line — join it from the catalog by source.catalogReference.catalogItemId (see Rendering images)
 
 // the cart's _id is the checkout id → pass to the redirect session:
 // redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks })  →  { redirectSession: { fullUrl } }
@@ -93,22 +99,22 @@ Each section below is a **self-contained storefront feature** — implement only
 
 ### Listing products (and the `_id` rule)
 
-Query products with `productsV3.queryProducts()` / `.searchProducts()`. **Every product listing,
-category search, and detail read must request `CURRENCY` and `PLAIN_DESCRIPTION`**. Without `CURRENCY`, `formattedAmount` is omitted
-and a product card renders an unsymbolled number such as `34.99` instead of a localized price. Without `PLAIN_DESCRIPTION`, `product.plainDescription` is absent for cards and detail pages.
+Query products with `productsV3.queryProducts()` / `.searchProducts()`. **Every product listing and
+category search must request `CURRENCY` and `MEDIA_ITEMS_INFO`; the detail read adds `PLAIN_DESCRIPTION` and `VARIANT_OPTION_CHOICE_NAMES`**. Without `CURRENCY`, `formattedAmount` is omitted
+and a product card renders an unsymbolled number such as `34.99` instead of a localized price. Without `MEDIA_ITEMS_INFO`, `media.itemsInfo` is absent and a gallery has a single image. Without `PLAIN_DESCRIPTION`, `product.plainDescription` is absent on the detail page.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md?apiView=SDK>
 
 **⚠️ `queryProducts()` returns a builder, not a Promise.** Pass requested fields when needed, then chain `.eq(...)`/`.limit(...)`/`.find()` — for example:
 
 ```js
-const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
+const LIST_FIELDS = ['CURRENCY', 'MEDIA_ITEMS_INFO'];
 const { items } = await productsV3
-  .queryProducts({ fields: PRODUCT_FIELDS })
+  .queryProducts({ fields: LIST_FIELDS })
   .limit(50)
   .find();
 ```
 
-Do not pass a search/filter object to `queryProducts`; use `searchProducts` for that (see category filtering below). Reuse the same `PRODUCT_FIELDS` constant for every product read so home, shop, category, and detail pages cannot drift.
+Do not pass a search/filter object to `queryProducts`; use `searchProducts` for that (see category filtering below). Reuse the same `LIST_FIELDS` / `DETAIL_FIELDS` constants for every product read so home, shop, category, and detail pages cannot drift.
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
@@ -116,11 +122,11 @@ Do not pass a search/filter object to `queryProducts`; use `searchProducts` for 
 
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
 
-**Price:** after requesting `CURRENCY`, render `actualPriceRange.minValue.formattedAmount` (and the matching `compareAtPriceRange` value) directly. Fall back to raw `.amount` only if the formatted value is unexpectedly absent. Never use `price.actualPrice.amount`: that is the seed/write shape and reads `undefined` → `$NaN`.
+**Price:** after requesting `CURRENCY`, render `actualPriceRange.minValue.formattedAmount` (and the matching `compareAtPriceRange` value) directly. Fall back to raw `.amount` only if the formatted value is unexpectedly absent. At **product** level never use `price.actualPrice.amount` — a product exposes ranges only, so it reads `undefined` → `$NaN`; a **variant** does carry `price.actualPrice` (with `formattedAmount` when `CURRENCY` is requested).
 
 ### Category navigation — list categories live
 
-**Build the category nav/rail from a live `categories` query (`@wix/categories`), never from a seeded category list** — a category the owner adds later then self-registers in the nav with no code change. Query at render time and read each `{ _id, name, slug }`; render the bar only when it returns **more than one** category, and treat it as **non-fatal** (wrap in try/catch, render without the bar if it fails).
+**Build the category nav/rail from a live `categories` query (`@wix/categories`), never from a seeded category list** — a category the owner adds later then self-registers in the nav with no code change. Query at render time and read each `{ _id, name, slug }`, **dropping Wix's auto-created `all-products` system category** (`slug === 'all-products'` — it contains every product) before you count or render; render the bar only when **more than one** category remains, and treat it as **non-fatal** (wrap in try/catch, render without the bar if it fails).
 
 ```js
 import { categories } from '@wix/categories';
@@ -135,16 +141,17 @@ const res = await categories.queryCategories({
 
 **Filter server-side by the live `categoryId` — keyed on the stable category id, so products the owner adds to a category later appear with no code change or re-publish.** This is the **prescribed** approach; do **not** freeze a seed-time `category→productIds` map into the code and filter client-side against it (a product added to that category in the backoffice would never appear on its category page — the exact "owner edit is lost" failure this recipe exists to prevent).
 
-**⚠️ CRITICAL: category filtering MUST use `searchProducts`, NOT `queryProducts`.** `directCategoriesInfo.categories` is **not declared as filterable in `queryProducts`** — passing it there returns HTTP `400 "... is not declared as filterable"`, which the SDK **swallows silently**, leaving an empty category page that looks like "no products". This is the #1 way this breaks. Use Search Products:
+**⚠️ CRITICAL: category filtering MUST use `searchProducts`, NOT `queryProducts`.** `allCategoriesInfo.categories` is **not declared as filterable in `queryProducts`** — passing it there returns HTTP `400 "... is not declared as filterable"`, which the SDK **swallows silently**, leaving an empty category page that looks like "no products". This is the #1 way this breaks. Use Search Products:
 
 ```js
-const { products } = await productsV3.searchProducts({
-  filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
-  fields: PRODUCT_FIELDS,
-});
+const { products } = await productsV3.searchProducts(
+  { filter: { 'allCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } } },
+  { fields: LIST_FIELDS },
+);
 ```
 
 - **`categoryId`** is the stable id from the live `categories.queryCategories()` result above (a category's `_id`) — read it from the render context, never a hardcoded seed-time id list.
+- **Field:** `allCategoriesInfo.categories`, which includes **inherited parent categories** — a parent page still lists the products sitting in its children. `directCategoriesInfo.categories` (same `$matchItems` shape, also search-only) is the deliberate choice only when a page must show **direct assignments alone**: on a parent page in a nested tree it returns zero products.
 - **Method:** `searchProducts`, never `queryProducts` (the field is only filterable in search).
 - **Operator:** `$matchItems`, never `$hasSome` (the natural-looking guess returns nothing).
 - **Inner key:** `id` (the category GUID), inside `$matchItems: [{ id: … }]`.
@@ -154,9 +161,9 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-
 
 ### Adding to cart — the V3 cart contract
 
-Adding to cart is two parts of **one feature**: resolve the variant first, then add it. The variant resolution is not a standalone concern — it exists only to feed the add call.
+Adding to cart is two ordered parts of **one feature**: resolve the variant first, then add it. The variant resolution is not a standalone concern — it exists only to feed the add call. Changing and removing lines (part 3) is the same cart contract, unordered.
 
-**1 · Resolve the `variantId` (mandatory).** Variants are a **separate read-only resource** — `queryProducts` / `getProduct` do **not** return variant data (this is documented; `variantsInfo` comes back `null`). Resolve the variant yourself:
+**1 · Resolve the `variantId` (mandatory).** A **list/search** read carries no variant data. The **detail** read does: `getProduct` / `getProductBySlug` return `variantsInfo.variants[]` when the read requests `VARIANT_OPTION_CHOICE_NAMES` (`DETAIL_FIELDS` above), so a product page already holds its variants — under `variant.choices[].optionChoiceNames`. `readOnlyVariantsV3` is the variant-centric resource, for querying variants across products (or when all you hold is a list read):
 
 ```js
 const { items } = await readOnlyVariantsV3
@@ -166,7 +173,7 @@ const { items } = await readOnlyVariantsV3
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/read-only-variants-v3/query-variants.md?apiView=SDK>
 
-Each `variant` carries `variant.optionChoices[].optionChoiceNames` — `{ optionName, choiceName }`. Match the buyer's selected options (Size = "Small", Color = "Red", …) against those names to pick the variant. For a **single-variant** product, use the only item. Fall back to `items[0]` if matching yields nothing. The id to send to the cart is **`variant.variantId ?? variant._id`**.
+Each `variant` from this resource carries `variant.optionChoices[].optionChoiceNames` — `{ optionName, choiceName }`. Match the buyer's selected options (Size = "Small", Color = "Red", …) against those names to pick the variant. For a **single-variant** product, use the only item. Fall back to `items[0]` if matching yields nothing. The id to send to the cart is **`variant.variantId ?? variant._id`**.
 
 **2 · Add it.** Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md?apiView=SDK> · catalogReference contract: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md?apiView=SDK>
 
@@ -183,9 +190,22 @@ await currentCartV2.addLineItemsToCurrentCart({
 });
 ```
 
+The add can succeed with an unbuyable line: find the returned line for the product/variant you just added and check its `status` — anything other than `'IN_STOCK'` must be surfaced to the buyer and must block checkout.
+
 **⚠️ CRITICAL: `options.variantId` is MANDATORY for any product that has variants.** Adding by `catalogItemId` alone **fails** — the catalog can't resolve a variant-bearing product without it, and Cart V2 **rejects the add with an explicit error** rather than accepting an invalid line. The cart method's required-params list omits `variantId`, so it's an easy one to miss. Always resolve and include it (part 1 above).
 
-**⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug: the variant never resolves, so Cart V2 rejects the add with an explicit error.
+**⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` carries **`TEXT_CHOICES` modifier** selections (modifier key → choice key); a **`FREE_TEXT`** modifier's value goes in `catalogReference.options.customTextFields`, keyed by the modifier's `freeTextSettings.key`. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug: the variant never resolves, so Cart V2 rejects the add with an explicit error.
+
+**3 · Change or remove a line.** `lineItemId` is the cart line's `_id`, never the product id.
+
+```js
+await currentCartV2.updateLineItemsInCurrentCart({
+  lineItems: [{ lineItemId, quantity: { newQuantity } }],   // newQuantity minimum is 1
+});
+await currentCartV2.removeLineItemsFromCurrentCart([lineItemId]);   // a positional ARRAY, not an object
+```
+
+A decrement that would reach zero calls `removeLineItemsFromCurrentCart` instead. Docs: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items-in-current-cart.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/remove-line-items-from-current-cart.md?apiView=SDK>
 
 ### Checkout — redirect to the hosted checkout page
 
@@ -223,7 +243,7 @@ Never hardcode `$` or assume USD — stores run in EUR/GBP too.
 
 ### Showing stock state
 
-Read the **V3** inventory fields: product-level in-stock is `product.inventory.availabilityStatus` (`"IN_STOCK"`); variant-level is `variant.inventoryStatus.inStock`. Reading the V1 inventory field on V3 data returns `undefined` → everything renders out-of-stock (the all-OOS bug). These come from `productsV3` / `readOnlyVariantsV3`, not the V1 module.
+Read the **V3** inventory fields: product-level in-stock is `product.inventory.availabilityStatus` — one of `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK` (treat the partial state as buyable, with the out-of-stock choices disabled); variant-level is `variant.inventoryStatus.inStock`. An out-of-stock product with `product.inventory.preorderStatus === 'ENABLED'` is **pre-orderable** — label it "Pre-order" rather than sold out. Reading the V1 inventory field on V3 data returns `undefined` → everything renders out-of-stock (the all-OOS bug). These come from `productsV3` / `readOnlyVariantsV3`, not the V1 module.
 
 ### Rendering product images
 
@@ -243,11 +263,11 @@ function imgSrc(mediaMain, w = 600, h = 600) {
 
 **Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** either — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
 
-**This applies to cart line-item images too, not just product reads.** A cart `lineItem.attributes.image` is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
+**Cart lines carry no image — join it from the catalog.** Cart V2 does **not** populate `lineItem.attributes.image` at runtime (verified against a live cart), so collect each line's `source.catalogReference.catalogItemId`, read those products with `productsV3.queryProducts().in('_id', ids).find()`, and run each `media.main` through the same `imgSrc()` helper; cache the resolved URL per product for the session. (If you build the cart over an API route, do the join there and return ready URLs so the component never sees a `wix:image://`.)
 
 ### Rendering product descriptions
 
-Don't print the raw node object. A product description is rich text (`description.nodes`). Render the rich-text nodes, or use `plainDescription` for a plain string. Printing the raw node object dumps literal `<p>…</p>` into the page.
+Don't print the raw node object. A product description is rich text (`description.nodes`). Render the rich-text nodes, or render `plainDescription` — which is an **HTML string** (the docs call it "the product description in HTML"), so inject it as HTML, not as text. Printing the raw node object, or escaping that HTML string, dumps literal `<p>…</p>` into the page.
 
 ### SEO on item pages (Astro, Wix-managed)
 
@@ -256,6 +276,8 @@ A **product detail** page is a Wix **item page**: its `<title>`/description/OG/c
 For a product page use:
 - **`wixMetadata`** from `WIX_APPS.checkoutAndOrders.productPageMetadata` — referenced **directly** in the export (module scope). ⚠️ It's `WIX_APPS.checkoutAndOrders`, **not** `WIX_APPS.stores` (`stores.id` is the catalog id for `catalogReference`, a different value). The `identifiers` key is your route param; the token is `…productPageMetadata.identifiers.handle`.
 - **`itemType`**: `seoTags.ItemType.STORES_PRODUCT`.
+
+**⚠️ `pageUrl` must be the PUBLIC url.** Behind Wix's proxy the SSR request URL is the internal one — read the public page URL from the **`x-wix-forwarded-url`** request header and pass it as `loadSEOTagsServiceConfig`'s `pageUrl` (fall back to the request URL when the header is absent).
 
 **If you build a dedicated category route** (e.g. `/category/[slug]` or `/search/[collection]`), wire it the same way with `WIX_APPS.checkoutAndOrders.categoryPageMetadata` + `seoTags.ItemType.STORES_CATEGORY`. (A category rendered only as a query-string *filter* on the products listing is a main page — it gets its SEO from automatic injection, no `wixMetadata` needed.)
 

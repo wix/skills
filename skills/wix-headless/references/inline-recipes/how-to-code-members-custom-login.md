@@ -132,6 +132,7 @@ Member tokens are the **same token set** the visitor session machinery already h
 import { members } from '@wix/members';
 const { member } = await client.members.getCurrentMember({ fieldsets: ['FULL'] });
 // member.profile?.nickname, member.profile?.photo, member.loginEmail, member.contactId, member.roles
+// first/last name live on member.contact?.firstName / member.contact?.lastName — member.profile.firstName is undefined
 ```
 
 - **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime. Silent trap: a logged-out smoke test never reaches the call.

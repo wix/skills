@@ -23,7 +23,7 @@ A contract for the **frontend code** of a portfolio/showcase site. The *how* (mo
 | Collections (groupings) | `@wix/portfolio` | `collections` | `listCollections(options?)`, `queryCollections(query, options?)`, `getCollection(id, options?)` |
 | Projects (the showcased work) | `@wix/portfolio` | `projects` | `listProjects(options?)`, `queryProjects(query, options?)`, `getProject(id, options?)` |
 | A project's media items (deeper project-page gallery) | `@wix/portfolio` | `projectItems` | `listProjectItems(projectId, options?)` |
-| Resolve image media strings (covers **and** project items) | `@wix/sdk` | `media` | `getScaledToFillImageUrl(id, w, h, {})` |
+| Resolve media strings (covers **and** project items) | `@wix/sdk` | `media` | `getScaledToFillImageUrl(id, w, h, {})`, `getVideoUrl(id)` |
 | Build the client (non-Astro only) | `@wix/sdk` | `createClient`, `OAuthStrategy` | — |
 
 - **There is one Portfolio API version (v1)** — no V1-vs-V3 trap like Stores.
@@ -98,9 +98,11 @@ const project = projs.find(p => p.slug === params.slug);        // from listProj
 const { items } = await projectItems.listProjectItems(project._id);   // media gallery (owner-added)
 ```
 - `projectItems.listProjectItems(projectId, options?)` — first arg is the **project `_id`** (positional), not an options object.
+- **Sort the items by their own numeric `sortOrder`, ascending** — the list-response order is **not** the owner's gallery order: `[...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))`.
+- **⚠️ A gallery item's `type` decides which field holds the media — `IMAGE` | `VIDEO` | `UNDEFINED`.** Branch on it: `IMAGE` → `item.image?.imageInfo`; `VIDEO` → `item.video?.videoInfo` (a bare `wix:video://…` string) resolved with `media.getVideoUrl(...)`; `UNDEFINED` → **skip the item**. Reading a `VIDEO` item as `item.image?.imageInfo` is `undefined` → a broken tile in the middle of the gallery.
 - <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/list-project-items?apiView=SDK>
 
-Render `project.details` — an array of **`{ label, text }`** pairs (Role, Year, Client…) the seed may have set; it can be `[]`, so guard before mapping.
+Render `project.details` — an array of rows (Role, Year, Client…) the seed may have set; it can be `[]`, so guard before mapping. **Each row is a one-of: `{ label, text }` OR `{ label, link: { text, url, target } }`** — a link row has **no top-level `text`**, so read `row.link` first and fall back to `row.text`, or a link row renders label-only.
 
 ### Rendering images — ONE `Image` shape, always a media STRING
 
@@ -120,6 +122,7 @@ const src = itemId ? media.getScaledToFillImageUrl(itemId, 1200, 900, {}) : unde
 
 - **`media.getScaledToFillImageUrl` takes FOUR arguments** — `(wixMediaIdentifier, width, height, options)`; the `options` object is **required** (pass `{}`). A 3-arg call fails `TS2554`.
 - **Covers are optional.** A text-only-seeded project/collection has **no** `coverImage` (absent), so the resolved value is `undefined` → render the **themed-block fallback** (`IMAGE_GENERATION.md`), never a broken `<img>`.
+- **`coverImage` is a one-of with `coverVideo`.** A video-covered project/collection carries **`coverVideo.videoInfo`** (a bare `wix:video://…` string, resolved with `media.getVideoUrl(...)`) and **no** `coverImage` — for a still tile fall back to the video's poster; with neither present, the themed block.
 
 ---
 
@@ -127,6 +130,6 @@ const src = itemId ? media.getScaledToFillImageUrl(itemId, 1200, 900, {}) : unde
 - **Modules:** `collections`, `projects`, `projectItems` from `@wix/portfolio`; `media` + `createClient`/`OAuthStrategy` from `@wix/sdk`. **No** `@wix/ecom`/`@wix/redirects` — portfolio is display-only.
 - **`_id`, never `id`** — read entities under `?apiView=SDK`; `.id` is `undefined`. List arrays are `T[] | undefined` (default `= []`); `_id`/`slug` are nullable — narrow before keying/routing.
 - **Query has both overloads** — `queryProjects({ filter, cursorPaging })` **and** `queryProjects().eq().find()` compile; prefer client-side filtering by `collectionIds`/`slug`.
-- **Only collections have `sortOrder`** (sort collections by it); projects don't — render in list order. **Respect `hidden`** (test `!hidden` — an omitted `hidden` is absent).
-- **One `Image` shape:** `coverImage.imageInfo` and `item.image.imageInfo` are both bare media **strings** (no `.url`) → resolve every image via `media.getScaledToFillImageUrl(id, w, h, {})` (4 args); covers are optional → themed block. Never hand-build wixstatic URLs.
+- **Collections and gallery items have `sortOrder`** (sort both ascending); **projects don't** — render in list order. **Respect `hidden`** (test `!hidden` — an omitted `hidden` is absent).
+- **One `Image` shape:** `coverImage.imageInfo` and `item.image.imageInfo` are both bare media **strings** (no `.url`) → resolve every image via `media.getScaledToFillImageUrl(id, w, h, {})` (4 args); covers are optional → themed block. Never hand-build wixstatic URLs. **Video is the parallel one-of** — `coverVideo.videoInfo` / a `type: "VIDEO"` item's `item.video.videoInfo` → `media.getVideoUrl`; `type: "UNDEFINED"` items are skipped.
 - **Public read, no `auth.elevate`** — visitor client reads all content; elevation is the separate admin axis.

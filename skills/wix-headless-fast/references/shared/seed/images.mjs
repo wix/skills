@@ -9,7 +9,8 @@
 //   - PASS-2: seeds create entities first, then attach what this returns — an image is never
 //     a precondition for an entity.
 //
-// Generation costs 1 Wix AI credit per image, billed to the account behind the site.
+// Generation is billed to the account behind the site, per image, per model — the response's
+// `cost` field is the truth (measured: runware ~0.009, bfl ~0.03, google ~0.138).
 // Authoritative reference: wix-headless/references/IMAGE_GENERATION.md.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -117,8 +118,8 @@ export async function importImage(ctx, url, displayName = "image.png") {
 /**
  * THE seed entry point. Resolves a batch of image specs to Wix Media files in ONE parallel
  * wave. Each spec: { path } (LOCAL file — the user's own asset, uploaded) OR { url }
- * (verified external URL — imported) OR { prompt } (generated, ~1 credit) — plus optional
- * displayName, width, height. Returns an array aligned with the input: { id, url } per
+ * (verified external URL — imported) OR { prompt } (generated) — plus optional displayName,
+ * width, height. Returns an array aligned with the input: { id, url, width?, height? } per
  * success, null per failure or empty spec. Never throws.
  */
 export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000 } = {}) {
@@ -132,9 +133,15 @@ export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000
     (specs ?? []).map(async (s) => {
       if (!s || (!s.path && !s.url && !s.prompt)) return null;
       const resolve = (async () => {
-        if (s.path) return uploadImage(ctx, s.path, s.displayName);
-        const source = s.url ?? (await generateImage(ctx, s.prompt, { width: s.width, height: s.height }));
-        return importImage(ctx, source, s.displayName ?? "image.png");
+        // Dimensions travel with the file when we know them: a generated image is exactly what we
+        // asked for, and a plan may state them for its own asset. The import/upload response carries
+        // none (the file is still processing), so an unstated path/url resolves without them and the
+        // caller applies its own default.
+        const dims = s.prompt || s.width ? { width: s.width ?? 1024, height: s.height ?? 1024 } : {};
+        const file = s.path
+          ? await uploadImage(ctx, s.path, s.displayName)
+          : await importImage(ctx, s.url ?? (await generateImage(ctx, s.prompt, dims)), s.displayName ?? "image.png");
+        return { ...file, ...dims };
       })();
       // Hard per-image budget: even a pathological multi-model hang costs the seed at most
       // perImageBudgetMs of wall clock (the wave is parallel, so it's paid once, not per item).

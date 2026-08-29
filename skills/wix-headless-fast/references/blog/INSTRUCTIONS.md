@@ -109,6 +109,9 @@ plugins — deploy added the dep). Routes: `/blog` → your feed on `useBlogFeed
 - Live data or an honest empty state — never mock posts, authors, dates, or read times; no
   stock placeholder covers. No author bylines or comment/like UI — the DTOs don't carry
   them; don't fabricate engagement.
+- The vertical is read-only because every draft-post write is APP-scoped — authoring stays in
+  the dashboard. A brief that asks for comments or likes is covered by
+  `wix-headless/references/inline-recipes/how-to-code-a-blog.md`.
 - Keep the post page's SEO pieces and `[...slug]` rest param exactly as shipped.
 
 ## Point the user to their dashboard

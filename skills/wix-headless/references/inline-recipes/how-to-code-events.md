@@ -51,16 +51,24 @@ No app-id constant is needed in frontend code — the only id the client needs i
 ## The shapes you read (field cheat-sheet)
 
 ```jsonc
-// wixEventsV2.getEventBySlug(slug, { fields: [...] })  →  { event }
-// wixEventsV2.queryEvents(...)                          →  result.events[]
+// wixEventsV2.getEventBySlug(slug, { fields: [...] })   →  { event }
+// wixEventsV2.queryEvents({ fields: [...] }) … .find()  →  res.items[]
 event = {
   _id,                                                  // routes · reserve/rsvp bind to it   (NOT .id → undefined)
   slug,                                                 // the URL slug — checkout redirect needs it
   title, shortDescription,
+  description,                                          // Ricos RICH CONTENT ({ nodes: [...] }), not a string — string methods on it crash the page; detailedDescription is the plain-text fallback
   mainImage,                                            // image ref (render via the media helper)
   dateAndTimeSettings: { formatted: { dateAndTime } },  // human-formatted date string
   location: { name, type },                             // "VENUE" | "ONLINE" | TBD
-  registration: { initialType },                        // "TICKETING" | "RSVP" — BRANCH on this
+  calendarUrls: { google, ics },                        // ready-made "Add to Google Calendar" / "Download .ics" links
+  registration: {
+    type,                                               // the CURRENT type — "TICKETING" | "RSVP" | "EXTERNAL" | "NONE" — BRANCH on this
+    initialType,                                        // the immutable seeded flavour — "TICKETING" | "RSVP" — fallback for `type`
+    status,                                             // registration is open when status.startsWith('OPEN_')
+    tickets: { soldOut, lowestPrice },                  // soldOut → show "sold out"; lowestPrice { value, currency, formattedValue } → a "From €X" label
+    rsvp: { responseType },                             // "YES_ONLY" | "YES_AND_NO" — YES_AND_NO also allows a "No" answer
+  },
   // categories?: { categories: [{ _id, name }] }        // runtime shape when fields:['CATEGORIES'] is requested — but NOT on the typed Event (SDK gap): read via a cast, see below
 }
 
@@ -78,7 +86,7 @@ tier = {
 **⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `event._id`, `tier._id`. `event.id` is `undefined` in SDK code — a surprise `id`/`undefined` means you're reading the REST doc view; re-open it with `?apiView=SDK`.
 
 **Filtering by event format/track (talk/workshop/social)** — if the site groups events by a format, the seed models it as **Event Categories** (`setup-events.md` STEP 4). Read the assigned category off the event and filter **client-side** — two gotchas:
-- **Request `CATEGORIES` as the 2nd positional arg**, not inside the flat query: `queryEvents({ filter, sort, paging }, { fields: ['CATEGORIES'] })` and `getEventBySlug(slug, { fields: ['CATEGORIES'] })`. (`fields` lives on the options arg, not on `EventQuery`.)
+- **Request `CATEGORIES` in the options argument:** `queryEvents({ fields: ['CATEGORIES'] })` (the builder's only argument *is* the options object) and `getEventBySlug(slug, { fields: ['CATEGORIES'] })`.
 - **`categories` is NOT on the typed `Event` (an SDK type gap** — the `CATEGORIES` enum and `EventCategory`/`EventCategories` types ship, but `Event` omits the property, so a direct `event.categories` read fails `tsc`/`astro check`). **Read it through a cast:** `const cats = (event as any).categories?.categories ?? []` — each entry is `{ _id, name }`; map `cats[].name` → your format enum.
 - **Do NOT call the management categories endpoints** (`/events/v1/categories*`, `listEventsByCategory`) from the frontend — they're admin-scope; the visitor read is just the cast `CATEGORIES` field on the event.
 
@@ -86,22 +94,24 @@ tier = {
 
 ## The registration features (build the ones the site needs)
 
-Each section is a **self-contained feature** — implement only what the site uses. **Branch on the event's `registration.initialType`:** `TICKETING` → ticket picker (tiers + quantities → reserve → redirect); `RSVP` → the built-in name+email form → `createRsvp`. Never render an RSVP event with a ticket picker (or a ticketed event with an RSVP form).
+Each section is a **self-contained feature** — implement only what the site uses. **Branch on `registration.type ?? registration.initialType`:** `TICKETING` → ticket picker (tiers + quantities → reserve → redirect); `RSVP` → the built-in name+email form → `createRsvp`. `type` is the **current** type and wins — a `TICKETING`/`RSVP` event can later be switched to `EXTERNAL`/`NONE`, which `initialType` (immutable) never reflects; render those two as a plain info page with no registration UI. Never render an RSVP event with a ticket picker (or a ticketed event with an RSVP form).
 
 ### Listing events (upcoming only, and the `_id` rule)
 
 ```js
-const { events } = await wixEventsV2.queryEvents({
-  filter: { status: { $in: ['UPCOMING', 'STARTED'] } },     // exclude DRAFT / ENDED / CANCELED
-  sort: [{ fieldName: 'dateAndTimeSettings.startDate', order: 'ASC' }],
-  paging: { limit: 100 },                                   // ⚠️ MUST be > 0
-});                                                          // → result.events[]
+const res = await wixEventsV2.queryEvents()                  // options arg only — e.g. { fields: ['CATEGORIES'] }
+  .in('status', ['UPCOMING', 'STARTED'])                     // exclude DRAFT / ENDED / CANCELED
+  .ascending('dateAndTimeSettings.startDate')
+  .limit(100)                                                // ⚠️ always set it — see below
+  .find();
+const events = res.items;                                    // ⚠️ .items, NOT .events
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events.md?apiView=SDK>
 
-- **⚠️ CRITICAL: `queryEvents` takes the query object FLAT as its first arg — `queryEvents({ filter, sort, paging })`, NOT `queryEvents({ query: { … } })`.** The signature is `queryEvents(query, options)` where `query` *is* `{ filter, sort, paging }`. Wrapping it in an extra `{ query: … }` (the REST body shape, and the `.queryServices({ query })` builder shape from other verticals) is **not** rejected — the SDK silently ignores the unrecognized `query` key, so `paging` never applies, `limit` defaults to **0**, and you get **`events: []` with no error**. This is the #1 "my listing is empty even though events are published" trap. (The flat form returns the events; the nested form returns zero.)
-- **⚠️ `paging.limit` MUST be > 0.** Even with the flat shape, `queryEvents` defaults `paging.limit` to **`0`, which returns zero events**. Always set a positive limit.
-- The result array is **`result.events`** (not `.items`).
+- **⚠️ CRITICAL: `queryEvents` is a QUERY BUILDER, not a flat-query call.** The only overload is `queryEvents(options?)` → `EventsQueryBuilder`; you filter/sort/page by **chaining** `.eq()` / `.ne()` / `.in()` / `.ge()` / `.gt()` / `.le()` / `.lt()` / `.ascending()` / `.descending()` / `.limit()` / `.skip()` and end with **`.find()`**. There is no `(query, options)` overload: passing `{ filter, sort, paging }` (or the REST `{ query: { … } }` body shape) as the first arg is **not** rejected — those keys just aren't builder options, so they're ignored and you get an unfiltered, unsorted page. This is the #1 "my listing shows the wrong events" trap.
+- **Chainable fields are a fixed set** — `_id`, `title`, `slug`, `status`, `dateAndTimeSettings.startDate`/`.endDate`, `_createdDate`, `_updatedDate`, `registration.initialType`, `userId`. Anything else (a category, a price) is filtered **client-side** after `.find()`.
+- **⚠️ Always set `.limit(n)` explicitly.** The builder's default is `limit(50)`, so a listing with more events than that is **silently truncated** — no error, no `hasNext` check unless you write one (`res.hasNext()` / `res.next()` page through the rest).
+- The result array is **`res.items`** (not `.events`).
 - **Filter to upcoming/published and never list or link a past event** — a past event isn't purchasable/registerable (the seed uses future dates). Filter by `status` (above) or by a future `startDate`.
 - Read `event._id` / `event.slug` / `event.title`. A **single-event** site collapses the listing — lead the home page straight into the one event's detail. **Still drive that homepage from the listing query** (take the first/only result), never a hardcoded lone slug — so a second event the owner adds later automatically brings the listing back instead of staying invisible.
 
@@ -109,7 +119,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-man
 
 ```js
 const { event } = await wixEventsV2.getEventBySlug(slug, {
-  fields: ['DETAILS', 'TEXTS', 'REGISTRATION', 'URLS'],   // REGISTRATION carries initialType — you branch on it
+  fields: ['DETAILS', 'TEXTS', 'REGISTRATION', 'URLS'],   // REGISTRATION carries type/initialType — you branch on it
 });
 
 // ticketed only — list the tiers (VISITOR-public; NOT ticketDefinitions* — those 403 the visitor):
@@ -119,9 +129,10 @@ const { definitions: tiers } = await orders.queryAvailableTickets({
 ```
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event-by-slug.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/orders/query-available-tickets.md?apiView=SDK>
 
-- **Request `REGISTRATION` in `fields`** so `event.registration.initialType` is populated — that's the value you branch on.
+- **Request `REGISTRATION` in `fields`** so `event.registration.type` / `.initialType` are populated — that's the value you branch on.
+- **⚠️ `queryAvailableTickets`'s `limit` defaults to `0`, which returns only `metaData` — zero tiers, no error.** Always pass a positive `limit` (as above), or the ticket picker is empty on a fully stocked event.
 - Per tier read `tier._id`, `tier.name`, `tier.price.value` (a **string**) + `tier.price.currency`, `tier.free`, and `tier.saleStatus` (gate the picker on `SALE_STARTED`).
-- **⚠️ The confirmation page (post-checkout) reads the event by ID, and the return envelope DIFFERS from `getEventBySlug`.** After the hosted checkout redirects back to your `postFlowUrl` (carrying `?eventId=…`), look the event up with **`wixEventsV2.getEvent(eventId, { fields: ['TEXTS', 'URLS'] })`** — this returns the **`Event` object DIRECTLY (unwrapped)**: read `event.title` / `event.slug`, **not** `{ event }`. This is the one read that isn't wrapped (`getEventBySlug` *is* `{ event }`); assume the wrapper and the page crashes. Use this exact call — don't inspect the installed `.d.ts` to rediscover it.
+- **⚠️ The confirmation page (post-checkout) reads the event by ID, and the return envelope DIFFERS from `getEventBySlug`.** After the hosted checkout redirects back to your **`thankYouPageUrl`** (which Wix calls with `?orderNumber=…&eventId=…`; `postFlowUrl` is the abandon/interrupt target and carries neither), look the event up with **`wixEventsV2.getEvent(eventId, { fields: ['TEXTS', 'URLS'] })`** — this returns the **`Event` object DIRECTLY (unwrapped)**: read `event.title` / `event.slug`, **not** `{ event }`. This is the one read that isn't wrapped (`getEventBySlug` *is* `{ event }`); assume the wrapper and the page crashes. Use this exact call — don't inspect the installed `.d.ts` to rediscover it.
 
 ### Ticketed checkout — reserve → redirect (the exact sequence)
 
@@ -158,16 +169,17 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/events/registra
 ### Free RSVP — the built-in form
 
 ```js
-await rsvpV2.createRsvp({
+const rsvp = await rsvpV2.createRsvp({          // returns the Rsvp DIRECTLY (unwrapped)
   eventId: event._id,
   firstName, lastName, email,    // the built-in form fields — collect EXACTLY these
   status: 'YES',                 // 'NO' only for YES_AND_NO events
 });
-// then show an inline confirmation — no reservation, no redirect, no payment
+// then show an inline confirmation off rsvp.status — no reservation, no redirect, no payment
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp.md?apiView=SDK>
 
 - **⚠️ CRITICAL: use the `rsvpV2` module, NOT `rsvp`.** The legacy `rsvp.createRsvp` posts to `/events/v1/rsvp` and **400s** with `"rsvp.firstName/lastName/email must not be empty"` even when you pass those fields — that v1 surface expects a different form-response body. Import **`rsvpV2`** from `@wix/events` and call `rsvpV2.createRsvp(rsvp)` with the rsvp object **directly as the first arg** (not wrapped in `{ rsvp: … }`, which is the elevated/`@wix/essentials` style). The flat `{ eventId, firstName, lastName, email, status }` object is correct for `rsvpV2` and **works for the anonymous visitor**.
+- **⚠️ Render the confirmation off `rsvp.status`, not off the call succeeding.** A `YES` on an event that has hit its guest limit comes back **`WAITLIST`** (when `registration.rsvp.waitlistEnabled`) — say *"you're on the waitlist"* for that, *"you're confirmed"* only for `YES`.
 - **The RSVP registration form is built-in** (firstName, lastName, email) — add exactly those fields; **don't fetch a form schema** or hand-build extra fields.
 - Wrap in try/catch — a duplicate email or closed registration rejects; surface a friendly message.
 
@@ -196,8 +208,8 @@ Assigned seating / seat maps (display + reserve flat ticket definitions only); c
 ## Conclusion
 A correct Events V3 registration frontend:
 - imports **`wixEventsV2` / `orders` / `ticketReservations` / `rsvpV2`** from `@wix/events` plus **`redirects`** from `@wix/redirects` — and never inline `orders.checkout` or the legacy `rsvp` (v1 → 400) module;
-- uses **`event._id` / `tier._id`** (never `.id`) and reads the flat fields (`event.slug`, `registration.initialType`, `tier.price.value`);
-- lists with **`queryEvents({ filter, sort, paging })` FLAT** (never `{ query: { … } }` — that silently returns `events: []`) and **`paging.limit > 0`**, filtered to **upcoming/published** events, never past ones;
-- reads ticket tiers with the **visitor-public `orders.queryAvailableTickets({ filter: { eventId }, limit })`** (→ `definitions`) — **never** the management `ticketDefinitions*` query (visitor 403s) and **never** `auth.elevate()` (wrong axis, SSR-only); no elevation anywhere;
-- **branches on `registration.initialType`**: `TICKETING` → reserve (`createTicketReservation` → `reservation._id`) → **`createRedirectSession({ eventsCheckout })`** → `redirectSession.fullUrl`; `RSVP` → **`rsvpV2.createRsvp`** with the built-in firstName/lastName/email and an inline confirmation;
+- uses **`event._id` / `tier._id`** (never `.id`) and reads the flat fields (`event.slug`, `registration.type`, `tier.price.value`);
+- lists with the **`queryEvents(options?)` QUERY BUILDER** — chained `.in()/.ascending()/.limit()/.find()` → **`res.items`** (a `{ filter, sort, paging }` first arg is ignored; the default `limit(50)` silently truncates), filtered to **upcoming/published** events, never past ones;
+- reads ticket tiers with the **visitor-public `orders.queryAvailableTickets({ filter: { eventId }, limit })`** (→ `definitions`; a missing `limit` defaults to `0` → metadata only) — **never** the management `ticketDefinitions*` query (visitor 403s) and **never** `auth.elevate()` (wrong axis, SSR-only); no elevation anywhere;
+- **branches on `registration.type ?? registration.initialType`**: `TICKETING` → reserve (`createTicketReservation` → `reservation._id`) → **`createRedirectSession({ eventsCheckout })`** → `redirectSession.fullUrl`; `RSVP` → **`rsvpV2.createRsvp`** with the built-in firstName/lastName/email and an inline confirmation off `rsvp.status` (`WAITLIST` ≠ confirmed);
 - runs the reserve/redirect/rsvp **client-side as the visitor** (no server route, no elevation), uses `window.location.origin` (the `https://` host) for the callbacks, and **fails soft** on the `403 "No payment method configured"` paid-ticket precondition.

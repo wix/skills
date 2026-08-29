@@ -229,7 +229,7 @@ if (!cart._id) throw new Error('cart creation failed');   // Cart V2 types `_id`
 const cartId = cart._id;
 const { cart: calc, summary } = await calculateCart(cartId);   // totals are NOT stored on the Cart V2 entity
 
-// checkout required? cancellation-fee policy → yes; total 0 → no; FULL_PAYMENT_OFFLINE → no; else yes
+// checkout required? cancellation-fee policy → yes; total 0 → no; OFFLINE → no; else yes
 if (checkoutRequired) {
   const { redirectSession } = await redirects.createRedirectSession({
     ecomCheckout: { checkoutId: cartId },          // the cartId IS the checkoutId here

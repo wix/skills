@@ -63,6 +63,8 @@ function toSlot(raw: Raw): Slot {
  * Bookable slots for a service in [from, to) — APPOINTMENT and CLASS use different APIs;
  * this branches for you. Dates are local wall-clock; timeZone defaults to the visitor's.
  */
+// Single-location services: an unscoped availability read returns one slot PER location, so a
+// multi-location service repeats every time. Scope it with `locations: [{ _id, locationType }]`.
 export async function fetchSlots(
   service: Pick<ServiceDetail, "id" | "type">,
   {
@@ -167,7 +169,8 @@ export async function bookService(
                   { resourceTypeId: STAFF_RESOURCE_TYPE_ID, selectionMethod: "ANY_RESOURCE" },
                 ],
               }),
-          location: { locationType: "OWNER_BUSINESS" },
+          // The booking enum differs from the services enum: BUSINESS→OWNER_BUSINESS, CUSTOMER→CUSTOM.
+      location: { locationType: "OWNER_BUSINESS" },
         },
       },
     } as any,
@@ -191,7 +194,7 @@ export async function bookService(
     service.cancellationFeeEnabled || (total > 0 && service.paymentOption !== "OFFLINE");
 
   if (checkoutRequired) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const origin = typeof window !== "undefined" ? window.location.origin /* the published https origin — a server-derived http origin 403s the return */ : "";
     const session: Raw = await redirects.createRedirectSession({
       ecomCheckout: { checkoutId: cartId },
       callbacks: { postFlowUrl: origin ? `${origin}/` : undefined },

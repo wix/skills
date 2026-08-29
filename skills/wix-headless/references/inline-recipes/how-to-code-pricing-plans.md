@@ -1,6 +1,6 @@
 ---
 name: "How to Code Pricing Plans"
-description: The frontend contract for a Wix Pricing Plans (Plans V3) site — which `@wix/pricing-plans` modules to import, how to list plans for the grid, order a plan for a logged-in member, read the member's own subscriptions, and (the integration) let a member book a Bookings service with their membership. Specifies the *how* (modules + exact calls + the failure modes the docs omit); which plans to render and how the page looks come from the request.
+description: The frontend contract for a Wix Pricing Plans (Plans V3) site — which `@wix/pricing-plans` modules to import, how to list plans for the grid, subscribe to a plan through Wix's hosted paid-plans checkout, read the member's own subscriptions, and (the integration) let a member book a Bookings service with their membership. Specifies the *how* (modules + exact calls + the failure modes the docs omit); which plans to render and how the page looks come from the request.
 ---
 **RECIPE**: How to Code a Wix Pricing Plans Frontend (Plans V3 + members + the Bookings-membership integration)
 
@@ -10,18 +10,19 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 > **⚠️ Reading rule — append `.md?apiView=SDK` to every doc link below.** Wix docs render two views: the **bare/REST view shows `id`**, the **`?apiView=SDK` view shows `_id`** — the SDK is what your frontend calls. A surprising field name usually means you're reading the REST view. Discover any shape not pinned here with `SearchWixSDKDocumentation`, not by guessing a URL.
 
-> **⚠️ pricing-plans is a HARD dependency on members.** Ordering a plan and the "my subscription" surface both require a **logged-in member** (browsing the grid is public). So this recipe is always paired with member auth — read the matching **`how-to-code-members-astro.md`** or **`how-to-code-members-non-astro.md`** for the login flow. A logged-in member ordering their own plan needs **no `auth.elevate`** and **no `onBehalf`**.
+> **⚠️ pricing-plans is a HARD dependency on members.** A plan is always held by a **member**: the "my subscription" surface requires a logged-in one, and paid subscribing goes through the hosted checkout, which signs the visitor in / signs them up itself (browsing the grid is public). So this recipe is always paired with member auth — read the matching **`how-to-code-members-astro.md`** or **`how-to-code-members-non-astro.md`** for the login flow. A logged-in member ordering their own plan needs **no `auth.elevate`** and **no `onBehalf`**.
 
 ---
 
 ## The modules and the client (read this first)
 
-**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*).
+**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK) for the reads, and hand paid subscribing off to Wix's hosted paid-plans checkout via `@wix/redirects` (see *Subscribing*).
 
 | Need | Package | Module / namespace |
 |---|---|---|
 | List / read plans (the grid) | `@wix/pricing-plans` | `plansV3` (Plans V3 — `queryPlans`, `getPlan`) |
-| Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders`, `memberGetOrder`) |
+| Subscribe to a paid plan | `@wix/redirects` | `redirects` (`createRedirectSession` with `paidPlansCheckout`) |
+| Order a free plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders`, `memberGetOrder`) |
 | Member login / current member | `@wix/members` + `@wix/sdk` auth | see the members recipe (`getCurrentMember`, `loggedIn()`) |
 | Book a service with a membership (integration) | `@wix/bookings` + `@wix/ecom` (+ `@wix/redirects`) | `bookings` (`createBooking`), ecom `currentCartV2` (line-item `membershipPayment`) — see *Booking with a membership* |
 
@@ -32,12 +33,13 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 > **⚠️ The read module is `plansV3`, not `plans`.** In the `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
 
 **Auth / client — framework split** (same split as every other coding recipe):
-- **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.
+- **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**. `createRedirectSession` runs from a **browser island** (the ambient visitor client), never a server endpoint.
 - **Non-Astro (Vite/React/Vue/static):** build one manual client and reuse it — the **same** `OAuthStrategy` client the members/visitor flow already builds (don't make a second one). After the member-login handshake sets member tokens on it, `orders.*` runs as that member:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
   import { plansV3, orders } from '@wix/pricing-plans';
-  const client = createClient({ modules: { plansV3, orders }, auth: OAuthStrategy({ clientId: /* public OAuth id */ }) });
+  import { redirects } from '@wix/redirects';
+  const client = createClient({ modules: { plansV3, orders, redirects }, auth: OAuthStrategy({ clientId: /* public OAuth id */ }) });
   ```
 
 > **The connected site must be PUBLISHED** — the Pricing Plans APIs return nothing / error against an unpublished site and don't work in preview (same precondition as member login). Publish before testing.
@@ -63,21 +65,28 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/pl
 - **Show only `buyable` plans with a buy button.** `visibility: "PUBLIC"` can still be `buyable: false` (assign-only) — render those without a subscribe action, or filter them out.
 - **Perks** for the plan card are `plan.perks[]` (each `{ _id, description }`) — display-only text. (`queryPlans` returns them; if a summary trims them, `plansV3.getPlan(planId)` returns the full object.)
 
-### Subscribing (ordering) a plan — login-gated
+### Subscribing (ordering) a plan — the hosted paid-plans checkout
 
-Ordering is a **member** action. Gate the subscribe button on `client.auth.loggedIn()` (non-Astro) / a resolved member (Astro) and bounce anonymous users into the login flow first (members recipe). Then:
+**The visitor-safe path is a hosted redirect.** Wix's paid-plans checkout collects **member login/signup *and* payment** in one flow, so the subscribe button works for an anonymous visitor — no login gate, no order object to manage:
 
 ```js
-const { order } = await orders.createOnlineOrder(planId);   // planId = plan._id; logged-in member ⇒ no onBehalf
-// order.status: "DRAFT" (payment not yet made) | "ACTIVE" (free plan — already applied)
+const origin = window.location.origin;                 // ⚠️ the published https:// host
+const { redirectSession } = await redirects.createRedirectSession({
+  paidPlansCheckout: { planId },                       // planId = plan._id
+  callbacks: {
+    thankYouPageUrl: `${origin}/plan-confirmation`,    // Wix appends ?planOrderId=
+    postFlowUrl:     `${origin}/plans`,                // back to the grid on abandon
+  },
+});
+window.location.href = redirectSession.fullUrl;        // Wix signs the member in, then takes payment
 ```
-Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/create-online-order.md?apiView=SDK>
+Doc: <https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md?apiView=SDK>
 
-- **⚠️ A logged-in member needs no `onBehalf`** — the order is created on their behalf from the member identity. `onBehalf.memberId` is only for an app/admin identity ordering *for* someone (and needs elevation) — don't reach for it in a normal member flow.
-- **⚠️ `DRAFT` ≠ subscribed.** `createOnlineOrder` **orders but does not pay** — a paid plan comes back `status: "DRAFT"` and is not active until payment completes. Do not show "you're subscribed" off the `createOnlineOrder` return for a paid plan.
-- **Free plan:** returns `status: "ACTIVE"` (`lastPaymentStatus: "NOT_APPLICABLE"`) directly — no payment step; render success immediately. **Branch on the plan being free** (no `flatRate` amount / total `0`) to skip the redirect below.
-- **⚠️ Paid plan — the payment redirect handoff is the one piece not pinned by the docs for headless.** The all-in-one `startOnlinePurchase` that completes payment is the **site-package** method (above), unavailable headless; the headless `createOnlineOrder` returns a `DRAFT` order carrying a `wixPayOrderId`, and the member must be sent to a hosted payment flow to complete it. **⚠️ VERIFY IN A LIVE BUILD:** confirm the exact headless redirect — whether you pass the order to `@wix/redirects` `createRedirectSession({ paymentCheckout: { … } })`, or a pricing-plans-specific redirect — before shipping the paid path. Do not assert a specific call here until a real build confirms it. (The `origin`/`postFlowUrl` allowlist + `https`-host rules from `how-to-code-a-store.md`/`how-to-code-bookings.md` apply to whatever redirect is used.) The **free-plan** path above is fully client-only and needs no redirect.
-- **⚠️ SCOPE — the frontend's job ends at `createOnlineOrder` + the payment redirect. STOP THERE.** Do **NOT** try to *complete or activate* the purchase from code: don't connect a payments provider (`payments/v1/wix-payments-account/connect`), don't `PATCH`/update-plan to force a state, don't call mark-as-paid, and don't hunt for an "admin way to activate the order" or to "enable payments for a $0 order." Payment completing (a paid order flipping `DRAFT → ACTIVE`) happens **out-of-band** on Wix's hosted flow / by the merchant configuring payments — it is **not** a frontend step, and chasing it is a rabbit hole (it burns the run and ships nothing extra). A **free** plan already returns `ACTIVE` with no payment; a **paid** plan is `DRAFT` until the member pays through the redirect. If the site has **no payment provider configured**, that's a **site-setup precondition** (like the events paid-ticket precondition) — surface it, don't try to fix it in code.
+- **⚠️ The redirect call must run in the VISITOR (headless-OAuth) context — never elevated/admin,** and `origin` MUST be the published `https://` host from `window.location.origin` (an `http://` callback isn't on the Headless redirect allowlist → `403` on the return). Same rules as `how-to-code-a-store.md`/`how-to-code-bookings.md`.
+- **The confirmation page reads `?planOrderId=`** off `thankYouPageUrl`; `postFlowUrl` is the abandon/interrupt target and carries no params.
+- **Free plan:** skip the redirect — a logged-in member calling `orders.createOnlineOrder(planId)` gets `status: "ACTIVE"` (`lastPaymentStatus: "NOT_APPLICABLE"`) directly, so render success immediately. **Branch on the plan being free** (no `flatRate` amount / total `0`).
+- **⚠️ `orders.createOnlineOrder(planId)` is the member-only alternative, and it does NOT pay.** It requires an already-logged-in member (an anonymous visitor can't call it) and returns a paid plan as `status: "DRAFT"` with payment unhandled — so it's the free-plan call above, not a paid path. Reach for it only when the member is already signed in and the plan is free. (A logged-in member needs no `onBehalf`; `onBehalf.memberId` is an app/admin identity ordering *for* someone and needs elevation.) Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/create-online-order.md?apiView=SDK>
+- **⚠️ SCOPE — the frontend's job ends at the redirect (or, for a free plan, at `createOnlineOrder`). STOP THERE.** Do **NOT** try to *complete or activate* the purchase from code: don't connect a payments provider (`payments/v1/wix-payments-account/connect`), don't `PATCH`/update-plan to force a state, don't call mark-as-paid, and don't hunt for an "admin way to activate the order" or to "enable payments for a $0 order." Payment completing (a paid order flipping `DRAFT → ACTIVE`) happens **out-of-band** on Wix's hosted flow / by the merchant configuring payments — it is **not** a frontend step, and chasing it is a rabbit hole (it burns the run and ships nothing extra). A **free** plan already returns `ACTIVE` with no payment; a **paid** plan is `DRAFT` until the member pays through the redirect. If the site has **no payment provider configured**, that's a **site-setup precondition** (like the events paid-ticket precondition) — surface it, don't try to fix it in code.
 
 ### The member's "my subscription" surface — login-gated
 
@@ -122,5 +131,5 @@ This is the payoff of the seed's STEP 2: a member who holds a plan that **covers
 A correct Pricing Plans frontend:
 - imports **`@wix/pricing-plans`** (`plansV3`, `orders`) — **never** `@wix/site-pricing-plans` (its `startOnlinePurchase` is Wix-site page-code, not headless);
 - lists the grid publicly with **`plansV3.queryPlans().eq('visibility','PUBLIC')`**, reads **`plan._id`** and price from **`pricingVariants[].pricingStrategies[].flatRate.amount`** (decimal string) — never a top-level `price` — and only shows a buy button on `buyable` plans;
-- treats **subscribe and my-subscription as login-gated** (the hard members dependency), orders with **`orders.createOnlineOrder(planId)`** (no `onBehalf`, no elevate), renders free plans as `ACTIVE` immediately, and drives paid plans through a payment redirect (**exact headless redirect to be confirmed in a live build**) — and **stops at the redirect**: no payments-account connect, no order activation / mark-as-paid from code (see *Out of scope*);
+- subscribes to a **paid** plan with **`redirects.createRedirectSession({ paidPlansCheckout: { planId }, callbacks })`** → `redirectSession.fullUrl` (the hosted flow does member login/signup *and* payment; `thankYouPageUrl` gets `?planOrderId=`), and to a **free** plan with **`orders.createOnlineOrder(planId)`** for an already-logged-in member (returns `ACTIVE`; member-only and it never pays, so it is not the paid path) — and **stops at the redirect**: no payments-account connect, no order activation / mark-as-paid from code (see *Out of scope*);
 - for the Bookings integration, books a covered service by setting **`selectedPaymentOption: "MEMBERSHIP"`** on `createBooking`, applies the membership on the **ecom cart line item** (`membershipPayment.existingMembership` via `updateLineItemsInCurrentCart`), never calls `confirmBooking`, and falls back to matching the member's active-order `planId`s to the service's coverage when the cart eligibility field isn't readable client-side.

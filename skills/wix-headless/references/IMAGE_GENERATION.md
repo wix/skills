@@ -13,7 +13,7 @@ POST https://www.wixapis.com/runwareschemaless/v1/request
 body: [
   { "taskType": "imageInference", "taskUUID": "<UUIDv4>", "outputType": "URL",
     "outputFormat": "PNG", "positivePrompt": "<prompt>",
-    "width": 1024, "height": 1024, "model": "google:4@2", "numberResults": 1 }
+    "width": 1024, "height": 1024, "model": "runware:400@1", "numberResults": 1 }
 ]
 ```
 
@@ -21,7 +21,7 @@ Auth: the universal call shape (`Authorization: Bearer $TOKEN`, `wix-site-id: $S
 
 - **`taskUUID`** must be a real UUIDv4 (`uuidgen`); slugs return `400 invalidTaskUUID`.
 - **Allowed dimensions** (per model): `1024×1024` (square — products, squares), `1376×768` (16:9 — heroes/banners), `1200×896` (4:3 — editorial). Free-form sizes 400.
-- **Forbidden for `google:4@2`**: `steps`, `CFGScale` (→ `400 unsupportedParameter`). Alternatives if it keeps failing: `bfl:5@1`, `runware:400@1`.
+- **Models, in fall-through order**: `runware:400@1` (~5s, cheapest, loosest content filter) → `google:4@2` (best fidelity, ~25s, ~15× the cost; rejects `steps`/`CFGScale` with `400 unsupportedParameter`) → `bfl:5@1` (strictest filter — refuses trademark-ish prompts). A refusal or failure on one model falls through to the next.
 
 ### Batching
 - **`google:4@2`** times out (`504`) when one request bundles **N≥3** tasks. Fire **N parallel 1-task requests** as concurrent sibling `curl` calls in a single batch — never N≥3 tasks in one body, never sequential one-per-turn.
@@ -36,13 +36,34 @@ body: { "url": "<imageURL from generate>", "mimeType": "image/png", "displayName
 
 Keep two values from the `file` object: **`file.url`** (the full permanent `wixstatic.com` URL) and **`file.id`** (the WixMedia file id, e.g. `<hash>~mv2.jpg`). Some entities bind by url, others by id — **which one a given entity uses is the recipe's concern** (§3), not this common section's. (The import response has **no `fileUrl` field** — the id is `file.id`.)
 
-**Importing several images? Use one bulk call, not N singles** — `POST https://www.wixapis.com/site-media/v1/bulk/files/import-v2` (≤100 per call):
+**Importing several images? One bulk call or one parallel wave — never a sequential one-per-turn loop.** The bulk endpoint is `POST https://www.wixapis.com/site-media/v1/bulk/files/import-v2` (≤100 per call):
 
 ```
 body: { "importFileRequests": [ { "url": "<imageURL>", "mimeType": "image/png", "displayName": "<name>.png" }, … ] }
 ```
 
 Response is `{ "results": [ { "itemMetadata": { "originalIndex", "success" }, "item": { "url", "id", … } } ] }` — read each hit's **`item.url`** / **`item.id`** (same values as the single import's `file.url` / `file.id`) and its `itemMetadata.success`.
+
+## 2b · Upload a local file (the user's own asset)
+
+When the user supplies the image — their photo, their export — upload the bytes instead of generating. Two calls:
+
+```
+POST https://www.wixapis.com/site-media/v1/files/generate-upload-url
+body: { "mimeType": "image/jpeg", "fileName": "<name>.jpg" }
+→ { "uploadUrl": "https://upload.wixmp.com/upload/…" }
+
+PUT <uploadUrl>     headers: Content-Type: <same mimeType>     body: the raw bytes
+→ { "file": { "id": "<hash>~mv2.jpg", "url": "https://static.wixstatic.com/media/…" } }
+```
+
+The PUT response carries the file descriptor, so this yields the same `{id, url}` pair §3 attaches with — no import step.
+
+- **`fileName`'s extension must match the real file type** — a `.png` name on a JPEG is rejected.
+- A 200 means *accepted*, not *processed*: the descriptor carries no dimensions yet, and the File Ready / File Failed events are the completion signal. Pass dimensions you already know rather than reading them back.
+- Files over **10 MB**, or a poor connection, need `generate-file-resumable-upload-url` instead.
+
+A real asset beats a placeholder: `CONTENT.md`'s fillable image slot is for when the user has the photo but hasn't handed it over.
 
 ## 3 · Attach (by entity type)
 
@@ -69,9 +90,9 @@ Brand-contextual, never generic. Include: subject; the brand aesthetic/mood; the
 
 ## Credits, cost & the not-generating fallback
 
-Each generated image costs **1 Wix AI credit**, billed at the account level regardless of project type (the account behind the metasite must have credits). Volume is bounded in `DISCOVERY.md` §4 — carry those two values through:
+Generation is billed at the account level regardless of project type (the account behind the metasite must have credits). **Cost is per image and per model — the response's `cost` field is the truth**: measured ~0.009 credits on `runware:400@1`, ~0.03 on `bfl:5@1`, ~0.138 on `google:4@2`. Volume is bounded in `DISCOVERY.md` §4 — carry those two values through:
 
-- **Cost is surfaced** — the pre-work line states the plan in credits (*"~N images ≈ N credits"*). Keep the running count honest with that estimate.
+- **Cost is surfaced** — the pre-work line states the plan (*"~N images, ~C credits"*) at the model's rate. Keep the running count honest with that estimate.
 - **Honor the per-run `imageCap`** (default ~12, from Discovery). Generate up to the cap by priority (hero/most-visible surfaces first); **beyond the cap, don't generate — render the themed-block fallback** and log what was capped. Never silently exceed the cap on a "throughout"-style phrase.
 
 **Themed-block fallback (the not-generating path).** Whenever a **frontend** image isn't generated — imagery off, over the cap, declined, or a generation failure — render a **styled `div` that follows the site's design tokens** (palette, radius, spacing, an optional label/gradient) in the slot, never an empty gap or a broken `<img>`. It's deterministic, needs no input, never hangs — so it's the safe default for any non-interactive run and keeps the layout on-brand at zero credits. (A *seeded backend entity* with no image just stays text-only — there's no div to render server-side; `SEED.md` § "Entity images".)

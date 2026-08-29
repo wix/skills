@@ -13,8 +13,8 @@ node <SKILL_ROOT>/references/bookings/seed/seed-bookings.mjs plan.json
 `plan.json` is plain data — write it from the brief. **Default to 3 services** (the seed
 shows the shape; the owner adds the rest in the dashboard) and make them exercise the UI:
 mix APPOINTMENT and CLASS when it fits the business, include ≥1 free/pay-in-person service,
-and give every service an image — the default is an `imagePrompt` (AI-generated, ~1 Wix AI
-credit per image, account-billed): brand-contextual — subject, aesthetic/mood, palette,
+and give every service an image — the default is an `imagePrompt` (AI-generated, account-billed per image — ~0.01 on
+the default model): brand-contextual — subject, aesthetic/mood, palette,
 lighting — always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use `imagePath` (a file on this
 machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with
 `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed; a failed

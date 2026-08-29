@@ -30,7 +30,7 @@ Clean the install's **own demo services** yourself via the API — that's part o
 
 An APPOINTMENT service needs at least one **resource** in `staffMemberIds`; an empty array is rejected with `MISSING_APPOINTMENT_RESOURCES` (*"service of type appointment requires at least one staff member or service resource"*). CLASS services do **not** need this.
 
-**Query the existing staff** to get a `resourceId` — a fresh install always has a default **Business Owner** resource:
+**Query the existing staff** to get a `resourceId` — a fresh install ships a default **Business Owner** resource, but provisions it **asynchronously**:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/bookings/v1/staff-members/query' \
@@ -38,6 +38,8 @@ curl -X POST 'https://www.wixapis.com/bookings/v1/staff-members/query' \
   -H 'Content-Type: application/json' \
   -d '{ "query": {}, "fields": ["RESOURCE_DETAILS"] }'
 ```
+
+**⚠️ CRITICAL: an empty result on a fresh site means "not provisioned yet", not "no staff" — POLL, don't fail.** The default Business Owner resource lands seconds after install. If the query returns zero staff, re-issue it up to **~15 times, 2s apart**, and only then fail loudly. Creating the APPOINTMENT services against an empty `staffMemberIds` is what surfaces later as `MISSING_APPOINTMENT_RESOURCES`.
 
 **⚠️ CRITICAL: `staffMemberIds` takes the `resourceId`, NOT the staff `id`.** Read `staffMember.resourceId` from the response (it's a different GUID from `staffMember.id`). Using `staffMember.id` is the most common cause of "service has no provider" at runtime. Keep the `resourceId` (and `staffMember.id` + `name`) of every staff you'll use.
 
@@ -52,7 +54,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v1/staff-members' \
 
 - **⚠️ Do NOT send `"email": ""` or `"phone": ""`** — V1 format-validates them and rejects empty strings (`is not a valid email/phone`). **Omit the keys** unless you have a real value.
 - **Do NOT configure custom working hours during seed.** New staff inherit the business working hours at creation time — that's enough for an initial build; the merchant sets custom hours from the dashboard. (The two-step custom-hours flow — `assignWorkingHoursSchedule` + `WORKING_HOURS` events — is fragile and out of scope here.)
-- If the query returns **"Business schedule not found"**, the Bookings app isn't installed/provisioned — **fail loudly** with the response verbatim; do not try to install it.
+- If the query returns **"Business schedule not found"**, the Bookings app isn't installed/provisioned. Assume it is pre-installed by setup; on a self-provisioned site, add it with the idempotent `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` (body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"13d21c63-b5ec-5912-8397-c3a5ddb27a97"}}`) and retry the query; if the install itself fails, **fail loudly** with the response verbatim.
 
 ### STEP 2: Resolve (or create) a category
 

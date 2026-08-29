@@ -11,18 +11,29 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Ev
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many events, which are ticketed vs free (RSVP), their dates/locations, and which ticket tiers and prices a ticketed event has — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities, types, or which events to create.
 
-> **API surfaces:** events, ticket definitions, and publish all use **Events V3** on the **public** host `https://www.wixapis.com/events/v3/...`. The Wix Events **app id** (needed only by the frontend, kept here for reference) is `140603ad-af8d-84a5-2c80-a0f60cb47351`. The app is **pre-installed** by setup — do **not** reinstall it; if a create call returns `403`/app-not-installed, **fail loudly** with the response verbatim rather than trying to install it.
+> **API surfaces:** events, ticket definitions, and publish all use **Events V3** on the **public** host `https://www.wixapis.com/events/v3/...`. The Wix Events **app id** (needed only by the frontend, kept here for reference) is `140603ad-af8d-84a5-2c80-a0f60cb47351`. Assume the app is **pre-installed** by setup. If a create call returns `403`/app-not-installed — a self-provisioned site, say — install it with the idempotent `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` (body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"140603ad-af8d-84a5-2c80-a0f60cb47351"}}`) and retry; if the install itself fails, **fail loudly** with the response verbatim.
 
 ---
 
 ## Article: Steps for Setting Up Wix Events
-**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete all the following steps **in the given order** (0-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: create each event as a DRAFT (STEP 1) → add its ticket definitions (STEP 2, ticketed only) → PUBLISH (STEP 3).** Two one-way constraints force this order:
 - **`registration.initialType` is immutable after create** — a `TICKETING` event can never become `RSVP` (or vice-versa). Decide the type at create time from the request; never plan to convert.
 - **Publishing is one-way** — once published, an event can't return to draft. So attach the ticket definitions to the *draft* first; publishing a ticketed event before its tickets exist ships a ticketed event with nothing to buy.
 
 There is **no clean-up step** — a fresh Wix Events install ships **no** sample events, so there is nothing to delete first.
+
+### STEP 0: Resolve the site currency (once, before any create)
+
+**⚠️ CRITICAL: Events stores the currency you send, VERBATIM — there is no fallback to the site currency.** Unlike Bookings (where the site's business currency overrides whatever you send), a EUR-locale site will happily hold `USD` events and `USD` tiers if that's what the payload said, and the storefront then prices everything in the wrong currency. So read the site currency **once** and pass it on the event (`registration.tickets.currency`, STEP 1) **and** on every ticket tier (`pricingMethod.fixedPrice.currency`, STEP 2):
+
+```bash
+curl -X GET 'https://www.wixapis.com/site-properties/v4/properties' -H 'Authorization: <AUTH>'
+# → properties.paymentCurrency  (ISO-4217, e.g. "EUR")
+```
+
+Reuse that one value everywhere below; the `"USD"` in the examples is a placeholder for it.
 
 ### STEP 1: Create the event(s) as a draft
 
@@ -118,7 +129,7 @@ curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
 - **`name` is capped at 30 characters** — keep tier names short (`"Premium Floor"`, not `"Premium Floor Standing Pit Access"`).
 - **`feeType`** — `"FEE_INCLUDED"` (guest pays exactly the listed price; the Wix fee is deducted from your payout) or `"FEE_ADDED_AT_CHECKOUT"` (fee shown on top). Pick one and be consistent. `"NO_FEE"` is valid **only** for free tickets (a `fixedPrice.value` of `"0"` — rare; prefer an RSVP event for free admission).
 - **`initialLimit`** is the integer inventory cap for the tier; **omit it for unlimited** tickets.
-- The event currency is set on the event (`registration.tickets.currency`, STEP 1); keep the tier currency consistent with it.
+- **`pricingMethod.fixedPrice.currency` is the STEP 0 site currency** — the same value the event carries at `registration.tickets.currency`. Events never substitutes the site currency for you, so an omitted or mismatched tier currency ships mispriced tickets.
 
 **⚠️ Reading the response — the created tier is under `ticketDefinition`, id at `ticketDefinition.id`:**
 
@@ -188,6 +199,7 @@ Free / RSVP events need neither. This is **not** a seeding failure and **not** s
 
 ## Conclusion
 Following these steps **in order** sets up a published Events V3 site:
+- The **site currency** (`properties.paymentCurrency`) is resolved once up front and sent on the event **and** every tier — Events stores what you send and never falls back to it.
 - Every event is created with its **immutable `registration.initialType`** (`TICKETING` or `RSVP`) chosen up front, with **future** dates so it's purchasable/registerable and appears in the live listing.
 - Every **ticketed** event has at least one **ticket definition** (price as a decimal string, name ≤ 30 chars, a valid `feeType`) created **before** publish; **RSVP** events seed no tickets and no form fields (the name + email form is built-in).
 - Every event is **published** (one-way) so it's live, after its tickets exist.

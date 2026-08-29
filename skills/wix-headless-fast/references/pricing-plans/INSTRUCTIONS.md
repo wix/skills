@@ -121,7 +121,9 @@ Per `seed/SEED.md` — plain-data `plan.json` into `seed-pricing-plans.mjs` from
 root. Seed a tier ladder that exercises the UI (a free tier, a monthly, a yearly or
 one-time; 3–4 perks each).
 
-## Verify (before declaring done)
+## Verify
+
+- The Pricing Plans APIs return nothing against an **unpublished** site — release before checking plans. (before declaring done)
 
 - [ ] `/plans` renders live plans SSR (view-source shows names) through YOUR components;
       empty catalog shows your honest empty state.

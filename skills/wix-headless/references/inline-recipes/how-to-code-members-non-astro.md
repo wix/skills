@@ -85,6 +85,7 @@ import { members } from '@wix/members';
 // with the member tokens set on the client:
 const { member } = await client.members.getCurrentMember({ fieldsets: ['FULL'] });
 // member.profile?.nickname, member.profile?.photo, member.loginEmail, member.contactId, member.roles
+// first/last name live on member.contact?.firstName / member.contact?.lastName — member.profile.firstName is undefined
 ```
 
 - **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime. It's a silent trap: a logged-out smoke test never reaches the call, so it only fails once a real member loads the account page.

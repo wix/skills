@@ -45,7 +45,7 @@ Hold these as the run's design tokens. Reuse them literally in the themed-block 
 
 ## 4 · Content & imagery hygiene
 
-- **No emojis** in UI copy, headings, or empty states.
+- **No emojis** in UI copy, headings, or empty states — unless the brief asks for them.
 - **No stock-photo clichés** — generic handshake/lightbulb/laptop-on-desk imagery reads as filler, not a real page.
 - Generated imagery already carries its own purity rule (no text/logos/watermarks/UI-mockups — `IMAGE_GENERATION.md` § Prompts, "no text, no watermarks"); nothing additional to do here beyond following that section as written.
 

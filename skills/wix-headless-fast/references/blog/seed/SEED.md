@@ -49,7 +49,7 @@ feed without covers looks broken.
   cover (code, inline images), pass a pre-built Ricos `richContent` on the post instead.
 - `category`/`categories`/`tags` are display **names** — created idempotently and resolved to
   ids internally. Optional: skip them entirely when the brief doesn't group posts.
-- Cover — the default is a `coverImagePrompt` (AI-generated, ~1 Wix AI credit per image,
+- Cover — the default is a `coverImagePrompt` (AI-generated, ~0.01 credits per image on the default model,
   account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting — always
   ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use
   `coverImagePath` (a file on this machine — uploaded to Wix Media) or `coverImageUrl` (their

@@ -57,8 +57,8 @@ every content item an image on an IMAGE field (a content site without images loo
   schema doesn't have (the API would silently drop it).
 - Field `type` — `TEXT`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `URL`, `EMAIL`, `IMAGE`,
   `RICH_TEXT` (an HTML string, stored verbatim), `REFERENCE`, `MULTI_REFERENCE`.
-- `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, ~1 Wix AI credit per
-  image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
+- `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, account-billed per image —
+  ~0.01 on the default model): brand-contextual — subject, aesthetic/mood, palette, lighting —
   always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use
   `{ "path": "..." }` (a file on this machine — uploaded to Wix Media) or an https URL string
   (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images

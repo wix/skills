@@ -65,9 +65,11 @@ const { items } = await posts
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md?apiView=SDK>
 
-**⚠️ CRITICAL: request the `RICH_CONTENT` fieldset, or `post.richContent` is `undefined`.** `queryPosts` omits the body by default; without `fieldsets: ["RICH_CONTENT"]` the post comes back with no `richContent`, and the detail page renders blank. (Add `"URL"` to get `post.url`/`slug` for links.)
+**⚠️ CRITICAL: request the `RICH_CONTENT` fieldset, or `post.richContent` is `undefined`.** `queryPosts` omits the body by default; without `fieldsets: ["RICH_CONTENT"]` the post comes back with no `richContent`, and the detail page renders blank. (Add `"URL"` for `post.url`; `slug` is a base field on the post — returned without any fieldset, and filterable. Add `"CONTENT_TEXT"` for `post.contentText`, the plain-text body.)
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**; `post.id` is `undefined` in SDK code. Use `post._id` for keys and lookups, and `post.slug` for links (`/blog/${post.slug}`). (A surprising field name means you're reading the REST doc view — re-open it with `?apiView=SDK`.)
+
+**Paging is cursor-based, and the cursor already carries the filter and sort.** Follow-up requests pass **only** the cursor — re-sending the filter/sort alongside it is the way paging drifts or errors. Build the filter/sort once, on the first page.
 
 **Visibility:** only published posts are returned to a visitor token, so a missing post usually means it wasn't seeded `publish: true` — not a query bug (ties back to the seed recipe).
 
@@ -134,6 +136,10 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/blog/category/g
 
 **⚠️ CRITICAL: the two return shapes differ.** `categories.getCategory(id)` returns an **envelope** `{ category }` — destructure it. `tags.getTag(id)` returns the **tag object directly** — destructuring it as `{ tag }` yields `undefined`. Getting this backwards is a silent `undefined.label`.
 
+**Order and counts:** order categories by **`category.displayPosition`** (the owner's order) and show **`category.postCount`**; for a **tag** the count is **`tag.publishedPostCount`** — a tag's `postCount` also counts unpublished drafts, so it overstates what a visitor can open.
+
+**`category.coverImage` is a bare `wix:image://` string** — resolve it with the same media helper as a post cover (below), not straight into `<img src>`.
+
 ### Rendering the cover image
 
 A post's cover lives at `post.media?.wixMedia?.image` and may be a **`wix:image://` identifier, not a ready URL**. Resolve it with the SDK media module:
@@ -160,7 +166,7 @@ When the site has **members** (login — see `how-to-code-members-astro.md` / `-
 Liking is a first-class member action — `likes.createLike` / `deleteLike` / `queryLikes` accept a **`MEMBER`** identity (not admin), so a logged-in member likes/unlikes a post directly.
 
 - **Show the count + "liked by me":** `likes.queryLikes` (public read) for the per-post total; the current member's like state comes from their own likes. Post-level engagement counts are also on the post via the metrics fieldset.
-- **Toggle:** on click, POST to a backend endpoint (`src/pages/api/*.ts`) that calls `likes.createLike` / `deleteLike` with the request session; if the caller isn't a member, redirect to `/api/auth/login?returnUrl=…` (same gate-on-action shape as comments). Keys off the post id (`post._id`).
+- **Toggle:** on click, POST to a backend endpoint (`src/pages/api/*.ts`) that calls `likes.createLike` / `deleteLike` with the request session; if the caller isn't a member, redirect to `/api/auth/login?returnToUrl=…` (same gate-on-action shape as comments). Keys off the post id (`post._id`).
 - Discover shapes: `SearchWixSDKDocumentation "blog likes createLike queryLikes"`.
 
 ### Comments — read public, write authenticated
@@ -171,7 +177,7 @@ Package: `@wix/comments` (`comments`). The API keys off the post's **`referenceI
 
 - **List (public, SSR) — use `listCommentsByResource`, NOT `queryComments`.** `comments.listCommentsByResource(APP_ID, { contextId, resourceId, commentSort: { order: "OLDEST_FIRST" }, cursorPaging: { limit } })` → returns `{ comments }`. **⚠️ The docs' `queryComments` example ships wrapped in `auth.elevate(comments.queryComments)` — an admin path that must NOT be used for the public/anonymous SSR read.** Reaching for `queryComments` steers you straight into that elevated example; use `listCommentsByResource` for the visitor read.
 - **Comment body is Ricos, not a string.** `createComment` / `updateComment` take `content: { richContent: <ricos-doc> }` — the same `{ nodes: [{ type:"PARAGRAPH", nodes:[{ type:"TEXT", textData:{ text, decorations:[] }}]}]}` shape as post bodies. Convert the textarea string ↔ Ricos yourself (a small `plainTextToRicos` / `ricosToPlainText` helper).
-- **Submit (member-gated):** POST to a backend endpoint (`src/pages/api/*.ts`) that resolves the session and calls `comments.createComment(...)`; if the caller isn't a member, redirect to `/api/auth/login?returnUrl=…` (framework-provided on managed Astro — **no `src/pages/api/auth` file needed**, `@wix/astro` emits it at build). **Not** a client island.
+- **Submit (member-gated):** POST to a backend endpoint (`src/pages/api/*.ts`) that resolves the session and calls `comments.createComment(...)`; if the caller isn't a member, redirect to `/api/auth/login?returnToUrl=…` (the param is `returnToUrl` — the built-in routes silently drop unknown query params, so `returnUrl` lands the member on `/`; framework-provided on managed Astro — **no `src/pages/api/auth` file needed**, `@wix/astro` emits it at build). **Not** a client island.
 - **Edit / delete own comment — ownership is app-enforced.** The SDK does **not** enforce ownership server-side, so you must: fetch first (`comments.getComment(id)`), check `existing.author?.memberId === member._id`, then `comments.updateComment(id, { revision: existing.revision, content })` (**⚠️ update requires the fetched `revision`**) or `comments.deleteComment(id)`.
 - **Comment count:** request the **`METRICS` fieldset** on the post fetch and read `post.metrics.comments`. Do **not** call `comments.countComments` — it needs elevation.
 - **Author name/photo:** resolve `comment.author?.memberId` (and `post.memberId`) via `@wix/members`. Comment fields normalize to **`_id`** / **`_createdDate`** (same `_id` rule as posts).

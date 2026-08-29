@@ -59,7 +59,7 @@ item = {
 // result also has: result.length, result.hasNext(), result.pageSize
 ```
 
-`result.items[]` is the array; paging via `result.hasNext()` / a follow-up `.find()`. A `wix:image://` value in an IMAGE field and a Ricos object in a RICH_TEXT/RICH_CONTENT field both need resolving before render (see below).
+`result.items[]` is the array; paging via `result.hasNext()` / a follow-up `.find()`. A `wix:image://` value in an IMAGE field, an HTML string in a RICH_TEXT field, and a Ricos object in a RICH_CONTENT field each need their own render path (see below).
 
 ---
 
@@ -100,6 +100,8 @@ const { items: rows } = await items.query('products')
 
 Builder methods: `.eq` / `.ne` / `.gt` / `.ge` / `.lt` / `.le` / `.contains` / `.startsWith` / `.hasSome` / `.ascending` / `.descending` / `.limit` / `.skip`. (No `$`-operator JSON body — that's the REST `/items/query` shape; in the SDK the operators are builder methods.)
 
+**⚠️ An `undefined` comparand matches every row or none, with no server error** — `.eq('status', undefined)` silently returns the wrong set instead of failing. Build the chain conditionally and **omit** the filter when the value is absent; never pass `undefined` through.
+
 ### Following references
 
 A `REFERENCE` / `MULTI_REFERENCE` field stores only ids by default. To inline the referenced items, add `.include("<fieldKey>")`:
@@ -127,11 +129,11 @@ function imgSrc(v, w = 800, h = 600) {
 
 **⚠️ When imagery is OFF (the seed default), IMAGE fields are EMPTY — fall back, don't render a broken `<img>`.** The seed is text-only unless imagery is on, so a `photo`/`coverImage`/`headshot` field is often **absent or empty** on every item. Guard the render: only emit `<img>` when the field resolves to a real URL, otherwise show a graceful fallback (an initials avatar, a colored placeholder, or simply omit the image) — never an empty/broken `<img src="">`. A missing image is expected content state here, not an error.
 
-### Rendering rich text (RICH_TEXT / RICH_CONTENT fields)
+### Rendering rich text (RICH_TEXT and RICH_CONTENT are DIFFERENT shapes)
 
-Wix CMS stores `RICH_TEXT` / `RICH_CONTENT` as **Ricos JSON** — a structured node tree (PARAGRAPH, HEADING, BULLETED_LIST…), not HTML and not a string.
+**`RICH_TEXT` is a rich-text string containing a subset of HTML** (`"<p>…</p>"` — stored verbatim by the seed). Render it with `set:html` (Astro) / `dangerouslySetInnerHTML` (React) on a **wrapper you control**, and style that wrapper so the emitted tags inherit the theme.
 
-**⚠️ Do NOT `set:html={item.bio}` or `String(item.bio)` directly.** That dumps `[object Object]` or `{"nodes":...}` into the page. Render the Ricos node tree — either with a small SSR Ricos→HTML walker (covers PARAGRAPH, HEADING, lists, BLOCKQUOTE, BOLD/ITALIC/LINK; renders anything else defensively as a `<p>`), or with `@wix/ricos`'s React `RicosViewer` as a client island when the content carries the full feature set (galleries, embeds). For short bound fields a plain-text variant is fine; for a body field, render it **formatted**.
+**`RICH_CONTENT` is Ricos JSON** — a structured node tree (PARAGRAPH, HEADING, BULLETED_LIST…), not HTML and not a string. **⚠️ Do NOT `set:html={item.bio}` or `String(item.bio)` on a Ricos value** — that dumps `[object Object]` or `{"nodes":...}` into the page. Render the node tree — either with a small SSR Ricos→HTML walker (covers PARAGRAPH, HEADING, lists, BLOCKQUOTE, BOLD/ITALIC/LINK; renders anything else defensively as a `<p>`), or with `@wix/ricos`'s React `RicosViewer` as a client island when the content carries the full feature set (galleries, embeds). For short bound fields a plain-text variant is fine; for a body field, render it **formatted**.
 
 ### Writing from the frontend (only to a visitor-writable collection)
 
@@ -147,6 +149,8 @@ await items.remove('community-board', item._id);
 
 **⚠️ CRITICAL: `items.update()` REPLACES the whole item — it does NOT patch.** Per the docs: *"If the existing item had fields with values and those fields aren't included in the updated item, the values in those properties are lost."* So `update('c', { _id, status })` **wipes `title`, `note`, and every other field** — the classic "toggling status erases the row" bug. **Always pass the FULL item** on update (spread the record you already hold in state: `{ ...item, status }`). If you only have the id + one changed field and not the whole record, use **`items.bulkPatch('c', [id]).setField('status', v).run()`** instead — `bulkPatch` modifies only the named fields. Doc: <https://dev.wix.com/docs/sdk/business-solutions/data/items/update.md?apiView=SDK>
 
+**⚠️ A DATE/DATETIME value round-trips as a `Date` object, not a string.** The SDK hands you a `Date` on read, and expects one on write — re-wrap with `new Date(iso)` before writing back a value you serialized (an ISO string reaching the write path stores wrong or rejects). Same for filters: pass a `Date` as the comparand — an **ISO string comparand matches nothing** (`.gt('eventDate', new Date(iso))`, not `.gt('eventDate', iso)`).
+
 **⚠️ A write needs the collection seeded with the matching open permission — else it 403s.** `items.insert`/`update`/`remove` only succeed if the collection was created with that verb at `ANYONE` (`setup-cms.md`). A write to an `ADMIN`-write collection 403s from the visitor client (there's no `auth.elevate` on this path to get around it). If writes 403, fix the seed permission, not the call.
 
 **⚠️ On the ANONYMOUS path the data is SHARED and unscoped — no per-user identity.** The visitor token has no per-user identity, so an `ANYONE`-writable collection is **global/shared across all visitors** (not per-user, not cross-device) and **any visitor can edit or delete any row**. That's the intended model for a collaborative board; surface it as such. **For per-user-private data, that's the member-scoped path** (`SITE_MEMBER_AUTHOR`, see the member-scoped note above): the same `items.insert`/`update`/`remove` calls, but run under a **logged-in member's token**, and each member touches only their own `_owner`-matched rows. On Astro you may route writes through a backend `src/pages/api/*` endpoint, but the permission facts are identical — no `_owner` set by hand, no elevate.
@@ -159,5 +163,5 @@ A correct Wix CMS frontend:
 - queries with **`items.query("collectionId")` + builder methods + `.find()`** (no namespace on the id; `queryDataItems` doesn't exist);
 - reads fields **on the item** (`item.name`) and the id as **`item._id`** — never `item.data.name`, never `item.id`;
 - does **no `auth.elevate`** — a public collection is read on the visitor token (an empty result there is a seed permissions bug, not a query bug), and a **member-scoped** collection (opt-in, `SITE_MEMBER_AUTHOR`/`SITE_MEMBER`) is read on the **logged-in member's token** with the same no-elevate rule (an anonymous read returning empty is the gate, not a bug);
-- resolves `wix:image://` via `media.getScaledToFillImageUrl` and renders Ricos rich text formatted (never raw `set:html`/`String`);
+- resolves `wix:image://` via `media.getScaledToFillImageUrl`, renders a `RICH_TEXT` HTML string with `set:html` on a wrapper it controls, and renders `RICH_CONTENT` Ricos as a node tree (never `set:html`/`String` on Ricos);
 - treats CMS as **read-only by default** (fire-and-forget input → Forms); writes to a **visitor-writable** collection use `items.insert`/`update`/`remove` — always passing the **full item** on `update` (it replaces, not patches), expecting the data to be **shared/unscoped**, and relying on the collection's seeded `ANYONE` write permission (no `auth.elevate`). For **per-user-private** data (opt-in, members login in the run) the same calls run under the **member token** against a `SITE_MEMBER_AUTHOR` collection — each member sees/edits only their own `_owner`-matched rows, `_owner` is never set by hand, and the surface is gated behind login.

@@ -25,6 +25,14 @@ allowed-tools:
 
 This skill connects **Wix business services** to a **Wix Headless frontend**. Its core job is to **configure the Wix backend**: infer the needed capabilities, **install the Wix apps**, **seed the backend content**, and produce an SDK-integration guide describing how to call Wix from the frontend.
 
+## Sibling skills
+
+| Skill | What it is |
+|---|---|
+| **wix-headless** (this) | Every project type and operation, all nine verticals plus forms and coupons — recipes the agent codes from. |
+| `wix-headless-fast` | Ships the integration as verified `@wix/sdk` code (data layer, hooks, Astro pages, seed scripts) for storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants — managed Astro or React only. |
+| `wix-vibe-headless` | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI. |
+
 What happens with the frontend depends on the project type and operation:
 - **Backend-only** (self-managed, stripe, or a managed "just set up the backend" run) — the skill **emits the SDK guide** as its final output; the **host owns** the frontend, build, and hosting.
 - **Managed create / connect** — the skill **also owns the frontend**: it scaffolds a new project (create) or attaches Wix to an existing one (connect), wires it to the backend using that same guide, builds, and releases to Wix. (There is no Designer or template library — the frontend is built ad-hoc to intent.)

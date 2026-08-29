@@ -53,6 +53,19 @@ async function req(ctx, path, { method = "POST", body } = {}) {
   return json;
 }
 
+// A draft-post write can answer 401 "No identity found" right after the app installs — a
+// server-side async-identity defect, not a bad token or a bad body. Retry the same request once,
+// then fail loud. (wix-headless/references/inline-recipes/setup-blog.md)
+async function reqRetryOnce(ctx, path, opts) {
+  try {
+    return await req(ctx, path, opts);
+  } catch (e) {
+    if (!/-> 401:/.test(String(e.message))) throw e;
+    await sleep(3000);
+    return req(ctx, path, opts);
+  }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- Ricos richContent builder (setup-blog.md § "CRITICAL RICOS NESTING") --------------------
@@ -139,10 +152,10 @@ export async function getAuthorMemberId(ctx) {
 export async function createPosts(ctx, posts, { memberId, publish = true } = {}) {
   if (!memberId) throw new Error("createPosts requires opts.memberId (see getAuthorMemberId)");
   if (posts.length === 1) {
-    const r = await req(ctx, "/blog/v3/draft-posts", { body: { draftPost: buildPost(posts[0], 0, memberId), publish } });
+    const r = await reqRetryOnce(ctx, "/blog/v3/draft-posts", { body: { draftPost: buildPost(posts[0], 0, memberId), publish } });
     return [{ id: r.draftPost?.id, index: 0, success: !!r.draftPost?.id }];
   }
-  const r = await req(ctx, "/blog/v3/bulk/draft-posts/create", {
+  const r = await reqRetryOnce(ctx, "/blog/v3/bulk/draft-posts/create", {
     body: { draftPosts: posts.map((p, i) => buildPost(p, i, memberId)), publish },
   });
   // Bulk returns 200 even on partial failure — read per-item results[].itemMetadata.success.

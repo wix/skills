@@ -194,11 +194,13 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
   const colCoverAt = specs.length;
   collections.forEach((c) => specs.push({ path: c.coverImagePath, url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
   const files = await resolveItemImages(ctx, specs);
-  const dims = { height: 1024, width: 1024 };
+  // Portfolio binds media by file id + declared height/width. A generated image reports its real
+  // size; a plan's own asset reports whatever it stated, else the square default.
+  const dimsOf = (f) => ({ height: f.height ?? 1024, width: f.width ?? 1024 });
 
   const itemsFlat = galleryRefs
     .map(({ pi, it, spec }) => (files[spec] && projs[pi]?.id
-      ? { projectId: projs[pi].id, sortOrder: it.sortOrder, title: it.title, imageId: files[spec].id, ...dims }
+      ? { projectId: projs[pi].id, sortOrder: it.sortOrder, title: it.title, imageId: files[spec].id, ...dimsOf(files[spec]) }
       : null))
     .filter(Boolean);
   let items = [];
@@ -210,12 +212,12 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
 
   const projCovers = projs
     .map((p, i) => (files[projCoverAt + i] && p.id
-      ? { id: p.id, revision: p.revision, imageId: files[projCoverAt + i].id, ...dims }
+      ? { id: p.id, revision: p.revision, imageId: files[projCoverAt + i].id, ...dimsOf(files[projCoverAt + i]) }
       : null))
     .filter(Boolean);
   const colCovers = cols
     .map((c, i) => (files[colCoverAt + i] && c.id
-      ? { id: c.id, revision: c.revision, imageId: files[colCoverAt + i].id, ...dims }
+      ? { id: c.id, revision: c.revision, imageId: files[colCoverAt + i].id, ...dimsOf(files[colCoverAt + i]) }
       : null))
     .filter(Boolean);
   let coversAttached = 0;
