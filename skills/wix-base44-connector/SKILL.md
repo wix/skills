@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on the connected Wix site from a Base44 app — site management/admin, front-end code, and backend functions: discover and call any Wix API, gather the site's context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
+description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API, gather site context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
 ---
 
 # Building on Wix from Base44
@@ -53,14 +53,14 @@ const wx = (() => { const m = { exports: {} };
 
 `wx` exports nine helpers:
 
-- `wx.post(url, body, token?)` — the one JSON transport: Bearer from `token`, non-2xx **throws** the API's own error
+- `wx.post/get/patch/put/del(url, [body], token?)` — JSON transports, one per verb (`get`/`del` take no body): Bearer from `token`, non-2xx **throws** the API's own error
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint + docsUrl + gist
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist
 - `wx.page(docsUrl)` — read a doc page
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
-- `wx.spec(code)` — run `code` against the spec index for a method's exact schema
+- `wx.spec(docsUrl | code)` — a method's exact schema; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
@@ -84,7 +84,9 @@ An empty report = bad token, never an empty site.
 ## Learn Wix — find the APIs, learn their contracts
 
 ```js
-// know the product? browse is deterministic — menuUrl alone orients (children + counts);
+// name the method? search finds it in one call:
+await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB url", docsUrl, gist }]; call wx.<verb>(url, body, token); spec(docsUrl) for the full schema
+// exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
 await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
@@ -123,7 +125,14 @@ lines weren't enough.
 
 ### The spec index — a located method's exact schema
 
-Read the schema of a method you already have a `docsUrl` for (from search/browse):
+Pass a method's `docsUrl` (a search/browse hit carries it) — spec loads that method's schema (request
+body, responses, filterable-fields map, examples) in one call, a direct lookup:
+
+```js
+await wx.spec(hit.docsUrl);
+```
+
+Want to shape the result yourself? Pass raw code against the index (`lightIndex` + `getResourceSchemaByUrl`):
 
 ```js
 await wx.spec(`

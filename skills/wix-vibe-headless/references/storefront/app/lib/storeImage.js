@@ -10,6 +10,37 @@ export function storeImage(value) {
   return url;
 }
 
+// A Wix media id (e.g. "abc123~mv2.jpg") is NOT a URL — build the static CDN url for it.
+export function wixMediaUrl(mediaId) {
+  if (!mediaId || typeof mediaId !== "string") return null;
+  if (mediaId.startsWith("http") || mediaId.startsWith("//")) return storeImage(mediaId);
+  return `https://static.wixstatic.com/media/${mediaId}`;
+}
+
+// The media id inside a Wix image url (…/media/<id>/v1/… or a bare …/media/<id>). Compare two urls of
+// the SAME image that differ only in sizing/format params by their id, not full-string equality.
+export function wixMediaId(url) {
+  const m = typeof url === "string" && url.match(/\/media\/([^/?]+)/);
+  return m ? m[1] : url;
+}
+
+// The image assigned to a product OPTION CHOICE (e.g. a colour swatch). Wix V3 exposes it at
+// choice.media.items[].mediaId — build the CDN url from the id. Needs the
+// PRODUCT_CHOICES_MEDIA_REFERENCES field on the fetch.
+export function choiceImage(choice) {
+  const mediaId = choice?.media?.items?.[0]?.mediaId;
+  return mediaId ? wixMediaUrl(mediaId) : null;
+}
+
+// The image for a resolved VARIANT (a full choice combination). Wix computes variant.media from the
+// picked choices' media, so this is the exact image for the current selection — prefer it over a
+// single choice's image once all options are chosen.
+export function variantImage(variant) {
+  const m = variant?.media;
+  if (!m) return null;
+  return m.uploadId ? wixMediaUrl(m.uploadId) : storeImage(m.thumbnail?.url);
+}
+
 // The main catalog image for a product (grid tiles, cart fallbacks).
 export function productImage(product) {
   return storeImage(product?.media?.main?.image?.url);

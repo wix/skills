@@ -3,6 +3,7 @@
 // single image renders just the main frame, so this is safe for a one-photo catalog.
 // Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
+import { wixMediaId } from "@/lib/storeImage";
 
 export default function ProductGallery({ images, name, focusUrl }) {
   const [index, setIndex] = useState(0);
@@ -11,10 +12,13 @@ export default function ProductGallery({ images, name, focusUrl }) {
   // a quantity bump, an option click — would land here and throw away the image the buyer picked.
   useEffect(() => { setIndex(0); }, [images]);
 
-  // Picking a colour swatch shows that colour: focusUrl is the choice's linked photo. Runs after the
-  // reset effect, so a first paint with a colour pre-selected opens on the right image.
+  // Picking an option shows that selection's image: focusUrl is the variant/choice photo. Match by
+  // Wix media id, so the same image counts even when the gallery url carries sizing params the built
+  // focusUrl doesn't. Runs after the reset effect, so a first paint with an option pre-selected opens
+  // on the right image.
   useEffect(() => {
-    const i = images?.findIndex((img) => img.url === focusUrl) ?? -1;
+    const target = wixMediaId(focusUrl);
+    const i = target ? (images?.findIndex((img) => wixMediaId(img.url) === target) ?? -1) : -1;
     if (i >= 0) setIndex(i);
   }, [focusUrl, images]);
 
