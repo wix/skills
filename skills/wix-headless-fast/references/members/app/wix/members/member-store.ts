@@ -3,7 +3,14 @@
 // singleton is shared by every island in the page bundle, and works identically in a
 // single-root SPA. Consume it through useMember() (hooks/), or subscribe directly.
 import { fetchCurrentMember } from "./members";
-import { loggedInHint, logoutMember, startLogin } from "./auth";
+import {
+  loggedInHint,
+  loginMember,
+  logoutMember,
+  registerMember,
+  verifyMemberEmail,
+  type LoginResult,
+} from "./auth";
 import type { CurrentMember } from "./types";
 
 export interface MemberState {
@@ -16,7 +23,12 @@ export interface MemberState {
   error: string | null;
 }
 
-const EMPTY: MemberState = { member: null, loggedIn: false, loading: true, error: null };
+const EMPTY: MemberState = {
+  member: null,
+  loggedIn: false,
+  loading: true,
+  error: null,
+};
 
 let state: MemberState = EMPTY;
 const listeners = new Set<() => void>();
@@ -62,14 +74,40 @@ export async function refreshMember(): Promise<void> {
   setState({ member, loggedIn: hint ?? member !== null, loading: false });
 }
 
-/** Kick off login (navigates away). Throws (and sets .error) when the redirect can't start. */
-export async function login(returnTo?: string): Promise<void> {
+async function runLogin(
+  action: () => Promise<LoginResult>,
+): Promise<LoginResult> {
   try {
-    await startLogin(returnTo);
+    const result = await action();
+    if (result.state === "SUCCESS") await refreshMember();
+    if (result.state === "FAILURE")
+      setState({
+        error: result.error ?? result.errorCode ?? "Could not log in.",
+      });
+    return result;
   } catch (e) {
     setState({ error: e instanceof Error ? e.message : String(e) });
     throw e;
   }
+}
+
+/** Submit the branded in-app sign-in form. No Wix-hosted login redirect is used. */
+export function login(email: string, password: string): Promise<LoginResult> {
+  return runLogin(() => loginMember(email, password));
+}
+
+/** Submit the branded in-app sign-up form. */
+export function register(
+  email: string,
+  password: string,
+  profile?: { firstName?: string; lastName?: string },
+): Promise<LoginResult> {
+  return runLogin(() => registerMember(email, password, profile));
+}
+
+/** Finish an email-verification branch from the same in-app form. */
+export function verifyEmail(code: string): Promise<LoginResult> {
+  return runLogin(() => verifyMemberEmail(code));
 }
 
 /** Log out (navigates away); local state resets for the instant before the redirect lands. */
