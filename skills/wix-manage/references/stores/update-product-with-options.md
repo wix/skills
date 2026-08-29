@@ -310,7 +310,15 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 
 **Option choice** (`options[].choicesSettings.choices[]`):
 - `name`, `choiceType`, `colorCode` — the choice's identity and swatch colour.
-- `media` = `{ "items": [ { "mediaId" } | { "url" } ] }` — the product photos shown when this choice is picked. `url` is write-only; on read you get `mediaId` (request the `PRODUCT_CHOICES_MEDIA_REFERENCES` mask). Use `media`, **not** `linkedMedia` (a separate display-filter, returned empty when you read `media`). The image must already be in the product's `media.itemsInfo.items` (import + add to the gallery first).
+- `media` = `{ "items": [ { "mediaId" } | { "url" } ] }` — the product photos shown when this choice is picked. `url` is write-only; on read you get `mediaId` (request the `PRODUCT_CHOICES_MEDIA_REFERENCES` mask). Use `media`, **not** `linkedMedia` (a separate display-filter, returned empty when you read `media`).
+  - **Gallery-first; the id you link is the gallery item's, not the upload's.** Add the `url` to the gallery, then read the product back and link the id you see there:
+
+    ```
+    GET /stores/v3/products/{id}?fields=MEDIA_ITEMS_INFO
+    #  → media.itemsInfo.items[].id = "abc~mv2.jpg"   ← link THIS as choice media.items[].mediaId
+    # the id from POST /site-media/v1/files/import or /files/get-file-by-id 400s as a choice mediaId
+    ```
+    `{ "url" }` works in place of `{ "mediaId" }` too, but only once the image is already in the gallery.
 - `displayImage` — the image shown on the swatch itself (distinct from `media`).
 - Read-only, don't send: `inStock`, `visible`, `key`.
 
