@@ -24,9 +24,11 @@ export function wixMediaId(url) {
   return m ? m[1] : url;
 }
 
-// The image assigned to a product OPTION CHOICE (e.g. a colour swatch). Wix V3 exposes it at
-// choice.media.items[].mediaId — build the CDN url from the id. Needs the
-// PRODUCT_CHOICES_MEDIA_REFERENCES field on the fetch.
+// The image assigned to a product OPTION CHOICE (e.g. a colour swatch). The storefront fetches with the
+// PRODUCT_CHOICES_MEDIA_REFERENCES field, so Wix returns the choice image at choice.media.items[].mediaId
+// and returns choice.linkedMedia EMPTY. Read media.items — do NOT switch this to choice.linkedMedia even
+// if a direct admin/API probe shows linkedMedia populated: a probe made WITHOUT that field mask returns
+// linkedMedia, but the storefront requests the mask, which blanks linkedMedia and returns media.items.
 export function choiceImage(choice) {
   const mediaId = choice?.media?.items?.[0]?.mediaId;
   return mediaId ? wixMediaUrl(mediaId) : null;

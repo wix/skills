@@ -68,18 +68,18 @@ export function useProductDetail(slug) {
   const price = variant?.price?.actualPrice?.formattedAmount || product?.actualPriceRange?.minValue?.formattedAmount || "";
   const compareAtPrice = variant?.price?.compareAtPrice?.formattedAmount || product?.compareAtPriceRange?.minValue?.formattedAmount || "";
 
-  // The gallery follows the selection: a resolved variant carries the exact combination's image
-  // (variant.media), so prefer it; before every option is picked, fall back to the selected choice's
-  // own image (choice.media.items[].mediaId). See lib/storeImage: variantImage() / choiceImage().
+  // The gallery follows the selection. Prefer the selected choice's own image (the per-swatch photo,
+  // choice.media.items[].mediaId) — Wix's per-variant media is often NOT differentiated (it defaults to
+  // the product's main image), so preferring the variant would override the correct choice image for
+  // every colour. Fall back to the resolved variant's image only when no chosen option carries one.
+  // See lib/storeImage: choiceImage() / variantImage().
   const focusMediaUrl = useMemo(() => {
-    const fromVariant = variantImage(variant);
-    if (fromVariant) return fromVariant;
     for (const o of options) {
       const choice = (o.choicesSettings?.choices || []).find((c) => c.choiceId === selectedOptions[o.id]);
       const url = choiceImage(choice);
       if (url) return url;
     }
-    return null;
+    return variantImage(variant);
   }, [variant, options, selectedOptions]);
 
   const selectOption = (optionId, choiceId) => setSelectedOptions((s) => ({ ...s, [optionId]: choiceId }));
