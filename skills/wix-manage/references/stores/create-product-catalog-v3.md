@@ -129,6 +129,8 @@ This inventory-aware physical product is the reusable shape. Remove `inventoryIt
 
 For a color option, use `SWATCH_CHOICES`; each choice uses `choiceType: ONE_COLOR` and `colorCode`, and the variant reference uses `renderType: SWATCH_CHOICES`.
 
+A per-choice **image** (a colour that swaps the gallery, not just the swatch) is `choice.media` — assign it as a follow-up PATCH once the images are in the gallery. Full choice-vs-variant field split (choice: `media`/`colorCode`; variant: `price`/`sku`/`barcode`/stock) and the media ordering gotcha: **[Update Product with Options](update-product-with-options.md) → Choice & variant fields**.
+
 A digital product uses the smaller shape below. Add the supplied variant-level digital file only when one was provided.
 
 ```json
