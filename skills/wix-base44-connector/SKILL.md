@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API, gather site context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
+description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API (endpoints, request/response shapes, fields), gather site context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
 ---
 
 # Building on Wix from Base44
@@ -126,7 +126,8 @@ lines weren't enough.
 ### The spec index — a located method's exact schema
 
 Pass a method's `docsUrl` (a search/browse hit carries it) — spec loads that method's schema (request
-body, responses, filterable-fields map, examples) in one call, a direct lookup:
+body, responses, filterable-fields map, examples) in one call, a direct lookup. Read the field
+**descriptions**, not just the names — they carry the rules (which field is canonical, when one is empty):
 
 ```js
 await wx.spec(hit.docsUrl);
@@ -172,8 +173,9 @@ cross-step gotchas no method page mentions.
 
 ## Write the code
 
-**Response shapes obey the discover rule in every lane**: code against fields you saw in a live
-response or the schema — remembered names are often from older versions. Probe one real row first.
+**Shapes are discovery too**: read a method's request/response schema from `spec()` — its field
+descriptions state which field is canonical and when one reads back empty. Don't infer shape from a
+single live probe: it reflects only the params you sent, so probe with the same request your code makes.
 
 ### Admin calls — exec ad hoc, backend functions deployed
 
