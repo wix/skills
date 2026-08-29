@@ -7,11 +7,11 @@ description: >-
   only if SCHEDULE_POST is allowed, and validate that each scheduledDate resolves
   to a future ISO instant before making any mutating publish-by-id call.
 triggerPrompt: >-
-  I want to schedule a post to Instagram for tomorrow at 9:00 AM America/Chicago,
-  but I'm not ready to create it yet — I just want to get the rules straight
-  first. My feature check says PUBLISH_POST is enabled with
-  quotaInfo.remainingUsage 0, and SCHEDULE_POST is enabled with no quotaInfo. Can
-  I still schedule, and how should I work out the exact scheduledDate to send?
+  I am using the Wix Social Publisher REST API to schedule posts for tomorrow at
+  9:00 AM America/Chicago. The feature check returns PUBLISH_POST enabled with
+  quotaInfo.remainingUsage 0, and SCHEDULE_POST enabled with no quotaInfo. How
+  should I decide whether scheduling is allowed, and how should I calculate the
+  scheduledDate safely?
 tags: [marketing]
 siteSetup:
   mode: template
