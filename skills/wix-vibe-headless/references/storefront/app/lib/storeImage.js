@@ -35,10 +35,14 @@ export function choiceImage(choice) {
 // The image for a resolved VARIANT (a full choice combination). Wix computes variant.media from the
 // picked choices' media, so this is the exact image for the current selection — prefer it over a
 // single choice's image once all options are chosen.
+// ⚠️ Read `media.image.url` (the URL the API already returns), or build from `media.id` — the
+// `~mv2` file id. NOT `media.uploadId`: that's a dashed GUID (the id the file was uploaded with),
+// and https://static.wixstatic.com/media/<uploadId> is a 403. Variants without media (a fresh
+// template's demo products) return null, and the caller falls back to the choice's own image.
 export function variantImage(variant) {
   const m = variant?.media;
   if (!m) return null;
-  return m.uploadId ? wixMediaUrl(m.uploadId) : storeImage(m.thumbnail?.url);
+  return storeImage(m.image?.url) || wixMediaUrl(m.id) || storeImage(m.thumbnail?.url);
 }
 
 // The main catalog image for a product (grid tiles, cart fallbacks).

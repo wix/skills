@@ -301,7 +301,12 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Choice & variant fields (what you can set)
 
-Send these inside the `options` / `variantsInfo.variants` arrays — whole array each time (see *Update Options and Variants*), with the current `revision`.
+Send these inside the `options` / `variantsInfo.variants` arrays — **both arrays complete, in the
+same PATCH**, with the current `revision`, and **identity-preserving** (see *Update Options and
+Variants*): keep the option's `id` and every `choiceId`, or the ids are re-minted and the existing
+variants no longer resolve (`400 "Variant choice not found in product options"`). Each variant needs
+its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *Gotchas*) **and** a
+`price` — omitting price is `400 "price must not be empty"`.
 
 **Option choice** (`options[].choicesSettings.choices[]`):
 - `name`, `choiceType`, `colorCode` — the choice's identity and swatch colour.
@@ -309,7 +314,7 @@ Send these inside the `options` / `variantsInfo.variants` arrays — whole array
 - `displayImage` — the image shown on the swatch itself (distinct from `media`).
 - Read-only, don't send: `inStock`, `visible`, `key`.
 
-**Variant** (`variantsInfo.variants[]`, by its `id` from Get Product):
+**Variant** (`variantsInfo.variants[]`, by its `id` from Get Product; always send `choices` + `price` with it):
 - `price` = `{ "actualPrice": { "amount" }, "compareAtPrice": { "amount" } }` — set `compareAtPrice` above `actualPrice` for a strikethrough sale; omit it for full price.
 - `sku`, `barcode` — per combination.
 - `visible` — hide a single variant.
@@ -317,15 +322,23 @@ Send these inside the `options` / `variantsInfo.variants` arrays — whole array
 - Read-only, don't send: `media` (derived from the choices' media), `inventoryStatus` (stock — use the Inventory API, see *Set Stock for New Variants*), `subscriptionPricesInfo`.
 
 ```bash
-# a choice image + a variant's SKU and sale price, one PATCH
+# A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
+# this exact shape is the one that succeeds; the two shortcuts (choices by name only, or a variant
+# without its choices/price) each 400.
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" -H "Authorization: <AUTH>" \
   -d '{ "product": { "id": "{productId}", "revision": "{currentRevision}",
-        "options": [ { "name": "Color", "choicesSettings": { "choices": [
-          { "name": "Red", "media": { "items": [ { "mediaId": "abc~mv2.jpg" } ] } } ] } } ],
+        "options": [ { "id": "{optionId}", "name": "Color", "optionRenderType": "COLOR_CHOICES",
+          "choicesSettings": { "choices": [
+            { "choiceId": "{choiceId1}", "name": "Red", "choiceType": "ONE_COLOR", "colorCode": "#C0392B",
+              "media": { "items": [ { "mediaId": "abc~mv2.jpg" } ] } },
+            { "choiceId": "{choiceId2}", "name": "Blue", "choiceType": "ONE_COLOR", "colorCode": "#2C3E50" } ] } } ],
         "variantsInfo": { "variants": [
-          { "id": "{existingVariantId}", "sku": "TEE-RED-L",
-            "price": { "actualPrice": { "amount": "20" }, "compareAtPrice": { "amount": "30" } } } ] } } }'
+          { "id": "{variantId1}", "sku": "TEE-RED-L",
+            "price": { "actualPrice": { "amount": "20" }, "compareAtPrice": { "amount": "30" } },
+            "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId1}" } } ] },
+          { "id": "{variantId2}", "price": { "actualPrice": { "amount": "20" } },
+            "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId2}" } } ] } ] } } }'
 ```
 
 ### Update Variant Price Only
