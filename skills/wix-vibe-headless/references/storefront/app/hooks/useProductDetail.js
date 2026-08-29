@@ -5,7 +5,7 @@
 // renders what this returns.
 import { useState, useEffect, useMemo } from "react";
 import { getProductBySlug } from "@/rest/wix-store-catalog";
-import { storeImage } from "@/lib/storeImage";
+import { choiceImage, variantImage } from "@/lib/storeImage";
 import { useCart } from "@/context/CartContext";
 
 export function useProductDetail(slug) {
@@ -61,19 +61,26 @@ export function useProductDetail(slug) {
       m.modifierRenderType === "FREE_TEXT" ? !!modifierValues[m.freeTextSettings?.key] : !!modifierValues[m.key]);
   }, [options, variant, inStock, modifiers, modifierValues]);
 
+  // Everything the buyer sees follows the resolved `variant` (also returned below, so an agent can
+  // surface more from it — sku, barcode, subscriptionPricesInfo — without new plumbing). Price and
+  // its struck-through "was" price come off the variant, falling back to the product's range before
+  // every option is picked.
   const price = variant?.price?.actualPrice?.formattedAmount || product?.actualPriceRange?.minValue?.formattedAmount || "";
+  const compareAtPrice = variant?.price?.compareAtPrice?.formattedAmount || product?.compareAtPriceRange?.minValue?.formattedAmount || "";
 
-  // A colour choice carries `linkedMedia` — the shots of the product in that colour. Picking "Dark
-  // Green" should move the gallery to the green photo, so resolve the selection to a URL here; only
-  // colour-style choices have linked media, so the first hit across the options is the right one.
+  // The gallery follows the selection: a resolved variant carries the exact combination's image
+  // (variant.media), so prefer it; before every option is picked, fall back to the selected choice's
+  // own image (choice.media.items[].mediaId). See lib/storeImage: variantImage() / choiceImage().
   const focusMediaUrl = useMemo(() => {
+    const fromVariant = variantImage(variant);
+    if (fromVariant) return fromVariant;
     for (const o of options) {
       const choice = (o.choicesSettings?.choices || []).find((c) => c.choiceId === selectedOptions[o.id]);
-      const url = storeImage(choice?.linkedMedia?.[0]);
+      const url = choiceImage(choice);
       if (url) return url;
     }
     return null;
-  }, [options, selectedOptions]);
+  }, [variant, options, selectedOptions]);
 
   const selectOption = (optionId, choiceId) => setSelectedOptions((s) => ({ ...s, [optionId]: choiceId }));
   const setModifier = (key, value) => setModifierValues((s) => ({ ...s, [key]: value }));
@@ -104,6 +111,6 @@ export function useProductDetail(slug) {
     product, notFound, error, retry: () => setReloadKey((k) => k + 1),
     options, modifiers,
     selectedOptions, selectOption, modifierValues, setModifier,
-    quantity, setQuantity, variant, inStock, canAdd, adding, price, submit, focusMediaUrl,
+    quantity, setQuantity, variant, inStock, canAdd, adding, price, compareAtPrice, submit, focusMediaUrl,
   };
 }

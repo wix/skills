@@ -275,6 +275,8 @@ curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
 
 ### Update Media Only
 
+Sets the product-level gallery (`media.itemsInfo.items`). For an image shown per option choice (a swatch's photo), see **Per-choice media** below.
+
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" \
@@ -295,6 +297,35 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
       }
     }
   }'
+```
+
+### Choice & variant fields (what you can set)
+
+Send these inside the `options` / `variantsInfo.variants` arrays — whole array each time (see *Update Options and Variants*), with the current `revision`.
+
+**Option choice** (`options[].choicesSettings.choices[]`):
+- `name`, `choiceType`, `colorCode` — the choice's identity and swatch colour.
+- `media` = `{ "items": [ { "mediaId" } | { "url" } ] }` — the product photos shown when this choice is picked. `url` is write-only; on read you get `mediaId` (request the `PRODUCT_CHOICES_MEDIA_REFERENCES` mask). Use `media`, **not** `linkedMedia` (a separate display-filter, returned empty when you read `media`). The image must already be in the product's `media.itemsInfo.items` (import + add to the gallery first).
+- `displayImage` — the image shown on the swatch itself (distinct from `media`).
+- Read-only, don't send: `inStock`, `visible`, `key`.
+
+**Variant** (`variantsInfo.variants[]`, by its `id` from Get Product):
+- `price` = `{ "actualPrice": { "amount" }, "compareAtPrice": { "amount" } }` — set `compareAtPrice` above `actualPrice` for a strikethrough sale; omit it for full price.
+- `sku`, `barcode` — per combination.
+- `visible` — hide a single variant.
+- `revenueDetails` — cost / profit tracking.
+- Read-only, don't send: `media` (derived from the choices' media), `inventoryStatus` (stock — use the Inventory API, see *Set Stock for New Variants*), `subscriptionPricesInfo`.
+
+```bash
+# a choice image + a variant's SKU and sale price, one PATCH
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" -H "Authorization: <AUTH>" \
+  -d '{ "product": { "id": "{productId}", "revision": "{currentRevision}",
+        "options": [ { "name": "Color", "choicesSettings": { "choices": [
+          { "name": "Red", "media": { "items": [ { "mediaId": "abc~mv2.jpg" } ] } } ] } } ],
+        "variantsInfo": { "variants": [
+          { "id": "{existingVariantId}", "sku": "TEE-RED-L",
+            "price": { "actualPrice": { "amount": "20" }, "compareAtPrice": { "amount": "30" } } } ] } } }'
 ```
 
 ### Update Variant Price Only
