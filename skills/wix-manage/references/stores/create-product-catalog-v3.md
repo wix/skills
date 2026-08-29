@@ -127,9 +127,18 @@ This inventory-aware physical product is the reusable shape. Remove `inventoryIt
 }
 ```
 
-For a color option, use `SWATCH_CHOICES`; each choice uses `choiceType: ONE_COLOR` and `colorCode`, and the variant reference uses `renderType: SWATCH_CHOICES`.
+For a color option, use `SWATCH_CHOICES`; each choice uses `choiceType: ONE_COLOR` and `colorCode`, and the variant reference uses `renderType: SWATCH_CHOICES`. For a different **image** per colour (not just the swatch), each choice also carries its own `media`:
 
-A per-choice **image** (a colour that swaps the gallery, not just the swatch) is `choice.media` — assign it as a follow-up PATCH once the images are in the gallery. Full choice-vs-variant field split (choice: `media`/`colorCode`; variant: `price`/`sku`/`barcode`/stock) and the media ordering gotcha: **[Update Product with Options](update-product-with-options.md) → Choice & variant fields**.
+```json
+"choicesSettings": {"choices": [
+  {"choiceType": "ONE_COLOR", "name": "Black", "colorCode": "#000000",
+   "media": {"items": [{"url": "https://static.wixstatic.com/media/<black>.jpg"}]}},
+  {"choiceType": "ONE_COLOR", "name": "White", "colorCode": "#FFFFFF",
+   "media": {"items": [{"url": "https://static.wixstatic.com/media/<white>.jpg"}]}}
+]}
+```
+
+The image must be in the product gallery first, and the id/ordering has a trap — assign per-choice media via **[Update Product with Options](update-product-with-options.md) → Choice & variant fields** (also the full choice-vs-variant field split: choice `media`/`colorCode`; variant `price`/`sku`/`barcode`/stock).
 
 A digital product uses the smaller shape below. Add the supplied variant-level digital file only when one was provided.
 
