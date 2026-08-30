@@ -194,11 +194,15 @@ lists, else filter in code.
 **REST, not the JS SDK** — everywhere: the admin ops you run while building, backend functions,
 frontend pages. Doc pages carry twin REST and SDK halves; read the REST one.
 
+**Send what the page documents, nothing more** — required fields, nesting, and enum values exactly
+as spelled; a header only when the operation's REST section lists it. Never `wix-site-id`: every
+token here is already bound to a site, and in the browser the header fails CORS preflight outright.
+
 **Shapes are discovery too**: read a method's request/response schema from `spec()` — its field
 descriptions state which field is canonical and when one reads back empty. Don't infer shape from a
 single live probe: it reflects only the params you sent, so probe with the same request your code makes.
 
-### Admin calls — exec ad hoc, backend functions deployed
+### Admin ops while building — you, in exec_tool
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -209,8 +213,28 @@ return wx.clip({ error: null, count: data.contacts?.length, first: data.contacts
 // `first` is one complete record — read the real field shapes off it; don't code from remembered key names
 ```
 
-The same call deploys as `base44/functions/…` (work the app does as the owner) — shipped code
-carries its own four-line fetch; the helpers are a build tool, not a runtime dependency.
+### Backend functions — the app, as the owner
+
+The same API call, deployed. **No helpers run here** — `wx.*` is a build tool loaded into exec,
+absent from `base44/functions/…`; write plain `fetch`. Nor `clip`, which caps what an exec returns
+to you: a function returns its data to the app.
+
+```js
+// inside base44/functions/… — plain fetch, no wx
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const res = await fetch("https://www.wixapis.com/contacts/v5/contacts/query", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ query: { cursorPaging: { limit: 10 } } }),
+});
+if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);   // the API's own error, not a generic one
+return (await res.json()).contacts;
+```
+
+- That `Authorization: Bearer …` is the whole auth for this lane, unless the operation's page says
+  otherwise.
+- One file per business area, not per call — each file is its own deploy, and deploys cost time.
+- Call every function you deploy and fix what breaks. Deploying is not testing.
 
 ### A visitor client — src/lib/wixClient.js
 
