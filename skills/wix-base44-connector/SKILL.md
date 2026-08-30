@@ -191,6 +191,9 @@ lists, else filter in code.
 
 ## Write the code
 
+**REST, not the JS SDK** — everywhere: the admin ops you run while building, backend functions,
+frontend pages. Doc pages carry twin REST and SDK halves; read the REST one.
+
 **Shapes are discovery too**: read a method's request/response schema from `spec()` — its field
 descriptions state which field is canonical and when one reads back empty. Don't infer shape from a
 single live probe: it reflects only the params you sent, so probe with the same request your code makes.
