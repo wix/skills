@@ -34,6 +34,8 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | A fixed in-memory option list for a filter | `useStaticListFilterCollection` |
 | Sorting | `Sortable Columns`, `MultiLevelSorting` |
 
+**A factory or hook's doc is often empty where its signature should be** — `docs idNameArrayFilter` prints an `## API` heading with nothing under it, because the props table only exists for components. Ask `types idNameArrayFilter` instead and you get the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That applies to every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing the name and being able to call it.
+
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 
 ## Investigate — opening one record

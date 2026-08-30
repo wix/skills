@@ -18,7 +18,7 @@ Subcommands take that same prefix. The script echoes the resolved path in its hi
 | `docs <Name1> <Name2> ...` | import + API + one example, per name |
 | `docs <Name> --full` | the whole doc, design prose included |
 | `docs <Name> --refs` | cross-references, one level |
-| `types <Name1> <Name2> ...` | the TypeScript types the props are written in |
+| `types <Name1> <Name2> ...` | the signature of any export — hook, factory or type |
 | `exports [subpath]` | what an entry point exports; no argument lists them |
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
