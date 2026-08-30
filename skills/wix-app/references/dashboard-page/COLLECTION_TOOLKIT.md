@@ -23,7 +23,7 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | Need | Component |
 | --- | --- |
 | Free-text search | `CollectionSearch` |
-| The filter bar itself | `CollectionToolbarFilters` (its doc is published as `ToolbarFilters`) |
+| The filter bar itself | `CollectionToolbarFilters` |
 | Pick several values from a known list | `MultiSelectCheckboxFilter`, `MultiInlineCheckboxFilter`, `MultiAutoInlineCheckboxFilter` |
 | Pick one value | `SingleSelectFilter`, `RadioGroupFilter`, `TabsFilter` |
 | Values fetched from an API, not a fixed list | `MultiSelectCollectionFilter` + `useFilterCollection` |
@@ -72,4 +72,4 @@ Empty and no-results are different messages: one means "add your first record", 
 
 ## Export
 
-`ExportTo` (the component is exported as `ExportButton`) for CSV and similar. Reach for it when the prompt mentions exporting, downloading, or sending records elsewhere.
+`ExportButton` (its doc is `ExportTo`) for CSV and similar. Reach for it when the prompt mentions exporting, downloading, or sending records elsewhere.

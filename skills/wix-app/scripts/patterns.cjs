@@ -12,7 +12,9 @@ const fs = require('fs');
 const path = require('path');
 
 const PKG = '@wix/patterns';
-const MIN_VERSION = '1.367.0'; // first version that ships dist/docs/
+// 1.367.0 first shipped dist/docs/; 1.452.0 added the `symbols` aliases and split
+// the two DateRangeFilter docs that had been overwriting each other.
+const MIN_VERSION = '1.452.0';
 
 // --- locating the docs ------------------------------------------------------
 

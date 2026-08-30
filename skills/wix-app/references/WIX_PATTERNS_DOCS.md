@@ -23,7 +23,7 @@ Subcommands take that same prefix. The script echoes the resolved path in its hi
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
 
-If it exits non-zero, `@wix/patterns` is absent or too old to ship `dist/docs/`. The error names the install command — run it, then `list` once more.
+If it exits non-zero, `@wix/patterns` is absent or older than **1.452.0**. The error names the install command — run it, then `list` once more.
 
 ## Library Architecture
 
