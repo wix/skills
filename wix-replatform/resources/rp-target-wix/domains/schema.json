@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/domain-knowledge.schema.json",
+  "title": "RePlatform Wix Domain Knowledge Entity",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "entity",
+    "displayName",
+    "target",
+    "sourceAliases",
+    "preferredWrite",
+    "reliability",
+    "pitfalls",
+    "mappingGuidance",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "domain": { "type": "string", "minLength": 1 },
+    "entity": { "type": "string", "minLength": 1 },
+    "displayName": { "type": "string", "minLength": 1 },
+    "capability": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Business capability this target serves, e.g. \"commerce.catalog-product\". Source adapters (including WordPress plugin profiles) resolve capabilities to target refs through this field, so one vocabulary serves every source platform."
+    },
+    "target": {
+      "type": "object",
+      "required": ["classification", "idPolicy", "crosswalkRequired"],
+      "properties": {
+        "classification": {
+          "enum": [
+            "native",
+            "cms",
+            "native-plus-cms",
+            "setup-config",
+            "skip-by-default",
+            "unsupported-native-gap",
+            "manual-mapping"
+          ]
+        },
+        "nativeEntity": { "type": ["string", "null"] },
+        "verifiedFqdn": { "type": ["string", "null"] },
+        "idPolicy": {
+          "enum": ["client-assigned", "server-assigned", "natural-key", "not-applicable"]
+        },
+        "crosswalkRequired": { "type": "boolean" }
+      }
+    },
+    "preferredWrite": {
+      "type": "object",
+      "required": ["surface", "endpoint", "writerId", "verification", "importSafe", "bulk"],
+      "properties": {
+        "surface": { "type": "string" },
+        "endpoint": { "type": ["string", "null"] },
+        "writerId": { "type": ["string", "null"] },
+        "verification": {
+          "enum": ["verified-live", "docs", "source-review", "internal-only", "unverified", "none"]
+        },
+        "importSafe": { "type": "boolean" },
+        "bulk": { "type": "boolean" }
+      }
+    },
+    "reliability": {
+      "type": "object",
+      "required": ["status", "flags"],
+      "properties": {
+        "status": { "enum": ["reliable", "partially-reliable", "unreliable", "unknown"] },
+        "flags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "manualSteps": {
+      "type": "object",
+      "description": "Required when target.classification is manual-mapping: a runbook to render to the merchant instead of a write.",
+      "properties": {
+        "prerequisite": { "type": ["string", "null"] },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["actor", "text"],
+            "properties": {
+              "actor": { "enum": ["merchant", "external", "wix-automatable"] },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "mechanism": { "type": "string" },
+        "evidence": { "type": "array" }
+      }
+    },
+    "safeModeContactFields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "targetPath", "source"],
+        "properties": {
+          "kind": { "enum": ["email", "phone"] },
+          "targetPath": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

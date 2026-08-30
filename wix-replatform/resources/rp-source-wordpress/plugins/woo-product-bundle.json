@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woo-product-bundle",
+  "displayName": "WPC Product Bundles for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wpclever.net/downloads/product-bundles",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.product-bundles"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woo-product-bundle/wpc-product-bundles"
+    ],
+    "recordProperties": [
+      "woosb_ids",
+      "_woosb_parent_id"
+    ],
+    "assetPathSlugs": [
+      "woo-product-bundle"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "bundle-definition",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/products"],
+      "propertyPath": "woosb_ids",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-wix-target-decided",
+          "severity": "warning",
+          "summary": "A WPC bundle is a normal WooCommerce product of custom type `woosb` whose composition rides in unregistered product meta `woosb_ids` inside the wc/v3/products meta_data array. The bundle product itself (name, price, media, SEO) migrates as a plain stores/product; the composition (which child products, at what quantity) has no native Wix Stores target — Catalog V3's productType enum is PHYSICAL | DIGITAL only, with no bundle/composite/child-product field (dev.wix.com product-object.md checked 2026-08-16). See capabilities-pending-decision.json: the suspected landing is bundle-as-product plus a CMS composition collection, mirroring Wix's own Velo 'Bundle Products' package model (bundleProductId + childProductIds in a CMS collection)."
+        },
+        {
+          "code": "children-referenced-by-source-id",
+          "severity": "warning",
+          "summary": "woosb_ids entries reference child products by WooCommerce product id (plus a cached sku): [VERIFIED IN PLUGIN SOURCE v8.6.4, class-backend.php process_product_meta_woosb, 2026-08-16] the value is an associative array keyed by a generated item key, each entry {id, sku, qty}. Any import must remap ids through the product crosswalk after the child products are created; sku is a secondary match key. Bundles created before WPC's v6-era format migration may still carry the legacy string form 'id1/qty1,id2/qty2' — the plugin ships its own admin-side migration routine for it, so an un-migrated source site can hold either shape [VERIFIED IN PLUGIN SOURCE v8.6.4, class-backend.php legacy-migration block, 2026-08-16]."
+        },
+        {
+          "code": "derived-bundle-price",
+          "severity": "warning",
+          "summary": "Unless woosb_disable_auto_price is 'on', the bundle's displayed price is derived from its children (sum, minus woosb_discount percentage or woosb_discount_amount) and the plugin keeps the WooCommerce _price/_regular_price meta in sync [VERIFIED IN PLUGIN SOURCE v8.6.4, class-woosb.php price-sync, 2026-08-16]. Migrating the bundle as a static product freezes that price: later child-price changes on Wix will not re-derive it. The wc/v3 price field carries the correct value at migration time."
+        }
+      ]
+    },
+    {
+      "entity": "order-item-bundle-linkage",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/orders"],
+      "propertyPath": "_woosb_parent_id",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-wix-target-decided",
+          "severity": "warning",
+          "summary": "Historical orders record the bundle structure on their line items: the bundle's own line item carries _woosb_ids (minified composition string) and _woosb_price, and each bundled child line item carries _woosb_parent_id pointing at the bundle line [VERIFIED IN PLUGIN SOURCE v8.6.4, class-backend.php add_order_item_meta and class-woosb.php checkout_create_order_line_item, 2026-08-16]. Child items are real WooCommerce line items, so an order import that copies line items loses nothing sellable — only the parent/child grouping. No Wix eCom order-line-item field for that grouping has been verified; until one is, the linkage is candidate CMS/ledger data, not silently dropped."
+        },
+        {
+          "code": "sampling-may-miss-linkage",
+          "severity": "info",
+          "summary": "This meta appears only on orders that contain a bundle. A small order sample from a store with few bundle sales can legitimately lack the key, which detection then reports as property-absent (blocked: surface-changed) — that reads as profile drift but may simply mean no sampled order had a bundle. [NEEDS-VERIFICATION live: the test site has no bundle products, so no order carries this key yet.]"
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `woo-product-bundle/wpc-product-bundles` — the main-file basename differs from the directory and the /wp/v2/plugins id carries no .php suffix [VERIFIED LIVE 2026-08-16 against the reference store: plugin active, version 8.6.3, textdomain woo-product-bundle]. Never construct dir/dir.php.",
+    "Registers no REST namespace, no route, and no custom post type: /wp-json advertises no wpclever/woosb namespace and /wp/v2/types shows no bundle type [VERIFIED LIVE 2026-08-16]. The bundle is a WooCommerce product *type* (`woosb`, a product_type taxonomy term backed by class WC_Product_Woosb) — visible on wc/v3/products as type: 'woosb' and accepted by the ?type= filter, whose live 400 enum reads 'simple, grouped, external, variable, woosb, and pw-gift-card' [VERIFIED LIVE 2026-08-16].",
+    "Storage model: unregistered WooCommerce product meta — the plugin calls no register_post_meta/show_in_rest anywhere [VERIFIED IN PLUGIN SOURCE v8.6.4 (wordpress.org latest-stable), grep across includes/, 2026-08-16] — but WooCommerce product meta rides in the wc/v3/products meta_data array regardless of registration, so the composition is REST-visible via the authenticated Woo API, not via /wp/v2. [NEEDS-VERIFICATION on a live payload: the test site has ZERO woosb products (?type=woosb returned 0 of 204 products, 2026-08-16), so the meta_data shape is source-verified but not yet network-verified.]",
+    "Full per-bundle settings meta written by process_product_meta_woosb [VERIFIED IN PLUGIN SOURCE v8.6.4, class-backend.php, 2026-08-16]: woosb_ids, woosb_disable_auto_price (on/off), woosb_discount (percent), woosb_discount_amount, woosb_shipping_fee, woosb_manage_stock (on/off), woosb_limit_whole_min/max, woosb_total_limits (on/off) + woosb_total_limits_min/max, woosb_exclude_unpurchasable, woosb_layout, woosb_custom_price, woosb_before_text, woosb_after_text. Only woosb_ids is durable composition data; the rest are display/behaviour settings (reconfigure-or-drop, decided at mapping review).",
+    "Do not conflate with the official 'WooCommerce Product Bundles' (woocommerce-product-bundles), which is a different, premium plugin exposing bundled_items/bundled_by as TOP-LEVEL wc/v3 payload properties and a 'bundle' product type. This WPC plugin exposes nothing top-level; its signal is the woosb_ids meta_data key and the 'woosb' type value [DOCUMENTED — both plugins' models compared 2026-08-16]."
+  ]
+}

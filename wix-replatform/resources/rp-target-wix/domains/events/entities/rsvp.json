@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "rsvp",
+  "displayName": "Event RSVP",
+  "capability": "content.event-rsvps",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Events RSVP",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Events RSVP V2",
+    "endpoint": "POST /events/v2/rsvps",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": false,
+    "bulk": false,
+    "decision": "The request shape is verified live (create + readback + delete, 2026-08-16), but importSafe stays FALSE: nothing observable proves that disableNotifications actually suppresses the guest confirmation email. The flag is accepted and echoed, and the site-wide mute was on, yet neither is a proof of non-delivery — see pitfall notification-suppression-unproven for exactly what was probed and what would settle it. Any run that needs RSVPs must surface this at the approval gate."
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "rsvp.email",
+      "source": "target-schema",
+      "notes": "Guest email on the RSVP create body — required, format-validated, and the key Wix uses to create/match a CRM contact."
+    }
+  ],
+  "pitfalls": [
+    {
+      "code": "notifications-default-on",
+      "severity": "blocker",
+      "summary": "RSVP creation emails the guest a confirmation unless disableNotifications is set — the domain's registration-notifications-default-on pitfall. An import that forgets the flag mass-mails migrated guests. importSafe is false until the generated script provably sets it on every call AND the suppression itself is proven."
+    },
+    {
+      "code": "notification-suppression-unproven",
+      "severity": "blocker",
+      "summary": "PROBED 2026-08-16, STILL UNPROVEN. What was established: `disableNotifications: true` is accepted on create, is persisted, and is echoed back on both the create response and a later GET (a response flag, not a delivery flag); the site was verified muted (getSiteMuteState → muted:true) before and during the probe; the guest address used a .invalid domain, so nothing could have been delivered anyway. What was NOT established: the create-rsvp docs describe the field only as \"Whether notifications are disabled\" — no statement that it covers the guest-facing confirmation email; there is no public API that lists sent emails, so non-delivery cannot be observed from the API; and the site-wide mute cannot be credited either, because its documented scope is site notifications, not proof about guest transactional mail. WHAT WOULD SETTLE IT: (a) an explicit statement from the Events team/docs that disableNotifications suppresses the guest confirmation email — the cheap owner ask, or (b) a controlled probe on a throwaway site with a real monitored mailbox, comparing disableNotifications true vs false on an UNMUTED site (the true-vs-false pair is what makes the negative observable). Until one of those exists, keep importSafe false."
+    },
+    {
+      "code": "draft-events-reject-rsvps",
+      "severity": "blocker",
+      "summary": "DISCOVERED 2026-08-16 (live): creating an RSVP against a DRAFT event fails with 400 EVENT_NOT_FOUND — RSVP V2 does not see unpublished events. The same call succeeded immediately after POST /events/v3/events/{id}/publish. This breaks the tempting 'import events as drafts, load RSVPs quietly, publish later' plan: the event must be publicly published before its guest list can be imported, which widens the notification/visibility surface of an RSVP import."
+    },
+    {
+      "code": "rsvp-creates-a-crm-contact",
+      "severity": "blocker",
+      "summary": "CORRECTED 2026-08-16 (live): the earlier claim that RSVPs do not touch CRM is wrong. Creating one RSVP produced a new contact for the guest email with sourceType WIX_EVENTS. An RSVP import therefore writes into Contacts as a side effect — it can duplicate contacts imported by crm/contact, and it means RSVP volume is contact volume. Reconcile guest emails against the contact crosswalk before importing RSVPs, and count the contact writes in the plan. (Method note: a Contacts V4 query filtered on info.emails.email returned zero rows for a contact that plainly exists — filter fields are a closed list per endpoint, so verify by listing, not by an unsupported filter.)"
+    },
+    {
+      "code": "registration-state-blocks-create",
+      "severity": "warning",
+      "summary": "A freshly created event comes back with registration.status CLOSED_AUTOMATICALLY (no sale/RSVP window open), and create-rsvp defines RSVPS_CLOSED / RSVPS_NOT_STARTED / GUEST_LIMIT_EXCEEDED / RSVP_LIMIT_EXCEEDED failures. The 2026-08-16 probe passed options.ignoreResponseStatus:true and options.ignoreLimits:true and succeeded; which of the two was strictly required was not isolated. A historical-guest import should pass both deliberately and disclose it — they override the site's own registration rules."
+    },
+    {
+      "code": "form-response-must-match-the-event-form",
+      "severity": "warning",
+      "summary": "rsvp.form.inputValues must use the input names from the event's form (GET /events/v3/events/{id}?fields=FORM), honour mandatory inputs for YES responses, and stay inside predefined options, else INVALID_FORM_RESPONSE. The probe sent firstName/lastName/email and they round-tripped. options.ignoreFormValidation exists as an escape hatch for lossy source data. Additional guests require the event form to carry a GUEST_CONTROL control."
+    },
+    {
+      "code": "one-rsvp-per-email-per-event",
+      "severity": "warning",
+      "summary": "Duplicate guest emails on one event fail with 428 MEMBER_EMAIL_ALREADY_REGISTERED (and MEMBER_ALREADY_REGISTERED when memberId repeats) — dedupe the source guest list by email per event before writing, and make retries crosswalk-guarded."
+    },
+    {
+      "code": "rsvp-only-events",
+      "severity": "blocker",
+      "summary": "The event's registration.initialType must be RSVP and is immutable — a TICKETING event can never accept RSVPs (428 INVALID_EVENT_TYPE). Choose the registration type when creating the event from the source data."
+    },
+    {
+      "code": "past-event-rsvps-unverified",
+      "severity": "warning",
+      "summary": "Still unverified whether Create Rsvp accepts already-ended events; the 2026-08-16 probe used a far-future event. Historical RSVP import may be restricted to upcoming events — verify before planning full history."
+    }
+  ],
+  "mappingGuidance": [
+    "Create the event first with registration.initialType RSVP, PUBLISH it, and use its crosswalked ID in eventId — draft events are invisible to this API.",
+    "Set disableNotifications on every create call — this is the safe-import rule for the whole registration group — and still treat the write as guarded until the suppression is proven.",
+    "Map source attendee records (e.g. Event Tickets RSVPs) to firstName/lastName/email/status (YES | NO | WAITLIST) and additionalGuestDetails.guestCount/guestNames; build form.inputValues from the event's form controls.",
+    "Plan the CRM impact: each RSVP creates or matches a contact (sourceType WIX_EVENTS), so sequence RSVPs after crm/contact and reconcile by email."
+  ],
+  "setupRequirements": [
+    "Wix Events app",
+    "SCOPE.DC-EVENTS.MANAGE-GUEST-LIST"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/rsvp-object",
+      "note": "object page: eventId, firstName/lastName/email, status, totalGuests"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp",
+      "note": "disableNotifications is a field on the rsvp object (not a query param); described only as \"Whether notifications are disabled\" — no statement about the guest confirmation email"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/reference-run",
+      "note": "finding #17 follow-up; RSVP import path spotted at the docs-survey sweep"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted (muted:true re-checked at call time): create against the DRAFT probe event → 400 EVENT_NOT_FOUND; after publish, create with disableNotifications:true + ignoreResponseStatus/ignoreLimits and a zzz-probe-guest@example.invalid address → 200 (rsvp 19e60538…, disableNotifications echoed true on create and on GET); a contact with sourceType WIX_EVENTS appeared for the guest email; RSVP, contact and both probe events deleted afterwards"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (RSVP V2). The write shape was promoted to verified-live on 2026-08-16, but importSafe deliberately stays FALSE — the probe could not prove that no guest email fires (see notification-suppression-unproven for the settle-it conditions). The same probe found two contradictions in the original entry: draft events reject RSVPs, and RSVP creation does create a CRM contact."
+}

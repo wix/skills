@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "docsRoots": [
+    "api-reference/crm/members-contacts/members"
+  ],
+  "displayName": "Wix Members",
+  "ownerHint": "Members identity, profile, roles, and badges domain owners",
+  "defaultImportOrder": [
+    "custom-field",
+    "member",
+    "member-about",
+    "badge"
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/members/entities/member.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (custom-field, member, member-about, badge)"
+    }
+  ]
+}

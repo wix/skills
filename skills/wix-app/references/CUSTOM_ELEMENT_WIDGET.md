@@ -138,6 +138,12 @@ The convention differs by pattern, but the settings panel side is always kebab-c
 | React component props interface | camelCase | `displayName?: string` |
 | `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"` |
 
+## Identity and SDK Calls
+
+A widget runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
+
+A widget's collection reads also need permissions that admit an anonymous visitor — see [Permissions](DATA_COLLECTION.md#permissions), since the scaffolded default allows `ANYONE` to read but only `PRIVILEGED` to write.
+
 ## Wix Data API Integration
 
 When using the Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully — fetching data inside the Editor produces empty results and noisy errors.

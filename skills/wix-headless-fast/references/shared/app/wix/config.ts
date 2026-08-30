@@ -7,3 +7,9 @@
 //                         hardcoding and committing it is fine. On a Wix-managed non-Astro project
 //                         it equals the `appId` in wix.config.json.
 export const WIX_CLIENT_ID: string | null = null;
+
+// The Members vertical uses an explicit OAuthStrategy client only to drive the
+// custom credential form. In managed Astro it writes the resulting member
+// tokens into Astro's wixSession cookie, so subsequent ambient SDK calls use
+// that same member identity.
+export const WIX_MEMBERS_CLIENT_ID: string | null = null;

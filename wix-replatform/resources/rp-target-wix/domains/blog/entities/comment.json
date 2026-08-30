@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "entity": "comment",
+  "displayName": "Blog Comment",
+  "capability": "content.comments",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Comment",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "comment",
+      "routes": [
+        "/wp/v2/comments"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "comment",
+      "routes": [
+        "Comments API"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Comments",
+    "endpoint": "POST /comments/v1/comments",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for unsupported target relations, moderation history, IP/user-agent policy limits, or threading gaps."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "relation-required",
+      "severity": "blocker",
+      "summary": "Verify the target relation and notification behavior before native comment writes."
+    }
+  ],
+  "mappingGuidance": [
+    "Classify blog comments, page comments, product reviews, and custom-post comments separately."
+  ],
+  "setupRequirements": [
+    "Comment relation verification before execution."
+  ],
+  "evidence": [
+    
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/velo/apis/wix-comments-v2/comments/create-comment",
+      "note": "Velo createComment() — the object shape cited before the REST reference was located (2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments/comment-object",
+      "note": "object page, fetched 2026-08-16. CORRECTS the 2026-08-11 objectPageException: a REST reference for Comments DOES exist — it lives under CRM > Community > Feedback & Moderation, outside every docsRoot the 2026-08-11 sweep searched (the same blind spot that hid the Reviews API). Found when crm/domain.json gained the feedback-moderation root on 2026-08-16. Import-relevant: createdDate is the system-database date, and the page says so with a migration example verbatim — \"if you migrate comments created in 2016, the createdDate field will show the current year. For the actual creation date, see the commentDate field.\" commentDate is the Comments analogue of reviews' reviewDate and is what a comment import must set."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments/introduction",
+      "note": "fetched 2026-08-16. Comments are addressed by (appId, contextId, resourceId); Wix Blog is appId 14bcded7-0066-7c35-14d7-466cb3f09103 with contextId = resourceId = the post's referenceId — this is the 'target relation' the relation-required pitfall demands. Guest commenting is supported, so non-member WordPress commenters have a path."
+    }
+  ]
+}

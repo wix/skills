@@ -2,6 +2,8 @@
 // CMS is schema-generic: every function takes the collection id from the seed plan
 // (seed/SEED.md) and returns plain CmsItem DTOs from ./types. Copy as-is; extend by adding
 // functions, not by editing these.
+// docs: https://dev.wix.com/docs/sdk/business-solutions/data/items/query.md
+// docs: https://dev.wix.com/docs/sdk/business-solutions/data/items/update.md
 import { items as itemsModule } from "@wix/data";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

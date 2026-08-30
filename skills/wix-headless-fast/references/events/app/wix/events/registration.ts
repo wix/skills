@@ -2,6 +2,10 @@
 // are exact and easy to get subtly wrong — copy as-is; extend by calling these exports,
 // never by editing them. Failures are loud. Everything runs as the anonymous VISITOR —
 // no server route, no elevation, anywhere.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/orders/query-available-tickets.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/ticket-reservations/create-ticket-reservation.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 import { orders, rsvpV2, ticketReservations } from "@wix/events";
 import { redirects as redirectsModule } from "@wix/redirects";
 import { wixModule } from "../sdk";

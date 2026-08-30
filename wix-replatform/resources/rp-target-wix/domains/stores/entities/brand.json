@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "brand",
+  "displayName": "Stores Brand",
+  "capability": "commerce.catalog-brand",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Brand",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product_brand",
+      "routes": [
+        "/wc/v3/products/brands"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Brands",
+    "endpoint": "POST /stores/v3/brands",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": true,
+    "decision": "Pre-create brands (single: { brand: { name } }; bulk: POST /stores/v3/bulk/brands/create { brands: [{ name }], returnEntity }), crosswalk the server-assigned ids, then assign products by brand.id. Verified live 2026-08-16 including the bulk path, product assignment by id, and DELETE /stores/v3/brands/{id}. Query with POST /stores/v3/brands/query."
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use only for source brand metadata beyond the name (logo, description, archive copy) — the Wix Brand object carries a name only."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "name-only-object",
+      "severity": "warning",
+      "summary": "The Wix Brand object is {id, name, revision, dates} only; source brand logos and descriptions have no native home and are dropped unless preserved via the CMS fallback. Record the loss in the faithfulness ledger."
+    },
+    {
+      "code": "unique-name-double-create",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: brand name is unique — a second create with the same name returns 409 ALREADY_EXISTS (uniqueConstraintViolation on name). Retries and resumed runs must be crosswalk-guarded or query-first; the failure is per-brand for single creates and would fail that item inside a bulk batch."
+    },
+    {
+      "code": "inline-brand-name-dedupes-to-the-existing-brand",
+      "severity": "warning",
+      "summary": "RESOLVED 2026-08-16 (live, n=1): passing product.brand = { name } for a brand name that ALREADY EXISTS does not 409 and does not duplicate — the product came back bound to the existing brand's id. So inline-by-name and pre-create can coexist without write failures. Pre-create by id is still the preferred path because it is the only one that gives the crosswalk a deterministic id at write time and it survives name normalisation differences (case/whitespace variants were not probed)."
+    },
+    {
+      "code": "bulk-results-are-per-item",
+      "severity": "warning",
+      "summary": "POST /stores/v3/bulk/brands/create returns results[] with itemMetadata.{id, originalIndex, success} plus bulkActionMetadata.{totalSuccesses, totalFailures, undetailedFailures} — the usual Stores bulk contract. Correlate by originalIndex, never by position, and never infer success from the HTTP 200. returnEntity:true additionally returns the brand object; itemMetadata.id alone is enough for a crosswalk."
+    }
+  ],
+  "mappingGuidance": [
+    "Pre-create brands via POST /stores/v3/bulk/brands/create, record the server-assigned IDs in the crosswalk, then assign products by brand.id — never by brand.name — so the crosswalk stays deterministic.",
+    "If a run does use inline product.brand.name, do not also pre-create the same names in the same run: pick one path per run and let the crosswalk adopt the id the product create returns.",
+    "Source brand-archive URLs have no Wix equivalent; record each in the URL-preservation map with a redirect decision (category/search target or drop)."
+  ],
+  "setupRequirements": [
+    "Wix Stores app",
+    "SCOPE.STORES.BRAND_WRITE"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/brands-v3/brand-object",
+      "note": "object page: {id, name, revision, dates}; name unique"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/brands-v3/create-brand"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/brands-v3/bulk-create-brands"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "product.brand: pass name to auto-create, or existing id to assign"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/reference-run",
+      "note": "finding #6: 84 WooCommerce brand terms observed; fold-into-product.brand was the interim guidance"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run 2026-08-12: brand created via inline product.brand.name (adopted into crosswalk, via=inline-product-create); the preferred bulk pre-create endpoint was NOT exercised in that run"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16 (a docs-only flag), safe mode on / site muted: POST /stores/v3/brands → 200 (aef22bd2…); POST /stores/v3/bulk/brands/create with 2 brands → 200, totalSuccesses 2 with per-item ids; probe product created with brand:{id} → bound correctly; second probe product with brand:{name:<existing>} → bound to the SAME existing brand id (no duplicate, no 409); duplicate single create → 409 ALREADY_EXISTS; brands query by $startsWith read all three back; both products and all three brands deleted, query empty afterwards"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs sweep (Brands V3 gap verdict). Corrects the finding #6 working note that Wix has no standalone brand entity: Brands V3 has full CRUD + bulk create, and the product object references brands by id (or auto-creates by name). Promoted to verified-live 2026-08-16 — the pre-create path flagged docs-only earlier (single + bulk) was exercised end to end against a probe product, and the inline-dedupe question raised by the 2026-08-12 subset run is answered: inline by-name binds to an existing brand rather than failing."
+}

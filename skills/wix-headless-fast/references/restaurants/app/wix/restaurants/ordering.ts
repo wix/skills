@@ -8,6 +8,13 @@
 //     documented for client add-to-cart (display modifiers; send quantity only).
 // Failures are loud: throws on a missing ordering operation, unavailable lines, and an empty
 // cart at checkout — surface the message, don't swallow it.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/list-fulfillment-methods.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 import { operations as operationsModule, fulfillmentMethods as fulfillmentModule, items as itemsModule } from "@wix/restaurants";
 import { currentCartV2 } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";

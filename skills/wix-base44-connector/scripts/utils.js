@@ -31,10 +31,12 @@ const clip = (out) => {
   return s.length <= BUDGET ? JSON.parse(s) : { truncated: true, total: s.length, head: s.slice(0, BUDGET) };
 };
 
-// One transport for every JSON call — Content-Type, optional Bearer, ok-guard.
-// Admin calls are this with the connector token: post(publicUrl, body, accessToken).
-async function post(url, body, token) {
-  const r = await fetch(url, { method: "POST", body: JSON.stringify(body),
+// One transport for every JSON call — Content-Type, optional Bearer, ok-guard. One per verb, so a
+// PATCH/GET/PUT/DELETE endpoint is a helper call, never a hand-rolled fetch. Admin calls are these
+// with the connector token: patch(publicUrl, body, accessToken).
+async function req(method, url, body, token) {
+  const r = await fetch(url, { method,
+    ...(body !== undefined && { body: JSON.stringify(body) }),
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
   if (!r.ok) {
     const head = (await r.text()).slice(0, 300);
@@ -44,6 +46,11 @@ async function post(url, body, token) {
   }
   return r.json();
 }
+const post  = (url, body, token) => req("POST", url, body, token);
+const get   = (url, token)       => req("GET", url, undefined, token);
+const patch = (url, body, token) => req("PATCH", url, body, token);
+const put   = (url, body, token) => req("PUT", url, body, token);
+const del   = (url, token)       => req("DELETE", url, undefined, token);
 
 function save(name, text) {
   const dir = SCRATCH;
@@ -117,7 +124,7 @@ async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
     { search_term: term, document_type: type, maximum_results: max, lines_in_each_result: lines });
   const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
     method:   (b.match(/^# Method: (.+)$/m) || [])[1],
-    endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // callable
+    endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
     docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
     gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
       .trim().replace(/\s+/g, " ").slice(0, 220),
@@ -167,15 +174,18 @@ function bash(cmd) {
 
 // ── the spec index ────────────────────────────────────────────────────────────
 
-// Inspect a located method's schema — request body, responses, enums, and the
-// filterable-fields map. In scope: lightIndex (RESOURCES with .methods — operationId,
-// summary, httpMethod, path [PARTIAL — never call it], publicUrl [callable], docsUrl)
-// and getResourceSchemaByUrl(docsUrl) → s.methods (each with requestBody, responses,
-// legacyExamples, queryMethodData.queryFieldsCapabilitiesMap; $circular via
-// s.components.schemas). Arrive with a docsUrl from search/browse — not a discovery
-// tool. A big result is saved as JSON; grep it for the keys you saw in its head.
-async function spec(code) {
-  if (!/^\s*async function/.test(code)) code = `async function(){ ${code} }`;
+// Inspect a method's schema — request body, responses, enums, filterable-fields map. Pass a docsUrl
+// (from search/browse — a direct load, no scan) and spec returns that method's schema. Or pass raw
+// `async function(){…}` to query the index yourself: lightIndex (RESOURCES with .methods —
+// operationId, summary, httpMethod, publicUrl [callable], docsUrl) and getResourceSchemaByUrl(docsUrl)
+// → s.methods (each with requestBody, responses, legacyExamples,
+// queryMethodData.queryFieldsCapabilitiesMap; $circular via s.components.schemas). A big result is
+// saved as JSON; grep it for the keys you saw in its head.
+async function spec(arg) {
+  const s = String(arg).trim();
+  const code = /^async function/.test(s) ? s
+    : /^https:\/\/dev\.wix\.com\/docs\//.test(s) ? "async function(){ return await getResourceSchemaByUrl(" + JSON.stringify(s) + "); }"
+    : "async function(){ " + s + " }";
   const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
   if (result == null || (Array.isArray(result) && !result.length))
     return { result, note: "empty — the query missed the shape; match your docsUrl against s.methods[].docsUrl" };
@@ -236,4 +246,12 @@ async function mgmtRecipes(q) {
   return clip(m.map(row));
 }
 
-module.exports = { post, clip, context, browse, search, page, bash, spec, mgmtRecipes };
+// Install a Wix app on the site (Apps Installer). Use when discovery finds an API but its app is
+// not installed yet — that is a one-call prerequisite, not a dead end. appDefId from search or the
+// Apps-Created-by-Wix table; siteId from context (the site report).
+async function installApp(appDefId, siteId, token) {
+  return post("https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    { tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId } }, token);
+}
+
+module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp };

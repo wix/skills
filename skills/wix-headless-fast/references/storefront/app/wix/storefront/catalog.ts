@@ -1,6 +1,9 @@
 // Catalog reads (Wix Stores Catalog V3) — the only file that touches raw catalog entities.
 // Everything it returns is a plain DTO from ./types: images resolved, prices formatted,
 // variants normalized. Copy as-is; extend by adding functions, not by editing these.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product-by-slug.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/query-categories.md
 import { productsV3 } from "@wix/stores";
 import { categories as categoriesModule } from "@wix/categories";
 import { wixModule } from "../sdk";

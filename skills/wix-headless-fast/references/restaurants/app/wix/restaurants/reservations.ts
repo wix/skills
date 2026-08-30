@@ -6,6 +6,10 @@
 // getTimeSlots takes POSITIONAL args and a Date (not an ISO string); reserveReservation takes
 // THREE positional args (id, reservee, revision) and the only exit from HELD is reserve.
 // Failures are loud — surface the message, don't swallow it.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservation-locations/list-reservation-locations.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/time-slots/get-time-slots.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-held-reservation.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/reserve-reservation.md
 import { reservationLocations, timeSlots, reservations as reservationsModule } from "@wix/table-reservations";
 import { wixModule } from "../sdk";
 import type {

@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Google Business Profile Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/google-business-profile/connect-google-business-profile.md
+      title: Connect a Wix Site to Google Business Profile
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
+      tags: [seo]
+    - file: ../../../skills/wix-manage/references/google-business-profile/manage-google-business-profile-locations.md
+      title: Manage Google Business Profile Locations for a Wix Site
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
+      tags: [seo]

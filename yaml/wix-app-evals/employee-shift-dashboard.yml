@@ -4,7 +4,7 @@ triggerPrompt: |-
   Build a dashboard page that lets store owners manage employee shifts. The page should have a table where each row is a shift with these fields: employee name, date, and hours. The store owner must be able to add new shifts to the table.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
-templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
 tags: [dashboard-page, data-collection, wix-patterns-docs]
 assertions:
   - type: skill_was_called
@@ -35,6 +35,6 @@ assertions:
     prompt: |-
       Evaluate whether the shifts UI follows the patterns-first component selection rule. Check: (1) The shifts table/grid comes from `@wix/patterns` — a `Table`/`Grid` driven by a collection state hook (`useTableCollection` or a sibling) inside a `@wix/patterns` page shell (`CollectionPage`) — and is NOT a hand-written `<table>`, a manually assembled Wix Design System table, or a custom collection implementation. (2) **The add/edit-shift flow is a `@wix/patterns` `EntityPage` driven by `useEntityPage`, with form state from `@wix/patterns/form`, reached via `usePatternsNavigate` — NOT a hand-built Wix Design System form inside a dashboard modal.** A correct table paired with a hand-rolled WDS entity form scores no higher than 4. (3) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. (4) `@wix/design-system` is used only for leaf UI inside those shells (inputs, buttons, form fields, text, layout) — not to replace anything patterns provides. (5) There is no `@wix/auto-patterns` import and no `patterns.json` file anywhere in the project. Score 0-10.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5
