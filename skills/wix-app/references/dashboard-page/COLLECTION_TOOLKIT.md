@@ -47,6 +47,8 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 
 Adding, editing or viewing a collection item is **not** a dashboard modal — see [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md). A row the user cannot open is the second most common failure after the missing aggregate.
 
+**Form state on an entity page** comes from `@wix/patterns/form` — `useForm` for the form, `useController` for a single field. That subpath re-exports `@wix/bex-core/form`, which wraps `react-hook-form`, so its API is react-hook-form's and only a handful of its names appear in the patterns docs: `FieldValues`, `ControllerProps` and most of the rest are documented by react-hook-form, not here. `node <this-skill-dir>/scripts/patterns.cjs exports form` lists what the subpath actually gives you.
+
 ## Act and confirm
 
 | Need | Component |
