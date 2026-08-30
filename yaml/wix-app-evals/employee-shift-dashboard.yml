@@ -34,13 +34,7 @@ assertions:
     minScore: 7
     prompt: |-
       Evaluate whether the shifts UI follows the patterns-first component selection rule. Check: (1) The shifts table/grid comes from `@wix/patterns` — a `Table`/`Grid` driven by a collection state hook (`useTableCollection` or a sibling) inside a `@wix/patterns` page shell (`CollectionPage`) — and is NOT a hand-written `<table>`, a manually assembled Wix Design System table, or a custom collection implementation. (2) **The add/edit-shift flow is a `@wix/patterns` `EntityPage` driven by `useEntityPage`, with form state from `@wix/patterns/form`, reached via `usePatternsNavigate` — NOT a hand-built Wix Design System form inside a dashboard modal.** A correct table paired with a hand-rolled WDS entity form scores no higher than 4. (3) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. (4) `@wix/design-system` is used only for leaf UI inside those shells (inputs, buttons, form fields, text, layout) — not to replace anything patterns provides. (5) There is no `@wix/auto-patterns` import and no `patterns.json` file anywhere in the project. Score 0-10.
-  # Re-baselined from four measured local runs of this scenario (both the current
-  # skill and the dashboard-page branch, two sessions, claude-sonnet-4-6): cost
-  # 3.17 / 3.65 / 3.74 / 4.19, wall clock 12.9 / 14.2 / 15.1 / 15.9 min. Every one
-  # of them breached the previous 2.5 / 15 min ceilings, so the gate was red on the
-  # unmodified skill and could only ever report the ceiling, never a regression.
-  # Set at roughly 1.5x the worst observation, which still catches a doubling.
   - type: time_limit
-    maxDurationMs: 1440000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 6.5
+    maxCostUsd: 2.5
