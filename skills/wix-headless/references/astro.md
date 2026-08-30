@@ -77,7 +77,7 @@ Main pages (home, listings, about) get their SEO tags **automatically** on manag
 |---|---|
 | <https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md> | **The item-page SEO contract.** The three steps every detail route needs — export `wixMetadata` (route registration), call `loadSEOTagsServiceConfig(...)`, render `<SEO.Tags>` — plus the deps (`@wix/seo` + `@wix/essentials ≥ 1.0.10`), the `WIX_APPS` sourcing rule (reference it directly in the export), per-page-type values, and how to verify. Read it before writing any `[slug]` / `[...slug]` detail page. |
 
-The **per-vertical values** — which `WIX_APPS.*PageMetadata` accessor + `seoTags.ItemType.*` to pass — live in each capability's `inline-recipes/how-to-code-*.md` (blog, store, bookings, events each name theirs).
+The **per-vertical values** — which `WIX_APPS.*PageMetadata` accessor + `seoTags.ItemType.*` to pass — live in each capability's `inline-recipes/how-to-code-*.md` (blog, store, bookings, events each name theirs; **rentals reuses the bookings pair** — a rental detail page is a Bookings service page).
 
 ## 7 — Caveats (the gaps the docs don't mention)
 

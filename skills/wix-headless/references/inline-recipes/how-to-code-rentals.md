@@ -180,6 +180,21 @@ Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision
 
 ---
 
+## 6 · SEO on item pages, and images
+
+**⚠️ There is no `WIX_APPS.rentals.*` and no `seoTags.ItemType.RENTAL`** — a rental detail page is a **Bookings service** item page, so it uses the **bookings** accessors:
+
+- **`wixMetadata`** from `WIX_APPS.bookings.servicePageMetadata` — referenced **directly** in the export (module scope). Route param `slug` → `identifiers.slug`.
+- **`itemType`**: `seoTags.ItemType.BOOKINGS_SERVICE`.
+
+Everything else about the three-step item-page SEO wiring (`wixMetadata` export → `loadSEOTagsServiceConfig(...)` → `<SEO.Tags>`, and running the config load in the same `Promise.all` with `.catch(() => null)`) is identical to `how-to-code-bookings.md` § "SEO on item pages".
+
+**Images** are the same trap too: `service.media.mainMedia.image` is a **string** holding a `wix:image://v1/…` URI, **not** an absolute URL. Resolve with `media.getImageUrl(...)` from `@wix/sdk` before putting it in `<img src>`, and guard items with no image.
+
+**Mount the slot picker, length picker and book action in a client-only island** (Astro) — availability is timezone- and session-specific. SSR only the catalog and detail reads, for SEO.
+
+---
+
 ## Rentals-specific failure modes
 
 | Error | Cause | Handling |
@@ -190,8 +205,19 @@ Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision
 | Empty availability, no error | The service's resource type has **no resources** | A seed bug, not a frontend one — see `setup-rentals.md` STEP 2 |
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
+| Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
+| `.image.url` fails `tsc`, or images render broken | `media.mainMedia.image` is a **string** holding a `wix:image://` URI | `media.getImageUrl(...)` from `@wix/sdk` (§6) |
 
 ---
+
+## Out of scope
+
+**Cancellation and post-booking self-service.** The docs describe cancel flows, but they need admin-scope reads the anonymous visitor doesn't have — the same axis as the bookings recipe's waitlist/manage-cancel exclusion. Two rentals-specific notes if a run does build them server-side:
+
+- A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
+- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the **`multiServiceBookingInfo.id` you persisted at creation** (§3) — it is *not* readable back off the individual bookings afterwards. A site that builds the working-hours daily flow without storing that id has no way to cancel the group.
+
+Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
 
 ## Conclusion
 
@@ -201,3 +227,4 @@ Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
 - Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference`.
+- **SEO and images are the bookings ones too** — `WIX_APPS.bookings.servicePageMetadata` and `seoTags.ItemType.BOOKINGS_SERVICE`; there is no rentals-specific accessor to find.
