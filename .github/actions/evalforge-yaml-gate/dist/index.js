@@ -66509,9 +66509,7 @@ function formatDocsEntryProblems(problems) {
         }
     });
     return render('❌', 'Invalid docsEntry', [
-        '`docsEntry` must be the URL of a **category** in the docs menu (a page that groups APIs) — the skill is published under it at `<docsEntry>/skills/<slug>`. Pointing at an individual API page silently fails after merge: the skill never appears in the menu.',
-        '',
-        'Copy the URL with the "Copy Docs Entry" button in the docs menu (it only appears on categories) instead of the browser address bar.',
+        '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
         '',
         ...lines,
     ]);
@@ -66996,10 +66994,8 @@ function loadDocsEntryIndex(workspace) {
     return index;
 }
 /**
- * Doc entries this PR introduces or repoints: present in the head workspace with no
- * base counterpart, or with a different docsEntry than base. Mirrors the docs
- * pipeline's wiring trigger (new doc / docsEntry change), so the gate validates
- * exactly the entries the pipeline will try to place in the menu after merge.
+ * Doc entries this PR introduces or repoints — exactly the entries the docs
+ * pipeline will try to place in the menu after merge.
  */
 function changedDocsEntries(workspace, baseWorkspace) {
     const headIndex = loadDocsEntryIndex(workspace);
@@ -67050,9 +67046,8 @@ async function fetchJson(url) {
     return response.json();
 }
 /**
- * Checks each docsEntry against the live docs menu — the same public menu the docs
- * pipeline walks when placing the skill after merge. A skill menu node can only be
- * created under a CATEGORY, so anything else is guaranteed to fail.
+ * Checks each docsEntry against the live docs menu. A skill menu node can only
+ * be created under a CATEGORY, so anything else is guaranteed to fail.
  */
 async function validateDocsEntries(targets) {
     if (targets.length === 0)
@@ -67400,9 +67395,8 @@ async function runGate() {
         (0, github_1.fail)(`Invalid YAML or duplicate names: ${loadErrors.length}`, config.blocking);
         return;
     }
-    // Validate new/repointed docsEntry values against the live docs menu — the same
-    // check the docs pipeline runs when placing the skill, so a failure here is a
-    // guaranteed silently-unexposed skill after merge.
+    // A docsEntry that does not resolve to a docs menu category is a guaranteed
+    // silently-unexposed skill after merge.
     const docsEntryTargets = (0, docs_entry_check_1.changedDocsEntries)(workspace, baseWorkspace);
     if (docsEntryTargets.length > 0) {
         const { problems, serviceError } = await (0, docs_entry_check_1.validateDocsEntries)(docsEntryTargets);

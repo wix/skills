@@ -80,9 +80,7 @@ export function formatDocsEntryProblems(problems: DocsEntryProblem[]): string {
     }
   });
   return render('❌', 'Invalid docsEntry', [
-    '`docsEntry` must be the URL of a **category** in the docs menu (a page that groups APIs) — the skill is published under it at `<docsEntry>/skills/<slug>`. Pointing at an individual API page silently fails after merge: the skill never appears in the menu.',
-    '',
-    'Copy the URL with the "Copy Docs Entry" button in the docs menu (it only appears on categories) instead of the browser address bar.',
+    '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
     '',
     ...lines,
   ]);

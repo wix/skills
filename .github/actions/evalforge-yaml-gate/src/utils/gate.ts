@@ -118,9 +118,8 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  // Validate new/repointed docsEntry values against the live docs menu — the same
-  // check the docs pipeline runs when placing the skill, so a failure here is a
-  // guaranteed silently-unexposed skill after merge.
+  // A docsEntry that does not resolve to a docs menu category is a guaranteed
+  // silently-unexposed skill after merge.
   const docsEntryTargets = changedDocsEntries(workspace, baseWorkspace);
   if (docsEntryTargets.length > 0) {
     const { problems, serviceError } = await validateDocsEntries(docsEntryTargets);

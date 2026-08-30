@@ -43,7 +43,6 @@ type Portal = {
 type MenuNode = {
   url?: string;
   menuNodeType?: string;
-  displayName?: string;
   children?: MenuNode[];
 };
 
@@ -74,10 +73,8 @@ function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
 }
 
 /**
- * Doc entries this PR introduces or repoints: present in the head workspace with no
- * base counterpart, or with a different docsEntry than base. Mirrors the docs
- * pipeline's wiring trigger (new doc / docsEntry change), so the gate validates
- * exactly the entries the pipeline will try to place in the menu after merge.
+ * Doc entries this PR introduces or repoints — exactly the entries the docs
+ * pipeline will try to place in the menu after merge.
  */
 export function changedDocsEntries(workspace: string, baseWorkspace: string): DocsEntryTarget[] {
   const headIndex = loadDocsEntryIndex(workspace);
@@ -133,9 +130,8 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 /**
- * Checks each docsEntry against the live docs menu — the same public menu the docs
- * pipeline walks when placing the skill after merge. A skill menu node can only be
- * created under a CATEGORY, so anything else is guaranteed to fail.
+ * Checks each docsEntry against the live docs menu. A skill menu node can only
+ * be created under a CATEGORY, so anything else is guaranteed to fail.
  */
 export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<DocsEntryValidation> {
   if (targets.length === 0) return { problems: [] };
