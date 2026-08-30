@@ -11,7 +11,13 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many resource types and resources, how many services, whether they are hourly or daily, their duration ranges and prices — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities.
 
-> **⚠️ Wix Rentals has NO APIs of its own.** It runs on the **Wix Bookings** APIs with rentals-specific field values, so a rental offering is a Bookings *service* and a reservation is a Bookings *booking*. There is no `@wix/rentals` package and no `/rentals/` REST namespace — do not go looking for one, and do not report rentals as "not supported headlessly". Reference: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md>
+> **⚠️ Wix Rentals has NO APIs of its own.** It runs on the **Wix Bookings** APIs with rentals-specific field values, so a rental offering is a Bookings *service* and a reservation is a Bookings *booking*. There is no `@wix/rentals` package and no `/rentals/` REST namespace — do not go looking for one, and do not report rentals as "not supported headlessly".
+>
+> **The Wix Rentals doc set is four pages** — this recipe is distilled from them, and they are where to go when a task falls outside the common path:
+> - [About Wix Rentals](https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md) — the model, the app id, and the constraints
+> - [Wix Rentals and the Bookings APIs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md) — each rentals concept mapped to its Bookings API
+> - [About Wix Rentals Availability](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md) — resource schedules, hourly vs daily, buffer time
+> - [Wix Rentals: Sample Flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md) — the call sequences, including [Set up a rental service](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#set-up-a-rental-service), which is this recipe end to end
 
 > ### The four invariants (read these before anything else)
 > A service is a rental because of **three field values**, all set at create time in STEP 4:
@@ -44,7 +50,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/resources/resource-types' \
   -d '{ "resourceType": { "name": "Meeting rooms" } }'
 ```
 
-The response is `{ "resourceType": { "id": "<resourceTypeId>", … } }` — **keep each `id`**, STEP 2 and STEP 4 both need it.
+The response is `{ "resourceType": { "id": "<resourceTypeId>", … } }` — **keep each `id`**, STEP 2 and STEP 4 both need it. Full contract: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resource-types-v2/create-resource-type.md>
 
 - **`name` is required, max 40 characters, and must be unique per site.** A duplicate returns `409 RESOURCE_TYPE_ALREADY_EXISTS_FOR_NAME` — query or rename rather than retrying the same name.
 - Sites have a cap on resource types (`429 MAX_NUMBER_OF_RESOURCE_TYPES_REACHED`). Create one per genuine category, not one per item.
@@ -67,7 +73,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/resources' \
 
 Keep each resource's returned **`id`**.
 
-- **⚠️ Omit `workingHoursSchedules` — this is the deliberate seed default and it matters downstream.** A resource with **no** working-hours schedule is bookable **24/7**. That keeps the seed to a single call per resource, *and* it makes a multi-day daily rental store as **one booking** rather than a linked group of per-day bookings. A resource **with** working hours splits every multi-day rental into one booking per working day, created through Create Multi Service Booking — a materially harder frontend flow (`how-to-code-rentals.md` § "Daily availability"). Seed 24/7 unless the request explicitly needs opening hours; the merchant can add hours from the dashboard later.
+- **⚠️ Omit `workingHoursSchedules` — this is the deliberate seed default and it matters downstream.** ([Why, in detail](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#resource-schedules).) A resource with **no** working-hours schedule is bookable **24/7**. That keeps the seed to a single call per resource, *and* it makes a multi-day daily rental store as **one booking** rather than a linked group of per-day bookings. A resource **with** working hours splits every multi-day rental into one booking per working day, created through Create Multi Service Booking — a materially harder frontend flow (`how-to-code-rentals.md` § "Daily availability"). Seed 24/7 unless the request explicitly needs opening hours; the merchant can add hours from the dashboard later.
 - **Working hours, when the request genuinely needs them,** are a Schedules V3 schedule referenced by `workingHoursSchedules.scheduleId` — created separately, then attached. It is out of scope for a seed; note it in the handoff instead. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md>
 - **Locations** — `locationOptions.specificLocationOptions` binds a resource to business locations. Omit it for a single-location site (the default). When both `workingHoursSchedules` and `locationOptions` are set, **`workingHoursSchedules` takes precedence**.
 
@@ -91,7 +97,7 @@ Keep each `category.id`. Additional categories only when the request wants group
 
 Create all services in a single bulk call to `POST https://www.wixapis.com/bookings/v2/bulk/services/create` (up to **100** per call). A rental service is a normal **Services V2 `APPOINTMENT`** carrying three rentals-specific values.
 
-**⚠️ CRITICAL: the V2 service payload is FLAT** — name/description/tagLine are top-level, not nested under `info`. Price uses `value` (a **string**), not `amount`.
+**⚠️ CRITICAL: the V2 service payload is FLAT** — name/description/tagLine are top-level, not nested under `info`. Price uses `value` (a **string**), not `amount`. Full field contract: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service.md>
 
 **One hourly rental service, bookable 1–8 hours at $40/hour:**
 

@@ -6,7 +6,9 @@ description: The frontend read/booking contract for a Wix Rentals site — a del
 
 > **⚠️ Read `how-to-code-bookings.md` first — this recipe is a DELTA on it, not a replacement.** Wix Rentals runs on the Wix Bookings APIs, so the client setup, the schema-driven booking form, the `createBooking → ecom Cart V2 → checkout-or-place` sequence, the `postFlowUrl` HTTPS trap, and the anonymous read-back on the confirmation page are **all identical** and are documented there. This file covers **only what differs for a rental**: finding rentals, duration-range availability, duration-based pricing, and the handful of rentals-specific errors.
 
-> **⚠️ There is no `@wix/rentals` package, and that is not a gap.** Rentals is `@wix/bookings` with rentals-specific field values. If a run concludes "Wix Rentals has no headless surface" because npm has no `@wix/rentals`, that conclusion is wrong — build on `@wix/bookings`. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md>
+> **⚠️ There is no `@wix/rentals` package, and that is not a gap.** Rentals is `@wix/bookings` with rentals-specific field values. If a run concludes "Wix Rentals has no headless surface" because npm has no `@wix/rentals`, that conclusion is wrong — build on `@wix/bookings`.
+>
+> **Rentals doc set** (four pages, where to go beyond this recipe): [About Wix Rentals](https://dev.wix.com/docs/api-reference/business-solutions/rentals/introduction.md) · [Rentals and the Bookings APIs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/wix-rentals-and-the-bookings-apis.md) (concept → API map) · [About Rentals Availability](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md) · [Sample Flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md) (the booking sequences below, end to end).
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The bare/REST view shows `id`; the SDK view shows `_id`, and the SDK is what your frontend calls.
 
