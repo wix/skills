@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "docsRoots": [
+    "api-reference/business-solutions/stores",
+    "api-reference/business-solutions/coupons",
+    "api-reference/business-management/tags"
+  ],
+  "displayName": "Wix Stores",
+  "ownerHint": "Stores Catalog, Inventory, Coupons, Tags, and merchandising domain owners",
+  "wixAppsRequired": [
+    "Wix Stores"
+  ],
+  "defaultImportOrder": [
+    "category",
+    "brand",
+    "product-tag",
+    "product-customization",
+    "product",
+    "subscription-product",
+    "inventory-item",
+    "coupon",
+    "promotion",
+    "review",
+    "back-in-stock-request"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "catalog-version-required-on-existing-site",
+      "severity": "blocker",
+      "summary": "Catalog V3 only — Catalog V1 is unsupported. On a site this run created, V3 is guaranteed at provisioning (0079-catalog-v3-guaranteed-retire-v1-gate.md) — no check needed. On an existing site this run did not create, confirm catalogVersion is V3_CATALOG (GET /stores/v3/provision/version) before any Stores write; V1_CATALOG halts the run, it is never mapped or coded around."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/stores/entities/product.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (category, brand, product-tag, product-customization, product, subscription-product, inventory-item, coupon, promotion, review)"
+    }
+  ]
+}

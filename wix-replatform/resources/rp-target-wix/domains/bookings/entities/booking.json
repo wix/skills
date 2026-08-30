@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "domain": "bookings",
+  "entity": "booking",
+  "displayName": "Booking",
+  "capability": "commerce.bookings",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Booking",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "bookingOrderLineItem",
+      "sourcePlugin": "mwb-bookings-for-woocommerce",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Bookings Writer V2",
+    "endpoint": "POST /bookings/v2/bookings",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": true,
+    "decision": "importSafe is FALSE and this is the blocking entity of the domain. An import path demonstrably EXISTS on paper - Create Booking accepts an arbitrary bookedEntity.slot.startDate/endDate, status CONFIRMED is settable at create by an identity with Manage Bookings permissions, and flowControlSettings.skipAvailabilityValidation exists precisely to bypass availability - so this is not a missing-capability gap. It is a notification-safety gap. sendSmsReminder DEFAULTS TO TRUE: unless every single create call explicitly sends sendSmsReminder:false, Wix Bookings is instructed to text contactDetails.phone 24 hours before the session. That default points the wrong way for an import, it is the only request-level control whose scope is documented in delivery terms, and it says nothing at all about the site's own Bookings confirmation and reminder emails. Nothing in the tree documents a suppression flag for those. See notification-suppression-unproven for exactly what would settle it. Until then every booking write is a guarded write that must be surfaced at the approval gate, and the site-wide mute is the only control we can actually point at."
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "booking.contactDetails.email",
+      "source": "target-schema",
+      "notes": "Customer email on the booking. The Booking object states outright: 'If no contact with this email exist, a new contact is created' - so this field silently writes into CRM as well as Bookings."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "booking.contactDetails.phone",
+      "source": "target-schema",
+      "notes": "The SMS destination. Create Booking: 'the customer receives an SMS 24 hours before the session starts. The phone number is taken from contactDetails.phone' - and sendSmsReminder defaults to true. In safe mode this field is the single highest-risk value in the domain."
+    }
+  ],
+  "pitfalls": [
+    {
+      "code": "sms-reminder-defaults-to-true",
+      "severity": "blocker",
+      "summary": "sendSmsReminder has 'Default: true' on both Create Booking and Bulk Create Booking (read 2026-08-16). This is the inverse of every other notification control the KB has met - events/rsvp's disableNotifications and this API's own participantNotification.notifyParticipants both default to OFF, so a generated payload built from the required-field list alone is SAFE there and UNSAFE here. Omitting the flag opts every migrated customer into an SMS to their real phone number. Every create call in the generated script must set sendSmsReminder:false explicitly, and the script's own test must assert its presence on every element of a bulk request, not just the first."
+    },
+    {
+      "code": "notification-suppression-unproven",
+      "severity": "blocker",
+      "summary": "UNPROVEN AS OF 2026-08-16 - docs only, no live probe. What IS established from the docs: exactly two request-level notification controls exist on Create Booking / Bulk Create Booking, participantNotification.notifyParticipants (default false, governs an ad-hoc message the caller supplies in participantNotification.message, delivered over channels named in metadata as EMAIL and/or SMS) and sendSmsReminder (default TRUE, governs a 24-hours-before SMS to contactDetails.phone). What is NOT established: neither flag is documented to govern the SITE's own Wix Bookings automation - the booking confirmation email, the reminder emails, the staff/owner 'new booking' alert - and no suppression flag for those appears anywhere on the Bookings Writer V2 pages. Confirm Booking has the same two controls and no more. So an import that sets sendSmsReminder:false and leaves notifyParticipants at its false default has silenced the two documented channels and has NO documented control over the rest. WHAT WOULD SETTLE IT: (a) a statement from the Bookings team, or in the docs, enumerating which automations a Create Booking with status CONFIRMED triggers and whether any request-level flag suppresses them - the cheap owner ask; or (b) a controlled probe on a throwaway site with a real monitored mailbox and a real monitored phone number, creating one booking with the flags set and one without on an UNMUTED site - the pair is what makes the negative observable, exactly as recorded for events/rsvp. Until one exists, importSafe stays false."
+    },
+    {
+      "code": "past-dated-bookings-unverified",
+      "severity": "blocker",
+      "summary": "THE OPEN QUESTION FOR HISTORICAL IMPORT, and the docs do not answer it in either direction. Nothing on the Booking object, Create Booking, or Bulk Create Booking pages restricts bookedEntity.slot.startDate/endDate to the future, states a minimum date, or lists a past-date error - the documented failures are 403 UNAUTHORIZED_OPERATION and 428 VALIDATION_FAILURE ('Verify all required booking fields are provided and valid'), which is generic enough to swallow a past-date rejection without naming it. Do NOT read that silence as permission: the same silence around draft events in events/rsvp turned out to be a hard 400 the moment it was probed live. flowControlSettings.skipAvailabilityValidation is documented for availability CONFLICTS ('the booking is created regardless of availability conflicts'), not for time travel, so it may or may not cover a slot that has already elapsed. WHAT WOULD SETTLE IT: one create call against a past slot on the test site, with and without skipAvailabilityValidation - it is a single cheap probe and it decides whether this domain can carry booking history at all or only forward-dated bookings. Plan the import as if past bookings may be rejected until that probe is run."
+    },
+    {
+      "code": "payment-status-is-ignored-at-create",
+      "severity": "blocker",
+      "summary": "'All bookings are created with paymentStatus=UNDEFINED, ignoring the payment status you specify.' A historical booking that was paid in the source therefore CANNOT be imported paid in one call - the field is accepted and discarded. The documented way to set it is a second call, Confirm Booking (or Confirm or Decline Booking), which 'also updates the booking's paymentStatus, if you specify a new payment status'. This collides with the next pitfall: Confirm Booking only accepts bookings whose status is PENDING, CREATED or WAITING_LIST, so a booking created directly as CONFIRMED has ALREADY BURNED its one chance to set a payment status through this path. The correct sequence for a paid historical booking is create as CREATED, then Confirm Booking with revision and paymentStatus - never create as CONFIRMED first."
+    },
+    {
+      "code": "created-is-invisible-confirmed-needs-permission",
+      "severity": "blocker",
+      "summary": "Create Booking defaults to status=CREATED, and 'such bookings aren't visible in the Booking Calendar' - an import that leaves the default produces records the site owner cannot see in the product they actually use, which will read as a failed migration. Setting status=CONFIRMED at create is possible but restricted: 'Only identities with Manage Bookings permissions can set status=CONFIRMED.' Two knock-on facts: for appointment services Wix Bookings only populates bookedEntity.slot.eventId (i.e. creates the calendar session) when the status becomes CONFIRMED, so an unconfirmed import leaves no calendar footprint at all; and confirmation is also the moment most likely to trigger customer-facing automation, which is why this interacts directly with notification-suppression-unproven."
+    },
+    {
+      "code": "booking-creates-a-crm-contact",
+      "severity": "blocker",
+      "summary": "contactDetails.email on the Booking object: 'If no contact with this email exist, a new contact is created.' A booking import therefore writes into Contacts as a side effect - it can duplicate contacts already imported by crm/contact, and booking volume becomes contact volume. This is the same trap that was CORRECTED live for events/rsvp on 2026-08-16, where the KB had wrongly claimed RSVPs do not touch CRM; take the documented statement at face value here rather than repeating that mistake. Sequence bookings after crm/contact, reconcile source customers by email, and pass the crosswalked contactDetails.contactId so Wix matches instead of creating. Count the contact writes in the plan."
+    },
+    {
+      "code": "class-bookings-need-a-session-that-nothing-imports",
+      "severity": "blocker",
+      "summary": "The three service types take three different bookedEntity shapes and only one of them is self-sufficient. APPOINTMENT: bookedEntity.slot with startDate/endDate/resource/location - Wix Bookings creates the session itself on confirmation, so the import is complete. CLASS: bookedEntity.slot.eventId, a GUID of an EXISTING calendar event, and 'when you specify eventId, Wix Bookings automatically derives startDate, endDate, timezone, resource, and location based on the event details. Manually specified values are ignored' - so a class booking is impossible until the session exists. COURSE: bookedEntity.schedule.scheduleId. No entity in this domain creates class sessions or course schedules; that is the recorded events-v3 gap in the docs survey. Consequence for bookings/service's own mapping rule - a source booking product with per-slot capacity greater than 1 becomes a CLASS - is that such products can have their SERVICE imported but not their BOOKINGS. Detect the capacity>1 branch during planning and disclose it at the approval gate."
+    },
+    {
+      "code": "bulk-create-caps-at-twelve",
+      "severity": "warning",
+      "summary": "Bulk Create Booking (POST /bookings/v2/bulk/bookings/create) validates createBookingsInfo as minItems 1 / maxItems 12 - 'Max: 12 bookings'. That is an order of magnitude tighter than the sibling bulk endpoints this KB has met (Bulk Create Services 100, Bulk Create Add Ons 100), so a booking history of any size is a long chain of small calls: budget the run time and the rate-limit headroom accordingly, and make every batch crosswalk-guarded so a mid-chain failure resumes instead of duplicating. bulk is recorded as true because the endpoint exists, not because it is efficient."
+    },
+    {
+      "code": "flow-control-overrides-need-app-permissions",
+      "severity": "warning",
+      "summary": "The overrides an import actually needs each carry their own permission beyond Manage Bookings: skipBusinessConfirmation requires BOOKINGS.OVERRIDE_AVAILABILITY, skipSelectedPaymentOptionValidation requires BOOKINGS.MANAGE_PAYMENTS, skipAddOnValidation requires BOOKINGS.MANAGE_ADDONS, and skipAvailabilityValidation warns to 'make sure the call's identity has the required permissions'. A run that discovers this at import time fails with 403 UNAUTHORIZED_OPERATION per call. Verify the identity's permissions during setup, and note that the docs' own remedies - a higher app permission, or Velo elevation - are deliberate escalations that belong in the approval-gate disclosure, not in silently generated code."
+    },
+    {
+      "code": "a-site-installed-validation-plugin-can-veto-every-write",
+      "severity": "warning",
+      "summary": "The Bookings Validation Service Plugin lets a site (or an installed app) implement Validate Before Create and reject bookings by its own rules. On a target site that has one, an import can be refused for reasons that exist in no Wix doc and in no error the KB can enumerate ahead of time. Check for installed validation extensions during setup, and treat an unexplained systematic create failure as this before assuming the payload is wrong."
+    },
+    {
+      "code": "participants-are-a-required-one-of",
+      "severity": "warning",
+      "summary": "'You must specify either participantsChoices or totalParticipants.' Use totalParticipants (minimum 1) only when the service has fixed pricing and no variants; use participantsChoices when the service has service options and variants, and 'the call fails if the specified participantsChoices aren't among the supported service options and variants'. Since bookings/service maps source products to FIXED pricing with no variants, totalParticipants is the correct branch for this vertical - but it must be sent, as neither is defaulted."
+    },
+    {
+      "code": "selected-payment-option-required-only-for-wix-checkout",
+      "severity": "info",
+      "summary": "selectedPaymentOption (UNDEFINED | OFFLINE | ONLINE | MEMBERSHIP | MEMBERSHIP_OFFLINE) is required when the customer pays through a Wix eCommerce checkout, and the Create Booking call fails without it; 'for custom checkouts, you don't have to specify this field'. A historical import is neither - it recreates a settled record, not a purchase. OFFLINE is the honest value for a booking that was paid on the source platform's gateway, since that money never lands in Wix; skipSelectedPaymentOptionValidation exists if the chosen option is not among those the service offers."
+    },
+    {
+      "code": "revision-is-required-on-every-follow-up-call",
+      "severity": "info",
+      "summary": "Confirm Booking's only required parameter is revision, and revision 'increments by 1 each time the booking is updated, rescheduled, or canceled'. Any two-phase import (create, then confirm with paymentStatus) must carry the revision returned by the create response into the second call - do not assume 1, and re-read the booking if a retry loses the value."
+    }
+  ],
+  "mappingGuidance": [
+    "Order this entity LAST in the domain: it needs a crosswalked service GUID (bookedEntity.slot.serviceId), the staff member's resource GUID, add-on and add-on-group GUIDs for bookedAddOns, and a CRM contact to match against. domain.json's defaultImportOrder service -> service-add-on -> booking is that dependency chain.",
+    "Two-phase per booking, and the order matters: (1) POST /bookings/v2/bookings with status omitted (CREATED), sendSmsReminder:false, no participantNotification, flowControlSettings as required by the source's confirmation rules; (2) POST /bookings/v2/bookings/{id}/confirm with the revision from step 1 plus paymentStatus (PAID for a settled source order, NOT_PAID otherwise, EXEMPT for a free booking). Creating as CONFIRMED in one call is possible with Manage Bookings but forfeits the ability to set paymentStatus, because Confirm Booking only accepts PENDING/CREATED/WAITING_LIST.",
+    "Map the source booking window to bookedEntity.slot.startDate/endDate in ISO-8601, and ALWAYS send bookedEntity.slot.timezone as an IANA name - the docs state the slot is permanently redisplayed to the customer in the timezone captured at booking time, so a wrong timezone here is a permanent per-record defect, not a display setting that can be fixed later.",
+    "bookedEntity.slot.resource.id is the staff member's RESOURCE GUID (the same resourceId that bookings/service puts in staffMemberIds), not a staff-member GUID. Specifying it triggers an availability check that fails the call if the resource is busy; omitting it defers resource assignment to confirmation. For a historical import against a single placeholder staff member, expect self-collisions across back-to-back source bookings and plan on flowControlSettings.skipAvailabilityValidation.",
+    "contactDetails: send the crosswalked contactId together with firstName/lastName/email/phone so Wix matches the existing contact instead of minting a new one. Do NOT also send formSubmission unless the booking form data is genuinely being migrated - when formSubmission is present Wix overwrites every contactDetails field from it and ignores what you sent, except contactId.",
+    "Source booking status maps onto the enum CREATED | CONFIRMED | CANCELED | PENDING | DECLINED | WAITING_LIST. CANCELED is reachable at create only as a literal status value; the Cancel Booking method is a lifecycle call whose notification behaviour is unexamined, so prefer setting the status over calling the lifecycle method during an import.",
+    "externalUserId is a free string on the Booking object and is the natural place to park the source booking id as a secondary key alongside the crosswalk. extendedFields exists but, as everywhere else in Wix, requires a schema-plugin app namespace configured in the app dashboard first - it is not a free-form carry.",
+    "totalParticipants (minimum 1) is the correct participant branch for this vertical; participantsChoices is only for services carrying options and variants, which bookings/service does not create.",
+    "Every booking that reaches Wix also reaches CRM. Reconcile the source customer list against the contact crosswalk before this step runs and count the contact writes in the plan report."
+  ],
+  "setupRequirements": [
+    "Wix Bookings app installed (appId 13d21c63-b5ec-5912-8397-c3a5ddb27a97) - see the bookings-app-required shared pitfall",
+    "SCOPE.DC-BOOKINGS.MANAGE-BOOKINGS - also the permission that gates setting status=CONFIRMED at create",
+    "BOOKINGS.OVERRIDE_AVAILABILITY, BOOKINGS.MANAGE_PAYMENTS and BOOKINGS.MANAGE_ADDONS if the corresponding flowControlSettings overrides are used",
+    "bookings/service and bookings/service-add-on imported, with service, resource, add-on and add-on-group GUIDs in the crosswalk",
+    "crm/contact imported and reconciled by email, because every booking create touches Contacts",
+    "Site-wide notification mute confirmed active before any write, since it is the only suppression control this entity can actually point at",
+    "At least one staff member provisioned, with its resourceId known"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-object",
+      "note": "object page: status enum CREATED|CONFIRMED|CANCELED|PENDING|DECLINED|WAITING_LIST with per-value semantics, paymentStatus enum UNDEFINED|NOT_PAID|PAID|PARTIALLY_PAID|REFUNDED|EXEMPT|FAILED, selectedPaymentOption enum, contactDetails.email creates a contact when none matches, bookedEntity slot-vs-schedule ONE-OF, bookedAddOns snapshot fields (maxItems 21), externalUserId, revision, appId 13d21c63-b5ec-5912-8397-c3a5ddb27a97, formSubmissionId/formId (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking",
+      "note": "POST https://www.wixapis.com/bookings/v2/bookings (schema header also shows the internal /_api/bookings-service/v2/bookings form); permission SCOPE.DC-BOOKINGS.MANAGE-BOOKINGS; booking required, bookedEntity required, participantsChoices|totalParticipants required ONE-OF; 'Create Booking defaults to status=CREATED. Such bookings aren't visible in the Booking Calendar. Only identities with Manage Bookings permissions can set status=CONFIRMED'; 'All bookings are created with paymentStatus=UNDEFINED, ignoring the payment status you specify'; sendSmsReminder Default: true; participantNotification.notifyParticipants Default: false; flowControlSettings skipAvailabilityValidation / skipBusinessConfirmation / skipSelectedPaymentOptionValidation / skipAddOnValidation with their per-flag permissions; class bookings derive everything from eventId; errors 403 UNAUTHORIZED_OPERATION and 428 VALIDATION_FAILURE, and NO documented past-date restriction (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/bulk-create-booking",
+      "note": "POST https://www.wixapis.com/bookings/v2/bulk/bookings/create; createBookingsInfo minItems 1, maxItems 12 ('Max: 12 bookings'); the same sendSmsReminder Default: true and participantNotification defaults repeat per element, so the unsafe default is per-booking not per-request (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/confirm-booking",
+      "note": "POST https://www.wixapis.com/bookings/v2/bookings/{bookingId}/confirm; required parameter revision; 'You can only confirm bookings with a status of PENDING, CREATED, or WAITING_LIST'; 'Also updates the booking's paymentStatus, if you specify a new payment status'; same two notification controls and no others (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/events/entities/rsvp.json",
+      "note": "the importSafe:false pattern this entry follows, and the two live corrections it warns against repeating: documented silence about a precondition (draft events) turned out to be a hard rejection, and a KB claim that guest records do not touch CRM turned out to be wrong"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "the source profile this domain was authored against; the live WP test site carried no booking records (150 orders, none of them a booking), so the source-to-booking FIELD mapping could not be observed - the /wc/v3/orders route claim in sourceAliases rests on the storage model, not on an observed payload"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "sourceAliases added 2026-08-16 from the live probe of WPS Bookings for WooCommerce 3.12.0: the plugin registers NO booking post type and NO booking order type (authed /wp/v2/types on the reference store carries neither), so a booked appointment on WooCommerce is an ORDER LINE ITEM on /wc/v3/orders, flagged by order meta mwb_order_type='booking' and carrying its window in line-item meta (_wps_single_cal_date_time_from/_to, _wps_single_cal_booking_dates, or legacy _mwb_bfwp_date_time_from/_to). confidence 'medium': the route and the key names are established from the live REST index plus the published 3.12.0 source, but the test site holds zero booking orders so no payload has been observed."
+    }
+  ],
+  "notes": "Authored 2026-08-16 to complete the bookings vertical. Docs-verified only, never exercised live - verification docs, reliability unknown. THREE things stand between this entity and a usable booking import and all three are cheap to settle: (1) whether a past-dated slot is accepted at all, one probe; (2) which site automations a create/confirm actually fires and whether anything suppresses them, one owner ask or one two-arm probe; (3) whether class sessions can be created, which is the events-v3 gap in the docs survey. sourceAliases carries ONE medium-confidence entry pointing at /wc/v3/orders, added 2026-08-16 from the live probe: WPS Bookings for WooCommerce registers no booking post type and no custom table, so a booked appointment IS a WooCommerce order line item carrying booking meta. The route claim is therefore structural and well-founded, but no booking record was ever observed - the test site holds 150 orders and not one of them is a booking - so the per-field mapping behind that alias is [NEEDS-VERIFICATION] and the line-item meta shape is still unknown. Note the asymmetry that makes this entity dangerous to generate code for: sendSmsReminder defaults to TRUE while every other notification control the KB has met defaults to off, so 'build the payload from the required fields' produces a safe call everywhere else in the repo and an SMS blast here."
+}

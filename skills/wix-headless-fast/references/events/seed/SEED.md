@@ -14,7 +14,12 @@ node <SKILL_ROOT>/references/events/seed/seed-events.mjs plan.json
 `plan.json` is plain data — write it from the brief. **Default to 3 events** (the seed shows
 the shape; the owner adds the rest in the dashboard) and make them exercise the UI: mix
 `TICKETING` and `RSVP` (≥1 of each), give a ticketed event 2 tiers, and give every event an
-`imageUrl` (verified — an events page without images looks broken).
+image (an events page without images looks broken) — the default is an `imagePrompt`
+(AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
+aesthetic/mood, palette, lighting — always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually
+supplied use `imagePath` (a file on this machine — uploaded to Wix Media) or `imageUrl`
+(their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the
+seed; a failed image leaves that event text-only.
 
 ```json
 {

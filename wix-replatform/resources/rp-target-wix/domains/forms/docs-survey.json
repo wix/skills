@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "domain": "forms",
+  "fetchedAt": "2026-08-16",
+  "roots": [
+    "api-reference/crm/forms"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/crm/forms/chat-settings",
+      "title": "Chat Settings",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/chat-settings",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Configuration for the AI chat that helps a visitor fill a form: enable/disable AI chat, greeting message, summary message. The docs state it 'works alongside the Interactive Form Sessions API' and that each form can have exactly one settings entity keyed by the form's own id. It holds no source-side record — a WordPress form has no AI-chat configuration to carry over — so there is nothing to import here. A migrated form simply has no chat settings, which is the Wix default.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/form-schema-templates",
+      "title": "Form Schema Templates",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schema-templates",
+      "group": null,
+      "verdict": "not-importable",
+      "reason": "The API is explicitly read-only: 'App owners define templates in the app dashboard, and templates can't be created, updated, or deleted through the API.' A template is a starter definition an app publishes for its namespace, not site data — so an imported WordPress form can never become a template, and there is no write path to attempt. The page is still load-bearing for this domain as the authoritative namespace table (Wix Forms = wix.form_app.form), which forms/form depends on; it is cited in that entity's mapping guidance rather than claimed as an import target.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/form-schemas",
+      "title": "Form Schemas",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "forms/form"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/form-submissions",
+      "title": "Form Submissions",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "forms/form-submission"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/interactive-form-sessions",
+      "title": "Interactive Form Sessions",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/interactive-form-sessions",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "A runtime surface, not a storage surface: it drives an AI conversation that walks a live visitor through filling a form, streaming typed response chunks (TEXT, SINGLE_SELECT_INPUT, SUBMISSION, END_OF_RESPONSE, …) and ending in a normal submission. Sessions are per-conversation state created against an already-existing form schema; there is no historical session in a WordPress source to recreate, and any record it would produce arrives through forms/form-submission anyway. Nothing to import.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/other-services/intake-forms",
+      "title": "Intake Forms",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/other-services/intake-forms",
+      "group": "Other Services",
+      "verdict": "not-relevant",
+      "reason": "A different business capability that happens to sit in the same doc tree: waivers, liability releases and consent forms with an expiration period, shareable submission links, and a submission lifecycle with extend/cancel operations. It is not the generic form-and-response capability the WordPress form plugins produce, and the docs are explicit that 'the Wix Forms app isn't required' — it is a parallel service, not a route into Wix Forms. Landing CF7/WPForms contact forms here would give every migrated enquiry an expiry clock it never had. If a source site is later found to run genuine waiver/consent forms with renewal periods, this becomes its own entity pair (intake-form + intake-form-submission); no such source exists in scope today.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/service-plugins/form-submissions-service-plugin",
+      "title": "Form Submissions Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/service-plugins/form-submissions-service-plugin",
+      "group": "Service Plugins",
+      "verdict": "not-relevant",
+      "reason": "An extension point pointing the other way. This is an SPI: WE stand up an HTTPS endpoint (`deploymentUri`) behind an App Market app, and Wix calls IT whenever a visitor submits a form, so the app can validate the submission. Data flows Wix -> us, per live submission. It is not a write API, it accepts no historical records, and it requires publishing an app — so it can never be an import path. Recorded so the surface is not mistaken for an absent write API later; that misreading is exactly what produced the wrong 'Wix cannot do this' verdicts on gift cards and events (plugins/README.md).",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/forms/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-agent walkthrough pages (Create Form, Forms Dashboard Navigation), not a data surface. Same verdict and rationale as pricing-plans/skills.",
+      "reviewedOn": "2026-08-16"
+    }
+  ]
+}

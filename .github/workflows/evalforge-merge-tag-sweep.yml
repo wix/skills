@@ -1,0 +1,207 @@
+name: EvalForge Merge-Tag Sweep
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/wix-manage/references/**'
+      # documentation.yaml changes cannot contribute a tag on their own (classifyChanges matches
+      # only skill docs and scenario YAML), but the path is kept so this trigger stays in step
+      # with the PR-time gate's.
+      - 'yaml/wix-manage/**'
+      - 'yaml/wix-manage-evals/**'
+
+# Deliberately no concurrency block: every push is a distinct, permanent commit on main.
+# Cancelling one sweep because another push landed would mean that commit's regression
+# is never checked.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sweep:
+    # Kill switch: set the MERGE_TAG_SWEEP_ENABLED repo variable to 'false' to stop the
+    # sweep without shipping a code change. It spends real eval budget and posts to
+    # Slack, so it needs a dial that does not require a PR to turn.
+    if: vars.MERGE_TAG_SWEEP_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    # Three sequential eval runs are possible (initial + two retries) and each may poll for up
+    # to 30 minutes, so a 60-minute budget could kill the job mid-retry — with no notification,
+    # since the sweep would never reach its reporting step.
+    timeout-minutes: 105
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # need full history to diff before/after
+
+      - name: Diff before/after
+        id: diff
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+        run: |
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push on this ref — nothing to diff, skipping."
+            { echo 'files<<EOF'; echo EOF; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo 'files<<EOF'
+            git -c core.quotePath=false diff --name-status "$BEFORE_SHA" "$AFTER_SHA"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/evalforge-yaml-gate
+        id: sweep
+        with:
+          mode: merge-tag-sweep
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          changed-files: ${{ steps.diff.outputs.files }}
+
+      - name: Post Slack notification
+        if: always() && steps.sweep.outputs.confirmed-failed-count != '' && steps.sweep.outputs.confirmed-failed-count != '0'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          CONFIRMED_COUNT: ${{ steps.sweep.outputs.confirmed-failed-count }}
+          RECOVERED_COUNT: ${{ steps.sweep.outputs.recovered-count }}
+          CONFIRMED_SCENARIOS: ${{ steps.sweep.outputs.confirmed-failed-scenarios }}
+          MATCHED_TAGS: ${{ steps.sweep.outputs.matched-tags }}
+          SAMPLED_COUNT: ${{ steps.sweep.outputs.sweep-sampled-count }}
+          MATCHED_TOTAL: ${{ steps.sweep.outputs.sweep-matched-total }}
+          MERGED_BY_NAME: ${{ steps.sweep.outputs.merged-by-name }}
+          MERGED_BY_URL: ${{ steps.sweep.outputs.merged-by-url }}
+          RUN_URL: ${{ steps.sweep.outputs.run-url }}
+          SKIP_REASON: ${{ steps.sweep.outputs.confirm-skip-reason }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg skip_reason "$SKIP_REASON" \
+            --arg confirmed "$CONFIRMED_COUNT" \
+            --arg recovered "$RECOVERED_COUNT" \
+            --arg scenarios "$CONFIRMED_SCENARIOS" \
+            --arg tags "$MATCHED_TAGS" \
+            --arg sampled "$SAMPLED_COUNT" \
+            --arg total "$MATCHED_TOTAL" \
+            --arg merged_by "$MERGED_BY_NAME" \
+            --arg merged_by_url "$MERGED_BY_URL" \
+            --arg run_url "$RUN_URL" \
+            --arg wf_url "$WORKFLOW_URL" \
+            '{
+              text: (":warning: *EvalForge Merge-Tag Sweep* — " + $confirmed + " confirmed failure(s) for tag(s): " + $tags),
+              blocks: ([
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ":warning: EvalForge Merge-Tag Sweep", emoji: true }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: ("*Tags:* " + $tags) },
+                    { type: "mrkdwn", text: ("*Sampled:* " + $sampled + " / " + $total + " matched") },
+                    { type: "mrkdwn", text: ("*Confirmed failed:* " + $confirmed) },
+                    { type: "mrkdwn", text: ("*Recovered (flaky):* " + $recovered) },
+                    { type: "mrkdwn", text: ("*Merged by:* <" + $merged_by_url + "|" + $merged_by + ">") }
+                  ]
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: ("*Confirmed failures:*\n```" + $scenarios[0:2600] + "```") }
+                }
+              ]
+              + (if $skip_reason != "" then [{
+                  type: "context",
+                  elements: [{ type: "mrkdwn", text: (":information_source: " + $skip_reason) }]
+                }] else [] end)
+              + [
+                {
+                  type: "actions",
+                  elements: (
+                    [{ type: "button", text: { type: "plain_text", text: "GitHub Run" }, url: $wf_url }]
+                    + (if $run_url != "" then [{ type: "button", text: { type: "plain_text", text: "EvalForge Results" }, url: $run_url }] else [] end)
+                  )
+                }
+              ])
+            }' \
+          | curl -sS --fail-with-body -X POST \
+              -H "Content-Type: application/json" \
+              -d @- "$SLACK_WEBHOOK_URL"
+
+      - name: Post Slack notification (infra error)
+        if: always() && steps.sweep.outputs.infra-error != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ERROR_MESSAGE: ${{ steps.sweep.outputs.infra-error }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg error "$ERROR_MESSAGE" \
+            --arg wf_url "$WORKFLOW_URL" \
+            '{
+              text: (":x: *EvalForge Merge-Tag Sweep* could not run — " + $error),
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ":x: EvalForge Merge-Tag Sweep — infra error", emoji: true }
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: $error }
+                },
+                {
+                  type: "actions",
+                  elements: [{ type: "button", text: { type: "plain_text", text: "GitHub Run" }, url: $wf_url }]
+                }
+              ]
+            }' \
+          | curl -sS --fail-with-body -X POST \
+              -H "Content-Type: application/json" \
+              -d @- "$SLACK_WEBHOOK_URL"
+
+      # Last resort. The two steps above both key off an output of the sweep step, so anything
+      # that stops the job before an output is written — a failure in the diff step, a throw
+      # while reading config, the job hitting its timeout mid-retry — would otherwise be
+      # reported only as a red check on a main commit, which nobody is watching.
+      - name: Post Slack notification (job failed with no verdict)
+        # `cancelled()` as well as `failure()`: a job killed by `timeout-minutes` reports the
+        # cancelled conclusion, not a failed one, and the timeout is precisely one of the cases
+        # this step exists to catch.
+        if: >-
+          (failure() || cancelled())
+          && steps.sweep.outputs.infra-error == ''
+          && (steps.sweep.outputs.confirmed-failed-count == '' || steps.sweep.outputs.confirmed-failed-count == '0')
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          jq -n \
+            --arg wf_url "$WORKFLOW_URL" \
+            --arg sha "$COMMIT_SHA" \
+            '{
+              text: (":x: *EvalForge Merge-Tag Sweep* failed without reporting a verdict (commit " + $sha[0:7] + ")"),
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ":x: EvalForge Merge-Tag Sweep — no verdict", emoji: true }
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: ("The sweep job for commit `" + $sha[0:7] + "` failed before it could report whether the tagged scenarios still pass. Nothing was verified for this merge — check the job log.") }
+                },
+                {
+                  type: "actions",
+                  elements: [{ type: "button", text: { type: "plain_text", text: "GitHub Run" }, url: $wf_url }]
+                }
+              ]
+            }' \
+          | curl -sS --fail-with-body -X POST \
+              -H "Content-Type: application/json" \
+              -d @- "$SLACK_WEBHOOK_URL"

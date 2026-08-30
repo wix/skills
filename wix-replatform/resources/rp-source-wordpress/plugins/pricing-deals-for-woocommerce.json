@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "plugin": "pricing-deals-for-woocommerce",
+  "displayName": "VarkTech Pricing Deals for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/pricing-deals-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.discount-rules",
+    "commerce.applied-discounts"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "pricing-deals-for-woocommerce/vt-pricing-deals.php"
+    ],
+    "assetPathSlugs": [
+      "pricing-deals-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "discount-rule-definition",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": ["ecom/discount-rule"],
+      "pitfalls": [
+        {
+          "code": "cpt-backed-not-settings-page-but-same-access-limit",
+          "severity": "warning",
+          "summary": "Unlike woo-discount-rules' settings page, rule definitions here are a custom post type (`vtprd-rule`, taxonomy `vtprd_rule_category`) — VERIFIED IN SOURCE 2026-08 (`core/vtprd-backbone.php`, github.com/common-repository/pricing-deals-for-woocommerce). The CPT is not registered `show_in_rest`, so it never appears on `/wp/v2/`, and — same WordPress-core boundary already established for woo-discount-rules (plugins/README.md's admin-page-only note) — the CPT list/edit screens render only inside an authenticated wp-admin session that Application Passwords do not authenticate. classified admin-page-only for that reason even though the underlying storage is a CPT, not a settings page."
+        },
+        {
+          "code": "no-export-tool-unlike-woo-discount-rules",
+          "severity": "warning",
+          "summary": "VERIFIED IN SOURCE 2026-08: grepped the full plugin tree for csv/export/import controllers — none exist. woo-discount-rules' built-in Import/Export CSV tab (the escape hatch that unblocked that plugin's rule-definition capability) has no equivalent here; the only path to a rule's trigger/effect shape is a human transcribing/screenshotting the `vtprd-rule` list in wp-admin."
+        },
+        {
+          "code": "admin-page-not-reachable-with-application-password",
+          "severity": "blocker",
+          "summary": "Same WordPress-core boundary verified live against woo-discount-rules' settings page (plugins/README.md): Application Passwords authenticate REST requests only, never wp-admin page renders. No `register_rest_route` call exists anywhere in this plugin's source (VERIFIED IN SOURCE 2026-08, full-tree grep) — there is no automated read path at all, not even a degraded one.",
+          "blocked": [
+            {
+              "kind": "user-file",
+              "resolution": "Ask the site owner (real wp-admin login session) to open WooCommerce > Pricing Deals (or Tools > Pricing Deals if `register_under_tools_menu` is enabled) and transcribe or screenshot each rule's deal type (Dynamic/Cart pricing, Catalog/wholesale pricing, BOGO, tiered quantity, category/role-based) and its trigger/effect values. Do not ask for the owner's actual WordPress account password.",
+              "declined": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "entity": "applied-discount",
+      "channel": "db-only",
+      "candidateTargetRefs": ["ecom/order-applied-discount"],
+      "pitfalls": [
+        {
+          "code": "full-ledger-is-private-tables-not-order-meta",
+          "severity": "blocker",
+          "summary": "VERIFIED IN SOURCE 2026-08 (`woo-integration/vtprd-parent-cart-validation.php` + `vtprd-parent-definitions.php`): on `woocommerce_checkout_order_processed`, `vtprd_save_discount_purchase_log()` writes the entire applied-discount ledger into three custom tables (`{prefix}vtprd_purchase_log`, `..._purchase_log_product`, `..._purchase_log_product_rule`), keyed by order id, holding the serialized ruleset/cart object plus per-product/per-rule discount amounts. Unlike woo-discount-rules (whose per-order-meta `_wdr_discounts` summary is real even though a fuller ledger also lives in a private table), THIS plugin puts the entire ledger in the private tables with no order-meta or order-item-meta trace at all — grepped the full tree for `update_post_meta`/`add_meta_data`/`update_meta_data` near order objects, zero hits."
+        },
+        {
+          "code": "default-mode-bakes-discount-into-unit-price-no-marker",
+          "severity": "blocker",
+          "summary": "The plugin's default discount-application mode (`discount_taken_where` option, default `discountUnitPrice` per `admin/vtprd-setup-options.php`) overwrites the cart line item's unit price directly — a discounted line looks IDENTICAL to a merchant-set lower price, with no meta key, no note, nothing distinguishing it. In this (most common) mode there is no signal anywhere in `/wc/v3/orders` that a discount was ever applied to a given line, so even the historical fact of a discount is unrecoverable from REST — only the private tables above have it."
+        },
+        {
+          "code": "coupon-mode-surfaces-a-lump-sum-only",
+          "severity": "warning",
+          "summary": "An alternate setting (`discount_taken_where = discountCoupon`) applies a synthetic WooCommerce coupon via `WC_Cart::add_discount()` (`vtprd_woo_maybe_add_remove_discount_cart_coupon()`, hooked on `woocommerce_after_calculate_totals`) — VERIFIED IN SOURCE 2026-08, not live-confirmed against a real order. In this mode the discount would surface as a normal `coupon_lines[]` entry on `/wc/v3/orders` (title from option `coupon_discount_coupon_name`), reachable through the existing generic WooCommerce-coupon path (ecom/order-applied-discount's `coupon` one-of variant, via stores/coupon) — but it carries only the lump total, never the per-rule breakdown the private tables hold, and this mode is not the plugin default."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Rule model overlaps woo-discount-rules (both are general-purpose conditional-pricing engines: percentage/fixed/BOGO/tiered-quantity/category-or-role-based), so a site running both is worth flagging for consolidation at the mapping review rather than migrating two parallel discount-definition transcriptions.",
+    "Main plugin file VERIFIED IN SOURCE 2026-08 via the github.com/common-repository/pricing-deals-for-woocommerce mirror (readme.txt Stable tag 2.0.3.2, `vt-pricing-deals.php` header Version: 2.0.3.2) — this mirror is used the same way the WordPressPluginDirectory mirror was used to verify woo-discount-rules; `WordPressPluginDirectory/pricing-deals-for-woocommerce` itself returns 404, `common-repository` is the equivalent-purpose org for this plugin.",
+    "Options `vtprd_setup_options` (settings incl. `discount_taken_where`) and `vtprd_rules` are additional low-value detection candidates if a future run needs a second signal — not declared in `detect` here because neither was checked for `show_in_rest`/autoload exposure live.",
+    "This profile's detect signals and entity behavior are source-code-verified (see the pitfalls' citations) but have not been live-verified against a running installation."
+  ]
+}

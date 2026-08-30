@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "quick-woocommerce",
+  "version": "1.1.0",
+  "platform": "woocommerce",
+  "minimumProbeConfidence": "high",
+  "requiredProbeStrategies": ["wc.store.products", "wp.posts"],
+  "publicAuth": "none",
+  "entities": [
+    { "id": "product_category", "route": "/wp-json/wc/store/v1/products/categories", "target": "stores/category", "dependsOn": [] },
+    { "id": "product_tag", "route": "/wp-json/wc/store/v1/products/tags", "target": "stores/product-tag", "dependsOn": [] },
+    { "id": "blog_category", "route": "/wp-json/wp/v2/categories", "target": "blog/category", "dependsOn": [] },
+    { "id": "blog_tag", "route": "/wp-json/wp/v2/tags", "target": "blog/tag", "dependsOn": [] },
+    { "id": "post", "route": "/wp-json/wp/v2/posts", "target": "blog/post", "dependsOn": ["blog_category", "blog_tag"] },
+    { "id": "product", "route": "/wp-json/wc/store/v1/products", "target": "stores/product", "dependsOn": ["product_category", "product_tag"] }
+  ],
+  "requiredWixCapabilities": ["stores", "blog"],
+  "excluded": ["customers", "members", "orders", "refunds", "coupons", "taxes", "reviews", "shipping", "payments", "plugin-data", "draft-private-password-protected-content", "unreferenced-media"]
+}

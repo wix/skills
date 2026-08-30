@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "domain": "pricing-plans",
+  "entity": "plan-order",
+  "displayName": "Pricing Plan Order",
+  "capability": "commerce.subscription-contracts",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Pricing Plans Order",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "subscription",
+      "sourcePlugin": "subscriptions-for-woocommerce",
+      "routes": [
+        "/wsp-route/v1/wsp-view-subscription"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Orders (CheckoutService)",
+    "endpoint": "POST /pricing-plans/v2/checkout/orders/offline",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "create-notification-behavior-undocumented",
+      "severity": "blocker",
+      "summary": "STILL UNPROVEN after a live probe (2026-08-16) — importSafe deliberately stays false. Create Offline Order documents no member-notification behavior and has no suppress/silent flag (the request is only planId, memberId, paid, startDate, couponCode, submissionId), while the sibling Mark As Paid explicitly documents that offline payments 'trigger events and emails'. The 2026-08-16 probe created a real offline order with paid:true and observed NOTHING that indicates an email either way — but the observation is worthless as proof of silence for two independent reasons: (a) the target site was under a site-wide notification mute for the whole probe, which by design suppresses all notifications to all recipients on all channels, so no email could have been sent regardless of the API's default behavior; and (b) the probe member's address was deliberately undeliverable (example.invalid), and there is no Wix read API that lists emails a site has sent, so even unmuted there would have been nothing to inspect. Absence of evidence here is an artifact of the method, not a finding. See notification-proof-requirements for what would actually settle it."
+    },
+    {
+      "code": "notification-proof-requirements",
+      "severity": "warning",
+      "summary": "What it would take to flip importSafe to true: EITHER (1) an owner-approved probe on an UNMUTED throwaway site, with the probe member's loginEmail pointed at a mailbox the operator controls and can inspect, creating one offline order with paid:true and confirming no member-facing mail arrives within a stated window (and, as a positive control, confirming that Mark As Paid on a second order DOES arrive — otherwise a silent inbox only proves the mailbox is broken); OR (2) a written statement from the Pricing Plans team that Create Offline Order sends no member notification, recorded as an owner-tracker answer. Option 1 conflicts with the standing rule that the migration flow never unmutes a site, so it needs an explicit, separately provisioned probe site — do not run it on a migration target."
+    },
+    {
+      "code": "lifecycle-state-not-settable-at-create",
+      "severity": "blocker",
+      "summary": "status, endDate, pausePeriods, cancellation, and lastPaymentStatus are all read-only on the Order object; the only writable create inputs are startDate, paid, couponCode, submissionId. A source PAUSED contract needs a post-create Pause Order call (only ACTIVE orders can be paused); CANCELED/ENDED source contracts cannot be recreated in that state natively - keep them as CMS-only history."
+    },
+    {
+      "code": "past-start-date-accepted",
+      "severity": "info",
+      "summary": "RESOLVED — VERIFIED LIVE 2026-08-16 (this pitfall was 'past-start-date-undocumented'; the probe answered it). A backdated startDate IS accepted and preserved: a weekly plan ordered with startDate 2025-06-01 came back status ACTIVE with startDate 2025-06-01 and a server-computed currentCycle { index: 64, startedDate, endedDate } — Wix replays the cycle schedule forward from the backdated start rather than clamping to now. So the original signup date AND the billing anniversary can both be preserved in one field, and the next-payment-date trade-off described in next-payment-date-not-settable is real but resolvable: pick startDate = the source signup date and the derived anniversary follows automatically. Note the cycle index is exposed, so a source contract's cycle count can be cross-checked after import."
+    },
+    {
+      "code": "paid-flag-settles-asynchronously",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: with paid:true at create, the CREATE RESPONSE returned lastPaymentStatus: 'UNPAID' and a GET moments later returned 'PAID'. The payment state settles asynchronously behind the create call. An importer that asserts lastPaymentStatus off the create response will record a false negative for every contract; re-read the order (or accept eventual consistency) before writing the crosswalk or the verification artifact."
+    },
+    {
+      "code": "next-payment-date-not-settable",
+      "severity": "warning",
+      "summary": "There is no next-payment-date input; Wix derives the payment schedule from startDate plus the plan's billingCycle. The source contract's next_payment_date can only be honored by choosing startDate so the cycles align - which trades off against preserving the original start date."
+    },
+    {
+      "code": "business-address-precondition",
+      "severity": "warning",
+      "summary": "Create Offline Order is documented to fail with 428 MISSING_BUSINESS_ADDRESS_STATE / MISSING_BUSINESS_ADDRESS_COUNTRY when the site business address is incomplete; configure it during setup, not at import time. NOT REPRODUCED 2026-08-16: the probe site's GET /site-properties/v4/properties returned no businessAddress at all (only locale/currency/timezone) and the offline order still created successfully — so the precondition either depends on the plan's tax configuration or is not enforced on every path. Keep the setup step (it is cheap and the documented error is specific), but do not treat a missing business address as a hard preflight blocker without reproducing the 428."
+    },
+    {
+      "code": "order-snapshot-mislabels-plan-description",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: the order snapshots planName and planDescription at creation, but planDescription came back as a COPY OF THE PLAN NAME, not the plan's actual description — the plan itself retained its real description. This matters because the accepted trade-off for the severed Stores-product linkage is 'the source product name survives in the plan title/description': that provenance survives on the PLAN, not on the order record. Do not read source provenance out of order.planDescription."
+    },
+    {
+      "code": "orders-are-cancel-only-never-deletable",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: there is no delete for a pricing-plan order. POST /pricing-plans/v2/orders/{id}/cancel with { effectiveAt: 'IMMEDIATELY' } → 200 and the order moves to status CANCELED with endDate = the cancel instant, but the record and its subscriptionId persist forever. A faulty contract import cannot be rolled back to a clean slate the way imported eCom orders can (Bulk Delete Imported Orders has no counterpart here) — which is a second, independent reason to keep this write behind an explicit approval gate."
+    }
+  ],
+  "mappingGuidance": [
+    "Per active subscriber: create/crosswalk the plan first (pricing-plans/plan), resolve memberId via the member-import crosswalk (400 MEMBER_DOESNT_EXIST is the hard dependency - members import must run first), then POST the offline order; planId + memberId are the only required fields.",
+    "Set paid:true for contracts whose current cycle is already collected on the source (lastPaymentStatus becomes PAID); leave paid:false only when the source cycle is genuinely unpaid. For free plans lastPaymentStatus is NOT_APPLICABLE regardless.",
+    "Recurring BILLING never migrates - payment tokens do not carry and an offline order has no charge method attached; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Decision: Spec Owner 2026-08-16.",
+    "The Stores-product linkage is severed: the contract is recreated as a Pricing Plans membership and the source product name survives only in the plan title/description - trade-off accepted by Spec Owner 2026-08-16.",
+    "Status mapping: source active -> startDate now or past (ACTIVE); source pending-start -> future startDate (PENDING); source paused -> create ACTIVE then Pause Order; source cancelled/expired -> do not recreate natively, land the historical record in CMS.",
+    "Plan purchase limits are ignored for offline orders (documented), so per-member limits on the recreated plan cannot block the import.",
+    "Persist the returned order.id and subscriptionId against the source subscription id in the crosswalk at create time; the order also snapshots planName/planPrice at creation (but NOT a usable planDescription — see order-snapshot-mislabels-plan-description).",
+    "Observed live 2026-08-16: the created order also carries buyer.contactId, a wixPayOrderId, and onEcom: true — plan orders now surface through the eCom stack, so a plan-order import is visible to eCom-side views even though it is not an eCom order. Factor that into any post-import reconciliation that counts orders."
+  ],
+  "setupRequirements": [
+    "Wix Pricing Plans app installed — appDefId 1522827f-c56c-a5c9-2ac9-00f9e6ae12d3, installable via the App Installation API (see pricing-plans/plan). Observed live 2026-08-16: the actual pre-install failure on Plans V3 is 428 APP_NOT_INSTALLED carrying that appId, not the documented PRICING_PLANS_NOT_INSTALLED — match on the HTTP 428 and the appId, not the application-code string.",
+    "Site business address configured (documented 428 MISSING_BUSINESS_ADDRESS_STATE/COUNTRY — not reproduced 2026-08-16, see business-address-precondition)",
+    "Members import completed (memberId is required; 400 MEMBER_DOESNT_EXIST)",
+    "SCOPE.DC-PAIDPLANS.MANAGE-ORDERS"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/order-object",
+      "note": "object page: status enum (DRAFT/PENDING/ACTIVE/PAUSED/ENDED/CANCELED), endDate/pausePeriods/cancellation/lastPaymentStatus all read-only, buyer memberId+contactId, type OFFLINE (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/create-offline-order",
+      "note": "POST https://www.wixapis.com/pricing-plans/v2/checkout/orders/offline; required planId + memberId; settable paid (default false), startDate (default now; PENDING when future, ACTIVE otherwise), couponCode, submissionId; purchase limits ignored for offline orders; errors incl. PRICING_PLANS_NOT_INSTALLED, MEMBER_DOESNT_EXIST, MISSING_BUSINESS_ADDRESS_* (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/mark-as-paid",
+      "note": "'Subsequent offline payments do trigger events and emails' - the documented email trigger on this surface; also: an offline order cannot be marked paid twice (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/pause-order",
+      "note": "only ACTIVE orders can be paused; pausing extends endDate; Cancel Order supports IMMEDIATELY or NEXT_PAYMENT_DATE; Postpone End Date requires a later endDate and cannot target PAUSED orders (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
+      "note": "commerce.subscription-contracts pending entry: researched surfaces and the accepted recreation trade-off, resolved by Spec Owner 2026-08-16"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / SITE MUTED (mute state re-read immediately before the write: muted true, reason 'RePlatform migration — probe-run-20260812'). A throwaway member with the undeliverable address zzz-probe-planorder@example.invalid was created, then POST /pricing-plans/v2/checkout/orders/offline { planId, memberId, paid: true, startDate: '2025-06-01T00:00:00.000Z' } → 200. MECHANICS verified: status ACTIVE, backdated startDate preserved, currentCycle index 64 derived from it, type OFFLINE, subscriptionId + wixPayOrderId + buyer.contactId + onEcom true returned, lastPaymentStatus UNPAID in the create response then PAID on re-read. NOTIFICATION BEHAVIOR NOT VERIFIED: the site was muted and the address undeliverable, so no conclusion about member email can be drawn — importSafe stays false. Cleanup: order cancelled IMMEDIATELY (status CANCELED, endDate stamped; no delete exists), probe member deleted, probe plan archived."
+    }
+  ],
+  "notes": "Authored 2026-08-16 from Spec Owner's confirmation that WooCommerce active-subscription records migrate by recreation as Pricing Plans memberships (Plans V3 Create Plan + Orders Create Offline Order per subscriber). A live probe on 2026-08-16 verified the write MECHANICS end to end (see the live-run evidence entry) and resolved the backdated-startDate question in favour of full signup-date + billing-anniversary fidelity — but preferredWrite.verification stays 'docs' and importSafe stays FALSE, because the one thing that gates this entity, member-notification behaviour, remains unproven: the probe ran under a site-wide notification mute against an undeliverable address, which makes silence uninformative. See notification-proof-requirements for the two ways to settle it. Codegen must keep treating this as a guarded write behind the approval gate."
+}

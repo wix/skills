@@ -1,0 +1,196 @@
+{
+  "$comment": "TEMPLATE / EXAMPLE for migrations/<project>/source-schema.json when platform=csv. This is a shape to follow, NOT a strict schema to validate against. Both the producer (rp-discovery) and the consumer (rp-mapper) are LLMs, so structure is a convention that prevents drift, not a hard contract. Keep the agnostic core stable across platforms; push CSV quirks into the open `sourceMeta` blob. Synthesize it from data/csv-discovery/fileset.json.",
+
+  "platform": "csv",
+  "capturedAt": "2026-07-28T00:00:00.000Z",
+  "rawDiscovery": "data/csv-discovery/",
+
+  "sourceMeta": {
+    "$comment": "CSV specifics live here so the agnostic core stays identical to every other platform.",
+    "csvInputRoot": "inputs/",
+
+    "sourceFiles": [
+      {
+        "file": "products_export.csv",
+        "role": "product",
+        "vendor": "shopify",
+        "roleSource": "vendor-filename-hint",
+        "layout": { "pattern": "grouped-by-key", "groupKey": "Handle", "continuation": "blank-key" }
+      },
+      {
+        "file": "products_export-2.csv",
+        "role": "product",
+        "partOf": "products_export.csv",
+        "headerRelation": "identical",
+        "rowOffset": 5000,
+        "$comment": "Shape C: same role + same normalized column set = one logical stream. partOf keeps the provenance of each row set visible."
+      },
+      {
+        "file": "categories.csv",
+        "role": "category",
+        "vendor": "custom",
+        "layout": { "pattern": "flat" }
+      }
+    ],
+
+    "vendor": {
+      "$comment": "Per file when the set mixes vendors. Confidence and evidence are recorded so a low-confidence match is visible rather than silently chosen.",
+      "name": "shopify",
+      "confidence": 1,
+      "source": "fingerprint",
+      "profileVersion": "2026-07",
+      "evidence": "required 2/2; strong 5/5; score 1; runner-up woocommerce 0.04"
+    },
+
+    "dialect": {
+      "delimiter": ",",
+      "encoding": "utf8",
+      "bom": null,
+      "lineEnding": "\r\n",
+      "emptyPolicy": "always-empty",
+      "$comment": "emptyPolicy is DETECTED, not assumed: `present-if-quoted` only when the file contains both a quoted and an unquoted empty. Generated readers apply it through coerceEmpty so a required Wix field is never fed an empty string the source did not have."
+    },
+
+    "drift": {
+      "$comment": "The header read at discovery time is authoritative; the vendor profile is advisory. These two lists make profile drift visible to the mapper and the user instead of silent.",
+      "unmappedColumns": ["Metafield: custom.fit"],
+      "missingExpectedColumns": []
+    },
+
+    "mappingHints": [
+      {
+        "$comment": "ADVISORY pre-fill from the vendor overlay's columnMap. rp-mapper reviews and corrects these; it never accepts them unchecked, and every column not covered here still flows through the mapper and the user unchanged.",
+        "column": "Variant SKU",
+        "wixTarget": "variant.sku",
+        "matchedAlias": "Variant SKU"
+      }
+    ],
+
+    "quirks": [
+      "A row with a blank Handle continues the previous product.",
+      "The product CSV does NOT carry collection membership — Shopify collections need the Admin API or an app."
+    ],
+
+    "joins": [
+      {
+        "$comment": "v1.1. The schema is designed now; automatic detection lands with a real normalized bundle. v1 emits an empty array plus joinsDeferred=true.",
+        "from": "product.category_id",
+        "to": "category.id",
+        "confidence": 0.98,
+        "evidence": "value-overlap 4901/5000 sampled"
+      }
+    ],
+    "integrity": {
+      "$comment": "v1.1.",
+      "orphanRefs": [{ "join": "product.category_id", "missing": 12 }]
+    }
+  },
+
+  "entities": {
+    "product": {
+      "rawFile": "product--product.md",
+      "$comment": "origin.kind is the CSV addition to the agnostic core: an entity comes from one row, one row group, or the distinct values of a column. The reader needs it to know how to materialize the entity.",
+      "origin": {
+        "kind": "row-group",
+        "file": "products_export.csv",
+        "groupKey": "Handle",
+        "continuation": "blank-key"
+      },
+      "recordCount": 812,
+      "inUse": true,
+      "primaryKey": "Handle",
+
+      "fields": {
+        "Handle": { "type": "string", "required": true, "identifier": true, "example": "classic-tee" },
+        "Title": { "type": "string", "required": true, "example": "Classic Tee" },
+        "Body (HTML)": { "type": "string", "required": false, "richText": true },
+        "Vendor": { "type": "string", "required": false, "example": "Acme" }
+      },
+
+      "relations": [
+        { "field": "variants", "targetEntity": "variant", "cardinality": "one-to-many", "evidence": "layout.groupKey=Handle" },
+        { "field": "images", "targetEntity": "image", "cardinality": "one-to-many", "evidence": "layout.columnGroups[image]" },
+        { "field": "categories", "targetEntity": "category", "cardinality": "many-to-many", "evidence": "column:Product Category" },
+        { "field": "tags", "targetEntity": "tag", "cardinality": "many-to-many", "evidence": "column:Tags" }
+      ]
+    },
+
+    "variant": {
+      "rawFile": "product--variant.md",
+      "origin": {
+        "kind": "row-group",
+        "file": "products_export.csv",
+        "groupKey": "Handle",
+        "columnGroup": "variant",
+        "$comment": "Every row in the group carries a variant, INCLUDING the group head — a Shopify product's first variant lives on its head row."
+      },
+      "recordCount": 2310,
+      "inUse": true,
+      "fields": {
+        "Variant SKU": { "type": "string", "required": false, "identifier": true },
+        "Variant Price": { "type": "number", "required": true },
+        "Option1 Value": { "type": "string", "required": false }
+      }
+    },
+
+    "image": {
+      "rawFile": "product--image.md",
+      "origin": {
+        "kind": "row-group",
+        "file": "products_export.csv",
+        "groupKey": "Handle",
+        "columnGroup": "image",
+        "distinctBy": "Image Src",
+        "$comment": "A third collection inside the same row group. Only the vendor overlay's columnGroups can separate it from the variant columns — both vary within a product."
+      },
+      "recordCount": 1904,
+      "inUse": true
+    },
+
+    "category": {
+      "rawFile": "product--category.md",
+      "origin": {
+        "kind": "column-values",
+        "file": "products_export.csv",
+        "column": "Product Category",
+        "hierarchySeparator": ">",
+        "multiValueSeparator": null,
+        "linkPolicy": "leaf"
+      },
+      "$comment": "hierarchical=true MUST be set when the derived paths are nested. A hierarchical source taxonomy mapped to a flat Wix target triggers the mapper's mandatory faithfulness-ledger entry; without the flag the flatten happens silently. The reader emits one record per distinct path INCLUDING ancestors, depth-ascending, so the import creates a parent before its child.",
+      "hierarchical": true,
+      "recordCount": 46,
+      "inUse": true,
+      "fields": {
+        "id": { "type": "string", "required": true, "identifier": true, "example": "apparel-accessories/clothing/shirts" },
+        "name": { "type": "string", "required": true, "example": "Shirts" },
+        "path": { "type": "string", "required": true, "example": "Apparel & Accessories > Clothing > Shirts" },
+        "parentId": { "type": "string", "required": false, "example": "apparel-accessories/clothing" }
+      },
+      "relations": [
+        { "field": "parentId", "targetEntity": "category", "cardinality": "many-to-one", "evidence": "hierarchySeparator=> (self-reference)" }
+      ]
+    },
+
+    "tag": {
+      "rawFile": "product--tag.md",
+      "origin": {
+        "kind": "column-values",
+        "file": "products_export.csv",
+        "column": "Tags",
+        "multiValueSeparator": ",",
+        "linkPolicy": "leaf"
+      },
+      "recordCount": 128,
+      "inUse": true,
+      "$comment": "Wix Stores product tags are a native target that must be created before products and referenced by id — same create-then-link shape as categories."
+    }
+  },
+
+  "assumptions": [
+    "Record counts are exact when the file was scanned in full; when data/csv-discovery/raw-capture.json reports scan.truncated, they reflect the scanned prefix."
+  ],
+  "unknowns": [
+    "Metafield: custom.fit is present in the file but not covered by the shopify profile's columnMap."
+  ]
+}

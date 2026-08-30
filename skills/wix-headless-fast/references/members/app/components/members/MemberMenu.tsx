@@ -21,22 +21,29 @@ export interface MemberMenuProps {
   LinkComponent?: ComponentType<LinkLikeProps>;
 }
 
-export default function MemberMenu({ accountHref = "/account", LinkComponent = PlainLink }: MemberMenuProps) {
-  const { member, loggedIn, loading, login, logout } = useMember();
+export default function MemberMenu({
+  accountHref = "/account",
+  LinkComponent = PlainLink,
+}: MemberMenuProps) {
+  const { member, loggedIn, loading, logout } = useMember();
 
   if (loading) {
-    return <span className="inline-block h-8 w-16 animate-pulse rounded-full bg-secondary" aria-hidden="true" />;
+    return (
+      <span
+        className="inline-block h-8 w-16 animate-pulse rounded-full bg-secondary"
+        aria-hidden="true"
+      />
+    );
   }
 
   if (!loggedIn) {
     return (
-      <button
-        type="button"
-        onClick={() => void login()}
+      <a
+        href="/login"
         className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
       >
         Log in
-      </button>
+      </a>
     );
   }
 
@@ -47,7 +54,11 @@ export default function MemberMenu({ accountHref = "/account", LinkComponent = P
         className="flex items-center gap-2 text-sm font-medium text-foreground no-underline transition-colors hover:text-muted-foreground"
       >
         {member?.photoUrl ? (
-          <img src={member.photoUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+          <img
+            src={member.photoUrl}
+            alt=""
+            className="h-7 w-7 rounded-full object-cover"
+          />
         ) : (
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold">
             {(member?.displayName ?? "M").slice(0, 1).toUpperCase()}

@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -306,6 +306,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ---
 
+## Google Business Profile
+
+**Routing — how a business appears on Google Search and Maps.** A Google connection is the prerequisite for all Google-backed location work: check it first, and route "connect / reconnect / disconnect Google" to the connection recipe.
+
+### [Connect a Wix Site to Google Business Profile](references/google-business-profile/connect-google-business-profile.md)
+**Technical:** Establishes, checks, and removes the site's Google Business Profile connection. Reads the connection status (`NEVER_CONNECTED` / `VALID` / `NEEDS_RECONNECT`), requests a single-use 15-minute connect URL for the site owner to authorize in their own browser, confirms completion by re-reading the status, and warns before any reconnect that permanently removes the site's imported locations. Never auto-retries the non-idempotent connect-URL call.
+
+### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
+**Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
+
+---
+
 ## Marketing
 
 ### [Create and Publish a Social Media Post (with AI generation)](references/marketing/create-and-publish-social-post.md)
@@ -417,7 +429,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, and the writable choice/variant fields — media & displayImage, SKU/barcode, price incl. compareAtPrice (sale), visibility — plus revision-based updates and which fields are read-only (choice inStock/visible, variant media/inventory).
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.

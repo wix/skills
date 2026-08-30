@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "domain": "gift-cards",
+  "docsRoots": [
+    "api-reference/business-solutions/gift-cards"
+  ],
+  "displayName": "Wix Gift Cards",
+  "ownerHint": "Gift cards, stored value, and store credit domain owners",
+  "wixAppsRequired": [
+    "Wix Gift Card"
+  ],
+  "defaultImportOrder": [
+    "gift-card-product",
+    "gift-card"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "gift-card-app-required",
+      "severity": "blocker",
+      "summary": "The Wix Gift Card app must be installed before any gift-card write; verify during setup rather than discovering it at import time. appDefId d80111c5-a0f4-47a8-b63a-65b54d774a27 (per dev.wix.com's 'About Apps Created by Wix' table — DO NOT reuse an example id from other docs, e.g. Wix eCommerce's 1380b703-… is a real, easy-to-confuse-with-the-right-one dependency it pulls in). VERIFIED LIVE 2026-08-17: a site with no gift-card app installed fails create with `428 RISE_ACCOUNT_DOES_NOT_EXIST_FOR_META_SITE`, not an auth or validation error — install via the standard App Installation API (`POST /apps-installer-service/v1/app-instance/install`, body `{ appInstance: { appDefId, enabled: true }, tenant: { tenantType: \"SITE\", id: <siteId> }, installType: \"INSTALL_TYPE_SITE\", appsInstallOptions: {} }`), then retry."
+    },
+    {
+      "code": "distinguish-gift-card-surfaces",
+      "severity": "warning",
+      "summary": "Two Wix gift-card surfaces exist. `gift-cards/v1` creates and manages cards. The eCommerce payments gift-card surface only gets/redeems/voids cards issued by an external provider and is NOT an import path."
+    },
+    {
+      "code": "gifted-app-is-unrelated-third-party",
+      "severity": "warning",
+      "summary": "\"Gifted\" is a separate THIRD-PARTY app in the App Market, unrelated to the native \"Wix Gift Cards\" app this domain targets. Gifted stopped supporting new-card issuance on 2026-07-31 (existing cards still work) — that deprecation notice is easy to find while researching this domain and is NOT about the native gift-cards/v1 API, which is unaffected. Do not let a Gifted-app finding get attributed to this domain."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/introduction"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix",
+      "note": "source of the appDefId above"
+    },
+    {
+      "type": "support-article",
+      "url": "https://support.wix.com/en/article/offering-gift-cards-with-the-gifted-app",
+      "note": "source of the Gifted-app deprecation notice and its third-party status"
+    }
+  ]
+}

@@ -28,6 +28,10 @@ Supplementary files such as `constants.ts`, hooks, or internal sub-components
 are allowed when the implementation needs them. Keep the scaffolded files and
 their responsibilities intact.
 
+## Identity of SDK Calls
+
+A component runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
+
 ## Workflow
 
 1. **Scaffold only when creating.** If the component folder does not exist, run:

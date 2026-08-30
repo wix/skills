@@ -1,0 +1,41 @@
+name: editor-react-component/admin-scoped-call-routing
+description: Editor React component needing admin-only Locations methods — both the list and the archive must be routed through a backend endpoint that elevates, not called or elevated inside the component
+triggerPrompt: |-
+  Build an Editor React component for my app that shows the site's business locations, and lets the site owner archive a location from the component. Use the Wix Locations API.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [editor-react-component, backend-api]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/EDITOR_REACT_COMPONENT.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BACKEND_API.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Both Locations methods this task needs are admin-only: `locations.archiveLocation` (scope `SCOPE.DC-MULTILOCATION.MANAGE-LOCATIONS`) and `locations.queryLocations` (scope `SCOPE.DC-MULTILOCATION.READ-LOCATIONS` — still admin-only despite being a read; its docs ship elevated examples). An Editor React component runs as a site visitor or member, and `auth.elevate` from `@wix/essentials` only works in backend code, so neither call can happen in the component.
+
+      Editor React components are scaffolded under `src/extensions/site/components/<folder>/` — that is the component code, NOT `src/site/`.
+
+      Evaluate whether the agent routed both calls. Check: (1) Neither `auth.elevate` nor a direct `locations.*` SDK call appears anywhere under `src/extensions/site/`. **The read counts** — a component that routes the archive but calls `queryLocations` directly to populate its list is wrong, and its list would not populate at runtime. (2) One or more HTTP endpoints under `src/pages/api/` wrap both `queryLocations` and `archiveLocation` with `auth.elevate`. (3) The component reaches them with `httpClient.fetchWithAuth()` from `@wix/essentials` — a bare `fetch` sends no identity and is wrong. (4) The archive endpoint either restricts who can invoke it, or the agent states what it checked and why that check cannot establish the caller is the site owner. Elevation bypasses Wix's permission check, so an unguarded endpoint lets any site visitor archive a location; there is no documented way for a site extension's endpoint to prove owner identity, so an agent that tried, named the gap, and flagged the residual risk scores as well as one that found a mechanism. An agent that shipped an unguarded endpoint without engaging the question at all fails this criterion. (5) The agent surfaced adding the Locations scopes in Dev Center as a manual step.
+
+      Score 0-10. Score 3 or below if `auth.elevate` or any `locations.*` call appears under `src/extensions/site/`, regardless of how good the rest of the code is.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took, not just the final files. Check: (1) It settled the identity question before writing the calls, rather than discovering it by trial and error after a runtime failure. Concluding "READ-LOCATIONS is a read, so it's fine in the component" is the specific failure to penalize; so is asserting an identity requirement from the SDK schema line's client prefix, which reads `wixClientAdmin` for every method in the docs and carries no signal. (2) It read the Backend API reference before creating the endpoint, and the Editor React component reference before scaffolding. (3) It used `npx wix generate` to scaffold, unless the starter project already contained the component directory, in which case editing in place is correct. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

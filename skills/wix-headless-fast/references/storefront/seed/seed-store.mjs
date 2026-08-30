@@ -13,7 +13,7 @@
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
 //                                   "choices": ["S","M"] | [{ "name", "colorCode" }] }],
-//                    "imageUrl"?, "altText"? }],
+//                    "imageUrl"? | "imagePrompt"?, "altText"? }],
 //     "categories"?: { "<category name>": ["<product name>", ...] } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
@@ -21,6 +21,7 @@
 // source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -46,6 +47,8 @@ async function req(ctx, path, { method = "POST", body } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3
   // WRITE path becomes usable later than the read path, so the first bulk-create can 428 even
   // after the read probe clears. Wait it out (~80s budget); other errors throw immediately.
+  // ⚠️ An errored bulk create (seen live with a bare 429 {}) may still have APPLIED
+  // server-side — creation is idempotent by name in setupStore for exactly that reason.
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(API + path, {
       method,
@@ -76,6 +79,7 @@ function isProvisioning(status, json) {
   return status === 428 && /provision/i.test(json?.message || "");
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
 async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
@@ -179,6 +183,7 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }) {
 
 // ---- operations ---------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installStoresApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -191,6 +196,25 @@ export async function installStoresApp(ctx) {
   await waitForCatalogV3(ctx);
 }
 
+// Existing products by exact name (for idempotent reruns). `name` is NOT filterable on the
+// V3 query — fetch a page and match client-side (seed catalogs are small). Empty map on any
+// failure — falling back to create-everything is the additive behavior we had before.
+export async function queryProductsByNames(ctx, names) {
+  const out = new Map();
+  if (!names.length) return out;
+  try {
+    const wanted = new Set(names);
+    const r = await req(ctx, "/stores/v3/products/query", { body: { query: { cursorPaging: { limit: 100 } } } });
+    for (const p of r.products ?? []) {
+      if (wanted.has(p.name) && !out.has(p.name)) out.set(p.name, { id: p.id, slug: p.slug, revision: p.revision });
+    }
+  } catch (e) {
+    console.error(`product name pre-check failed (creating everything): ${String(e.message).slice(0, 120)}`);
+  }
+  return out;
+}
+
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
 export async function bulkCreateProducts(ctx, products) {
   const body = {
     returnEntity: true,
@@ -219,6 +243,8 @@ export async function bulkCreateProducts(ctx, products) {
 
 // The bulk create stocks a variant via its choices; an OPTION-LESS product's single default
 // variant is NOT stocked by it and lands OUT_OF_STOCK — stock those explicitly.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items.md
 async function stockOptionlessProducts(ctx, created) {
   const need = created.filter((p) => !p.hasOptions && p.id);
   if (!need.length) return;
@@ -237,6 +263,7 @@ async function stockOptionlessProducts(ctx, created) {
 }
 
 // Categories share the @wix/stores tree revision — concurrent creates 409, so: sequential.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
 export async function createCategories(ctx, names) {
   const out = [];
   for (const name of names) {
@@ -248,6 +275,7 @@ export async function createCategories(ctx, names) {
   return out;
 }
 
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md
 export async function addProductsToCategories(ctx, mapping) {
   for (const [categoryId, productIds] of Object.entries(mapping)) {
     await req(ctx, `/categories/v1/bulk/categories/${categoryId}/add-items`, {
@@ -263,6 +291,7 @@ export async function addProductsToCategories(ctx, mapping) {
 // current revision is read right before the update, so attach any number of times, any pass.
 // Wix re-hosts each url server-side; the media can take a little while to appear on read-back
 // (propagation) — normal, not a failure.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products.md
 export async function attachProductImages(ctx, items) {
   if (!items?.length) return;
   const ids = items.map((it) => it.id);
@@ -284,8 +313,17 @@ export async function attachProductImages(ctx, items) {
 export async function setupStore(ctx, { products = [], categories = {} } = {}) {
   await installStoresApp(ctx);
 
-  const created = await bulkCreateProducts(ctx, products);
-  const withNames = created.map((p, i) => ({ ...p, name: products[i]?.name }));
+  // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
+  // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
+  // exist yet makes that rerun safe instead of a duplicator.
+  const existing = await queryProductsByNames(ctx, products.map((p) => p.name));
+  const toCreate = products.filter((p) => !existing.has(p.name));
+  const created = toCreate.length ? await bulkCreateProducts(ctx, toCreate) : [];
+  const createdByName = new Map(created.map((p, i) => [toCreate[i]?.name, p]));
+  const withNames = products.map((p) => {
+    const hit = createdByName.get(p.name) ?? existing.get(p.name);
+    return { ...(hit ?? {}), name: p.name };
+  });
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
 
   const names = Object.keys(categories);
@@ -299,12 +337,26 @@ export async function setupStore(ctx, { products = [], categories = {} } = {}) {
     if (Object.keys(mapping).length) await addProductsToCategories(ctx, mapping);
   }
 
+  // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
+  // bulk-attach. Failures leave the product text-only; the seed's exit never depends on images.
+  const files = await resolveItemImages(ctx, withNames.map((p, i) => ({
+    url: products[i]?.imageUrl,
+    path: products[i]?.imagePath,
+    prompt: products[i]?.imagePrompt,
+    displayName: `${p.slug || "product"}.png`,
+  })));
   const imageItems = withNames
-    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
-    .filter((it) => it.url);
-  if (imageItems.length) await attachProductImages(ctx, imageItems);
+    .map((p, i) => (files[i] && p.id ? { id: p.id, url: files[i].url, altText: products[i]?.altText ?? p.slug } : null))
+    .filter(Boolean);
+  let imagesAttached = 0;
+  try {
+    if (imageItems.length) await attachProductImages(ctx, imageItems);
+    imagesAttached = imageItems.length;
+  } catch {
+    /* never block on image failure — the products stay text-only */
+  }
 
-  return { products: withNames, categories: cats, imagesAttached: imageItems.length };
+  return { products: withNames, categories: cats, imagesAttached };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------

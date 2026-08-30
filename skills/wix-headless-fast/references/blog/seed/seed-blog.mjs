@@ -12,7 +12,7 @@
 // Plan shape (see SEED.md):
 //   { "categories"?: [name], "tags"?: [name],
 //     "posts": [{ "title", "content": [blocks] | "richContent"?, "category"?|"categories"?,
-//                 "tags"?, "coverImageUrl"? }] }
+//                 "tags"?, "coverImageUrl"? | "coverImagePrompt"? }] }
 //   content blocks: { type:"heading", text, level? } | { type:"paragraph", text }
 //     | { type:"quote", text } | { type:"bulleted"|"ordered", items:[text,…] }
 //
@@ -21,6 +21,7 @@
 // wix-headless/references/inline-recipes/setup-blog.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
@@ -105,6 +106,7 @@ function buildPost(p, i, memberId) {
 
 // ---- operations ----------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installBlogApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -118,6 +120,7 @@ export async function installBlogApp(ctx) {
 
 // Every post create needs a REAL author memberId — a fabricated id fails with
 // "memberIds ... do not exist". A provisioned site has the owner as members[0].
+// docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/members/list-members.md
 export async function getAuthorMemberId(ctx) {
   const r = await req(ctx, "/members/v1/members?fieldsets=PUBLIC&paging.limit=1", { method: "GET" });
   const id = r.members?.[0]?.id;
@@ -130,6 +133,8 @@ export async function getAuthorMemberId(ctx) {
  * Endpoint auto-selected per the recipe: single-post endpoint for exactly one (nested
  * `{ draftPost }` envelope), bulk for >= 2 — `bulk` sits BETWEEN v3 and draft-posts, and each
  * bulk item is FLAT (wrapping it in `draftPost` 400s). Returns [{ id, index, success }].
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts.md
  */
 export async function createPosts(ctx, posts, { memberId, publish = true } = {}) {
   if (!memberId) throw new Error("createPosts requires opts.memberId (see getAuthorMemberId)");
@@ -147,6 +152,8 @@ export async function createPosts(ctx, posts, { memberId, publish = true } = {})
 }
 
 // Existing label -> id, straight from the query (the source of truth for what persisted).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 async function labelIdMap(ctx, kind) {
   const path = kind === "categories" ? "/blog/v3/categories/query" : "/v3/tags/query";
   const r = await req(ctx, path, { body: { query: { paging: { limit: 100 } } } });
@@ -177,28 +184,29 @@ async function ensureLabels(ctx, kind, createPath, mkBody, names) {
 }
 
 /** Create categories idempotently by label (no bulk endpoint). Feed ids into post.categoryIds. */
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/create-category.md
 export async function createCategories(ctx, names) {
   return ensureLabels(ctx, "categories", "/blog/v3/categories", (name) => ({ category: { label: name } }), names);
 }
 
 /** Create tags idempotently by label. Feed ids into post.tagIds. */
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/create-tag.md
 export async function createTags(ctx, names) {
   return ensureLabels(ctx, "tags", "/blog/v3/tags", (name) => ({ label: name }), names);
 }
 
-// Blog binds a post cover by Wix Media file ID — an external url must be imported first.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// Blog binds a post cover by Wix Media file ID — an external url must be imported first; a
+// plan `coverImagePrompt` is generated (Wix AI, 1 credit) then imported. Both live in the
+// shared util (parallel, resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // covers: [{ postId, fileId }] where fileId is the Wix Media file.id from importImage. Per
 // post: PATCH /blog/v3/draft-posts/{id} (NOT POST …/{id}/update — that 404s), setting
 // media.displayed:true + media.custom:true + wixMedia.image.id (the id ALONE is a silent
 // no-op), then RE-PUBLISH — the PATCH sets hasUnpublishedChanges, so the live post stays
 // cover-less until republished. Image failures never block the run.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/update-draft-post.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/publish-draft-post.md
 export async function attachPostCovers(ctx, covers) {
   let attached = 0;
   for (const { postId, fileId } of covers) {
@@ -243,17 +251,17 @@ export async function setupBlog(ctx, { posts = [], categories = [], tags = [] } 
     };
   }), { memberId });
 
-  const covers = [];
-  for (let i = 0; i < created.length; i++) {
-    const url = posts[i]?.coverImageUrl;
-    if (!created[i]?.id || !created[i]?.success || !url) continue;
-    try {
-      const file = await importImage(ctx, url, `post-${i}.png`);
-      covers.push({ postId: created[i].id, fileId: file.id });
-    } catch {
-      /* never block on image failure — the post stays text-only */
-    }
-  }
+  // Pass 2 — covers: resolve (import by url / generate by prompt) in one parallel wave, then
+  // attach (PATCH + re-publish per post). Failures leave the post text-only; the seed's exit
+  // never depends on images.
+  const files = await resolveItemImages(ctx, created.map((c, i) => (
+    c?.id && c?.success
+      ? { path: posts[i]?.coverImagePath, url: posts[i]?.coverImageUrl, prompt: posts[i]?.coverImagePrompt, displayName: `post-${i}.png` }
+      : null
+  )));
+  const covers = created
+    .map((c, i) => (files[i] ? { postId: c.id, fileId: files[i].id } : null))
+    .filter(Boolean);
   const coversAttached = covers.length ? await attachPostCovers(ctx, covers) : 0;
 
   return { posts: created, categories: cats, tags: tgs, coversAttached };

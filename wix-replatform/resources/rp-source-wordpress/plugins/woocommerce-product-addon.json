@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woocommerce-product-addon",
+  "displayName": "PPOM for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/woocommerce-product-addon/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.product-addon-fields",
+    "commerce.order-addon-values"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woocommerce-product-addon/woocommerce-product-addon"
+    ],
+    "routes": [
+      "/ppom/v1/admin/field-groups/context",
+      "/ppom/v1/nonces/file"
+    ],
+    "restNamespaces": [
+      "ppom/v1"
+    ],
+    "recordProperties": [
+      "_ppom_fields",
+      "_product_meta_id"
+    ],
+    "assetPathSlugs": [
+      "woocommerce-product-addon"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "addon-field-group",
+      "channel": "plugin-rest",
+      "route": "/ppom/v1/admin/field-groups/context",
+      "candidateTargetRefs": ["stores/product-customization"],
+      "pitfalls": [
+        {
+          "code": "configuration-not-durable-data",
+          "severity": "info",
+          "summary": "A field group is plugin CONFIGURATION (field types, titles, data_names, options with per-option add-on prices, conditional-visibility rules), not customer data — but it has a confirmed native home: stores/product-customization (Stores Customizations V3 modifiers/custom inputs; mapping confirmed by Spec Owner 2026-08-16). Open fidelity questions (conditional visibility, per-option pricing overrides, file-upload fields) are recorded as pitfalls on the target entity — pair field-by-field at mapping time."
+        },
+        {
+          "code": "no-enumeration-route",
+          "severity": "warning",
+          "summary": "There is NO route that lists field groups. GET /ppom/v1/admin/field-groups/context?productmeta_id=N returns exactly one group per numeric id (group settings + full fields[] array — [VERIFIED LIVE 2026-08-16] against the reference store, id 1 'PPOM Demo Field', 3 fields); with no or an unknown id it returns an empty template with productmeta_id 0, so a sampler that GETs the bare route sees a degenerate single object, not a collection. Enumerate ids by harvesting _product_meta_id from sampled /wc/v3/products meta_data, falling back to sequential id probing (ids are small AUTO_INCREMENT integers in the plugin's own table)."
+        },
+        {
+          "code": "admin-role-gated",
+          "severity": "warning",
+          "summary": "The context route is permission-gated by PPOM's own role setting (ppom_permission_mfields, default administrator — [DOCUMENTED] src/Admin/FieldModal/FieldModalRestController.php + Helpers::security_role(), v34.0.8). Unauthenticated GET returns 403 ppom_forbidden ([VERIFIED LIVE 2026-08-16]); the admin Application Password reads it fine — no extra credential, but an unauthenticated run cannot read field groups at all."
+        }
+      ]
+    },
+    {
+      "entity": "product-addon-assignment",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "_product_meta_id",
+      "candidateTargetRefs": ["stores/product-customization"],
+      "pitfalls": [
+        {
+          "code": "assignment-becomes-modifier-reference",
+          "severity": "warning",
+          "summary": "Which field group applies to which product is stored as unregistered product post meta _product_meta_id ([DOCUMENTED] define('PPOM_PRODUCT_META_KEY','_product_meta_id'), woocommerce-product-addon.php v34.0.8; value is the field-group id, historically also an array of ids). It surfaces through /wc/v3/products meta_data like other plugins' post meta, but [NEEDS-VERIFICATION] live for this key: on the test site the demo field group is attached to no product, and a scan of all 204 products' meta_data (2026-08-16) found no _product_meta_id. CONFIRMED mapping (Spec Owner 2026-08-16): the assignment becomes the product's customization references — product.modifiers[] entries citing the crosswalked customization ids (see stores/product-customization)."
+        },
+        {
+          "code": "variation-rules-separate-key",
+          "severity": "info",
+          "summary": "Per-variation visibility rules live in a second unregistered product meta key, _ppom_variation_meta_rules ([DOCUMENTED] PPOM_VARIATION_META_KEY, v34.0.8) — read it alongside _product_meta_id when a variable product restricts add-on fields to specific variations."
+        }
+      ]
+    },
+    {
+      "entity": "order-line-item-addon-values",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/orders"
+      ],
+      "propertyPath": "_ppom_fields",
+      "candidateTargetRefs": ["ecom/order-line-item-options"],
+      "pitfalls": [
+        {
+          "code": "description-lines-carry-values",
+          "severity": "warning",
+          "summary": "DURABLE customer data: the add-on values a buyer entered at purchase time are saved on each order line item — one visible meta entry per field keyed by its data_name (display value), plus the whole raw payload under hidden meta _ppom_fields since v15.2 ([DOCUMENTED] OrderHandler::order_item_meta(), src/WooCommerce/Order/OrderHandler.php v34.0.8: $item->update_meta_data($key, $meta_value) per field, then $item->update_meta_data('_ppom_fields', $values['ppom'])). Both ride in /wc/v3/orders line_items[].meta_data. CONFIRMED direction (Spec Owner 2026-08-16): Import Order lineItems[].descriptionLines[] (writable, max 20 lines, name.original <=100 chars, plainText.original <=600 chars), optionally mirroring machine-readable selections into lineItems[].catalogReference.options — target ecom/order-line-item-options; lineItems[].modifierGroups stays read-only on import ([DOCUMENTED] dev.wix.com import-order.md, fetched 2026-08-16)."
+        },
+        {
+          "code": "not-observed-on-reference-site",
+          "severity": "info",
+          "summary": "[NEEDS-VERIFICATION] live record shape: all 150 orders on the reference store were scanned 2026-08-16 and none carries PPOM line-item meta (the demo field group is attached to no product, so no order could capture values). The write path is verified against the plugin's own source, and the read channel (line_items[].meta_data via /wc/v3/orders) is the same one verified live for woo-discount-rules; the first source site with real PPOM orders should confirm the payload shape."
+        },
+        {
+          "code": "file-upload-values-reference-site-files",
+          "severity": "warning",
+          "summary": "File-upload and image-cropper field values reference files hosted on the WordPress site (PPOM renames uploads per order — [DOCUMENTED] OrderHandler::rename_files() / PPOM\\Files\\Handler, v34.0.8; cropper base64 payloads are stripped from _ppom_fields since v24.5). Migrating these values needs a media copy step, not just the meta value; the bare filename in the meta is not a working URL on Wix."
+        },
+        {
+          "code": "unprefixed-visible-meta-keys",
+          "severity": "info",
+          "summary": "The per-field visible meta keys are the merchant-chosen data_names (e.g. 'engraving_text') with no ppom_ prefix, so they cannot be recognized as PPOM's by key shape alone — resolve them through the field group's data_name list, or prefer the _ppom_fields envelope which is unambiguous."
+        }
+      ]
+    }
+  ],
+  "excludeRoutes": [
+    {
+      "route": "/ppom/v1/nonces/file",
+      "reason": "Runtime helper: returns fresh nonces for frontend file uploads (public, always registered). Useful as a detection signal, never data."
+    },
+    {
+      "route": "/ppom/v1/admin/field-groups/schema/*",
+      "reason": "Field-type JSON schema for the admin React modal (UI metadata, per field type), not site data."
+    },
+    {
+      "route": "/ppom/v1/set/product",
+      "reason": "Write route of the optional PPOM API (registered only when the API setting is enabled) — mutation, never read."
+    },
+    {
+      "route": "/ppom/v1/delete/product",
+      "reason": "Write route of the optional PPOM API — mutation, never read."
+    },
+    {
+      "route": "/ppom/v1/set/order",
+      "reason": "Write route of the optional PPOM API — mutation, never read."
+    },
+    {
+      "route": "/ppom/v1/delete/order",
+      "reason": "Write route of the optional PPOM API — mutation, never read."
+    }
+  ],
+  "quirks": [
+    "Exact plugin file id woocommerce-product-addon/woocommerce-product-addon, active, v34.0.8 [VERIFIED LIVE 2026-08-16 via GET /wp/v2/plugins on the reference store]. Formerly 'NM Personalized Order Meta' — which is why the custom table is named nm_personalized.",
+    "STORAGE MODEL: field-group definitions live in the plugin's OWN TABLE {prefix}nm_personalized ([DOCUMENTED] define('PPOM_TABLE_META','nm_personalized') + PPOM_Meta_Repository, v34.0.8), rows keyed productmeta_id — no CPT, nothing in /wp/v2/types ([VERIFIED LIVE 2026-08-16]). The only REST window into it is the always-registered admin route /ppom/v1/admin/field-groups/context (per-id). Product attachment is unregistered post meta _product_meta_id; captured order values are order-item meta (_ppom_fields + per-data_name entries) — REST-visible through /wc/v3 payloads, not through registered meta.",
+    "The ppom/v1 data/write API (/get/product, /get/id/{id}, /get/order, /set/*, /delete/*) is registered ONLY when the merchant enables the API setting AND sets a secret key (ppom_api_enable + ppom_rest_secret_key — [DOCUMENTED] Helpers::is_api_enable() + Rest\\Routes, v34.0.8). Off by default and absent from the live REST index [VERIFIED LIVE 2026-08-16]; the always-on routes are /ppom/v1/nonces/file (public) and /ppom/v1/admin/field-groups/{context,schema} (role-gated). Do not treat the optional routes' absence as the plugin being inactive.",
+    "Field-group configuration vs durable data: the group (field definitions, option prices, conditional logic) is reconfigurable state whose Wix home is Stores Customizations V3 modifiers/custom inputs (stores/product-customization); the values captured on historical orders are durable customer data whose Wix home is Import Order descriptionLines (ecom/order-line-item-options). Both mappings confirmed by Spec Owner 2026-08-16.",
+    "Frontend assets (asset-path fingerprint) are enqueued only on product pages whose product has a field group attached — the homepage of a site with an unattached group shows no woocommerce-product-addon asset path [VERIFIED LIVE 2026-08-16]. Treat assetPathSlugs as a weak, page-dependent signal; the public /ppom/v1 namespace in the REST index is the reliable no-auth signal."
+  ]
+}
