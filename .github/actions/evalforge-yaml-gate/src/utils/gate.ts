@@ -5,6 +5,7 @@ import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
+import { changedDocsEntries, validateDocsEntries } from './docs-entry-check';
 import { computeCoverage } from './coverage';
 import {
   EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
@@ -16,7 +17,7 @@ import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import type { ComparisonGroupResult } from './eval-pipeline';
 import {
-  formatForeignDraftConflicts,
+  formatDocsEntryProblems, formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
   comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
 } from './comment';
@@ -96,6 +97,7 @@ export async function runGate(): Promise<void> {
   await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber, core.info);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
+  const baseWorkspace = posix.join(workspace, BASE_WORKSPACE_SUBDIR);
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
 
   core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
@@ -114,6 +116,20 @@ export async function runGate(): Promise<void> {
     await comment(formatLoadErrors(loadErrors));
     fail(`Invalid YAML or duplicate names: ${loadErrors.length}`, config.blocking);
     return;
+  }
+
+  // A docsEntry that does not resolve to a docs menu category is a guaranteed
+  // silently-unexposed skill after merge.
+  const docsEntryTargets = changedDocsEntries(workspace, baseWorkspace);
+  if (docsEntryTargets.length > 0) {
+    const { problems, serviceError } = await validateDocsEntries(docsEntryTargets);
+    if (serviceError) {
+      core.warning(`Skipping docsEntry validation — docs menu unavailable: ${serviceError}`);
+    } else if (problems.length > 0) {
+      await comment(formatDocsEntryProblems(problems));
+      fail(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
+      return;
+    }
   }
 
   const allChanged = await guardedCall(
@@ -153,7 +169,6 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const baseWorkspace = posix.join(workspace, BASE_WORKSPACE_SUBDIR);
   const { scenarios: baseScenarios, errors: baseErrors } = loadEvals(baseWorkspace);
   for (const e of baseErrors) core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
 

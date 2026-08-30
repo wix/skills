@@ -66434,6 +66434,7 @@ exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
+exports.formatDocsEntryProblems = formatDocsEntryProblems;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -66495,6 +66496,24 @@ function formatTooManyNewSkills(count, limit, files) {
         'Please either:',
         '- Split across multiple PRs',
         '- Update existing skills instead of creating new ones',
+    ]);
+}
+function formatDocsEntryProblems(problems) {
+    const lines = problems.map((p) => {
+        const ref = `\`${p.yamlPath}\` → "${p.title}": \`${p.docsEntry}\``;
+        switch (p.kind) {
+            case 'portal-not-found':
+                return `- ${ref} — does not match any docs portal. Check the URL for typos.`;
+            case 'node-not-found':
+                return `- ${ref} — this page does not exist in the docs menu. If you just created the category, wait a minute and re-run this check.`;
+            case 'not-a-category':
+                return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` You could use the category that groups it (\`${p.suggestion}\`), or pick/create a different one.` : ' Point it at an existing category, or create one in the docs menu.'}`;
+        }
+    });
+    return render('❌', 'Invalid docsEntry', [
+        '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+        '',
+        ...lines,
     ]);
 }
 function formatServiceError(message, blocking) {
@@ -66988,6 +67007,181 @@ function canonicalDocUrl(filePath, workspace) {
 
 /***/ }),
 
+/***/ 7018:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.changedDocsEntries = changedDocsEntries;
+exports.validateDocsEntries = validateDocsEntries;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const glob_1 = __nccwpck_require__(1363);
+const jsYaml = __importStar(__nccwpck_require__(4281));
+const paths_1 = __nccwpck_require__(6621);
+const PORTALS_URL = 'https://dev.wix.com/docs/api/v1/available-portals';
+const menuUrl = (portalId) => `https://dev.wix.com/docs/api/v1/cache/get-cached-menu/public/${portalId}`;
+const DEV_WIX_PREFIX = 'https://dev.wix.com';
+function loadDocsEntryIndex(workspace) {
+    const index = new Map();
+    const yamlPaths = glob_1.glob.sync(paths_1.DOC_YAML_GLOB, {
+        cwd: workspace,
+        nodir: true,
+        ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
+    });
+    for (const yamlPath of yamlPaths) {
+        const yamlAbsolutePath = (0, node_path_1.resolve)(workspace, yamlPath);
+        const parsedYaml = jsYaml.load((0, node_fs_1.readFileSync)(yamlAbsolutePath, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) ?? {};
+        for (const entry of parsedYaml.apiDoc?.docs ?? []) {
+            if (!entry.file || !entry.docsEntry || !entry.title)
+                continue;
+            const skillFileAbsolutePath = (0, node_path_1.resolve)((0, node_path_1.dirname)(yamlAbsolutePath), entry.file);
+            const skillFilePath = (0, node_path_1.relative)(workspace, skillFileAbsolutePath).split('\\').join('/');
+            index.set(skillFilePath, {
+                file: skillFilePath,
+                yamlPath,
+                title: entry.title,
+                docsEntry: entry.docsEntry,
+            });
+        }
+    }
+    return index;
+}
+/**
+ * Doc entries this PR introduces or repoints — exactly the entries the docs
+ * pipeline will try to place in the menu after merge.
+ */
+function changedDocsEntries(workspace, baseWorkspace) {
+    const headIndex = loadDocsEntryIndex(workspace);
+    const baseIndex = loadDocsEntryIndex(baseWorkspace);
+    return [...headIndex.values()].filter((target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry);
+}
+function stripTrailingSlashes(url) {
+    return url.replace(/\/+$/, '');
+}
+function portalUrlPrefix(portal) {
+    const docsUrl = portal.config?.docsUrl;
+    if (!docsUrl?.basename)
+        return null;
+    return DEV_WIX_PREFIX + stripTrailingSlashes(`${docsUrl.basename}${docsUrl.path ?? ''}`);
+}
+/** Longest portal prefix the docsEntry falls under, or null */
+function resolvePortal(docsEntry, portals) {
+    const docsEntryUrl = stripTrailingSlashes(docsEntry);
+    let bestMatch = null;
+    for (const portal of portals) {
+        const prefix = portalUrlPrefix(portal);
+        if (!prefix || !portal.id)
+            continue;
+        if (docsEntryUrl !== prefix && !docsEntryUrl.startsWith(prefix + '/'))
+            continue;
+        if (!bestMatch || prefix.length > bestMatch.prefix.length)
+            bestMatch = { portal, prefix };
+    }
+    if (!bestMatch)
+        return null;
+    return { ...bestMatch, nodePath: docsEntryUrl.slice(bestMatch.prefix.length) };
+}
+function findNode(nodes, url, nearestCategory) {
+    for (const node of nodes) {
+        if (node.url === url)
+            return { node, nearestCategoryAncestor: nearestCategory };
+        const nearestForChildren = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
+        const match = findNode(node.children ?? [], url, nearestForChildren);
+        if (match)
+            return match;
+    }
+    return null;
+}
+async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok)
+        throw new Error(`GET ${url} responded ${response.status}`);
+    return response.json();
+}
+/**
+ * Checks each docsEntry against the live docs menu. A skill menu node can only
+ * be created under a CATEGORY, so anything else is guaranteed to fail.
+ */
+async function validateDocsEntries(targets) {
+    if (targets.length === 0)
+        return { problems: [] };
+    const problems = [];
+    try {
+        const { portals = [] } = (await fetchJson(PORTALS_URL));
+        const menusByPortalId = new Map();
+        for (const target of targets) {
+            const resolvedPortal = resolvePortal(target.docsEntry, portals);
+            if (!resolvedPortal) {
+                problems.push({ ...target, kind: 'portal-not-found' });
+                continue;
+            }
+            const portalId = resolvedPortal.portal.id;
+            let menu = menusByPortalId.get(portalId);
+            if (!menu) {
+                menu = (await fetchJson(menuUrl(portalId)));
+                menusByPortalId.set(portalId, menu);
+            }
+            const nodeLookup = resolvedPortal.nodePath ? findNode(menu, resolvedPortal.nodePath) : null;
+            if (!nodeLookup) {
+                problems.push({ ...target, kind: 'node-not-found' });
+                continue;
+            }
+            if (nodeLookup.node.menuNodeType !== 'CATEGORY') {
+                problems.push({
+                    ...target,
+                    kind: 'not-a-category',
+                    nodeType: nodeLookup.node.menuNodeType,
+                    suggestion: nodeLookup.nearestCategoryAncestor?.url
+                        ? resolvedPortal.prefix + nodeLookup.nearestCategoryAncestor.url
+                        : undefined,
+                });
+            }
+        }
+    }
+    catch (error) {
+        return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
+    }
+    return { problems };
+}
+
+
+/***/ }),
+
 /***/ 3942:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -67203,6 +67397,7 @@ const config_1 = __nccwpck_require__(7799);
 const github_1 = __nccwpck_require__(6246);
 const evals_1 = __nccwpck_require__(1686);
 const doc_url_1 = __nccwpck_require__(8515);
+const docs_entry_check_1 = __nccwpck_require__(7018);
 const coverage_1 = __nccwpck_require__(4035);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const eval_pipeline_1 = __nccwpck_require__(3942);
@@ -67273,6 +67468,7 @@ async function runGate() {
     await (0, evalforge_core_1.assertWixAuthor)(octokit, config.owner, config.repo, config.prNumber, core.info);
     const comment = (0, github_1.makeCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
+    const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
     core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
@@ -67286,6 +67482,20 @@ async function runGate() {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
         (0, github_1.fail)(`Invalid YAML or duplicate names: ${loadErrors.length}`, config.blocking);
         return;
+    }
+    // A docsEntry that does not resolve to a docs menu category is a guaranteed
+    // silently-unexposed skill after merge.
+    const docsEntryTargets = (0, docs_entry_check_1.changedDocsEntries)(workspace, baseWorkspace);
+    if (docsEntryTargets.length > 0) {
+        const { problems, serviceError } = await (0, docs_entry_check_1.validateDocsEntries)(docsEntryTargets);
+        if (serviceError) {
+            core.warning(`Skipping docsEntry validation — docs menu unavailable: ${serviceError}`);
+        }
+        else if (problems.length > 0) {
+            await comment((0, comment_1.formatDocsEntryProblems)(problems));
+            (0, github_1.fail)(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
+            return;
+        }
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)
@@ -67317,7 +67527,6 @@ async function runGate() {
         (0, github_1.fail)(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);
         return;
     }
-    const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
