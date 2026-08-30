@@ -6,11 +6,14 @@ import {
   getMemberState,
   hydrateMember,
   login,
+  register,
   logout,
   refreshMember,
   subscribeMember,
+  verifyEmail,
   type MemberState,
 } from "../../wix/members/member-store";
+import type { LoginResult } from "../../wix/members/auth";
 import type { CurrentMember } from "../../wix/members/types";
 
 export interface UseMemberOptions {
@@ -19,8 +22,14 @@ export interface UseMemberOptions {
 }
 
 export interface UseMember extends MemberState {
-  /** Send the visitor to the Wix login page (logs in OR signs up); navigates away. */
-  login: (returnTo?: string) => Promise<void>;
+  /** Submit the shipped in-app credential form. */
+  login: (email: string, password: string) => Promise<LoginResult>;
+  register: (
+    email: string,
+    password: string,
+    profile?: { firstName?: string; lastName?: string },
+  ) => Promise<LoginResult>;
+  verifyEmail: (code: string) => Promise<LoginResult>;
   /** Log out through the Wix logout flow; navigates away. */
   logout: (returnTo?: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -29,12 +38,29 @@ export interface UseMember extends MemberState {
 export function useMember({ initialMember }: UseMemberOptions = {}): UseMember {
   // Adopt SSR props into the shared store before the first subscription (a no-op once any
   // island has settled the session).
-  if (typeof window !== "undefined" && initialMember !== undefined) hydrateMember(initialMember);
+  if (typeof window !== "undefined" && initialMember !== undefined)
+    hydrateMember(initialMember);
   const server = useRef<MemberState | null>(null);
   server.current ??=
     initialMember !== undefined
-      ? { member: initialMember, loggedIn: initialMember !== null, loading: false, error: null }
+      ? {
+          member: initialMember,
+          loggedIn: initialMember !== null,
+          loading: false,
+          error: null,
+        }
       : getMemberState();
-  const state = useSyncExternalStore(subscribeMember, getMemberState, () => server.current as MemberState);
-  return { ...state, login, logout, refresh: refreshMember };
+  const state = useSyncExternalStore(
+    subscribeMember,
+    getMemberState,
+    () => server.current as MemberState,
+  );
+  return {
+    ...state,
+    login,
+    register,
+    verifyEmail,
+    logout,
+    refresh: refreshMember,
+  };
 }

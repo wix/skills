@@ -12,7 +12,7 @@ export interface RequireAuthProps {
 }
 
 export default function RequireAuth({ children, fallback }: RequireAuthProps) {
-  const { loggedIn, loading, login } = useMember();
+  const { loggedIn, loading } = useMember();
 
   // Wait for the initial session read — deciding early bounces a logged-in member on first paint.
   if (loading) {
@@ -28,14 +28,15 @@ export default function RequireAuth({ children, fallback }: RequireAuthProps) {
       <>
         {fallback ?? (
           <div className="mx-auto max-w-md rounded-lg border border-border p-8 text-center">
-            <p className="text-sm text-muted-foreground">This page is for members.</p>
-            <button
-              type="button"
-              onClick={() => void login(window.location.pathname)}
+            <p className="text-sm text-muted-foreground">
+              This page is for members.
+            </p>
+            <a
+              href={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`}
               className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               Log in / Sign up
-            </button>
+            </a>
           </div>
         )}
       </>

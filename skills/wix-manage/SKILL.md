@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -429,7 +429,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, and the writable choice/variant fields — media & displayImage, SKU/barcode, price incl. compareAtPrice (sale), visibility — plus revision-based updates and which fields are read-only (choice inStock/visible, variant media/inventory).
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.
