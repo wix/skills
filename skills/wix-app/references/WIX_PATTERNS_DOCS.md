@@ -19,6 +19,7 @@ Subcommands, same prefix each time. The script echoes the resolved path in its o
 | `docs <Name> --full` | the whole doc, design prose included |
 | `docs <Name> --refs` | cross-references, one level |
 | `types <Name1> <Name2> ...` | the TypeScript types the props are written in |
+| `exports [subpath]` | what an entry point exports; no argument lists them |
 
 `list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
 
@@ -138,6 +139,12 @@ patterns.cjs types RangeItem CursorQuery
 ```
 
 It prints the import to actually write — always from `@wix/patterns`, even for a type declared elsewhere — plus the declaration. Use it whenever you name one of these types in your own code.
+
+`@wix/patterns` is not one namespace: 31 entry points, and `/form` is a single line re-exporting `@wix/bex-core/form`. When you need to know what lives behind one — which is where the `EntityPage` + form work leads — ask:
+
+```bash
+node <this-skill-dir>/scripts/patterns.cjs exports page
+```
 
 ### Following cross-references
 

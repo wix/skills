@@ -585,6 +585,142 @@ function cmdTypes(args) {
   }
 }
 
+// --- exports -----------------------------------------------------------------
+//
+// `@wix/patterns` is not a flat namespace: 31 subpaths, several of which are a
+// single re-export line (`/form` is `export * from '@wix/bex-core/form'`). Nothing
+// in the docs says what a subpath contains, so the question "what can I import from
+// @wix/patterns/form" has no answer short of reading dist/types by hand — which is
+// what measured runs did, four different ways in one run. This derives it instead,
+// so it is right for whatever version happens to be installed.
+
+let pkgManifest = {};
+try {
+  pkgManifest = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
+} catch {
+  // Only used for the exports map; the docs commands do not need it.
+}
+
+function subpathKeys() {
+  return Object.keys(pkgManifest.exports || {}).filter(
+    (k) => k !== './package.json' && !k.includes('*'),
+  );
+}
+
+// The exports map entry can be a string or a conditions object; the types entry is
+// what carries the names.
+function typesEntryFor(key) {
+  const entry = (pkgManifest.exports || {})[key];
+  if (!entry) return null;
+  if (typeof entry === 'string') return entry.endsWith('.d.ts') ? entry : null;
+  const found =
+    entry.types ||
+    (entry.import && (entry.import.types || entry.import)) ||
+    (entry.require && (entry.require.types || entry.require)) ||
+    entry.default;
+  return typeof found === 'string' && found.endsWith('.d.ts') ? found : null;
+}
+
+// Names a consumer can write: the right-hand side of `export { A as B }`, plus
+// declarations, following `export *` through relative files and into other packages.
+function publicNames(file, seen = new Set()) {
+  const out = new Set();
+  if (!file || seen.has(file) || !fs.existsSync(file)) return out;
+  seen.add(file);
+
+  let body;
+  try {
+    body = fs.readFileSync(file, 'utf8');
+  } catch {
+    return out;
+  }
+
+  for (const m of body.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().split(/\s+as\s+/).pop()?.trim();
+      if (name && /^[A-Za-z_$][\w$]*$/.test(name)) out.add(name);
+    }
+  }
+  for (const m of body.matchAll(
+    /export\s+(?:declare\s+)?(?:function|const|let|var|class|enum|interface|type)\s+([A-Za-z_$][\w$]*)/g,
+  )) {
+    out.add(m[1]);
+  }
+  for (const m of body.matchAll(/export\s+\*\s+from\s*'([^']+)'/g)) {
+    const spec = m[1];
+    if (spec.startsWith('.')) {
+      const base = path.resolve(path.dirname(file), spec);
+      for (const cand of [`${base}.d.ts`, path.join(base, 'index.d.ts')]) {
+        for (const n of publicNames(cand, seen)) out.add(n);
+      }
+    } else {
+      // A subpath of another package — `/form` is exactly this.
+      const root = resolveSibling(spec);
+      if (!root) continue;
+      const rest = spec.split('/').slice(spec.startsWith('@') ? 2 : 1).join('/');
+      const cands = rest
+        ? [
+            path.join(root, 'dist', 'types', 'exports', `${rest}.d.ts`),
+            path.join(root, 'dist', 'types', `${rest}.d.ts`),
+            path.join(root, 'dist', `${rest}.d.ts`),
+          ]
+        : [
+            path.join(root, 'dist', 'types', 'index.d.ts'),
+            path.join(root, 'dist', 'index.d.ts'),
+          ];
+      for (const cand of cands) for (const n of publicNames(cand, seen)) out.add(n);
+    }
+  }
+  return out;
+}
+
+const NAME_CAP = 200;
+
+function cmdExports(args) {
+  const keys = subpathKeys();
+  if (args.length === 0) {
+    console.log(`${PKG} entry points (${keys.length}):\n`);
+    console.log(`  ${keys.map((k) => k.replace(/^\.$/, '.')).join(', ')}\n`);
+    console.log(`What one of them gives you: ${self()} exports page`);
+    return;
+  }
+
+  for (const raw of args) {
+    // Accept `page`, `/page`, `./page`, `@wix/patterns/page`.
+    let want = raw.replace(new RegExp(`^${PKG}`), '').replace(/^\/+/, '');
+    const key = want === '' || want === '.' ? '.' : `./${want}`;
+    if (!keys.includes(key)) {
+      console.error(
+        `Skipped "${raw}" — not an entry point. Run: ${self()} exports`,
+      );
+      continue;
+    }
+
+    const rel = typesEntryFor(key);
+    if (!rel) {
+      console.error(`Skipped "${raw}" — no type entry declared for ${key}.`);
+      continue;
+    }
+
+    const names = [...publicNames(path.join(pkgRoot, rel))].sort();
+    const importPath = key === '.' ? PKG : `${PKG}/${key.slice(2)}`;
+    console.log(`# ${importPath}  (${names.length} names)`);
+    console.log('');
+    // A template, not the first three names alphabetically — those would be an
+    // arbitrary import that reads like a recommendation.
+    console.log('```tsx');
+    console.log(`import { /* one of the names below */ } from '${importPath}';`);
+    console.log('```');
+    console.log('');
+    console.log(names.slice(0, NAME_CAP).join(', '));
+    if (names.length > NAME_CAP) {
+      console.log(`\n...and ${names.length - NAME_CAP} more.`);
+    }
+    console.log('');
+    console.log(`Props for any of these: ${self()} docs <Name>   ·   its type: ${self()} types <Name>`);
+  }
+}
+
 function usage() {
   console.log(`@wix/patterns docs reader — ${PKG}@${installedVersion}
 Docs found at: ${docsDir}
@@ -594,6 +730,7 @@ Docs found at: ${docsDir}
   ${self()} docs <Name> --full            ...the whole doc file, design prose included
   ${self()} docs <Name> --refs            ...following cross-references one level
   ${self()} types <Name1> <Name2> ...     TypeScript types the props are written in
+  ${self()} exports [subpath]              what an entry point exports (no arg lists them)
 
 Names with spaces must be quoted (e.g. "AI Assistant").`);
 }
@@ -608,6 +745,9 @@ switch (cmd) {
     break;
   case 'types':
     cmdTypes(rest);
+    break;
+  case 'exports':
+    cmdExports(rest);
     break;
   case undefined:
   case '--help':
