@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API (endpoints, request/response shapes, fields), gather site context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
+description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API (endpoints, request/response shapes, fields), gather site context, route each call to the right identity, and follow curated recipes for admin tasks."
 ---
 
 # Building on Wix from Base44
@@ -83,6 +83,23 @@ endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency
 An empty report = bad token, never an empty site.
 
 ## Learn Wix — find the APIs, learn their contracts
+
+### Management recipes — first stop for an admin task
+
+Curated admin flows, by category — ecommerce, bookings, stores, cms, google-ads, sites, contacts,
+get-paid, marketing, pricing-plans, events, blog, forms, restaurants, domains, media, …:
+
+```js
+await wx.mgmtRecipes();           // categories with counts
+await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.mgmtRecipes("coupon")
+// each row points at its recipe: `file` when the wix-manage skill is installed — read_file it
+// straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
+```
+
+A recipe carries prerequisites, order, and gotchas that no method page has. No matching recipe —
+search and browse below.
+
+### Find a method — search and browse
 
 ```js
 // name the method? search finds it in one call:
@@ -171,22 +188,6 @@ await wx.spec(`
 
 `filterable` maps each field to its allowed operators + sort — filter server-side only on what it
 lists, else filter in code.
-
-### Management recipes — check before composing admin flows
-
-~100 curated multi-step management (admin) flows across 23 categories — the largest are
-ecommerce (24), bookings (13), stores (9), cms (7), google-ads (7), sites (7), contacts (5),
-then get-paid, marketing, pricing-plans, events, blog, forms, restaurants, domains, media, …:
-
-```js
-await wx.mgmtRecipes();           // categories with counts
-await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.mgmtRecipes("coupon")
-// each row points at its recipe: `file` when the wix-manage skill is installed — read_file it
-// straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
-```
-
-A matching recipe beats composing the flow from single endpoints: it carries ordering and
-cross-step gotchas no method page mentions.
 
 ## Write the code
 
