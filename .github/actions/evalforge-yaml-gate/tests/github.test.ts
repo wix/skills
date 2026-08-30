@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyChanges } from '../src/utils/github';
+import { classifyChanges, parseChangedFiles } from '../src/utils/github';
 
 const f = (filename: string, status: 'added' | 'modified' | 'removed' | 'renamed') => ({ filename, status });
 
@@ -37,5 +37,47 @@ describe('classifyChanges', () => {
     expect(out.evalsAdded).toEqual([]);
     expect(out.evalsModified).toEqual([]);
     expect(out.evalsRemoved).toEqual([]);
+  });
+});
+
+describe('parseChangedFiles', () => {
+  it('parses added, modified, and deleted files', () => {
+    const out = parseChangedFiles(
+      'A\tyaml/wix-manage-evals/blog/new.yml\n' +
+      'M\tskills/wix-manage/references/blog/x.md\n' +
+      'D\tyaml/wix-manage-evals/blog/old.yml\n',
+    );
+    expect(out).toEqual([
+      { filename: 'yaml/wix-manage-evals/blog/new.yml', status: 'added' },
+      { filename: 'skills/wix-manage/references/blog/x.md', status: 'modified' },
+      { filename: 'yaml/wix-manage-evals/blog/old.yml', status: 'removed' },
+    ]);
+  });
+
+  it('parses a rename with its similarity-score suffix', () => {
+    const out = parseChangedFiles('R100\told/path.yml\tnew/path.yml\n');
+    expect(out).toEqual([
+      { filename: 'new/path.yml', status: 'renamed', previousFilename: 'old/path.yml' },
+    ]);
+  });
+
+  it('maps a type-change (T) to modified and a copy (C) to added', () => {
+    const out = parseChangedFiles(
+      'T\tyaml/wix-manage-evals/blog/x.yml\n' +
+      'C100\tsrc.yml\tdst.yml\n',
+    );
+    expect(out).toEqual([
+      { filename: 'yaml/wix-manage-evals/blog/x.yml', status: 'modified' },
+      { filename: 'dst.yml', status: 'added' },
+    ]);
+  });
+
+  it('ignores blank lines', () => {
+    const out = parseChangedFiles('\nA\ta.yml\n\n');
+    expect(out).toEqual([{ filename: 'a.yml', status: 'added' }]);
+  });
+
+  it('returns an empty array for empty input', () => {
+    expect(parseChangedFiles('')).toEqual([]);
   });
 });
