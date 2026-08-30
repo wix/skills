@@ -28,7 +28,7 @@ so you don't need to open them:**
 | `components/ProductCard.jsx` | reference implementation of a grid tile built on `useProductCard` — read it for inspiration, build your own component rather than using it directly |
 | `components/ProductGrid.jsx` | reference grid layout (2-col mobile → auto-fill desktop) with skeleton + empty state — read it for the skeleton/empty-state patterns, build your own layout rather than using it directly |
 | `components/ProductGallery.jsx` | PDP main image + thumbnails |
-| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` — normalise Wix image urls |
+| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` / `choiceImage()` — normalise Wix image urls; `choiceImage(choice)` resolves an option choice's photo (V3 read shape: `media.items[].mediaId`, not `linkedMedia`) |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
 | `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); **always use this to build your own variant UI on the PDP** |
