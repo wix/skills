@@ -132,7 +132,7 @@ Each name returns its import line and props table; ask for one or two names and 
 
 ### Types the docs don't cover
 
-The docs cover components and props, not the TypeScript types those props are written in — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — and several are re-exported from `@wix/bex-core` rather than declared here. Guess the path and you get `@wix/bex-core/dist/types/...` in the tree: a deep import into a package this project never declared.
+The docs cover components and props, not the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — several of which come from `@wix/bex-core`. Guess the path and `@wix/bex-core/dist/types/...` ends up in the tree: a deep import into an undeclared package.
 
 ```bash
 patterns.cjs types RangeItem CursorQuery
@@ -140,11 +140,7 @@ patterns.cjs types RangeItem CursorQuery
 
 It prints the import to actually write — always from `@wix/patterns`, even for a type declared elsewhere — plus the declaration. Use it whenever you name one of these types in your own code.
 
-`@wix/patterns` is not one namespace: 31 entry points, and `/form` is a single line re-exporting `@wix/bex-core/form`. When you need to know what lives behind one — which is where the `EntityPage` + form work leads — ask:
-
-```bash
-node <this-skill-dir>/scripts/patterns.cjs exports page
-```
+`@wix/patterns` is 31 entry points, not one namespace, and `/form` just re-exports `@wix/bex-core/form`. To see what lives behind one: `exports page`, or `exports` alone to list them.
 
 ### Following cross-references
 
