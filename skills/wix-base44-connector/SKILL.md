@@ -10,6 +10,12 @@ find the APIs and learn their contracts from the docs, write the code. **Discove
 request and response fields all come from the calls below, never from memory or pattern. 404 or
 empty ⇒ discover, not permute. Examples teach mechanics and go stale — verify before relying.
 
+**A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) before any
+search, and follow the recipe it names. Search runs over the API reference alone — the recipes are
+a separate corpus, so no search returns one, and the facts a recipe states outright (what an API
+does not support, which fields a bulk call actually writes, the order two calls have to go in) get
+re-derived from schemas instead, several errors at a time.
+
 ## What are you building?
 
 The app's audience picks the token, and the token picks the architecture: the **visitor token is
