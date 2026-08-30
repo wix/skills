@@ -72,6 +72,32 @@ export function getScheduleConfig(): ScheduleConfig {
   };
 }
 
+export type MergeSweepConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  agentId: string;
+  appId: string;
+  appSecret: string;
+  githubToken: string;
+  owner: string;
+  repo: string;
+  changedFilesRaw: string;
+};
+
+export function getMergeSweepConfig(): MergeSweepConfig {
+  return {
+    evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    agentId: core.getInput('evalforge-agent-id', { required: true }),
+    appId: coreSafeGetSecret(core, 'evalforge-app-id'),
+    appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
+    githubToken: coreSafeGetSecret(core, 'github-token'),
+    owner: github.context.repo.owner,
+    repo: github.context.repo.repo,
+    changedFilesRaw: core.getInput('changed-files'),
+  };
+}
+
 export function getEvalConfig(): Config {
   const pr = github.context.payload.pull_request!;
   const headSha = (pr.head as { sha?: string } | undefined)?.sha;

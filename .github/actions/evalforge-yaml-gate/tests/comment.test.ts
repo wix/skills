@@ -81,6 +81,31 @@ describe('comment formatters', () => {
     expect(c.formatServiceError('boom', false)).toContain('⚠️');
   });
 
+  it('formatDocsEntryProblems renders a reason line per problem kind', () => {
+    const base = { file: 'skills/wix-manage/references/seo/a.md', yamlPath: 'yaml/wix-manage/seo/documentation.yaml', title: 'A', docsEntry: 'https://dev.wix.com/docs/api-reference/x' };
+    const out = c.formatDocsEntryProblems([
+      { ...base, kind: 'portal-not-found' },
+      { ...base, kind: 'node-not-found' },
+      { ...base, kind: 'not-a-category', nodeType: 'RESOURCE', suggestion: 'https://dev.wix.com/docs/api-reference/parent' },
+    ]);
+    expect(out).toContain('does not match any docs portal');
+    expect(out).toContain('does not exist in the docs menu');
+    expect(out).toContain('an API page, not a category');
+    expect(out).toContain('https://dev.wix.com/docs/api-reference/parent');
+    expect(out).toContain('or pick/create a different one');
+    expect(out).toContain('yaml/wix-manage/seo/documentation.yaml');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('formatDocsEntryProblems calls a SECTION target a section and falls back when there is no suggestion', () => {
+    const out = c.formatDocsEntryProblems([
+      { file: 'f.md', yamlPath: 'y.yaml', title: 'A', docsEntry: 'https://dev.wix.com/docs/api-reference/tools', kind: 'not-a-category', nodeType: 'SECTION' },
+    ]);
+    expect(out).toContain('a section, not a category');
+    expect(out).not.toContain('the category that groups it');
+    expect(out).toContain('Point it at an existing category, or create one in the docs menu.');
+  });
+
   it('formatEvalPassed includes pass rate + run link', () => {
     const metrics = { totalAssertions: 1, passed: 1, failed: 0, skipped: 0, errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0 };
     const out = c.formatEvalPassed(metrics, 'run-1', 'https://bo.wix.com/pages/evalforge/proj-1/results?runId=run-1');
