@@ -10,7 +10,7 @@ Invoke it by absolute path — no shell variable. One does not survive to the ne
 node <this-skill-dir>/scripts/patterns.cjs list   # inventory, by category
 ```
 
-Subcommands, same prefix each time. The script echoes the resolved path in its own hints, so copy it from there after the first call.
+Subcommands take that same prefix. The script echoes the resolved path in its hints, so copy it from there.
 
 | Subcommand | Gives you |
 | --- | --- |
@@ -114,9 +114,9 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Finding the right name
 
-Use the `list` output from [Prerequisites](#prerequisites) — it groups every name by category, and related components share a prefix. Don't run it twice.
+Use the `list` output from [Prerequisites](#prerequisites) — grouped by category, related components sharing a prefix.
 
-Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did you mean: Table`). Quote names containing spaces: `docs "AI Assistant"`.
+Matching is case-insensitive and a typo gets a suggestion (`Tabel` -> `Did you mean: Table`). Quote names with spaces: `docs "AI Assistant"`.
 
 ### Reading doc files
 
