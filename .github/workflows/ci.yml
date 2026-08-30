@@ -47,6 +47,7 @@ jobs:
         id: changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
           echo "Changed files:"
@@ -62,9 +63,15 @@ jobs:
             echo "wix_app=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Reference files this PR touches, for the fetch-limit gate below. Only files that
+          # Reference files this PR touches, for the fetch-limit gate below. Deliberately
+          # NOT derived from $changed: that diffs against the base commit recorded when the
+          # PR opened, so once a branch merges the base back into itself, every file the
+          # base changed since looks like part of this PR. Diffing against the base branch's
+          # current tip keeps the set to what this branch actually authored. Only files that
           # still exist are listed, so a deletion doesn't fail the gate on a missing path.
-          refs=$(echo "$changed" | grep -E '^skills/[^/]+/references/.*\.md$' || true)
+          git fetch --no-tags --quiet origin "$BASE_REF"
+          refs=$(git diff --name-only "origin/$BASE_REF...HEAD" \
+            | grep -E '^skills/[^/]+/references/.*\.md$' || true)
           present=""
           for f in $refs; do [ -f "$f" ] && present="${present:+$present,}$f"; done
           echo "changed_refs=$present" >> "$GITHUB_OUTPUT"
