@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "plugin": "contact-form-7",
+  "displayName": "Contact Form 7",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://contactform7.com/rest-api/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.form-definitions"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "contact-form-7/wp-contact-form-7"
+    ],
+    "routes": [
+      "/contact-form-7/v1/contact-forms"
+    ],
+    "restNamespaces": [
+      "contact-form-7/v1"
+    ],
+    "assetPathSlugs": [
+      "contact-form-7"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "contact-form",
+      "channel": "plugin-rest",
+      "route": "/contact-form-7/v1/contact-forms",
+      "context": "edit",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "forms/form"
+      ],
+      "pitfalls": [
+        {
+          "code": "collection-is-a-stub",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] The collection returns only an index row per form — `{id, hash, slug, title, locale}` — and NO field data at all. Reading this route alone yields a list of form names with nothing to build a Wix schema from. The definition lives on the per-form route; see the contact-form-definition entity, which is why this profile declares a plugin-rest-child alongside the collection instead of treating the list as the record."
+        },
+        {
+          "code": "route-is-admin-gated",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] Anonymous GET returns 403 `wpcf7_forbidden` ('You are not allowed to access contact forms.'); the same GET with an administrator application password returns 200. Discovery must therefore treat an empty/failed CF7 read as a CREDENTIALS problem, not as 'the site has no forms'. The route is nonetheless listed in the public REST index (both authed and anonymous), so DETECTION works with no credentials even though READING does not."
+        },
+        {
+          "code": "collection-also-accepts-post",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] OPTIONS on /contact-form-7/v1/contact-forms reports methods GET and POST — POST on this route CREATES a contact form. This is a read-only source adapter: never issue anything but GET here. Recorded because the route's own shape is the trap, not the profile."
+        }
+      ]
+    },
+    {
+      "entity": "contact-form-definition",
+      "channel": "plugin-rest-child",
+      "route": "/contact-form-7/v1/contact-forms/{parentId}",
+      "parentRoute": "/contact-form-7/v1/contact-forms",
+      "requiresParent": "contact-form",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "forms/form"
+      ],
+      "pitfalls": [
+        {
+          "code": "form-tag-syntax-is-the-real-schema",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] The durable definition is `properties.form.content` — CF7's own form-tag markup, e.g. `[text* your-name autocomplete:name]` interleaved with raw HTML labels. CF7 also ships a PARSED view at `properties.form.fields[]`, each entry `{type, basetype, name, options[], raw_values[], labels[], values[], pipes[], content}`. Consume `fields[]`, not the markup: a trailing `*` on `type` (`text*` vs `text`) is how CF7 encodes REQUIRED, `basetype` is the type without it, `name` is the stable machine key that becomes the Wix field `target`, and `values`/`labels`/`pipes` carry the choices for select/radio/checkbox tags. The surrounding HTML labels are NOT in fields[] — a field's human label lives in the markup, so a definition read that ignores `content` produces Wix fields with machine names and no captions."
+        },
+        {
+          "code": "mail-templates-are-not-form-fields",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] `properties` carries five keys: `form`, `mail`, `mail_2`, `messages`, `additional_settings`. Only `form` is field data. `mail` / `mail_2` are the notification email templates (subject, sender, body, recipient, additional_headers, attachments, use_html, exclude_blank — with CF7 mail-tags like `[_site_admin_email]` and `[your-subject]` interpolated), `messages` is the 23 validation/status strings, `additional_settings` is free-form config. None of these map to a Wix Form Schema create input: Wix notification behaviour is Automations, and the confirmation text is `submitSettings.submitSuccessAction`. Treat mail_* as reconfigure-in-wix and ledger it — do not attempt to translate a mail template into anything on forms/form."
+        },
+        {
+          "code": "cf7-does-not-store-submissions",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] CF7 persists NOTHING a visitor submits. Its delivery model is email-only: on submit it renders `mail` / `mail_2` and sends them. There is no submissions collection on this route, no submissions table, and no submissions CPT belonging to this plugin. On sites that also run Flamingo, the messages are stored by FLAMINGO, under Flamingo's own plugin id and CPTs — a different plugin owning different data, so it is deliberately NOT covered by this profile. See quirks for the ownership decision and what Flamingo needs."
+        }
+      ]
+    }
+  ],
+  "excludeRoutes": [
+    {
+      "route": "/contact-form-7/v1/contact-forms/{parentId}/feedback",
+      "reason": "runtime submit endpoint — a POST here SUBMITS the form for real, firing CF7's mail templates to the site owner. Must never be touched by a read-only source adapter."
+    },
+    {
+      "route": "/contact-form-7/v1/contact-forms/{parentId}/feedback/schema",
+      "reason": "client-side validation schema for the live form widget; derivable from the definition we already read, and carries no durable business data."
+    },
+    {
+      "route": "/contact-form-7/v1/contact-forms/{parentId}/refill",
+      "reason": "runtime helper that refreshes CAPTCHA/quiz values for a rendered form; ephemeral, no durable data."
+    }
+  ],
+  "quirks": [
+    "[VERIFIED LIVE 2026-08-16 on the reference store, CF7 6.1.6] The plugin file id is `contact-form-7/wp-contact-form-7` — directory and main-file basename DIFFER. Constructing it as `contact-form-7/contact-form-7` (the obvious guess) yields a signal that never matches. Read from GET /wp/v2/plugins, never assemble.",
+    "[VERIFIED LIVE 2026-08-16] The `wpcf7_contact_form` CPT is NOT REST-visible: it is absent from /wp/v2/types even with an administrator application password, and GET /wp/v2/wpcf7_contact_form returns 404. [DOCUMENTED, source 6.1.6 includes/contact-form.php] register_post_type() is called with public=false and no `show_in_rest`, which defaults to false. So core-cpt is not a channel here and the plugin's own namespace is the only REST way in.",
+    "[DOCUMENTED, source 6.1.6] The CPT does NOT set `can_export`, so it defaults to true and CF7 form definitions ARE carried in a standard WXR export. That is a viable credential-free fallback channel if the operator can supply an export but not an admin application password; not declared as an entity because the live REST channel is present and richer (it hands back CF7's own parsed fields[], where WXR hands back raw post_content the adapter would have to parse itself).",
+    "OWNERSHIP DECISION 2026-08-16 — Flamingo is a separate profile, not entities here. Flamingo ships as its own plugin (`flamingo/flamingo`, 2.6.3, active on the test site) and stores CF7 submissions in ITS OWN CPTs (`flamingo_inbound` for messages, `flamingo_contact` for the derived address book). It also stores messages from senders other than CF7. Folding those into contact-form-7.json would attribute one plugin's data to another and would break the moment a site runs Flamingo without CF7 or CF7 without Flamingo — so `content.form-submissions` is deliberately NOT claimed by this profile, and CF7's submissions capability is UNREACHABLE WITHOUT A FLAMINGO PROFILE.",
+    "[VERIFIED LIVE 2026-08-16] Flamingo is not reachable over REST at all: no `flamingo` namespace appears in the REST index, `flamingo_inbound`/`flamingo_contact` are absent from authed /wp/v2/types, and GET /wp/v2/flamingo_inbound returns 404. [DOCUMENTED, source 2.6.3 includes/class-inbound-message.php + class-contact.php] both CPTs register with an explicit `'show_in_rest' => false`, as do their taxonomies. A future flamingo.json therefore cannot use plugin-rest or core-cpt — its channels are `export-file` (the CPTs do not set can_export, so WXR carries them; Flamingo also ships an admin CSV export, includes/csv.php) or `db-only`. Stored per message: `_fields` (the submitted values map), `_subject`, `_from`, `_from_name`, `_from_email`, `_meta`, `_akismet`, `_recaptcha`, `_spam_log`, `_consent`, `_hash`, plus post_date as the original timestamp — and a dedicated `flamingo-spam` post status that a migration must filter out rather than recreate.",
+    "The Wix side of the submissions path already exists and is NOT the blocker: forms/form-submission claims content.form-submissions, accepts a backdated `createdDate`, and is authored and ready. The gap is purely source-side reachability. Because a Wix target entity already claims that capability, this cannot be filed in capabilities-pending-decision.json (the validator rejects a pending entry once a target claims it) — the correct next action is a flamingo.json profile, not a pending register entry."
+  ]
+}

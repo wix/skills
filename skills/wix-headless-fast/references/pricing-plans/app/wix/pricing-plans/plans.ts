@@ -3,6 +3,7 @@
 // not by editing these.
 //
 // The read module is plansV3 — NOT `plans` (that's the V2 namespace; it has no queryPlans).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/query-plans.md
 import { plansV3 } from "@wix/pricing-plans";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

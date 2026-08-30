@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "domain": "tax",
+  "entity": "tax-settings",
+  "displayName": "Wix Tax Settings",
+  "capability": "commerce.tax-settings",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "TaxSettings",
+    "verifiedFqdn": "wix.billing.tax.v1.tax_settings",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "settings.woocommerce_prices_include_tax",
+      "routes": ["/wc/v3/settings/tax"],
+      "confidence": "high",
+      "note": "A direct boolean 1:1: WooCommerce 'yes'/'no' -> Wix taxIncludedInItemPrices true/false. This is a single site-level flag, not a per-record entity -- there is exactly one TaxSettings resource per site (upsert, not create)."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Tax Settings",
+    "endpoint": "POST /billing/v1/tax-settings",
+    "writerId": "upsertTaxSettings",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    {
+      "code": "single-site-level-resource-not-a-crosswalked-record",
+      "severity": "info",
+      "summary": "There is exactly one TaxSettings object per site (Get returns defaults if never set; Upsert creates-or-updates the same singleton). Treat this as ordinary setup/config work, never a per-record write with a crosswalk."
+    },
+    {
+      "code": "display-flag-only-does-not-reprice-the-catalog",
+      "severity": "info",
+      "summary": "`taxIncludedInItemPrices` only changes how checkout DISPLAYS/treats existing catalog prices (tax-inclusive vs. added-on-top); it does not rewrite product prices. Setting it does not require touching already-imported product prices."
+    },
+    {
+      "code": "shared-across-all-wix-products-on-the-site",
+      "severity": "warning",
+      "summary": "Per Wix's own docs, this setting is 'shared across all Wix products on the site' -- if the destination site later gets a second sales channel/app relying on a different price-inclusion convention, changing this affects it too. Not a concern for a single-purpose migration, but don't set it speculatively on a site with pre-existing unrelated commerce config."
+    }
+  ],
+  "mappingGuidance": [
+    "Read the source's woocommerce_prices_include_tax (GET /wc/v3/settings/tax) and Get Tax Settings (GET /billing/v1/tax-settings) on the destination; only call Upsert Tax Settings when the two actually differ -- the reference store's WooCommerce value ('no') already matched the Wix default (false) on 2026-08-12, so no live write was needed for this project."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/tax-settings-object" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/get-tax-settings" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/upsert-tax-settings" },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real Get Tax Settings call confirmed taxIncludedInItemPrices=false on the live site, matching WooCommerce's woocommerce_prices_include_tax='no' -- no Upsert call was needed for this project since the values already agreed."
+    }
+  ]
+}

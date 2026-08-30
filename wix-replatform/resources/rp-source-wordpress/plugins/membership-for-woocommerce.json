@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "plugin": "membership-for-woocommerce",
+  "displayName": "Membership For WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/membership-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.subscription-plans",
+    "commerce.subscription-contracts"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "membership-for-woocommerce/membership-for-woocommerce"
+    ],
+    "routes": [
+      "/wps-mfw/get-membership-offers",
+      "/wps-mfw/get-user-membership"
+    ],
+    "restNamespaces": [
+      "wps-mfw"
+    ],
+    "recordProperties": [
+      "wps_membership_plan_with_product",
+      "_wps_plan_id"
+    ],
+    "assetPathSlugs": [
+      "membership-for-woocommerce"
+    ]
+  },
+  "credentials": [
+    {
+      "key": "wps_membership_api_consumer_secret_keys",
+      "description": "Plugin-specific API secret for the wps-mfw namespace, passed as a `consumer_secret` request parameter. Generated in the plugin's own settings and stored in the wps_membership_api_consumer_secret_keys option; the API must ALSO be switched on there (wps_membership_enable_api_settings option = 'on') or the routes are never registered at all. The admin Application Password does NOT authorize these routes — the permission callback hash_equals()-compares consumer_secret and nothing else, and returns false outright when no secret has been generated [DOCUMENTED: plugin source 3.1.2, package/rest-api/class-membership-for-woocommerce-rest-api.php wps_mfw_default_permission_check, read 2026-08-16]. Collecting this credential is nevertheless LOW VALUE for migration — see the post-only-plugin-api quirk: every route is POST, so a read-only discovery pass cannot use them regardless."
+    }
+  ],
+  "entities": [
+    {
+      "entity": "membership-plan",
+      "channel": "export-file",
+      "candidateTargetRefs": ["pricing-plans/plan"],
+      "pitfalls": [
+        {
+          "code": "not-rest-readable-export-required",
+          "severity": "blocker",
+          "summary": "Membership plans are posts of the custom type `wps_cpt_membership`, registered WITHOUT show_in_rest [VERIFIED IN PLUGIN SOURCE v3.1.2, admin/class-membership-for-woocommerce-admin.php register_post_type('wps_cpt_membership', ...) — the args set public/publicly_queryable/show_ui but never show_in_rest, so it defaults to false, 2026-08-16]. [VERIFIED LIVE 2026-08-16] the authed /wp/v2/types lists 34 types and neither wps_cpt_membership nor wps_cpt_members is among them, and GET /wp-json/wp/v2/wps_cpt_membership returns 404. With the plugin's own namespace also absent (see quirks), there is NO REST read for plan records: the channel is a user-supplied WXR export, which does carry the CPT and its postmeta because register_post_type leaves can_export at its true default. Treat a missing export as Blocked — recoverable (kind: user-file), not as an empty plan set."
+        },
+        {
+          "code": "plan-field-map-to-pricing-plans",
+          "severity": "warning",
+          "summary": "Plan settings live in unregistered postmeta on the plan post [DOCUMENTED: plugin source 3.1.2, admin/class-membership-for-woocommerce-admin.php get_plans_default_value(), read 2026-08-16]. The fields that map onto pricing-plans/plan: post_title → plan.name (Wix caps it at 50 chars); post_content / wps_membership_plan_info → plan.description; wps_membership_plan_price → pricingVariants[0].pricingStrategies[0].flatRate.amount; wps_membership_plan_name_access_type ('lifetime' | 'limited') → billingTerms.endType (UNTIL_CANCELLED for lifetime; CYCLES_COMPLETED for limited); wps_membership_plan_duration + wps_membership_plan_duration_type ('days'|'weeks'|'months'|'years') → the billingCycle period/count pair, subject to that entity's billing-cycle-minimum-7-days pitfall; wps_sfw_subscription_free_trial_number + wps_sfw_subscription_free_trial_interval → freeTrialDays (convert to days); wps_sfw_subscription_initial_signup_price → pricingVariants[].fees[] FIXED_AMOUNT / FIRST_PAYMENT. NOTE the plugin reuses its sibling's wps_sfw_* prefix for the trial/signup keys — those are membership plan meta here, not Subscriptions-For-WooCommerce product meta."
+        },
+        {
+          "code": "content-access-gating-has-no-plan-field",
+          "severity": "warning",
+          "summary": "The largest half of a WooCommerce membership plan does NOT fit pricing-plans/plan at all: the access rules. A plan carries wps_membership_plan_target_ids / _target_categories / _target_tags (gated products), _post_target_ids / _target_post_categories / _target_post_tags (gated posts), _page_target_ids (gated pages), plus member-benefit rules — wps_membership_plan_offer_price_type + wps_memebership_plan_discount_price (member discount, note the plugin's own 'memebership' typo in those two keys), wps_memebership_plan_free_shipping, wps_membership_plan_hide_products, wps_set_maximum_product_purchase_limit — and delayed-access controls (wps_membership_plan_access_type 'immediate_type', wps_membership_plan_time_duration/_type) [DOCUMENTED: plugin source 3.1.2 get_plans_default_value(), read 2026-08-16]. A Wix Pricing Plan is a paid offer; what it unlocks is configured on the page/blog/group side in the Editor and dashboard, not carried on the plan object. Recorded as a separate pending capability rather than declared in this profile's capabilities[] — see capabilities-pending-decision.json (commerce.membership-content-access) and the deliberately-undeclared-capability quirk."
+        },
+        {
+          "code": "deduplicate-and-do-not-import-the-placeholder",
+          "severity": "info",
+          "summary": "Import one Wix plan per source plan post, and use pricing-plans/plan's idempotencyKey (GUID, derived deterministically from the source plan post id) so a retried import does not duplicate. Separately: skip the plugin's auto-generated 'Membership Product' — see the auto-created-placeholder-product quirk — it is scaffolding, not catalog."
+        }
+      ]
+    },
+    {
+      "entity": "member-enrollment",
+      "channel": "export-file",
+      "candidateTargetRefs": ["pricing-plans/plan-order"],
+      "relations": [
+        {
+          "relatedEntity": "membership-plan",
+          "via": "plan_obj"
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "not-rest-readable-export-required",
+          "severity": "blocker",
+          "summary": "Enrollments are posts of the custom type `wps_cpt_members`, registered without show_in_rest exactly as the plan type is [VERIFIED IN PLUGIN SOURCE v3.1.2, admin/class-membership-for-woocommerce-admin.php; VERIFIED LIVE 2026-08-16: absent from the authed /wp/v2/types, GET /wp-json/wp/v2/wps_cpt_members returns 404]. The full enrollment set is readable only from a user-supplied WXR export. A partial, REST-only reconstruction IS possible for purchase-created enrollments — see the membership-purchase-order-linkage entity — but it silently omits manually assigned members, so it is a fallback with a known hole, never a substitute."
+        },
+        {
+          "code": "enrollment-record-shape",
+          "severity": "warning",
+          "summary": "The record is thin and mostly denormalized into meta [VERIFIED IN PLUGIN SOURCE v3.1.2, includes/class-membership-for-woocommerce-global-functions.php create_membership_for_customer() and wps_msfw_assigned_membership_by_user_id(), plus admin/class-membership-for-woocommerce-admin.php manual-add handler, 2026-08-16]: post_author is the WP user id (this, not a meta field, is the reliable member link on purchase-created records), post_title is a display user name, and the meta carries member_status ('pending' | 'complete' | 'hold' | 'cancelled', derived from the WooCommerce order status), member_expiry, member_order_id (the source WooCommerce order), member_actions, billing_details (an array of membership_billing_* fields), wps_member_user (the user id, written on the MANUAL assignment path only), and plan_obj. The reverse link also exists as user meta mfw_membership_id (an array of member post ids) on the WP user — also not REST-exposed."
+        },
+        {
+          "code": "plan-obj-is-a-frozen-snapshot",
+          "severity": "warning",
+          "summary": "`plan_obj` is not a plan id: it is a full array merge of the plan post row (get_post ARRAY_A) with every one of the plan's postmeta values, snapshotted at enrollment time [VERIFIED IN PLUGIN SOURCE v3.1.2, same functions as above, 2026-08-16]. Two consequences. (1) The plan id must be recovered from plan_obj['ID'] and crosswalked to the Wix plan — do not create a Wix plan per enrollment. (2) Long-lived members can hold TERMS THAT DIFFER from the plan's current terms; if the snapshot's price/duration disagrees with the live plan post, that divergence is real historical fact, and grandfathered terms cannot be expressed on a Wix plan-order (which inherits the plan's terms). Ledger the divergence rather than silently re-pricing the member."
+        },
+        {
+          "code": "status-and-lifecycle-mapping",
+          "severity": "warning",
+          "summary": "Per pricing-plans/plan-order: only ACTIVE-equivalent enrollments recreate natively via POST /pricing-plans/v2/checkout/orders/offline. member_status 'complete' → create the offline order with paid:true; 'pending'/'hold' → paid:false or hold for review; 'cancelled', and any record whose member_expiry is in the past, cannot be recreated in that state (status/endDate/cancellation are all read-only at create) and belong in CMS-only history. memberId is a hard dependency — the Wix members import must run first (400 MEMBER_DOESNT_EXIST) — and it is resolved from post_author via the member crosswalk, not from post_title."
+        },
+        {
+          "code": "content-access-fidelity-caveat",
+          "severity": "warning",
+          "summary": "THE HEADLINE FIDELITY CAVEAT for this plugin. A WooCommerce membership is an ACCESS-CONTROL grant: the plan's target ids/categories/tags gate specific products, posts and pages and apply member-only discounts and free shipping, enforced per request. A Wix Pricing Plans order is a BENEFIT ENTITLEMENT: it records that a member holds a paid plan, and what that unlocks is configured separately on the page/blog/group being protected. Recreating enrollments as plan-orders therefore preserves WHO is entitled and to WHICH plan, and preserves nothing about WHAT that entitlement opens until the gating is reconfigured on the Wix side. Migrating enrollments without also reconfiguring gating leaves members holding plans that unlock nothing — surface this at the review gate, do not let it read as a clean subscription migration."
+        }
+      ]
+    },
+    {
+      "entity": "plan-grant-product-linkage",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/products"],
+      "propertyPath": "wps_membership_plan_with_product",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-wix-target-decided",
+          "severity": "warning",
+          "summary": "A WooCommerce product can be configured to grant a membership plan when purchased; the chosen plan post id is stored in unregistered product meta `wps_membership_plan_with_product` [VERIFIED IN PLUGIN SOURCE v3.1.2, admin/class-membership-for-woocommerce-admin.php product-tab save handler, 2026-08-16]. Wix has no equivalent: a Pricing Plan is bought as a plan, and buying a Stores product does not confer one. There is no automation-writable rule connecting the two, so the linkage itself is unplaceable — the product migrates normally, the plan migrates normally, and the grant relationship is reportable loss or a CMS note. Also folded into the commerce.membership-content-access pending entry."
+        },
+        {
+          "code": "the-only-rest-visible-plan-signal",
+          "severity": "info",
+          "summary": "Worth reading even though it has no target: this key is the ONLY REST-visible evidence of the plugin's plan data. When the user supplies no WXR export, scanning /wc/v3/products meta_data for wps_membership_plan_with_product yields the set of plan post ids that are purchasable, which is enough to report 'N membership plans exist and cannot be read' concretely instead of reporting nothing. It is a lower bound only — plans sold through the plugin's own plans page, and plans assigned manually, leave no product meta at all."
+        }
+      ]
+    },
+    {
+      "entity": "membership-purchase-order-linkage",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/orders"],
+      "propertyPath": "_wps_plan_id",
+      "candidateTargetRefs": ["pricing-plans/plan-order"],
+      "pitfalls": [
+        {
+          "code": "partial-rest-fallback-for-enrollments",
+          "severity": "warning",
+          "summary": "When a membership is purchased, the plugin writes `_wps_plan_id` (the plan post id) and `_member_id` (the wps_cpt_members post id) onto the FIRST line item of the order [VERIFIED IN PLUGIN SOURCE v3.1.2, public/class-membership-for-woocommerce-public.php wps_msfw_membership_update_meta_data(), wc_add_order_item_meta on $keys[0], 2026-08-16]. Both keys ride in wc/v3/orders line_items[].meta_data, which makes this the one REST-readable path to enrollment facts: order.customer_id gives the member, _wps_plan_id gives the plan, order.date_created gives the start date, and order.status approximates member_status. That is the full input set pricing-plans/plan-order needs (planId + memberId + startDate + paid). Use it as the fallback when no WXR export is supplied."
+        },
+        {
+          "code": "fallback-omits-manual-and-lifecycle-data",
+          "severity": "warning",
+          "summary": "Two holes that make this a fallback, not a source of truth. (1) Manually assigned memberships — created from the admin Members screen or by wps_msfw_assigned_membership_by_user_id() — never touch an order, so they are invisible here entirely. (2) The order records the PURCHASE, not the current state: member_expiry, later status changes (admin cancellation, expiry sweeps, pause) and renewals live only on the wps_cpt_members record, so an order-derived enrollment can be stale — importing an expired membership as ACTIVE is the concrete failure mode. Cross-check member_expiry from the export whenever one exists; when it does not, ledger every order-derived enrollment as unverified state."
+        },
+        {
+          "code": "first-line-item-only",
+          "severity": "info",
+          "summary": "The meta lands on the first line item of the order regardless of which line actually was the membership product [VERIFIED IN PLUGIN SOURCE v3.1.2: `$keys = array_keys( $items ); wc_add_order_item_meta( $keys[0], ... )`]. Do not infer the membership product from the line item carrying the key, and do not expect the key on every line of a mixed order — read it as an order-level fact that happens to be stored on one line."
+        },
+        {
+          "code": "sampling-may-miss-linkage",
+          "severity": "info",
+          "summary": "Present only on orders that bought a membership. [VERIFIED LIVE 2026-08-16] none of the 150 orders on the test site carries _wps_plan_id or _member_id, so absence here is genuinely 'no membership sales', not surface drift. The channel mechanism itself is live-proven on this site: custom underscore-prefixed line-item meta (`_reduced_stock`) does appear in wc/v3/orders line_items[].meta_data [VERIFIED LIVE 2026-08-16]."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `membership-for-woocommerce/membership-for-woocommerce` [VERIFIED LIVE 2026-08-16 against the reference store: plugin active, version 3.1.2, textdomain membership-for-woocommerce, vendor WP Swings]. Asset path detection works with no credentials: GET /wp-content/plugins/membership-for-woocommerce/public/css/membership-for-woocommerce-public.css returned 200 [VERIFIED LIVE 2026-08-16] while the directory's readme.txt returned 403, so probe a real asset, not the readme.",
+    "STORAGE MODEL — everything durable is core WordPress posts + UNREGISTERED postmeta, and almost none of it is REST-visible. (a) Plans: CPT wps_cpt_membership, no show_in_rest. (b) Enrollments: CPT wps_cpt_members, no show_in_rest, member linked by post_author. (c) Plan and member settings: plain postmeta, with zero register_post_meta / register_meta / show_in_rest calls anywhere in the plugin [VERIFIED IN PLUGIN SOURCE v3.1.2, grep across the package, 2026-08-16 — the only register_meta_box_cb hits are admin metaboxes, not REST registration]. (d) The two REST-visible crumbs are WooCommerce-side: product meta wps_membership_plan_with_product and order-line-item meta _wps_plan_id / _member_id, both surfaced by WooCommerce's own meta_data arrays rather than by anything this plugin registers. There are no custom database tables (no CREATE TABLE in the source), so a WXR export is a complete read — which is what makes export-file the right channel here rather than db-only.",
+    "THE PLUGIN'S OWN REST API IS OFF BY DEFAULT AND POST-ONLY. It registers namespace `wps-mfw` (no version segment — the routes are /wps-mfw/mfw-dummy-data/, /wps-mfw/get-membership-offers/, /wps-mfw/get-user-membership) but only when the option wps_membership_enable_api_settings === 'on' [DOCUMENTED: source 3.1.2, package/rest-api/class-membership-for-woocommerce-rest-api.php wps_mfw_add_endpoint(), read 2026-08-16]. [VERIFIED LIVE 2026-08-16] on the reference store the toggle is off: `wps-mfw` is absent from the 93 namespaces the REST index advertises and all three routes GET 404 — so restNamespaces/routes here are real but frequently-absent detection signals, and their absence must NOT be read as the plugin being missing. Even when enabled they are unusable by this system's read-only discovery: every route is registered as WP_REST_Server::CREATABLE (POST), so there is no GET form to sample. Their payloads are thin projections anyway — get-membership-offers returns {plan_name, plan_type, plan_price, plan_duration} per plan and get-user-membership returns one user's plan summary [DOCUMENTED: package/rest-api/version1/class-membership-for-woocommerce-api-process.php, read 2026-08-16] — carrying none of the access rules, expiry, or billing state a migration needs.",
+    "AUTO-CREATED PLACEHOLDER PRODUCT — the activator inserts a WooCommerce product named 'Membership Product' (slug membership-product, simple, virtual, price 0, description 'Auto generated product for membership please do not delete or update.') and stores its id in the wps_membership_default_product option; it is the cart vehicle for plan purchases, not catalog [VERIFIED IN PLUGIN SOURCE v3.1.2, includes/class-membership-for-woocommerce-activator.php]. [VERIFIED LIVE 2026-08-16] it exists on the test site as product id 2127, slug membership-product, type simple, status publish, virtual true — i.e. it is publicly listed, not private, so a naive product migration WILL carry a junk product across. Exclude it by slug/option id at mapping time and report the exclusion rather than dropping it silently.",
+    "DELIBERATELY UNDECLARED CAPABILITY — the content-access half of this plugin (plan-gated products/posts/pages, member-only discounts, member free shipping) is proposed as `commerce.membership-content-access` in capabilities-pending-decision.json and is intentionally NOT listed in this profile's capabilities[]. Reason, per the precedent recorded on the commerce.gift-card-activity pending entry: classifyCoverage unions a plugin's capabilities across ALL its entities, so an unplaced capability declared on a profile whose other entities do carry target refs would misclassify as migration-planned via api instead of pending. The pitfalls above are where that gap stays visible.",
+    "VENDOR FAMILY OVERLAP — WP Swings ships this alongside Subscriptions For WooCommerce, and the two share code lineage: this plugin's meta helper wps_membership_get_meta_data() branches on OrderUtil::get_order_type() and has an explicit `wps_subscriptions` branch constructing a WPS_Subscription object, and its plan field registry reuses the wps_sfw_* prefix for trial/signup keys [VERIFIED IN PLUGIN SOURCE v3.1.2, membership-for-woocommerce.php lines 353-400 and admin get_plans_default_value(), 2026-08-16]. Both plugins are active together on the test site. Consequence for detection and for reading: a wps_sfw_* key found on a MEMBERSHIP PLAN post belongs to this plugin, while the same-named key on a PRODUCT belongs to subscriptions-for-woocommerce — do not attribute by prefix alone. This plugin registers no custom order type of its own (no wc_register_order_type call anywhere in the source), so `wps_subscriptions` records seen on a site come from the sibling plugin.",
+    "[NEEDS-VERIFICATION] every payload-shape claim above rests on the published 3.1.2 source, not on a live record: the test site has the plugin active but zero membership plans, zero member records, and zero membership sales (205 products carry no wps_membership_plan_with_product; 150 orders carry no _wps_plan_id / _member_id; both CPTs 404 over REST) [VERIFIED LIVE 2026-08-16]. Re-verify against a store with real membership data — in particular the plan_obj snapshot shape and the member_expiry format — before promoting this profile's field lists to a contract."
+  ]
+}

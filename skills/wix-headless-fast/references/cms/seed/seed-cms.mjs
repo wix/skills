@@ -4,9 +4,10 @@
 //   node <SKILL_ROOT>/references/cms/seed/seed-cms.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Data (CMS) app if needed,
+// resolves every IMAGE value into Wix Media (url import / AI generation, one parallel wave),
 // creates each collection (field schema + permissions; an existing collection is left
-// as-is), imports IMAGE-field urls into Wix Media, bulk-inserts items, wires
-// multi-references, and verifies persistence. Prints a JSON result to stdout.
+// as-is), bulk-inserts items, wires multi-references, and verifies persistence. Prints a
+// JSON result to stdout.
 //
 // Plan shape (see SEED.md):
 //   { "collections": [{ "id", "displayName"?, "permissions"?,
@@ -14,13 +15,15 @@
 //       "items": [{ "<fieldKey>": value, ... }] }] }
 // Reference fields: order collections so targets come FIRST. A REFERENCE value is the
 // target item's index in ITS collection's items array; MULTI_REFERENCE is an array of
-// indices.
+// indices. An IMAGE value is a verified https url STRING, { "prompt": "..." }
+// (AI-generated), or { "path": "..." } (a local file the user supplied, uploaded).
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
 // wix-headless/references/inline-recipes/setup-cms.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const WIX_DATA_APP_ID = "e593b0bd-b783-45b8-97c2-873d42aacaf4";
@@ -77,6 +80,7 @@ async function reqRetryOnce(ctx, path, opts) {
 // ---- operations ----------------------------------------------------------------------------------
 
 // Idempotent; strictly only needed when a data call errors WDE0110 (app not installed).
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installDataApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -114,6 +118,7 @@ function buildField(f, collectionId) {
 const displayNameOf = (id) => String(id).replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 // The permissions block is MANDATORY. 409 WDE0104 (already exists) is fine — additive.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-collections/create-data-collection.md
 export async function createCollection(ctx, { id, displayName, fields = [], permissions }) {
   try {
     await reqRetryOnce(ctx, "/wix-data/v2/collections", { body: { collection: {
@@ -130,15 +135,13 @@ export async function createCollection(ctx, { id, displayName, fields = [], perm
   }
 }
 
-// An IMAGE field stores a permanent Wix Media URL — an external url must be imported first.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.url) throw new Error(`import-file returned no file url: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// An IMAGE field stores a permanent Wix Media URL — an external url must be imported first;
+// a { "prompt": ... } value is generated (Wix AI, 1 credit) then imported. Both live in the
+// shared util (parallel, resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // Ids come from results[].dataItem.id (there is no results[].item key).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-items.md
 export async function bulkInsertItems(ctx, dataCollectionId, dataItems) {
   const r = await reqRetryOnce(ctx, "/wix-data/v2/bulk/items/insert", { body: {
     dataCollectionId,
@@ -156,6 +159,7 @@ export async function bulkInsertItems(ctx, dataCollectionId, dataItems) {
 
 // Body key is dataItemReferences with referringItemFieldName/referringItemId/referencedItemId
 // — the natural-looking `references` shape is rejected with 400 WDE0080.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
 export async function insertReferences(ctx, dataCollectionId, dataItemReferences) {
   if (!dataItemReferences.length) return 0;
   const r = await req(ctx, "/wix-data/v2/bulk/items/insert-references", {
@@ -165,6 +169,7 @@ export async function insertReferences(ctx, dataCollectionId, dataItemReferences
 }
 
 // A 200 on insert does NOT prove persistence — query back and count.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-data-items.md
 export async function verifyItems(ctx, dataCollectionId) {
   const r = await reqRetryOnce(ctx, "/wix-data/v2/items/query", { body: { dataCollectionId } });
   return (r.dataItems ?? []).length;
@@ -173,8 +178,9 @@ export async function verifyItems(ctx, dataCollectionId) {
 // plan item -> insert `data`, per field type. MULTI_REFERENCE values are silently dropped by
 // the insert endpoint (200, no error) — stripped here and wired after; a single REFERENCE is
 // set at insert as the target item's _id. DATE/DATETIME wrap as { "$date": iso }; RICH_TEXT
-// is an HTML string stored verbatim; IMAGE urls are imported to Wix Media first.
-async function buildItemData(ctx, col, item, idsByCollection, multiRefs, itemIndex, counters) {
+// is an HTML string stored verbatim; IMAGE values were resolved to Wix Media files up front
+// (imageFiles, keyed by imageKey) — a failed image leaves the field unset.
+function buildItemData(col, item, idsByCollection, multiRefs, itemIndex, counters, imageFiles) {
   const fieldsByKey = new Map((col.fields ?? []).map((f) => [f.key, f]));
   const data = {};
   for (const [key, value] of Object.entries(item)) {
@@ -200,12 +206,10 @@ async function buildItemData(ctx, col, item, idsByCollection, multiRefs, itemInd
       continue;
     }
     if (f.type === "IMAGE") {
-      try {
-        const file = await importImage(ctx, value, `${col.id}-${itemIndex}-${key}.png`);
+      const file = imageFiles.get(imageKey(col.id, itemIndex, key));
+      if (file) {
         data[key] = file.url;
         counters.imagesImported++;
-      } catch {
-        /* never block on image failure — the item stays text-only */
       }
       continue;
     }
@@ -218,12 +222,43 @@ async function buildItemData(ctx, col, item, idsByCollection, multiRefs, itemInd
   return data;
 }
 
+const imageKey = (colId, itemIndex, fieldKey) => `${colId} ${itemIndex} ${fieldKey}`;
+
+// Every IMAGE value across the plan (a url string or { prompt }), resolved to Wix Media files
+// in ONE parallel wave before any insert. Returns Map<imageKey, { id, url } | absent>.
+async function resolveAllImages(ctx, collections) {
+  const keys = [];
+  const specs = [];
+  for (const col of collections) {
+    const imageFields = new Set((col.fields ?? []).filter((f) => f.type === "IMAGE").map((f) => f.key));
+    (col.items ?? []).forEach((item, i) => {
+      for (const [key, value] of Object.entries(item)) {
+        if (!imageFields.has(key) || value == null) continue;
+        keys.push(imageKey(col.id, i, key));
+        specs.push({
+          url: typeof value === "string" ? value : undefined,
+          path: typeof value === "object" ? value.path : undefined,
+          prompt: typeof value === "object" ? value.prompt : undefined,
+          displayName: `${col.id}-${i}-${key}.png`,
+        });
+      }
+    });
+  }
+  const files = specs.length ? await resolveItemImages(ctx, specs) : [];
+  const out = new Map();
+  keys.forEach((k, i) => { if (files[i]) out.set(k, files[i]); });
+  return out;
+}
+
 /**
- * ONE-CALL seed: install → per collection (in plan order): create → import images →
- * bulk-insert → wire multi-references → verify; ids threaded in memory. The default path.
+ * ONE-CALL seed: install → resolve every IMAGE value in one parallel wave → per collection
+ * (in plan order): create → bulk-insert → wire multi-references → verify; ids threaded in
+ * memory. The default path.
  */
 export async function setupCms(ctx, { collections = [] } = {}) {
   await installDataApp(ctx);
+
+  const imageFiles = await resolveAllImages(ctx, collections);
 
   const idsByCollection = new Map();
   const out = { collections: [] };
@@ -235,7 +270,7 @@ export async function setupCms(ctx, { collections = [] } = {}) {
     const dataItems = [];
     const planItems = col.items ?? [];
     for (let i = 0; i < planItems.length; i++) {
-      dataItems.push(await buildItemData(ctx, col, planItems[i], idsByCollection, multiRefs, i, counters));
+      dataItems.push(buildItemData(col, planItems[i], idsByCollection, multiRefs, i, counters, imageFiles));
     }
 
     let ids = [];

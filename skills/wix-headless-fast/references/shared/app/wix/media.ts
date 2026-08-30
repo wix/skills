@@ -4,6 +4,7 @@
 // `wix:image://v1/<hash>/<file>#originWidth=…` identifier that a browser cannot load
 // (ERR_UNKNOWN_URL_SCHEME). The wix:image:// form must go through the SDK media module;
 // never hand-build a static.wixstatic.com URL (wrong format → 403).
+// docs: https://dev.wix.com/docs/sdk/core-modules/sdk/media.md
 import { media } from "@wix/sdk";
 
 type MediaLike =

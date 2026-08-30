@@ -13,11 +13,11 @@ re-litigate them.
 
 ## Relationship to sibling skills
 
-| Skill | Use when |
-|---|---|
-| **wix-headless-fast** (this) | A supported vertical fits the request and the frontend is Astro or React — the fast path. |
-| `wix-headless` | A vertical this skill doesn't ship yet, a non-React frontend, backend-only runs, or stripe/self-managed project types. |
-| `wix-vibe-headless` | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI. |
+| Skill                        | Use when                                                                                                               |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **wix-headless-fast** (this) | A supported vertical fits the request and the frontend is Astro or React — the fast path.                              |
+| `wix-headless`               | A vertical this skill doesn't ship yet, a non-React frontend, backend-only runs, or stripe/self-managed project types. |
+| `wix-vibe-headless`          | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI.                         |
 
 ## The model
 
@@ -55,7 +55,7 @@ re-litigate them.
 3. **Create runs (empty directory): run the fast path** — one deterministic call:
 
    ```bash
-   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <storefront|bookings>
+   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <vertical>
    ```
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
@@ -78,12 +78,15 @@ re-litigate them.
    but **never run a second npm install concurrently**: two npms in one `node_modules` race and
    redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
    **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
+
 4. **Design and build the presentation while the install finishes** — in the project dir from
    the `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: set the `@theme`
    tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
    shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
    home page) — designed to fit the brief, not copied from the reference components. Read the
-   INSTRUCTIONS now (not earlier — its contracts matter only from this step on); the hook/DTO
+   INSTRUCTIONS and the shared floors — `references/shared/DESIGN.md` +
+   `references/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
+   step on); the hook/DTO
    contracts are inlined there, so don't open the shipped files themselves. **Author your
    surfaces in as few messages as possible** — batch multiple Write calls in one message
    (components are independent files); don't pay a round-trip per file.
@@ -105,17 +108,17 @@ comes from the shipped code, and real errors surface at build/release.
 
 ## Verticals
 
-| The user wants… | Vertical | Playbook |
-|---|---|---|
-| Online store: products, categories, variants, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
-| Appointments/classes: services, time slots, staff, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
-| Blog: post feed, categories/tags, rich-content post pages | **blog** | `references/blog/INSTRUCTIONS.md` |
-| Structured content collections (directory, recipes, listings) with pages designed per schema | **cms** | `references/cms/INSTRUCTIONS.md` |
-| Events: listing, event pages, free RSVP, ticket sales via hosted checkout | **events** | `references/events/INSTRUCTIONS.md` |
-| Member accounts: login/sign-up, gated pages, account page | **members** | `references/members/INSTRUCTIONS.md` |
-| Portfolio/showcase: collections of projects, project pages with media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
-| Membership/subscription plans: pricing page, plan detail, hosted purchase | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
-| Restaurant: menu with photos, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
+| The user wants…                                                                              | Vertical          | Playbook                                   |
+| -------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------ |
+| Online store: products, categories, variants, cart, checkout                                 | **storefront**    | `references/storefront/INSTRUCTIONS.md`    |
+| Appointments/classes: services, time slots, staff, booking, checkout                         | **bookings**      | `references/bookings/INSTRUCTIONS.md`      |
+| Blog: post feed, categories/tags, rich-content post pages                                    | **blog**          | `references/blog/INSTRUCTIONS.md`          |
+| Structured content collections (directory, recipes, listings) with pages designed per schema | **cms**           | `references/cms/INSTRUCTIONS.md`           |
+| Events: listing, event pages, free RSVP, ticket sales via hosted checkout                    | **events**        | `references/events/INSTRUCTIONS.md`        |
+| Member accounts: custom in-app login/sign-up, gated pages, account page                      | **members**       | `references/members/INSTRUCTIONS.md`       |
+| Portfolio/showcase: collections of projects, project pages with media galleries              | **portfolio**     | `references/portfolio/INSTRUCTIONS.md`     |
+| Membership/subscription plans: pricing page, plan detail, hosted purchase                    | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
+| Restaurant: menu with photos, online ordering, table reservations                            | **restaurants**   | `references/restaurants/INSTRUCTIONS.md`   |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
 accounts) deploys them together — fast-path takes one vertical; deploy the rest with

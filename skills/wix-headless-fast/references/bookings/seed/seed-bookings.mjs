@@ -11,7 +11,7 @@
 // Plan shape (see SEED.md):
 //   { "services": [{ "type": "APPOINTMENT"|"CLASS", "name", "description", "tagLine"?,
 //                    "price"?, "free"?, "duration"? (APPOINTMENT, minutes), "capacity"?,
-//                    "category"? (name), "imageUrl"?,
+//                    "category"? (name), "imageUrl"? | "imagePrompt"?,
 //                    "sessions"?: [{ "start", "end", "capacity"? }] }] }   // CLASS only; local "YYYY-MM-DDThh:mm:ss"
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
@@ -19,6 +19,7 @@
 // wix-headless/references/inline-recipes/setup-bookings.md.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolveItemImages } from "../../shared/seed/images.mjs";
 
 const API = "https://www.wixapis.com";
 const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
@@ -86,6 +87,7 @@ function buildService(s) {
 
 // ---- operations ----------------------------------------------------------------------------------
 
+// docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installBookingsApp(ctx) {
   try {
     await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
@@ -98,6 +100,7 @@ export async function installBookingsApp(ctx) {
 }
 
 // ⚠️ staffMemberIds takes resourceId, NOT the staff id.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members.md
 export async function queryStaff(ctx) {
   const r = await req(ctx, "/bookings/v1/staff-members/query", {
     body: { query: {}, fields: ["RESOURCE_DETAILS"] },
@@ -122,6 +125,8 @@ export async function queryStaffWithRetry(ctx, { tries = 15, delayMs = 2000 } = 
 }
 
 // Every service needs a category.id or it's invisible on the live site. Idempotent by name.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category.md
 export async function createCategories(ctx, names) {
   const existing = await req(ctx, "/bookings/v2/categories/query", { body: { query: {} } });
   const byName = new Map((existing.categories ?? []).map((c) => [c.name, { id: c.id, name: c.name }]));
@@ -139,6 +144,7 @@ export async function createCategories(ctx, names) {
 }
 
 // Bulk-create services (APPOINTMENT + CLASS mixed). Run AFTER staff + categories.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services.md
 export async function createServices(ctx, services) {
   const body = { services: services.map(buildService), returnEntity: true };
   const r = await req(ctx, "/bookings/v2/bulk/services/create", { body });
@@ -158,6 +164,7 @@ export async function createServices(ctx, services) {
 
 // CLASS only: schedule sessions (bulk Calendar Events V3). start/end are LOCAL wall-clock
 // "YYYY-MM-DDThh:mm:ss" (no Z), today-or-future.
+// docs: https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event.md
 export async function scheduleClassSessions(ctx, sessions) {
   const body = {
     events: sessions.map((s) => ({
@@ -179,15 +186,13 @@ export async function scheduleClassSessions(ctx, sessions) {
   }));
 }
 
-// Bookings binds a service image by Wix Media file ID — an external url must be imported first.
-export async function importImage(ctx, url, displayName = "image.png") {
-  const r = await req(ctx, "/site-media/v1/files/import", { body: { url, mimeType: "image/png", displayName } });
-  const f = r.file || r;
-  if (!f?.id) throw new Error(`import-file returned no file id: ${JSON.stringify(r).slice(0, 200)}`);
-  return { id: f.id, url: f.url };
-}
+// Bookings binds a service image by Wix Media file ID — an external url must be imported
+// first; a plan `imagePrompt` is generated (Wix AI, 1 credit) then imported. Both live in the
+// shared util (parallel, resilient, never blocks the seed).
+export { importImage } from "../../shared/seed/images.mjs";
 
 // Writes under media.mainMedia + media.coverMedia (writing media.image 200s but silently drops).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service.md
 export async function attachServiceImage(ctx, it) {
   return req(ctx, `/bookings/v2/services/${it.serviceId}`, {
     method: "PATCH",
@@ -245,16 +250,22 @@ export async function setupBookings(ctx, { services = [], staffResourceId } = {}
   });
   const scheduled = sessions.length ? await scheduleClassSessions(ctx, sessions) : [];
 
+  // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
+  // attach. Failures leave the service text-only; the seed's exit never depends on images.
+  const files = await resolveItemImages(ctx, created.map((c, i) => ({
+    url: services[i]?.imageUrl,
+    path: services[i]?.imagePath,
+    prompt: services[i]?.imagePrompt,
+    displayName: `${c?.slug || "service"}.png`,
+  })));
   let imagesAttached = 0;
   for (let i = 0; i < created.length; i++) {
-    const url = services[i]?.imageUrl;
-    if (!url || !created[i]?.id) continue;
+    if (!files[i] || !created[i]?.id) continue;
     try {
-      const file = await importImage(ctx, url, `${created[i].slug || "service"}.png`);
       await attachServiceImage(ctx, {
         serviceId: created[i].id,
         revision: created[i].revision,
-        image: { id: file.id, url: file.url, width: 1024, height: 1024 },
+        image: { id: files[i].id, url: files[i].url, width: 1024, height: 1024 },
       });
       imagesAttached++;
     } catch {

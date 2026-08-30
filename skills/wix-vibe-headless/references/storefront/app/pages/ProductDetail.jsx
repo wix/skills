@@ -34,7 +34,7 @@ export default function ProductDetail() {
   }
   if (!d.product) return <ProductDetailSkeleton />;
 
-  const compareAt = d.product?.compareAtPriceRange?.minValue?.formattedAmount;
+  const compareAt = d.compareAtPrice;   // follows the selected variant (falls back to the product range)
 
   return (
     <main className="max-w-[1200px] mx-auto p-4">

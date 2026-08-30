@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "category",
+  "displayName": "Stores Category",
+  "capability": "commerce.catalog-category",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Category",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product_category",
+      "routes": [
+        "/wc/v3/products/categories"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "storesCategory",
+      "routes": [
+        "Catalog V3 Categories",
+        "V1 collections"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Categories",
+    "endpoint": "POST /categories/v1/categories",
+    "writerId": "createStoresCategory",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use only for source taxonomy metadata or hierarchy details not represented by Stores categories."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "tree-reference-top-level",
+      "severity": "blocker",
+      "summary": "Pass Stores treeReference as a top-level sibling of category."
+    }
+  ],
+  "hierarchy": {
+    "maxNestingDepth": 5,
+    "source": "user-confirmed domain knowledge",
+    "confirmedBy": "user (Wix domain expert), 2026-08-12",
+    "liveVerified": false,
+    "note": "Not yet independently live-verified by this pipeline (e.g. no throwaway multi-level treeReference probe has confirmed this on a live site). Recorded as fact per user statement so future migrations do not need to re-ask or re-test this. If a future run needs live confirmation, verify with a small test chain and update liveVerified/evidence here rather than re-opening the question as unknown."
+  },
+  "mappingGuidance": [
+    "Preserve hierarchy where the target category tree supports it (up to 5 levels of nesting per Wix Stores category tree); create before products.",
+    "If a source category tree exceeds 5 levels, re-parent nodes deeper than level 5 up to their level-5 ancestor and record the flattening as a documented faithfulness-ledger loss -- do not silently drop or guess."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/category-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+    
+  ]
+}

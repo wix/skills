@@ -1,6 +1,6 @@
 ---
 name: wix-base44-connector
-description: "Build on Wix from Base44: gather the connected site's context (installed apps and their ids, OAuth clientId, locale, currency, CMS collections), find any Wix API and learn its exact contract (docs search and browse, method pages, the spec index's request/response schemas), follow curated management recipes for multi-step admin flows, and route each call to the right identity — the public visitor token in pages, the secret admin token server-side."
+description: "Build on and manage the connected Wix site from a Base44 app: discover and call any Wix API (endpoints, request/response shapes, fields), gather site context, route each call to the right identity, and follow curated recipes for multi-step admin flows."
 ---
 
 # Building on Wix from Base44
@@ -51,17 +51,18 @@ const wx = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
 ```
 
-`wx` exports nine helpers:
+`wx` exports these helpers:
 
-- `wx.post(url, body, token?)` — the one JSON transport: Bearer from `token`, non-2xx **throws** the API's own error
+- `wx.post/get/patch/put/del(url, [body], token?)` — JSON transports, one per verb (`get`/`del` take no body): Bearer from `token`, non-2xx **throws** the API's own error
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint + docsUrl + gist
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist
 - `wx.page(docsUrl)` — read a doc page
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
-- `wx.spec(code)` — run `code` against the spec index for a method's exact schema
+- `wx.spec(docsUrl | code)` — a method's exact schema; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
+- `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
 A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
@@ -84,7 +85,9 @@ An empty report = bad token, never an empty site.
 ## Learn Wix — find the APIs, learn their contracts
 
 ```js
-// know the product? browse is deterministic — menuUrl alone orients (children + counts);
+// name the method? search finds it in one call:
+await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB url", docsUrl, gist }]; call wx.<verb>(url, body, token); spec(docsUrl) for the full schema
+// exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
 await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
@@ -123,7 +126,15 @@ lines weren't enough.
 
 ### The spec index — a located method's exact schema
 
-Read the schema of a method you already have a `docsUrl` for (from search/browse):
+Pass a method's `docsUrl` (a search/browse hit carries it) — spec loads that method's schema (request
+body, responses, filterable-fields map, examples) in one call, a direct lookup. Read the field
+**descriptions**, not just the names — they carry the rules (which field is canonical, when one is empty):
+
+```js
+await wx.spec(hit.docsUrl);
+```
+
+Want to shape the result yourself? Pass raw code against the index (`lightIndex` + `getResourceSchemaByUrl`):
 
 ```js
 await wx.spec(`
@@ -163,8 +174,9 @@ cross-step gotchas no method page mentions.
 
 ## Write the code
 
-**Response shapes obey the discover rule in every lane**: code against fields you saw in a live
-response or the schema — remembered names are often from older versions. Probe one real row first.
+**Shapes are discovery too**: read a method's request/response schema from `spec()` — its field
+descriptions state which field is canonical and when one reads back empty. Don't infer shape from a
+single live probe: it reflects only the params you sent, so probe with the same request your code makes.
 
 ### Admin calls — exec ad hoc, backend functions deployed
 

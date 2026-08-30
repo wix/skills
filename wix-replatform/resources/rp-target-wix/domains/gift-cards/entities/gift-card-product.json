@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "domain": "gift-cards",
+  "entity": "gift-card-product",
+  "displayName": "Gift Card Product",
+  "capability": "commerce.gift-card-products",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Gift Card Product",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "media/media-file"
+  ],
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Gift Card Products",
+    "endpoint": "POST /gift-cards/v1/gift-card-products",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "one-gift-card-product-per-site",
+      "severity": "blocker",
+      "summary": "A site supports a MAXIMUM OF ONE gift card product (documented as a temporary limitation; second create → 409 GIFT_CARD_PRODUCT_ALREADY_EXISTS). A source shop with several gift-card products (different designs, different denomination sets, seasonal variants) CANNOT be migrated one-to-one: collapse them into a single product whose presetVariants union the denominations, and ledger the lost designs/descriptions as fidelity_loss. Check for an existing product before creating — on a non-empty destination the create will fail rather than merge."
+    },
+    {
+      "code": "products-vs-issued-cards",
+      "severity": "warning",
+      "summary": "A gift card product is the purchasable definition (name, denominations, image); issued cards and balances are gift-cards/gift-card. Import both or buyers get a catalog item while existing card holders lose balances — plan them together."
+    },
+    {
+      "code": "denominations-are-presetVariants",
+      "severity": "blocker",
+      "summary": "The denomination field is presetVariants[], NOT 'variants' or 'denominations'. VERIFIED LIVE 2026-08-16: a body using variants[] fails the whole call with 428 CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS — an error that reads like a missing-data problem but is actually a wrong-field-name problem. Each preset variant carries price (what the buyer pays) and value (the balance loaded), which are allowed to differ for promotional pricing; a customVariant { minValue, maxValue } can coexist with presets for buyer-chosen amounts. At least one preset or a customVariant is required."
+    },
+    {
+      "code": "image-optional-but-media-manager-only",
+      "severity": "warning",
+      "summary": "The product image is OPTIONAL (verified live 2026-08-16: create succeeds with no image at all — the earlier 'must already exist' framing overstated it), but when supplied it must be a Wix Media Manager image and needs at least id, width, and height; there is no external-URL import on this surface, unlike stores/promotion. Import source card designs through media/media-file first."
+    },
+    {
+      "code": "expiration-is-a-one-of",
+      "severity": "info",
+      "summary": "expirationType is NONE | FIXED | RELATIVE, paired with a one-of: fixedExpirationDate (a date-time, rejected if in the past — 428 CANNOT_CREATE_GIFT_CARD_PRODUCT_WITH_PAST_EXPIRATION_DATE) or relativeExpirationDate { value, period DAYS|WEEKS|MONTHS|YEARS }. A source policy of 'expires N months after purchase' maps to RELATIVE; a source shop's already-lapsed fixed expiry cannot be recreated and must be ledgered."
+    }
+  ],
+  "mappingGuidance": [
+    "Map source gift-card product definitions (e.g. PW/YITH WooCommerce gift card products: title, amounts, design image) to name (max 55 chars), description (max 3000), presetVariants[] (max 200) and/or customVariant, and image.",
+    "Because only one gift card product can exist per site, resolve the source's several products into one BEFORE the write: union the denominations into presetVariants[], derive a customVariant range from any 'choose your own amount' source option, and record every collapsed product in the migration ledger.",
+    "Import media first, then the gift card product, then issued cards (gift-cards/gift-card) so references resolve in one pass."
+  ],
+  "setupRequirements": [
+    "Wix Gift Cards app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/gift-card-product-object",
+      "note": "object page: name, description, Media-Manager image, denominations"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/create-gift-card-product"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/reference-run",
+      "note": "finding #10: PW Gift Cards observed live (balances db-only; product definitions REST-visible)"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: POST /gift-cards/v1/gift-card-products with { name, description, expirationType: NONE, presetVariants: [{ price 25 / value 25 }, { price 45 / value 50 }], customVariant: { minValue 10, maxValue 500 } } → 200 with server-assigned product id and per-preset-variant ids; GET readback preserved every amount and populated formattedAmount/convertedAmount in the site currency (ILS). A first attempt using variants[] instead of presetVariants[] failed with 428 CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS. No image was supplied and the create still succeeded. DELETE /gift-cards/v1/gift-card-products/{id} → 200 at cleanup. Not exercised: image attachment, FIXED/RELATIVE expiration, and the documented one-product-per-site 409 (only one product was ever created)."
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Gift Card Products). Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site, which also CORRECTED two docs-era claims: the denomination field is presetVariants[] (a wrong field name surfaces as a misleading 'without variants' 428), and the image is optional rather than required. The one-gift-card-product-per-site cap — the biggest constraint on this migration path — was found in the create-method docs during that probe and is the reason reliability is partially-reliable rather than reliable. Pairs with gift-cards/gift-card for a complete gift-card migration."
+}

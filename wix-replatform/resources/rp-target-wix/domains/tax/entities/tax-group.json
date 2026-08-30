@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "domain": "tax",
+  "entity": "tax-group",
+  "displayName": "Wix Tax Group",
+  "capability": "commerce.tax-treatment-group",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "TaxGroup",
+    "verifiedFqdn": "wix.billing.tax.v1.tax_group",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product.tax_class",
+      "routes": ["/wc/v3/products", "/wc/v3/taxes/classes"],
+      "confidence": "medium",
+      "note": "WooCommerce's tax_class (standard/reduced-rate/zero-rate, plus any custom classes in wc/v3/taxes/classes) is the closest analog to a Wix tax group -- both bucket products by tax treatment. A site with only the 3 WooCommerce defaults and no differentiated rates per class (the reference store, 2026-08-12) has no live signal that actually requires more than the Wix default 'Products' group."
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product.tax_status",
+      "routes": ["/wc/v3/products"],
+      "confidence": "high",
+      "note": "tax_status=none (genuinely tax-exempt, independent of tax_class) is the strongest, most reliable signal in this domain -- map it to a dedicated custom tax group with no manual tax mapping in any region (see manual-tax-mapping.json's unmapped-tax-group pitfall). tax_status=taxable is the default and needs no assignment -- Wix Stores products with no taxGroupId automatically use the site's default 'Products' group."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Tax Groups",
+    "endpoint": "POST /billing/v1/tax-groups",
+    "writerId": "createTaxGroup",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "skip-by-default",
+      "when": "The source has no differentiated tax_class/tax_status signal beyond WooCommerce's 3 unused defaults (the reference store's actual state, 2026-08-12 recheck: 204/204 products tax_class=standard) -- do not create a custom tax group per WooCommerce tax_class name speculatively. Create one only when a real per-product signal (a non-default tax_class actually in use, or tax_status=none) exists."
+    }
+  ],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    {
+      "code": "tax-apis-live-under-billing-v1",
+      "severity": "warning",
+      "summary": "Create/Query/Delete Tax Group are all `/billing/v1/tax-groups...`, not `/ecom/v1/...` (unlike sibling Discount Rules) or `/stores/v2/...` (unlike Coupons)."
+    },
+    {
+      "code": "query-tax-groups-excludes-defaults",
+      "severity": "blocker",
+      "summary": "Query Tax Groups (POST /billing/v1/tax-groups/query) returns ONLY custom groups this site created -- it silently omits the built-in defaults (live-confirmed on the reference store 2026-08-12: 'Shipping and delivery', 'Products' 215238eb-22a5-4c36-9e7b-e7c08025e04e, 'Services' 13d21c63-b5ec-5912-8397-c3a5ddb27a97, 'Cancellation fees'). Call List Default Tax Groups (GET /billing/v1/tax-groups/default-tax-groups) to resolve a default group's id -- e.g. to find the Products group id for a control/comparison mapping."
+    },
+    {
+      "code": "tax-group-carries-no-rate",
+      "severity": "info",
+      "summary": "Creating a tax group only creates the bucket. It sets no tax rate anywhere -- the rate for a (group, region) pair is a separate Manual Tax Mapping record. Do not expect Calculate Tax to charge anything for a brand-new group until (a) a manual tax mapping exists for it in a matched region, or (b) leave it deliberately unmapped for an exempt group (see manual-tax-mapping.json)."
+    },
+    {
+      "code": "assignment-is-a-plain-stores-product-write-not-a-tax-api-call",
+      "severity": "info",
+      "summary": "A product joins a tax group via the product's own `taxGroupId` field on Wix Stores Catalog V3 (PATCH /stores/v3/products/{id}, requiring the product's current `revision`) -- not via any endpoint in this file. Live-verified 2026-08-12: PATCH with `{product:{id, revision, taxGroupId}}` against the reference store's already-migrated 'Gift Card' product (WooCommerce source id 1731, tax_status=none) succeeded and re-GET confirmed the persisted taxGroupId."
+    },
+    {
+      "code": "system-defined-groups-cannot-be-renamed-or-deleted",
+      "severity": "warning",
+      "summary": "Update Tax Group documents `ILLEGAL_UPDATE_ON_SYSTEM_DEFINED_TAX_GROUP` -- default groups from List Default Tax Groups cannot be renamed/deleted; only custom groups created via Create Tax Group can be."
+    },
+    {
+      "code": "default-group-name-is-not-a-locale-invariant-key",
+      "severity": "blocker",
+      "summary": "TaxGroup's own schema (checked 2026-08-15) is only `{id, name, revision, createdDate, updatedDate}` -- no locale-independent category key exists. The docs' own List Default Tax Groups worked example even returns a different default set ('Standard Tax') than the reference store's real one ('Products'/'Shipping and delivery'/'Services'/'Cancellation fees'), confirming `name` genuinely varies per site/locale, not a fixed platform constant. tax-build.js's `groupsForRate` still matches by `name` (it's the only field the API offers), but now throws loudly if fewer than all 4 expected names are found -- a translated or differently-configured site must fail fast here, not silently fan a standard-class rate out to a partial set of groups (see manual-tax-mapping.json's shipping-flag-is-a-group-fanout-not-a-mapping-field pitfall for why an incomplete fan-out is the same undercharging bug)."
+    }
+  ],
+  "mappingGuidance": [
+    "Only create a custom tax group when there is a real per-product signal: either a non-default WooCommerce tax_class actually assigned to at least one product, or tax_status=none (exempt). Do not pre-create groups for WooCommerce's unused 'reduced-rate'/'zero-rate' defaults just because they exist in wc/v3/taxes/classes with 0 products using them.",
+    "For a genuinely tax-exempt product (tax_status=none), create ONE dedicated tax group (e.g. named 'Tax Exempt') and assign it via the product's taxGroupId -- do not create a manual tax mapping for it in any region; see manual-tax-mapping.json's unmapped-tax-group-calculates-to-exactly-zero-tax finding.",
+    "For a differentiated WooCommerce tax_class with an actual non-default rate in wc/v3/taxes, create one Wix tax group per class name and let manual-tax-mapping.json's writer carry the per-region rate."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups/tax-group-object" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups/create-tax-group" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups/query-tax-groups" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups/list-default-tax-groups" },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real Create Tax Group ('Tax Exempt', id 0495c28d-85b4-4b0b-814c-fb3bd4ebbc13), Query Tax Groups, List Default Tax Groups, Update Tax Group (rename), and Delete Tax Group calls against the live site, plus a real Stores Catalog V3 Update Product call assigning taxGroupId to the one genuinely tax-exempt product (WooCommerce id 1731 'Gift Card', tax_status=none)."
+    }
+  ]
+}

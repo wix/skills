@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-refund",
+  "displayName": "eCommerce Order Refund",
+  "capability": "commerce.order-refunds",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "eCommerce Order Refund",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "ecom/order"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_refund",
+      "routes": [
+        "/wc/v3/orders/{id}/refunds"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "ecomOrderRefund",
+      "routes": [
+        "eCommerce Orders API"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Order Transactions + Order Billing",
+    "endpoint": "POST /ecom/v1/payments/orders/{orderId}/add-payment then POST /ecom/v1/order-billing/refund-payments",
+    "writerId": "ensureOrderPaymentAndRefund",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for refund history when the order writer cannot preserve refund details."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "refund-schema-unverified",
+      "severity": "warning",
+      "summary": "Verify whether the selected order write shape preserves refund amounts, reasons, dates, and line references."
+    },
+    {
+      "code": "import-payload-refund-unproven",
+      "severity": "info",
+      "summary": "RESOLVED 2026-08-12 (the reference store, same day, different run): the 2026-08-12 subset run correctly found no import-safe refund representation on the Import Order payload itself — that observation was accurate, not a dead end. The Import Order payload never carries refunds at all; the real write path is a separate pair of eCom APIs (Order Transactions + Order Billing), documented below. Kept as `info` rather than removed so the negative finding stays traceable to what it actually ruled out."
+    },
+    {
+      "code": "createorder-was-the-wrong-tool-not-a-dead-end",
+      "severity": "info",
+      "summary": "The prior assumption was that the only refund write path ran through live-commerce `createOrder` (importSafe:false — real inventory/email side effects, correctly rejected as unsafe for historical data). VERIFIED live 2026-08-12: this was solving the wrong endpoint, not a genuine dead end. The eCom domain models payments/refunds as pure record-keeping, separate from the checkout flow: 'Add Payments' and 'Refund Payments' (with `externalRefund: true`) both explicitly do NOT move real money or call a payment provider — see dev.wix.com's own notes on each ('This does NOT perform the actual charging' / 'Marks the payment as refunded without calling the provider's API'). Always check for a domain-specific record-keeping endpoint before accepting a live-commerce writer's importSafe:false as final."
+    },
+    {
+      "code": "import-order-creates-no-payment-record",
+      "severity": "warning",
+      "summary": "Verified live: an order created via Import Order reads back `GET /ecom/v1/payments/orders/{id}` with `payments: []` — Import Order does not create any payment transaction, so Refund Payments has nothing to reference (`paymentId` required) without first calling Add Payments. `ensureOrderPaymentAndRefund` (wix-writers.js) checks for an existing non-refund-disabled payment and adds one sized to the order total (offlinePayment:true, status:APPROVED) only when none exists, before refunding."
+    },
+    {
+      "code": "external-refund-is-the-load-bearing-field",
+      "severity": "blocker",
+      "summary": "`paymentRefunds[].externalRefund` defaults to `false` (automatic refund — calls the payment provider's API for real). For historical/imported data this MUST be set to `true` explicitly, or the call will attempt a genuine provider-side refund against a payment that was never actually processed by that provider."
+    }
+  ],
+  "mappingGuidance": [
+    "Map refunds with their parent order (via the order crosswalk) and preserve source refund IDs.",
+    "One refund per parent order was this project's shape (verified: 18 refunds, 18 distinct parent orders, no partials-plus-full-refund cases) — a source with multiple refunds per order would need `ensureOrderPaymentAndRefund`'s payment lookup extended to select/split across payments rather than assuming one.",
+    "`sideEffects` (inventory restock, customer notification email) is intentionally omitted for historical data — set only if a specific migration explicitly wants either effect."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/mapping/entity-decisions/order-refund.json",
+      "note": "subset run 2026-08-12: action=skip, no import-safe writer found on the Import Order payload — accurate for that payload; see the separate Order Transactions/Order Billing path found the same day"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing/refund-payments"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-transactions/add-payments"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-transactions/list-transactions-for-single-order"
+    },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real POST /ecom/v1/payments/orders/{id}/add-payment and POST /ecom/v1/order-billing/refund-payments against the live reference store; 18/18 refunds created and independently re-queried, amounts matching source exactly."
+    }
+  ]
+}

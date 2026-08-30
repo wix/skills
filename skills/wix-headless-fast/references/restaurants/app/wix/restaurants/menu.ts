@@ -5,6 +5,13 @@
 // The hierarchy is Menu → Sections → Items wired by ID ARRAYS: display structure and order
 // live in menu.sectionIds / section.itemIds, NOT in the list* response order — fetchMenus
 // stitches in id-array order and drops dangling ids. Entity ids are `_id` (never `id`).
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/list-menus.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/list-sections.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-variants/list-variants.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifier-groups/list-modifier-groups.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifiers/list-modifiers.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-labels/list-labels.md
 import {
   menus as menusModule,
   sections as sectionsModule,

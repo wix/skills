@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "back-in-stock-request",
+  "displayName": "Back In Stock Notification Request",
+  "capability": "commerce.back-in-stock-notifications",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "BackInStockNotificationRequest",
+    "verifiedFqdn": "com.wixpress.ecom.backInStock",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "back-in-stock-subscriber",
+      "sourcePlugin": "back-in-stock-notifier-for-woocommerce",
+      "routes": [
+        "/wc-instocknotifier/v3/list_subscriber"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Back In Stock Notifications",
+    "endpoint": "POST /back-in-stock-service/v1/back-in-stock-notification-requests",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Never for the subscriber request itself — this is a verified native write surface. Only source fields with nowhere to land (e.g. a custom quantity-wanted field some plugins carry) fall back to a notes/CMS-archive entry, not the request record."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": [
+      "target-write-not-yet-live-verified"
+    ]
+  },
+  "pitfalls": [
+    {
+      "code": "requires-collection-enabled-first",
+      "severity": "blocker",
+      "summary": "Creating a request 428s with REQUEST_COLLECTION_DISABLED unless Start Collecting Requests has been called for the site first. This is a one-time setup step, not a per-record concern — emit it as a setup requirement, not a per-row retry."
+    },
+    {
+      "code": "requires-product-crosswalk-first",
+      "severity": "blocker",
+      "summary": "catalogReference.catalogItemId must be a real Wix Stores Catalog V3 product/variant id. Sequence this entity strictly after stores/product (and its crosswalk) in the import order; a source product id can never be passed through directly."
+    },
+    {
+      "code": "duplicate-pair-is-not-an-error",
+      "severity": "blocker",
+      "summary": "[VERIFIED FROM DOCS 2026-08-19, not live] The create-endpoint page CONTRADICTS ITSELF: its own intro prose says a duplicate (catalogReference, email) returns the EXISTING request (200), but the same page's Possible-Errors table lists `409 ALREADY_EXISTS / BACK_IN_STOCK_NOTIFICATION_REQUEST_ALREADY_EXISTS` for the identical condition -- and a 409 error body is not documented to carry the existing request's id. Since idPolicy is server-assigned and crosswalkRequired is true, a write that receives 409 must NOT be treated as automatic success with a fabricated id. Recovery path (docs-verified, not live-tested): Query Back In Stock Notification Requests only supports filtering by `id`, `contactId`, `status`, `autoNotified`, `createdDate`, `itemUrl` -- NOT by `catalogReference.catalogItemId` or `email` directly. So on 409: (1) resolve the email's `contactId` via the Contacts V5 upsert already required for this row (see creates-a-contact below), (2) call Query filtered by that `contactId`, (3) client-side match `catalogReference.catalogItemId` (and `options.variantId` if present) among the returned rows to recover the existing request's id for the crosswalk. If no match is found this way, record the row's outcome as `status: \"deferred\"` with a `deferralReason` (the established deferred-outcome vocabulary this repo already uses for a write that functionally succeeded/exists but cannot yet be resolved into a complete crosswalk entry -- see rp-target-wix/SKILL.md's completion-report.json skipped/deferred-outcomes contract and lib/contract-ledger.js's `status === 'deferred'` -- never invent an id or silently drop the row."
+    },
+    {
+      "code": "creation-does-not-notify",
+      "severity": "info",
+      "summary": "Unlike most bulk-import writes in this domain, creating a request does NOT email the customer — only an actual restock (or the offline Mark As Notification Sent call) does. No disableNotifications-equivalent flag exists or is needed; historical import is safe by default."
+    },
+    {
+      "code": "creates-a-contact",
+      "severity": "warning",
+      "summary": "A request with an email that has no matching Contact creates one. Sequence-wise this is fine (Contacts V5 upserts are idempotent by email) but it does mean back-in-stock import volume is CRM contact volume, same caveat as events/rsvp."
+    }
+  ],
+  "mappingGuidance": [
+    "Map source subscriber email -> request.email (required, EMAIL format).",
+    "Map source product/variation id, after crosswalk, -> request.catalogReference.catalogItemId; always set request.catalogReference.appId to the fixed Wix Stores app id 215238eb-22a5-4c36-9e7b-e7c08025e04e.",
+    "A source variation-level subscription -> request.catalogReference.options.variantId (Catalog V3 option/variant id, post-crosswalk), not a separate entity.",
+    "itemDetails.name and itemDetails.price are required on every create call and are NOT stored fields on the request's own read shape (they only feed the notification template) -- pull them from the already-imported product at write time, not from any source data.",
+    "request.itemUrl should be the live Wix product page URL once known; omit if not yet resolvable rather than guessing.",
+    "Source subscriber status (subscribed/unsubscribed/mail-sent) has no direct target field -- only subscribed-equivalent rows are worth importing; do not attempt to recreate unsubscribed history."
+  ],
+  "setupRequirements": [
+    "Wix Stores app installed",
+    "Start Collecting Requests called once for the site (Back In Stock Settings API)",
+    "SCOPE.DC-STORES-MEGA.MANAGE-STORES"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/other-services/back-in-stock/back-in-stock-notifications/back-in-stock-notification-request-object",
+      "note": "object page"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/other-services/back-in-stock/back-in-stock-notifications/create-back-in-stock-notification-request",
+      "note": "full request/response shape fetched and verified 2026-08-19"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/other-services/back-in-stock/back-in-stock-notifications/create-back-in-stock-notification-request",
+      "note": "fetched 2026-08-19 -- this single page contradicts itself: its intro prose says a duplicate (catalogReference, email) returns the existing request (200), but its own Possible-Errors table lists 409 ALREADY_EXISTS / BACK_IN_STOCK_NOTIFICATION_REQUEST_ALREADY_EXISTS for the identical condition -- see duplicate-pair-is-not-an-error pitfall"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/other-services/back-in-stock/back-in-stock-notifications/query-back-in-stock-notification-requests",
+      "note": "fetched 2026-08-19 -- queryable fields are id, contactId, status, autoNotified, createdDate, itemUrl only; catalogReference.catalogItemId and email are NOT filterable, so the 409 recovery lookup must go through contactId then filter client-side (see duplicate-pair-is-not-an-error pitfall)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/other-services/back-in-stock/introduction"
+    },
+    {
+      "type": "wix-docs-search",
+      "path": "searched: back in stock, notify me, restock alert, waitlist -- business-solutions/e-commerce (2026-08-19)"
+    }
+  ]
+}

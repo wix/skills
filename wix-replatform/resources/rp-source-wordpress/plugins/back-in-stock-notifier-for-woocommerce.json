@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "plugin": "back-in-stock-notifier-for-woocommerce",
+  "displayName": "Back In Stock Notifier for WooCommerce | WooCommerce Waitlist Pro",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/back-in-stock-notifier-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.back-in-stock-notifications"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "back-in-stock-notifier-for-woocommerce/cwginstocknotifier"
+    ],
+    "restNamespaces": [
+      "back-in-stock/v1",
+      "wc-instocknotifier/v3"
+    ],
+    "assetPathSlugs": [
+      "back-in-stock-notifier-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "back-in-stock-subscriber",
+      "channel": "plugin-rest",
+      "route": "/wc-instocknotifier/v3/list_subscriber",
+      "recordKeyField": "id",
+      "requestMethod": "POST",
+      "requestBody": {
+        "p_ids": "$SAMPLED_IDS:/wc/v3/products",
+        "status": "cwg_subscribed"
+      },
+      "responseFragmentGroupSize": 4,
+      "candidateTargetRefs": [
+        "stores/back-in-stock-request"
+      ],
+      "pitfalls": [
+        {
+          "code": "two-namespaces-live-simultaneously",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-19] The installed build (v7.3.3, a paid/CodeCanyon-tier release) advertises BOTH `back-in-stock/v1` (new; only a GET namespace-self-description at `/subscriber` and a POST-only `/subscriber/create` with an undocumented body) AND the legacy `wc-instocknotifier/v3` namespace matching the free wordpress.org v5.6.1 codebase. Use the legacy namespace -- it is the one with a working read path."
+        },
+        {
+          "code": "list-endpoint-is-post-not-get",
+          "severity": "info",
+          "summary": "[VERIFIED LIVE 2026-08-19; generic mechanism landed spec 0044] The read/list endpoint is `POST /wc-instocknotifier/v3/list_subscriber` with a JSON body, not a GET collection route. This entity declares `requestMethod`/`requestBody` so `wp-discovery.js` samples it automatically like any other candidate -- no `--include-route` override needed, and no plugin-specific sampler code. The `$SAMPLED_IDS:/wc/v3/products` placeholder resolves to the product ids already sampled earlier in the same run; at discovery time this is only the small sample page (schema learning, not bulk extraction) -- `rp-import-codegen` must pass the FULL catalog id list at execution time, not rely on the discovery-time sample."
+        },
+        {
+          "code": "status-any-returns-nothing",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-19] Passing `status: \"any\"` in the request body returns an empty array -- WordPress's `any` magic value excludes custom post statuses registered as excluded-from-search, which this plugin's statuses are. Pass the literal status string instead, e.g. `{\"p_ids\": [<all catalog product ids as strings>], \"status\": \"cwg_subscribed\"}`. `p_ids` uses a meta_query `IN` comparison, so an empty or omitted array also returns nothing -- pass the real product id list."
+        },
+        {
+          "code": "response-shape-is-flattened-and-buggy",
+          "severity": "info",
+          "summary": "[VERIFIED LIVE 2026-08-19, matches free v5.6.1 source `includes/class-rest-api.php` format_subscriber_data_schema()] The plugin's own multi-record response is malformed: each subscriber is emitted as 4 SEPARATE single-key array entries (`{id}`, `{last_modified_date}`, `{status}`, `{meta_data}`) in sequence, not one merged object. This entity declares `responseFragmentGroupSize: 4` so `wp-discovery.js` reassembles the flat array back into one record per subscriber automatically -- generically across any entity, no plugin-specific sampler code. Record count = flat array length / 4."
+        },
+        {
+          "code": "storage-is-a-custom-post-type",
+          "severity": "info",
+          "summary": "[DOCUMENTED, free v5.6.1 source `includes/class-api.php`] Each subscriber is a `cwginstocknotifier` custom post (not `show_in_rest`, invisible to `/wp/v2/types`). post_status encodes state: `cwg_subscribed` / `cwg_unsubscribed` / `cwg_doubleoptin` / `cwg_mailsent` / `cwg_mailnotsent` -- only `cwg_subscribed` rows are live/current signups worth importing. Meta keys: `cwginstock_subscriber_email`, `cwginstock_pid` (product-or-variation id used for matching), `cwginstock_product_id`, `cwginstock_variation_id`, `cwginstock_subscriber_name`, `cwginstock_subscriber_phone`, `cwginstock_custom_quantity`, `cwginstock_user_id`, `cwginstock_created_via`."
+        },
+        {
+          "code": "write-endpoint-also-exists-and-was-used-for-seed-data",
+          "severity": "info",
+          "summary": "[VERIFIED LIVE 2026-08-19] `POST /wc-instocknotifier/v3/create_subscriber` accepts and creates real subscriber records (used to generate 100 real seed records on the reference-style store for this profile's own verification). Required fields: `subscriber_name`, `email`, `product_id`, `status`, `subscriber_phone`, `custom_quantity`; optional `variation_id`. Duplicate (email, pid) pairs are rejected 403 by the plugin's own dedup, not a bug to work around."
+        },
+        {
+          "code": "no-admin-csv-export-on-this-site",
+          "severity": "info",
+          "summary": "The plugin ships an admin UI at wp-admin -> Instock Notifier -> All Subscribers, but its one-click CSV export is a SEPARATE paid add-on, not installed on the reference site as of 2026-08-19 -- do not assume the Discount-Rules-style admin-export escape path is available without checking first."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Vendor: CodeWooGeek (`codewoogeek`). Free tier on wordpress.org tops out at v5.6.1 (namespace `wc-instocknotifier/v3`); the CodeCanyon/paid tier (verified here at v7.3.3) additionally registers a `back-in-stock/v1` namespace but keeps the legacy namespace and its REST controller working unchanged -- confirmed by calling both live against the same install.",
+    "wp-admin menu: **Instock Notifier -> Settings** / **Instock Notifier -> All Subscribers** (left sidebar top-level menu, not under WooCommerce)."
+  ]
+}
