@@ -187,6 +187,8 @@ const cart = await createCart({
 
 Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession` and the HTTPS `postFlowUrl` rule — is unchanged. Follow `how-to-code-bookings.md`.
 
+**⚠️ One exception: do NOT call `getAnonymousActionToken` / `bookingsGetBookingAnonymously` for a rentals booking.** `how-to-code-bookings.md`'s confirmation-page step calls these client-side as the visitor. For rentals, `getAnonymousActionToken` returns `403` (the method requires the `Manage Bookings` scope, which the visitor doesn't have) — skip that whole step. Drive the confirmation page from what you already hold from `createBooking` / `placeOrder` / the redirect return instead; don't add a call to mint or read an anonymous token.
+
 ---
 
 ## 6 · SEO on item pages, and images
@@ -209,6 +211,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Error | Cause | Handling |
 |---|---|---|
 | Empty length picker, no error | Destructured `timeSlots` from end options instead of **`endOptions`** | Rename the destructure (§2) |
+| `403` on `/v1/anonymous-bookings/{bookingId}/token` | Calling `getAnonymousActionToken` client-side for a rentals booking | Don't call it at all — drive confirmation from what you already hold (§5) |
 | `END_OPTIONS_NOT_SUPPORTED` | End options called for a daily or fixed-duration service | Branch on `durationRange.unitType` before calling |
 | `INVALID_DURATION_PROVIDED` | Chosen length falls outside the service's range | The response carries the allowed range — show it and return the customer to the picker |
 | `SLOT_NOT_AVAILABLE` | The slot was taken between selection and booking | Return to the slot picker and refresh availability |
@@ -237,5 +240,5 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 - **Hourly** = two availability calls (start → `timeSlots`, then end options → **`endOptions`**, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
-- Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference`.
+- Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference` — **except** the anonymous-token confirmation step, which rentals must skip entirely (§5).
 - **SEO and images are the bookings ones too** — `WIX_APPS.bookings.servicePageMetadata` and `seoTags.ItemType.BOOKINGS_SERVICE`; there is no rentals-specific accessor to find.
