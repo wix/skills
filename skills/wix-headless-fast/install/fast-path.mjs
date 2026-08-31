@@ -79,7 +79,14 @@ emit("scaffolded", { folder: folderName, siteId });
 // ---- 2 · deploy shipped code + deps + lockfile ---------------------------------------------------
 const deploy = spawnSync(
   "node",
-  [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack],
+  [
+    join(SKILL_ROOT, "install", "deploy.mjs"),
+    vertical,
+    "--stack",
+    stack,
+    "--plan",
+    resolve(planPath),
+  ],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
 if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);

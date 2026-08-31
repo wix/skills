@@ -36,12 +36,21 @@ re-litigate them.
   this — nothing to wire by hand.
 - **Data as-is; presentation is yours.** The data layer, hooks, and cart chrome are wired
   as-is — never rewrite their internals, re-route them through API routes, or re-derive a
-  request shape (for a genuine gap, add a new function in the data layer, or consult the
-  `wix-docs` skill for the API contract). The presentation components ship only as
+  request shape. For a genuine gap, first read the relevant official contract with the
+  `wix-docs` skill; do not search generated SDK types, package files, or `node_modules` to
+  infer it. A normal caller-permitted operation belongs in a new data-layer function. A
+  privileged operation belongs in a validated server endpoint — see
+  `references/shared/CUSTOM_OPERATIONS.md`. The presentation components ship only as
   **references**: the vertical's INSTRUCTIONS names the surfaces you design and implement
   yourself on the shipped hooks (for storefront: card, grid, shop + PDP surfaces, home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
+- **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
+  capability without copying sensitive code. For a normal file upload, add a named
+  `capabilities.mediaUpload.policies` entry to the plan; Fast ships its client helper, Astro
+  endpoint, dependencies, and generated policy module once. Read
+  `references/shared/CUSTOM_OPERATIONS.md` before choosing it. The agent wires the helper to
+  the product UI; it never authors or widens the endpoint.
 
 ## The run
 
@@ -72,7 +81,7 @@ re-litigate them.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
-   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react` from the project root
+   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react --plan plan.json` from the project root
    (react stack: add `--client-id` if there is no `wix.config.json` to read the public id
    from); then ONE `npm ci --ignore-scripts || npm install --ignore-scripts` (backgroundable —
    but **never run a second npm install concurrently**: two npms in one `node_modules` race and
@@ -90,6 +99,9 @@ re-litigate them.
    contracts are inlined there, so don't open the shipped files themselves. **Author your
    surfaces in as few messages as possible** — batch multiple Write calls in one message
    (components are independent files); don't pay a round-trip per file.
+   If the brief needs a core operation that shipped code does not cover, read
+   `references/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
+   implement it; do not reverse-engineer SDK internals.
 5. **When both background jobs have completed** — the install's marker
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for

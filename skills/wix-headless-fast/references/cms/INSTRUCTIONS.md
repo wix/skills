@@ -133,6 +133,16 @@ plugins — deploy added the dep). Routes are yours: a list route per collection
   string is silently stored as text and breaks date queries.
 - **Writes 403 unless the collection was seeded with that verb open** — surface a 403 as a
   permissions setup step (which permission, where in the dashboard), not a code bug.
+- **User-created content is a CMS contribution flow.** For a member or visitor submission that
+  the app must later list, use the seeded CMS collection and its intended permission preset.
+  If the operation needs elevated access — especially a browser-created file that must enter
+  Media Manager — follow `references/shared/CUSTOM_OPERATIONS.md`: validate the caller and
+  input in a narrow server endpoint before elevating one documented operation. Never call a
+  privileged Media API directly from a client island.
+- **Use the shipped upload capability when it fits.** Declare its named policy in
+  `plan.capabilities.mediaUpload`; Fast deploys the endpoint, client helper, dependencies, and
+  generated policy module. Your CMS surface calls `uploadMedia(policyId, file)` and stores the
+  returned Wix Media reference. Do not author another upload endpoint for that flow.
 - **RICH_TEXT is HTML, not plain text** — render it with `set:html` (Astro) /
   `dangerouslySetInnerHTML` (React) on a wrapper; never interpolate it as text.
 - Reference fields hold ids unless the query passed `include` — don't render an id as
