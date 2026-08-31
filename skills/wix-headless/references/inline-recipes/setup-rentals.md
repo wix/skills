@@ -133,6 +133,19 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 }
 ```
 
+**Where the resources from STEP 2 come in.** They don't appear above, and that's deliberate: `serviceResources` names the resource **type**, and every resource inside it is bookable. Add Room C tomorrow and it's live with no change to the service.
+
+To pin a service to **specific** resources instead — two differently-priced services sharing one type, say — add `resourceIds` alongside `resourceType`:
+
+```json
+"serviceResources": [ {
+  "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
+  "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
+} ]
+```
+
+A seed normally wants the unpinned form above — pinning means every new resource needs a service update.
+
 **For a daily rental**, swap the duration range (everything else is identical):
 
 ```json
