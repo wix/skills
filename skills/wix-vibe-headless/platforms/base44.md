@@ -8,7 +8,7 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **The Wix skills installed below are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
-Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
+Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -23,7 +23,7 @@ Install three skills — they land under `.agents/skills/`:
 
 Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
-**Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
+**Set `VERTICALS`** to what the prompt asks for — **list every vertical the app uses**, since several often join the main one (too vague to tell? do STEP 2 first, then set it). Adding one later: re-run with the extra name.
 
 | vertical | pick it when the app needs to |
 |---|---|
@@ -35,15 +35,15 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 | `pricing-plans` | sell memberships or subscriptions |
 | `restaurants` | show a menu, take orders, book tables |
 | `members` | let visitors sign in — this is **auth** |
-| `cms` | keep its own structured content — user submissions, galleries, listings, anything the rows above don't already cover |
-
-**List every vertical the app uses.** `cms` for app-stored content, `members` for visitor sign-in — these often join the main vertical. Adding one later: re-run with the extra name.
+| `forms` | any visitor-fillable form — contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration. **Any "contact form" request is this row.** **Not `forms` — an RSVP is `events`**: confirming attendance to an event or occasion (a wedding, party, or gathering) uses events' built-in RSVP registration form, even for a single occasion with no tickets. **Not `forms` — a per-service booking form is `bookings`**: the form attached to a bookable service belongs there. Pick `forms` only when neither an event nor a bookable service is involved. |
+| `cms` | keep its own structured content that the app READS BACK — galleries, listings, "my submissions", anything the rows above don't already cover. **Not `cms` — a visitor-fillable form is `forms`**: a CMS collection can take a submission, but gives up the dashboard form builder, spam protection, notifications and the optional CRM contact mapping, and needs the owner to set collection permissions by hand first. Pick `cms` only when the app must read the entries back — a visitor can't read Forms submissions. |
 
 ```js
 const { execSync } = require('child_process');
 const { existsSync, readdirSync } = require('fs');
-const VERTICALS = ['storefront'];        // ← set from the prompt; list every vertical the app uses
-// const VERTICALS = ['members', 'cms']; // ← e.g. visitors sign in AND the app stores what they submit
+const VERTICALS = ['storefront'];         // ← set from the prompt; list every vertical the app uses
+// const VERTICALS = ['forms'];           // ← e.g. "create contact form" — a visitor-submitted form
+// const VERTICALS = ['members', 'cms'];  // ← e.g. visitors sign in AND the app stores what they submit
 // COPY these two straight from the prompt — deploy writes them into src/rest/wix-config.js, so never
 // retype either one into a file by hand afterwards.
 const WIX_CLIENT_ID = '<client id from the prompt>';
@@ -93,6 +93,10 @@ truth for how the client is built.
 
 **REST scaffolds + `wix-config.js` are already in `src/rest/`** (STEP 1 wrote them). Some verticals also ship a ready UI client in `src/` — theme + wire it per `INSTRUCTIONS.md`, don't rebuild. **Don't `read_file` deployed files** — every field shape is in `INSTRUCTIONS.md`; read one only on a real error or gap.
 
+**⚠️ `forms` is the ONE vertical that does NOT run in parallel with STEP 4** — its UI is gated on a
+file the seed writes. Read its `INSTRUCTIONS.md` **Prerequisites** before building any form UI; seed
+it first (STEP 4) and build the rest of the app meanwhile.
+
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
 rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
@@ -104,7 +108,7 @@ user-owned business, so never delete or overwrite existing content, even apparen
 cleanup truly seems needed, ask the user first.
 
 Seed by calling your vertical's ready-made seed module — read
-`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` via
+`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` (if present) via
 its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
 shape → the **`wix-base44-connector`** skill's doc discovery.
 
@@ -152,4 +156,4 @@ Once the site is built and seeded:
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
 `wix-base44-connector` doc discovery — all over the connector.
 
-version: v1338
+version: v1340

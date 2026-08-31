@@ -1,6 +1,6 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
 //   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
-//   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
+//   (storefront | bookings | blog | cms | forms | portfolio | pricing-plans | events | members | restaurants)
 // Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
 // Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
@@ -9,7 +9,7 @@
 // members and cms names both, and its CMS helpers then come from the skill instead of being
 // hand-written. Order matters only where two verticals ship a file at the SAME path (both have
 // components/…, pages/…): the first one listed wins, since the copy never overwrites. Verticals whose
-// file sets don't overlap (cms ships utils only, no UI) combine freely.
+// file sets don't overlap (cms and forms ship utils only, no UI) combine freely.
 // paths are the Base44 sandbox's /app. Re-running is non-destructive: it fills in only missing files,
 // never overwriting the agent's edits (see COPY), so a later call can add a vertical safely.
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
@@ -19,7 +19,7 @@ const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
-const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
+const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
