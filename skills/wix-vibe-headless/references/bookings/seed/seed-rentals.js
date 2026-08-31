@@ -77,14 +77,14 @@ async function installRentalsApp(ctx) {
  * @returns {Promise<{ id: string, name: string }>}
  */
 async function createResourceType(ctx, name) {
-  const res = await req(ctx, "/bookings/v2/resource-types", { body: { resourceType: { name } } });
+  const res = await req(ctx, "/bookings/v2/resources/resource-types", { body: { resourceType: { name } } });
   const type = res?.resourceType ?? {};
   return { id: type.id ?? type._id, name: type.name ?? name };
 }
 
 /** Existing resource types, so a re-run reuses one instead of making a duplicate. */
 async function queryResourceTypes(ctx) {
-  const res = await req(ctx, "/bookings/v2/resource-types/query", { body: { query: {} } });
+  const res = await req(ctx, "/bookings/v2/resources/resource-types/query", { body: { query: {} } });
   return (res?.resourceTypes ?? []).map((t) => ({ id: t.id ?? t._id, name: t.name }));
 }
 

@@ -1,6 +1,6 @@
 ---
 name: rentals
-description: Rentals — renting out an item, room or vehicle for a length the customer picks. Runs on the Bookings vertical.
+description: Rentals — renting out an item for a length the customer picks. Runs on the Bookings vertical.
 ---
 
 # Rentals

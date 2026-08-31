@@ -22,7 +22,7 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 |---|---|
 | `storefront` | sell products |
 | `bookings` | take appointments or service bookings |
-| `rentals` | rent out an item, room or vehicle for a length the customer picks (by the hour or by the day) |
+| `rentals` | rent out an item for a length the customer picks (by the hour or by the day) |
 | `blog` | publish articles |
 | `events` | publish events with RSVPs or ticket sales |
 | `portfolio` | showcase creative work |
@@ -31,8 +31,6 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 | `members` | let visitors sign in — this is **auth** |
 | `forms` | any visitor-fillable form: contact, signup, waitlist, application, survey, quote request (an event RSVP is `events`; a per-service booking form is `bookings`) |
 | `cms` | structured content the app reads back — galleries, listings, "my submissions" (a visitor-fillable form is `forms`) |
-
-`rentals` installs and deploys the `bookings` vertical — a `bookings` result is expected; don't re-deploy.
 
 ```js
 const { execSync } = require('child_process');
