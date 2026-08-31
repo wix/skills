@@ -118,7 +118,7 @@ There is **no end-options call for daily rentals.** You list days and compute th
 const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId, timeZone,
   fromLocalDate, toLocalDate,
-  timeSlotsPerDay: 1,                          // ⚠️ one slot per day — this is what makes it a day list
+  timeSlotsPerDay: 1,
   includeResourceTypeIds: [resourceTypeId],
   bookable: true,
 });
