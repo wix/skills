@@ -156,9 +156,12 @@ Omitting `resourceIds` is also valid — then **every** resource of that type is
 - **`serviceResources` names the resource *type*, not individual resources** (STEP 2) — every resource in that type is bookable.
 - **⚠️ `serviceResources` is REQUIRED and is the real cause of `MISSING_APPOINTMENT_RESOURCES` — do not trust the error text.** The message reads *"service of type appointment requires at least one staff member or service resource"*, which invites you to go check whether your resource type has resources in it. **That is a dead end** — the create fails even when the type is fully populated. What the service actually needs is the resource type declared **on the service**:
   ```json
-  "serviceResources": [ { "resourceType": { "id": "<resourceTypeId>" } } ]
+  "serviceResources": [ {
+    "resourceType": { "id": "<resourceTypeId>" },
+    "resourceIds": { "values": ["<resourceId>"] }
+  } ]
   ```
-  Verified on a live site: adding this field is what makes the create succeed. Max **8** entries. To restrict a service to *specific* resources rather than every resource of the type, add `"resourceIds": { "values": ["<resourceId>"] }` alongside `resourceType` (max 100); omit it and all resources of that type are eligible — which is what a seed wants.
+  Verified on a live site: adding this field is what makes the create succeed. `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the resources from STEP 2 this service can book. Max **8** `serviceResources` entries, max **100** ids each. Omitting `resourceIds` is also valid and makes every resource of that type eligible, including ones added later.
 - **`primaryResourceType`** is the resource type **GUID** from STEP 1, and **must be one of the types listed in `serviceResources`**. It is what makes availability come from the rooms/vehicles rather than from staff schedules. Omitting it silently falls back to the **staff** resource type, which produces a normal staff-driven appointment service.
 - **`durationRange` and `sessionDurations` are mutually exclusive** — send one or the other, never both. `durationRange` also **can't be combined with `workingHours`** on the service.
 - **`unitType` selects which config object is read:** `HOUR` → `hourOptions`, `DAY` → `dayOptions`. Sending `dayOptions` with `unitType: "HOUR"` leaves the range unset.
