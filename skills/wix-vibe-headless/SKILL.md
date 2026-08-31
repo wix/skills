@@ -120,6 +120,7 @@ Each vertical's UI + helpers ship in `references/<vertical>/app/`; copy that dir
 |---|---|---|
 | Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
 | Appointments: services, time slots, booking, checkout — **and the form attached to a bookable service** | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Rentals: a room, vehicle or item hired for a length **the customer picks** (by the hour or by the day) — Wix Rentals runs on the Bookings APIs, so it is the same vertical | **bookings** | `references/bookings/INSTRUCTIONS.md` ("Rentals") |
 | Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` |
 | Events: browse, event page, RSVP, ticketing — **an RSVP is here, not `forms`**, even for one occasion with no tickets | **events** | `references/events/INSTRUCTIONS.md` |
 | Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
