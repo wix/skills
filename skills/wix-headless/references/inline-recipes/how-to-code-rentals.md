@@ -46,13 +46,14 @@ const { results, pagingMetadata } = await catalogSearch.queryServicesByFilters({
   },
   serviceFilters: {
     localStartDate: '2026-09-01T00:00:00',   // omit the window entirely to skip the availability check
-    localEndDate:   '2026-09-07T23:59:59',
+    localEndDate:   '2026-09-08T00:00:00',   // exclusive — start of the day AFTER the window
     timeZone: 'America/New_York',
   },
 });
 ```
 
 - Each entry in `results` carries the full `service` plus an **`available`** flag. With a window set and `exactMatch` left unset, a service comes back when it has **at least one** bookable slot anywhere in the window.
+- **End the window at `00:00:00` of the day *after* the range you want, not at `23:59:59`.** The end boundary is exclusive, so a 23:59:59 end silently drops the last minute of the final day. This matches the daily-booking convention in §3, where a rental's `endDate` is midnight of the day after the last rented day.
 - **To grey out rather than hide** fully-booked rentals, set `serviceFilters.includeUnavailable: true` — those come back with `available: false`.
 - **Paginate** by passing `pagingMetadata.cursors.next` back **unchanged** as `query.cursorPaging.cursor`, until `next` is absent.
 - **Location and attribute filters** live in `serviceFilters` too — `locationIds`, `resourceTypes`, and `attributes`. Within one attribute, values are **match-any**; across different attributes, **match-all**.
@@ -84,7 +85,7 @@ const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId,
   timeZone,
   fromLocalDate: '2026-09-01T00:00:00',
-  toLocalDate:   '2026-09-01T23:59:00',
+  toLocalDate:   '2026-09-02T00:00:00',   // exclusive — start of the next day, not 23:59
   includeResourceTypeIds: [resourceTypeId],   // the service's primaryResourceType
   bookable: true,
 });
