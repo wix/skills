@@ -316,6 +316,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
 **Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
 
+### [Draft: Check Google Business Profile Connection Status](references/google-business-profile/draft-check-connection-status.md)
+**Technical:** Read-only verification draft that gets the authenticated site's Google Business Profile connection and explains `NEVER_CONNECTED`, `VALID`, and `NEEDS_RECONNECT` without starting OAuth or changing data.
+
+### [Draft: List Wix-Stored Google Business Profile Locations](references/google-business-profile/draft-list-wix-stored-locations.md)
+**Technical:** Read-only verification draft that queries the Google Business Profile locations already stored for the authenticated Wix site without requiring a live Google connection or hydrating data from Google.
+
 ---
 
 ## Marketing
