@@ -185,9 +185,7 @@ const cart = await createCart({
 });
 ```
 
-Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession` and the HTTPS `postFlowUrl` rule — is unchanged. Follow `how-to-code-bookings.md`.
-
-**⚠️ Don't use the anonymous read-back on the confirmation page.** `how-to-code-bookings.md` mints a token with `getAnonymousActionToken` after `createBooking`; that method's scope is **Manage Bookings**, so a visitor gets 403 and it returns `BOOKING_NOT_FOUND` for rentals bookings. Drive the confirmation page from what you already hold, and never render "confirmed" off the redirect return alone.
+Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession`, the HTTPS `postFlowUrl` rule, and reading the booking back on the confirmation page — is unchanged. Follow `how-to-code-bookings.md`.
 
 ---
 
@@ -218,7 +216,6 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
 | `NUMBER_OF_PARTICIPANTS_NOT_FOUND` | `numberOfParticipants` missing or `0` on the price preview | Send `1` — always 1 for a rental (§4) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
-| `403`, then `BOOKING_NOT_FOUND` when elevated | `getAnonymousActionToken` — it needs the Manage Bookings scope and doesn't work for rentals | Don't use the anonymous read-back (§5) |
 | Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
 | `.image.url` fails `tsc`, or images render broken | `media.mainMedia.image` is a **string** holding a `wix:image://` URI | `media.getImageUrl(...)` from `@wix/sdk` (§6) |
 
