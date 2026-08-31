@@ -94,7 +94,9 @@ This holds on a **mixed** site too (Bookings *and* Rentals installed, per `SETUP
 
 ### STEP 4: Create the rental services
 
-Create all services in a single bulk call to `POST https://www.wixapis.com/bookings/v2/bulk/services/create` (up to **100** per call). A rental service is a normal **Services V2 `APPOINTMENT`** carrying three rentals-specific values.
+Create the services **one at a time** with `POST https://www.wixapis.com/bookings/v2/services` — one call per service, each with a top-level `service` object. A rental service is a normal **Services V2 `APPOINTMENT`** carrying the rentals-specific values.
+
+**⚠️ Do NOT use the bulk endpoint (`…/bookings/v2/bulk/services/create`) for rentals.** It creates the service correctly but attaches a **schedule tagged with the Wix Bookings app id instead of the Wix Rentals one**, and calendar events inherit their app id from the schedule — so every booking and every event on that service becomes invisible in the Rentals dashboard calendar. The service itself looks perfect, which is what makes this hard to spot. Verified on a live site: bulk-created schedules carry `13d21c63-b5ec-5912-8397-c3a5ddb27a97`; single-created ones carry the rentals app id. Use single create until that is fixed upstream. (Bulk is still fine for plain Wix Bookings services — see `setup-bookings.md`.)
 
 **⚠️ CRITICAL: the V2 service payload is FLAT** — name/description/tagLine are top-level, not nested under `info`. Price uses `value` (a **string**), not `amount`. Full field contract: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service.md>
 
@@ -102,37 +104,34 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 
 ```json
 {
-  "services": [
-    {
-      "type": "APPOINTMENT",
-      "appId": "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e",
-      "name": "Meeting Room",
-      "description": "A brand-appropriate description of what is being rented.",
-      "tagLine": "Short tagline",
-      "defaultCapacity": 1,
-      "serviceResources": [ {
-        "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
-        "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
-      } ],
-      "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
-      "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
-      "schedule": {
-        "availabilityConstraints": {
-          "durationRange": {
-            "unitType": "HOUR",
-            "hourOptions": { "minDurationInMinutes": 60, "maxDurationInMinutes": 480 }
-          }
+  "service": {
+    "type": "APPOINTMENT",
+    "appId": "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e",
+    "name": "Meeting Room",
+    "description": "A brand-appropriate description of what is being rented.",
+    "tagLine": "Short tagline",
+    "defaultCapacity": 1,
+    "serviceResources": [ {
+      "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
+      "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
+    } ],
+    "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
+    "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
+    "schedule": {
+      "availabilityConstraints": {
+        "durationRange": {
+          "unitType": "HOUR",
+          "hourOptions": { "minDurationInMinutes": 60, "maxDurationInMinutes": 480 }
         }
-      },
-      "payment": {
-        "rateType": "FIXED",
-        "fixed": { "price": { "value": "40.00", "currency": "USD" } },
-        "options": { "online": true, "inPerson": false }
-      },
-      "locations": [ { "type": "BUSINESS" } ]
-    }
-  ],
-  "returnEntity": true
+      }
+    },
+    "payment": {
+      "rateType": "FIXED",
+      "fixed": { "price": { "value": "40.00", "currency": "USD" } },
+      "options": { "online": true, "inPerson": false }
+    },
+    "locations": [ { "type": "BUSINESS" } ]
+  }
 }
 ```
 
@@ -179,18 +178,16 @@ Omitting `resourceIds` is also valid — then **every** resource of that type is
 - **Currency** — the site's business currency wins; a EUR-locale site stores `EUR` even if you send `USD`. Not an error.
 - **Imagery is opt-in** (`SEED.md` § "Entity images") — seed text-only, attach images in the pass-2 step below.
 
-**⚠️ Reading the response — created services are under `results[]`, each as `results[].item` with per-item `results[].itemMetadata`:**
+**Reading the response.** A single create returns the created service under a top-level `service`:
 
 ```json
-{ "results": [
-  { "itemMetadata": { "id": "<serviceId>", "originalIndex": 0, "success": true },
-    "item": { "id": "<serviceId>", "name": "…", "type": "APPOINTMENT",
-              "mainSlug": { "name": "<url-slug>", "custom": false },
-              "schedule": { "id": "<scheduleId>", "availabilityConstraints": { "durationRange": { … } } } } }
-], "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0 } }
+{ "service": { "id": "<serviceId>", "name": "…", "type": "APPOINTMENT",
+               "appId": "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e",
+               "mainSlug": { "name": "<url-slug>", "custom": false },
+               "schedule": { "id": "<scheduleId>", "availabilityConstraints": { "durationRange": { … } } } } }
 ```
 
-Keep each service's **`item.id`** and **`item.mainSlug.name`** (the frontend links by slug; if absent, derive it: lowercase, non-alphanumerics → hyphens). **Check `itemMetadata.success` per item** — retry only the failed ones **once**, with the same format.
+Keep each service's **`service.id`** and **`service.mainSlug.name`** (the frontend links by slug; if absent, derive it: lowercase, non-alphanumerics → hyphens). A failed create returns a normal error — retry that one service **once** with the same body; don't loop, and don't re-create ones that already succeeded.
 
 **Verify the range actually landed.** `durationRange` is a newer field and a silently-dropped range yields a service that looks fine and books as a fixed slot. Re-read one created service (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`) and confirm `schedule.availabilityConstraints.durationRange.unitType` is populated before moving on.
 
