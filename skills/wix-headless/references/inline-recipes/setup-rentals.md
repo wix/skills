@@ -140,6 +140,8 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 
 Omitting `resourceIds` is also valid — then **every** resource of that type is eligible, including ones added later, with no change to the service. Use that when the service should always cover the whole type.
 
+**⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service, and then you can omit `resourceIds` and let the whole type be bookable.
+
 **For a daily rental**, swap the duration range (everything else is identical):
 
 ```json
