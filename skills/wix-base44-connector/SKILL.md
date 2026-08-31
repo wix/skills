@@ -64,9 +64,9 @@ const wx = (() => { const m = { exports: {} };
 - `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
 - `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist
-- `wx.page(docsUrl)` — read a doc page
+- `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
-- `wx.spec(docsUrl | code)` — a method's exact schema; pass a hit's docsUrl (direct load), or raw code to query the index yourself
+- `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 - `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
@@ -153,8 +153,9 @@ map and window in the SAME exec; coordinates are for your code, not for a second
 
 ```js
 const pg = await wx.page(docsUrl);   // whole text when small; else { path, bytes, lines, outline }
-// your half, windowed to your term and its Examples (a complete working request — URL, headers,
-// body — usually all you need), one round:
+// pg.examples lists the page's worked requests as { title, line } — a complete request (URL,
+// headers, body) is usually all you need: read_file(pg.path, offset: <its line>)
+// anything else, windowed to your term in the same round:
 return wx.bash(`sed -n '/^## REST API/,/^## JavaScript SDK/p' ${pg.path} | grep -B5 -A40 -i 'examples\\|<term>' | head -c 3800`);
 // a giant fenced example → its field vocabulary instead of paging it:
 // wx.bash(`sed -n '<a>,<b>p' ${pg.path} | grep -oE '"[a-zA-Z]+":' | sort -u | head -60`)
@@ -170,7 +171,9 @@ body, responses, filterable-fields map, examples) in one call, a direct lookup. 
 **descriptions**, not just the names — they carry the rules (which field is canonical, when one is empty):
 
 ```js
-await wx.spec(hit.docsUrl);
+const sp = await wx.spec(hit.docsUrl);
+// sp.examples — the method's worked requests as { title, line }, all saved at sp.examplesPath.
+// The one that matches the task is rarely the first: read_file(sp.examplesPath, offset: <its line>)
 ```
 
 Want to shape the result yourself? Pass raw code against the index (`lightIndex` + `getResourceSchemaByUrl`):
