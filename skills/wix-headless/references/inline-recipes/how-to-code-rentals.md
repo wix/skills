@@ -19,8 +19,6 @@ description: The frontend read/booking contract for a Wix Rentals site — a del
 **Constants** (e.g. `src/services/constants.ts`):
 - **Wix Rentals app id** — `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`. Used **twice**: to filter the catalog to rentals, and as the cart's `catalogReference.appId`.
 
-**⚠️ `timeZone` is NOT a constant — read it from the site's business timezone and pass it on every call.** Every snippet below takes a `timeZone`; it must be `properties.timeZone` from site properties (an elevated read — fetch once and memoize), **never hardcoded and never the visitor's browser timezone**. A rental service's schedule is created with `businessTimeZoneEnabled: true`, so Wix computes day boundaries in the business timezone. Send a different one and every boundary shifts by the offset: on a `Europe/Dublin` site, passing `Asia/Jerusalem` turns a day into `02:00 → 02:00` instead of `00:00 → 00:00`. **Daily rentals break outright** — a "day" is defined by midnight, so the slots, the price and the booking are all off by the offset. Hourly is wrong too, just less obviously. Pass the same `timeZone` to `listAvailabilityTimeSlots`, `listAvailabilityTimeSlotEndOptions`, `previewPrice` and `createBooking`.
-
 **Modules** — all on `@wix/bookings`, alongside the ones `how-to-code-bookings.md` already lists:
 
 | Need | Package | Module |
@@ -49,7 +47,7 @@ const { results, pagingMetadata } = await catalogSearch.queryServicesByFilters({
   serviceFilters: {
     localStartDate: '2026-09-01T00:00:00',   // omit the window entirely to skip the availability check
     localEndDate:   '2026-09-08T00:00:00',   // exclusive — start of the day AFTER the window
-    timeZone,                                // the site's business timezone — see Constants above
+    timeZone: 'America/New_York',
   },
 });
 ```
@@ -219,7 +217,6 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Empty availability, no error | The service's resource type has **no resources** | A seed bug, not a frontend one — see `setup-rentals.md` STEP 2 |
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
 | `NUMBER_OF_PARTICIPANTS_NOT_FOUND` | `numberOfParticipants` missing or `0` on the price preview | Send `1` — always 1 for a rental (§4) |
-| Day boundaries at `02:00` (or any non-midnight hour) | `timeZone` isn't the site's business timezone | Read `properties.timeZone` and pass it everywhere (Constants) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
 | `403`, then `BOOKING_NOT_FOUND` when elevated | `getAnonymousActionToken` — it needs the Manage Bookings scope and doesn't work for rentals | Don't use the anonymous read-back (§5) |
 | Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
@@ -242,7 +239,6 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 - **Every catalog read filters on the rentals `appId`**, or a mixed site shows the wrong services.
 - **Hourly** = two availability calls (start → `timeSlots`, then end options → **`endOptions`**, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
-- **`timeZone` is the site's business timezone**, read live — not a constant, not the browser's. A wrong one shifts every day boundary off midnight and breaks daily rentals.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
 - Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference`.
 - **SEO and images are the bookings ones too** — `WIX_APPS.bookings.servicePageMetadata` and `seoTags.ItemType.BOOKINGS_SERVICE`; there is no rentals-specific accessor to find.
