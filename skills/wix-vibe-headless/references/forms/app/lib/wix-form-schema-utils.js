@@ -162,9 +162,14 @@ export const phoneCountryOf = (field) =>
 export function orderedInputs(form) {
   const order = new Map(
     (form?.steps ?? [])
-      .flatMap((s) => s.layout?.large?.items ?? s.layout?.medium?.items ?? s.layout?.small?.items ?? [])
-      .slice()
-      .sort((a, b) => a.row - b.row || a.column - b.column)
+      // Sort WITHIN each step, then concatenate in step order: `row` restarts at 0 in every step,
+      // so one sort across the flattened list interleaves them — step 1's second field would land
+      // after step 2's first.
+      .flatMap((s) =>
+        (s.layout?.large?.items ?? s.layout?.medium?.items ?? s.layout?.small?.items ?? [])
+          .slice()
+          .sort((a, b) => a.row - b.row || a.column - b.column),
+      )
       .map((item, i) => [item.fieldId, i]),
   );
   return (form?.formFields ?? [])
