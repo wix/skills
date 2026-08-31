@@ -139,18 +139,32 @@ async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
 
 // Fetch + save + map in one round: whole text inline when small, else
 // { path, bytes, lines, outline } — the outline's line numbers feed grep and read_file windows.
+// Examples come back as their own title+line list, so the outline's cap can never drop them.
 async function page(url) {
   const { path: p, lines } = await resolveRef(url);
   const text = lines.join("\n");
   if (text.length <= BUDGET) return text;
   const o = outlineOf(lines);
   const bytes = Buffer.byteLength(text);
-  return { path: p, bytes, lines: lines.length, ...o,
+  const ex = pageExamples(lines);
+  return { path: p, bytes, lines: lines.length, ...(ex.length && { examples: ex }), ...o,
            next: [
              `wx.bash("grep -in 'term' ${p} | head -40")`,
              bytes <= 45000 ? `read_file ${p}   // whole (fits the 45K cap), or a window via offset/limit`
                             : `read_file ${p} with offset/limit   // window a section by the outline's lines`,
            ] };
+}
+
+// The page's Examples section, as titles + line numbers — listed on their own so the
+// outline's cap can never drop them.
+function pageExamples(lines) {
+  const heads = [];
+  lines.forEach((t, i) => { const m = /^(#{1,6}) (.+)$/.exec(t); if (m) heads.push({ line: i + 1, level: m[1].length, text: m[2].trim() }); });
+  const at = heads.findIndex(h => /^(examples?|method code examples)$/i.test(h.text));
+  if (at < 0) return [];
+  const sec = heads[at], rest = heads.slice(at + 1);
+  const end = (rest.find(h => h.level < sec.level) || { line: lines.length + 1 }).line;
+  return rest.filter(h => h.line < end).map(h => ({ title: h.text, line: h.line }));
 }
 
 // ── shell ─────────────────────────────────────────────────────────────────────
@@ -172,9 +186,39 @@ function bash(cmd) {
   }
 }
 
+// ── request examples ──────────────────────────────────────────────────────────
+
+// The docs' own working requests: the code-mode index carries them at
+// methods[].legacyExamples[].content, a doc page under its Examples heading. Both are saved
+// whole and come back as titles + line numbers — read the one you need with read_file.
+const examplesOf = (result) => {
+  const methods = result?.methods?.length ? result.methods : (result?.legacyExamples ? [result] : []);
+  const out = [];
+  for (const m of methods) for (const e of m.legacyExamples || []) {
+    const c = e.content || e;
+    if (c.request) out.push({ title: c.title || "", request: typeof c.request === "string" ? c.request : JSON.stringify(c.request, null, 1) });
+  }
+  return out;
+};
+
+// One file, one heading per example — the returned line is where its body starts.
+const saveExamples = (exs, name) => {
+  const parts = [];
+  let line = 1, index = [];
+  for (const e of exs) {
+    const block = "## " + e.title + "\n\n" + e.request + "\n";
+    index.push({ title: e.title, line: line + 2 });
+    parts.push(block);
+    line += block.split("\n").length;
+  }
+  return { ...save("examples-" + name + ".md", parts.join("\n")), index };
+};
+
 // ── the spec index ────────────────────────────────────────────────────────────
 
-// Inspect a method's schema — request body, responses, enums, filterable-fields map. Pass a docsUrl
+// Inspect a method's schema — request body, responses, enums, filterable-fields map — plus the
+// titles of the docs' own request examples, saved together at examplesPath: read the one that
+// matches your task with read_file(examplesPath, offset: <its line>). Pass a docsUrl
 // (from search/browse — a direct load, no scan) and spec returns that method's schema. Or pass raw
 // `async function(){…}` to query the index yourself: lightIndex (RESOURCES with .methods —
 // operationId, summary, httpMethod, publicUrl [callable], docsUrl) and getResourceSchemaByUrl(docsUrl)
@@ -193,8 +237,11 @@ async function spec(arg) {
   if (text.length <= BUDGET) return result;
   let h = 5381;
   for (const ch of code) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;   // same query → same file
+  const exs = examplesOf(result);
+  const ex = exs.length ? saveExamples(exs, h.toString(36)) : null;
   return { ...save("spec-" + h.toString(36) + ".json", text),
            shape: Array.isArray(result) ? `Array(${result.length})` : Object.keys(result || {}).slice(0, 15),
+           ...(ex && { examplesPath: ex.path, examples: ex.index }),
            head: text.slice(0, 600) };
 }
 
