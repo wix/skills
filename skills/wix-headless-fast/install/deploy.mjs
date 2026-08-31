@@ -96,6 +96,11 @@ const VERTICAL_DEPS = {
       "@wix/data": "^1.0.512",
     },
   },
+  forms: {
+    core: {
+      "@wix/forms": "^1.0.501",
+    },
+  },
   events: {
     core: {
       "@wix/events": "^1.0.860",
