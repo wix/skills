@@ -168,6 +168,10 @@ Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days`
 
 ## 5 · Book and check out
 
+> **⚠️ LIVE BOOKING PRECONDITION — the site needs a premium plan and a configured payment method.** On a free site the visitor flow fails at the last step: `createBooking` returns **`PREMIUM_VALIDATION_FAILED`**, and `placeOrder` returns **`SITE_NOT_ACCEPTING_PAYMENTS`**. That's site provisioning, not a frontend bug — if a booking can't complete, the setup is incomplete, not the code.
+>
+> Two things make this misleading. **The same `createBooking` succeeds as an admin (`WIX_USER`)**, so it reads like a permissions or payload bug when it's neither — always test the visitor path. And **switching the service to offline / pay-in-person does not avoid it**: `placeOrder` still requires the site to be accepting payments. Record the precondition and surface it to the owner; don't try to code around it.
+
 **Identical to `how-to-code-bookings.md` § "createBooking → cart → checkout"**, with three substitutions:
 
 1. **`endDate` is the customer's chosen end**, not a duration added to the start — that is the whole point of a rental.
