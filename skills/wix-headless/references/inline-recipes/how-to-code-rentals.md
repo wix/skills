@@ -136,7 +136,7 @@ After the customer picks a start date, **iterate forward through the returned li
 
 For the **24/7** case, set the boundaries to midnight-to-midnight: `startDate` = midnight on the first day, `endDate` = **midnight on the day after the last day**. A Monday–Wednesday inclusive rental ends at midnight on **Thursday**. **⚠️ Wix derives `allDay` itself — do not set it.**
 
-For the **working-hours** case, build one booking per day with that day's own working-period start and end (e.g. 09:00 → 18:00), and send them together. The group is created **all or nothing**: any unavailable or non-consecutive day fails the whole call. **Keep `multiServiceBookingInfo.id` from the response** — you need it to cancel the group later. It's also readable back off any booking in the group (`booking.multiServiceBookingInfo`), so it isn't lost if you don't store it.
+For the **working-hours** case, build one booking per day with that day's own working-period start and end (e.g. 09:00 → 18:00), and send them together. The group is created **all or nothing**: any unavailable or non-consecutive day fails the whole call.
 
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md> · <https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-multi-service-booking.md?apiView=SDK>
 
@@ -226,7 +226,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 **Cancellation and post-booking self-service.** Out of scope here, as in the bookings recipe. Two rentals-specific notes if a run does build them server-side:
 
 - A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
-- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`** — either the one you kept from the create response (§3), or read back off any booking in the group.
+- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`**, read back off any booking in the group.
 
 Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
 
