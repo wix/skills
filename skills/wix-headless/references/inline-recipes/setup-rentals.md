@@ -110,7 +110,10 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
       "description": "A brand-appropriate description of what is being rented.",
       "tagLine": "Short tagline",
       "defaultCapacity": 1,
-      "serviceResources": [ { "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" } } ],
+      "serviceResources": [ {
+        "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
+        "resourceIds": { "values": ["<RESOURCE_ID_A_FROM_STEP_2>", "<RESOURCE_ID_B_FROM_STEP_2>"] }
+      } ],
       "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
       "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
       "schedule": {
@@ -133,18 +136,9 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 }
 ```
 
-**Where the resources from STEP 2 come in.** They don't appear above, and that's deliberate: `serviceResources` names the resource **type**, and every resource inside it is bookable. Add Room C tomorrow and it's live with no change to the service.
+**`serviceResources` carries both levels.** `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the individual resources from STEP 2 that this service can book (max **100** ids, max **8** `serviceResources` entries).
 
-To pin a service to **specific** resources instead — two differently-priced services sharing one type, say — add `resourceIds` alongside `resourceType`:
-
-```json
-"serviceResources": [ {
-  "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
-  "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
-} ]
-```
-
-A seed normally wants the unpinned form above — pinning means every new resource needs a service update.
+Omitting `resourceIds` is also valid — then **every** resource of that type is eligible, including ones added later, with no change to the service. Use that when the service should always cover the whole type.
 
 **For a daily rental**, swap the duration range (everything else is identical):
 
