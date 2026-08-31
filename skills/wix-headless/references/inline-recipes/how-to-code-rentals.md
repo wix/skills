@@ -94,12 +94,13 @@ const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
 **Step 2 — end times for the chosen start.**
 
 ```js
-const { timeSlots: endOptions } = await availabilityTimeSlots.listAvailabilityTimeSlotEndOptions(
+const { endOptions } = await availabilityTimeSlots.listAvailabilityTimeSlotEndOptions(
   serviceId,                                   // ⚠️ POSITIONAL first argument, not part of the options object
   { localStartDate: selected.localStartDate, timeZone, location: selected.location },
 );
 ```
 
+- **⚠️ The response field is `endOptions`, NOT `timeSlots`.** `listAvailabilityTimeSlots` returns `timeSlots`; this call returns `endOptions`. Destructuring `timeSlots` here yields `undefined` and **no error** — the end-time picker just renders empty, which is indistinguishable from "no availability". If your length picker is mysteriously blank, check this first.
 - **`location` is REQUIRED** — pass the selected slot's own `location` straight through. Omitting it fails the call.
 - The service's **maximum duration caps the response**, so you don't need `maxLocalEndDate`.
 - Every entry shares the requested `localStartDate` and differs only in **`localEndDate`** — that is the end-time picker.
@@ -200,6 +201,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 
 | Error | Cause | Handling |
 |---|---|---|
+| Empty length picker, no error | Destructured `timeSlots` from end options instead of **`endOptions`** | Rename the destructure (§2) |
 | `END_OPTIONS_NOT_SUPPORTED` | End options called for a daily or fixed-duration service | Branch on `durationRange.unitType` before calling |
 | `INVALID_DURATION_PROVIDED` | Chosen length falls outside the service's range | The response carries the allowed range — show it and return the customer to the picker |
 | `SLOT_NOT_AVAILABLE` | The slot was taken between selection and booking | Return to the slot picker and refresh availability |
@@ -224,7 +226,7 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 
 - Rentals is **`@wix/bookings`** — there is no `@wix/rentals`, and its absence is not a missing capability.
 - **Every catalog read filters on the rentals `appId`**, or a mixed site shows the wrong services.
-- **Hourly** = two availability calls (start, then end options, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
+- **Hourly** = two availability calls (start → `timeSlots`, then end options → **`endOptions`**, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
 - Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference`.
