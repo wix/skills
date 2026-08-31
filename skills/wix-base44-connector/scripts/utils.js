@@ -118,17 +118,30 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 
 // Semantic search — ranks, never says "no match". The reduced hits come back inline
 // AND the full raw content is saved for grep/window follow-ups. { type } picks the portal:
-// REST (default) · WIX_HEADLESS.
-async function search(term, { type = "REST", max = 5, lines = 6 } = {}) {
+// REST (default) · WIX_HEADLESS. Each hit lists the worked requests the docs publish for it
+// as { title, line } into the saved file — read one with read_file(path, offset: <its line>).
+async function search(term, { type = "REST", max = 5, lines = 0 } = {}) {
   const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+    // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
+    // code example after the first 30 lines and the rest after 5 — the saved file would carry
+    // stubs instead of the working requests the hits point at
     { search_term: term, document_type: type, maximum_results: max, lines_in_each_result: lines });
-  const hits = content.split(/\n---\n+(?=#### )/).map(b => ({
+  const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
+  for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
+  const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
+  let cursor = 0;
+  const hits = content.split(/\n---\n+(?=#### )/).map(b => {
+    const start = content.indexOf(b, cursor); cursor = start + b.length;
+    const examples = [...b.matchAll(/--- Code Example: (.+?) ---/g)]
+      .map(m => ({ title: m[1].trim(), line: lineAt(start + m.index) }));
+    return {
     method:   (b.match(/^# Method: (.+)$/m) || [])[1],
     endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
     docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
     gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
       .trim().replace(/\s+/g, " ").slice(0, 220),
-  })).filter(h => h.docsUrl);
+    ...(examples.length && { examples }),
+  }; }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
   if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
     note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
