@@ -5,7 +5,7 @@
 ## The call
 
 ```tsx
-import { useEntityPage, EntityPage } from '@wix/patterns/page';
+import { useEntityPage, EntityPage } from '@wix/patterns';
 import { useForm } from '@wix/patterns/form';
 
 interface Shift {
@@ -29,6 +29,8 @@ const state = useEntityPage<Shift, ShiftFormFields>({
   parentPath: '/shifts',
 });
 ```
+
+`EntityPage` and `useEntityPage` are **root** exports. `@wix/patterns/page` holds `CollectionPage` and `WidgetsFormProvider` only, so importing the entity page from there is `TS2305: has no exported member` — the collection page and the entity page do not live in the same place. `patterns.cjs exports page` lists what that subpath actually gives you.
 
 ## Name both generics
 
