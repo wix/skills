@@ -20,17 +20,13 @@ file responsibilities:
 | `<component-name>.tsx` | Edit | Implement the component UI and behavior. |
 | `<component-name>.module.css` | Edit | Define scoped component styles. |
 | `component.tsx` | Keep generated | Wire the component and `defaultProps` with `withDefaults`. |
-| `component.preview.tsx` | Usually keep generated | Customize only for editor-specific behavior, such as suppressing autoplay. |
+| `component.preview.tsx` | Edit narrowly | Keep generated wrappers; sync the preview adapter, one crucial data field, and root class. |
 | `<component-name>.generated.ts` | NEVER edit | Generated manifest consumed by the editor. |
 | `<component-name>.extension.ts` | Edit narrowly | Apply supported partial manifest overrides. |
 
 Supplementary files such as `constants.ts`, hooks, or internal sub-components
 are allowed when the implementation needs them. Keep the scaffolded files and
 their responsibilities intact.
-
-## Identity of SDK Calls
-
-A component runs on the live site as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
 
 ## Workflow
 
@@ -68,7 +64,9 @@ A component runs on the live site as the **site visitor or member**, never as th
 6. **Configure the editor extension when required.** For a new component or a
    requested sizing, installation, or manifest change, apply
    [`editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
-   to `<component-name>.extension.ts`. Otherwise preserve the existing file.
+   to `<component-name>.extension.ts`. Otherwise leave the file unchanged.
+   Finally, synchronize `requiredDataFields` and `rootClassName` in
+   `component.preview.tsx`.
 
 7. **Generate and validate.** Run:
 
@@ -107,9 +105,10 @@ component or edit `*.generated.ts` as a reference-driven fix.
 
 | Scope | Required references |
 | --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), and [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), and [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
 | Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md) and [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
 | Changing the public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), and [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
+| Changing public data props or the elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Creating or changing an item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), and [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
 | Changing the root direction contract, direction-sensitive behavior, or a `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
@@ -151,3 +150,7 @@ component or edit `*.generated.ts` as a reference-driven fix.
   bodies accessibly.
 - If primary content autoplays or loops, provide an accessible play/pause
   control, honor reduced motion, and suppress autoplay in editor design mode.
+- In `component.preview.tsx`, keep `withDefaults` and `withFallbackPlaceholder`,
+  wrap the preview adapter when present, normally put
+  only the one data prop crucial to meaningful rendering in
+  `requiredDataFields`, and match `rootClassName` to the root global class.
