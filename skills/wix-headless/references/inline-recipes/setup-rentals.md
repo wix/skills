@@ -1,6 +1,6 @@
 ---
 name: "Setup Rentals"
-description: Initializes a Wix Rentals backend — creates a resource type, the bookable resources (rooms, vehicles, equipment), a category, and the rental services carrying a duration range so customers pick their own length in hours or days. Rentals has no APIs of its own; it is Services V2 with rentals-specific field values. Specifies the *how* (calls + format); how many resources and services, their ranges and prices come from the request.
+description: Initializes a Wix Rentals backend — creates a resource type, the bookable resources (rooms, vehicles, equipment), and the rental services carrying serviceResources plus a duration range so customers pick their own length in hours or days. Rentals has no APIs of its own; it is Services V2 with rentals-specific field values. Specifies the *how* (calls + format); how many resources and services, their ranges and prices come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Rentals (Services V2 + Resources V2)
 
@@ -19,13 +19,16 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 > - [About Wix Rentals Availability](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md) — resource schedules, hourly vs daily, buffer time
 > - [Wix Rentals: Sample Flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md) — the call sequences, including [Set up a rental service](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#set-up-a-rental-service), which is this recipe end to end
 
-> ### The four invariants (read these before anything else)
-> A service is a rental because of **three field values**, all set at create time in STEP 4:
+> ### The invariants (read these before anything else)
+> A service is a rental because of **four field values**, all set at create time in STEP 4:
 > 1. **`appId` = `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`** — and it is **IMMUTABLE after create**. A service created without it is a plain Bookings service *forever*; no update converts it. This is the most expensive mistake in this recipe.
-> 2. **`primaryResourceType`** — the resource type GUID, which makes availability come from the rooms/vehicles instead of staff schedules. Omitting it silently falls back to the **staff** resource type.
-> 3. **`durationRange`** — with a single `unitType` (`HOUR` or `DAY`) and its matching `hourOptions`/`dayOptions`. Mutually exclusive with `sessionDurations`.
+> 2. **`serviceResources: [{ "resourceType": { "id": "<resourceTypeId>" } }]`** — the resource types that must be available for the service to be bookable. **Omitting this is what actually causes `MISSING_APPOINTMENT_RESOURCES`**, and the error text sends you looking in the wrong place (see STEP 4).
+> 3. **`primaryResourceType`** — the resource type GUID, which makes availability come from the rooms/vehicles instead of staff schedules. It must reference **one of the types listed in `serviceResources`**. Omitting it silently falls back to the **staff** resource type.
+> 4. **`durationRange`** — with a single `unitType` (`HOUR` or `DAY`) and its matching `hourOptions`/`dayOptions`. Mutually exclusive with `sessionDurations`.
 >
-> And one ordering rule: **resources must exist before the service** (STEP 2 before STEP 4). A service whose resource type holds no resources is created successfully, appears in the catalog, and can **never be booked**.
+> And one ordering rule: **resources must exist before the service** (STEP 2 before STEP 4), or availability is permanently empty.
+>
+> **On a Rentals-only site there is no category step** — the Bookings categories API is unavailable and rentals don't need it. See STEP 3.
 
 > **API surfaces:** everything is on the **public** host `https://www.wixapis.com/bookings/...`. Services are **Services V2** (`…/bookings/v2/services`) — the method page's schema header shows an internal `…/_api/bookings/v2/services` form, **do not use that**. Resource types are `…/bookings/v2/resources/resource-types`, resources are `…/bookings/v2/resources`. The Wix Rentals **app id** is `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e` (needed here on the service, and by the frontend for filtering + the cart).
 
@@ -35,7 +38,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 
 **YOU MUST** complete the following steps **in the given order** (1-5) without skipping any and **without requiring additional user input**. STEP 5 (attributes) runs only when the request calls for filterable resource properties. The **Attach images** step runs **only when imagery is on** — skip it entirely otherwise.
 
-**⚠️ CRITICAL ORDER REQUIREMENT: resource type (STEP 1) → resources (STEP 2) → category (STEP 3) → services (STEP 4).** A rental service points at a resource type via `primaryResourceType`, and its availability is derived from the *resources* in that type — so both must exist before the service. A service created against a resource type that holds **no resources has permanently empty availability**: it is created successfully, appears in the catalog, and can never be booked.
+**⚠️ CRITICAL ORDER REQUIREMENT: resource type (STEP 1) → resources (STEP 2) → services (STEP 4).** (STEP 3 is a no-op on a Rentals-only site — see there.) A rental service declares its resource type in `serviceResources` and points at it via `primaryResourceType`, and its availability is derived from the *resources* in that type — so both must exist before the service. A service created against a resource type that holds **no resources has permanently empty availability**: it is created successfully, appears in the catalog, and can never be booked.
 
 **Check for pre-existing services first** — same demo-data cleanup as bookings, same rules. List with `POST https://www.wixapis.com/bookings/v2/services/query` (body `{"query": {"paging": {"limit": 100}}}`), and `DELETE https://www.wixapis.com/bookings/v2/services/<serviceId>` the install's own samples. **Do not assume every existing service is a sample** — if it isn't obviously install demo data, **ask the user first**. Full rationale: `setup-bookings.md` § "Check for pre-existing services first".
 
@@ -77,21 +80,20 @@ Keep each resource's returned **`id`**.
 - **Working hours, when the request genuinely needs them,** are a Schedules V3 schedule referenced by `workingHoursSchedules.scheduleId` — created separately, then attached. It is out of scope for a seed; note it in the handoff instead. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md>
 - **Locations** — `locationOptions.specificLocationOptions` binds a resource to business locations. Omit it for a single-location site (the default). When both `workingHoursSchedules` and `locationOptions` are set, **`workingHoursSchedules` takes precedence**.
 
-### STEP 3: Resolve (or create) a category
+### STEP 3: Category — SKIP on a Rentals-only site
 
-**⚠️ CRITICAL: every service needs a `category.id` or it is NOT visible on the live site.** Inherited from Services V2 and applies to rentals exactly as to bookings — a service created without a category is created successfully but hidden. **A fresh install ships ZERO categories**, so you must create at least one.
+**⚠️ Do not try to create a category on a Rentals-only site. It is not possible, and it is not needed.** The Bookings categories API belongs to the **Wix Bookings app**, which `SETUP.md` explicitly tells you *not* to install alongside Rentals. On a Rentals-only site:
 
-```bash
-# Query first (reuse one a prior step in this run created), then create:
-curl -X POST 'https://www.wixapis.com/bookings/v2/categories/query' \
-  -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' -d '{ "query": {} }'
+- `POST …/bookings/v2/categories` returns **`428 APP_NOT_INSTALLED`**
+- `POST …/bookings/v2/categories/query` returns a flat **`401`**
 
-curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
-  -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
-  -d '{ "category": { "name": "Spaces" } }'
-```
+So there is no way to satisfy the bookings-style "every service needs a `category.id`" invariant, and no need to: **verified on a live Rentals-only site, services created with no category are returned by the `appId`-filtered catalog read** with `hidden: false` — the same read path the frontend uses (`how-to-code-rentals.md` §1). The Rentals install's own demo service also ships without a category, which is the strongest signal that this is the intended shape.
 
-Keep each `category.id`. Additional categories only when the request wants grouping/filtering.
+**Omit `category` from the service payload entirely** — do not send `"category": {}` or a made-up id.
+
+> **Known limit of that verification:** it proves the **headless** read path. It was not tested against Wix's own rendered site pages, where the Services V2 category-visibility rule may still apply. If a run also needs Wix-hosted service pages, flag it to the owner rather than inventing a category.
+>
+> **If Bookings *is* also installed** on the site (a mixed run — `SETUP.md`), the categories API works normally and you can assign one; follow `setup-bookings.md` STEP 2. It remains optional for rentals.
 
 ### STEP 4: Create the rental services
 
@@ -111,6 +113,7 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
       "description": "A brand-appropriate description of what is being rented.",
       "tagLine": "Short tagline",
       "defaultCapacity": 1,
+      "serviceResources": [ { "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" } } ],
       "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
       "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
       "schedule": {
@@ -126,7 +129,6 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
         "fixed": { "price": { "value": "40.00", "currency": "USD" } },
         "options": { "online": true, "inPerson": false }
       },
-      "category": { "id": "<CATEGORY_ID_FROM_STEP_3>" },
       "locations": [ { "type": "BUSINESS" } ]
     }
   ],
@@ -147,12 +149,18 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 
 - **`appId` must be the Wix Rentals app id** `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`, and it is **immutable after create** — a service created without it is a plain Bookings service forever, and no update can convert it. Getting this wrong is the single most expensive mistake in this recipe.
 - **`appId` also means the service does NOT appear in the Wix Bookings dashboard** — it appears in the Rentals dashboard. That is correct and expected; don't "fix" it.
-- **`primaryResourceType`** is the resource type **GUID** from STEP 1. It is what makes availability come from the rooms/vehicles rather than from staff schedules. Omitting it silently falls back to the **staff** resource type, which produces a normal staff-driven appointment service.
+- **⚠️ `serviceResources` is REQUIRED and is the real cause of `MISSING_APPOINTMENT_RESOURCES` — do not trust the error text.** The message reads *"service of type appointment requires at least one staff member or service resource"*, which invites you to go check whether your resource type has resources in it. **That is a dead end** — the create fails even when the type is fully populated. What the service actually needs is the resource type declared **on the service**:
+  ```json
+  "serviceResources": [ { "resourceType": { "id": "<resourceTypeId>" } } ]
+  ```
+  Verified on a live site: adding this field is what makes the create succeed. Max **8** entries. To restrict a service to *specific* resources rather than every resource of the type, add `"resourceIds": { "values": ["<resourceId>"] }` alongside `resourceType` (max 100); omit it and all resources of that type are eligible — which is what a seed wants.
+- **`primaryResourceType`** is the resource type **GUID** from STEP 1, and **must be one of the types listed in `serviceResources`**. It is what makes availability come from the rooms/vehicles rather than from staff schedules. Omitting it silently falls back to the **staff** resource type, which produces a normal staff-driven appointment service.
 - **`durationRange` and `sessionDurations` are mutually exclusive** — send one or the other, never both. `durationRange` also **can't be combined with `workingHours`** on the service.
 - **`unitType` selects which config object is read:** `HOUR` → `hourOptions`, `DAY` → `dayOptions`. Sending `dayOptions` with `unitType: "HOUR"` leaves the range unset.
 - **Ranges:** hourly `minDurationInMinutes`/`maxDurationInMinutes` are **30–1440**; daily `minDurationInDays`/`maxDurationInDays` are **1–8** for rentals. Min must be **≤** max. (The underlying Services V2 schema permits days up to 60; Wix Rentals documents 1–8 — stay inside 1–8.)
 - **One unit type per service.** A service is hourly *or* daily, never both. If the request wants a room by the hour **and** by the day, that is **two services**, each with its own price.
-- **Omit `staffMemberIds`.** Rentals are resource-driven, not staff-driven. If the bulk create is rejected with **`MISSING_APPOINTMENT_RESOURCES`**, the cause is almost always that the resource type from STEP 1 has **no resources in it yet** — go back and complete STEP 2, don't paper over it by adding a staff resource, which would reintroduce staff-based availability.
+- **Omit `staffMemberIds`.** Rentals are resource-driven, not staff-driven — `serviceResources` above is what satisfies the appointment-resource requirement. Never add a staff resource to get past `MISSING_APPOINTMENT_RESOURCES`; that reintroduces staff-based availability and produces a service that is no longer a rental in behaviour.
+- **Omit `category`.** Not available on a Rentals-only site, and not needed (STEP 3).
 - **`onlineBooking: { "enabled": true }` is required** — V2 rejects the create without it even though it reads as optional.
 - **`defaultCapacity`** is required; use `1` (one customer rents a given resource at a time; parallel capacity comes from having more *resources*, not higher capacity).
 - **`payment.options` — at least one of `online`/`inPerson` must be `true`**, even for free services. `NO_FEE` must pair with `online: false, inPerson: true`.
@@ -231,8 +239,8 @@ Following these steps **in order** sets up a Wix Rentals site:
 
 - A **resource type** exists, and it **contains resources** — without resources the service's availability is permanently empty.
 - Every service carries the **Wix Rentals `appId`** (`ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`), set at create time because it is **immutable** afterwards.
-- Every service carries **`primaryResourceType`**, so availability comes from the resources rather than from staff.
+- Every service carries **`serviceResources`** naming its resource type — the field the `MISSING_APPOINTMENT_RESOURCES` error does *not* point you to — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff.
 - Every service carries a **`durationRange`** with a single `unitType` and its matching `hourOptions`/`dayOptions` — never alongside `sessionDurations`.
-- Every service is assigned a **`category.id`** so it appears on the live site (the Services V2 visibility invariant).
+- **No category** is set: the Bookings categories API is unavailable on a Rentals-only site, and services are returned by the `appId`-filtered catalog read without one (verified live).
 - Resources are seeded **24/7** (no working-hours schedule), which keeps a multi-day daily rental to a single booking.
-- IDs kept for the coding handoff: `resourceTypeIds[]`, `resourceIds[]`, `serviceIds[]`, service `slug`s (`mainSlug.name`), category ids, and any `attributeDefinitionIds[]`.
+- IDs kept for the coding handoff: `resourceTypeIds[]`, `resourceIds[]`, `serviceIds[]`, service `slug`s (`mainSlug.name`), and any `attributeDefinitionIds[]`.
