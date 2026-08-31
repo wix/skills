@@ -10,6 +10,11 @@ find the APIs and learn their contracts from the docs, write the code. **Discove
 request and response fields all come from the calls below, never from memory or pattern. 404 or
 empty ⇒ discover, not permute. Examples teach mechanics and go stale — verify before relying.
 
+**Start every Wix task by getting the site context** (`wx.context`, below). It reports what the
+site actually has and how each part is configured, so every call targets what is really there
+instead of a guess from a name. It is the first step of a task, not a one-time setup: a later turn
+does not inherit an earlier turn's context, so re-read it before building on or calling a Wix API.
+
 **A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) and follow
 the one that fits. A recipe states outright what an API does not support, which fields a bulk call
 actually writes, and the order two calls have to go in — from the schemas alone those get re-derived
