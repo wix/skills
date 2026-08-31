@@ -59,6 +59,8 @@ export function useRentalDuration(service, startSlot, timeZone) {
   const rental = isRental(service);
   const duration = rentalDuration(service);
   const start = startSlot?.localStartDate ?? null;
+  // end-options is rejected without a location — forward the chosen slot's own.
+  const location = startSlot?.location ?? null;
   const serviceId = service?._id || service?.id || null;
 
   // A new start invalidates the lengths that were valid for the previous one.
@@ -75,7 +77,7 @@ export function useRentalDuration(service, startSlot, timeZone) {
     const load = duration.unit === "DAY"
       ? dailyEndOptions(service, { localStartDate: start, timeZone })
           .then((list) => list.map((o) => ({ localEndDate: o.localEndDate, label: lengthLabel(start, o.localEndDate, "DAY") })))
-      : listEndOptions(serviceId, { localStartDate: start, timeZone })
+      : listEndOptions(serviceId, { localStartDate: start, location, timeZone })
           .then(({ endOptions }) =>
             endOptions.map((o) => ({ localEndDate: o.localEndDate, label: lengthLabel(start, o.localEndDate, "HOUR") })),
           );
