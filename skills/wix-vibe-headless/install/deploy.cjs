@@ -120,8 +120,13 @@ const flagArgs = new Set(['--client-id', '--metasite-id', clientId, metaSiteId].
 // `rentals` is an alias of the Bookings vertical — Wix Rentals runs on the Bookings APIs. A rental
 // business picks `rentals` and gets the bookings scaffolds; it resolves to bookings everywhere.
 const ALIASES = { rentals: 'bookings' };
-const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)).map((a) => ALIASES[a] || a))];
+const positional = argv.filter((a) => !flagArgs.has(a));
+const requested = [...new Set(positional.map((a) => ALIASES[a] || a))];
 const deployed = { verticals: [] };
+// Report any alias resolution so the caller sees an intended mapping (rentals -> bookings), not a
+// silent `bookings` result it might read as "rentals unsupported" and wastefully re-deploy.
+const aliased = [...new Set(positional.filter((a) => ALIASES[a]))].map((a) => `${a} -> ${ALIASES[a]}`);
+if (aliased.length) deployed.aliased = aliased;
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
