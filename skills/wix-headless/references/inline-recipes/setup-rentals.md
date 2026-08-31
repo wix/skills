@@ -6,7 +6,7 @@ description: Initializes a Wix Rentals backend — creates a resource type, the 
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
-A concise checklist for turning a freshly provisioned Wix site with the **Wix Rentals** app installed into a populated catalog of rentable resources.
+A concise checklist for turning a freshly provisioned Wix site with the **Wix Rentals and Wix Bookings** apps installed (both are required — see `SETUP.md`; Bookings carries the availability engine) into a populated catalog of rentable resources.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial Rentals backend setup. (The frontend read/booking contract is the sibling recipe `how-to-code-rentals.md`.)
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many resource types and resources, how many services, whether they are hourly or daily, their duration ranges and prices — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities.
@@ -22,7 +22,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 > ### The invariants (read these before anything else)
 > A service is a rental because of **five field values**, all set at create time in STEP 4:
 > 1. **`appId` = `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`** — and it is **IMMUTABLE after create**. A service created without it is a plain Bookings service *forever*; no update converts it. This is the most expensive mistake in this recipe.
-> 2. **`serviceResources: [{ "resourceType": { "id": "<resourceTypeId>" } }]`** — the resource types that must be available for the service to be bookable. **Omitting this is what actually causes `MISSING_APPOINTMENT_RESOURCES`**, and the error text sends you looking in the wrong place (see STEP 4).
+> 2. **`serviceResources: [{ "resourceType": { "id": "<resourceTypeId>" }, "resourceIds": { "values": ["<resourceId>", …] } }]`** — the resource type **and its concrete resource ids**, both required. **Omitting `serviceResources` entirely causes `MISSING_APPOINTMENT_RESOURCES`** (whose error text sends you looking in the wrong place — see STEP 4); listing the type but **omitting `resourceIds` creates the service with permanently empty availability** (0 slots vs 48, otherwise identical).
 > 3. **`primaryResourceType`** — the resource type GUID, which makes availability come from the rooms/vehicles instead of staff schedules. It must reference **one of the types listed in `serviceResources`**. Omitting it silently falls back to the **staff** resource type.
 > 4. **`form.id` = `3a2ea2ce-91f4-4617-ab24-629933c0c31a`** — the Rentals default booking form, provisioned at install and identical on every site. Omit it and you get the standard Bookings form instead.
 > 5. **`durationRange`** — with a single `unitType` (`HOUR` or `DAY`) and its matching `hourOptions`/`dayOptions`. Mutually exclusive with `sessionDurations`.
@@ -77,7 +77,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/resources' \
 
 Keep each resource's returned **`id`** — it's needed for attributes (STEP 5) and the handoff, **not** by the service.
 
-**A resource reaches the service through its `typeId`, never by being listed on it.** That's why STEP 4 names only the resource *type* in `serviceResources` and no resource ids appear in the service payload — every resource of that type is automatically bookable, and adding a resource later needs no change to the service.
+**A resource's `typeId` binds it to its type; the service then binds to those resources by listing their ids.** STEP 4's `serviceResources` names the resource *type* **and** its `resourceIds` — the type alone leaves availability empty (see STEP 4). Add a resource later by updating the service's `resourceIds`.
 
 - **⚠️ Omit `workingHoursSchedules` — this is the deliberate seed default and it matters downstream.** ([Why, in detail](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#resource-schedules).) A resource with **no** working-hours schedule is bookable **24/7**. That keeps the seed to a single call per resource, *and* it makes a multi-day daily rental store as **one booking** rather than a linked group of per-day bookings. A resource **with** working hours splits every multi-day rental into one booking per working day, created through Create Multi Service Booking — a materially harder frontend flow (`how-to-code-rentals.md` § "Daily availability"). Seed 24/7 unless the request explicitly needs opening hours; the merchant can add hours from the dashboard later.
 - **Working hours, when the request genuinely needs them,** are a Schedules V3 schedule referenced by `workingHoursSchedules.scheduleId` — created separately, then attached. It is out of scope for a seed; note it in the handoff instead. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md>
@@ -89,9 +89,7 @@ Keep each resource's returned **`id`** — it's needed for attributes (STEP 5) a
 
 This is the one place where the bookings invariant does **not** carry over. `setup-bookings.md` STEP 2 calls `category.id` critical because a Bookings service without one is hidden on the live site. **That rule is specific to Wix Bookings and does not apply to Wix Rentals** — rentals are surfaced through the `appId`-filtered catalog read, not through Bookings categories. Confirmed on a live Rentals site: services created with no category come back from that read with `hidden: false`, and the Rentals install's own demo service ships without one.
 
-The categories API isn't reachable here anyway — it belongs to the **Wix Bookings app**, which `SETUP.md` tells you not to install alongside Rentals. On a Rentals-only site `POST …/bookings/v2/categories` returns **`428 APP_NOT_INSTALLED`** and `POST …/bookings/v2/categories/query` returns a flat **`401`**. If you see either, you are following the bookings recipe by mistake — stop and skip this step.
-
-This holds on a **mixed** site too (Bookings *and* Rentals installed, per `SETUP.md`): the categories API works there, but rental services still don't need or use a category. Assign categories only to the plain Bookings services on such a site.
+A rentals site now has the **Wix Bookings app** installed too (`SETUP.md` — Bookings carries the availability engine), so the categories API *is* reachable. Ignore it anyway: rental services don't need or use a category. Assign categories only to plain Bookings services, if the site also offers those. (On a Rentals-*only* site the categories API would `428 APP_NOT_INSTALLED` — but that is no longer the supported setup.)
 
 ### STEP 4: Create the rental services
 
@@ -139,7 +137,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 
 **`serviceResources` carries both levels.** `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the individual resources from STEP 2 that this service can book (max **100** ids, max **8** `serviceResources` entries).
 
-Omitting `resourceIds` is also valid — then **every** resource of that type is eligible, including ones added later, with no change to the service. Use that when the service should always cover the whole type.
+**Always list the concrete `resourceIds`** — naming the resource type alone (no `resourceIds`) creates the service fine but leaves its availability permanently empty. Verified on a live site: identical services returned **0** time-slots without `resourceIds` and **48** with them. Add resources later by updating the service's `resourceIds`.
 
 **⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service, and then you can omit `resourceIds` and let the whole type be bookable.
 
@@ -164,7 +162,7 @@ Omitting `resourceIds` is also valid — then **every** resource of that type is
     "resourceIds": { "values": ["<resourceId>"] }
   } ]
   ```
-  Verified on a live site: adding this field is what makes the create succeed. `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the resources from STEP 2 this service can book. Max **8** `serviceResources` entries, max **100** ids each. Omitting `resourceIds` is also valid and makes every resource of that type eligible, including ones added later.
+  Verified on a live site: adding this field is what makes the create succeed. `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the resources from STEP 2 this service can book. Max **8** `serviceResources` entries, max **100** ids each. **`resourceIds` is required for availability, not optional** — the type alone creates the service but leaves it with 0 bookable slots (verified 0 without vs 48 with, otherwise identical). Add resources later by updating `resourceIds`.
 - **`primaryResourceType`** is the resource type **GUID** from STEP 1, and **must be one of the types listed in `serviceResources`**. It is what makes availability come from the rooms/vehicles rather than from staff schedules. Omitting it silently falls back to the **staff** resource type, which produces a normal staff-driven appointment service.
 - **`form.id` selects the booking form. Set it to the Wix Rentals default booking form — `3a2ea2ce-91f4-4617-ab24-629933c0c31a`.** Installing the Rentals app provisions that form, and because it is cloned from the template with the template's own id, **the GUID is the same on every site** — treat it as a constant, like the `appId`. Omit the field and the service uses the standard Wix Bookings form instead, so the rentals form's own fields won't be there. It's the Rentals app's own choice too: `RentalsProvisioner` sets it on every service it creates.
 - **`durationRange` and `sessionDurations` are mutually exclusive** — send one or the other, never both. `durationRange` also **can't be combined with `workingHours`** on the service.

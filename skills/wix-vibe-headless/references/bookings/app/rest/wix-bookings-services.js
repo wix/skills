@@ -183,11 +183,13 @@ export async function countServices() {
  * If you render a mixed catalog, route by `service.type` via `listSlotsForService`.
  * Dates are LOCAL ("YYYY-MM-DDThh:mm:ss") in timeZone.
  * https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots.md
+ * `includeResourceTypeIds` is REQUIRED for a rental (a resource-driven service): without it the call
+ * returns zero slots. Pass the rental's resource type id(s); harmless to omit for a staff appointment.
  * @param {string} serviceId
- * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
+ * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string, includeResourceTypeIds?: string[] }} options
  * @returns {Promise<{ slots: object[], nextCursor: string|null, timeZone: string|null }>}
  */
-export async function listAvailableSlots(serviceId, { fromLocalDate, toLocalDate, timeZone, limit = 1000, cursor } = {}) {
+export async function listAvailableSlots(serviceId, { fromLocalDate, toLocalDate, timeZone, limit = 1000, cursor, includeResourceTypeIds } = {}) {
   if (!cursor && (!fromLocalDate || !toLocalDate)) {
     throw new Error("listAvailableSlots requires fromLocalDate and toLocalDate (local 'YYYY-MM-DDThh:mm:ss').");
   }
@@ -200,6 +202,7 @@ export async function listAvailableSlots(serviceId, { fromLocalDate, toLocalDate
         toLocalDate,
         timeZone: timeZone || defaultTimeZone(),
         cursorPaging: { limit },
+        ...(includeResourceTypeIds?.length ? { includeResourceTypeIds } : {}),
       };
   const res = await wixApiRequest("/_api/service-availability/v2/time-slots", { method: "POST", body });
   return {
@@ -287,7 +290,11 @@ export async function listEventTimeSlots(serviceIds, { fromLocalDate, toLocalDat
 export async function listSlotsForService(service, options = {}) {
   const serviceId = service?._id || service?.id;
   if (!serviceId) throw new Error("listSlotsForService requires a service with an id.");
-  return service?.type === "CLASS" || service?.type === "COURSE"
-    ? listEventTimeSlots(serviceId, options)
-    : listAvailableSlots(serviceId, options);
+  if (service?.type === "CLASS" || service?.type === "COURSE") return listEventTimeSlots(serviceId, options);
+  // A rental (resource-driven) returns no slots unless the request names its resource type(s).
+  // Reading them off the service keeps this call type-agnostic — empty/absent for a staff appointment.
+  const includeResourceTypeIds =
+    options.includeResourceTypeIds ??
+    (service?.serviceResources ?? []).map((sr) => sr.resourceType?._id ?? sr.resourceType?.id).filter(Boolean);
+  return listAvailableSlots(serviceId, { ...options, includeResourceTypeIds });
 }

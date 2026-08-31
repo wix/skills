@@ -3,40 +3,47 @@
 // service carrying rentals-specific field values. Everything about the transport, images and
 // error handling is the same; only the create order and the service payload differ.
 //
-// **NOT yet live-verified — transcribed from the Rentals ↔ Bookings API mapping and
-// wix-headless/references/inline-recipes/setup-rentals.md, which WAS run end to end.**
+// Live-verified end to end on fresh headless sites (install → resource type → resources → service →
+// time-slots → end-options), which is what surfaced the headless-only footguns numbered below.
 //
-// Usage (build-time exec_tool):
+// Usage (build-time exec_tool) — prefer `setupRentals`, which runs the whole flow in the one order
+// that works and threads the resource ids into each service for you:
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.js");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+//   await seed.setupRentals(ctx, {
+//     resourceTypeName: "Meeting rooms",
+//     resources: ["Room A", "Room B"],                              // capacity = MORE RESOURCES
+//     rentals: [
+//       { name: "Meeting room, hourly", description: "…", price: 25, unit: "HOUR", min: 60, max: 480 },
+//       { name: "Meeting room, daily",  description: "…", price: 180, unit: "DAY",  min: 1,  max: 5 },
+//     ],
+//   });
+//   // Calling the steps by hand instead? ORDER IS LOAD-BEARING (resource type → resources → service),
+//   // and each rental spec must carry `resourceTypeId` AND `resourceIds` (the ids from createResources).
 //
-//   await seed.installRentalsApp(ctx);          // installs Rentals — do NOT also install Bookings
+// ⚠️ FOUR THINGS THAT SILENTLY BREAK A RENTAL, all handled below:
+//   1. Wix Bookings must be installed, not just Rentals — the availability SPI 401s
+//      "Booking app not installed" otherwise, so a correct rental has empty availability. installRentalsApp
+//      installs both.
+//   2. `appId` is IMMUTABLE after create. A service created without it is a plain Bookings service forever.
+//   3. Resources must exist BEFORE the service, AND the service must list their ids in
+//      `serviceResources[].resourceIds` (not the resource type alone) — either gap = permanently empty
+//      availability, with no error anywhere.
+//   4. Rental services do NOT use categories. Unlike bookings, do not create or assign one.
 //
-//   // ORDER IS LOAD-BEARING: resource type → resources → services.
-//   const type = await seed.createResourceType(ctx, "Meeting rooms");
-//   await seed.createResources(ctx, type.id, ["Room A", "Room B"]);   // capacity = MORE RESOURCES
-//   await seed.createRentals(ctx, [
-//     { name: "Meeting room, hourly", description: "…", price: 25,
-//       resourceTypeId: type.id, unit: "HOUR", min: 60, max: 480 },
-//     { name: "Meeting room, daily",  description: "…", price: 180,
-//       resourceTypeId: type.id, unit: "DAY",  min: 1,  max: 5 },
-//   ]);
-//
-// ⚠️ THREE THINGS THAT SILENTLY BREAK A RENTAL, all handled below:
-//   1. `appId` is IMMUTABLE after create. A service created without it is a plain Bookings
-//      service forever — there is no update that turns it into a rental.
-//   2. Resources must exist BEFORE the service. A service whose resource type holds no
-//      resources has permanently empty availability, with no error anywhere.
-//   3. Rental services do NOT use categories. Unlike bookings, do not create or assign one.
-//
-// Images and the app-install helper are reused from seed-bookings.js — require both.
-// Source recipe (authoritative): wix-headless/references/inline-recipes/setup-rentals.md.
+// Images are reused from seed-bookings.js — require both.
+// Source recipe: wix-headless/references/inline-recipes/setup-rentals.md (correct on typeId and the
+// bare-string primaryResourceType; this file additionally installs Bookings and requires resourceIds,
+// both proven necessary on headless sites).
 
 const API = "https://www.wixapis.com";
 
-/** The Wix Rentals app. Installing it provisions the Bookings infrastructure it runs on. */
+/** The Wix Rentals app — adds resource types and duration ranges on top of Bookings. */
 const RENTALS_APP_ID = "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e";
+
+/** The Wix Bookings app — carries the availability engine a rental's slots come from. */
+const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -54,20 +61,28 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 }
 
 /**
- * Install Wix Rentals. Idempotent.
- * ⚠️ Install Rentals ONLY. It provisions the Bookings infrastructure automatically, so also
- * installing Wix Bookings is redundant.
+ * Install the two apps a bookable rental needs. Idempotent.
+ *
+ * ⚠️ Install BOTH Rentals and Bookings. On a headless site, installing Rentals alone does NOT pull
+ * Wix Bookings in — and the availability SPI (`/_api/service-availability/v2/time-slots`) then
+ * rejects every call with `401 "Booking app not installed / No MS context"`, so a correctly-built
+ * rental has permanently empty availability with no clue why. Verified on fresh headless sites:
+ * Rentals-only stays 401 indefinitely; installing Bookings makes availability resolve immediately.
+ * Rentals supplies the rental semantics (resource types, duration ranges); Bookings supplies the
+ * availability engine. Rentals never uses categories, so the two coexist with nothing to reconcile.
  */
 async function installRentalsApp(ctx) {
-  try {
-    await req(ctx, "/apps-installer-service/v1/app-instance/install", {
-      body: {
-        tenant: { tenantType: "SITE", id: ctx.siteId },
-        appInstance: { appDefId: RENTALS_APP_ID, enabled: true },
-      },
-    });
-  } catch {
-    /* already installed is fine */
+  for (const appDefId of [RENTALS_APP_ID, BOOKINGS_APP_ID]) {
+    try {
+      await req(ctx, "/apps-installer-service/v1/app-instance/install", {
+        body: {
+          tenant: { tenantType: "SITE", id: ctx.siteId },
+          appInstance: { appDefId, enabled: true },
+        },
+      });
+    } catch {
+      /* already installed is fine */
+    }
   }
 }
 
@@ -113,7 +128,10 @@ async function createResources(ctx, resourceTypeId, names, { workingHours } = {}
       body: {
         resource: {
           name,
-          resourceType: { id: resourceTypeId },
+          // The type link is a TOP-LEVEL `typeId` (a bare GUID). Sending `resourceType: { id }`
+          // is silently ignored — the resource is created with NO type, its type ends up holding
+          // zero resources, and the service's availability is permanently empty with no error.
+          typeId: resourceTypeId,
           ...(workingHours ? { workingHoursSchedules: workingHours } : {}),
         },
       },
@@ -124,18 +142,22 @@ async function createResources(ctx, resourceTypeId, names, { workingHours } = {}
   return out;
 }
 
+/** The Wix Rentals default booking form. Provisioned by the Rentals app; the id is the same on every site. */
+const RENTALS_FORM_ID = "3a2ea2ce-91f4-4617-ab24-629933c0c31a";
+
 /**
  * Build one rental service payload.
  *
- * Field values that MAKE it a rental (all four are required together):
+ * Field values that MAKE it a rental (all required together):
  *   type: "APPOINTMENT"          — rentals are always appointment-typed
  *   appId: RENTALS_APP_ID        — immutable after create
  *   durationRange                — replaces sessionDurations; the two are mutually exclusive
- *   serviceResources +           — which resource type supplies availability
+ *   serviceResources +           — which resource type AND which resources supply availability
  *   primaryResourceType
  *
  * Hourly bounds are MINUTES (30–1440); daily bounds are DAYS (1–8). One service = one unit
  * type: to rent the same room by the hour AND by the day, create two services.
+ * @param {object} s  spec + `resourceTypeId` and `resourceIds` (the ids from createResources).
  */
 function buildRental(s) {
   const unit = s.unit === "DAY" ? "DAY" : "HOUR";
@@ -151,6 +173,11 @@ function buildRental(s) {
     description: s.description ?? "",
     ...(s.tagLine ? { tagLine: s.tagLine } : {}),
     hidden: false,
+    defaultCapacity: 1,
+    // Use the Wix Rentals default booking form so checkout collects contact details.
+    form: { id: RENTALS_FORM_ID },
+    // Rentals are booked online; without this the service isn't online-bookable.
+    onlineBooking: { enabled: true, requireManualApproval: false, allowMultipleRequests: false },
     // A rental is priced as a RATE per unit of time — the number below is per hour or per day,
     // and Wix multiplies it by the length the customer picks.
     payment: {
@@ -159,11 +186,14 @@ function buildRental(s) {
       options: { online: true, inPerson: false },
     },
     schedule: { availabilityConstraints: { durationRange } },
-    // Without serviceResources the create fails MISSING_APPOINTMENT_RESOURCES, and the error
-    // text sends you to check the resource type's contents — a dead end, since it fails even
-    // when the type is fully populated. The docs' Create Service parameter list omits it.
-    serviceResources: [{ resourceType: { id: s.resourceTypeId } }],
-    primaryResourceType: { id: s.resourceTypeId },
+    // serviceResources must name BOTH the resource type AND the concrete resource ids: with the type
+    // alone (no `resourceIds`) the create succeeds but availability is permanently empty — verified
+    // 0 slots vs 48 on an otherwise-identical service. Omitting serviceResources entirely fails
+    // MISSING_APPOINTMENT_RESOURCES, whose error text points you at the resource type — a dead end.
+    serviceResources: [{ resourceType: { id: s.resourceTypeId }, resourceIds: { values: s.resourceIds ?? [] } }],
+    // A bare GUID, NOT `{ id }`: the field is a protobuf StringValue, so an object is rejected with
+    // "Unexpected value for StringValue" (400). It must be one of the types listed in serviceResources.
+    primaryResourceType: s.resourceTypeId,
     locations: [{ type: "BUSINESS" }],
   };
 }
@@ -225,7 +255,9 @@ async function verifyRentals(ctx, expectedNames) {
     if (!svc.schedule?.availabilityConstraints?.durationRange) {
       problems.push(`${name}: no durationRange — created as a plain service, and appId is immutable`);
     }
-    if (!svc.primaryResourceType?.id) problems.push(`${name}: no primaryResourceType — availability will be empty`);
+    if (!svc.primaryResourceType) problems.push(`${name}: no primaryResourceType — availability will be empty`);
+    if (!svc.serviceResources?.some((sr) => sr.resourceIds?.values?.length))
+      problems.push(`${name}: serviceResources carry no resourceIds — availability will be empty`);
   }
   return { ok: problems.length === 0, problems };
 }
@@ -239,7 +271,9 @@ async function setupRentals(ctx, { resourceTypeName, resources = [], rentals = [
   await installRentalsApp(ctx);
   const type = await ensureResourceType(ctx, resourceTypeName);
   const created = await createResources(ctx, type.id, resources);
-  const services = await createRentals(ctx, rentals.map((r) => ({ ...r, resourceTypeId: type.id })));
+  // Every rental service must list the concrete resource ids, or its availability is empty (see buildRental).
+  const resourceIds = created.map((c) => c.id);
+  const services = await createRentals(ctx, rentals.map((r) => ({ ...r, resourceTypeId: type.id, resourceIds })));
   const check = await verifyRentals(ctx, rentals.map((r) => r.name));
   return { resourceType: type, resources: created, services, ...check };
 }

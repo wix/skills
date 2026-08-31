@@ -93,17 +93,31 @@ export async function queryRentals({ limit = 100, offset = 0, appId = RENTALS_AP
 }
 
 /**
+ * The resource type id(s) a rental's availability comes from — read off `serviceResources`.
+ * Every rental availability call must pass these as `includeResourceTypeIds`, or it returns zero slots.
+ * @param {object} service
+ * @returns {string[]}
+ */
+export function rentalResourceTypeIds(service) {
+  return (service?.serviceResources ?? [])
+    .map((sr) => sr.resourceType?._id ?? sr.resourceType?.id)
+    .filter(Boolean);
+}
+
+/**
  * Start times for a rental — step 1 of 2.
  *
- * A rental is an APPOINTMENT-typed service, so this is the same availability call an
- * appointment uses; what comes back are the times a rental may START. The customer then picks
- * how long, which is `listEndOptions` below.
- * @param {string} serviceId
+ * A rental is an APPOINTMENT-typed service, so this is the same availability call an appointment
+ * uses; what comes back are the times a rental may START. The customer then picks how long, which is
+ * `listEndOptions` below. Pass the whole `service` (not just an id) so the required resource types
+ * ride along — without them the availability engine returns nothing for a resource-driven service.
+ * @param {object} service  A rental service from queryRentals.
  * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
  * @returns {Promise<{ slots: object[], nextCursor: string|null, timeZone: string|null }>}
  */
-export function listRentalStartSlots(serviceId, options = {}) {
-  return listAvailableSlots(serviceId, options);
+export function listRentalStartSlots(service, options = {}) {
+  const serviceId = service?._id || service?.id;
+  return listAvailableSlots(serviceId, { ...options, includeResourceTypeIds: rentalResourceTypeIds(service) });
 }
 
 /**
@@ -116,17 +130,22 @@ export function listRentalStartSlots(serviceId, options = {}) {
  * ⚠️ Hourly only. A DAILY rental has no end options — its lengths are whole days, so walk
  * consecutive days from the chosen start instead (`dailyEndOptions` below).
  * https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slot-end-options.md
+ * ⚠️ `location` is REQUIRED — the call is rejected with `400 "location must not be empty"` without
+ * it. Pass the chosen start slot's own `location` (it carries `locationType`, and an `id` only on a
+ * multi-location site); `{ locationType: "BUSINESS" }` is enough on a single-location site.
  * @param {string} serviceId
- * @param {{ localStartDate: string, maxLocalEndDate?: string, timeZone?: string }} options
+ * @param {{ localStartDate: string, location: object, maxLocalEndDate?: string, timeZone?: string }} options
  * @returns {Promise<{ endOptions: object[], timeZone: string|null }>}
  */
-export async function listEndOptions(serviceId, { localStartDate, maxLocalEndDate, timeZone } = {}) {
+export async function listEndOptions(serviceId, { localStartDate, location, maxLocalEndDate, timeZone } = {}) {
   if (!localStartDate) throw new Error("listEndOptions requires localStartDate (local 'YYYY-MM-DDThh:mm:ss').");
+  if (!location) throw new Error("listEndOptions requires the chosen slot's location (else 400 'location must not be empty').");
   const res = await wixApiRequest("/_api/service-availability/v2/time-slots/end-options", {
     method: "POST",
     body: {
       serviceId,
       localStartDate,
+      location,
       ...(maxLocalEndDate ? { maxLocalEndDate } : {}),
       ...(timeZone ? { timeZone } : {}),
     },
@@ -153,6 +172,7 @@ export async function dailyEndOptions(service, { localStartDate, timeZone } = {}
     throw new Error("dailyEndOptions expects a DAY-unit rental — use listEndOptions for hourly.");
   }
   const serviceId = service._id || service.id;
+  const includeResourceTypeIds = rentalResourceTypeIds(service);
   const startDay = localStartDate.slice(0, 10);
   const dayAfter = (isoDay, n) => {
     const d = new Date(`${isoDay}T00:00:00Z`);
@@ -168,6 +188,7 @@ export async function dailyEndOptions(service, { localStartDate, timeZone } = {}
       toLocalDate: `${dayAfter(dayToCheck, 1)}T00:00:00`,
       timeZone,
       limit: 1,
+      includeResourceTypeIds,
     });
     if (!slots.length) break; // a gap — every longer option is unbookable too
     if (days >= duration.min) out.push({ days, localEndDate: `${dayAfter(startDay, days)}T00:00:00` });
