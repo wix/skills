@@ -117,7 +117,10 @@ const clientId = flag('client-id');
 const metaSiteId = flag('metasite-id');
 // Verticals are the positional args — drop the flags and their values.
 const flagArgs = new Set(['--client-id', '--metasite-id', clientId, metaSiteId].filter(Boolean));
-const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
+// `rentals` is an alias of the Bookings vertical — Wix Rentals runs on the Bookings APIs. A rental
+// business picks `rentals` and gets the bookings scaffolds; it resolves to bookings everywhere.
+const ALIASES = { rentals: 'bookings' };
+const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)).map((a) => ALIASES[a] || a))];
 const deployed = { verticals: [] };
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
