@@ -211,7 +211,6 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Error | Cause | Handling |
 |---|---|---|
 | Empty length picker, no error | Destructured `timeSlots` from end options instead of **`endOptions`** | Rename the destructure (§2) |
-| `403` on `/v1/anonymous-bookings/{bookingId}/token` | Calling `getAnonymousActionToken` client-side for a rentals booking | Don't call it at all — drive confirmation from what you already hold (§5) |
 | `END_OPTIONS_NOT_SUPPORTED` | End options called for a daily or fixed-duration service | Branch on `durationRange.unitType` before calling |
 | `INVALID_DURATION_PROVIDED` | Chosen length falls outside the service's range | The response carries the allowed range — show it and return the customer to the picker |
 | `SLOT_NOT_AVAILABLE` | The slot was taken between selection and booking | Return to the slot picker and refresh availability |
