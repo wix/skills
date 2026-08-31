@@ -150,12 +150,15 @@ A rental's price depends on its length, so show the total before booking.
 const { priceInfo } = await pricing.previewPrice([{
   serviceId,
   resourceId,                       // required for appointment-based services
+  numberOfParticipants: 1,          // always 1 for a rental — see below
   localStartDate: '2026-09-01T09:00:00',
   localEndDate:   '2026-09-01T14:00:00',
   timeZone,                         // required whenever the local dates are sent
 }]);
 // priceInfo.calculatedPrice
 ```
+
+**⚠️ `numberOfParticipants` is required and is always `1` for a rental.** Omitting it, or sending `0`, fails with `NUMBER_OF_PARTICIPANTS_NOT_FOUND`. A rental isn't a class: one booking takes one resource, so participant count never drives the price — the duration does. The room's stated capacity ("seats 8") is a resource **attribute** for display, not a participant count. Same reasoning as `defaultCapacity: 1` on the service (`setup-rentals.md` STEP 4).
 
 **⚠️ Omitting `localStartDate` / `localEndDate` / `timeZone` does not error — it silently falls back to participant-based pricing** and returns a flat rate that ignores the duration. The customer then sees one price and is charged another. Always send all three.
 
@@ -207,6 +210,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | `SLOT_NOT_AVAILABLE` | The slot was taken between selection and booking | Return to the slot picker and refresh availability |
 | Empty availability, no error | The service's resource type has **no resources** | A seed bug, not a frontend one — see `setup-rentals.md` STEP 2 |
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
+| `NUMBER_OF_PARTICIPANTS_NOT_FOUND` | `numberOfParticipants` missing or `0` on the price preview | Send `1` — always 1 for a rental (§4) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
 | Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
 | `.image.url` fails `tsc`, or images render broken | `media.mainMedia.image` is a **string** holding a `wix:image://` URI | `media.getImageUrl(...)` from `@wix/sdk` (§6) |
