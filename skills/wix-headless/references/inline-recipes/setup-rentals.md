@@ -6,7 +6,7 @@ description: Initializes a Wix Rentals backend — creates a resource type, the 
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
-A concise checklist for turning a freshly provisioned Wix site with the **Wix Rentals and Wix Bookings** apps installed (both are required — see `SETUP.md`; Bookings carries the availability engine) into a populated catalog of rentable resources.
+A concise checklist for turning a freshly provisioned Wix site with the **Wix Rentals** app installed into a populated catalog of rentable resources.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial Rentals backend setup. (The frontend read/booking contract is the sibling recipe `how-to-code-rentals.md`.)
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many resource types and resources, how many services, whether they are hourly or daily, their duration ranges and prices — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities.
@@ -89,7 +89,7 @@ Keep each resource's returned **`id`** — it's needed for attributes (STEP 5) a
 
 This is the one place where the bookings invariant does **not** carry over. `setup-bookings.md` STEP 2 calls `category.id` critical because a Bookings service without one is hidden on the live site. **That rule is specific to Wix Bookings and does not apply to Wix Rentals** — rentals are surfaced through the `appId`-filtered catalog read, not through Bookings categories. Confirmed on a live Rentals site: services created with no category come back from that read with `hidden: false`, and the Rentals install's own demo service ships without one.
 
-A rentals site now has the **Wix Bookings app** installed too (`SETUP.md` — Bookings carries the availability engine), so the categories API *is* reachable. Ignore it anyway: rental services don't need or use a category. Assign categories only to plain Bookings services, if the site also offers those. (On a Rentals-*only* site the categories API would `428 APP_NOT_INSTALLED` — but that is no longer the supported setup.)
+On a Rentals-only site the categories API isn't reachable anyway — it belongs to the **Wix Bookings app**, so `POST …/bookings/v2/categories` returns **`428 APP_NOT_INSTALLED`**. That is expected: rentals don't use categories, so there is nothing to do here. If the site also runs Wix Bookings for plain services, the categories API works there — assign categories only to those Bookings services, never to rentals.
 
 ### STEP 4: Create the rental services
 
