@@ -50,7 +50,7 @@ For each capability, build its `intent.<cap>` block — the inputs the seed step
 | forms | `{ forms: [{ purpose, fields: [...] }] }` | one `contact` form: name, email, message |
 | events | `{ eventCount, titles: [] }` | `eventCount: 2`, titles brand-derived, future dates |
 | bookings | `{ serviceCount, servicesNamed: [] }` | `serviceCount: 2`, brand-derived service names |
-| rentals | `{ unitType, serviceCount, resourceCount, servicesNamed: [], minUnits, maxUnits }` | `unitType: "HOUR"` (use `"DAY"` when the brief rents by the day/night/weekend), `serviceCount: 2`, `resourceCount: 3` per service, `minUnits`/`maxUnits` = `60`/`480` minutes for hourly or `1`/`5` days for daily. **One unit type per service** — if the brief wants a room hourly *and* daily, emit two entries in `servicesNamed`. |
+| rentals | `{ unitType, serviceCount, resourceCount, servicesNamed: [] }` | `unitType: "HOUR"` (`"DAY"` if the brief rents by the day), `serviceCount: 2`, `resourceCount: 2`, brand-derived names |
 | pricing-plans | `{ planCount, tiersNamed: [] }` | `planCount: 2` (e.g. Basic / Pro), monthly billing |
 | restaurants | `{ menuName, sections: [{ name, itemCount }], ordering?, reservations?, experiences?: [{ name }] }` | one menu, 2 sections, `itemCount: 3` each; add-ons only when the brief names them. **`experiences[]`** = special dining occasions guests reserve (wine/cheese pairing, chef's table) — a restaurant *reservation that is an experience*, **not** the `bookings` vertical (see `CAPABILITIES.md`). |
 | portfolio | `{ collections: [{ name }], projectCount }` | one brand-derived collection, `projectCount: 3` |
