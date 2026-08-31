@@ -28,7 +28,8 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 | vertical | pick it when the app needs to |
 |---|---|
 | `storefront` | sell products |
-| `bookings` | take appointments, service bookings, or rentals |
+| `bookings` | take appointments or service bookings |
+| `rentals` | rent out an item, room or vehicle for a length the customer picks (by the hour or by the day) |
 | `blog` | publish articles |
 | `events` | publish events with RSVPs or ticket sales |
 | `portfolio` | showcase creative work |
