@@ -74,7 +74,9 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/resources' \
   }'
 ```
 
-Keep each resource's returned **`id`**.
+Keep each resource's returned **`id`** — it's needed for attributes (STEP 5) and the handoff, **not** by the service.
+
+**A resource reaches the service through its `typeId`, never by being listed on it.** That's why STEP 4 names only the resource *type* in `serviceResources` and no resource ids appear in the service payload — every resource of that type is automatically bookable, and adding a resource later needs no change to the service.
 
 - **⚠️ Omit `workingHoursSchedules` — this is the deliberate seed default and it matters downstream.** ([Why, in detail](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#resource-schedules).) A resource with **no** working-hours schedule is bookable **24/7**. That keeps the seed to a single call per resource, *and* it makes a multi-day daily rental store as **one booking** rather than a linked group of per-day bookings. A resource **with** working hours splits every multi-day rental into one booking per working day, created through Create Multi Service Booking — a materially harder frontend flow (`how-to-code-rentals.md` § "Daily availability"). Seed 24/7 unless the request explicitly needs opening hours; the merchant can add hours from the dashboard later.
 - **Working hours, when the request genuinely needs them,** are a Schedules V3 schedule referenced by `workingHoursSchedules.scheduleId` — created separately, then attached. It is out of scope for a seed; note it in the handoff instead. Reference: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource.md>
@@ -144,6 +146,7 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
 
 - **`appId` must be the Wix Rentals app id** `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`, and it is **immutable after create** — a service created without it is a plain Bookings service forever, and no update can convert it. Getting this wrong is the single most expensive mistake in this recipe.
 - **`appId` also means the service does NOT appear in the Wix Bookings dashboard** — it appears in the Rentals dashboard. That is correct and expected; don't "fix" it.
+- **`serviceResources` names the resource *type*, not individual resources** (STEP 2) — every resource in that type is bookable.
 - **⚠️ `serviceResources` is REQUIRED and is the real cause of `MISSING_APPOINTMENT_RESOURCES` — do not trust the error text.** The message reads *"service of type appointment requires at least one staff member or service resource"*, which invites you to go check whether your resource type has resources in it. **That is a dead end** — the create fails even when the type is fully populated. What the service actually needs is the resource type declared **on the service**:
   ```json
   "serviceResources": [ { "resourceType": { "id": "<resourceTypeId>" } } ]
