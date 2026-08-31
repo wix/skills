@@ -102,6 +102,40 @@ async function context(token, section) {
   return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
 }
 
+// The wix-manage skill, when it is installed in the sandbox, is these same recipes on disk —
+// a read_file instead of a fetch. Indexed by frontmatter name AND filename slug, because the
+// docs title drifts from the local one ("…Connect a domain" vs "…Connect").
+const RECIPE_ROOT = ".agents/skills/wix-manage/references";
+const rkey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+let LOCAL_RECIPES;
+function localRecipes() {
+  if (LOCAL_RECIPES) return LOCAL_RECIPES;
+  LOCAL_RECIPES = new Map();
+  if (!fs.existsSync(RECIPE_ROOT)) return LOCAL_RECIPES;
+  const walk = (rel) => {
+    for (const e of fs.readdirSync(RECIPE_ROOT + rel, { withFileTypes: true })) {
+      if (e.isDirectory()) { walk(rel + "/" + e.name); continue; }
+      if (!e.name.endsWith(".md")) continue;
+      const file = RECIPE_ROOT + rel + "/" + e.name;
+      const name = (fs.readFileSync(file, "utf8").slice(0, 600).match(/^name:\s*"?(.+?)"?\s*$/m) || [])[1];
+      if (name) LOCAL_RECIPES.set(rkey(name), file);
+      LOCAL_RECIPES.set(rkey(e.name.replace(/\.md$/, "")), file);
+    }
+  };
+  walk("");
+  return LOCAL_RECIPES;
+}
+// title, else the docsUrl slug, else either one as a prefix of the other
+function recipeFile(title, docsUrl) {
+  const idx = localRecipes();
+  if (!idx.size) return undefined;
+  const slug = (docsUrl || "").replace(/\/+$/, "").split("/").pop();
+  for (const k of [rkey(title), rkey(slug)]) if (k && idx.has(k)) return idx.get(k);
+  const t = rkey(title);
+  if (t.length >= 12) for (const [k, v] of idx) if (k.startsWith(t) || t.startsWith(k)) return v;
+  return undefined;
+}
+
 // ── find what to read ─────────────────────────────────────────────────────────
 
 // Browse the docs tree — deterministic. menuUrl alone orients (children + counts);
@@ -116,36 +150,91 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
   return { ...s, next: `wx.bash("grep -in 'term' ${s.path} | head -40")   // one line per node — or re-browse with a filter` };
 }
 
-// Semantic search — ranks, never says "no match". The reduced hits come back inline
-// AND the full raw content is saved for grep/window follow-ups. { type } picks the portal:
-// REST (default) · WIX_HEADLESS. Each hit lists the worked requests the docs publish for it
-// as { title, line } into the saved file — read one with read_file(path, offset: <its line>).
-async function search(term, { type = "REST", max = 5, lines = 0 } = {}) {
-  const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
-    // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
-    // code example after the first 30 lines and the rest after 5 — the saved file would carry
-    // stubs instead of the working requests the hits point at
-    { search_term: term, document_type: type, maximum_results: max, lines_in_each_result: lines });
+// Semantic search — ranks, never says "no match". The reduced hits come back inline AND the full
+// raw content is saved for grep/window follow-ups. { type } picks the corpus, one per request:
+// REST (default) · SKILLS · WIX_HEADLESS · SDK · VELO · CLI · WDS · BUILD_APPS · OVERVIEW ·
+// BUSINESS_SOLUTIONS. A REST search also runs SKILLS — the management recipes rank as their own
+// hits, ahead of the methods, and land in the saved file whole. Each method hit lists the worked
+// requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
+async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST" } = {}) {
+  const ask = (document_type, maximum_results) =>
+    post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+      // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
+      // code example after the first 30 lines and the rest after 5, and every recipe at 20 —
+      // the saved file would carry stubs instead of the requests and flows the hits point at
+      { search_term: term, document_type, maximum_results, lines_in_each_result: lines });
+  const [main, skills] = await Promise.all([ask(type, max),
+    recipes ? ask("SKILLS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
+  const recipeText = skills?.content ? skills.content.trimEnd() + "\n" : "";
+  const content = recipeText + main.content;
   const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
   for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
   const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
-  let cursor = 0;
-  const hits = content.split(/\n---\n+(?=#### )/).map(b => {
+  // recipes are articles — no "# Method:" header, no code-example delimiters, and no fixed body
+  // shape. Two things every one of them has: headings, and the endpoints it calls. Those are the
+  // outline — enough to tell whether this is the recipe for the task without reading 400 lines.
+  const recipeHits = !recipeText ? [] : recipeText.split(/\n---\n+(?=#### )/).map(b => {
+    const at = content.indexOf(b), rows = b.split("\n");
+    const steps = [], calls = [];
+    let verb = null;
+    for (const t of rows) {
+      if (/^#{1,4} /.test(t) && !/^#### \[|^## (Resource|Article|Article Link|Article Content):/.test(t))
+        steps.push(t.replace(/^#+ /, "").trim().slice(0, 52));
+      const c = t.match(/curl\s+-X\s+(GET|POST|PATCH|PUT|DELETE)/i);
+      const u = t.match(/https:\/\/www\.wixapis\.com\/[^\s"'`)\\]+/);
+      if (c && !u) { verb = c[1].toUpperCase(); continue; }   // curl -X VERB, url on the next line
+      if (!u) continue;
+      const v = (c && c[1].toUpperCase()) || (t.match(/\b(GET|POST|PATCH|PUT|DELETE)\b/) || [])[1] || verb || "";
+      verb = null;
+      const call = (v + " " + u[0].replace(/\{[^}]*\}|<[^>]*>/g, "{id}")).trim();
+      if (!calls.includes(call)) calls.push(call);
+    }
+    const title = (b.match(/^## Resource: (.+)$/m) || [])[1];
+    const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
+    return { recipe: title, docsUrl,
+             ...(recipeFile(title, docsUrl) && { file: recipeFile(title, docsUrl) }),
+             line: at < 0 ? 1 : lineAt(at), lines: rows.length,
+             ...(steps.length && { steps: steps.slice(0, 6) }),
+             ...(calls.length && { calls: calls.slice(0, 4) }) };
+  }).filter(h => h.docsUrl && h.recipe);
+  let cursor = recipeText.length;
+  const hits = main.content.split(/\n---\n+(?=#### )/).map(b => {
     const start = content.indexOf(b, cursor); cursor = start + b.length;
     const examples = [...b.matchAll(/--- Code Example: (.+?) ---/g)]
       .map(m => ({ title: m[1].trim(), line: lineAt(start + m.index) }));
+    const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
+    const method = (b.match(/^# Method: (.+)$/m) || [])[1];
+    // the REST corpus mixes guides in with the methods — an article has no method header, so
+    // name it from its own title rather than returning a row of nulls
+    if (!method) return { article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1], docsUrl,
+                          line: start < 0 ? 1 : lineAt(start) };
     return {
-    method:   (b.match(/^# Method: (.+)$/m) || [])[1],
+    method,
     endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
-    docsUrl:  (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
+    docsUrl,
     gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
       .trim().replace(/\s+/g, " ").slice(0, 220),
     ...(examples.length && { examples }),
   }; }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
-  if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
+  if (!hits.length && !recipeHits.length) return clip({ ...saved, head: content.slice(0, 1200),
     note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
-  return clip({ ...saved, hits });
+  // one URL, one row: a long article is indexed in chunks that rank separately, and a stray skills
+  // page sits in the REST corpus, so the same page can rank two or three times
+  const seen = new Set();
+  const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
+  const uniq = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
+  // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
+  // every title, URL and line number stays useful with the outlines gone
+  for (const shed of [() => recipeRows.forEach(r => delete r.calls),
+                      () => recipeRows.forEach(r => delete r.steps),
+                      () => uniq.forEach(h => { if (h.examples) h.examples = h.examples.slice(0, 3); }),
+                      () => uniq.forEach(h => delete h.examples)]) {
+    if (JSON.stringify(out).length <= BUDGET) break;
+    shed();
+  }
+  return clip(out);
 }
 
 // ── read a page (docs pages and recipes alike) ────────────────────────────────
