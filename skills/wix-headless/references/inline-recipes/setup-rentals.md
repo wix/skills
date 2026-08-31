@@ -112,7 +112,7 @@ Create all services in a single bulk call to `POST https://www.wixapis.com/booki
       "defaultCapacity": 1,
       "serviceResources": [ {
         "resourceType": { "id": "<RESOURCE_TYPE_ID_FROM_STEP_1>" },
-        "resourceIds": { "values": ["<RESOURCE_ID_A_FROM_STEP_2>", "<RESOURCE_ID_B_FROM_STEP_2>"] }
+        "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
       } ],
       "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
       "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
