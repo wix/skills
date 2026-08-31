@@ -78,7 +78,7 @@ Dashboard Pages cannot use `<Modal />`. When you need a true dialog overlay, you
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
 
-> **🛑 Exception — adding, editing, or viewing a collection item is NOT a modal.** That is an `EntityPage` from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Do not hand-build the entity form as a WDS form inside a dashboard modal — that is the single most common way the patterns-first rule gets dropped after the table is already correct. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+> **🛑 Exception — adding, editing, or viewing a collection item is NOT a modal.** That is an `EntityPage` from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Do not hand-build the entity form as a WDS form inside a dashboard modal — that is the single most common way the patterns-first rule gets dropped after the table is already correct. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself — whose published example does not compile — [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 

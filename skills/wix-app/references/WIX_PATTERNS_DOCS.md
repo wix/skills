@@ -165,6 +165,8 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 
 Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note that `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
 
+**`useEntityPage.md`'s example does not compile.** Through `@wix/patterns@1.452.0` it destructures `submittedValues` (the param is `widgetsFormData`), passes `container` (the hook supplies its own), and drops the generics. Take the call from [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) instead, and use `docs useEntityPage` only for the prose around it.
+
 Reserve dashboard modals for genuine dialogs — delete confirmations, short prompts — not entity editing.
 
 ## When Patterns Has No Equivalent
