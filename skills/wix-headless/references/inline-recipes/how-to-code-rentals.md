@@ -183,10 +183,7 @@ const cart = await createCart({
 
 Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession` and the HTTPS `postFlowUrl` rule — is unchanged. Follow `how-to-code-bookings.md`.
 
-**⚠️ The one exception: do NOT use the anonymous read-back on the confirmation page.** `how-to-code-bookings.md` tells you to mint a token with `getAnonymousActionToken` right after `createBooking` and read the booking back with `bookingsGetBookingAnonymously`. That method's permission scope is **Manage Bookings** (`SCOPE.DC-BOOKINGS.MANAGE-BOOKINGS`), so a visitor gets **403**, and an elevated call returns **`BOOKING_NOT_FOUND`**. Verified against a live rentals site on the SDK and both REST paths — it does not work for rentals bookings. Drive the confirmation page from what you already hold instead:
-
-- **Offline / free (the `placeOrder` branch)** — `placeOrder` returning an order **is** the success signal. Show confirmed, and render the slot from the values you already have (`serviceId`, the chosen start/end, the resource) carried through your own state or the URL.
-- **Paid (the redirect branch)** — you cannot verify payment as a visitor. Returning from the hosted checkout is **not** proof (the buyer may have clicked "Continue Browsing"). Either verify server-side with elevation, or show a neutral "we've received your request" state. **Never render "confirmed" off the redirect return alone** — that rule from `how-to-code-bookings.md` still holds, and losing the read-back makes it easier to get wrong, not harder.
+**⚠️ Don't use the anonymous read-back on the confirmation page.** `how-to-code-bookings.md` mints a token with `getAnonymousActionToken` after `createBooking`; that method's scope is **Manage Bookings**, so a visitor gets 403 and it returns `BOOKING_NOT_FOUND` for rentals bookings. Drive the confirmation page from what you already hold, and never render "confirmed" off the redirect return alone.
 
 ---
 
