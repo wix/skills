@@ -10,11 +10,11 @@ find the APIs and learn their contracts from the docs, write the code. **Discove
 request and response fields all come from the calls below, never from memory or pattern. 404 or
 empty ⇒ discover, not permute. Examples teach mechanics and go stale — verify before relying.
 
-**A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) before any
-search, and follow the recipe it names. Search runs over the API reference alone — the recipes are
-a separate corpus, so no search returns one, and the facts a recipe states outright (what an API
-does not support, which fields a bulk call actually writes, the order two calls have to go in) get
-re-derived from schemas instead, several errors at a time.
+**A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) and follow
+the one that fits. A recipe states outright what an API does not support, which fields a bulk call
+actually writes, and the order two calls have to go in — from the schemas alone those get re-derived
+several errors at a time. A REST search ranks the matching recipes too (`recipes` in its return), so
+they also surface from a search that began at the methods.
 
 ## What are you building?
 
@@ -63,7 +63,7 @@ const wx = (() => { const m = { exports: {} };
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A REST search also ranks the **management recipes**, returned as their own `recipes` list ahead of the methods — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
@@ -102,8 +102,8 @@ await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.
 // straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
 ```
 
-A recipe carries prerequisites, order, and gotchas that no method page has. No matching recipe —
-search and browse below.
+A recipe carries prerequisites, order, and gotchas that no method page has. A REST search ranks
+these same recipes as its own `recipes` list, so they surface either way.
 
 ### Find a method — search and browse
 
