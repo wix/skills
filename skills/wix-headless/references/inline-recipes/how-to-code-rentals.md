@@ -70,8 +70,6 @@ const min = isDaily ? range.dayOptions.minDurationInDays    : range.hourOptions.
 const max = isDaily ? range.dayOptions.maxDurationInDays    : range.hourOptions.maxDurationInMinutes;
 ```
 
-A service whose `durationRange` is absent is **not** a rental — it's a fixed-duration service; render it with the bookings flow instead.
-
 ---
 
 ## 2 · Hourly availability — two calls, start then end
