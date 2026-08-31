@@ -23,10 +23,9 @@
 //   // and each rental spec must carry `resourceTypeId` AND `resourceIds` (the ids from createResources).
 //
 // What a bookable rental needs, and setupRentals sets every one:
-//   1. Both apps installed — Rentals for the rental semantics, Bookings for the availability engine.
-//   2. `appId` on the service at create time (it is immutable, so set it here rather than later).
-//   3. Resources created before the service, and their ids listed in `serviceResources[].resourceIds`.
-//   4. No category — a rental is surfaced by its `appId`, not by a Bookings category.
+//   1. `appId` on the service at create time (it is immutable, so set it here rather than later).
+//   2. Resources created before the service, and their ids listed in `serviceResources[].resourceIds`.
+//   3. No category — a rental is surfaced by its `appId`, not by a Bookings category.
 //
 // Images are reused from seed-bookings.js — require both.
 // Source recipe: wix-headless/references/inline-recipes/setup-rentals.md.
@@ -35,9 +34,6 @@ const API = "https://www.wixapis.com";
 
 /** The Wix Rentals app — adds resource types and duration ranges on top of Bookings. */
 const RENTALS_APP_ID = "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e";
-
-/** The Wix Bookings app — carries the availability engine a rental's slots come from. */
-const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 
 async function req(ctx, path, { method = "POST", body } = {}) {
   const res = await fetch(API + path, {
@@ -55,25 +51,19 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 }
 
 /**
- * Install the two apps a bookable rental runs on. Idempotent.
- *
- * Rentals supplies the rental semantics (resource types, duration ranges); Bookings supplies the
- * availability engine that serves a rental's slots — install both. On a headless site Rentals alone
- * leaves availability empty (verified on fresh sites), so Bookings goes in alongside it. Rentals uses
- * no categories, so the two coexist with nothing to reconcile.
+ * Install Wix Rentals. Idempotent. Rentals provisions the Bookings infrastructure it runs on, so a
+ * rental's availability comes from a Rentals-only install — Wix Bookings does not need to be added.
  */
 async function installRentalsApp(ctx) {
-  for (const appDefId of [RENTALS_APP_ID, BOOKINGS_APP_ID]) {
-    try {
-      await req(ctx, "/apps-installer-service/v1/app-instance/install", {
-        body: {
-          tenant: { tenantType: "SITE", id: ctx.siteId },
-          appInstance: { appDefId, enabled: true },
-        },
-      });
-    } catch {
-      /* already installed is fine */
-    }
+  try {
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", {
+      body: {
+        tenant: { tenantType: "SITE", id: ctx.siteId },
+        appInstance: { appDefId: RENTALS_APP_ID, enabled: true },
+      },
+    });
+  } catch {
+    /* already installed is fine */
   }
 }
 
