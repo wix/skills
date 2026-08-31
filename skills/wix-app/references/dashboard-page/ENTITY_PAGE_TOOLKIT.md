@@ -1,8 +1,6 @@
-# Entity Page Toolkit — calling `useEntityPage` correctly
+# Entity Page Toolkit — calling `useEntityPage`
 
-[COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md) says a row the user cannot open is a defect, and sends you to `EntityPage` + `useEntityPage` to fix it. This file is the call itself, because the hook's own published example has been wrong in three ways and following it fails `tsc` twice.
-
-**Trust this file over the published `useEntityPage.md` example.** Through `@wix/patterns@1.452.0` that example destructures `submittedValues`, passes `container`, and omits the generics — none of which type-check against the same package's `.d.ts`. Measured runs lose whole minutes to it: the model writes the example, the build fails, and a validate subagent spends the rest of the run reverse-engineering `node_modules` to undo it.
+[COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md) says a row the user cannot open is a defect, and sends you to `EntityPage` + `useEntityPage` to fix it. This file is the call itself.
 
 ## The call
 
@@ -32,43 +30,37 @@ const state = useEntityPage<Shift, ShiftFormFields>({
 });
 ```
 
-## The three ways it goes wrong
+## Name both generics
 
-| Wrong | Right | What `tsc` says |
-| --- | --- | --- |
-| `onSave: ({ submittedValues }) => …` | `onSave: ({ widgetsFormData }) => …`, form values from `form.getValues()` | `Property 'submittedValues' does not exist on type 'OnSaveParams'` |
-| `useEntityPage({ … })` with a typed `form` | `useEntityPage<Entity, FormFields>({ … })` | `Type 'UseFormReturn<ShiftFormFields, …>' is not assignable to type 'UseFormReturn<FieldValues>'` |
-| `container,` in the params | omit it — the hook calls `useWixPatternsContainer()` itself | excess-property error on the object literal |
+`useEntityPage<T, V extends FieldValues = FieldValues>` takes the entity type **and** the form-values type. `V` does not infer from the `form` argument — it falls back to `FieldValues`, and a `useForm<ShiftFormFields>()` then fails to assign with `Type 'UseFormReturn<ShiftFormFields, …>' is not assignable to type 'UseFormReturn<FieldValues>'`. Naming a single generic only works when the form is untyped.
 
-### `onSave` does not hand you the form values
+`useEntityPage<any, ShiftFormFields>` makes that error go away and takes the entity type with it — `state.entity` becomes `any`, and every field access below it stops being checked. Name the entity type.
 
-`OnSaveParams` is `{ widgetsFormData: { [key: string]: any } }` and nothing else. `widgetsFormData` carries what the **widget** fields contributed — extended fields, tags — not what the user typed into your own fields. Those come from the form you already own:
+## `onSave` does not hand you the form values
+
+`OnSaveParams` has exactly one key. `widgetsFormData` carries what the **widget** fields contributed — extended fields, tags — not what the user typed into your own fields. Those come from the form you already own:
 
 ```tsx
 onSave: ({ widgetsFormData }) => {
-  const values = form.getValues();      // your fields
+  const values = form.getValues();                  // your fields
   const { extendedFields, tags } = widgetsFormData; // widget fields
   …
-}
+};
 ```
 
-Reaching for a `values`-shaped property on the `onSave` argument is the single most common failure here. There isn't one — the argument has exactly one key.
+Reaching for a `values`-shaped key on the `onSave` argument is the usual first guess, and there isn't one.
 
-### Both generics, always
+## The params are a `Pick`
 
-`useEntityPage<T, V extends FieldValues = FieldValues>` takes the entity type **and** the form-values type. `V` does not infer from the `form` you pass; it falls back to `FieldValues`, and a `useForm<ShiftFormFields>()` then fails to assign. One generic only works when the form is untyped (`useForm()`), which is not what you want.
+`UseEntityPageParams` picks a fixed set off `EntityPageStateParams` — `fetch`, `onSave`, `saveSuccessToast`, `saveErrorToast`, `deleteAction`, `transformEntityToCollectionItem`, `isNewEntity`, `form`, `parentPageId`, `parentPath`, `parentReferrer`, `schemaSource`. Anything outside that list is an excess-property error on the object literal. `container` is the common guess and is not one of them: the hook calls `useWixPatternsContainer()` itself.
 
-Do **not** paper over this with `useEntityPage<any, ShiftFormFields>`. That compiles and silently discards entity typing — `state.entity` becomes `any` and every downstream field access stops being checked. Name the entity type.
-
-## Verify before writing
-
-The hook's props table is empty in `docs` output — props tables only exist for components — so ask for the signature instead:
+Confirm the shape rather than guessing — the hook's `docs` output has an empty API section, because props tables only exist for components:
 
 ```
 node <this-skill-dir>/scripts/patterns.cjs types useEntityPage UseEntityPageParams OnSaveParams
 ```
 
-`types` takes a list, and each call is a full model turn, so ask for all three at once. That is also the check that settles which params exist: `UseEntityPageParams` is a `Pick`, and anything not in it (`container`, `entityId` on the non-schema overload) is an excess-property error.
+`types` takes a list and each call is a full model turn, so ask for all three at once.
 
 ## Around the call
 
