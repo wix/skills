@@ -20,11 +20,12 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 > - [Wix Rentals: Sample Flows](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md) — the call sequences, including [Set up a rental service](https://dev.wix.com/docs/api-reference/business-solutions/rentals/sample-flows.md#set-up-a-rental-service), which is this recipe end to end
 
 > ### The invariants (read these before anything else)
-> A service is a rental because of **four field values**, all set at create time in STEP 4:
+> A service is a rental because of **five field values**, all set at create time in STEP 4:
 > 1. **`appId` = `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`** — and it is **IMMUTABLE after create**. A service created without it is a plain Bookings service *forever*; no update converts it. This is the most expensive mistake in this recipe.
 > 2. **`serviceResources: [{ "resourceType": { "id": "<resourceTypeId>" } }]`** — the resource types that must be available for the service to be bookable. **Omitting this is what actually causes `MISSING_APPOINTMENT_RESOURCES`**, and the error text sends you looking in the wrong place (see STEP 4).
 > 3. **`primaryResourceType`** — the resource type GUID, which makes availability come from the rooms/vehicles instead of staff schedules. It must reference **one of the types listed in `serviceResources`**. Omitting it silently falls back to the **staff** resource type.
-> 4. **`durationRange`** — with a single `unitType` (`HOUR` or `DAY`) and its matching `hourOptions`/`dayOptions`. Mutually exclusive with `sessionDurations`.
+> 4. **`form.id` = `3a2ea2ce-91f4-4617-ab24-629933c0c31a`** — the Rentals booking form, provisioned at install and identical on every site. Omit it and the service has no booking form at all.
+> 5. **`durationRange`** — with a single `unitType` (`HOUR` or `DAY`) and its matching `hourOptions`/`dayOptions`. Mutually exclusive with `sessionDurations`.
 >
 > And one ordering rule: **resources must exist before the service** (STEP 2 before STEP 4), or availability is permanently empty.
 >
@@ -116,6 +117,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
       "resourceIds": { "values": ["<RESOURCE_ID_FROM_STEP_2>"] }
     } ],
     "primaryResourceType": "<RESOURCE_TYPE_ID_FROM_STEP_1>",
+    "form": { "id": "3a2ea2ce-91f4-4617-ab24-629933c0c31a" },
     "onlineBooking": { "enabled": true, "requireManualApproval": false, "allowMultipleRequests": false },
     "schedule": {
       "availabilityConstraints": {
@@ -164,6 +166,7 @@ Omitting `resourceIds` is also valid — then **every** resource of that type is
   ```
   Verified on a live site: adding this field is what makes the create succeed. `resourceType.id` is the type from STEP 1; `resourceIds.values` lists the resources from STEP 2 this service can book. Max **8** `serviceResources` entries, max **100** ids each. Omitting `resourceIds` is also valid and makes every resource of that type eligible, including ones added later.
 - **`primaryResourceType`** is the resource type **GUID** from STEP 1, and **must be one of the types listed in `serviceResources`**. It is what makes availability come from the rooms/vehicles rather than from staff schedules. Omitting it silently falls back to the **staff** resource type, which produces a normal staff-driven appointment service.
+- **⚠️ `form.id` must be set to the Wix Rentals booking form — `3a2ea2ce-91f4-4617-ab24-629933c0c31a`.** Installing the Rentals app provisions this form on the site, and because it is cloned from the template with the template's own id, **that GUID is the same on every site** — treat it as a constant, like the `appId`. A service created without it has no form: `service.form.id` is empty, the frontend has nothing to render, and the visitor is left with no way to enter their name or email. Nothing errors — the service looks fine and the booking form is simply absent.
 - **`durationRange` and `sessionDurations` are mutually exclusive** — send one or the other, never both. `durationRange` also **can't be combined with `workingHours`** on the service.
 - **`unitType` selects which config object is read:** `HOUR` → `hourOptions`, `DAY` → `dayOptions`. Sending `dayOptions` with `unitType: "HOUR"` leaves the range unset.
 - **Ranges:** hourly `minDurationInMinutes`/`maxDurationInMinutes` are **30–1440**; daily `minDurationInDays`/`maxDurationInDays` are **1–8** for rentals. Min must be **≤** max. (The underlying Services V2 schema permits days up to 60; Wix Rentals documents 1–8 — stay inside 1–8.)
@@ -247,6 +250,7 @@ Following these steps **in order** sets up a Wix Rentals site:
 - A **resource type** exists, and it **contains resources** — without resources the service's availability is permanently empty.
 - Every service carries the **Wix Rentals `appId`** (`ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`), set at create time because it is **immutable** afterwards.
 - Every service carries **`serviceResources`** naming its resource type — the field the `MISSING_APPOINTMENT_RESOURCES` error does *not* point you to — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff.
+- Every service carries **`form.id`** = the Rentals booking form constant, or it renders with no form.
 - Every service carries a **`durationRange`** with a single `unitType` and its matching `hourOptions`/`dayOptions` — never alongside `sessionDurations`.
 - **No category** is set — rental services don't use categories, and the bookings visibility rule doesn't apply to them. They are surfaced by the `appId`-filtered catalog read.
 - Resources are seeded **24/7** (no working-hours schedule), which keeps a multi-day daily rental to a single booking.
