@@ -109,8 +109,8 @@ export function rentalResourceTypeIds(service) {
  *
  * A rental is an APPOINTMENT-typed service, so this is the same availability call an appointment
  * uses; what comes back are the times a rental may START. The customer then picks how long, which is
- * `listEndOptions` below. Pass the whole `service` (not just an id) so the required resource types
- * ride along — without them the availability engine returns nothing for a resource-driven service.
+ * `listEndOptions` below. Pass the whole `service` so its resource types ride along — the
+ * availability engine reads them to find a resource-driven service's slots.
  * @param {object} service  A rental service from queryRentals.
  * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
  * @returns {Promise<{ slots: object[], nextCursor: string|null, timeZone: string|null }>}
@@ -130,8 +130,7 @@ export function listRentalStartSlots(service, options = {}) {
  * ⚠️ Hourly only. A DAILY rental has no end options — its lengths are whole days, so walk
  * consecutive days from the chosen start instead (`dailyEndOptions` below).
  * https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slot-end-options.md
- * ⚠️ `location` is REQUIRED — the call is rejected with `400 "location must not be empty"` without
- * it. Pass the chosen start slot's own `location` (it carries `locationType`, and an `id` only on a
+ * Pass the chosen start slot's own `location`. It carries `locationType` (and an `id` on a
  * multi-location site); `{ locationType: "BUSINESS" }` is enough on a single-location site.
  * @param {string} serviceId
  * @param {{ localStartDate: string, location: object, maxLocalEndDate?: string, timeZone?: string }} options
@@ -139,7 +138,7 @@ export function listRentalStartSlots(service, options = {}) {
  */
 export async function listEndOptions(serviceId, { localStartDate, location, maxLocalEndDate, timeZone } = {}) {
   if (!localStartDate) throw new Error("listEndOptions requires localStartDate (local 'YYYY-MM-DDThh:mm:ss').");
-  if (!location) throw new Error("listEndOptions requires the chosen slot's location (else 400 'location must not be empty').");
+  if (!location) throw new Error("listEndOptions requires the chosen slot's location.");
   const res = await wixApiRequest("/_api/service-availability/v2/time-slots/end-options", {
     method: "POST",
     body: {

@@ -59,7 +59,7 @@ export function useRentalDuration(service, startSlot, timeZone) {
   const rental = isRental(service);
   const duration = rentalDuration(service);
   const start = startSlot?.localStartDate ?? null;
-  // end-options is rejected without a location — forward the chosen slot's own.
+  // Forward the chosen slot's own location to end-options.
   const location = startSlot?.location ?? null;
   const serviceId = service?._id || service?.id || null;
 
