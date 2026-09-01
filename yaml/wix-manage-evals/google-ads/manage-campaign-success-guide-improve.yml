@@ -4,7 +4,8 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  How can I improve my Google Ads campaign? Show me its campaign success guide.
+  How can I improve the Google Ads campaign on my Gracia site? Show me its
+  campaign success guide.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -36,11 +37,12 @@ assertions:
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
       trace. Score 0-10, where 10 is a direct path through the campaign success
-      guide with only the campaign-resolution step genuinely required by the
-      available context. Do not penalize one concise campaign-selection question
-      when the campaign is ambiguous. Penalize redundant confirmation, querying
-      analytics before the guide, routing through pre-campaign suggestions,
-      guessed campaign selection, non-2xx calls, redundant documentation or
-      probing, and internal service or tool names in the user-facing answer.
+      guide, resolving the named Gracia site once if needed, with only the
+      campaign-resolution step genuinely required by the available context. Do
+      not penalize one concise campaign-selection question when the campaign is
+      ambiguous. Penalize redundant confirmation, querying analytics before the
+      guide, routing through pre-campaign suggestions, guessed campaign
+      selection, non-2xx calls, redundant documentation or probing, and internal
+      service or tool names in the user-facing answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
