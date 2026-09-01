@@ -205,21 +205,21 @@ Wire the named part completely:
 
 ## 4. Suppress Autoplay in `component.preview.tsx`
 
-The Wix CLI scaffold generates `component.preview.tsx`. For animated components,
-modify its passthrough preview component without replacing the generated
-defaults or fallback-placeholder wiring.
+The Wix CLI scaffold generates `component.preview.tsx`. Read the file first,
+then edit only the body of the existing preview component. Do not overwrite
+the file from scratch.
 
-### Adapt the generated `component.preview.tsx`
+### Edit the generated `component.preview.tsx`
 
-Add `useIsEditMode` to the existing `@wix/react-component-utils` import. In the
-generated preview component, replace only the passthrough return with the gated
-props below. Keep the generated `withFallbackPlaceholder`, required-data fields,
-root class, and `withDefaults` export unchanged.
+Add `useIsEditMode` to the existing `@wix/react-component-utils` import. Then
+edit only the body of the existing `ComponentNamePreview` function — add the
+`isEditMode` check and gate the autoplay props. Do not touch the
+`withFallbackPlaceholder` call, the `withDefaults` export, or any other part
+of the file.
 
 ```tsx
-const MyAnimationPreview: FC<ComponentProps<typeof Component>> = (props) => {
+const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
   const isEditMode = useIsEditMode();
-
   return (
     <Component
       {...props}
@@ -243,4 +243,5 @@ In preview mode (`isEditMode` is `false`) → both use the user's configured val
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.
-- [ ] The preview preserves generated wrappers and forces autoplay off in design mode.
+- [ ] The preview exports the adapter with synchronized fallback metadata and
+      disables autoplay in design mode.
