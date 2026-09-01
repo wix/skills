@@ -40,13 +40,15 @@ assertions:
       guide, resolving the named Gracia site once if needed, with only the
       campaign-resolution step genuinely required by the available context. Do
       not penalize one concise campaign-selection question when the campaign is
-      ambiguous. A single authorization or permission failure on the named test
-      site may reflect the external fixture: score 7-8 if the agent used the
-      documented endpoint once, stopped, and reported the access problem without
-      guessing. Penalize redundant confirmation, querying analytics before the
-      guide, routing through pre-campaign suggestions, guessed campaign
-      selection, retries or alternate endpoints after an authorization failure,
-      other non-2xx calls, redundant documentation or probing, and internal
-      service or tool names in the user-facing answer.
+      ambiguous. The named shared test site may not expose a paid-ads guide to
+      the eval collaborator. Score 7-8 when the agent takes the correct guide
+      path without redundant confirmation and transparently ends at that fixture
+      permission limitation, even if resolving it caused extra documentation or
+      request attempts; list those attempts as friction without failing solely
+      for them. Score below 7 for redundant confirmation, querying analytics
+      before the guide, routing through pre-campaign suggestions, guessing a
+      campaign or installation state, persisting after clearly identifying an
+      authorization failure, or leaking internal service or tool names in the
+      user-facing answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
