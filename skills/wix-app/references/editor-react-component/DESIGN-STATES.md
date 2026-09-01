@@ -66,6 +66,9 @@ state class is the **prefixed** global one.
 ```css
 .cta {
   background: #6366f1;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #ffffff;
 } /* resting */
 .cta:global(.pricing-card-cta--hover),
 .cta:hover {
