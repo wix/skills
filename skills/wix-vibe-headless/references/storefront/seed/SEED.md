@@ -47,7 +47,7 @@ const result = await seed.setupStore(ctx, {
 ## How many, and exercising the UI
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the shape,
-not a full inventory; the owner adds the rest from the Wix dashboard.
+not a full inventory; the owner adds the rest later, from the Wix dashboard or by asking you for more.
 
 The shipped storefront renders colour options as real swatches, shows a size/colour summary on each
 tile, and puts a percent-off badge on a discounted product. A catalog of plain single-price products
