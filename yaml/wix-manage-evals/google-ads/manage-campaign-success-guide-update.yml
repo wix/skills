@@ -3,9 +3,9 @@ description: >-
   Verifies the agent treats an unambiguous statement that the user completed a
   success guide recommendation as sufficient instruction to update its status.
 triggerPrompt: >-
-  I made the call-to-action button on my current Wix site clearer, just like the
-  success guide for the Google Ads lead campaign we were reviewing recommended,
-  so that recommendation should show as completed now.
+  On my current Wix site ({{site-id}}), I made the call-to-action button clearer,
+  just like the success guide for the Google Ads lead campaign we were reviewing
+  recommended, so that recommendation should show as completed now.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
