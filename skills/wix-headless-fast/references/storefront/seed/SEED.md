@@ -22,7 +22,9 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
                     "choices": [{ "name": "Ink", "colorCode": "#1B1B2F" },
                                 { "name": "Bone", "colorCode": "#EDE6D6" }] }] },
     { "name": "Encore Jacket", "description": "…", "price": 68, "compareAtPrice": 129,
-      "quantity": 5 }
+      "quantity": 5 },
+    { "name": "Backstage Guide", "description": "…", "price": 12,
+      "digitalFilePath": "/Users/me/guide.pdf" }
   ],
   "categories": { "Legends": ["The Glam Rocker"], "Rising Stars": [] }
 }
@@ -43,6 +45,10 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
   this machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with
   `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
   that product text-only. Seed text-only only when the user explicitly asks.
+- `digitalFilePath` (a file on this machine) or `digitalFileUrl` — makes the product a digital
+  download, uploaded and created with both the file and stock (`quantity` is ignored). It's also the
+  only way in: a file-less digital product is created successfully, reads back healthy, and is then
+  rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
 - `categories` — category name → product NAMES. Omit when the brief names none.
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
