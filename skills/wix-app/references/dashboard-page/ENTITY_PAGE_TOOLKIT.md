@@ -30,7 +30,7 @@ const state = useEntityPage<Shift, ShiftFormFields>({
 });
 ```
 
-`EntityPage` and `useEntityPage` are **root** exports. `@wix/patterns/page` holds `CollectionPage` and `WidgetsFormProvider` only, so importing the entity page from there is `TS2305: has no exported member` — the collection page and the entity page do not live in the same place. `patterns.cjs exports page` lists what that subpath actually gives you.
+`EntityPage` and `useEntityPage` are **root** exports. `@wix/patterns/page` holds `CollectionPage` and `WidgetsFormProvider` only, so importing the entity page from there is `TS2305: has no exported member` — the collection page and the entity page do not live in the same place. `Read <pkgRoot>/dist/dts-bundle/exports/page.d.ts` to see what that subpath actually gives you.
 
 ## Name both generics
 
@@ -56,13 +56,7 @@ Reaching for a `values`-shaped key on the `onSave` argument is the usual first g
 
 `UseEntityPageParams` picks a fixed set off `EntityPageStateParams` — `fetch`, `onSave`, `saveSuccessToast`, `saveErrorToast`, `deleteAction`, `transformEntityToCollectionItem`, `isNewEntity`, `form`, `parentPageId`, `parentPath`, `parentReferrer`, `schemaSource`. Anything outside that list is an excess-property error on the object literal. `container` is the common guess and is not one of them: the hook calls `useWixPatternsContainer()` itself.
 
-Confirm the shape rather than guessing — the hook's `docs` output has an empty API section, because props tables only exist for components:
-
-```
-node <this-skill-dir>/scripts/patterns.cjs types useEntityPage UseEntityPageParams OnSaveParams
-```
-
-`types` takes a list and each call is a full model turn, so ask for all three at once.
+Confirm the shape rather than guessing — the hook's doc has an empty API section, because props tables only exist for components. `Read <pkgRoot>/dist/dts-bundle/index.json`, then `Read` the bundled `.d.ts` for each of `useEntityPage`, `UseEntityPageParams`, and `OnSaveParams` at exactly the `file` path the index gives.
 
 ## Around the call
 

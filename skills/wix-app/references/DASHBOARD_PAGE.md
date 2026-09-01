@@ -12,7 +12,7 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
 
-1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up with this skill's `scripts/patterns.cjs` (start with `list`). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up directly in `dist/dts-bundle/index.json` and `dist/docs/index.json` (start with the inventory). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the `wix-design-system` skill.
 3. **Custom React last** — only when neither library has it.
 
@@ -33,7 +33,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** run `node <this-skill-dir>/scripts/patterns.cjs list` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
+**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
 
 ## Capabilities
 
@@ -101,7 +101,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Examples
 
-Each output below names the library that owns each part. Confirm every patterns component and prop with `node <this-skill-dir>/scripts/patterns.cjs docs <Name>` before use — these examples name the shape, not a verified API.
+Each output below names the library that owns each part. Confirm every patterns component and prop by reading its doc from `dist/docs/index.json` before use — these examples name the shape, not a verified API.
 
 ### Data Management Table
 
