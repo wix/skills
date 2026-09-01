@@ -139,7 +139,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 
 **List the concrete `resourceIds`** — the service's availability comes from them. Verified on a live site: identical services returned **48** time-slots with `resourceIds` and **0** without. Add resources later by updating the service's `resourceIds`.
 
-**⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service, and then you can omit `resourceIds` and let the whole type be bookable.
+**⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service.
 
 **For a daily rental**, swap the duration range (everything else is identical):
 
