@@ -3,7 +3,8 @@ description: >-
   Verifies a user asking how to improve an existing Google Ads campaign is
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
-triggerPrompt: How can I improve my Google Ads campaign?
+triggerPrompt: >-
+  How can I improve my Google Ads campaign? Show me its campaign success guide.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -17,8 +18,8 @@ assertions:
       - routes the request to the campaign success guide for an existing Google
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
-      - treats "How can I improve my Google Ads campaign?" as approval to
-        retrieve the guide once the campaign is identified, without asking a
+      - treats the direct request to show the campaign success guide as approval
+        to retrieve it once the campaign is identified, without asking a
         redundant yes/no confirmation;
       - identifies the campaign from available context or asks one targeted
         campaign-selection question when it is genuinely ambiguous; and
