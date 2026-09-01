@@ -139,7 +139,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 
 **List the concrete `resourceIds`** — the service's availability comes from them. Verified on a live site: identical services returned **48** time-slots with `resourceIds` and **0** without. Add resources later by updating the service's `resourceIds`.
 
-**⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service, and then you can omit `resourceIds` and let the whole type be bookable.
+**⚠️ Price decides how many services you create.** The rate lives on the **service**, not the resource, so resources that rent at **different rates must be separate services**, each pinning its own resource in `resourceIds`. Three meeting rooms at ₪60, ₪120 and ₪250 per hour are **three services** sharing one resource type — not one service with three resources. Resources that rent at the **same** rate can share a single service.
 
 **For a daily rental**, swap the duration range (everything else is identical):
 
@@ -154,7 +154,6 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 
 - **`appId` must be the Wix Rentals app id** `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`, and it is **immutable after create** — a service created without it is a plain Bookings service forever, and no update can convert it. Getting this wrong is the single most expensive mistake in this recipe.
 - **`appId` also means the service does NOT appear in the Wix Bookings dashboard** — it appears in the Rentals dashboard. That is correct and expected; don't "fix" it.
-- **`serviceResources` names the resource *type*, not individual resources** (STEP 2) — every resource in that type is bookable.
 - **⚠️ `serviceResources` is REQUIRED and is the real cause of `MISSING_APPOINTMENT_RESOURCES` — do not trust the error text.** The message reads *"service of type appointment requires at least one staff member or service resource"*, which invites you to go check whether your resource type has resources in it. **That is a dead end** — the create fails even when the type is fully populated. What the service actually needs is the resource type declared **on the service**:
   ```json
   "serviceResources": [ {
@@ -247,7 +246,7 @@ Following these steps **in order** sets up a Wix Rentals site:
 
 - A **resource type** exists, and it **contains resources** — without resources the service's availability is permanently empty.
 - Every service carries the **Wix Rentals `appId`** (`ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`), set at create time because it is **immutable** afterwards.
-- Every service carries **`serviceResources`** naming its resource type — the field the `MISSING_APPOINTMENT_RESOURCES` error does *not* point you to — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff.
+- Every service carries **`serviceResources`** with concrete **`resourceIds`** listed — resource type alone gives 0 availability slots — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff.
 - Every service carries **`form.id`** = the Rentals default booking form constant, so it uses the rentals form rather than the standard Bookings one.
 - Every service carries a **`durationRange`** with a single `unitType` and its matching `hourOptions`/`dayOptions` — never alongside `sessionDurations`.
 - **No category** is set — rental services don't use categories, and the bookings visibility rule doesn't apply to them. They are surfaced by the `appId`-filtered catalog read.
