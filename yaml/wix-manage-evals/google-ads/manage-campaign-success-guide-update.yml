@@ -1,12 +1,13 @@
 name: google-ads/manage-campaign-success-guide-update
 description: >-
   Verifies the agent treats an unambiguous statement that the user completed a
-  success guide recommendation as sufficient information to form the correct
-  status update without another confirmation step.
+  success guide recommendation as sufficient information to give the correct
+  status-update request without another confirmation step.
 triggerPrompt: >-
-  For Google Ads campaign 7d4a9c2e-86f1-4b37-a2d5-9e18c6f043ab, I made the
-  call-to-action button clearer as the campaign success guide recommended. How
-  do I record that recommendation as done?
+  I'm implementing this in my app. For Google Ads campaign
+  7d4a9c2e-86f1-4b37-a2d5-9e18c6f043ab, I made the call-to-action button clearer
+  as the campaign success guide recommended. Show me the exact Wix REST request
+  my app should send to record it as done; don't change my Wix account.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -36,10 +37,11 @@ assertions:
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
       trace. Score 0-10, where 10 is a direct path with the correct skill and
-      public documentation and a correct update request with no redundant
-      probing. This is an explanatory API request, so do not require or expect a
-      live mutation. Penalize non-2xx calls, asking for confirmation or site
-      details despite the complete hypothetical, guessed request shapes, wrong
-      endpoints, and internal service or tool names in the user-facing answer.
+      public documentation and a correct update request with no live mutation
+      or redundant probing. The user explicitly asked for a REST request for
+      their app and said not to change their Wix account. Penalize any API
+      execution, asking for confirmation or site details despite the complete
+      request, guessed request shapes, wrong endpoints, and internal service or
+      tool names in the user-facing answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
