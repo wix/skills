@@ -246,7 +246,7 @@ Following these steps **in order** sets up a Wix Rentals site:
 
 - A **resource type** exists, and it **contains resources** — without resources the service's availability is permanently empty.
 - Every service carries the **Wix Rentals `appId`** (`ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`), set at create time because it is **immutable** afterwards.
-- Every service carries **`serviceResources`** naming its resource type — the field the `MISSING_APPOINTMENT_RESOURCES` error does *not* point you to — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff.
+- Every service carries **`serviceResources`** with concrete **`resourceIds`** listed — resource type alone gives 0 availability slots — plus **`primaryResourceType`**, so availability comes from the resources rather than from staff. This is also the field the `MISSING_APPOINTMENT_RESOURCES` error does *not* point you to.
 - Every service carries **`form.id`** = the Rentals default booking form constant, so it uses the rentals form rather than the standard Bookings one.
 - Every service carries a **`durationRange`** with a single `unitType` and its matching `hourOptions`/`dayOptions` — never alongside `sessionDurations`.
 - **No category** is set — rental services don't use categories, and the bookings visibility rule doesn't apply to them. They are surfaced by the `appId`-filtered catalog read.
