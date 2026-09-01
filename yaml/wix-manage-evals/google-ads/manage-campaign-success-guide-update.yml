@@ -5,7 +5,7 @@ description: >-
   status update without another confirmation step.
 triggerPrompt: >-
   I made the call-to-action button clearer as my Google Ads campaign success
-  guide recommended.
+  guide recommended. Mark that recommendation as done.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle

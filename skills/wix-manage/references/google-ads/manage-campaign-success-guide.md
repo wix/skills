@@ -1,12 +1,14 @@
 ---
 name: "Manage a Campaign Success Guide"
-description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it as an immediate next step after creating a supported campaign, even while it is learning or has no performance metrics yet, but retrieve it only after the user approves. Also use when a user asks how to improve a campaign, what to fix next, or reports that they completed or want to reopen a guide item. Treat a clear completion report as an actionable update request even when it is phrased as a statement rather than a question. Covers campaign selection, prioritized guide retrieval, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
+description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval before retrieval. A direct request to improve a campaign, see what to fix next, or show the guide is already approval to retrieve it. Also use when a user reports completing or wants to reopen a guide item. Treat a clear completion report as an actionable update request even when phrased as a statement. Covers campaign selection, prioritized guide retrieval, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
 ---
 # RECIPE: Manage a Campaign Success Guide
 
 A campaign success guide is a prioritized list of improvements for an **existing** Google Ads `PERFORMANCE_MAX_LEADS` campaign. Offer it as a useful next step after [creating a Performance Max campaign](create-performance-max-campaign.md). Once Create Campaign returns the campaign ID, ask whether the user wants to retrieve the guide; call the API only after they approve. There is no need to wait for the campaign to leave `LEARNING` or generate performance metrics because the guide analyzes the landing page, campaign configuration, and relevant site connections rather than depending on campaign performance data.
 
 Also use this recipe for requests such as "How can I improve my campaign?", "What should I fix next?", "Show my campaign success guide", "I made the call-to-action button clearer as the success guide recommended", "Mark this recommendation complete", or "Reopen that guide item."
+
+A direct request to improve a campaign, see what to fix next, or show its success guide is itself approval to retrieve the guide once the campaign is identified. Do not ask whether the user wants the guide after they have already made one of those requests. Separate approval is needed only when you proactively offer the guide after campaign creation.
 
 This differs from [Get AI Campaign Suggestions](get-campaign-suggestions.md), which generates keywords, budgets, locations, copy, images, and other inputs used while **building** a campaign. Do not route pre-campaign keyword, budget, creative, or targeting generation here.
 
