@@ -154,7 +154,6 @@ Create the services **one at a time** with `POST https://www.wixapis.com/booking
 
 - **`appId` must be the Wix Rentals app id** `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`, and it is **immutable after create** — a service created without it is a plain Bookings service forever, and no update can convert it. Getting this wrong is the single most expensive mistake in this recipe.
 - **`appId` also means the service does NOT appear in the Wix Bookings dashboard** — it appears in the Rentals dashboard. That is correct and expected; don't "fix" it.
-- **`serviceResources` names the resource *type*, not individual resources** (STEP 2) — every resource in that type is bookable.
 - **⚠️ `serviceResources` is REQUIRED and is the real cause of `MISSING_APPOINTMENT_RESOURCES` — do not trust the error text.** The message reads *"service of type appointment requires at least one staff member or service resource"*, which invites you to go check whether your resource type has resources in it. **That is a dead end** — the create fails even when the type is fully populated. What the service actually needs is the resource type declared **on the service**:
   ```json
   "serviceResources": [ {
