@@ -52,8 +52,7 @@ not a full inventory; the owner adds the rest later, from the Wix dashboard or b
 The shipped storefront renders colour options as real swatches, shows a size/colour summary on each
 tile, and puts a percent-off badge on a discounted product. A catalog of plain single-price products
 leaves all of that invisible, so **make those 3 exercise it**: unless the brief says otherwise, give
-at least one product a colour option and put one product on sale. Keep it truthful to the business —
-a ceramics studio has glaze colours, a bakery does not.
+at least one product a colour option and put one product on sale. Keep it truthful to the business.
 
 ```js
 options: [
