@@ -34,7 +34,8 @@ so you don't need to open them:**
 | `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); **always use this to build your own variant UI on the PDP** |
 | `components/VariantPicker.jsx` | reference implementation of a variant selector built on `useVariantOptions` (pills + colour swatches) — read it for inspiration, but build your own component rather than using it directly |
 | `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
-| `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
+| `pages/Shop.jsx` | catalog listing route (`/shop`) — shipped as-is |
+| `pages/ProductDetail.jsx` | reference PDP (`/product/:slug`) — read it for error/skeleton/breadcrumb/quantity-stepper patterns; build your own page on `useProductDetail` |
 | `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
 
@@ -57,25 +58,68 @@ pages are themed with zero work here. To adjust the palette, edit `index.css` (`
 shipped JSX.** Build the Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it
 matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
 
-## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
-**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
-`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
-replace it.
+## STEP 3 — Wire routes + build your UI (PDP, card, grid)
+**No file reads needed to wire this.** Edit `App.jsx` surgically (`find_replace`, never a rewrite) —
+it carries required platform auth scaffolding (`AuthProvider`/`useAuth`); a full rewrite drops them.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
-  — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
-  header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
+  — including `Shop` — so you **never edit the shipped pages to add a header/footer** (they render
+  inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
 - **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
   banner is dismissed.
-- Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
-  **You add `/` → your own Home** page.
-- **Build your own variant selector on the PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships with a `VariantPicker` import — remove it and replace with your own component built on `useVariantOptions`. Design the controls to fit the brief: the business type, the tone, the audience. A fashion brand might want large colour swatches and a size chart link; a tech store might want a compact dropdown. `VariantPicker.jsx` is in `src/` for reference — read it, don't use it:
+- Routes under the Layout: `/shop` → `Shop` (shipped, as-is); `/product/:slug` → your own PDP
+  (built on `useProductDetail`). **You add `/` → your own Home** page.
+- **Build your own PDP — this is required, not optional, and it's your chance to be creative.** `ProductDetail.jsx` ships as a reference — build your own `/product/:slug` page using `useProductDetail(slug)`. **A PDP that ends at the add-to-cart button is incomplete** — always extend below it. At minimum render `product.additionalInfoSections` (specs, shipping info, returns, tasting notes — whatever the merchant seeded; render as tabs, pills, or an accordion). Go further with whatever fits the brief: a related-products strip, a brand story block, a size guide, a reviews placeholder. You also decide the top layout: full-bleed gallery, side-by-side, stacked — and your own variant controls using `useVariantOptions`. A fashion brand might want an editorial layout with a specs panel and a size chart; a food brand might want tasting-note pills and a brewing-guide accordion below the buy block. `ProductDetail.jsx` is in `src/` for reference (error/skeleton/breadcrumb/quantity-stepper patterns) — read it, don't use it:
 - **Build your own product card for the grid — this is required, not optional, and it's your chance to be creative.** `ProductGrid.jsx` ships with a `ProductCard` import — replace it with your own component built on `useProductCard`. The hook hands you everything the tile needs (badges, price display, colour dots, quick-add flag, images) — you decide the layout, shape, hover behaviour, and CTA style. A lifestyle brand might want full-bleed images with an overlay gradient; a tech store might want a compact horizontal list item. `ProductCard.jsx` is in `src/` for reference — read it, don't use it:
 - **Build your own grid layout — this is required, not optional, and it's your chance to be creative.** `ProductGrid.jsx` ships as a reference (2-col mobile → auto-fill desktop, 220px min) — replace it with an arrangement that fits the brief. A curated boutique might want a 3-col asymmetric editorial layout; a high-volume store might want a dense 4-col grid; a featured strip on the home page might want horizontal scroll. Keep the skeleton and empty-state patterns from `ProductGrid.jsx` (copy them into your own component) — the states themselves are correct, just the layout is yours to choose.
+
+```jsx
+import { useMemo } from "react";
+import { useParams } from "react-router-dom";
+import { useProductDetail } from "@/hooks/useProductDetail";
+import { productGallery } from "@/lib/storeImage";
+import ProductGallery from "@/components/ProductGallery";  // shipped, keep as-is
+import { useVariantOptions } from "@/hooks/useVariantOptions";
+
+export default function MyProductDetail() {
+  const { slug } = useParams();
+  const {
+    product, notFound, error, retry,
+    options, modifiers,
+    selectedOptions, selectOption,
+    modifierValues, setModifier,
+    quantity, setQuantity,
+    variant, inStock, canAdd, adding, price, submit, focusMediaUrl,
+  } = useProductDetail(slug);
+
+  const images = useMemo(() => productGallery(product), [product]);
+  // Build your own variant controls (see useVariantOptions snippet below):
+  const { optionGroups, modifierGroups } = useVariantOptions(options, modifiers, selectedOptions, modifierValues);
+
+  // Handle loading/error/notFound — copy the patterns from ProductDetail.jsx in src/
+
+  // product.additionalInfoSections: [{ title: string, description: string }] — description is HTML.
+  // Render as tabs, an accordion, or stacked sections — specs, shipping, returns, tasting notes, etc.
+  // A coffee brand seeded with "Tasting Notes" / "Process" / "Elevation" shows them here.
+
+  return (
+    <main>
+      <ProductGallery images={images} name={product?.name} focusUrl={focusMediaUrl} />
+      {/* price, your variant controls (optionGroups / modifierGroups), quantity stepper, add-to-cart */}
+      {product?.additionalInfoSections?.map((s) => (
+        <section key={s.title}>
+          <h3>{s.title}</h3>
+          <div dangerouslySetInnerHTML={{ __html: s.description }} />
+        </section>
+      ))}
+    </main>
+  );
+}
+```
 
 ```jsx
 import { Link } from "react-router-dom";
@@ -184,8 +228,8 @@ function Layout() {
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** (mount `<CartButton/>` in it) and a **`Footer`** — the
 two you drop into the `Layout` (STEP 3) so they wrap every route — plus the overall brand story,
-styled from the same base44 tokens/classes. **Compose the shipped pieces** — a
-featured strip is just `queryProducts` + the shipped `ProductGrid`; the nav is a `<CartButton/>`
+styled from the same base44 tokens/classes. **Compose the pieces** — a
+featured strip is just `queryProducts` + your own grid component (using `ProductGrid` as a reference); the nav is a `<CartButton/>`
 (a clean cart-**icon** button with a live-count badge — render it as-is, don't wrap it in your own
 text button) + a link to `/shop`:
 
@@ -193,8 +237,8 @@ text button) + a link to `/shop`:
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { queryProducts } from "@/rest/wix-store-catalog";
-import ProductGrid from "@/components/ProductGrid";
 import CartButton from "@/components/CartButton";
+// import your own grid component here (built on useProductCard, using ProductGrid as a reference)
 
 // Responsive header: choose ONE branch with a state flag, so <CartButton/> mounts once.
 // Do NOT render a desktop nav AND a mobile nav toggled by `hidden md:flex` / `md:hidden`:
@@ -224,7 +268,7 @@ export function Featured() {                                // on your home page
       .then(({ products }) => setProducts(products))
       .catch(() => setProducts([]));                        // land on the empty state, not a spinner
   }, []);
-  return <ProductGrid products={products} loading={products === null} empty="Products coming soon." />;
+  return <MyProductGrid products={products} loading={products === null} empty="Products coming soon." />;
 }
 ```
 Everything reads base44's design tokens (`index.css`), so your home/nav match the shipped pages
@@ -331,7 +375,7 @@ client build; run in parallel.
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
 - [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
-- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
+- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed your own card + grid + PDP render themed (surface, text, brand color) with images; PDP shows description and `additionalInfoSections` if any.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects; the drawer shows a **subtotal**.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
