@@ -87,9 +87,9 @@ urls are ready by the time you seed.
 
 ## STEP 4 — Wrap up
 
-**Do NOT add the `<WixManageBanner/>` component** and never paste a Wix dashboard link or path — the docs tool hands the user off for you.
+**Do NOT add the `<WixManageBanner/>` component** and never paste a Wix dashboard link or path.
 
-**Call it before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. The call is what renders the shortcut in chat; text you type first lands above your real answer. The result names a dashboard page — tell the user the catalog you seeded is mock data they can edit, replace or delete from that page, name it, stop. No path, no URL, no steps, no mention of a button.
+**Hand off with one call, before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It renders the shortcut; anything you write first lands above your real answer. The result names a dashboard page — say the catalog you seeded is mock data they can edit, replace or delete there, name the page, stop. No path, no URL, no steps, no button talk.
 
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
