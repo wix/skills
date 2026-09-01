@@ -132,7 +132,7 @@ If a mutation times out with an unknown outcome, do not retry automatically. Ret
 | `PLATFORM_NOT_SUPPORTED` | Use `GOOGLE`; do not substitute another platform value. |
 | `CAMPAIGN_TYPE_NOT_SUPPORTED` | Explain that success guides currently support Google Ads Performance Max Leads campaigns only. |
 | `SUGGESTION_NOT_FOUND` | Retrieve the latest guide and choose a `type` actually present; do not keep retrying stale data. |
-| Authentication or permission error | Explain that the current collaborator cannot access or modify the campaign; do not bypass authorization. |
+| Authentication or permission error | Stop after the first rejected campaign or guide call and explain that the current collaborator cannot access or modify it. Do not try alternate base URLs, infer that Google Ads is not installed, or probe other endpoints to bypass authorization. |
 
 ## References
 
