@@ -1,5 +1,6 @@
 import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
+import type { DocsEntryProblem } from './docs-entry-check';
 import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
@@ -63,6 +64,25 @@ export function formatTooManyNewSkills(count: number, limit: number, files: stri
     'Please either:',
     '- Split across multiple PRs',
     '- Update existing skills instead of creating new ones',
+  ]);
+}
+
+export function formatDocsEntryProblems(problems: DocsEntryProblem[]): string {
+  const lines = problems.map((p) => {
+    const ref = `\`${p.yamlPath}\` → "${p.title}": \`${p.docsEntry}\``;
+    switch (p.kind) {
+      case 'portal-not-found':
+        return `- ${ref} — does not match any docs portal. Check the URL for typos.`;
+      case 'node-not-found':
+        return `- ${ref} — this page does not exist in the docs menu. If you just created the category, wait a minute and re-run this check.`;
+      case 'not-a-category':
+        return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` You could use the category that groups it (\`${p.suggestion}\`), or pick/create a different one.` : ' Point it at an existing category, or create one in the docs menu.'}`;
+    }
+  });
+  return render('❌', 'Invalid docsEntry', [
+    '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+    '',
+    ...lines,
   ]);
 }
 
@@ -130,18 +150,34 @@ function winnerLabel(s: ScenarioComparison): string {
 }
 
 export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
-  const { verdict, tag, scenarios } = result.result;
+  const { verdict, tag, scenarios, judgeCoverage } = result.result;
   const hasNoWinner = comparisonHasNoWinner(result.result);
-  const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
+  // Partial judging never gets a green tick: `not-required` is what the pipeline
+  // returns when a judge yields nothing, so a throttled pass looks identical to
+  // a genuine "no difference" unless coverage is taken into account.
+  const isFullyJudged = !judgeCoverage || judgeCoverage.judged === judgeCoverage.total;
+  const verdictIcon = verdict === 'not-required' && !hasNoWinner && isFullyJudged ? '✅' : '⚠️';
   const lines: string[] = [
     COMMENT_MARKER,
     `## ${verdictIcon} ${HEADING}: Eval Comparison`,
     '',
     `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
     '',
+  ];
+
+  if (!isFullyJudged && judgeCoverage) {
+    lines.push(
+      `> ⚠️ **Only ${judgeCoverage.judged}/${judgeCoverage.total} scenarios were judged.** The verdict above rests on the`,
+      '> remaining scenarios\' assertion results alone, so treat it as provisional rather than',
+      '> as evidence the skill makes no difference. Re-run to get full coverage.',
+      '',
+    );
+  }
+
+  lines.push(
     '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
     '|---|---|---|---|---|---|---|',
-  ];
+  );
 
   for (const s of (scenarios ?? [])) {
     const costWith = s.with.totalCostUsd.toFixed(3);

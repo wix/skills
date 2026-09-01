@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woo-discount-rules",
+  "displayName": "Discount Rules for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://woocommerce.com/products/discount-rules-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.applied-discounts",
+    "commerce.discount-rules"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woo-discount-rules/woo-discount-rules.php"
+    ],
+    "recordProperties": [
+      "_wdr_discounts"
+    ],
+    "assetPathSlugs": [
+      "woo-discount-rules"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "applied-discount",
+      "capability": "commerce.applied-discounts",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/orders"],
+      "propertyPath": "_wdr_discounts",
+      "candidateTargetRefs": ["ecom/order-applied-discount"],
+      "pitfalls": [
+        {
+          "code": "rule-definitions-reconfigure-in-wix",
+          "severity": "warning",
+          "summary": "Per-order applied-discount records ride inside wc/v3/orders order-item meta_data under _wdr_discounts — real historical transactional data with a CONFIRMED Wix target: Order.appliedDiscounts[] (merchantDiscount variant + lineItemDiscounts[]) via Import Order — mapping confirmed by Spec Owner 2026-08-16, see ecom/order-applied-discount. Rule *definitions* (the discount configuration itself, not applied history) remain separate, plugin-owned config with no candidate target at all — reconfigure-in-wix."
+        },
+        {
+          "code": "partial-channel-db-only-remainder",
+          "severity": "warning",
+          "summary": "A fuller per-item discount ledger also lives in a custom table (wdr_order_item_discounts per vendor-side research, 2026-08-11) with no REST surface — unreachable by this profile's channel. The order-meta summary this entity reads is real but may be a subset of the full applied-discount history."
+        }
+      ]
+    },
+    {
+      "entity": "discount-rule-definition",
+      "capability": "commerce.discount-rules",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": ["ecom/discount-rule"],
+      "pitfalls": [
+        {
+          "code": "admin-page-not-reachable-with-application-password",
+          "severity": "blocker",
+          "summary": "The rule configuration itself (triggers, effects, scope — 'buy X get Y', 'N% off orders over $Y', tiered pricing) renders only at wp-admin/admin.php?page=woo_discount_rules, a settings page with no REST route. VERIFIED against a live WordPress installation: a Basic-Auth GET against that URL with a valid Application Password 302-redirects to wp-login.php?reauth=1 — identical to an anonymous request. WordPress core does not extend Application Password auth to wp-admin page rendering; there is no automated read path here at all, not even a degraded one. See plugins/README.md's admin-page-only channel note.",
+          "blocked": [
+            {
+              "kind": "user-file",
+              "resolution": "Ask the site owner to open the settings page themselves (they hold a real login session) and transcribe or screenshot each rule's trigger/effect/scope. Do not ask for the owner's actual WordPress account password to attempt this automatically — that is a materially more sensitive credential than an Application Password.",
+              "declined": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Rule definitions (percentage/BOGO/tiered logic) are plugin configuration reproducible by reconfiguring in Wix, not durable customer data — only the applied-discount record per order is a migration candidate.",
+    "_wdr_discounts VERIFIED 2026-08-11 against the plugin's own source (ManageDiscount.php, github.com/WordpressPluginDirectory/woo-discount-rules): it is written via setOrderMeta($order, '_wdr_discounts', ...) at the ORDER level AND via setOrderItemMeta($order_item, '_wdr_discounts', ...) at the per-LINE-ITEM level — the same key appears in both wc/v3/orders meta_data and in each entry of orders[].line_items[].meta_data. An older version used the key _advanced_woo_discount_item_total_discount as a read fallback; a source site running a pre-rename version could still carry data under that key."
+  ]
+}

@@ -1,57 +1,52 @@
-# Component Preview (`component.preview.tsx`)
+# Editor Preview Entry
 
-Rules and patterns for the editor-specific entry point that every Editor React
-component ships alongside its main `component.tsx`.
+Use this when creating a component or changing its data, root, or editor-only
+behavior.
 
----
+## Preserve the Structure, Synchronize the Contract
 
-## What it is
+The Wix CLI scaffold generates `component.preview.tsx` and wires its URL into
+the extension's editor resource. It includes `withDefaults`,
+`withFallbackPlaceholder`, required-data fields, and the root class name.
 
-`component.preview.tsx` is the editor-specific entry point for a component. The
-Wix CLI loads it **instead of** `component.tsx` when rendering the component
-inside the Harmony Editor. It is generated automatically by the scaffold as a
-passthrough that forwards all props unchanged:
+Keep the wrapper structure and synchronize its values:
 
-```tsx
-const MyComponentPreview = (props: React.ComponentProps<typeof MyComponent>) => (
-  <MyComponent {...props} />
-);
-```
+- Wrap the preview adapter when one exists; otherwise wrap `Component`.
+- In `requiredDataFields`, normally use only the one prop crucial to meaningful
+  rendering, such as `animationUrl`. Use more only when each is essential.
+- Set `rootClassName` to the elected root's exact global class, not `styles.root`.
 
-The extension file is also pre-wired to load it — no manual wiring is needed:
+Never remove `withFallbackPlaceholder`.
 
-```ts
-import componentPreviewUrl from './component.preview.tsx?url';
+## Detect Editor Design Mode
 
-resources: {
-  client: { componentUrl },
-  editor: { componentUrl: componentPreviewUrl },
-},
-```
-
----
-
-## `useIsEditMode()`
-
-When you need to distinguish **editor design mode** from **editor preview mode**,
-use `useIsEditMode()` from `@wix/react-component-utils`:
+Use `useIsEditMode()` from `@wix/react-component-utils`:
 
 ```tsx
-import { useIsEditMode } from '@wix/react-component-utils';
-
 const isEditMode = useIsEditMode();
-// true  → editor is in design mode
-// false → editor is in preview mode
 ```
 
-`@wix/react-component-utils` is already a base dependency — no additional install needed.
+- `true`: editor design mode
+- `false`: editor preview mode or live-equivalent rendering
 
----
+Call the hook inside a React component, never at module scope or conditionally.
 
-## When to modify it
+## Modify Only When Needed
 
-Modify `component.preview.tsx` whenever the component needs to behave differently
-inside the editor than it does on the live site. The most common case is
-suppressing autoplay so animations don't run while the site owner is designing.
+Keep the generated passthrough unchanged unless the component requires
+editor-specific runtime behavior. The primary case is suppressing autoplay,
+timers, or network activity while a site owner is designing.
 
-→ See [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) §4 for the autoplay suppression pattern.
+For autoplaying components, force autoplay off in editor design mode and keep
+the live/preview prop values unchanged.
+
+Export the adapter through `withFallbackPlaceholder` and synchronize its data
+field and root class.
+
+## Checklist
+
+- [ ] Generated wrappers target the preview adapter when one exists.
+- [ ] Normally one crucial data field and the exact root global class are set.
+- [ ] The extension still loads the preview URL as its editor resource.
+- [ ] `useIsEditMode()` is called inside a component.
+- [ ] Live/preview behavior still receives the site owner's original props.

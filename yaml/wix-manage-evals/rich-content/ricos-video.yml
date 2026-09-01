@@ -1,0 +1,20 @@
+name: rich-content/ricos-video
+description: Sharp-edge check on the Author Ricos Rich Content recipe — a VIDEO block with duration and thumbnail metadata.
+triggerPrompt: Create Ricos rich content with a VIDEO block using placeholder Wix media ids — include video src, duration in seconds, and a thumbnail with width and height. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a video block.
+
+      Score 9-10: root-level `VIDEO` node; `videoData.video.src` has an `id` (Wix media path); `videoData.video.duration` is a numeric seconds value; `videoData.thumbnail` has `src.id`, `width`, and `height`; every `type` is a bare string.
+      Score 6-8: VIDEO present but one metadata field is missing (e.g. duration or thumbnail dimensions).
+      Score 3-5: video expressed as HTML/iframe embed only, OR missing `videoData`, OR duration/thumbnail in wrong location.
+      Score 0-2: no video block, or prose/plain-text output.
+      **Cap at 5** if there is no `videoData.video.src.id` — the Author Ricos recipe requires Wix Media shape, not a bare external URL on TEXT.

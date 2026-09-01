@@ -27,7 +27,7 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
 - `INSTRUCTIONS.md` — the vertical's build guide + field-shape snippets; `seed/SEED.md` — how the seed
   module is run.
 
-**The nine verticals — data layer (`app/rest/`) + seed module (`seed/`):**
+**The verticals — data layer (`app/rest/`) + seed module (`seed/`):**
 
 | vertical | `app/rest/` data layer | seed module |
 |---|---|---|
@@ -37,7 +37,8 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
 | events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.js` |
 | portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.js` |
 | restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.js` |
-| cms | `wix-cms.js` — Wix Data collections: list / detail / filter + form CRUD | `seed-cms.js` |
+| forms | `wix-forms.js`, `wix-forms-submissions.js` — any visitor-fillable form: read the schema; upload attachments, create a submission (schema accessors ship alongside in `lib/wix-form-schema-utils.js`) | *(none — REST shapes in `seed/SEED.md`)* |
+| cms | `wix-cms.js` — Wix Data collections: list / detail / filter | `seed-cms.js` |
 | pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.js` |
 | members | `wix-members-auth.js` — custom login/signup (email+password, social, SSO), session, account | *(none — members sign up at runtime; nothing to seed)* |
 
@@ -49,7 +50,9 @@ the token set) is **universal — follow it as-is**.
 
 ## The flow — install → build client → seed → done
 
-Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work within each.
+Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work
+within each. **One exception — `forms` must be seeded before its UI is built; read that gate in
+`references/forms/INSTRUCTIONS.md` (Prerequisites) first.** Everything else still parallelizes.
 
 ### 1 · Install the skills
 

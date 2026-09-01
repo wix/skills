@@ -73,8 +73,8 @@ describe('EvalForge wix-app gate workflow', () => {
   });
 
   it('passes the reviewed capability and agent ids inline, not as repo vars', () => {
-    expect(gateStep.with?.['capability-id']).toBe('ad0b7e36-e85b-40b1-902b-d67bb3c90363');
-    expect(gateStep.with?.['agent-id']).toBe('76093ada-d1ad-42a4-9f49-743673763b00');
+    expect(gateStep.with?.['capability-id']).toBe('6eb9e9b8-6fd7-4b6d-b846-cde489899ff2');
+    expect(gateStep.with?.['agent-id']).toBe('3b9754c0-d603-4a7f-b9b2-b4f17cff7a95');
   });
 
   it('starts in soak mode so the gate reports before it can block', () => {

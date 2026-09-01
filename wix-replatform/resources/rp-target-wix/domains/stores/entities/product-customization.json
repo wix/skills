@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product-customization",
+  "displayName": "Stores Product Customization",
+  "capability": "commerce.product-addon-fields",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Stores Customization",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "addon-field-group",
+      "routes": [
+        "/ppom/v1/admin/field-groups/context"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Stores Catalog V3 Customizations",
+    "endpoint": "POST /stores/v3/customizations",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": true
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "connected-modifier-must-restate-the-settings",
+      "severity": "blocker",
+      "summary": "Attaching an existing customization to a product by id ALONE fails. VERIFIED LIVE 2026-08-16: product.modifiers[] = [{ id: <customization GUID>, mandatory: false }] → 400 REQUIRED_ONE_OF_FIELD 'freeTextSettings or choicesSettings must not be empty', and adding freeTextSettings without a title → 400 MIN_LENGTH on modifiers[0].modifierSettings.freeTextSettings.title. A ConnectedModifier must restate name, modifierRenderType, and the full settings block (title included) next to the id. Note the field renames between the two surfaces: the standalone customization uses freeTextInput/customizationRenderType, the product-side modifier uses freeTextSettings/modifierRenderType — a transform that reuses the create payload verbatim will fail."
+    },
+    {
+      "code": "inline-modifiers-mint-a-new-customization",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: a product created with modifiers[] and NO id auto-creates a fresh reusable customization and returns its server-assigned id. Convenient for a single-pass write, but it mints one customization per product — a source add-on group shared by 200 products becomes 200 near-duplicate customizations unless the group is created once up front and attached by id. Create-then-attach is the correct path for shared groups."
+    },
+    {
+      "code": "modifier-not-option",
+      "severity": "warning",
+      "summary": "Add-on plugin fields collect input without creating variants — author them as customizationType MODIFIER, never PRODUCT_OPTION (options create product variants that affect inventory, SKU, and pricing; docs read 2026-08-16). A wrong type multiplies the variant matrix and cannot be fixed in place (customizationType is immutable)."
+    },
+    {
+      "code": "conditional-visibility-no-counterpart",
+      "severity": "warning",
+      "summary": "OPEN FIDELITY QUESTION: the Customization object carries no conditional-visibility mechanism (full request schema read 2026-08-16 — nothing rules-shaped). Source conditional rules (e.g. PPOM per-field conditions, per-variation _ppom_variation_meta_rules) need a field-by-field pairing at mapping time; expect reported loss unless a pairing is found."
+    },
+    {
+      "code": "per-option-pricing-pairing-needed",
+      "severity": "warning",
+      "summary": "OPEN FIDELITY QUESTION: choices and free-text inputs carry defaultAddedPrice (decimal 0–999999999.99, maxScale 3 — docs read 2026-08-16), a plausible home for per-option add-on prices, but it is a DEFAULT on the reusable customization, not a per-product override. Field-by-field pairing needed at mapping time when the source prices the same option differently per product."
+    },
+    {
+      "code": "file-upload-no-render-type",
+      "severity": "warning",
+      "summary": "OPEN FIDELITY QUESTION: customizationRenderType supports only FREE_TEXT, TEXT_CHOICES, SWATCH_CHOICES (enum read 2026-08-16). Source file-upload / image-cropper fields have no native render type — decide per field at mapping time (drop with ledger entry, or approximate); there is no customization-based carry for uploads."
+    }
+  ],
+  "mappingGuidance": [
+    "Mapping confirmed by Spec Owner 2026-08-16: source add-on field groups (e.g. PPOM field groups) -> customization definitions, one customization per field — text inputs -> FREE_TEXT with freeTextInput (title required, <=100 chars; min/maxCharCount, max 500), choice fields -> TEXT_CHOICES with choicesSettings.choices[] (name <=50 chars, <=1000 choices), color swatches -> SWATCH_CHOICES (ONE_COLOR choices).",
+    "Per-product attachment: the source's product-to-group assignment (e.g. PPOM _product_meta_id) -> the product's customization references — product.modifiers[] ConnectedModifier entries citing the created customization ids (customizationType MODIFIER), with mandatory per attachment. Create customizations first, crosswalk group id -> customization ids, then reference them on product create; inline modifier definitions on the product also auto-create reusable customization entities if a single-pass write is preferred (but see inline-modifiers-mint-a-new-customization before choosing that path).",
+    "The ConnectedModifier entry must carry { id, name, modifierRenderType, mandatory, freeTextSettings|choicesSettings } — the id alone is rejected, and the settings block needs its own title (verified live 2026-08-16, see connected-modifier-must-restate-the-settings). Keep the restated values identical to the customization's own so the two surfaces do not drift.",
+    "Customization name <=50 chars; the server-generated key is what eCommerce catalogReference.options uses — record created ids AND keys in the crosswalk so order-side mapping (ecom) can resolve them. Observed live 2026-08-16: on a plain-ASCII name the key is simply the name verbatim ('ZZZ Probe Engraving Text'), and the freeTextInput title gets its own separate key — do not assume the key is a slugified form, read it back."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3/customization-object",
+      "note": "object page: id/key/name, customizationType PRODUCT_OPTION|MODIFIER, customizationRenderType FREE_TEXT|TEXT_CHOICES|SWATCH_CHOICES (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3/create-customization",
+      "note": "POST /stores/v3/customizations; full request schema: freeTextInput/choicesSettings one-of, defaultAddedPrice, choice constraints (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3/introduction",
+      "note": "options create variants, modifiers do not; standalone-then-assign vs inline auto-create; modifier deletion semantics (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "attachment surface: product.modifiers[] ConnectedModifier — id of a MODIFIER customization, mandatory flag, key (read 2026-08-16)"
+    },
+    {
+      "type": "review-decision",
+      "path": "signed off by Spec Owner, 2026-08-16",
+      "note": "commerce.product-addon-fields; resolves the stores docs-survey 2026-08-11 'revisit when an add-on plugin is profiled' note"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: POST /stores/v3/customizations with { customizationType: MODIFIER, customizationRenderType: FREE_TEXT, freeTextInput: { title, minCharCount, maxCharCount, defaultAddedPrice } } → 200 with server-assigned id and key. Attaching it via product.modifiers[] took three attempts — id-only and id+settings-without-title both 400'd — and succeeded with id + name + modifierRenderType + full freeTextSettings; the created product read back the same customization id and key. A control product with an inline modifier and no id also succeeded and minted a SECOND customization. Both products and both customizations deleted afterwards (DELETE /stores/v3/customizations/{id} → 200, including the inline-minted one)."
+    }
+  ],
+  "notes": "Authored 2026-08-16 from the signed-off mapping decision. Promoted to verified-live 2026-08-16 by a create → attach → readback → delete probe on the probe site; the ConnectedModifier restatement requirement and the inline-mints-a-duplicate behaviour were both discovered there. reliability is partially-reliable, not reliable: only MODIFIER/FREE_TEXT was exercised live — TEXT_CHOICES and SWATCH_CHOICES, bulk create (POST /stores/v3/customizations/bulk), and defaultAddedPrice's effect on order totals remain docs-only, and the three OPEN FIDELITY QUESTIONS below are unchanged by this probe. Pairs with ecom/order-line-item-options for the captured order-side values (commerce.order-addon-values)."
+}

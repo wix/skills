@@ -2,6 +2,10 @@ apiDoc:
   title: Wix Sites Management Recipes
 
   docs:
+    - file: ../../../skills/wix-manage/references/sites/read-site-context.md
+      title: Read Account or Site Context
+      docsEntry: https://dev.wix.com/docs/api-reference/tools/dynamic-site-context
+      tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/query-sites.md
       title: Query Sites
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
@@ -13,6 +17,10 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/sites/create-headless-site.md
       title: Create Headless Site
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/manage-oauth-apps.md
+      title: Manage OAuth Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/site-import.md
       title: Site Import

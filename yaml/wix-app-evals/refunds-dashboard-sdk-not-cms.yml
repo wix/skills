@@ -1,0 +1,35 @@
+name: refunds-dashboard-sdk-not-cms
+description: Dashboard page around site refunds must be built on the Wix eCommerce/Payments SDK — not by creating a CMS data collection for data a Wix app already owns
+triggerPrompt: |-
+  Build a dashboard page around site refunds. Show all refunded orders in a table with the order number, customer name, refund amount, and refund date.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [data-collection, dashboard-page, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent sourced refund data from the Wix platform instead of inventing its own storage. Check: (1) **No CMS data collection was created for refunds or orders** — there is no DATA_COLLECTION extension, no `data-collections` extension file, and no `@wix/data` insert/query calls modeling refunds; creating any refunds/orders collection is an automatic fail (score 0-2). (2) Refund data is fetched through the Wix SDK — `@wix/ecom` (orders / order transactions) and/or `@wix/payments` (refunds) — from backend or dashboard code. (3) The dashboard table is populated from those SDK calls, so a site with refunded orders would show real rows, not an empty state backed by an empty custom collection. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the quality of the implementation path. Check: (1) The agent consulted the Wix SDK documentation (MCP search tools such as SearchWixSDKDocumentation / ReadFullDocsMethodSchema) or the skill's SDK-First Rule module map before deciding how to access refund data — it did not guess method names or conclude "no SDK exists" with zero lookups. (2) SDK imports are real `@wix/*` packages with plausible method names (e.g. `orders`, `orderTransactions` from `@wix/ecom`, or `refunds` from `@wix/payments`). (3) The dashboard page UI follows the skill's conventions (@wix/patterns collection page for the table, @wix/design-system only for leaf UI). Score 0-10.
+  - type: time_limit
+    maxDurationMs: 180000
+  - type: cost
+    maxCostUsd: 1

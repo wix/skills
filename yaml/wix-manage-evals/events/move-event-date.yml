@@ -1,0 +1,82 @@
+name: events/move-event-date
+description: >-
+  Verifies the manage-events recipe carries the update rules, so the agent moves an event's date in
+  one call — rather than patching startDate alone, which replaces dateAndTimeSettings wholesale and
+  fails with an error about negative duration that names neither the missing endDate nor the
+  replacement.
+triggerPrompt: >-
+  Move my Spring Fair event to the 12th of the following month, same time.
+tags: [events]
+maxTokens: 500000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428.
+  templateId: events-studio
+  bootstrap:
+    steps:
+      - label: seed the event to move
+        method: post
+        url: https://www.wixapis.com/events/v3/events
+        body:
+          event:
+            title: Spring Fair
+            location: { name: Main Hall, type: VENUE }
+            dateAndTimeSettings:
+              startDate: "2026-11-05T18:00:00.000Z"
+              endDate: "2026-11-05T21:00:00.000Z"
+              timeZoneId: America/New_York
+            registration: { initialType: RSVP }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-events
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked: "Move my Spring Fair event to the 12th of the following month, same time."
+
+      The site is seeded with one event, "Spring Fair", starting 2026-11-05 at 18:00 America/New_York.
+      Seeding can race site provisioning, so judge what the trace shows rather than assuming the
+      event was there.
+
+      Pass if a successful (2xx) `PATCH /events/v3/events/{id}` moved that event to 2026-12-12,
+      keeping the same time of day and a duration equal to the original — OR, if no seeded event
+      existed, the agent said so plainly instead of inventing one.
+
+      Fail if the event still starts in November; OR the end date was lost or left inconsistent with
+      the start; OR a new event was created instead of updating the existing one; OR every write
+      attempt errored; OR the agent only described how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence naming the resulting start and end>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to a moved event. Examine the tool-call
+      trace, including request bodies and any error bodies. 10 = no wasted calls and no errors.
+
+      Reading the recipe is expected and is never a wasted call. One read to find the event's id is
+      expected too.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - `400 event cannot have negative duration` — the patch carried `startDate` without `endDate`.
+        `dateAndTimeSettings` is replaced wholesale rather than merged, which the recipe states; the
+        error names neither the missing field nor the replacement, so recovering from it costs a
+        round trip the recipe would have saved;
+      - fetching the event's `revision` before updating, or sending one: this API takes no revision
+        and ignores it, so any call made to obtain one is wasted;
+      - `400 Expected a string.` — a date sent as `{seconds, nanos}` instead of ISO-8601;
+      - deleting and recreating the event instead of patching it;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out the
+        update shape the recipe already gives;
+      - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

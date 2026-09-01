@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "domain": "gift-cards",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/gift-cards"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/gift-cards/gift-card-products",
+      "title": "Gift Card Products",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products",
+      "group": null,
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "gift-cards/gift-card-product"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/gift-cards/gift-cards",
+      "title": "Gift Cards",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "gift-cards/gift-card"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/gift-cards/transactions",
+      "title": "Transactions",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/transactions",
+      "group": null,
+      "verdict": "not-importable",
+      "reason": "Transaction ledger written by issuance/redemption flows; an imported card carries its balance at creation (gift-cards/gift-card), historical transactions have no import path.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

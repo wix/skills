@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/shared-chrome.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "pageKey", "status", "header", "footer", "controls", "visualAssets", "behavior", "evidenceRefs", "acceptance", "gapRefs", "hash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "shared-chrome" }, "id": { "type": "string" }, "pageKey": { "const": "home" }, "status": { "enum": ["accepted", "provisional"] },
+    "header": {}, "footer": {}, "controls": { "type": "array" }, "visualAssets": { "type": "object" }, "behavior": {}, "evidenceRefs": { "type": "array" }, "acceptance": { "type": "object" }, "gapRefs": { "type": "array" }, "dependencyHashes": { "type": "array" }, "hash": { "type": "string" }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

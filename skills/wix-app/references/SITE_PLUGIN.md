@@ -324,14 +324,14 @@ Site plugins can import and use Wix SDK modules directly — you do NOT need `cr
 ```typescript
 // ✅ CORRECT — Import SDK modules directly
 import { items } from "@wix/data";
-import { currentCart } from "@wix/ecom";
+import { currentCartV2 } from "@wix/ecom";
 import { products } from "@wix/stores";
 
 class MyPlugin extends HTMLElement {
   async loadData() {
     // Call SDK methods directly — no createClient needed
     const result = await items.query("MyCollection").find();
-    const cart = await currentCart.getCurrentCart();
+    const { cart } = await currentCartV2.getCurrentCart();
     const productList = await products.queryProducts().limit(10).find();
   }
 }
@@ -343,6 +343,18 @@ import { createClient } from "@wix/sdk";
 const wixClient = createClient({ modules: { items, products } });
 await wixClient.items.query(...); // Wrong — API surface differs through client
 ```
+
+### Identity of SDK Calls in Site Plugins
+
+A plugin runs as the **site visitor or member**, never as the app — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before routing any SDK call out to a backend endpoint.
+
+The three calls above are correct exactly as written, and each for a different reason:
+
+| Call | Why it works directly |
+| --- | --- |
+| `items.query(...)` | Wix Data enforces the collection's `dataPermissions` per caller — the scaffolded default reads as `ANYONE`. See [Permissions](DATA_COLLECTION.md#permissions) |
+| `currentCartV2.getCurrentCart()` | Resolves the cart from the caller's session. Elevating it would return the app's cart, not the visitor's |
+| `products.queryProducts()` | Catalog base fields are public. `MERCHANT_DATA` and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN` — don't request them from a plugin |
 
 ### Performance Considerations
 

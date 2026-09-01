@@ -1,0 +1,64 @@
+name: google-business-profile/connect-google-business-profile
+description: >-
+  Verifies that the agent checks the site's Google Business Profile connection status before
+  anything else, requests exactly one connect URL for a never-connected site, hands that URL to the
+  site owner to authorize in their own browser, and never fetches the URL itself or claims the site
+  is connected without the status saying so.
+triggerPrompt: >-
+  Connect my Wix site to Google Business Profile so I can manage my business locations from Wix.
+tags: [seo]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/skills/connect-a-wix-site-to-google-business-profile
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to connect their Wix site to Google Business Profile. The site is freshly
+      provisioned, so its connection status is NEVER_CONNECTED and no human is available to complete
+      Google's browser authorization during this run.
+
+      The REST methods take no siteId field, but the MCP may require a selected site for its
+      authorization context. If no valid site is already in context, listing sites once and
+      auto-selecting the only available site is correct and is not a failure. The agent must never
+      invent a site ID or ask the user to type one.
+
+      In every passing run the agent reads the connection status first and treats NEVER_CONNECTED
+      as a setup step, not an error. From there, two outcomes of requesting the connect URL are
+      both passable:
+
+      - **A connect URL is returned.** Pass if the agent requested exactly one connect URL,
+        presents it to the user as a link to open in their own browser (explaining that they sign
+        in to Google there and that the URL is single-use and expires in about 15 minutes), and
+        explains that completion is confirmed by re-reading the connection status until it is
+        VALID, rather than by the URL having been returned.
+      - **The request fails with a typed error.** Pass if the agent handles it per its meaning:
+        the temporary owner-lookup failure may be retried; a non-resolvable connecting user or a
+        permission denial means stopping with a clear explanation of the blocker instead of trying
+        other request shapes.
+
+      Fail if the agent fetches or opens the connect URL itself, requests more than one connect URL
+      without the first attempt having failed or expired, claims the site is connected without the
+      status reporting VALID, automatically retries the connect-URL call after a timeout or
+      ambiguous response, asks the user for a site ID, or calls Disconnect.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the connect request. Examine the tool-call
+      trace. Score 0-10 (10 = direct: one status read, one connect-URL request, then either a clear
+      handoff to the user or a typed error explained per its meaning, with no wasted calls). A
+      site-list call used once to resolve genuinely missing site context is necessary setup, not
+      friction. A typed connect-URL error handled correctly is not a friction. A single 403 or
+      PERMISSION_DENIED from
+      the status or connect-URL call is also an expected authorization blocker, not a friction, if
+      the agent explains it and stops. Penalize and list any call or documentation search after that
+      terminal denial, duplicate connect-URL request, extended status polling (more than two or
+      three reads when no human can authorize), attempt to fetch the connect URL, guessed request
+      shape, redundant probing call, or other recovered non-2xx error that clearer docs would avoid.
+      For each problem, name the likely skill, MCP, or docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and suspected gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor

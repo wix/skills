@@ -50,3 +50,4 @@ To provision headless onto an existing site, pass `"existingMetasite": {}` inste
 After creating the site:
 - Install additional apps using [Install Wix Apps](../app-installation/install-wix-apps.md)
 - Add content (products, services, blog posts, etc.)
+- Use the `appId` as the `client_id` to mint visitor tokens and make buyer-facing API calls — see [Manage OAuth Apps](manage-oauth-apps.md)

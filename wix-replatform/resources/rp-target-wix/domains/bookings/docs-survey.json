@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 1,
+  "domain": "bookings",
+  "fetchedAt": "2026-08-16",
+  "roots": [
+    "api-reference/business-solutions/bookings",
+    "api-reference/business-management/calendar"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-management/calendar/event-views-v3",
+      "title": "Event Views V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/event-views-v3",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "A webhook-driven projection of the next year of calendar events (Get Events View, Events View Extended, Events View Projection Updated). Real-time change tracking for apps, with no create/update surface and no stored migration data.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/calendar/events-v3",
+      "title": "Events V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3",
+      "group": null,
+      "verdict": "gap",
+      "reason": "Events are the individual calendar sessions of a schedule, with Create Event, Bulk Create Event and recurrencePattern MASTER/INSTANCE support. Create Booking needs bookedEntity.slot.eventId for a CLASS booking, so any source with class or course sessions must create events before its bookings can be written. No entity authored yet; WPS Bookings for WooCommerce has no session concept, so nothing maps from this particular source.",
+      "tracking": "capabilities-pending-decision.json#commerce.service-sessions (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/calendar/participations-v3",
+      "title": "Participations V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/participations-v3",
+      "group": null,
+      "verdict": "not-importable",
+      "reason": "Participations are the calendar-layer roster of an event, and the docs state that creating/updating/deleting one automatically updates the event's participants and remainingCapacity. For a Bookings migration the participation is a side effect of the booking write, so writing both would double-count capacity - there is no independent import path here, only a way to corrupt the one we do use.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/calendar/schedule-time-frames-v3",
+      "title": "Schedule Time Frames V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/schedule-time-frames-v3",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Read-only and derived: the menu holds Schedule Time Frame Object, Get, List and an Updated webhook. The Introduction describes it as a way to track when schedules start and end (Wix Bookings uses it to derive course start/end). Nothing to write.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/calendar/schedules-v3",
+      "title": "Schedules V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/schedules-v3",
+      "group": null,
+      "verdict": "gap",
+      "reason": "Schedules are the collections a service's events hang off - service.schedule.id points straight into this tree - and Create/Update/Cancel Schedule set the default values every session inherits. A source's per-service availability shape (WPS Bookings: mwb_mbfw_daily_calendar_start_time/_end_time, wps_mbfw_time_slots, mwb_mbfw_choose_holiday, wps_mbfw_set_availability_upto) has to land somewhere and this is the writable half of it. No entity authored yet.",
+      "tracking": "capabilities-pending-decision.json#commerce.service-availability-rules (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/calendar/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "A single AI-skill walkthrough page (Configure Default Business Hours) - agent guidance, not a data surface.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/bookings/attendance",
+      "title": "Attendance",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/attendance",
+      "group": "Bookings",
+      "verdict": "gap",
+      "reason": "Set Attendance / Bulk Set Attendance / Delete Attendance is a real write path for whether a booked session was actually attended and by how many people - the natural home for a source that records check-in or no-show state per appointment. WPS Bookings for WooCommerce 3.12.0 has no attendance concept (only _item_cancelled on the order line item), so nothing maps today, but any booking source with check-in data lands here and no entity exists.",
+      "tracking": "capabilities-pending-decision.json#commerce.appointment-attendance (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/bookings/bookings-reader-v2",
+      "title": "Bookings Reader V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-reader-v2",
+      "group": "Bookings",
+      "verdict": "not-relevant",
+      "reason": "Read-only projection over bookings (Extended Booking Object, Query/Count Extended Bookings). Valuable to the importer as the post-import verification read, but it exposes no write and therefore claims no entity.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/bookings/bookings-validation-service-plugin",
+      "title": "Bookings Validation Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-validation-service-plugin",
+      "group": "Bookings",
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): the extension point where an app vetoes create/reschedule/cancel. An SPI is not an import path, and during a migration it is a hazard to be aware of rather than a target.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/bookings/bookings-writer-v2",
+      "title": "Bookings Writer V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2",
+      "group": "Bookings",
+      "verdict": "claimed",
+      "refs": [
+        "bookings/booking"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/bookings/waitlist",
+      "title": "Waitlist",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/waitlist",
+      "group": "Bookings",
+      "verdict": "not-importable",
+      "reason": "Register To Waitlist enrolls a live customer in a first-come queue that the service actively notifies when a spot frees up, and the API Overview states use is 'currently limited to sessions with type = EVENT'. It is a runtime action with a customer-facing notification built in, not an import path for historical waitlist rows - importing one would page real people.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/calendar/calendar-v1",
+      "title": "Calendar V1",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/calendar/calendar-v1",
+      "group": "Calendar",
+      "verdict": "not-relevant",
+      "reason": "A stub menu node: its only children are Introduction, Supported Filters and Supported Fieldsets - no object page and no methods. The live schedule/session surfaces are the V3 APIs under the business-management/calendar root this domain also declares.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/calendar/external-calendar-v2",
+      "title": "External Calendar V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/calendar/external-calendar-v2",
+      "group": "Calendar",
+      "verdict": "not-relevant",
+      "reason": "Connects and syncs third-party calendars (Connect By Credentials / By OAuth, List Providers/Calendars/Events, Update Sync Config). A live integration the site owner configures, not migration data; the analogous source feature in WPS Bookings is an iCal export of blocked dates only.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/calendar/schedules-and-sessions",
+      "title": "Schedules and Sessions",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/calendar/schedules-and-sessions",
+      "group": "Calendar",
+      "verdict": "not-relevant",
+      "reason": "EMPTY menu node - fetching schedules-and-sessions.md on 2026-08-16 returned the ancestry headings and no child links at all. The surfaces it names live under api-reference/business-management/calendar (Schedules V3, Events V3, Participations V3), which is why this domain declares that second docsRoot.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/policies/booking-policies",
+      "title": "Booking Policies",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policies",
+      "group": "Policies",
+      "verdict": "gap",
+      "reason": "Booking Policies is full CRUD (Create/Update/Delete/Set Default Booking Policy) over cancellation windows, reschedule windows, early/late booking limits and waitlist rules - the direct target for a source's per-service booking rules. WPS Bookings for WooCommerce carries exactly this shape as product meta: mwb_mbfw_cancellation_allowed, mwb_bfwp_order_statuses_to_cancel, mwb_mbfw_minimum_no_days_booking, wps_mbfw_set_availability_upto. No entity authored yet; bookings/service maps only the manual-approval flag.",
+      "tracking": "capabilities-pending-decision.json#commerce.booking-policies (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/policies/booking-policy-service-plugin",
+      "title": "Booking Policy Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policy-service-plugin",
+      "group": "Policies",
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): an app returns policies to Wix at runtime (Extension Config, List Booking Policies). An SPI is not an import path.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/policies/booking-policy-snapshots",
+      "title": "Booking Policy Snapshots",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policy-snapshots",
+      "group": "Policies",
+      "verdict": "not-importable",
+      "reason": "Read-only by construction: the menu holds Booking Policy Snapshot Object and List Policy Snapshots By Booking Ids and nothing else. A snapshot is the policy as it stood when Wix created a booking - it is produced by the booking write, never supplied to it.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/pricing/booking-fees",
+      "title": "Booking Fees",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/booking-fees",
+      "group": "Pricing",
+      "verdict": "not-importable",
+      "reason": "Booking fees are cancellation/no-show charges Wix raises against a live eCommerce order: the methods are List Booking Fees By Booking Ids, Apply Booking Fees To Order and Collect Applied Booking Fees. There is no create-historical path - a fee only exists as a consequence of a live policy violation on a booking Wix already owns - so historical source fees cannot be written.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/pricing/pricing-api",
+      "title": "Pricing API",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/pricing-api",
+      "group": "Pricing",
+      "verdict": "not-relevant",
+      "reason": "Calculate Price and Preview Price are pure computation endpoints over a prospective booking (Price Info Object is the response shape, not a stored entity). Nothing is persisted, so nothing can be imported.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/pricing/pricing-integration-service-plugin",
+      "title": "Pricing Integration Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/pricing-integration-service-plugin",
+      "group": "Pricing",
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): the extension point where an app returns prices to Wix at booking time. An SPI is not an import path.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/resources/attributes",
+      "title": "Attributes",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/attributes",
+      "group": "Resources",
+      "verdict": "not-relevant",
+      "reason": "Attribute definitions and values attached to resources (menu holds only Introduction, Sample Flows, Attribute Value, Attribute Definition). Resource metadata configuration, not migration records.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/resources/resource-types-v2",
+      "title": "Resource Types V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resource-types-v2",
+      "group": "Resources",
+      "verdict": "not-relevant",
+      "reason": "Typing taxonomy for resources (Create/Update/Delete Resource Type). Configuration a target site needs before resources can be created, provisioned during setup; there is no source-side resource-type data in the WordPress booking plugins profiled so far.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/resources/resources-v2",
+      "title": "Resources V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2",
+      "group": "Resources",
+      "verdict": "gap",
+      "reason": "Resources are the objects staff members and bookable equipment/rooms are built on (Create Service's staffMemberIds are resource GUIDs), with full CRUD plus Bulk Create Resources. A source that books rooms or equipment - and WPS Bookings' 'Additional Costs' taxonomy partly models chargeable extras of that kind - maps here. No entity authored yet.",
+      "tracking": "capabilities-pending-decision.json#commerce.service-providers (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/services/add-ons",
+      "title": "Add-Ons",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/add-ons",
+      "group": "Services",
+      "verdict": "claimed",
+      "refs": [
+        "bookings/service-add-on"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/services/catalog-search",
+      "title": "Catalog Search",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/catalog-search",
+      "group": "Services",
+      "verdict": "not-relevant",
+      "reason": "A single read method (Query Services By Filters) over the service catalog - a search projection for storefront and dashboard use. No object of its own and no write path, so nothing to import.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/services/categories-v2",
+      "title": "Categories V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2",
+      "group": "Services",
+      "verdict": "gap",
+      "reason": "Create Service documents that a service without category.id is invisible on the live site, and Categories V2 is a full CRUD surface (Create/Update/Move Category, category-object). A source's product categories map straight onto it - WPS Bookings for WooCommerce force-assigns every booking product to the product_cat term 'booking'. No entity authored yet; bookings/service currently carries category assignment only as a setupRequirement.",
+      "tracking": "capabilities-pending-decision.json#commerce.bookable-service-categories (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/services/service-options-and-variants",
+      "title": "Service Options And Variants",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/service-options-and-variants",
+      "group": "Services",
+      "verdict": "gap",
+      "reason": "The surface that carries per-choice and per-duration pricing on a service (Create/Update Service Options And Variants; Create Booking's participantsChoices validates against it). WooCommerce booking plugins express exactly this as per-person and per-unit pricing - WPS Bookings has mwb_mbfw_is_booking_unit_cost_per_people, mwb_mbfw_is_booking_base_cost_per_people and min/max people per booking - so a real source capability lands here, but no entity exists and bookings/service ledgers it as loss.",
+      "tracking": "capabilities-pending-decision.json#commerce.bookable-service-variants (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/services/services-v2",
+      "title": "Services V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2",
+      "group": "Services",
+      "verdict": "claimed",
+      "refs": [
+        "bookings/service",
+        "bookings/service-add-on"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill walkthrough pages (External Calendar Integration, End-to-End Booking Flow, Create and Update Booking Services, Multi-Resource Service Creation, Booking Service Policy Setup, Booking System Integration Gaps, Bookings Staff Setup) - agent guidance, not a data surface. Same verdict as pricing-plans/skills.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/staff-members/staff-member-settings",
+      "title": "Staff Member Settings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-member-settings",
+      "group": "Staff Members",
+      "verdict": "not-relevant",
+      "reason": "Per-staff-member configuration read/updated one at a time (Get/Update Staff Member Settings only - no create, no query). Dashboard preferences for an existing staff member, provisioned during setup rather than migrated.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/staff-members/staff-members",
+      "title": "Staff Members",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members",
+      "group": "Staff Members",
+      "verdict": "gap",
+      "reason": "Every APPOINTMENT service requires at least one staffMemberIds entry (a resource GUID), so a staff member must exist before any service import - bookings/service records that as a setupRequirement and as the staff-and-resources-are-a-prerequisite-graph pitfall. Create Staff Member / Bulk Create Staff Members are a real import path, and source platforms that DO model providers (Amelia, Bookly, BookingPress) map onto it directly. No entity authored yet.",
+      "tracking": "capabilities-pending-decision.json#commerce.service-providers (PROPOSED and written to the register 2026-08-16, with its recorded search; awaiting a human verdict)",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/staff-members/staff-sorting-service-plugin",
+      "title": "Staff Sorting Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-sorting-service-plugin",
+      "group": "Staff Members",
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): an extension point where an app supplies staff ordering to Wix at runtime. An SPI is not an import path.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/time-slots/availability-time-slots-configuration-service-plugin",
+      "title": "Availability Time Slots Configuration Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/availability-time-slots-configuration-service-plugin",
+      "group": "Time Slots",
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): an app supplies availability-slot configuration to Wix at runtime. An SPI is not an import path.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/bookings/time-slots/time-slots-v2",
+      "title": "Time Slots V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2",
+      "group": "Time Slots",
+      "verdict": "not-importable",
+      "reason": "Read-only availability computation (Get/List Availability Time Slots, Get/List Event Time Slots, multi-service variants). It is the surface Create Booking recommends using to compose bookedEntity.slot, so the booking importer READS it - but it holds no stored state of its own and there is nothing to write.",
+      "reviewedOn": "2026-08-16"
+    }
+  ]
+}

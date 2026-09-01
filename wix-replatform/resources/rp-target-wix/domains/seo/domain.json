@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "docsRoots": [
+    "api-reference/business-management/seo",
+    "api-reference/business-management/marketing/seo",
+    "api-reference/business-management/headless/sitemap",
+    "api-reference/site/viewer/seo-tags"
+  ],
+  "displayName": "Wix SEO",
+  "ownerHint": "SEO (item SEO tags, site SEO tags, SEO patterns, robots.txt/ads.txt/llms.txt) domain owners",
+  "wixAppsRequired": [],
+  "defaultImportOrder": [
+    "site-seo-tags",
+    "seo-pattern",
+    "item-seo-tags"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "seo-tags-resolve-through-a-precedence-chain",
+      "severity": "warning",
+      "summary": "A rendered tag is not stored in one place. Wix combines, in increasing precedence: site tags -> the Wix default pattern for the page type -> the site's own pattern -> the host page's tags -> the item's own tags. Writing a value at the item level therefore SHADOWS everything below it, and the docs warn explicitly that 'writing the same title onto a thousand items is the same outcome as one pattern, and much harder to undo'. Import at the level that matches the source fact: a WordPress SEO title TEMPLATE belongs in seo/seo-pattern, a per-post override belongs in seo/item-seo-tags."
+    },
+    {
+      "code": "seo-writes-replace-in-full",
+      "severity": "blocker",
+      "summary": "Every SEO write replaces what it targets in full and there is NO revision checking - the last write wins, and a Wix user editing SEO in the dashboard writes the same data. Read immediately before writing, send back the complete tag set (not only the changed tag), and never interleave an import with dashboard editing."
+    },
+    {
+      "code": "coverage-depends-on-installed-business-solutions",
+      "severity": "warning",
+      "summary": "The supported itemType / pageType list is per site: a type provided by a business solution only exists where that solution is installed (UNSUPPORTED_ITEM_TYPE / UNSUPPORTED_PAGE_TYPE list the supported values in the error message, and PAGE_TYPE_NOT_ON_SITE is a distinct 404). Discover the list from a failing call at setup time; never hard-code it."
+    },
+    {
+      "code": "primary-language-only",
+      "severity": "warning",
+      "summary": "Item SEO tags can be written only for the site's primary language: sending `language` fails with LANGUAGE_NOT_SUPPORTED. A multilingual WordPress source cannot carry per-locale SEO meta through this API; ledger the secondary-language tags rather than dropping them silently."
+    },
+    {
+      "code": "no-url-redirect-api",
+      "severity": "warning",
+      "summary": "Wix exposes NO public API for authoring URL redirects (301 maps). The whole api-reference tree was walked 2026-08-16: the only 'Redirects' surface is Business Management > Headless > Redirects, which creates auth/checkout REDIRECT SESSIONS, not URL rules. Wix does auto-redirect an item's old URL to its new one when a slug changes (seoData.settings.preventAutoRedirect opts out), but a source-authored redirect map (Yoast Premium Redirects, the Redirection plugin, Rank Math Redirections) has no import path. Redirect plans stay in the redirects.ndjson ledger until an API exists."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/introduction",
+      "note": "domain root; menu walked 2026-08-16 (Item SEO Tags V1, Site SEO Tags V1, SEO Pattern V1) plus the second SEO tree under Marketing (robots.txt / ads.txt / llms.txt / keyword SPI / SEO user config), Headless > Sitemap, and Site > Viewer > SEO Tags"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/introduction",
+      "note": "second docs root: Wix splits SEO across Business Management > SEO (tags) and Business Management > Marketing > SEO (TXT files, keyword SPI, site URL config) — finding one tree does not mean the other does not exist"
+    },
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/SKILL.md",
+      "note": "URL preservation and redirect planning stay in the redirects.ndjson ledger; this domain records why no redirect write path exists"
+    }
+  ]
+}

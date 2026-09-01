@@ -30,12 +30,13 @@ import { wixApiRequest } from "./wix-client.js";
  *   options {array} — product options e.g. Size, Color:
  *     [{ id, name, optionRenderType "TEXT_CHOICES"|"COLOR_CHOICES"|"SWATCH_CHOICES",
  *        choicesSettings.choices [{ choiceId, key, name, inStock, visible, choiceType, colorCode,
- *                                   linkedMedia }] }],
+ *                                   media }] }],
  *     A COLOR/SWATCH option's choices carry choiceType "ONE_COLOR" and colorCode "#395E55" — render
- *     those as real colour swatches, not text pills. linkedMedia [{ image.url }] holds that colour's
- *     photos, so selecting a swatch can move the gallery to the matching shot. visible false is a
- *     retired choice the merchant no longer sells: filter it out. (TEXT_CHOICES choices are
- *     choiceType "CHOICE_TEXT" with no colorCode.)
+ *     those as real colour swatches, not text pills. A choice's photo is at media.items[].mediaId (a
+ *     bare Wix media id — build https://static.wixstatic.com/media/<id>); use choiceImage() from
+ *     lib/storeImage to resolve it. Needs the PRODUCT_CHOICES_MEDIA_REFERENCES field (requested by
+ *     getProductBySlug below). visible false is a retired choice the merchant no longer sells: filter
+ *     it out. (TEXT_CHOICES choices are choiceType "CHOICE_TEXT" with no colorCode.)
  *   modifiers {array} — non-variant customizations (engraving, gift wrap):
  *     [{ id, name, mandatory, modifierRenderType "TEXT_CHOICES"|"FREE_TEXT",
  *        key, choicesSettings.choices, freeTextSettings.key }],
@@ -85,7 +86,18 @@ export async function queryProducts({ limit = 100, cursor } = {}) {
 export async function getProductBySlug(slug) {
   const res = await wixApiRequest(`/stores/v3/products/slug/${encodeURIComponent(slug)}`, {
     method: "GET",
-    query: { fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO"] },
+    // PRODUCT_CHOICES_MEDIA_REFERENCES → choice.media.items[].mediaId (the per-colour photos, needed
+    // for the swatch→gallery swap); VARIANT_OPTION_CHOICE_NAMES → variant choice names. Without these
+    // the choice media / variant data come back null.
+    query: {
+      fields: [
+        "CURRENCY",
+        "PLAIN_DESCRIPTION",
+        "MEDIA_ITEMS_INFO",
+        "PRODUCT_CHOICES_MEDIA_REFERENCES",
+        "VARIANT_OPTION_CHOICE_NAMES",
+      ],
+    },
   });
   return res?.product ?? null;
 }

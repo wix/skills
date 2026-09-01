@@ -6,7 +6,7 @@ seed operation. Load it and call **`setupStore` — the one-call path** — with
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const fs = require("fs");
 // exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
 const seed = (() => { const m = { exports: {} };
@@ -64,9 +64,10 @@ Two things this module does **not** seed, so don't try:
 
 - **Ribbons** ("New", "Best Seller"). The tile renders `product.ribbon` when it's there, but ribbons
   are set in the Wix dashboard — tell the merchant that's where to add them.
-- **Per-choice linked media** (`linkedMedia`), which is what makes picking a colour swap the gallery
-  photo. Seeded swatches select and price correctly; the gallery just doesn't follow the colour until
-  the merchant links photos to choices in the dashboard.
+- **Per-choice media** — the photo that makes picking a choice swap the gallery image. Seeded swatches
+  select and price correctly; the gallery follows a choice once photos are linked to it (Wix dashboard,
+  or the wix-manage "Update Product with Options" recipe → Choice & variant fields). The shipped PDP then
+  follows automatically — `choiceImage()` reads it back at `media.items[].mediaId`.
 
 ## Escape hatch — individual functions
 Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom

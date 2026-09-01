@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "plugin": "subscriptions-for-woocommerce",
+  "displayName": "Subscriptions For WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/subscriptions-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.subscription-products",
+    "commerce.subscription-contracts"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "subscriptions-for-woocommerce/subscriptions-for-woocommerce"
+    ],
+    "routes": [
+      "/wsp-route/v1/wsp-view-subscription"
+    ],
+    "restNamespaces": [
+      "wsp-route/v1"
+    ],
+    "recordProperties": [
+      "_wps_sfw_product"
+    ],
+    "assetPathSlugs": [
+      "subscriptions-for-woocommerce"
+    ]
+  },
+  "credentials": [
+    {
+      "key": "wsp_api_secret_key",
+      "description": "Plugin-specific API secret for /wsp-route/v1/wsp-view-subscription, passed as the consumer_secret query parameter. Generated in the plugin's own settings (WP Swings > Subscriptions > API settings) and stored in the wsp_api_secret_key option; the API must also be switched on there (wsp_enable_api_features option = 'on'). The admin Application Password does NOT authorize this route — [VERIFIED LIVE 2026-08-16] a GET with a valid admin Application Password returned 403 rest_forbidden; [DOCUMENTED] permission callback validates only consumer_secret (plugin source 2.0.1, package/rest-api/class-subscriptions-for-woocommerce-rest-api.php, plugins.svn.wordpress.org, read 2026-08-16)."
+    }
+  ],
+  "entities": [
+    {
+      "entity": "subscription-product-settings",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/products"],
+      "propertyPath": "_wps_sfw_product",
+      "candidateTargetRefs": ["stores/subscription-product"],
+      "pitfalls": [
+        {
+          "code": "flag-plus-sibling-meta-keys",
+          "severity": "warning",
+          "summary": "_wps_sfw_product ('yes'/'no') only marks the product; the actual recurring-offer settings are sibling unregistered postmeta keys on the same product: wps_sfw_subscription_number (cadence count), wps_sfw_subscription_interval (day|week|month|year), wps_sfw_subscription_expiry_number + wps_sfw_subscription_expiry_interval (subscription length), wps_sfw_subscription_initial_signup_price, wps_sfw_subscription_free_trial_number + wps_sfw_subscription_free_trial_interval. [DOCUMENTED] plugin source 2.0.1 admin save handler (admin/class-subscriptions-for-woocommerce-admin.php lines 1046-1064, plugins.svn.wordpress.org, read 2026-08-16). All of them ride inside the product's meta_data[] array on /wc/v3/products, the same way this KB's other core-meta profiles read theirs. [NEEDS-VERIFICATION] live appearance in meta_data: the test site has the plugin active but zero subscription products (204 products scanned 2026-08-16, no wps_sfw_* / _wps_sfw_* key on any), so the read has not been exercised against a real record."
+        },
+        {
+          "code": "cadence-maps-fields-do-not-all-fit",
+          "severity": "warning",
+          "summary": "The cadence pair maps cleanly to the verified Wix home: wps_sfw_subscription_interval (day|week|month|year) -> product.subscriptionDetails.subscriptions[].frequency (DAY|WEEK|MONTH|YEAR) and wps_sfw_subscription_number -> .interval (stores/product fieldContract, live-verified 2026-07-26; capability claimed by stores/subscription-product, confirmed by Spec Owner 2026-08-16). Subscription length/expiry, initial signup price, and free trial have no subscriptionDetails field - DECIDED 2026-08-16 (Spec Owner): reported loss, ledgered as fidelity_loss per record, NOT CMS-carried."
+        },
+        {
+          "code": "one-time-purchase-toggle-semantics",
+          "severity": "info",
+          "summary": "The plugin makes a product either a subscription or a one-time purchase per product (checkbox), while Wix models both on one product via subscriptionDetails.allowOneTimePurchases; a migrated subscription product should set allowOneTimePurchases=false unless the source sells both forms."
+        }
+      ]
+    },
+    {
+      "entity": "subscription-record",
+      "channel": "plugin-rest",
+      "route": "/wsp-route/v1/wsp-view-subscription",
+      "recordKeyField": "subscription_id",
+      "responseEnvelope": {
+        "itemsPath": "data"
+      },
+      "candidateTargetRefs": ["pricing-plans/plan-order"],
+      "pitfalls": [
+        {
+          "code": "pricing-plans-recreation-semantics",
+          "severity": "warning",
+          "summary": "CONFIRMED DIRECTION (accepted by Spec Owner 2026-08-16): active recurring-subscription contracts are RECREATED as Pricing Plans memberships via Create Offline Order (POST /pricing-plans/v2/checkout/orders/offline - planId + memberId + startDate, paid:true for contracts already collected) - target pricing-plans/plan-order. The Stores-product linkage is severed by design: product_name survives only as plan title/description, an accepted trade. stores/product.subscriptionDetails still covers the product OFFER only. Recurring BILLING never carries over (payment tokens do not migrate) - collection restarts on Wix; members must exist first (memberId via crosswalk)."
+        },
+        {
+          "code": "plugin-secret-gated-route",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] the route is advertised in the REST index but returns 403 rest_forbidden to the admin Application Password; it accepts only the plugin's own consumer_secret query parameter, and only when the API toggle is enabled in the plugin settings (see credentials[]). Treat a 403 here as Blocked - recoverable (credential), not surface drift."
+        },
+        {
+          "code": "summary-projection-only",
+          "severity": "warning",
+          "summary": "[DOCUMENTED] the route returns a 10-field summary per subscription (subscription_id, parent_order_id, status, product_name, recurring_amount, interval_number, interval_type, user_name, next_payment_date, subscriptions_expiry_date - plugin source 2.0.1, package/rest-api/version1/class-subscriptions-for-woocommerce-api-process.php, read 2026-08-16). Fuller state (customer id vs display name, trial/signup detail, payment gateway, billing history) lives in the wps_subscriptions record's meta and is NOT exposed here; user_name is a display nicename, not a stable customer key - crosswalk via parent_order_id -> /wc/v3/orders customer instead."
+        },
+        {
+          "code": "unpaginated-full-dump",
+          "severity": "info",
+          "summary": "[DOCUMENTED] the callback queries with limit -1 / numberposts -1 and returns every subscription in one wrapped response ({code, status, data: [...]}, no X-WP-Total headers, no page/per_page args) - fine for sampling, but recordCount equals the full set and large stores pay the whole cost on the first GET."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "STORAGE MODEL - (a) subscription product settings: unregistered postmeta on the product (no register_meta/show_in_rest anywhere in the plugin - [DOCUMENTED] 0 occurrences in source 2.0.1, read 2026-08-16), REST-visible only because WooCommerce surfaces non-internal postmeta in /wc/v3/products meta_data[]; (b) active subscription records: a WooCommerce custom ORDER TYPE 'wps_subscriptions' (wc_register_order_type in subscriptions-for-woocommerce.php, public:false, exclude_from_order_webhooks:true, status wc-wps_renewal; HPOS-aware - records live in WooCommerce's order tables when HPOS is on, in wp_posts otherwise) [DOCUMENTED source 2.0.1]. The type is NOT registered for REST: [VERIFIED LIVE 2026-08-16] wps_subscriptions is absent from the authed /wp/v2/types, and /wc/v3/orders serves shop_order only - so the plugin's own secret-gated route is the ONLY REST read for subscription records.",
+    "[VERIFIED LIVE 2026-08-16] on the reference store (plugin 2.0.1 active): the REST index advertises namespace wsp-route/v1 with exactly one data route, /wsp-route/v1/wsp-view-subscription (GET, no args); note the namespace is 'wsp-route', not the 'wsfw-route' a reader might guess from the plugin's wps_sfw_* prefix.",
+    "The plugin is the former MakeWebBetter 'Subscriptions for WooCommerce'; mwb_-prefixed helpers survive in the 2.0.1 source. [NEEDS-VERIFICATION] whether long-lived source sites still carry legacy mwb_sfw_* postmeta alongside or instead of wps_sfw_* - if a site predates the WP Swings rename, check for mwb_sfw_* keys before concluding a product is not a subscription.",
+    "[VERIFIED LIVE 2026-08-16] the test site has 204 products, none flagged _wps_sfw_product and no subscription records reachable, so every read-shape claim above rests on the published 2.0.1 source rather than a live payload; re-verify against a store with real subscription data before promoting this profile's field list to a contract."
+  ]
+}

@@ -18,7 +18,8 @@ The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from th
   - **storefront** — sell physical or digital products online.
   - **bookings** — let customers book appointments or services with your business.
   - **blog** — publish articles for visitors to read.
-  - **cms** — model and serve your own custom, structured content — for anything the other verticals don't cover.
+  - **forms** — any visitor-fillable form: contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration. **Not forms** — an event or occasion RSVP is **events** (built-in RSVP registration form), and a per-service booking form is **bookings**.
+  - **cms** — model and serve your own custom, structured content — for anything the other verticals don't cover. **Not cms** — a visitor-fillable form is **forms**; reach for cms only when the app must read the entries back.
   - **portfolio** — showcase creative work in collections and project pages.
   - **pricing-plans** — sell memberships or subscriptions to your service.
   - **events** — publish events and handle RSVPs or ticket sales.

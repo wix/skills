@@ -66306,11 +66306,13 @@ const gate_1 = __nccwpck_require__(2302);
 const promote_1 = __nccwpck_require__(2245);
 const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
+const merge_tag_sweep_1 = __nccwpck_require__(3821);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
+    'merge-tag-sweep': merge_tag_sweep_1.runMergeTagSweep,
 };
 const mode = core.getInput('mode') || 'eval';
 const handler = modes[mode];
@@ -66432,6 +66434,7 @@ exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
+exports.formatDocsEntryProblems = formatDocsEntryProblems;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -66495,6 +66498,24 @@ function formatTooManyNewSkills(count, limit, files) {
         '- Update existing skills instead of creating new ones',
     ]);
 }
+function formatDocsEntryProblems(problems) {
+    const lines = problems.map((p) => {
+        const ref = `\`${p.yamlPath}\` → "${p.title}": \`${p.docsEntry}\``;
+        switch (p.kind) {
+            case 'portal-not-found':
+                return `- ${ref} — does not match any docs portal. Check the URL for typos.`;
+            case 'node-not-found':
+                return `- ${ref} — this page does not exist in the docs menu. If you just created the category, wait a minute and re-run this check.`;
+            case 'not-a-category':
+                return `- ${ref} — points at ${p.nodeType === 'SECTION' ? 'a section' : 'an API page'}, not a category.${p.suggestion ? ` You could use the category that groups it (\`${p.suggestion}\`), or pick/create a different one.` : ' Point it at an existing category, or create one in the docs menu.'}`;
+        }
+    });
+    return render('❌', 'Invalid docsEntry', [
+        '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+        '',
+        ...lines,
+    ]);
+}
 function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -66546,18 +66567,24 @@ function winnerLabel(s) {
     return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
 }
 function formatComparisonResult(result, projectId) {
-    const { verdict, tag, scenarios } = result.result;
+    const { verdict, tag, scenarios, judgeCoverage } = result.result;
     const hasNoWinner = comparisonHasNoWinner(result.result);
-    const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
+    // Partial judging never gets a green tick: `not-required` is what the pipeline
+    // returns when a judge yields nothing, so a throttled pass looks identical to
+    // a genuine "no difference" unless coverage is taken into account.
+    const isFullyJudged = !judgeCoverage || judgeCoverage.judged === judgeCoverage.total;
+    const verdictIcon = verdict === 'not-required' && !hasNoWinner && isFullyJudged ? '✅' : '⚠️';
     const lines = [
         exports.COMMENT_MARKER,
         `## ${verdictIcon} ${HEADING}: Eval Comparison`,
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
-        '|---|---|---|---|---|---|---|',
     ];
+    if (!isFullyJudged && judgeCoverage) {
+        lines.push(`> ⚠️ **Only ${judgeCoverage.judged}/${judgeCoverage.total} scenarios were judged.** The verdict above rests on the`, '> remaining scenarios\' assertion results alone, so treat it as provisional rather than', '> as evidence the skill makes no difference. Re-run to get full coverage.', '');
+    }
+    lines.push('| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |', '|---|---|---|---|---|---|---|');
     for (const s of (scenarios ?? [])) {
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
@@ -66654,6 +66681,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
+exports.getMergeSweepConfig = getMergeSweepConfig;
 exports.getEvalConfig = getEvalConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -66689,6 +66717,19 @@ function getScheduleConfig() {
         runName: core.getInput('run-name') || 'scheduled-run',
     };
 }
+function getMergeSweepConfig() {
+    return {
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        agentId: core.getInput('evalforge-agent-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        changedFilesRaw: core.getInput('changed-files'),
+    };
+}
 function getEvalConfig() {
     const pr = github.context.payload.pull_request;
     const headSha = pr.head?.sha;
@@ -66710,6 +66751,78 @@ function getEvalConfig() {
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
         maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
+}
+
+
+/***/ }),
+
+/***/ 1505:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_RETRY_SCENARIOS = exports.MAX_CONFIRM_RETRIES = void 0;
+exports.confirmOnFail = confirmOnFail;
+exports.MAX_CONFIRM_RETRIES = 2;
+/** Above this many initial failures, retries are skipped: broad failure is signal, not noise. */
+exports.MAX_RETRY_SCENARIOS = 10;
+async function confirmOnFail(initial, rerun) {
+    const failed = initial.filter(o => o.failed);
+    if (failed.length === 0)
+        return { verdicts: [], retriesRun: 0 };
+    const state = new Map(failed.map(o => [o.scenarioId, {
+            scenarioId: o.scenarioId,
+            scenarioName: o.scenarioName,
+            attempts: 1,
+            failures: 1,
+            reasons: new Set(o.reasons),
+        }]));
+    if (failed.length > exports.MAX_RETRY_SCENARIOS) {
+        return {
+            verdicts: finalize(state, () => true),
+            retriesRun: 0,
+            skipReason: 'broad-failure',
+        };
+    }
+    let pending = [...state.keys()];
+    let retriesRun = 0;
+    for (let retry = 0; retry < exports.MAX_CONFIRM_RETRIES && pending.length > 0; retry++) {
+        const results = new Map((await rerun(pending)).map(o => [o.scenarioId, o]));
+        retriesRun++;
+        const stillTied = [];
+        for (const id of pending) {
+            const s = state.get(id);
+            const outcome = results.get(id);
+            const failedAttempt = outcome ? outcome.failed : true;
+            s.attempts++;
+            if (failedAttempt) {
+                s.failures++;
+                for (const r of outcome?.reasons ?? ['missing-result'])
+                    s.reasons.add(r);
+            }
+            // Majority of 3: 2 failures confirms; a pass after 3 attempts recovers.
+            if (s.failures < 2 && s.attempts <= exports.MAX_CONFIRM_RETRIES)
+                stillTied.push(id);
+        }
+        pending = stillTied;
+    }
+    return {
+        verdicts: finalize(state, s => s.failures >= 2),
+        retriesRun,
+    };
+}
+function finalize(state, isConfirmed) {
+    return [...state.values()]
+        .map(s => ({
+        scenarioId: s.scenarioId,
+        scenarioName: s.scenarioName,
+        attempts: s.attempts,
+        failures: s.failures,
+        confirmed: isConfirmed(s),
+        reasons: [...s.reasons],
+    }))
+        .sort((a, b) => a.scenarioName.localeCompare(b.scenarioName));
 }
 
 
@@ -66894,6 +67007,181 @@ function canonicalDocUrl(filePath, workspace) {
 
 /***/ }),
 
+/***/ 7018:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.changedDocsEntries = changedDocsEntries;
+exports.validateDocsEntries = validateDocsEntries;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const glob_1 = __nccwpck_require__(1363);
+const jsYaml = __importStar(__nccwpck_require__(4281));
+const paths_1 = __nccwpck_require__(6621);
+const PORTALS_URL = 'https://dev.wix.com/docs/api/v1/available-portals';
+const menuUrl = (portalId) => `https://dev.wix.com/docs/api/v1/cache/get-cached-menu/public/${portalId}`;
+const DEV_WIX_PREFIX = 'https://dev.wix.com';
+function loadDocsEntryIndex(workspace) {
+    const index = new Map();
+    const yamlPaths = glob_1.glob.sync(paths_1.DOC_YAML_GLOB, {
+        cwd: workspace,
+        nodir: true,
+        ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
+    });
+    for (const yamlPath of yamlPaths) {
+        const yamlAbsolutePath = (0, node_path_1.resolve)(workspace, yamlPath);
+        const parsedYaml = jsYaml.load((0, node_fs_1.readFileSync)(yamlAbsolutePath, 'utf8'), { schema: jsYaml.CORE_SCHEMA }) ?? {};
+        for (const entry of parsedYaml.apiDoc?.docs ?? []) {
+            if (!entry.file || !entry.docsEntry || !entry.title)
+                continue;
+            const skillFileAbsolutePath = (0, node_path_1.resolve)((0, node_path_1.dirname)(yamlAbsolutePath), entry.file);
+            const skillFilePath = (0, node_path_1.relative)(workspace, skillFileAbsolutePath).split('\\').join('/');
+            index.set(skillFilePath, {
+                file: skillFilePath,
+                yamlPath,
+                title: entry.title,
+                docsEntry: entry.docsEntry,
+            });
+        }
+    }
+    return index;
+}
+/**
+ * Doc entries this PR introduces or repoints — exactly the entries the docs
+ * pipeline will try to place in the menu after merge.
+ */
+function changedDocsEntries(workspace, baseWorkspace) {
+    const headIndex = loadDocsEntryIndex(workspace);
+    const baseIndex = loadDocsEntryIndex(baseWorkspace);
+    return [...headIndex.values()].filter((target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry);
+}
+function stripTrailingSlashes(url) {
+    return url.replace(/\/+$/, '');
+}
+function portalUrlPrefix(portal) {
+    const docsUrl = portal.config?.docsUrl;
+    if (!docsUrl?.basename)
+        return null;
+    return DEV_WIX_PREFIX + stripTrailingSlashes(`${docsUrl.basename}${docsUrl.path ?? ''}`);
+}
+/** Longest portal prefix the docsEntry falls under, or null */
+function resolvePortal(docsEntry, portals) {
+    const docsEntryUrl = stripTrailingSlashes(docsEntry);
+    let bestMatch = null;
+    for (const portal of portals) {
+        const prefix = portalUrlPrefix(portal);
+        if (!prefix || !portal.id)
+            continue;
+        if (docsEntryUrl !== prefix && !docsEntryUrl.startsWith(prefix + '/'))
+            continue;
+        if (!bestMatch || prefix.length > bestMatch.prefix.length)
+            bestMatch = { portal, prefix };
+    }
+    if (!bestMatch)
+        return null;
+    return { ...bestMatch, nodePath: docsEntryUrl.slice(bestMatch.prefix.length) };
+}
+function findNode(nodes, url, nearestCategory) {
+    for (const node of nodes) {
+        if (node.url === url)
+            return { node, nearestCategoryAncestor: nearestCategory };
+        const nearestForChildren = node.menuNodeType === 'CATEGORY' ? node : nearestCategory;
+        const match = findNode(node.children ?? [], url, nearestForChildren);
+        if (match)
+            return match;
+    }
+    return null;
+}
+async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok)
+        throw new Error(`GET ${url} responded ${response.status}`);
+    return response.json();
+}
+/**
+ * Checks each docsEntry against the live docs menu. A skill menu node can only
+ * be created under a CATEGORY, so anything else is guaranteed to fail.
+ */
+async function validateDocsEntries(targets) {
+    if (targets.length === 0)
+        return { problems: [] };
+    const problems = [];
+    try {
+        const { portals = [] } = (await fetchJson(PORTALS_URL));
+        const menusByPortalId = new Map();
+        for (const target of targets) {
+            const resolvedPortal = resolvePortal(target.docsEntry, portals);
+            if (!resolvedPortal) {
+                problems.push({ ...target, kind: 'portal-not-found' });
+                continue;
+            }
+            const portalId = resolvedPortal.portal.id;
+            let menu = menusByPortalId.get(portalId);
+            if (!menu) {
+                menu = (await fetchJson(menuUrl(portalId)));
+                menusByPortalId.set(portalId, menu);
+            }
+            const nodeLookup = resolvedPortal.nodePath ? findNode(menu, resolvedPortal.nodePath) : null;
+            if (!nodeLookup) {
+                problems.push({ ...target, kind: 'node-not-found' });
+                continue;
+            }
+            if (nodeLookup.node.menuNodeType !== 'CATEGORY') {
+                problems.push({
+                    ...target,
+                    kind: 'not-a-category',
+                    nodeType: nodeLookup.node.menuNodeType,
+                    suggestion: nodeLookup.nearestCategoryAncestor?.url
+                        ? resolvedPortal.prefix + nodeLookup.nearestCategoryAncestor.url
+                        : undefined,
+                });
+            }
+        }
+    }
+    catch (error) {
+        return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
+    }
+    return { problems };
+}
+
+
+/***/ }),
+
 /***/ 3942:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -66943,6 +67231,18 @@ const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * The completion poll does substantially more work server-side than the
+ * intermediate "still running" polls, so it can legitimately take much longer
+ * than a normal call.
+ *
+ * Deliberately longer than any deadline the server side applies to itself, so
+ * that the client is the last participant to give up. Aborting locally first
+ * loses the real error and, because an abort counts as retriable, re-issues a
+ * request whose work had already succeeded.
+ */
+const COMPARE_GROUP_TIMEOUT_MS = 65_000;
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
 }
@@ -66964,7 +67264,7 @@ class EvalPipelineClient {
         // headers no longer resolve the app identity once the app is public.
         this.tokens = new evalforge_core_1.TokenProvider(OAUTH_TOKEN_URL, appId, appSecret);
     }
-    async post(path, body) {
+    async post(path, body, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
         // No 401 refresh-retry: /run-comparison is non-idempotent (it queues eval runs)
         // and getToken() re-mints proactively before expiry, so a 401 here is a
         // permission denial, not a stale token — retrying would only double-fire.
@@ -66976,7 +67276,7 @@ class EvalPipelineClient {
                 Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(timeoutMs),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
@@ -66988,7 +67288,7 @@ class EvalPipelineClient {
         return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
     }
     async compareGroup(comparisonGroupId) {
-        return this.post('/compare-group', { comparisonGroupId });
+        return this.post('/compare-group', { comparisonGroupId }, COMPARE_GROUP_TIMEOUT_MS);
     }
 }
 exports.EvalPipelineClient = EvalPipelineClient;
@@ -67097,6 +67397,7 @@ const config_1 = __nccwpck_require__(7799);
 const github_1 = __nccwpck_require__(6246);
 const evals_1 = __nccwpck_require__(1686);
 const doc_url_1 = __nccwpck_require__(8515);
+const docs_entry_check_1 = __nccwpck_require__(7018);
 const coverage_1 = __nccwpck_require__(4035);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const eval_pipeline_1 = __nccwpck_require__(3942);
@@ -67167,6 +67468,7 @@ async function runGate() {
     await (0, evalforge_core_1.assertWixAuthor)(octokit, config.owner, config.repo, config.prNumber, core.info);
     const comment = (0, github_1.makeCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
+    const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
     core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
@@ -67180,6 +67482,20 @@ async function runGate() {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
         (0, github_1.fail)(`Invalid YAML or duplicate names: ${loadErrors.length}`, config.blocking);
         return;
+    }
+    // A docsEntry that does not resolve to a docs menu category is a guaranteed
+    // silently-unexposed skill after merge.
+    const docsEntryTargets = (0, docs_entry_check_1.changedDocsEntries)(workspace, baseWorkspace);
+    if (docsEntryTargets.length > 0) {
+        const { problems, serviceError } = await (0, docs_entry_check_1.validateDocsEntries)(docsEntryTargets);
+        if (serviceError) {
+            core.warning(`Skipping docsEntry validation — docs menu unavailable: ${serviceError}`);
+        }
+        else if (problems.length > 0) {
+            await comment((0, comment_1.formatDocsEntryProblems)(problems));
+            (0, github_1.fail)(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
+            return;
+        }
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)
@@ -67211,7 +67527,6 @@ async function runGate() {
         (0, github_1.fail)(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);
         return;
     }
-    const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
@@ -67368,6 +67683,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseChangedFiles = parseChangedFiles;
 exports.classifyChanges = classifyChanges;
 exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
@@ -67376,6 +67692,40 @@ const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
+const GIT_STATUS_MAP = {
+    A: 'added',
+    M: 'modified',
+    D: 'removed',
+    T: 'modified',
+};
+/**
+ * Parses `git diff --name-status <before> <after>` output into `ChangedFile[]`, for the
+ * merge-tag sweep (a push event, not a PR — there's no octokit file-list API to call here).
+ * Copy (C) is treated as added and type-change (T) as modified; renames (R<score>) carry
+ * both paths. Unrecognized status codes are skipped rather than guessed at.
+ */
+function parseChangedFiles(diffOutput) {
+    const files = [];
+    for (const line of diffOutput.split('\n')) {
+        if (!line.trim())
+            continue;
+        const parts = line.split('\t');
+        const letter = parts[0][0];
+        if (letter === 'R') {
+            files.push({ filename: parts[2], status: 'renamed', previousFilename: parts[1] });
+            continue;
+        }
+        if (letter === 'C') {
+            files.push({ filename: parts[2], status: 'added' });
+            continue;
+        }
+        const status = GIT_STATUS_MAP[letter];
+        if (!status)
+            continue;
+        files.push({ filename: parts[1], status });
+    }
+    return files;
+}
 function classifyChanges(files) {
     const classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
     for (const file of files) {
@@ -67407,6 +67757,291 @@ function makeCommenter(octokit, owner, repo, prNumber) {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
+}
+
+
+/***/ }),
+
+/***/ 3821:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_SWEEP_SCENARIOS = void 0;
+exports.tagsOfDirectlyAffected = tagsOfDirectlyAffected;
+exports.resolveSweepSet = resolveSweepSet;
+exports.rowsToOutcomes = rowsToOutcomes;
+exports.runMergeTagSweep = runMergeTagSweep;
+const evalforge_core_1 = __nccwpck_require__(7495);
+const gate_1 = __nccwpck_require__(2302);
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_2 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const evals_1 = __nccwpck_require__(1686);
+const doc_url_1 = __nccwpck_require__(8515);
+const coverage_1 = __nccwpck_require__(4035);
+const github_1 = __nccwpck_require__(6246);
+const workspace_1 = __nccwpck_require__(9620);
+const confirm_1 = __nccwpck_require__(1505);
+const merged_by_1 = __nccwpck_require__(5795);
+/** Above this many tag-matched scenarios, the sweep samples rather than running everything —
+ * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
+exports.MAX_SWEEP_SCENARIOS = 20;
+/** Tags carried by whatever the PR-time gate would itself run for this push: scenarios whose
+ * own YAML changed, unioned with scenarios covering a changed doc. */
+function tagsOfDirectlyAffected(headScenarios, changedEvalPaths, coveredBy) {
+    const affected = (0, gate_1.scenariosToRun)({ headScenarios, changedEvalPaths, coveredBy });
+    const tags = new Set();
+    for (const ls of affected.values()) {
+        for (const t of ls.scenario.tags)
+            tags.add(t);
+    }
+    return tags;
+}
+/**
+ * Resolves the sweep set from EvalForge itself, not the local repo — a scenario that exists
+ * only in EvalForge (hand-authored, drafted from traffic mining) is swept in too, as long as
+ * its tag matches. Caps deterministically: sorted by name, so an overflowing tag samples the
+ * same subset every time rather than an unstable truncation.
+ */
+async function resolveSweepSet(client, projectId, tags) {
+    if (tags.size === 0)
+        return { selected: [], excludedCount: 0, totalMatched: 0 };
+    const all = [];
+    for (const tag of tags) {
+        all.push(...await client.listTestScenariosByTag(projectId, tag));
+    }
+    const unique = (0, evalforge_core_1.uniqueRemoteScenarios)(all).sort((a, b) => a.name.localeCompare(b.name));
+    const selected = unique.slice(0, exports.MAX_SWEEP_SCENARIOS);
+    return {
+        selected,
+        excludedCount: Math.max(0, unique.length - exports.MAX_SWEEP_SCENARIOS),
+        totalMatched: unique.length,
+    };
+}
+/** Turns one EvalRun's per-scenario result rows into confirm.ts's generic AttemptOutcome shape.
+ * There's no with/without pair here as in a PR-time comparison — just "did main pass this
+ * scenario" — so the rows fold straight into an outcome per scenario. */
+function rowsToOutcomes(rows) {
+    return (0, evalforge_core_1.foldScenarioIterations)(rows).map(outcome => ({
+        scenarioId: outcome.scenarioId,
+        scenarioName: outcome.scenarioName,
+        failed: outcome.failed > 0 || outcome.errors > 0,
+        reasons: outcome.failingAssertionNames ?? [],
+    }));
+}
+/**
+ * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
+ * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
+ * Without this the job would only go red, and a red check on a `main` commit is not a signal
+ * anyone is watching for; the Slack message is the whole point of this mode.
+ */
+async function runMergeTagSweep() {
+    try {
+        await sweep();
+    }
+    catch (e) {
+        const message = `Merge-tag sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+    }
+}
+async function sweep() {
+    const config = (0, config_1.getMergeSweepConfig)();
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const octokit = github.getOctokit(config.githubToken);
+    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    if (config.changedFilesRaw.trim() === '') {
+        core.info('Merge-tag sweep: no changed files reported for this push (e.g. first push on this ref) — nothing to run');
+        return;
+    }
+    const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
+    const classified = (0, github_1.classifyChanges)(changedFiles);
+    const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
+    for (const e of loadErrors)
+        core.warning(`Scenario load issue (${e.path}): ${e.message}`);
+    const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
+    const changedEvalPaths = new Set([
+        ...classified.evalsAdded.map(f => f.filename),
+        ...classified.evalsModified.map(f => f.filename),
+    ]);
+    const tags = tagsOfDirectlyAffected(headScenarios, changedEvalPaths, cov.coveredBy);
+    if (tags.size === 0) {
+        core.info('Merge-tag sweep: no eval-relevant tags in this push — nothing to run');
+        return;
+    }
+    const sortedTags = [...tags].sort();
+    core.setOutput('matched-tags', sortedTags.join(', '));
+    const runName = `merge-sweep-${github.context.sha.slice(0, 7)}`;
+    const runOnce = async (name, scenarioIds) => {
+        const created = await evalforge.createAndRunEvalRun(config.projectId, {
+            name,
+            description: `Merge-tag sweep for tags: ${sortedTags.join(', ')}`,
+            projectId: config.projectId,
+            agentId: config.agentId,
+            scenarioIds,
+        });
+        await evalforge.triggerEvalRun(config.projectId, created.id);
+        const status = await (0, evalforge_core_2.pollUntilDone)(evalforge, config.projectId, created.id, { log: core.info, warn: core.warning });
+        return { id: created.id, status };
+    };
+    // Everything from here on talks to EvalForge — wrapped so an infra failure (unreachable,
+    // 5xx, auth) surfaces as a distinct Slack message rather than a bare failed job nobody sees,
+    // same "no silent failure" rule the PR-time gate applies via PR comments.
+    let initial;
+    try {
+        const { selected, excludedCount, totalMatched } = await resolveSweepSet(evalforge, config.projectId, tags);
+        core.setOutput('sweep-matched-total', String(totalMatched));
+        core.setOutput('sweep-sampled-count', String(selected.length));
+        if (excludedCount > 0) {
+            core.warning(`Merge-tag sweep: sampled ${selected.length} of ${totalMatched} tag-matched scenarios (${excludedCount} excluded by the cap)`);
+        }
+        if (selected.length === 0) {
+            core.info('Merge-tag sweep: tag match resolved to zero scenarios — nothing to run');
+            return;
+        }
+        initial = await runOnce(runName, selected.map(s => s.id));
+    }
+    catch (e) {
+        const message = e instanceof evalforge_core_2.EvalRunTimeoutError
+            ? `Merge-tag sweep timed out: ${e.message}`
+            : `Merge-tag sweep could not run: ${e instanceof Error ? e.message : String(e)}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+        return;
+    }
+    // Set before the completeness check: a run that was created and then failed or was cancelled
+    // is exactly the case where the reader most wants the link.
+    core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
+    if (initial.status.status !== 'completed' || initial.status.aggregateMetrics.totalAssertions === 0) {
+        const reason = initial.status.status !== 'completed'
+            ? `the eval run ${initial.status.status === 'cancelled' ? 'was cancelled' : `ended as "${initial.status.status}"`}`
+            : 'the run produced no assertions, so nothing was verified';
+        const message = `Merge-tag sweep run did not complete reliably: ${reason}`;
+        core.setOutput('infra-error', message);
+        core.setFailed(message);
+        return;
+    }
+    const initialOutcomes = rowsToOutcomes(initial.status.results);
+    const initialFailures = initialOutcomes.filter(o => o.failed);
+    if (initialFailures.length === 0) {
+        core.info('Merge-tag sweep: all sampled scenarios passed');
+        core.setOutput('confirmed-failed-count', '0');
+        core.setOutput('recovered-count', '0');
+        return;
+    }
+    let confirmResult;
+    try {
+        confirmResult = await (0, confirm_1.confirmOnFail)(initialOutcomes, async (ids) => {
+            const retry = await runOnce(`${runName}-retry`, ids);
+            return rowsToOutcomes(retry.status.results);
+        });
+    }
+    catch (e) {
+        core.error(`Merge-tag sweep retry failed: ${e instanceof Error ? e.message : String(e)}`);
+        confirmResult = {
+            verdicts: initialFailures.map(o => ({
+                scenarioId: o.scenarioId, scenarioName: o.scenarioName,
+                attempts: 1, failures: 1, confirmed: true, reasons: o.reasons,
+            })),
+            retriesRun: 0,
+            skipReason: 'rerun-error',
+        };
+    }
+    const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
+    const recovered = confirmResult.verdicts.filter(v => !v.confirmed);
+    // When retries were skipped, every verdict stands on a single attempt. Saying "confirmed"
+    // without saying that would promise a majority-of-three vote the run never took.
+    const skipNote = confirmResult.skipReason === 'broad-failure'
+        ? `no retries run — ${initialFailures.length} scenarios failed at once, treated as signal rather than noise`
+        : confirmResult.skipReason === 'rerun-error'
+            ? 'no retries run — the retry itself failed, so the first attempt stands'
+            : '';
+    core.setOutput('confirm-skip-reason', skipNote);
+    core.setOutput('confirmed-failed-count', String(confirmed.length));
+    core.setOutput('recovered-count', String(recovered.length));
+    core.setOutput('confirmed-failed-scenarios', confirmed.map(v => `${v.scenarioName} (${v.reasons.join(', ')})`).join('\n'));
+    if (skipNote)
+        core.warning(`Merge-tag sweep: ${skipNote}`);
+    if (confirmed.length > 0) {
+        const fallback = {
+            name: github.context.payload.head_commit?.author?.name ?? 'unknown',
+            url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
+        };
+        let mergedBy;
+        try {
+            mergedBy = await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
+        }
+        catch (e) {
+            core.warning(`Could not resolve merging PR author, using commit author instead: ${e instanceof Error ? e.message : String(e)}`);
+            mergedBy = fallback;
+        }
+        core.setOutput('merged-by-name', mergedBy.name);
+        core.setOutput('merged-by-url', mergedBy.url);
+        core.setFailed(`${confirmed.length} scenario(s) confirmed failed in merge-tag sweep (${confirmed.map(v => v.scenarioName).join(', ')})`);
+    }
+}
+
+
+/***/ }),
+
+/***/ 5795:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveMergedBy = resolveMergedBy;
+/**
+ * Attributes a merge commit to a PR author, for the merge-tag sweep's Slack notification.
+ * Works across both squash and rebase merges (a squash-commit-message regex would not) since
+ * it asks GitHub directly which PR(s) a commit belongs to, rather than parsing commit text.
+ * Falls back to the caller-supplied commit author when no PR is associated (e.g. a direct
+ * push bypassing PR flow) or the associated PR's account no longer exists.
+ */
+async function resolveMergedBy(octokit, owner, repo, commitSha, fallback) {
+    const { data } = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+        owner, repo, commit_sha: commitSha,
+    });
+    const pr = data[0];
+    if (!pr || !pr.user)
+        return fallback;
+    return { name: pr.user.login, url: pr.html_url };
 }
 
 

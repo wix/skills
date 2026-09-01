@@ -1,0 +1,41 @@
+name: dashboard-page/admin-call-routed-and-elevated
+description: Dashboard page performing the same admin Locations operation as the Editor React component scenario — the docs ship both methods elevated, so both must be routed through a backend endpoint that elevates, from the dashboard host too
+triggerPrompt: |-
+  Build a dashboard page for my app that lists the site's business locations and lets the site owner archive one. Use the Wix Locations API.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, backend-api, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/WIX_PATTERNS_DOCS.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      This is the dashboard-host counterpart to the Editor React component Locations scenario. Same two methods — `locations.queryLocations` (scope `SCOPE.DC-MULTILOCATION.READ-LOCATIONS`, admin-only despite being a read) and `locations.archiveLocation` (scope `SCOPE.DC-MULTILOCATION.MANAGE-LOCATIONS`) — and every Locations method page leads with an example titled "(with elevated permissions)" that wraps the call in `auth.elevate` inside backend code. `auth.elevate` from `@wix/essentials` only works in backend code, so the documented pattern can only run in an endpoint. The host being the dashboard does not change that: a dashboard page runs as the Wix user, but it is still page code, so the elevated call belongs on the server.
+
+      Evaluate whether the agent routed both calls. Check: (1) One or more HTTP endpoints under `src/pages/api/` wrap both `queryLocations` and `archiveLocation` with `auth.elevate`. (2) No direct `locations.*` SDK call appears in dashboard page code under `src/pages/` outside `src/pages/api/`. **The read counts** — a page that routes the archive but calls `queryLocations` directly is wrong. (3) The page reaches the endpoints with `httpClient.fetchWithAuth()` from `@wix/essentials` — a bare `fetch` sends no caller identity and is wrong, because elevation bypasses Wix's permission check and the handler has nothing left to check against. (4) The list refreshes after an archive, and the default location — which cannot be archived — is handled rather than offered as archivable. The locations list and its row actions come from `@wix/patterns` rather than a hand-written table or a raw WDS assembly, per the Patterns Docs Gate. (5) The agent surfaced adding the Locations scopes in Dev Center as a manual step.
+
+      Judge these two operations only. Routing here is not a blanket rule for dashboard pages — session-resolved and caller-filtered methods still belong in page code, and an agent that says so while still routing these two should not be penalized for the remark.
+
+      Score 0-10. Score 3 or below if either `queryLocations` or `archiveLocation` is called directly from dashboard page code, if `auth.elevate` is absent from the endpoint, or if a bare `fetch` is used to reach it.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It settled the identity question from the method docs before writing the calls, rather than assuming the dashboard host licensed a direct admin call and discovering the problem later. Reading the Locations method pages and noticing the elevated example is the behavior to reward. (2) It read the Backend API reference before creating the endpoint, and the Dashboard Page reference before building the UI. (3) It used `npx wix generate` to scaffold the page and the endpoint unless the starter project already contained them, in which case editing in place is correct. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

@@ -170,6 +170,8 @@ render.
 
 ## Using the client from your own UI (menu, order cart)
 
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
+
 ```jsx
 import { getFullMenu } from "@/rest/wix-restaurants-menu";
 import { useOrderCart } from "@/context/OrderCartContext";
@@ -188,7 +190,8 @@ const { menus } = await getFullMenu();            // [] when no menus → show t
 // Load-bearing field paths (the shipped components already do these):
 // - item.image / section.image / label.icon are OBJECTS → render `.url`, never the object; //-urls → https:
 // - MENU prices are plain decimal strings with NO currency symbol ("12.50") — format in the UI.
-//   The eCom cart line price (line.price.formattedAmount) DOES include the symbol.
+//   The eCom cart line price (line.pricing.unitPrice / line.pricing.totalPrice) is a ConvertedMoney
+//   { amount, convertedAmount } with NO symbol either — format the number yourself.
 // - an item is priced by EITHER item.price (single) OR item.variants[] (one-of, each { name, price }).
 // - a cart mutation uses cart.lineItems[].id (the lineItemId), NOT the menu item id.
 ```

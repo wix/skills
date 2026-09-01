@@ -1,0 +1,406 @@
+// Wix docs helpers for the Base44 sandbox. Small results return inline; anything over
+// ~4,000 chars (exec results clip at ~5,000) is saved under .agents/skills/wix-base44-connector/tmp and comes
+// back as { path, bytes, lines, outline } with the read tools pre-pointed at it.
+//
+// Load per exec (execs share no state) — from disk, network only as first-touch fallback:
+//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+//   if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
+//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
+//   const wx = (() => { const m = { exports: {} };
+//     new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
+//
+// Read a saved file the way you already know how: wx.bash("grep -n 'term' <path> | head -40")
+// to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
+// round needed), pipelines for the rest (GNU grep/sed; awk is mawk; no rg).
+//
+// API responses are site data and never saved — post() projects them to facts.
+
+const fs = require("fs");
+const path = require("path");
+
+const BUDGET = 4000;
+const SCRATCH = ".agents/skills/wix-base44-connector/tmp";
+
+const clip = (out) => {
+  if (typeof out === "string")
+    return out.length <= BUDGET ? out : { truncated: true, total: out.length, head: out.slice(0, BUDGET) };
+  // absence must be visible: JSON.stringify silently ERASES undefined keys, so a probe like
+  // { lineItems: resp.cart?.lineItems } loses the very field that proves the call failed —
+  // render undefined as null instead
+  const s = JSON.stringify(out, (k, v) => v === undefined ? null : v);
+  return s.length <= BUDGET ? JSON.parse(s) : { truncated: true, total: s.length, head: s.slice(0, BUDGET) };
+};
+
+// One transport for every JSON call — Content-Type, optional Bearer, ok-guard. One per verb, so a
+// PATCH/GET/PUT/DELETE endpoint is a helper call, never a hand-rolled fetch. Admin calls are these
+// with the connector token: patch(publicUrl, body, accessToken).
+async function req(method, url, body, token) {
+  const r = await fetch(url, { method,
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+    headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
+  if (!r.ok) {
+    const head = (await r.text()).slice(0, 300);
+    throw new Error(r.status + " " + head + (r.status < 500
+      ? " — a 4xx means wrong body or reference: read this endpoint's contract before changing the call"
+      : ""));
+  }
+  return r.json();
+}
+const post  = (url, body, token) => req("POST", url, body, token);
+const get   = (url, token)       => req("GET", url, undefined, token);
+const patch = (url, body, token) => req("PATCH", url, body, token);
+const put   = (url, body, token) => req("PUT", url, body, token);
+const del   = (url, token)       => req("DELETE", url, undefined, token);
+
+function save(name, text) {
+  const dir = SCRATCH;
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, name), text);
+  return { path: SCRATCH + "/" + name, bytes: Buffer.byteLength(text), lines: text.split("\n").length };
+}
+
+const outlineOf = (lines, cap = 30) => {
+  const heads = [];
+  lines.forEach((t, i) => { if (/^#{1,3} /.test(t)) heads.push({ line: i + 1, text: t.trim().slice(0, 80) }); });
+  return { outline: heads.slice(0, cap), outlineOmitted: Math.max(0, heads.length - cap) };
+};
+
+// A ref is a saved path or the URL it came from — resolve to lines, fetching+saving
+// URLs on first touch (the .md suffix is appended for extensionless docs URLs).
+// two path segments, not one: doc leaves repeat across products (every API has an
+// introduction.md), and a one-segment name makes resolveRef's cache return the WRONG document
+const slugOf = (url) => url.replace(/\?.*$/, "").replace(/\.md$/, "")
+  .split("/").filter(Boolean).slice(-2).join("-") + ".md";
+async function resolveRef(ref) {
+  const isUrl = /^https?:/.test(ref);
+  const name = isUrl ? slugOf(ref) : ref.split("/").pop();
+  const file = path.join(SCRATCH, name);
+  if (fs.existsSync(file)) return { path: SCRATCH + "/" + name, lines: fs.readFileSync(file, "utf8").split("\n") };
+  if (!isUrl) throw new Error("no such saved file: " + ref + " — pass a returned path or the source URL");
+  const mdUrl = /\.[a-z]{2,5}$/.test(ref.replace(/\?.*$/, "")) ? ref : ref.replace(/\?.*$/, "") + ".md";
+  const res = await fetch(mdUrl);
+  if (!res.ok) throw new Error(res.status + " on " + mdUrl + " — not a docs page; take URLs from output, don't compose");
+  const text = await res.text();
+  const saved = save(name, text);
+  return { path: saved.path, lines: text.split("\n") };
+}
+
+// ── gather context ────────────────────────────────────────────────────────────
+
+// The dynamic context report — site data, never saved. No section → the whole report
+// when it fits, else its header outline; with one → that section's text. Empty
+// report = bad token, never an empty site.
+async function context(token, section) {
+  const { markdown } = await post(
+    "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {}, token);
+  if (!section) {
+    if (markdown.length <= BUDGET) return markdown;   // most sites: the whole report, one round
+    return { truncated: true, total: markdown.length, head: markdown.slice(0, BUDGET),
+             note: "site data — never saved (no path); narrow: wx.context(token, '<section name>')" };
+  }
+  const m = markdown.match(new RegExp("^#{1,3} .*" + section + "[\\s\\S]*?(?=\\n#{1,3} |$)", "im"));
+  return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
+}
+
+// The wix-manage skill, when it is installed in the sandbox, is these same recipes on disk —
+// a read_file instead of a fetch. Indexed by frontmatter name AND filename slug, because the
+// docs title drifts from the local one ("…Connect a domain" vs "…Connect").
+const RECIPE_ROOT = ".agents/skills/wix-manage/references";
+const rkey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+let LOCAL_RECIPES;
+function localRecipes() {
+  if (LOCAL_RECIPES) return LOCAL_RECIPES;
+  LOCAL_RECIPES = new Map();
+  if (!fs.existsSync(RECIPE_ROOT)) return LOCAL_RECIPES;
+  const walk = (rel) => {
+    for (const e of fs.readdirSync(RECIPE_ROOT + rel, { withFileTypes: true })) {
+      if (e.isDirectory()) { walk(rel + "/" + e.name); continue; }
+      if (!e.name.endsWith(".md")) continue;
+      const file = RECIPE_ROOT + rel + "/" + e.name;
+      const name = (fs.readFileSync(file, "utf8").slice(0, 600).match(/^name:\s*"?(.+?)"?\s*$/m) || [])[1];
+      if (name) LOCAL_RECIPES.set(rkey(name), file);
+      LOCAL_RECIPES.set(rkey(e.name.replace(/\.md$/, "")), file);
+    }
+  };
+  walk("");
+  return LOCAL_RECIPES;
+}
+// title, else the docsUrl slug, else either one as a prefix of the other
+function recipeFile(title, docsUrl) {
+  const idx = localRecipes();
+  if (!idx.size) return undefined;
+  const slug = (docsUrl || "").replace(/\/+$/, "").split("/").pop();
+  for (const k of [rkey(title), rkey(slug)]) if (k && idx.has(k)) return idx.get(k);
+  const t = rkey(title);
+  if (t.length >= 12) for (const [k, v] of idx) if (k.startsWith(t) || t.startsWith(k)) return v;
+  return undefined;
+}
+
+// ── find what to read ─────────────────────────────────────────────────────────
+
+// Browse the docs tree — deterministic. menuUrl alone orients (children + counts);
+// filter before listing methods. An oversized listing is saved with its outline.
+async function browse(menuUrl, { include, filter, depth } = {}) {
+  const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
+    menu_url: menuUrl, ...(include && { include }),
+    ...(filter && { name_filter: filter }), ...(depth && { depth }),
+  });   // 404 "No menu node found" ⇒ re-orient a level up
+  if (content.length <= BUDGET) return content;
+  const s = save("browse-" + (menuUrl.replace(/\/+$/, "").split("/").pop() || "root") + ".md", content);
+  return { ...s, next: `wx.bash("grep -in 'term' ${s.path} | head -40")   // one line per node — or re-browse with a filter` };
+}
+
+// Semantic search — ranks, never says "no match". The reduced hits come back inline AND the full
+// raw content is saved for grep/window follow-ups. { type } picks the corpus, one per request:
+// REST (default) · SKILLS · WIX_HEADLESS · SDK · VELO · CLI · WDS · BUILD_APPS · OVERVIEW ·
+// BUSINESS_SOLUTIONS. A REST search also runs SKILLS — the management recipes rank as their own
+// hits, ahead of the methods, and land in the saved file whole. Each method hit lists the worked
+// requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
+async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST" } = {}) {
+  const ask = (document_type, maximum_results) =>
+    post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+      // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
+      // code example after the first 30 lines and the rest after 5, and every recipe at 20 —
+      // the saved file would carry stubs instead of the requests and flows the hits point at
+      { search_term: term, document_type, maximum_results, lines_in_each_result: lines });
+  const [main, skills] = await Promise.all([ask(type, max),
+    recipes ? ask("SKILLS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
+  const recipeText = skills?.content ? skills.content.trimEnd() + "\n" : "";
+  const content = recipeText + main.content;
+  const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
+  for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
+  const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
+  // recipes are articles — no "# Method:" header, no code-example delimiters, and no fixed body
+  // shape. Two things every one of them has: headings, and the endpoints it calls. Those are the
+  // outline — enough to tell whether this is the recipe for the task without reading 400 lines.
+  const recipeHits = !recipeText ? [] : recipeText.split(/\n---\n+(?=#### )/).map(b => {
+    const at = content.indexOf(b), rows = b.split("\n");
+    const steps = [], calls = [];
+    let verb = null;
+    for (const t of rows) {
+      if (/^#{1,4} /.test(t) && !/^#### \[|^## (Resource|Article|Article Link|Article Content):/.test(t))
+        steps.push(t.replace(/^#+ /, "").trim().slice(0, 52));
+      const c = t.match(/curl\s+-X\s+(GET|POST|PATCH|PUT|DELETE)/i);
+      const u = t.match(/https:\/\/www\.wixapis\.com\/[^\s"'`)\\]+/);
+      if (c && !u) { verb = c[1].toUpperCase(); continue; }   // curl -X VERB, url on the next line
+      if (!u) continue;
+      const v = (c && c[1].toUpperCase()) || (t.match(/\b(GET|POST|PATCH|PUT|DELETE)\b/) || [])[1] || verb || "";
+      verb = null;
+      const call = (v + " " + u[0].replace(/\{[^}]*\}|<[^>]*>/g, "{id}")).trim();
+      if (!calls.includes(call)) calls.push(call);
+    }
+    const title = (b.match(/^## Resource: (.+)$/m) || [])[1];
+    const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
+    return { recipe: title, docsUrl,
+             ...(recipeFile(title, docsUrl) && { file: recipeFile(title, docsUrl) }),
+             line: at < 0 ? 1 : lineAt(at), lines: rows.length,
+             ...(steps.length && { steps: steps.slice(0, 6) }),
+             ...(calls.length && { calls: calls.slice(0, 4) }) };
+  }).filter(h => h.docsUrl && h.recipe);
+  let cursor = recipeText.length;
+  const hits = main.content.split(/\n---\n+(?=#### )/).map(b => {
+    const start = content.indexOf(b, cursor); cursor = start + b.length;
+    const examples = [...b.matchAll(/--- Code Example: (.+?) ---/g)]
+      .map(m => ({ title: m[1].trim(), line: lineAt(start + m.index) }));
+    const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
+    const method = (b.match(/^# Method: (.+)$/m) || [])[1];
+    // the REST corpus mixes guides in with the methods — an article has no method header, so
+    // name it from its own title rather than returning a row of nulls
+    if (!method) return { article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1], docsUrl,
+                          line: start < 0 ? 1 : lineAt(start) };
+    return {
+    method,
+    endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
+    docsUrl,
+    gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
+      .trim().replace(/\s+/g, " ").slice(0, 220),
+    ...(examples.length && { examples }),
+  }; }).filter(h => h.docsUrl);
+  const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
+  if (!hits.length && !recipeHits.length) return clip({ ...saved, head: content.slice(0, 1200),
+    note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
+  // one URL, one row: a long article is indexed in chunks that rank separately, and a stray skills
+  // page sits in the REST corpus, so the same page can rank two or three times
+  const seen = new Set();
+  const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
+  const uniq = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
+  // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
+  // every title, URL and line number stays useful with the outlines gone
+  for (const shed of [() => recipeRows.forEach(r => delete r.calls),
+                      () => recipeRows.forEach(r => delete r.steps),
+                      () => uniq.forEach(h => { if (h.examples) h.examples = h.examples.slice(0, 3); }),
+                      () => uniq.forEach(h => delete h.examples)]) {
+    if (JSON.stringify(out).length <= BUDGET) break;
+    shed();
+  }
+  return clip(out);
+}
+
+// ── read a page (docs pages and recipes alike) ────────────────────────────────
+
+// Fetch + save + map in one round: whole text inline when small, else
+// { path, bytes, lines, outline } — the outline's line numbers feed grep and read_file windows.
+// Examples come back as their own title+line list, so the outline's cap can never drop them.
+async function page(url) {
+  const { path: p, lines } = await resolveRef(url);
+  const text = lines.join("\n");
+  if (text.length <= BUDGET) return text;
+  const o = outlineOf(lines);
+  const bytes = Buffer.byteLength(text);
+  const ex = pageExamples(lines);
+  return { path: p, bytes, lines: lines.length, ...(ex.length && { examples: ex }), ...o,
+           next: [
+             `wx.bash("grep -in 'term' ${p} | head -40")`,
+             bytes <= 45000 ? `read_file ${p}   // whole (fits the 45K cap), or a window via offset/limit`
+                            : `read_file ${p} with offset/limit   // window a section by the outline's lines`,
+           ] };
+}
+
+// The page's Examples section, as titles + line numbers — listed on their own so the
+// outline's cap can never drop them.
+function pageExamples(lines) {
+  const heads = [];
+  lines.forEach((t, i) => { const m = /^(#{1,6}) (.+)$/.exec(t); if (m) heads.push({ line: i + 1, level: m[1].length, text: m[2].trim() }); });
+  const at = heads.findIndex(h => /^(examples?|method code examples)$/i.test(h.text));
+  if (at < 0) return [];
+  const sec = heads[at], rest = heads.slice(at + 1);
+  const end = (rest.find(h => h.level < sec.level) || { line: lines.length + 1 }).line;
+  return rest.filter(h => h.line < end).map(h => ({ title: h.text, line: h.line }));
+}
+
+// ── shell ─────────────────────────────────────────────────────────────────────
+
+// Compose native pipelines over .agents/skills/wix-base44-connector/tmp — grep -n, sed -n, mawk, sort, uniq, wc
+// (GNU grep/sed; awk is mawk; no rg). Cap your own output (| head -40); the return
+// clips regardless. grep's exit 1 means no match, not failure — the return says so.
+function bash(cmd) {
+  const { execSync } = require("child_process");
+  try {
+    const out = execSync(cmd, { timeout: 15000, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+    return out.trim() ? clip(out)
+      : "(no output — a filter may have swallowed the signal; rerun without the reducer)";
+  } catch (e) {
+    const exit = e.status ?? null, err = (e.stderr || "").toString().trim();
+    return { exit, ...(err && { err: err.slice(0, 300) }),
+             out: clip((e.stdout || "").toString()),
+             ...(exit === 1 && !err && { note: "exit 1 with no stderr — a no-match, not a failure" }) };
+  }
+}
+
+// ── request examples ──────────────────────────────────────────────────────────
+
+// The docs' own working requests: the code-mode index carries them at
+// methods[].legacyExamples[].content, a doc page under its Examples heading. Both are saved
+// whole and come back as titles + line numbers — read the one you need with read_file.
+const examplesOf = (result) => {
+  const methods = result?.methods?.length ? result.methods : (result?.legacyExamples ? [result] : []);
+  const out = [];
+  for (const m of methods) for (const e of m.legacyExamples || []) {
+    const c = e.content || e;
+    if (c.request) out.push({ title: c.title || "", request: typeof c.request === "string" ? c.request : JSON.stringify(c.request, null, 1) });
+  }
+  return out;
+};
+
+// One file, one heading per example — the returned line is where its body starts.
+const saveExamples = (exs, name) => {
+  const parts = [];
+  let line = 1, index = [];
+  for (const e of exs) {
+    const block = "## " + e.title + "\n\n" + e.request + "\n";
+    index.push({ title: e.title, line: line + 2 });
+    parts.push(block);
+    line += block.split("\n").length;
+  }
+  return { ...save("examples-" + name + ".md", parts.join("\n")), index };
+};
+
+// ── the spec index ────────────────────────────────────────────────────────────
+
+// Inspect a method's schema — request body, responses, enums, filterable-fields map — plus the
+// titles of the docs' own request examples, saved together at examplesPath: read the one that
+// matches your task with read_file(examplesPath, offset: <its line>). Pass a docsUrl
+// (from search/browse — a direct load, no scan) and spec returns that method's schema. Or pass raw
+// `async function(){…}` to query the index yourself: lightIndex (RESOURCES with .methods —
+// operationId, summary, httpMethod, publicUrl [callable], docsUrl) and getResourceSchemaByUrl(docsUrl)
+// → s.methods (each with requestBody, responses, legacyExamples,
+// queryMethodData.queryFieldsCapabilitiesMap; $circular via s.components.schemas). A big result is
+// saved as JSON; grep it for the keys you saw in its head.
+async function spec(arg) {
+  const s = String(arg).trim();
+  const code = /^async function/.test(s) ? s
+    : /^https:\/\/dev\.wix\.com\/docs\//.test(s) ? "async function(){ return await getResourceSchemaByUrl(" + JSON.stringify(s) + "); }"
+    : "async function(){ " + s + " }";
+  const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  if (result == null || (Array.isArray(result) && !result.length))
+    return { result, note: "empty — the query missed the shape; match your docsUrl against s.methods[].docsUrl" };
+  const text = JSON.stringify(result, null, 1);
+  if (text.length <= BUDGET) return result;
+  let h = 5381;
+  for (const ch of code) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;   // same query → same file
+  const exs = examplesOf(result);
+  const ex = exs.length ? saveExamples(exs, h.toString(36)) : null;
+  return { ...save("spec-" + h.toString(36) + ".json", text),
+           shape: Array.isArray(result) ? `Array(${result.length})` : Object.keys(result || {}).slice(0, 15),
+           ...(ex && { examplesPath: ex.path, examples: ex.index }),
+           head: text.slice(0, 600) };
+}
+
+// ── management recipes ────────────────────────────────────────────────────────
+
+// ~100 curated multi-step MANAGEMENT (admin) flows across 23 categories — ecommerce,
+// bookings, stores, cms, contacts, sites, get-paid, marketing, pricing-plans, events,
+// blog, forms, restaurants, domains, media, … No arg → categories with counts; a
+// category name → its recipes; any other term → search every recipe's name + gist.
+// Read the chosen url with page(url), then grep/window/fields.
+async function mgmtRecipes(q) {
+  // the recipes ARE the wix-manage skill's references — when that skill is installed, both the
+  // listing and the files come straight off disk; the manifest fetch is only the not-installed path
+  const ROOT = ".agents/skills/wix-manage/references";
+  let files;
+  if (fs.existsSync(ROOT)) {
+    files = [];
+    const walk = rel => {
+      for (const e of fs.readdirSync(ROOT + rel, { withFileTypes: true })) {
+        if (e.isDirectory()) { walk(rel + "/" + e.name); continue; }
+        const file = ROOT + rel + "/" + e.name, head = fs.readFileSync(file, "utf8").slice(0, 1000);
+        files.push({ path: "references" + rel + "/" + e.name, file, size: fs.statSync(file).size,
+                     name: (head.match(/^name:\s*"?(.+?)"?\s*$/m) || [])[1] || e.name,
+                     description: (head.match(/^description:\s*"?(.+?)"?\s*$/m) || [])[1] || "" });
+      }
+    };
+    walk("");
+  } else {
+    const { base, files: manifest } = await (await fetch("https://dev.wix.com/docs/skills/manage.manifest.json")).json();
+    files = manifest.map(f => ({ ...f, url: base + f.path }));
+  }
+  const cat = f => (f.path.match(/^references\/([^/]+)\//) || [])[1];
+  const row = f => ({ name: f.name, cat: cat(f), gist: (f.description || "").slice(0, 120),
+                      ...(f.file ? { file: f.file } : { url: f.url }), kb: Math.round(f.size / 1024) });
+  if (!q) {
+    const cats = {};
+    for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }
+    return cats;
+  }
+  const inCat = files.filter(f => cat(f) === q);
+  if (inCat.length) return clip(inCat.map(row));
+  const re = new RegExp(q, "i");
+  const m = files.filter(f => re.test(f.name + " " + (f.description || "")));
+  if (!m.length) {
+    const cats = {};
+    for (const f of files) { const c = cat(f); if (c) cats[c] = (cats[c] || 0) + 1; }
+    return { note: `nothing matches "${q}" — the categories:`, categories: cats };
+  }
+  return clip(m.map(row));
+}
+
+// Install a Wix app on the site (Apps Installer). Use when discovery finds an API but its app is
+// not installed yet — that is a one-call prerequisite, not a dead end. appDefId from search or the
+// Apps-Created-by-Wix table; siteId from context (the site report).
+async function installApp(appDefId, siteId, token) {
+  return post("https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    { tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId } }, token);
+}
+
+module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp };

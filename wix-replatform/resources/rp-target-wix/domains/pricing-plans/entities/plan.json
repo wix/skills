@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "domain": "pricing-plans",
+  "entity": "plan",
+  "displayName": "Pricing Plan",
+  "capability": "commerce.subscription-plans",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Pricing Plan",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "subscriptionProduct",
+      "sourcePlugin": "subscriptions-for-woocommerce",
+      "routes": [
+        "/wc/v3/products"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Plans V3",
+    "endpoint": "POST /pricing-plans/v3/plans",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "status-required-on-create",
+      "severity": "blocker",
+      "summary": "plan.status is REQUIRED on create and is NOT listed among the docs' required parameters. VERIFIED LIVE 2026-08-16: omitting it 400s with REQUIRED_FIELD on plan.status; 'ACTIVE' is accepted. Any generated create payload built strictly from the documented required-field list will fail on the first call."
+    },
+    {
+      "code": "no-archive-on-v3",
+      "severity": "warning",
+      "summary": "Plans V3 has no archive endpoint — POST /pricing-plans/v3/plans/{id}/archive 404s. VERIFIED LIVE 2026-08-16: the working call is the V2 one, POST /pricing-plans/v2/plans/{id}/archive → 200, after which the V3 GET shows archived: true while status stays ACTIVE. Rollback/cleanup for a plan import therefore crosses API versions, and 'archived' and 'status' are independent flags — never infer one from the other."
+    },
+    {
+      "code": "private-forces-buyable-false",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: creating a plan with visibility PRIVATE returns buyable: false even when buyable was not sent. Recreated contracts still work (offline orders ignore buyability), but a plan imported PRIVATE for a staged rollout will not become self-purchasable just by flipping visibility later — check buyable explicitly after any visibility change."
+    },
+    {
+      "code": "billing-cycle-minimum-7-days",
+      "severity": "blocker",
+      "summary": "billingCycle must be at least 7 days and can't exceed 10 years (error VALID_BILLING_CYCLE). The period enum includes DAY, but a source cadence of every 1-6 days cannot be recreated; surface affected offers before import."
+    },
+    {
+      "code": "plan-duration-max-10-years",
+      "severity": "warning",
+      "summary": "Total plan duration (billingCycle x billingCycleCount) can't exceed 10 years (error VALID_PLAN_DURATION); billingCycleCount is capped at 2000. Very long fixed-length source subscriptions must fall back to UNTIL_CANCELLED with a ledger entry."
+    },
+    {
+      "code": "single-variant-single-strategy",
+      "severity": "warning",
+      "summary": "Docs state pricing variants are 'Currently limited to 1 variant per plan', and pricingStrategies is validated minItems 1 / maxItems 1 with flatRate as the only strategy. Tiered, usage-based, or multi-cadence pricing on one source offer must be split into separate plans or dropped with a ledger entry."
+    },
+    {
+      "code": "plan-name-max-50-chars",
+      "severity": "warning",
+      "summary": "plan.name is limited to 50 characters (description to 450). Long source product names truncate; keep the full source name and product reference in the description."
+    },
+    {
+      "code": "currency-is-site-level",
+      "severity": "warning",
+      "summary": "plan.currency is read-only (ISO-4217, driven by site settings). A source subscription priced in a different currency imports its numeric amount under the site currency; verify the site currency matches the source before import (error INVALID_AMOUNT rejects more decimal places than the plan currency supports)."
+    },
+    {
+      "code": "public-plans-render-immediately",
+      "severity": "warning",
+      "summary": "visibility is a required create field; PUBLIC plans appear on the live site's Plans & Pricing page as soon as they are created. Import with the intended final visibility deliberately - PRIVATE keeps a plan off the page while existing buyers can still use it, and buyable:false blocks self-purchase."
+    }
+  ],
+  "mappingGuidance": [
+    "Cadence maps 1:1: billingTerms.billingCycle.period enum is DAY | WEEK | MONTH | YEAR, matching WooCommerce day|week|month|year (e.g. wps_sfw_subscription_interval); billingCycle.count (string, min 1) carries the interval number.",
+    "Open-ended source subscriptions -> endType UNTIL_CANCELLED. A source expiry/length -> endType CYCLES_COMPLETED with cyclesCompletedDetails.billingCycleCount = expiry divided by the cadence (must divide evenly; ledger the remainder otherwise). startType ON_PURCHASE.",
+    "Required create fields: plan, plan.status (undocumented but enforced — see status-required-on-create), pricingVariants[].id (GUID), .name, .billingTerms (billingCycle.period, startType, endType), plan.visibility; pricingStrategies[0].flatRate.amount is the recurring price as a decimal string (>= 0, max 4 decimal places; 0 makes a free plan). A client-minted pricingVariants[].id GUID is preserved verbatim (verified live 2026-08-16), so the variant id can be derived deterministically from the source offer id and used as a crosswalk key.",
+    "A source initial signup fee maps to pricingVariants[].fees[]: priceType FIXED_AMOUNT (fixedAmountOptions.amount > 0), appliedAt FIRST_PAYMENT - the only documented fee type and application point.",
+    "freeTrialDays (integer 0-999) carries the free trial; it is days only, so convert week/month source trials to days.",
+    "Deduplicate to one plan per distinct source offer (product x cadence x price) shared by all its subscribers - never one plan per subscriber.",
+    "Pass idempotencyKey (must be GUID format) derived deterministically from the source offer id (e.g. UUIDv5) so a retried import returns the original plan instead of duplicating it.",
+    "The Stores-product linkage is severed by design: record the source product name/id in the plan title/description (trade-off accepted by Spec Owner 2026-08-16). extendedFields exists on the plan but requires a schema-plugin app namespace, so it is not a free-form carry."
+  ],
+  "setupRequirements": [
+    "Wix Pricing Plans app installed — appDefId 1522827f-c56c-a5c9-2ac9-00f9e6ae12d3 (ground truth: the appId echoed by the 428 APP_NOT_INSTALLED error). Verified live 2026-08-16: it is NOT present on a commerce-template site by default, and it installs cleanly and dependency-free through the standard App Installation API (POST /apps-installer-service/v1/app-instance/install), so this is an automatable setup step, not a manual one. Until it is installed, every Plans V3 read/write returns 428 APP_NOT_INSTALLED.",
+    "SCOPE.DC-PAIDPLANS.MANAGE-PLANS"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/plan-object",
+      "note": "object page: full plan shape incl. currency (read-only, site-level), visibility PUBLIC|PRIVATE, buyable, purchaseLimits (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan",
+      "note": "POST https://www.wixapis.com/pricing-plans/v3/plans; required params, billingCycle.period enum DAY|WEEK|MONTH|YEAR, startType ON_PURCHASE|CUSTOM, endType UNTIL_CANCELLED|CYCLES_COMPLETED, flatRate-only pricing strategy, fee enums FIXED_AMOUNT/FIRST_PAYMENT, idempotencyKey GUID, errors VALID_BILLING_CYCLE / VALID_PLAN_DURATION / INVALID_AMOUNT (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/subscriptions-for-woocommerce.json",
+      "note": "source offer shape: wps_sfw_* postmeta cadence/expiry/signup-price/free-trial keys"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Pricing Plans app installed via the App Installation API first (Plans V3 was returning 428 APP_NOT_INSTALLED), then POST /pricing-plans/v3/plans with { name, description, visibility: PRIVATE, status: ACTIVE, pricingVariants: [{ id: <client GUID>, name, billingTerms: { billingCycle: { count: '1', period: 'WEEK' }, startType: ON_PURCHASE, endType: UNTIL_CANCELLED }, pricingStrategies: [{ flatRate: { amount: '10.00' } }] }], idempotencyKey: <GUID> } → 200. GET readback preserved name, description, the client-minted pricingVariants[].id, billingTerms and flatRate; server derived slug 'zzz-probe-plan' and set currency ILS (site-level, read-only), buyable false, archived false, maxPurchasesPerBuyer 0, benefitDistributionSettings PER_BILLING_CYCLE. Discovered live: plan.status is required on create, and V3 has no archive endpoint. Plan archived (V2) at cleanup."
+    }
+  ],
+  "notes": "Authored 2026-08-16 from Spec Owner's decision to migrate WooCommerce active subscriptions by recreation as Pricing Plans memberships: this entity is the offer half (one plan per distinct source offer), pricing-plans/plan-order is the per-subscriber contract half. Promoted to verified-live 2026-08-16 by an install → create → readback → archive probe on the probe site. reliability is partially-reliable, not reliable: only a WEEK/UNTIL_CANCELLED/flatRate plan was exercised — the CYCLES_COMPLETED end type, fees[] (signup fee), freeTrialDays, and the documented VALID_BILLING_CYCLE 7-day floor were NOT probed, and the plan could only be archived, never deleted. The product-level recurring OFFER also has a live-verified field home at stores/product.subscriptionDetails (capability commerce.subscription-products) - that path keeps the product purchasable as a Stores subscription, while this plan exists to anchor recreated contracts."
+}

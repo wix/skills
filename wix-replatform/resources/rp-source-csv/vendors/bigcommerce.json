@@ -1,0 +1,66 @@
+{
+  "vendor": "bigcommerce",
+  "profileVersion": "2026-07",
+  "sourceOfTruth": "https://support.bigcommerce.com/s/article/Importing-Exporting-Products",
+  "anchors": {
+    "required": ["Item Type", "Product Name"],
+    "strong": ["Product Code/SKU", "Product Description", "Product Visible?", "Track Inventory", "Category"],
+    "negative": ["Handle", "attribute_set_code", "Attribute 1 value(s)"]
+  },
+  "layout": {
+    "pattern": "sectioned",
+    "discriminatorColumn": "Item Type",
+    "childLevels": ["SKU"],
+    "parentRefColumn": null,
+    "parentEntity": "product",
+    "childEntity": "variant",
+    "columnGroups": [
+      {
+        "entity": "image",
+        "prefixes": ["Product Image "],
+        "columns": []
+      }
+    ]
+  },
+  "derived": [
+    {
+      "entity": "category",
+      "fromColumn": "Category",
+      "hierarchySeparator": "/",
+      "multiValueSeparator": ";",
+      "hierarchical": true,
+      "linkPolicy": "leaf",
+      "relation": { "fromEntity": "product", "field": "categories", "cardinality": "many-to-many" }
+    }
+  ],
+  "fileRoles": [
+    { "role": "product", "filenameHints": ["products", "product_export"] },
+    { "role": "customer", "filenameHints": ["customers"] },
+    { "role": "order", "filenameHints": ["orders"] }
+  ],
+  "columnMap": [
+    { "wixTarget": "product.name", "aliases": ["Product Name"] },
+    { "wixTarget": "product.description", "aliases": ["Product Description"] },
+    { "wixTarget": "product.brand", "aliases": ["Brand Name"] },
+    { "wixTarget": "product.sourceId", "aliases": ["Product ID"] },
+    { "wixTarget": "product.visible", "aliases": ["Product Visible?"] },
+    { "wixTarget": "product.seoTitle", "aliases": ["Page Title"] },
+    { "wixTarget": "variant.sku", "aliases": ["Product Code/SKU"] },
+    { "wixTarget": "variant.price", "aliases": ["Price"] },
+    { "wixTarget": "variant.cost", "aliases": ["Cost Price"] },
+    { "wixTarget": "variant.discountedPrice", "aliases": ["Sale Price"] },
+    { "wixTarget": "variant.weight", "aliases": ["Product Weight"] },
+    { "wixTarget": "variant.width", "aliases": ["Product Width"] },
+    { "wixTarget": "variant.height", "aliases": ["Product Height"] },
+    { "wixTarget": "variant.inventoryQuantity", "aliases": ["Current Stock Level"] },
+    { "wixTarget": "image.url", "aliases": ["Product Image File - 1", "Product Image File"] },
+    { "wixTarget": "image.altText", "aliases": ["Product Image Description - 1"] },
+    { "wixTarget": "category.path", "aliases": ["Category"] }
+  ],
+  "quirks": [
+    "Item Type is the row discriminator: 'Product' rows are products and 'SKU' rows are their variants; a SKU row belongs to the most recent Product row above it, since there is no parent-reference column.",
+    "Category packs multiple '/'-separated paths separated by ';'.",
+    "Image columns are numbered per image ('Product Image File - 1', '- 2', …), so the image set is a column family on a single row rather than extra rows.",
+    "'Product Visible?' and 'Allow Purchases?' are Y/N strings rather than TRUE/FALSE."
+  ]
+}

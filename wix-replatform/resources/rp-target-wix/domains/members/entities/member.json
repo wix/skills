@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "entity": "member",
+  "displayName": "Site Member",
+  "capability": "identity.member",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Member",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "user",
+      "routes": [
+        "/wp/v2/users"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "customer",
+      "routes": [
+        "/wc/v3/customers"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "member",
+      "routes": [
+        "Members APIs"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Members V1",
+    "endpoint": "POST /members/v1/members",
+    "writerId": "createMember",
+    "verification": "verified-live",
+    "importSafe": false,
+    "bulk": false
+  },
+  "safeModeContactFields": [
+    {
+      "kind": "email",
+      "targetPath": "member.loginEmail",
+      "source": "target-schema",
+      "notes": "Members V1 login email in the create-member request body."
+    }
+  ],
+  "fallbacks": [
+    {
+      "classification": "crm",
+      "when": "Use Contacts for person records that do not need login identity."
+    },
+    {
+      "classification": "cms",
+      "when": "Use for author profiles or member metadata not represented by Members APIs."
+    }
+  ],
+  "reliability": {
+    "status": "unreliable",
+    "flags": [
+      "IMPORT_UNRELIABLE"
+    ]
+  },
+  "pitfalls": [
+    {
+      "code": "safe-mode-email-domain-rejected",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-08-16: safe mode cannot import members at all today. `mockEmailForEntity` (rp-target-wix/lib/wix-writers.js) mints `replatform+<type>_<id>@wix.com`, and POST /members/v1/members rejects that domain with 400 INVALID_EMAIL_DOMAIN — so a safe-mode member import fails wholesale on the first record. The bug hid because Contacts V5 ACCEPTS @wix.com (existing test contacts use it), so only the Members surface trips it. A reserved-TLD address (RFC 2606 `.invalid`) was accepted by other surfaces in the same probe session and is the obvious candidate, but changing the safe-mode address format alters what gets written to a customer's site on every entity, not just members — it needs an explicit decision, not a silent lib patch. Until then: treat safe mode + member import as unsupported and say so in the plan rather than discovering it mid-run."
+    },
+    {
+      "code": "passwords-never-imported",
+      "severity": "warning",
+      "summary": "Passwords are NOT imported — project decision (2026-08-03), not just an API gap. Members keep account/profile/contact linkage; they set a new password via reset. Never propose hash import."
+    },
+    {
+      "code": "activation-via-forgot-password",
+      "severity": "warning",
+      "summary": "Activation (decided 2026-08-03): passwordless members complete the standard forgot-password flow (confirmed). Delivery = post-import automation (label-added trigger, owner-branded email, label applied in API waves). Never mass-send Send Set Password Email — its link dies in 3h."
+    },
+    {
+      "code": "serial-create-only",
+      "severity": "warning",
+      "summary": "No bulk member create; documented >=1s spacing per Create Member call (10k members ~ 3h serial floor). Plan throughput and resume via loginEmail crosswalk."
+    },
+    {
+      "code": "chronology-server-controlled",
+      "severity": "warning",
+      "summary": "Original createdDate and lastLoginDate are not writable as native member chronology."
+    }
+  ],
+  "mappingGuidance": [
+    "Split author, customer, contact, and login-member roles before selecting targets.",
+    "Create Member sends no email and does not fire the signup automations trigger (source-confirmed) — silent import is the default; the only member-facing email is the explicit Send Set Password Email call, which is per-member, interactive-mode, owner-approved only."
+  ],
+  "setupRequirements": [
+    "Activation is decided end-to-end: no credential import; post-import the owner creates ONE dashboard automation (label-added trigger → branded email directing members to Log in → Forgot password), then the importer applies the label in API waves for rate control and re-targeting. Enable the automation only after the import window (AUTO-02 pause choreography)."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/member-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+    
+  ]
+}

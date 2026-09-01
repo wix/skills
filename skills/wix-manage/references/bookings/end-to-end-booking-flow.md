@@ -19,7 +19,7 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 - **Services API**: [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services)
 - **Time Slots V2 API**: [List Availability Time Slots](https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots)
 - **Bookings API**: [Create Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking), [Confirm Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/confirm-booking)
-- **eCommerce API**: [Create Checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/checkout/create-checkout)
+- **eCommerce API**: [Create Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart)
 
 ---
 
@@ -226,15 +226,17 @@ Use the `id` and `revision` from the Create Booking response. Set `paymentStatus
 
 **Result**: Booking status changes to `CONFIRMED` and is visible in the booking calendar.
 
-### For online payments: Create checkout
+### For online payments: Create a cart
 
-**4a. Create Checkout**
+Cart V2 unifies cart and checkout — there is no separate checkout entity. The created cart's `id` is what you use for the checkout URL and for placing the order.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts`
+**4a. Create Cart**
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts`
 
 ```json
 {
-  "lineItems": [
+  "catalogItems": [
     {
       "catalogReference": {
         "catalogItemId": "<BOOKING_ID>",
@@ -242,22 +244,33 @@ Use the `id` and `revision` from the Create Booking response. Set `paymentStatus
       },
       "quantity": 1
     }
-  ],
-  "channelType": "WEB"
+  ]
 }
 ```
 
-Use the booking ID as `catalogItemId` with the Wix Bookings app ID.
+Use the booking ID as `catalogItemId` with the Wix Bookings app ID. Save `cart.id` from the response.
 
 **4b. Get Checkout URL**
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts/{checkoutId}/getCheckoutUrl`
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts/{cartId}/get-checkout-url`
 
 Redirect the user to the returned `checkoutUrl`. After payment, the booking is automatically confirmed.
 
-**4c. Create Order (alternative, server-to-server)**
+**4c. Place Order (alternative, server-to-server)**
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts/{checkoutId}/createOrder`
+First calculate the cart to get a price-verification token:
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts/{cartId}/calculate`
+
+Save `summary.priceVerificationToken` from the response, then place the order:
+
+**Endpoint**: `POST https://www.wixapis.com/ecom/v2/carts/{cartId}/place-order`
+
+```json
+{
+  "priceVerificationToken": "<PRICE_VERIFICATION_TOKEN>"
+}
+```
 
 Creates an order directly without redirect.
 

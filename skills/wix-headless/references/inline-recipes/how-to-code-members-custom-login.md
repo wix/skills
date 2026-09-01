@@ -15,7 +15,7 @@ A concise contract for building your **own** login / sign-up / logout UI and dri
 > **⚠️ This is a client-driven (`OAuthStrategy`) flow — it is the non-Astro shape.** `register`/`login` live on `client.auth`, i.e. the manual visitor client `non-astro.md` builds. Astro's auto-auth ships **no client** to call them on. So: on a **non-Astro** frontend (SPA / static), this is the natural path. On **Astro**, custom login means stepping *outside* auto-auth — instantiate an explicit `OAuthStrategy` client (in a backend route or a client island) to run these calls; do **not** expect the built-in `/api/auth/*` routes to do custom login (they only drive the Wix login page). If the brief is Astro *and* doesn't demand a custom form, prefer the Wix login page (`how-to-code-members-astro.md`).
 
 Pinned docs (read before wiring — `curl` the `.md` directly):
-- Custom login via the JS SDK: <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md>
+- Custom login via the JS SDK: <https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-js-sdk.md>
 - `OAuthStrategy` reference (`register`/`login`/`processVerification`/`getMemberTokensForDirectLogin`/`sendPasswordResetEmail`, the `StateMachine` + `IdentityProfile` objects): <https://dev.wix.com/docs/sdk/core-modules/sdk/oauth-strategy.md>
 - Current member (SDK): <https://dev.wix.com/docs/sdk/frontend-modules/members/current-member/introduction> (open with `?apiView=SDK`)
 

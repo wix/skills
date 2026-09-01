@@ -93,7 +93,7 @@ describe('EvalForge YAML Gate Workflow', () => {
     });
 
     it('passes max new skills from GitHub config with a default', () => {
-      expect(workflowContent).toContain("max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILLS || '1' }}");
+      expect(workflowContent).toContain("max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILL_AREAS || '1' }}");
     });
   });
 });

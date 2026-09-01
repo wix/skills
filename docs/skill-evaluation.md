@@ -33,6 +33,19 @@ pushing an empty commit. This gate's own comment does not mention the command; t
 are the same for both gates and are listed under
 [the wix-app PR eval gate](#wix-app-scenarios-the-pr-eval-gate).
 
+### Merge-tag sweep
+
+After a wix-manage PR merges to `main`, [`evalforge-merge-tag-sweep.yml`](../.github/workflows/evalforge-merge-tag-sweep.yml)
+re-runs every EvalForge scenario sharing a tag with whatever changed — catching regressions in
+other areas that a PR's own scenarios can't see. It's reactive, not blocking: the commit is
+already on `main` by the time it runs. Eval runs are not fully deterministic, so a failing
+scenario is rerun (up to two retries) and only counts as a regression when a majority of the
+attempts fail; only a confirmed regression posts to Slack, naming the merging PR's author. A
+tag matching more than 20 scenarios samples rather than running everything, to keep a broad tag
+from re-running dozens of scenarios on every merge that touches it. Setting the
+`MERGE_TAG_SWEEP_ENABLED` repository variable to `false` turns the sweep off without a code
+change.
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs

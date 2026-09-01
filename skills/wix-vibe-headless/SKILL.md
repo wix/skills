@@ -1,6 +1,6 @@
 ---
 name: wix-vibe-headless
-description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), CMS / Wix Data (list, detail, filter, forms, CRUD), Pricing Plans (memberships, subscriptions, checkout), and Members (custom login — email+password, Google/Facebook, and custom SSO — plus account areas and member-gated content). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, sell membership/subscription plans, add member login / sign up, let members log in with Google or Facebook, custom login page, account / profile page, gate content behind login, sign in with SSO/Okta, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
+description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), Forms (any visitor-fillable form — contact/enquiry, signup, waitlist, application, survey, quote request; schema-driven render + submit), CMS / Wix Data (list, detail, filter, CRUD), Pricing Plans (memberships, subscriptions, checkout), and Members (custom login — email+password, Google/Facebook, and custom SSO — plus account areas and member-gated content). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, add a contact/enquiry form, build a signup or application form, take survey responses, sell membership/subscription plans, add member login / sign up, let members log in with Google or Facebook, custom login page, account / profile page, gate content behind login, sign in with SSO/Okta, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
 ---
 
 # Wix Vibe Headless — client-only REST connectors
@@ -119,14 +119,28 @@ Each vertical's UI + helpers ship in `references/<vertical>/app/`; copy that dir
 | The user wants… | Vertical | Read |
 |---|---|---|
 | Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
-| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Appointments: services, time slots, booking, checkout — **and the form attached to a bookable service** | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Rentals: an item hired for a length **the customer picks** (by the hour or by the day) — Wix Rentals runs on the Bookings APIs, so it is the same vertical | **bookings** | `references/bookings/INSTRUCTIONS.md` ("Rentals") |
 | Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` |
-| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` |
+| Events: browse, event page, RSVP, ticketing — **an RSVP is here, not `forms`**, even for one occasion with no tickets | **events** | `references/events/INSTRUCTIONS.md` |
 | Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
 | Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
-| CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` |
+| Any visitor-fillable form: contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration. **Not** an event RSVP (`events`) or a per-service booking form (`bookings`) | **forms** | `references/forms/INSTRUCTIONS.md` |
+| CMS content: list/detail, filter/search, data CRUD. **A visitor-fillable form is `forms`** — cms only when the app must read the entries back | **cms** | `references/cms/INSTRUCTIONS.md` |
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
 | Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` |
+
+**⚠️ Anything a visitor fills in and submits is `forms` — with three exceptions:**
+
+1. **The app must read the entries back → `cms`.** A public gallery, a listing, a member's "my
+   submissions". A visitor cannot read Forms submissions, so those need a collection. Submit-only is
+   always `forms`: a form wired to `insertDataItem` works, but gives up the dashboard form builder,
+   spam protection, submission notifications and CRM contact mapping, and needs the owner to set
+   collection permissions by hand before anyone can submit at all.
+2. **Confirming attendance to an event or occasion → `events`.** A wedding, party or gathering —
+   events ships a built-in RSVP registration form. Route there even for a single occasion with no
+   tickets.
+3. **A form attached to a bookable service → `bookings`.**
 
 ### When the request doesn't name a Wix Business Solution — ask, or check the site
 
