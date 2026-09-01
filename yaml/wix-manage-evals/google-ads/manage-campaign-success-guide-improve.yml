@@ -4,8 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  How can I improve the Google Ads campaign on my Gracia site? Show me its
-  campaign success guide.
+  How can I improve my Google Ads campaign?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -19,36 +18,30 @@ assertions:
       - routes the request to the campaign success guide for an existing Google
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
-      - treats the direct request to show the campaign success guide as approval
-        to retrieve it once the campaign is identified, without asking a
-        redundant yes/no confirmation;
-      - identifies the campaign from available context or asks one targeted
-        campaign-selection question when it is genuinely ambiguous; and
+      - explains that the guide is the next step for prioritized improvements
+        and identifies the campaign from available context or asks one targeted
+        site or campaign-selection question when it is genuinely ambiguous; and
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
-      Fail if it routes only to analytics or pre-campaign suggestions, tells the
-      user to wait for metrics, asks whether they want the guide after they
-      already asked how to improve the campaign, guesses among multiple
-      campaigns, or claims recommendations are automatically implemented.
+      This scenario evaluates routing and guidance; it does not require a live
+      guide retrieval against the shared test site.
+
+      Fail if it gives only generic optimization advice, routes only to analytics
+      or pre-campaign suggestions, tells the user to wait for metrics, guesses
+      among multiple campaigns, or claims recommendations are automatically
+      implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct path through the campaign success
-      guide, resolving the named Gracia site once if needed, with only the
-      campaign-resolution step genuinely required by the available context. Do
-      not penalize one concise campaign-selection question when the campaign is
-      ambiguous. The named shared test site may not expose a paid-ads guide to
-      the eval collaborator. Score 7-8 when the agent takes the correct guide
-      path without redundant confirmation and transparently ends at that fixture
-      permission limitation, even if resolving it caused extra documentation or
-      request attempts; list those attempts as friction without failing solely
-      for them. Score below 7 for redundant confirmation, querying analytics
-      before the guide, routing through pre-campaign suggestions, guessing a
-      campaign or installation state, persisting after clearly identifying an
-      authorization failure, or leaking internal service or tool names in the
-      user-facing answer.
+      trace. Score 0-10, where 10 is a direct path to the campaign success guide
+      documentation followed by concise guidance or one targeted site/campaign
+      selection question. No live guide retrieval is required for this routing
+      scenario. Penalize querying analytics first, routing through pre-campaign
+      suggestions, guessing a campaign or installation state, non-2xx calls,
+      redundant documentation or probing, and internal service or tool names in
+      the user-facing answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
