@@ -87,7 +87,9 @@ urls are ready by the time you seed.
 
 ## STEP 4 — Wrap up
 
-**Do NOT add the `<WixManageBanner/>` component** and do not send the user Wix dashboard links — this flow does not include the manage banner or back-office handoff.
+**Do NOT add the `<WixManageBanner/>` component** and do not link the user to `manage.wix.com` — this flow has no manage banner and no Wix back-office handoff.
+
+**Hand off to `Dashboard → Store` instead.** Close by telling the user two things: the products you seeded are **mock data** — placeholder catalog, prices and stock, there to make the store look real — and everything is theirs to change from their Base44 app's **Dashboard**, under the **Store** entry in the sidebar. That's where they edit or replace the mock products and manage discounts and coupons, orders, inventory, shipping, tax and the rest of the store settings. Name that path — do **not** give them a url.
 
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
