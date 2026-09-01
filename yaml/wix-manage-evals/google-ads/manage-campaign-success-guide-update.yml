@@ -5,7 +5,7 @@ description: >-
   status update without another confirmation step.
 triggerPrompt: >-
   I made the call-to-action button clearer as the campaign success guide
-  recommended. What Wix API update records that as done?
+  recommended. How do I record that recommendation as done?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -22,9 +22,6 @@ assertions:
         /pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
         with a request body containing type CLEAR_CTA_COPY and status COMPLETED;
       - identifies the suggestion by type rather than by suggestion id;
-      - says to treat the campaignSuccessGuide returned by the update as the new
-        source of truth, report the changed status, and preserve the returned
-        order when summarizing remaining OPEN suggestions; and
       - does not claim that marking the item COMPLETED changed the campaign,
         landing page, or call-to-action itself.
 
