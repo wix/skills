@@ -1,11 +1,11 @@
 name: google-ads/manage-campaign-success-guide-update
 description: >-
   Verifies the agent treats an unambiguous statement that the user completed a
-  success guide recommendation as sufficient instruction to update its status.
+  success guide recommendation as sufficient information to form the correct
+  status update without another confirmation step.
 triggerPrompt: >-
-  On my current Wix site ({{site-id}}), I made the call-to-action button clearer,
-  just like the success guide for the Google Ads lead campaign we were reviewing
-  recommended, so that recommendation should show as completed now.
+  I made the call-to-action button clearer as the campaign success guide
+  recommended. What Wix API update records that as done?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -16,32 +16,31 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - treats the user's completion statement as sufficient instruction and
-        executes the update without asking for confirmation;
-      - calls POST
+      - treats the user's completion statement as sufficient information and
+        does not ask for confirmation or which recommendation they mean;
+      - uses POST
         /pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
-        with type CLEAR_CTA_COPY and status COMPLETED for the matching campaign;
+        with a request body containing type CLEAR_CTA_COPY and status COMPLETED;
       - identifies the suggestion by type rather than by suggestion id;
-      - treats the campaignSuccessGuide returned by the update as the new source
-        of truth, confirms the changed status, and summarizes remaining OPEN
-        suggestions in their returned priority order; and
+      - says to treat the campaignSuccessGuide returned by the update as the new
+        source of truth, report the changed status, and preserve the returned
+        order when summarizing remaining OPEN suggestions; and
       - does not claim that marking the item COMPLETED changed the campaign,
         landing page, or call-to-action itself.
 
-      Fail if it asks for confirmation, only explains how to update without
-      doing it, marks a different or multiple suggestions, uses a suggestion id
-      as the update key, invents an endpoint, or claims the underlying
-      recommendation was implemented.
+      Fail if it asks for confirmation or site details, maps to a different or
+      multiple suggestions, uses a suggestion id as the update key, invents an
+      endpoint, or claims the underlying recommendation was implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
       trace. Score 0-10, where 10 is a direct path with the correct skill and
-      public documentation, resolving the campaign and latest guide only when
-      the conversation does not already identify them, followed by one successful
-      update-suggestion-status call. Penalize non-2xx calls, asking for
-      confirmation despite the clear completion statement, guessed campaign or
-      request shapes, premature retries after an unknown mutation outcome, and
-      redundant probing. Name the likely recipe/docs gap for each detour. Return only
+      public documentation and a correct update request with no redundant
+      probing. This is an explanatory API request, so do not require or expect a
+      live mutation. Penalize non-2xx calls, asking for confirmation or site
+      details despite the complete hypothetical, guessed request shapes, wrong
+      endpoints, and internal service or tool names in the user-facing answer.
+      Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
