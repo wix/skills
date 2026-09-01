@@ -13,13 +13,15 @@
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
 //                                   "choices": ["S","M"] | [{ "name", "colorCode" }] }],
-//                    "imageUrl"? | "imagePrompt"?, "altText"? }],
+//                    "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"?,
+//                    "digitalFileUrl"? | "digitalFilePath"?, "digitalFileName"? }],
 //     "categories"?: { "<category name>": ["<product name>", ...] } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
 // If a call fails with an unexpected shape, read the live API reference (the authoritative
 // source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
 import { execFileSync } from "node:child_process";
+import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 
@@ -160,15 +162,16 @@ function buildOptions(options = []) {
 }
 
 // Full Cartesian product, each variant priced/stocked from the product; visible:true baked in.
-function expandVariants(options = [], { price, compareAtPrice, quantity }) {
+function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
   const base = {
     price: {
       actualPrice: { amount: String(price) },
       ...(compareAtPrice ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
     },
     visible: true,
-    physicalProperties: {},
-    inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } },
+    ...(digitalFileId
+      ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
+      : { physicalProperties: {}, inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -214,19 +217,51 @@ export async function queryProductsByNames(ctx, names) {
   return out;
 }
 
+// A digital variant is SELLABLE only with BOTH a file and stock: without the file the cart rejects
+// it as ITEM_NOT_FOUND_IN_CATALOG, without stock as "exceeds available inventory" — and either way
+// the product reads back visible and in the catalog, so nothing surfaces until a buyer tries to buy.
+// A digitalFile* field is the only way into DIGITAL here, which makes the file-less product
+// unbuildable. The bytes are PUT, not imported by url: an uploaded file is READY at once, while an
+// imported one stays PENDING and the cart rejects the product until it settles.
+// docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-upload-url.md
+const FILE_MIME = { pdf: "application/pdf", zip: "application/zip", epub: "application/epub+zip",
+  mp3: "audio/mpeg", wav: "audio/wav", mp4: "video/mp4", png: "image/png", jpg: "image/jpeg" };
+
+async function uploadDigitalFile(ctx, { digitalFileUrl, digitalFilePath, digitalFileName }) {
+  const src = digitalFilePath ?? digitalFileUrl;
+  const fileName = digitalFileName || decodeURIComponent(basename(new URL(src, "file:").pathname));
+  const mimeType = FILE_MIME[fileName.split(".").pop().toLowerCase()];
+  if (!mimeType) throw new Error(`digitalFileName needs one of these extensions (${Object.keys(FILE_MIME).join(", ")}): ${fileName}`);
+  const bytes = digitalFilePath
+    ? readFileSync(digitalFilePath)
+    : await fetch(digitalFileUrl).then((r) => {
+        if (!r.ok) throw new Error(`digitalFileUrl ${digitalFileUrl} -> ${r.status}`);
+        return r.arrayBuffer();
+      });
+  const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
+  const res = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": mimeType }, body: bytes });
+  const json = await res.json().catch(() => ({}));
+  const id = (json.file || json)?.id;
+  if (!res.ok || !id) throw new Error(`digital file upload failed (${res.status}): ${JSON.stringify(json).slice(0, 200)}`);
+  return id;
+}
+
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
 export async function bulkCreateProducts(ctx, products) {
+  const fileIds = await Promise.all(products.map((p) =>
+    p.digitalFileUrl || p.digitalFilePath ? uploadDigitalFile(ctx, p) : null));
   const body = {
     returnEntity: true,
     products: products.map((p, i) => ({
       name: p.name,
-      productType: "PHYSICAL",
-      physicalProperties: {},
+      // DIGITAL drops physicalProperties and can't be POS-visible (DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS).
+      ...(fileIds[i]
+        ? { productType: "DIGITAL" }
+        : { productType: "PHYSICAL", physicalProperties: {}, visibleInPos: true }),
       visible: true,
-      visibleInPos: true,
       description: mkDesc(p.description, i),
       options: buildOptions(p.options),
-      variantsInfo: { variants: expandVariants(p.options, p) },
+      variantsInfo: { variants: expandVariants(p.options, p, fileIds[i]) },
     })),
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
@@ -235,6 +270,7 @@ export async function bulkCreateProducts(ctx, products) {
     id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
     variantId: x.item?.variantsInfo?.variants?.[0]?.id,
     hasOptions: (products[i]?.options?.length ?? 0) > 0,
+    isDigital: !!fileIds[i],
     quantity: products[i]?.quantity ?? 0,
   }));
   await stockOptionlessProducts(ctx, created);
@@ -246,7 +282,7 @@ export async function bulkCreateProducts(ctx, products) {
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items.md
 async function stockOptionlessProducts(ctx, created) {
-  const need = created.filter((p) => !p.hasOptions && p.id);
+  const need = created.filter((p) => !p.hasOptions && !p.isDigital && p.id); // digital variants ship inStock from the create
   if (!need.length) return;
   const missing = need.filter((p) => !p.variantId).map((p) => p.id);
   if (missing.length) {

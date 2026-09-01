@@ -377,6 +377,35 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
+### Attach a Digital File
+
+A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "variantsInfo": {
+        "variants": [
+          {
+            "id": "{existingVariantId}",
+            "price": { "actualPrice": { "amount": "9.99" } },
+            "visible": true,
+            "inventoryItem": { "inStock": true },
+            "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
+          }
+        ]
+      }
+    }
+  }'
+```
+
+Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in the response.
+
 ## Important Notes
 
 - A request to hide a product is a `visible: false` update on the product, never a Delete Product call and never a variant-only change.
@@ -400,3 +429,5 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
+| `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
+| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Set `inventoryItem.inStock: true` on the variant |
