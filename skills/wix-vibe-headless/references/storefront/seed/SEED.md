@@ -44,13 +44,15 @@ const result = await seed.setupStore(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-## Options, variants and sale prices
+## How many, and exercising the UI
+
+**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the shape,
+not a full inventory; the owner adds the rest later, from the Wix dashboard or by asking you for more.
 
 The shipped storefront renders colour options as real swatches, shows a size/colour summary on each
 tile, and puts a percent-off badge on a discounted product. A catalog of plain single-price products
-leaves all of that invisible, so **seed a catalog that exercises it**: unless the brief says
-otherwise, give at least one product a colour option and put one product on sale. Keep it truthful
-to the business — a ceramics studio has glaze colours, a bakery does not.
+leaves all of that invisible, so **make those 3 exercise it**: unless the brief says otherwise, give
+at least one product a colour option and put one product on sale. Keep it truthful to the business.
 
 ```js
 options: [
