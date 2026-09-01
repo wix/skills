@@ -115,6 +115,8 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-s
 
 There is **no end-options call for daily rentals.** You list days and compute the valid end dates client-side.
 
+**⚠️ `timeZone` must be the site's business timezone — see [the rentals availability docs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#daily-availability) for why.** Don't use the visitor's browser timezone.
+
 ```js
 const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId, timeZone,
@@ -176,7 +178,7 @@ Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days`
 
 1. **`endDate` is the customer's chosen end**, not a duration added to the start — that is the whole point of a rental.
 2. **`resource`** comes from the **start slot's** `availableResources` (§2 step 1 / §3). There is no ANY_RESOURCE staff fallback here; rentals are resource-driven.
-3. **Read the location id as `slot.location.id ?? slot.location._id`, and write it under `_id`.**
+3. **Map the slot's `location` to the booking's `location`** — read the id as `slot.location.id ?? slot.location._id`, and write it under `_id`.
 4. **The cart's `catalogReference.appId` is the RENTALS app id**, not the Bookings one:
 
 ```js
