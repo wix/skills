@@ -26,6 +26,7 @@ using CSS Modules `@value`, then consume with `var()`.
 **Body:** `wst-paragraph-1..3-font` / `wst-paragraph-1..3-color`
 
 - Do not use `var(--wst-*)` directly; import the `@value` alias first.
+- Do not pass a fallback as `var()`'s second argument
 - Do not use `@import`; CSS Modules resolves theme aliases through `@value`.
 - Do not use `wst-base-1-color` for text. Prefer heading/paragraph color tokens,
   or `wst-base-2-color` when a base contrast color is required.
