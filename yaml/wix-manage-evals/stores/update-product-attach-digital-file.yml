@@ -1,0 +1,25 @@
+name: stores/update-product-attach-digital-file
+description: Verifies that an existing digital product rejected at add-to-cart is repaired by attaching a digital file to its variant, rather than re-created or blamed on a stale id.
+triggerPrompt: >-
+  My digital product "Focus Planner" is in the catalog and in stock, but adding it to the cart fails with
+  ITEM_NOT_FOUND_IN_CATALOG. The download is this file:
+  https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf — please fix it.
+tags: [stores, media]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The site has no product named "Focus Planner", so the agent must first create one to reproduce the state, or say plainly that it cannot find the product and ask — either is acceptable. Recipe loading is preferred but not required; a correct execution grounded in authoritative Wix API docs must pass. Pass if the agent identifies the missing digital file as the cause of ITEM_NOT_FOUND_IN_CATALOG, gets the PDF into Wix Media, and repairs the product with a PATCH /stores/v3/products/{id} whose body carries product.id, the current product.revision, and a variantsInfo.variants array in which the existing variant keeps its id and price and gains digitalProperties.digitalFile.id. It must confirm from the response that digitalProperties.digitalFile came back set.
+      Fail if it attributes the error to a stale or wrong product/variant id, deletes and re-creates the product, puts digitalProperties on the product instead of the variant, sends the variants array without the existing variant's price, omits the revision, or tells the user to attach the file in the dashboard.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. A 10 reads the product once for its revision and variant, gets the file into Media once, and repairs with a single PATCH it then validates. Penalize hunting for a stale id, re-creating the product, repeated reads of the same product, redundant or tangential docs, recovered non-2xx errors (a revision mismatch above all), or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

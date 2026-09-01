@@ -95,6 +95,16 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
 - **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
+- **Digital products (`"productType": "DIGITAL"`) drop `physicalProperties` and are sellable only when each variant carries both a file and stock** — miss either and the product is created fine, reads back `visible: true`, and is rejected at add-to-cart. Upload the file first (`POST /site-media/v1/files/generate-upload-url` → `PUT` the bytes → `file.id`):
+
+  ```json
+  { "productType": "DIGITAL", "visible": true,
+    "variantsInfo": { "variants": [ {
+      "price": { "actualPrice": { "amount": "12.00" } }, "visible": true,
+      "inventoryItem": { "inStock": true },
+      "digitalProperties": { "digitalFile": { "id": "<file.id>" } }
+    } ] } }
+  ```
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
 - If part of the bulk request fails, retry the failed products **once** with the exact same format; do not loop.

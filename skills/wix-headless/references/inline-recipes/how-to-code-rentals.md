@@ -4,7 +4,7 @@ description: The frontend read/booking contract for a Wix Rentals site — a del
 ---
 **RECIPE**: How to Code a Wix Rentals Frontend (Services V2 duration ranges + ecom Cart V2 checkout)
 
-> **⚠️ Read `how-to-code-bookings.md` first — this recipe is a DELTA on it, not a replacement.** Wix Rentals runs on the Wix Bookings APIs, so the client setup, the schema-driven booking form, the `createBooking → ecom Cart V2 → checkout-or-place` sequence, the `postFlowUrl` HTTPS trap, and the anonymous read-back on the confirmation page are **all identical** and are documented there. This file covers **only what differs for a rental**: finding rentals, duration-range availability, duration-based pricing, and the handful of rentals-specific errors.
+> **⚠️ Read `how-to-code-bookings.md` first — this recipe is a DELTA on it, not a replacement.** Wix Rentals runs on the Wix Bookings APIs, so the client setup, the schema-driven booking form, the `createBooking → ecom Cart V2 → checkout-or-place` sequence, and the `postFlowUrl` HTTPS trap are **all identical** and are documented there. This file covers **only what differs for a rental**: finding rentals, duration-range availability, duration-based pricing, and the handful of rentals-specific errors.
 
 > **⚠️ There is no `@wix/rentals` package, and that is not a gap.** Rentals is `@wix/bookings` with rentals-specific field values. If a run concludes "Wix Rentals has no headless surface" because npm has no `@wix/rentals`, that conclusion is wrong — build on `@wix/bookings`.
 >
@@ -17,7 +17,7 @@ description: The frontend read/booking contract for a Wix Rentals site — a del
 ## Constants and modules (the delta)
 
 **Constants** (e.g. `src/services/constants.ts`):
-- **Wix Rentals app id** — `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`. Used **twice**: to filter the catalog to rentals, and as the cart's `catalogReference.appId`.
+- **Wix Rentals app id** — `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`. Used **three times**: to filter the catalog to rentals, as the cart's `catalogReference.appId`, and to filter bookings reads (§Cancellation).
 
 **Modules** — all on `@wix/bookings`, alongside the ones `how-to-code-bookings.md` already lists:
 
@@ -54,7 +54,7 @@ const { results, pagingMetadata } = await catalogSearch.queryServicesByFilters({
 
 - Each entry in `results` carries the full `service` plus an **`available`** flag. With a window set and `exactMatch` left unset, a service comes back when it has **at least one** bookable slot anywhere in the window.
 - **End the window at `00:00:00` of the day *after* the range you want, not at `23:59:59`.** The end boundary is exclusive, so a 23:59:59 end silently drops the last minute of the final day. This matches the daily-booking convention in §3, where a rental's `endDate` is midnight of the day after the last rented day.
-- **To grey out rather than hide** fully-booked rentals, set `serviceFilters.includeUnavailable: true` — those come back with `available: false`.
+- **To grey out rather than hide** unavailable rentals, set `serviceFilters.includeUnavailable: true` — those come back with `available: false`.
 - **Paginate** by passing `pagingMetadata.cursors.next` back **unchanged** as `query.cursorPaging.cursor`, until `next` is absent.
 - **Location and attribute filters** live in `serviceFilters` too — `locationIds`, `resourceTypes`, and `attributes`. Within one attribute, values are **match-any**; across different attributes, **match-all**.
 - With **no** date range, no availability check runs and everything returns `available: true`.
@@ -102,7 +102,7 @@ const { endOptions } = await availabilityTimeSlots.listAvailabilityTimeSlotEndOp
 
 - **⚠️ The response field is `endOptions`, NOT `timeSlots`.** `listAvailabilityTimeSlots` returns `timeSlots`; this call returns `endOptions`. Destructuring `timeSlots` here yields `undefined` and **no error** — the end-time picker just renders empty, which is indistinguishable from "no availability". If your length picker is mysteriously blank, check this first.
 - **`location` is REQUIRED** — pass the selected slot's own `location` straight through. Omitting it fails the call.
-- The service's **maximum duration caps the response**, so you don't need `maxLocalEndDate`.
+- The service's **maximum duration caps the response**, so you don't need `maxLocalEndDate` — the cap defaults to `localStartDate` plus that maximum. What you actually get back also depends on availability: the options stop earlier if the resource isn't free that long, so the last end option is whichever comes first — the maximum duration, or the end of the free period.
 - Every entry shares the requested `localStartDate` and differs only in **`localEndDate`** — that is the end-time picker.
 - **`availableResources` is always empty on end options**, and `totalCapacity` is always `1`. Take the resource from **step 1**, not from here.
 - **⚠️ `END_OPTIONS_NOT_SUPPORTED`** means you called this for a **daily** or a fixed-duration service. End options are hourly-only — branch on `unitType` before calling.
@@ -114,6 +114,8 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-s
 ## 3 · Daily availability — one call, then walk the days yourself
 
 There is **no end-options call for daily rentals.** You list days and compute the valid end dates client-side.
+
+**⚠️ `timeZone` must be the site's business timezone — see [the rentals availability docs](https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md#daily-availability) for why.** Don't use the visitor's browser timezone.
 
 ```js
 const { timeSlots } = await availabilityTimeSlots.listAvailabilityTimeSlots({
@@ -136,7 +138,7 @@ After the customer picks a start date, **iterate forward through the returned li
 
 For the **24/7** case, set the boundaries to midnight-to-midnight: `startDate` = midnight on the first day, `endDate` = **midnight on the day after the last day**. A Monday–Wednesday inclusive rental ends at midnight on **Thursday**. **⚠️ Wix derives `allDay` itself — do not set it.**
 
-For the **working-hours** case, build one booking per day with that day's own working-period start and end (e.g. 09:00 → 18:00), and send them together. The group is created **all or nothing**: any unavailable or non-consecutive day fails the whole call. **Save `multiServiceBookingInfo.id` from the response in your own records** — you need it to cancel the group later, and `multiServiceBookingInfo` is **not** exposed on the bookings you read back afterwards.
+For the **working-hours** case, build one booking per day with that day's own working-period start and end (e.g. 09:00 → 18:00), and send them together. The group is created **all or nothing**: any unavailable or non-consecutive day fails the whole call.
 
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/rentals/about-wix-rentals-availability.md> · <https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-multi-service-booking.md?apiView=SDK>
 
@@ -172,11 +174,12 @@ Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days`
 >
 > Two things make this misleading. **The same `createBooking` succeeds as an admin (`WIX_USER`)**, so it reads like a permissions or payload bug when it's neither — always test the visitor path. And **switching the service to offline / pay-in-person does not avoid it**: `placeOrder` still requires the site to be accepting payments. Record the precondition and surface it to the owner; don't try to code around it.
 
-**Identical to `how-to-code-bookings.md` § "createBooking → cart → checkout"**, with three substitutions:
+**Identical to `how-to-code-bookings.md` § "createBooking → cart → checkout"**, with four substitutions:
 
 1. **`endDate` is the customer's chosen end**, not a duration added to the start — that is the whole point of a rental.
 2. **`resource`** comes from the **start slot's** `availableResources` (§2 step 1 / §3). There is no ANY_RESOURCE staff fallback here; rentals are resource-driven.
-3. **The cart's `catalogReference.appId` is the RENTALS app id**, not the Bookings one:
+3. **Map the slot's `location` to the booking's `location`** — read the id as `slot.location.id ?? slot.location._id`, and write it under `_id`.
+4. **The cart's `catalogReference.appId` is the RENTALS app id**, not the Bookings one:
 
 ```js
 const cart = await createCart({
@@ -185,7 +188,9 @@ const cart = await createCart({
 });
 ```
 
-Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession`, the HTTPS `postFlowUrl` rule, and reading the booking back on the confirmation page — is unchanged. Follow `how-to-code-bookings.md`.
+Everything downstream — `calculateCart`, the checkout-vs-`placeOrder` decision, `redirects.createRedirectSession` and the HTTPS `postFlowUrl` rule — is unchanged. Follow `how-to-code-bookings.md`.
+
+**⚠️ One exception: do NOT call `getAnonymousActionToken` / `bookingsGetBookingAnonymously` for a rentals booking.** `how-to-code-bookings.md`'s confirmation-page step calls these client-side as the visitor. For rentals, `getAnonymousActionToken` returns `403` (the method requires the `Manage Bookings` scope, which the visitor doesn't have) — skip that whole step. Drive the confirmation page from what you already hold from `createBooking` / `placeOrder` / the redirect return instead; don't add a call to mint or read an anonymous token.
 
 ---
 
@@ -216,6 +221,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
 | `NUMBER_OF_PARTICIPANTS_NOT_FOUND` | `numberOfParticipants` missing or `0` on the price preview | Send `1` — always 1 for a rental (§4) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
+| Booking created at the wrong location, or `location` silently empty | Read only `.location._id` (undefined) | Read both `.location.id ?? .location._id` (§5) |
 | Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
 | `.image.url` fails `tsc`, or images render broken | `media.mainMedia.image` is a **string** holding a `wix:image://` URI | `media.getImageUrl(...)` from `@wix/sdk` (§6) |
 
@@ -223,10 +229,16 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 
 ## Out of scope
 
-**Cancellation and post-booking self-service.** The docs describe cancel flows, but they need admin-scope reads the anonymous visitor doesn't have — the same axis as the bookings recipe's waitlist/manage-cancel exclusion. Two rentals-specific notes if a run does build them server-side:
+**Cancellation.** A logged-in member can cancel their own rental:
 
 - A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
-- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the **`multiServiceBookingInfo.id` you persisted at creation** (§3) — it is *not* readable back off the individual bookings afterwards. A site that builds the working-hours daily flow without storing that id has no way to cancel the group.
+- A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`**, read back off any booking in the group.
+
+**⚠️ Read the booking back with `queryExtendedBookings`, filtered on the rentals `appId`.** Without an `appId` (or `createdByAppId`) filter of your own, the query applies a default one that covers Bookings but **not** rentals, and returns **0** results — a rentals booking that exists looks like it doesn't. Naming `appId` in the filter suppresses that default:
+
+```js
+  filter: { appId: RENTALS_APP_ID },
+```
 
 Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
 
@@ -237,5 +249,6 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 - **Hourly** = two availability calls (start → `timeSlots`, then end options → **`endOptions`**, hourly-only, `location` required, `serviceId` positional). **Daily** = one call with `timeSlotsPerDay: 1`, then walk consecutive days client-side.
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
-- Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference`.
+- Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference` — **except** the anonymous-token confirmation step, which rentals must skip entirely (§5).
+- **The slot's location id must be read defensively** as `.location.id ?? .location._id` — the SDK type says `_id`, but the field stays `.id` on the wire.
 - **SEO and images are the bookings ones too** — `WIX_APPS.bookings.servicePageMetadata` and `seoTags.ItemType.BOOKINGS_SERVICE`; there is no rentals-specific accessor to find.

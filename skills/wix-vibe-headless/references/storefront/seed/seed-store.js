@@ -149,15 +149,16 @@ function buildOptions(options = []) {
 }
 
 // full Cartesian product of variants, each priced/stocked from the product; visible:true baked in
-function expandVariants(options = [], { price, compareAtPrice, quantity }) {
+function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
   const base = {
     price: {
       actualPrice: { amount: String(price) },
       ...(compareAtPrice ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
     },
     visible: true,
-    physicalProperties: {},
-    inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } },
+    ...(digitalFileId
+      ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
+      : { physicalProperties: {}, inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -169,6 +170,33 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }) {
   }
   return combos.map((choices) => ({ ...base, choices }));
 }
+
+// A digital variant is SELLABLE only with BOTH a file and stock: without the file the cart rejects
+// it as ITEM_NOT_FOUND_IN_CATALOG, without stock as "exceeds available inventory" — and either way
+// the product reads back visible and in the catalog, so nothing surfaces until a buyer tries to buy.
+// `digitalFileUrl` is the only way into DIGITAL here, which makes the file-less product unbuildable.
+// The bytes are PUT, not imported by url: an uploaded file is READY at once, while an imported one
+// stays PENDING and the cart rejects the product until it settles.
+const FILE_MIME = { pdf: "application/pdf", zip: "application/zip", epub: "application/epub+zip",
+  mp3: "audio/mpeg", wav: "audio/wav", mp4: "video/mp4", png: "image/png", jpg: "image/jpeg" };
+
+async function uploadDigitalFile(ctx, url, fileName) {
+  const mimeType = FILE_MIME[(fileName.split(".").pop() || "").toLowerCase()];
+  if (!mimeType) throw new Error(`digitalFileName needs one of these extensions (${Object.keys(FILE_MIME).join(", ")}): ${fileName}`);
+  const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
+  const src = await fetch(url);
+  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}`);
+  const res = await fetch(uploadUrl, {
+    method: "PUT", headers: { "Content-Type": mimeType }, body: Buffer.from(await src.arrayBuffer()),
+  });
+  const json = await res.json().catch(() => ({}));
+  const id = (json.file || json)?.id;
+  if (!res.ok || !id) throw new Error(`digital file upload failed (${res.status}): ${JSON.stringify(json).slice(0, 200)}`);
+  return id;
+}
+
+const digitalFileName = (p) =>
+  p.digitalFileName || decodeURIComponent(new URL(p.digitalFileUrl).pathname.split("/").pop() || "");
 
 // ---- exported operations ----
 
@@ -193,7 +221,10 @@ async function listProducts(ctx) {
 /**
  * Bulk-create products.
  * @param products [{ name, description, price, compareAtPrice?, quantity,
- *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }] }]
+ *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }],
+ *   digitalFileUrl?, digitalFileName? }]
+ *   digitalFileUrl: makes the product a DIGITAL download — the file is uploaded and the variant
+ *   created with both the file and stock (see uploadDigitalFile). `quantity` is ignored.
  *   description: plain text, or simple HTML (`<p>`, `<br/>`, `<strong>`, `<em>`) — converted to
  *   Wix rich text here, so the storefront renders paragraphs and bold rather than tag text.
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
@@ -202,17 +233,20 @@ async function listProducts(ctx) {
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
+  const fileIds = await Promise.all(products.map((p) =>
+    p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
   const body = {
     returnEntity: true,
     products: products.map((p, i) => ({
       name: p.name,
-      productType: "PHYSICAL",
-      physicalProperties: {},
+      // DIGITAL drops physicalProperties and can't be POS-visible (DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS).
+      ...(fileIds[i]
+        ? { productType: "DIGITAL" }
+        : { productType: "PHYSICAL", physicalProperties: {}, visibleInPos: true }),
       visible: true,
-      visibleInPos: true,
       description: mkDesc(p.description, i),
       options: buildOptions(p.options),
-      variantsInfo: { variants: expandVariants(p.options, p) },
+      variantsInfo: { variants: expandVariants(p.options, p, fileIds[i]) },
     })),
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
@@ -221,6 +255,7 @@ async function bulkCreateProducts(ctx, products) {
     id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
     variantId: x.item?.variantsInfo?.variants?.[0]?.id,
     hasOptions: (products[i]?.options?.length ?? 0) > 0,
+    isDigital: !!fileIds[i],
     quantity: products[i]?.quantity ?? 0,
   }));
   await stockOptionlessProducts(ctx, created);
@@ -233,7 +268,7 @@ async function bulkCreateProducts(ctx, products) {
 // are already stocked by the create above, so they're skipped. Backfills the default variantId from a
 // query if the create response didn't return it.
 async function stockOptionlessProducts(ctx, created) {
-  const need = created.filter((p) => !p.hasOptions && p.id);
+  const need = created.filter((p) => !p.hasOptions && !p.isDigital && p.id); // digital variants ship inStock from the create
   if (!need.length) return;
   const missing = need.filter((p) => !p.variantId).map((p) => p.id);
   if (missing.length) {
@@ -300,7 +335,8 @@ async function attachProductImages(ctx, items) {
  * the DEFAULT path — call it once instead of the individual functions.
  *
  * @param plan {{
- *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText? }],
+ *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText?,
+ *                digitalFileUrl?, digitalFileName? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }

@@ -28,6 +28,8 @@ const result = await seed.setupStore(ctx, {
       options: [{ name: "Color", type: "color", choices: [{ name: "Ink", colorCode: "#1B1B2F" }, { name: "Bone", colorCode: "#EDE6D6" }] }] },
     // a product on sale — compareAtPrice drives the strikethrough + the tile's percent-off badge
     { name: "Encore Jacket", description: "…", price: 68, compareAtPrice: 129, quantity: 5, imageUrl: imageUrls[2] },
+    // a digital download — `digitalFileUrl` is the switch into DIGITAL
+    { name: "Backstage Guide", description: "…", price: 12, digitalFileUrl: "https://…/guide.pdf" },
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
@@ -59,6 +61,13 @@ options: [
   option counts small.
 - `compareAtPrice` (> `price`) is the "was" price: strikethrough on the PDP and a `−N%` badge on the
   tile, computed from the two amounts. It works with or without options.
+
+## Digital downloads
+
+`digitalFileUrl` (plus `digitalFileName` when the url carries no filename) makes a product a digital
+download — uploaded and created with both the file and stock, which is what the cart requires
+(`quantity` is ignored). It's also the only way in: a file-less digital product is created
+successfully, reads back healthy, and is then rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
 
 Two things this module does **not** seed, so don't try:
 

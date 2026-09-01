@@ -185,6 +185,8 @@ await currentCartV2.addLineItemsToCurrentCart({
 
 **⚠️ CRITICAL: `options.variantId` is MANDATORY for any product that has variants.** Adding by `catalogItemId` alone **fails** — the catalog can't resolve a variant-bearing product without it, and Cart V2 **rejects the add with an explicit error** rather than accepting an invalid line. The cart method's required-params list omits `variantId`, so it's an easy one to miss. Always resolve and include it (part 1 above).
 
+**CRITICAL: `ITEM_NOT_FOUND_IN_CATALOG` for a product that exists is a catalog defect, not a stale id.** A `DIGITAL` product whose variant has no `digitalProperties.digitalFile` is rejected under that code, and one with no stock is rejected as `exceeds available inventory` — both read back `visible: true` and in the catalog. Fix the product (`setup-online-store.md` → digital products); re-reading ids won't help.
+
 **⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug: the variant never resolves, so Cart V2 rejects the add with an explicit error.
 
 ### Checkout — redirect to the hosted checkout page

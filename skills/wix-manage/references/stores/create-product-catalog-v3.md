@@ -65,14 +65,14 @@ If any product is missing a price, **do not call the API**. Ask for the missing 
 - Bulk endpoints accept 1–100 products, so a compatible bulk endpoint is also valid for one product.
 - For multiple products requested as one batch, send one bulk call. Use the with-inventory endpoint when any product needs inventory; include `inventoryItem` only on tracked variants.
 - Never send `inventoryItem` to a no-inventory endpoint. Do not invent inventory.
-- Digital products normally use a no-inventory endpoint.
+- Digital products use a with-inventory endpoint: an unstocked digital variant is unsellable.
 - Per bulk request, allow at most 100 products, 100 total options, 100 modifiers, 100 info sections, and 1000 variants. Split larger input into compliant batches.
 
 ## Build each product
 
 | Concern | Rule |
 |---|---|
-| Type | `PHYSICAL` uses product- and variant-level `physicalProperties`; `DIGITAL` omits physical properties and inventory. |
+| Type | `PHYSICAL` uses product- and variant-level `physicalProperties`; `DIGITAL` omits them and carries `inventoryItem.inStock` plus `digitalProperties.digitalFile` on each variant. |
 | Variants | Include at least one. Price, SKU, barcode, inventory, and digital file are variant-level fields. |
 | Price | Use a string in `price.actualPrice.amount`; add `compareAtPrice` only when supplied. |
 | SKU | Preserve supplied strings exactly, including `#`, punctuation, and leading zeroes. Keep variant SKUs unique unless explicitly requested otherwise. |
@@ -140,7 +140,7 @@ For a color option, use `SWATCH_CHOICES`; each choice uses `choiceType: ONE_COLO
 
 The image must be in the product gallery first, and the id/ordering has a trap — assign per-choice media via **[Update Product with Options](update-product-with-options.md) → Choice & variant fields** (also the full choice-vs-variant field split: choice `media`/`colorCode`; variant `price`/`sku`/`barcode`/stock).
 
-A digital product uses the smaller shape below. Add the supplied variant-level digital file only when one was provided.
+A digital variant is **sellable** only when it carries both a digital file and stock; miss either and the product reads back healthy and is rejected at add-to-cart. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes) and send the returned `file.id` to `POST /stores/v3/products-with-inventory`:
 
 ```json
 {
@@ -149,10 +149,14 @@ A digital product uses the smaller shape below. Add the supplied variant-level d
   "variantsInfo": {"variants": [{
     "sku": "PDF-FOCUS-01",
     "price": {"actualPrice": {"amount": "9.99"}},
-    "visible": true
+    "visible": true,
+    "inventoryItem": {"inStock": true},
+    "digitalProperties": {"digitalFile": {"id": "<FILE_ID>"}}
   }]}
 }
 ```
+
+With no file supplied, create the product and report it as not sellable until one is attached — [Update Product with Options](update-product-with-options.md) → Attach a digital file.
 
 ### Generated descriptions and SEO
 
@@ -281,4 +285,4 @@ Retry only failed transient items, not successful products. If a requested field
 - `variantsInfo must not be empty`: include at least one priced variant per product.
 - Option/variant mismatch: create every requested combination and reference every option once per variant.
 - Media not visible: use the uploaded `wixstatic.com` URL in `media.itemsInfo.items`; do not set `media.main`.
-- Digital product rejected: omit physical properties and inventory; keep price, SKU, and any supplied digital file on the variant.
+- Digital product rejected at add-to-cart: `ITEM_NOT_FOUND_IN_CATALOG` means the variant has no `digitalProperties.digitalFile`; `exceeds available inventory` means it has no `inventoryItem.inStock`. Both read back as a healthy product.
