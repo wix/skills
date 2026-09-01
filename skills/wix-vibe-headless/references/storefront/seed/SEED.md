@@ -64,6 +64,12 @@ options: [
 
 ## Digital downloads
 
+**Pick the product type from what the buyer receives.** A shipped physical item is the default. A
+**downloadable file the buyer keeps** — ebook, PDF guide, template, preset pack, printable, music
+track, downloadable video — is a **digital** product: pass its file as `digitalFileUrl`. Selling
+*access* rather than a file — a membership, subscription, or an online course/program the buyer
+enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded here.
+
 `digitalFileUrl` (plus `digitalFileName` when the url carries no filename) makes a product a digital
 download — uploaded and created with both the file and stock, which is what the cart requires
 (`quantity` is ignored). It's also the only way in: a file-less digital product is created

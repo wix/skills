@@ -45,6 +45,10 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
   this machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with
   `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
   that product text-only. Seed text-only only when the user explicitly asks.
+- **Product type follows what the buyer receives:** a shipped item is physical (default); a
+  downloadable file they keep (ebook, PDF, template, preset pack, track, downloadable video) is
+  **digital**; selling *access* — a membership, subscription, or online course/program the buyer
+  enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded here.
 - `digitalFilePath` (a file on this machine) or `digitalFileUrl` — makes the product a digital
   download, uploaded and created with both the file and stock (`quantity` is ignored). It's also the
   only way in: a file-less digital product is created successfully, reads back healthy, and is then
