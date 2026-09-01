@@ -87,7 +87,11 @@ urls are ready by the time you seed.
 
 ## STEP 4 — Wrap up
 
-**Do NOT add the `<WixManageBanner/>` component** and do not send the user Wix dashboard links — this flow does not include the manage banner or back-office handoff.
+**Do NOT add the `<WixManageBanner/>` component** and do not paste Wix dashboard links or spell out a path — you hand the user off through the docs tool instead, and it ships the link itself.
+
+**Make that call before you write the closing message** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. That's how the user reaches the catalog you just seeded, and it's all mock data — placeholder products, prices and stock, there to make the store look real. Tell them that, and that they can edit, replace or delete any of it. The call is what renders the dashboard shortcut in chat, so answering from your own head robs the user of it, and anything you type first lands above your real answer.
+
+**The result names the dashboard page to send them to.** Keep the closing message to those two points — the catalog is placeholder, and they manage the store from that page — using the name the result gives, and stop there. No path, no URL, no steps, and no mention of a button or shortcut — that renders on its own.
 
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
