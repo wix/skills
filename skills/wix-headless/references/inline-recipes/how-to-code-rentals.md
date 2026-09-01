@@ -17,7 +17,7 @@ description: The frontend read/booking contract for a Wix Rentals site — a del
 ## Constants and modules (the delta)
 
 **Constants** (e.g. `src/services/constants.ts`):
-- **Wix Rentals app id** — `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`. Used **twice**: to filter the catalog to rentals, and as the cart's `catalogReference.appId`.
+- **Wix Rentals app id** — `ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`. Used **three times**: to filter the catalog to rentals, as the cart's `catalogReference.appId`, and to filter bookings reads (§Cancellation).
 
 **Modules** — all on `@wix/bookings`, alongside the ones `how-to-code-bookings.md` already lists:
 
@@ -233,6 +233,12 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 
 - A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
 - A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`**, read back off any booking in the group.
+
+**⚠️ Read the booking back with `queryExtendedBookings`, filtered on the rentals `appId`.** Without an `appId` (or `createdByAppId`) filter of your own, the query applies a default one that covers Bookings but **not** rentals, and returns **0** results — a rentals booking that exists looks like it doesn't. Naming `appId` in the filter suppresses that default:
+
+```js
+  filter: { appId: RENTALS_APP_ID },
+```
 
 Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
 
