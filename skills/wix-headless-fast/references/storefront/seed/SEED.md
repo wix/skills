@@ -5,6 +5,15 @@ the REST calls. The script mints its own site token via the Wix CLI (requires a 
 session and a `wix.config.json` in the working directory), installs the Stores app if needed,
 waits for the V3 catalog, and creates everything in the right order.
 
+**Decide the product type before you seed — match it to what the buyer RECEIVES, not to the word
+"product".** A shipped physical item is physical (the default, with `quantity`). A **downloadable
+file the buyer keeps** — ebook, PDF, template, preset pack, music track, downloadable video — is
+**digital**: give it `digitalFilePath`/`digitalFileUrl`, never a `quantity`. Selling **access**
+rather than a file — a membership, a subscription, or an **online course/program the buyer enrolls
+in** — is **Pricing Plans**, not a Wix Stores product. So an "online course" sold as **downloadable
+videos** is digital; one that **streams on enrollment** is Pricing Plans. Don't default
+course/download catalogs to physical-with-quantity.
+
 ```bash
 # from the project root (where wix.config.json lives):
 node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
