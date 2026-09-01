@@ -229,12 +229,12 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 
 ## Out of scope
 
-**Cancellation and post-booking self-service.** Out of scope here, as in the bookings recipe. Two rentals-specific notes if a run does build them server-side:
+**Cancellation.** A logged-in member can cancel their own rental:
 
 - A **single** rental (hourly, or daily on a 24/7 resource) cancels with `cancelBooking` and its current `revision`.
 - A **multi-day group** (daily on a working-hours resource) cancels with `cancelMultiServiceBooking` and the group's **`multiServiceBookingInfo.id`**, read back off any booking in the group.
 
-Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
+Refunds are the eCommerce Orders API, not Bookings. Out of scope, as in bookings: waitlists, deposit/payment breakdowns, and multi-item rental carts.
 
 ## Conclusion
 
