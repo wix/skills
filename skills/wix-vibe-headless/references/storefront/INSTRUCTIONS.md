@@ -1,15 +1,15 @@
 # Wix Storefront — ready-made client
 
 The storefront **commerce engine ships as real files** — the hooks, the server cart, the REST
-transport, and the two routed pages (`Shop`, `ProductDetail`), all correct (variant resolution,
+transport, the image helpers, and the `Shop` listing page, all correct (variant resolution,
 modifiers, stock gating, checkout). It reads from your app's design tokens (base44's `src/index.css`
 — the shadcn palette the design phase already set).
 
-**Three presentation components do NOT ship — you implement them** from the hook outlines in STEP 3:
-`ProductCard`, `ProductGrid`, and `VariantPicker`. The shipped pages import them by fixed path
-(`Shop` → `@/components/ProductGrid`, `ProductDetail` → `@/components/VariantPicker`), so the app
-doesn't render `/shop` or a PDP until you build them — that's the point: the look of the store is
-yours, the commerce logic is handed to you done.
+**The presentation doesn't ship — you build it** (STEP 3): the product **card**, **grid**, **variant
+controls**, and the whole **product (PDP) page**, plus **Home** and the **header/footer**. Each is
+built on a shipped hook whose return type + field shapes are documented in the outline right next to
+it — the data is handed to you done, the layout and look are yours. `Shop` renders once your
+`ProductGrid` exists; the PDP renders once you build its page — that's the point.
 
 Talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock
 products; never hand-build a `/checkout` URL — the shipped cart goes through the eCom
@@ -27,21 +27,20 @@ so you don't need to open them:**
 | file | what it is |
 |---|---|
 | `context/CartContext.jsx` | `useCart()` provider: server cart, add/update/remove, checkout |
-| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state |
+| `hooks/useProductDetail.js` | PDP data — product + variant resolution for a slug, plus load/add state; **your product page (STEP 3) is built on it** |
 | `hooks/useShop.js` | catalog listing — category menu, cursor paging, sort, failure state |
 | `hooks/useProductCard.js` | headless data layer for a grid tile — returns `leftBadges`, `promoBadge`, `priceDisplay`, `compareAtDisplay`, `colors`, `optionLabel`, `isQuickAddable`, `image`, `hoverImage`; **your `ProductCard` (STEP 3) is built on it** |
-| `components/ProductGallery.jsx` | PDP main image + thumbnails |
-| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` / `choiceImage()` — normalise Wix image urls; `choiceImage(choice)` resolves an option choice's photo (V3 read shape: `media.items[].mediaId`, not `linkedMedia`) |
+| `lib/storeImage.js` | `productImage()` / `productGallery()` / `storeImage()` / `choiceImage()` — normalise Wix image urls; `productGallery(product)` → `[{ url, altText }]` (your PDP gallery); `choiceImage(choice)` resolves an option choice's photo (V3 read shape: `media.items[].mediaId`, not `linkedMedia`) |
 | `components/CartButton.jsx` | header cart **icon** button with a live-count badge |
 | `components/CartDrawer.jsx` | slide-over cart (mount once; opens from `useCart`) |
 | `hooks/useVariantOptions.js` | headless data layer for options/modifiers — returns `optionGroups` + `modifierGroups` (normalised, render-agnostic); **your `VariantPicker` (STEP 3) is built on it** |
 | `components/WixManageBanner.jsx` | preview-only manage banner — drop it into your Layout (STEP 3) |
-| `pages/Shop.jsx`, `pages/ProductDetail.jsx` | the two shipped routes (`/shop`, `/product/:slug`) |
+| `pages/Shop.jsx` | the shipped `/shop` listing page — renders your `ProductGrid` (you build `/product/:slug` and `/`) |
 | `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
 
-Everything in the table is already in place — go **straight to wiring + implementing your three
-components** (`ProductCard`, `ProductGrid`, `VariantPicker` — STEP 3), nothing to verify first.
+Everything in the table is already in place — go **straight to wiring + building your presentation**
+(card, grid, variant controls, the product page, Home — STEP 3), nothing to verify first.
 **Don't `read_file` the shipped page/hook source to inspect it** — the table says what each is and
 every field shape you need is in the outlines below. Read a shipped file's source **only** on a real
 fallback — a runtime error, or a field the outlines don't cover (see "Fallback only" at the end).
@@ -68,19 +67,20 @@ replace it.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
-  — including the shipped `Shop` / `ProductDetail` — so you **never edit the shipped pages to add a
-  header/footer** (they render inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
+  — including the shipped `Shop` and your own pages — so you **never edit the shipped `Shop` to add a
+  header/footer** (it renders inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
 - **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
   your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
   markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
   the content by the region's measured height so it clears the chrome and self-corrects when the
   banner is dismissed.
-- Routes under the Layout: `/shop` → `Shop`, `/product/:slug` → `ProductDetail` (both shipped, as-is).
-  **You add `/` → your own Home** page.
+- Routes under the Layout: `/shop` → `Shop` (shipped, renders your grid); `/product/:slug` → **your
+  `ProductDetail`**; `/` → **your `Home`**.
 
-**Implement three components — `ProductCard`, `ProductGrid`, `VariantPicker`.** This is where the
-store's look is yours. Each is built on a shipped hook and rendered by a shipped page at a **fixed
-path** — build them from the outlines below (the outlines give the shapes; the render is yours):
+**Build the presentation — it's all yours.** Each piece below is built on a shipped hook whose return
+type + field shapes are in the outline right after this list — the data is done, the render is yours.
+`Shop` won't show products until `ProductGrid` exists, and `/product/:slug` won't render until you
+build the product page, so these aren't optional:
 
 - **`components/ProductGrid.jsx`** — `Shop` and your Home render it. It receives `products`, `loading`,
   `empty`, `emptyHint` and owns three states (loading, empty, list) plus the layout. A boutique might
@@ -88,8 +88,12 @@ path** — build them from the outlines below (the outlines give the shapes; the
 - **`components/ProductCard.jsx`** — your grid maps each product to it. Built on `useProductCard`
   (badges, price display, colour dots, quick-add flag, images) — you decide layout, shape, hover, CTA.
   A lifestyle brand might want full-bleed images with an overlay gradient; a tech store a compact item.
-- **`components/VariantPicker.jsx`** — `ProductDetail` imports it. Built on `useVariantOptions` — design
-  the controls to fit the brief: large swatches + a size-chart link for fashion, a compact dropdown for tech.
+- **`components/VariantPicker.jsx`** — the option/modifier controls your product page drops in. Built on
+  `useVariantOptions` — large swatches + a size-chart link for fashion, a compact dropdown for tech.
+- **`pages/ProductDetail.jsx`** — the **whole product page**, built on `useProductDetail`; route
+  `/product/:slug` to it. Gallery, price, description, the variant controls, the buy box — you arrange
+  and style all of it (nothing PDP ships). This is the surface that usually looks most generic, so make
+  the layout the brand's: an editorial split, a sticky buy column, a full-bleed gallery — your call.
 
 ```jsx
 // components/ProductCard.jsx — your grid maps each product to it.
@@ -115,7 +119,7 @@ export default function ProductCard({ product }) {
 ```
 
 ```jsx
-// components/VariantPicker.jsx — ProductDetail imports it and passes these props.
+// components/VariantPicker.jsx — your product page imports it and passes these props.
 import { useVariantOptions } from "@/hooks/useVariantOptions";
 
 export default function VariantPicker({ options, modifiers, selectedOptions, selectOption, modifierValues, setModifier }) {
@@ -143,13 +147,61 @@ export default function ProductGrid({ products, loading, empty, emptyHint }) {
 ```
 
 ```jsx
+// pages/ProductDetail.jsx — YOU build the whole product page. Route `/product/:slug` to it.
+// A thin view over useProductDetail: keep the data logic in the hook, render however fits the brand.
+import { useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useProductDetail } from "@/hooks/useProductDetail";
+import { productGallery } from "@/lib/storeImage";
+import VariantPicker from "@/components/VariantPicker";   // yours (above)
+
+export default function ProductDetail() {
+  const { slug } = useParams();
+  const d = useProductDetail(slug);
+  // useProductDetail(slug) returns:
+  //   product         Wix product | null (loading) — has .name, .plainDescription (HTML), .slug
+  //   notFound        bool — dead link (distinct from error)
+  //   error           string | null — failed load; call retry() to reload
+  //   retry           () => void
+  //   price           formatted string, follows the selection ("€24.00")
+  //   compareAtPrice  formatted string — a "was" price; strike it only when it differs from price
+  //   options, modifiers                                            → pass straight to <VariantPicker/> (don't read here)
+  //   selectedOptions, selectOption, modifierValues, setModifier    → also for <VariantPicker/>
+  //   variant         resolved variant | null (null until every option is picked)
+  //   focusMediaUrl   image url for the selected choice — make the gallery show it
+  //   quantity, setQuantity(n)   number (may be "" mid-edit) — keep min 1
+  //   inStock, canAdd, adding    booleans that gate the buy button
+  //   submit          async () => adds the resolved variant + quantity + modifiers to the cart
+  const images = useMemo(() => productGallery(d.product), [d.product]);  // [{ url, altText }], main first, de-duped
+
+  // …you implement the page. Handle in order:
+  //   error     → show d.error + a retry button (onClick={d.retry})
+  //   notFound  → a "not found" message + a <Link to="/shop">
+  //   !product  → a loading placeholder
+  //   else the product view, laid out to fit the brand:
+  //     • gallery from `images` — main + thumbnails, a carousel, a full-bleed hero (your call);
+  //       make the shown image follow d.focusMediaUrl when a choice is selected
+  //     • d.product.name · d.price (strike d.compareAtPrice when it differs) ·
+  //       d.product.plainDescription (HTML → dangerouslySetInnerHTML)
+  //     • <VariantPicker options={d.options} modifiers={d.modifiers}
+  //         selectedOptions={d.selectedOptions} selectOption={d.selectOption}
+  //         modifierValues={d.modifierValues} setModifier={d.setModifier} />
+  //     • a "pick an option to continue" hint when d.options.length && !d.variant
+  //     • a quantity control (d.quantity / d.setQuantity, min 1 — a −/＋ stepper reads better than a
+  //       native number input) + the buy button:
+  //         <button disabled={!d.canAdd || d.adding} onClick={d.submit}>
+  //           {d.adding ? "Adding…" : d.inStock ? "Add to cart" : "Out of stock"}</button>
+}
+```
+
+```jsx
 import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Shop from "@/pages/Shop";                       // shipped · default export, no props
-import ProductDetail from "@/pages/ProductDetail";     // shipped · default export, no props
+import ProductDetail from "@/pages/ProductDetail";     // YOU build
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
 import Footer from "@/components/Footer";   // YOU build
@@ -168,7 +220,7 @@ function Layout() {
       <Header />                             {/* your brand header, in-flow inside this fixed block */}
     </div>
     <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
-      <Outlet />                             {/* shipped Shop/ProductDetail render here, untouched */}
+      <Outlet />                             {/* shipped Shop + your pages render here */}
       <Footer />
     </div>
     <CartDrawer />                           {/* overlays every page */}
@@ -180,7 +232,7 @@ function Layout() {
     <Route element={<Layout />}>                                   {/* chrome wraps all */}
       <Route path="/" element={<Home />} />                        {/* yours */}
       <Route path="/shop" element={<Shop />} />                    {/* shipped, as-is */}
-      <Route path="/product/:slug" element={<ProductDetail />} />  {/* shipped, as-is */}
+      <Route path="/product/:slug" element={<ProductDetail />} />  {/* yours */}
     </Route>
   </Routes>
 </CartProvider>
@@ -273,7 +325,7 @@ function CartCount() {                                   // header badge
   return <button onClick={() => setIsOpen(true)}>Cart ({itemCount})</button>;
 }
 
-// Buy from a card → link to the PDP; the shipped ProductDetail owns options/variants + add-to-cart.
+// Buy from a card → link to the PDP; your ProductDetail (on useProductDetail) owns options/variants + add-to-cart.
 // (Listing helpers return no variants — only getProductBySlug does — so buying happens on the PDP.)
 const CardBuy = ({ product }) => <Link to={`/product/${product.slug}`}>View</Link>;
 
@@ -319,7 +371,7 @@ reference page inline; these are the areas they sit in:
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped pages or adding a parallel theme file. The three components you build (`ProductCard`/`ProductGrid`/`VariantPicker`) draw from the same tokens.
-- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Shop`/`ProductDetail` to add chrome.
+- Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Shop` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or the shipped empty state — never mock products.
@@ -335,10 +387,10 @@ client build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] **The three components you own exist and are wired:** `components/ProductCard.jsx`, `components/ProductGrid.jsx` (imported by `Shop` + your Home), `components/VariantPicker.jsx` (imported by `ProductDetail`). `/shop` and a PDP compile and render (they won't until these exist).
-- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped pages not restyled or rewritten.
-- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed your cards render themed (surface, text, brand color) with images, and the grid shows its loading + empty states.
-- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Shop`/`ProductDetail` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
+- [ ] **The pieces you own exist and are wired:** `components/ProductCard.jsx`, `components/ProductGrid.jsx` (imported by `Shop` + your Home), `components/VariantPicker.jsx`, and `pages/ProductDetail.jsx` (routed at `/product/:slug`, imports your `VariantPicker`). `/shop` and a PDP compile and render (they won't until these exist).
+- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; the shipped `Shop` page not restyled or rewritten.
+- [ ] **Opened `/shop` and a product detail page** (not just the home page) and confirmed your cards render themed (surface, text, brand color) with images; the grid shows its loading + empty states; the PDP shows the gallery, price, variant controls, and add-to-cart, and its error/not-found/loading states hold.
+- [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; the shipped `Shop` untouched; content clears the fixed chrome; `<CartProvider>` wraps the tree; `<CartDrawer/>` mounted; `<CartButton/>` in the header.
 - [ ] Cart survives reload (same visitor); add / update-qty / remove work; checkout redirects; the drawer shows a **subtotal**.
 - [ ] Empty catalog shows the shipped empty state; no mock products anywhere.
 - [ ] A product with several images shows **thumbnails** on the PDP, and one with per-variant prices shows a **range** on its card.
