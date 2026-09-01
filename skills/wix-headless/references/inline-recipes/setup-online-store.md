@@ -31,7 +31,7 @@ A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products.
 
 Create the products in a **single bulk request** to `POST https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create`. **How many products, and which are in or out of stock, are set by the request you're fulfilling — this step only gives the call and the required format.** Each product needs a real web image URL relevant to it, and `price` via `actualPrice` (+ optional `compareAtPrice`).
 
-**First decide each product's type from what the buyer RECEIVES, not the word "product":** a shipped item → `PHYSICAL` (default); a **downloadable file the buyer keeps** (ebook, PDF, template, preset pack, track, downloadable video) → `DIGITAL` (carries a file, no `quantity` — see the format block below); selling **access** rather than a file — a membership, subscription, or an **online course/program the buyer enrolls in** — is **Pricing Plans**, not a Stores product. Don't default a course/download catalog to physical-with-inventory.
+**First decide each product's type by what the buyer receives:** shipped → `PHYSICAL` (the JSON below); a file the buyer downloads and keeps → `DIGITAL` (the digital block below — carries a file, no `quantity`). *Access* — a membership or an online course/program the buyer enrolls in — is **Pricing Plans**, not a Stores product.
 
 **⚠️ CRITICAL: PRODUCT & VARIANT VISIBILITY — set `"visible": true` explicitly.**
 Storefront product queries (`searchProducts` / `queryProducts`) return **only visible products** to site visitors. A product created without `"visible": true` is created successfully but will **NOT appear** on the live site — the catalog looks empty. So:
