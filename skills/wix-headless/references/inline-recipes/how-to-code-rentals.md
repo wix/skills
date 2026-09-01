@@ -172,11 +172,24 @@ Hourly is prorated per minute (`minutes × base ÷ 60`); daily is `base × days`
 >
 > Two things make this misleading. **The same `createBooking` succeeds as an admin (`WIX_USER`)**, so it reads like a permissions or payload bug when it's neither — always test the visitor path. And **switching the service to offline / pay-in-person does not avoid it**: `placeOrder` still requires the site to be accepting payments. Record the precondition and surface it to the owner; don't try to code around it.
 
-**Identical to `how-to-code-bookings.md` § "createBooking → cart → checkout"**, with three substitutions:
+**Identical to `how-to-code-bookings.md` § "createBooking → cart → checkout"**, with five substitutions:
 
 1. **`endDate` is the customer's chosen end**, not a duration added to the start — that is the whole point of a rental.
 2. **`resource`** comes from the **start slot's** `availableResources` (§2 step 1 / §3). There is no ANY_RESOURCE staff fallback here; rentals are resource-driven.
-3. **The cart's `catalogReference.appId` is the RENTALS app id**, not the Bookings one:
+3. **`how-to-code-bookings.md`'s `locationType` mapping is missing a row.** Use this 3-way table instead of its 2-way one:
+
+   | Slot's `locationType` (read side) | `createBooking`'s `locationType` (write side) |
+   |---|---|
+   | `BUSINESS` | `OWNER_BUSINESS` |
+   | `CUSTOM` | `OWNER_CUSTOM` |
+   | `CUSTOMER` | `CUSTOM` |
+
+4. **⚠️ Read the location id defensively — `slot.location.id`, not just `.location._id`.** This is the one nested object where the SDK's response type is wrong — it declares `_id`, but the field comes back as plain `id` at runtime (confirmed against the REST/SDK reference doc and a live response: `slot.location._id` is `undefined`, no error). Despite the `_id` convention everywhere else in this doc, the slot's `location` isn't remapped and stays `id` on the wire. Check both when reading, and write under `_id` — matching how `how-to-code-bookings.md` already builds `resource` for this same call (`resource: { _id: staffMemberId, name }`):
+
+   ```js
+   location: { _id: slot.location.id ?? slot.location._id, locationType: mappedType }  // mappedType from the table above; check both defensively
+   ```
+5. **The cart's `catalogReference.appId` is the RENTALS app id**, not the Bookings one:
 
 ```js
 const cart = await createCart({
@@ -218,6 +231,7 @@ Everything else about the three-step item-page SEO wiring (`wixMetadata` export 
 | Rentals mixed with appointments | A catalog read without the `appId` filter | Add `appId` to `query.filter` (§1) |
 | `NUMBER_OF_PARTICIPANTS_NOT_FOUND` | `numberOfParticipants` missing or `0` on the price preview | Send `1` — always 1 for a rental (§4) |
 | Price differs from what was shown | Price preview sent without `localStartDate`/`localEndDate`/`timeZone` | Send all three (§4) |
+| Booking created at the wrong location, or `location` silently empty | Read only `.location._id` (undefined), or used the incomplete 2-row enum table | Read both `.location.id ?? .location._id`; use the 3-row mapping table (§5) |
 | Hunting for `WIX_APPS.rentals.*` or `seoTags.ItemType.RENTAL` | Neither exists | Use the **bookings** accessors — a rental detail page *is* a Bookings service page (§6) |
 | `.image.url` fails `tsc`, or images render broken | `media.mainMedia.image` is a **string** holding a `wix:image://` URI | `media.getImageUrl(...)` from `@wix/sdk` (§6) |
 
@@ -240,4 +254,5 @@ Refunds are the eCommerce Orders API, not Bookings. Also out of scope, as in boo
 - **Daily storage follows the resource:** 24/7 → one booking (midnight to midnight-after, never set `allDay`); working hours → a sequential multi-service group whose id you must persist yourself.
 - **Price preview needs both local dates and the time zone**, or it silently returns a duration-blind price.
 - Booking, cart, checkout and confirmation are the **bookings** flow, with the rentals app id on the cart's `catalogReference` — **except** the anonymous-token confirmation step, which rentals must skip entirely (§5).
+- **The location mapping in `how-to-code-bookings.md` is incomplete for the `createBooking` slot** — it's a 3-way map (`BUSINESS→OWNER_BUSINESS`, `CUSTOM→OWNER_CUSTOM`, `CUSTOMER→CUSTOM`), and the id must be read defensively as `.location.id ?? .location._id` — the SDK type says `_id`, but the field stays `.id` on the wire.
 - **SEO and images are the bookings ones too** — `WIX_APPS.bookings.servicePageMetadata` and `seoTags.ItemType.BOOKINGS_SERVICE`; there is no rentals-specific accessor to find.
