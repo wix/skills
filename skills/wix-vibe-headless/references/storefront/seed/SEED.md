@@ -4,6 +4,15 @@ Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write th
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 
+**Decide the product type before you seed — match it to what the buyer RECEIVES, not to the word
+"product".** A shipped physical item is physical (the default below, with `quantity`). A
+**downloadable file the buyer keeps** — ebook, PDF, template, preset pack, music track, downloadable
+video — is **digital**: give it a `digitalFileUrl`, never a `quantity`. Selling **access** rather
+than a file — a membership, a subscription, or an **online course/program the buyer enrolls in** — is
+**Pricing Plans**, not a Wix Stores product; seed that with the `pricing-plans` vertical, not here.
+So an "online course" sold as **downloadable videos** is a digital product; one that **streams on
+enrollment** is Pricing Plans. Don't default course/download catalogs to physical-with-quantity.
+
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
