@@ -4,14 +4,9 @@ Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write th
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 
-**Decide the product type before you seed — match it to what the buyer RECEIVES, not to the word
-"product".** A shipped physical item is physical (the default below, with `quantity`). A
-**downloadable file the buyer keeps** — ebook, PDF, template, preset pack, music track, downloadable
-video — is **digital**: give it a `digitalFileUrl`, never a `quantity`. Selling **access** rather
-than a file — a membership, a subscription, or an **online course/program the buyer enrolls in** — is
-**Pricing Plans**, not a Wix Stores product; seed that with the `pricing-plans` vertical, not here.
-So an "online course" sold as **downloadable videos** is a digital product; one that **streams on
-enrollment** is Pricing Plans. Don't default course/download catalogs to physical-with-quantity.
+**Match each product's type to what the buyer receives** (the example shows both). *Access* — a
+membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's
+the `pricing-plans` vertical, not here.
 
 ```js
 // build-time exec_tool
@@ -31,13 +26,14 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
   products: [
+    // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
     // a product with buyer choices — see "Options, variants and sale prices" below
     { name: "The Understudy", description: "…", price: 245, quantity: 8, imageUrl: imageUrls[1],
       options: [{ name: "Color", type: "color", choices: [{ name: "Ink", colorCode: "#1B1B2F" }, { name: "Bone", colorCode: "#EDE6D6" }] }] },
     // a product on sale — compareAtPrice drives the strikethrough + the tile's percent-off badge
     { name: "Encore Jacket", description: "…", price: 68, compareAtPrice: 129, quantity: 5, imageUrl: imageUrls[2] },
-    // a digital download — `digitalFileUrl` is the switch into DIGITAL
+    // digital — a file the buyer downloads & keeps (ebook, PDF, video): `digitalFileUrl`, NO `quantity`
     { name: "Backstage Guide", description: "…", price: 12, digitalFileUrl: "https://…/guide.pdf" },
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
