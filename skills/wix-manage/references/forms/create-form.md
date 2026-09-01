@@ -217,7 +217,7 @@ Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/for
 - **CRITICAL: The `identifier` must be a recognized Wix value.** Custom identifiers like `"product_name"` or `"color_preference"` will cause the field to be silently dropped from the form — no error is thrown. For any generic/custom text field, use `"TEXT_INPUT"` as the identifier and set the display name via the `label` property in `textInputOptions`.
 - For plain text fields, use `"format": "UNKNOWN_FORMAT"`. For email fields, use `"format": "EMAIL"`. For phone fields, use `"format": "PHONE"`. Valid format values: `UNKNOWN_FORMAT`, `DATE`, `TIME`, `DATE_TIME`, `EMAIL`, `URL`, `UUID`, `PHONE`, `URI`, `HOSTNAME`, `COLOR_HEX`, `CURRENCY`, `LANGUAGE`, `DATE_OPTIONAL_TIME`.
 - The submit button is a `DISPLAY` field with `identifier: "SUBMIT_BUTTON"`.
-- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** A site has a **low form cap (~4 forms)**; iterative probing hits the cap (`maximum number of forms reached`), forcing you to `GET` the form list and `DELETE` the test forms before the real create can succeed. Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once.
+- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** Sites have a **plan-gated form quota** (e.g. 4 on the Free plan); iterative probing burns slots and hits `FORMS_COUNT_RESTRICTIONS_ERROR` (`Form count reached its limit of N`). Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once. Before deleting forms to make room, read § "Form count limit" below — the quota counts *lead-capture* forms (not the total form list), a soft delete does **not** free a slot, and deleting a form that doesn't capture leads will not unblock the create.
 
 ### Field Types Reference
 
@@ -288,6 +288,32 @@ The `steps[].layout.large.items` array controls how fields are positioned:
 
 The `postSubmissionTriggers.upsertContact` object maps form field targets to contact fields, so each submission automatically creates or updates a contact. The `fieldsMapping` keys must match the `target` values from the form fields.
 
+### Form count limit
+
+Creating a form can fail with a **400** carrying `FORMS_COUNT_RESTRICTIONS_ERROR` and `"Form count reached its limit of N"` (`data.limit` is the quota, e.g. `4`):
+
+```json
+{"message":"Form validation failed","details":{"validationError":{"fieldViolations":[
+  {"ruleName":"FORMS_COUNT_RESTRICTIONS_ERROR","field":"form",
+   "description":"Form count reached its limit of 4","data":{"limit":4},"violatedRule":"OTHER"}]}}}
+```
+
+**The quota counts *lead-capture* forms, not the total form list** — and the number is set by the site's plan (Free/Light = 4 lead-capture forms, Core = 10, Business = 25, Business Elite = 75; see the [Upgrading Wix Forms](https://support.wix.com/en/article/wix-forms-upgrading-wix-forms) support article). This is why the limit can look absurd next to the form list: `GET /form-schema-service/v4/forms?namespace=wix.form_app.form` returns **every** form the site holds — feedback forms, waitlists, booking follow-ups, etc. — so the list can far exceed `data.limit` (e.g. 15 forms returned, many `enabled`, with `data.limit` of 4). Only forms that capture leads (they upsert a contact via `postSubmissionTriggers.upsertContact`) count toward the quota. A "Contact Us" form is lead-capture, so it's rejected once the site already has its plan's number of lead-capture forms.
+
+Two traps follow — handle both before telling the user a create will succeed:
+
+- **A soft delete does NOT free a slot.** `DELETE /form-schema-service/v4/forms/{formId}` defaults to `permanent=false`, which moves the form to trash but keeps it counting against the quota. The delete returns `200 {}` and the very next create **still fails** with the same limit error. To actually free a slot, delete permanently:
+
+  ```bash
+  curl -X DELETE \
+    'https://www.wixapis.com/form-schema-service/v4/forms/{formId}?permanent=true' \
+    -H 'Authorization: <AUTH>'
+  ```
+
+- **Deleting a form that doesn't count changes nothing.** Only lead-capture forms (contact-upserting) count toward the quota. Removing a feedback form, waitlist, or any form without `upsertContact` — however many — lowers the total form count while leaving the counted number pinned at the limit, so the create keeps failing. When you must free a slot, target an existing **lead-capture** form (permanently), or have the user upgrade their plan.
+
+**Before deleting anything:** `GET` the form list and recognise that its length is *not* the quota — `data.limit` is. Freeing a slot means getting the count of active forms below `data.limit`: permanently delete (or disable) a form the site is *actively* using, or have the user upgrade their plan. Do not delete-one-and-retry in a loop — a single soft delete, or the deletion of an already-inactive form, looks like progress but changes nothing. Only remove forms the user has explicitly agreed to.
+
 ### Prerequisites
 
 The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
@@ -299,7 +325,7 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | `Unrecognized value passed for enum` | Invalid `componentType` value (e.g., `LONG_TEXT_INPUT`) | Use only `componentType` values from the schema: `TEXT_INPUT`, `RADIO_GROUP`, `DROPDOWN`, `DATE_TIME`, `PHONE_INPUT`, `DATE_INPUT`, `TIME_INPUT`, `DATE_PICKER`, `PASSWORD` |
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
-| `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
+| `FORMS_COUNT_RESTRICTIONS_ERROR` / `Form count reached its limit of N` | Plan quota on *lead-capture* forms reached (`data.limit`). The form list can be far longer than the quota (feedback/waitlist/other non-lead-capture forms don't count). A soft delete (`permanent=false`, the default) keeps the form in trash still counting; removing a form that doesn't count frees nothing | See § "Form count limit": free a slot by permanently deleting (`?permanent=true`) an existing **lead-capture** form, or have the user upgrade. Don't delete-one-and-retry. Build the real form in one call (don't probe) |
 | `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
 
