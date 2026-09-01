@@ -275,6 +275,38 @@ For complex restaurant menus, use this order to avoid dependency issues:
 6. Update menu with `sectionIds`.
 7. Update items with `modifierGroups` to attach the groups from step 2.
 
+## Menu Page SEO URL
+
+Wix Restaurants Menu pages that host multiple menus render each menu at
+`{pageSlug}?menu={urlQueryParam}`. `urlQueryParam` is a per-menu field on the Menu entity —
+it's the *only* part of that URL settable through this API.
+
+**Endpoint**: `PATCH https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menu.id}`
+
+```json
+{
+  "menu": {
+    "id": "<MENU_ID>",
+    "revision": "<MENU_REVISION>",
+    "urlQueryParam": "dinner-menu"
+  }
+}
+```
+
+Notes:
+- `urlQueryParam` must be unique across the site's menus; reusing another menu's value is rejected.
+- This only changes the `?menu=` query segment. The page's own base slug (the part before `?`) has
+  no update endpoint in this API or any other — if a page was auto-created with a placeholder slug
+  (e.g. `blank-3-7-3`), that prefix cannot be renamed via a Wix API call. This is the same
+  no-page-slug-rename-API gap tracked in `wix/skills#619`.
+- In the Wix Harmony editor, the per-page "SEO et accessibilité" panel cannot edit this value for
+  Menu pages — it shows a locked, generic `/?menu=` placeholder instead of the real value. To set it
+  through the UI, go to Business Manager's Restaurants Menus app, open the menu's "..." menu, and
+  choose "SEO Settings" — that panel edits `urlQueryParam` directly (with the same uniqueness
+  validation) and creates a redirect from the old value automatically. The classic Wix Editor's own
+  "Plus d'actions" > "Bases de référencement" flow (documented in Wix's Restaurants Menu SEO help
+  article) is the same feature but is not available in Harmony.
+
 ## Item Labels
 
 Common dietary labels:
