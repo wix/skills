@@ -213,8 +213,7 @@ defaults or fallback-placeholder wiring.
 
 Add `useIsEditMode` to the existing `@wix/react-component-utils` import. In the
 generated preview component, replace only the passthrough return with the gated
-props below. Keep the generated `withFallbackPlaceholder`, required-data fields,
-root class, and `withDefaults` export unchanged.
+props below.
 
 ```tsx
 const MyAnimationPreview: FC<ComponentProps<typeof Component>> = (props) => {
@@ -230,6 +229,10 @@ const MyAnimationPreview: FC<ComponentProps<typeof Component>> = (props) => {
 };
 ```
 
+Keep the generated wrappers, but wrap `MyAnimationPreview`, normally set
+`requiredDataFields` to `['animationUrl']`, and match `rootClassName` to the root
+global class.
+
 In editor design mode (`isEditMode` is `true`) → `autoPlay` is forced to `false` and `pauseButtonVisibility` is forced to `'showAlways'` so the site owner can always see and interact with the button.
 In preview mode (`isEditMode` is `false`) → both use the user's configured values.
 
@@ -243,4 +246,5 @@ In preview mode (`isEditMode` is `false`) → both use the user's configured val
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.
-- [ ] The preview preserves generated wrappers and forces autoplay off in design mode.
+- [ ] The preview exports the adapter with synchronized fallback metadata and
+      disables autoplay in design mode.
