@@ -76,4 +76,4 @@ node <this-skill-dir>/scripts/patterns.cjs types useEntityPage UseEntityPagePara
 
 `@wix/patterns/form` re-exports `@wix/bex-core/form`, which wraps `react-hook-form` — so `form.getValues()`, `form.reset()` and the rest are react-hook-form's API, documented there rather than in the patterns docs.
 
-Adding, editing or viewing a collection item is **not** a dashboard modal — see [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md).
+A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md).

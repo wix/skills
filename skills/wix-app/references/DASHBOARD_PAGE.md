@@ -72,13 +72,19 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 Dashboard Pages cannot use `<Modal />`. When you need a true dialog overlay, you **MUST** use a dashboard modal extension — not a React modal and not the WDS `Modal` component.
 
-- **Use dashboard modals** for: delete/discard confirmations, short prompts, and dialogs unrelated to editing a collection item
+- **Use dashboard modals** for dialogs that neither write nor display a record this app lists: delete/discard confirmations, unsaved-changes prompts, informational notices — and any dialog on a page that lists nothing (settings, config)
 - **Do NOT use** WDS `Modal` component or custom React modal implementations
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
 
-> **🛑 Exception — adding, editing, or viewing a collection item is NOT a modal.** That is an `EntityPage` from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Do not hand-build the entity form as a WDS form inside a dashboard modal — that is the single most common way the patterns-first rule gets dropped after the table is already correct. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+> **🛑 The test — does the dialog create, update, or display one record this page lists?** If yes, it is an `EntityPage`, not a modal — whether those records come from a CMS collection or an existing Wix app's SDK. **A create / "add new" form is included**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading, and it is the single most common way the patterns-first rule gets dropped after the table is already correct.
+>
+> The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not hand-roll page location state to fake a second view (`useState<PageLocation>`, a `location` cast on `withDashboard`); that is the router's job, and needing the cast is the signal you skipped it.
+>
+> **If this page lists nothing** — a settings page, an embedded-script config page — the rule does not apply and a dashboard modal is a normal choice. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
+>
+> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 

@@ -159,7 +159,11 @@ Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third U
 
 ### Entity create and edit
 
-**Adding, editing, or viewing a single item from a collection page is an `EntityPage` — not a Dashboard Modal.** This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
+**Any dialog that creates, updates, or displays one record listed by a collection page is an `EntityPage` — not a Dashboard Modal.** This holds whether the records come from a CMS collection or an existing Wix app's SDK. A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule.
+
+A page that lists nothing — a settings page, an embedded-script config page — carries no `EntityPage` obligation. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
+
+This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
 
 The documented flow:
 
@@ -168,7 +172,7 @@ The documented flow:
 3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
 
-Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a delete confirmation, a short prompt, an unrelated popup. Reach for it because the interaction is a true dialog, never because "the form should open in a modal."
+Use a Dashboard Modal for dialogs that neither write nor display a listed record: a delete or discard confirmation, an unsaved-changes prompt, an informational notice, or any dialog on a page that lists nothing. Dialog size and field count are not exceptions — a one-field create form over a listed record is still an `EntityPage`. Reach for a modal because the interaction persists nothing, never because "the form should open in a modal."
 
 ---
 

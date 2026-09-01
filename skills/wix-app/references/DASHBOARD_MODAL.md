@@ -3,7 +3,15 @@
 
 Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
 
-> **🛑 Scope — genuine dialogs only.** Use a dashboard modal for delete/discard confirmations, short prompts, and dialogs unrelated to editing a collection item. **Adding, editing, or viewing a collection item is NOT a modal** — that is a `@wix/patterns` `EntityPage` reached via `usePatternsNavigate().navigateToEntityPage`. See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+> **🛑 Scope — apply this test before building a modal.** Does the dialog **create, update, or display one record that a table or list in your app enumerates**? If yes, it is not a modal — it is a `@wix/patterns` `EntityPage`, reached via `usePatternsNavigate().navigateToEntityPage`. This holds whether those records come from a CMS collection or an existing Wix app's SDK.
+>
+> A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule, and it is the most common way the rule is lost. Dialog size and field count are not exceptions either — a one-field create form is still an `EntityPage`.
+>
+> **A page that lists nothing is out of scope.** A settings page, an embedded-script config page, or any dashboard page that does not enumerate records carries no `EntityPage` obligation, and a dashboard modal is a normal choice there.
+>
+> So a dashboard modal is for: **destructive confirmations** (delete, discard, unsaved changes), **dialogs that persist nothing and show no record detail** (an informational notice, a picker that returns a selection), and **dialogs on pages that list nothing**. Never the add/edit form of a listed record — and "I built the list without `@wix/patterns`" is not an exception: a page that enumerates records should be a `CollectionPage`, so the fix is the page, not the dialog.
+>
+> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 
 ## Scaffold
 
@@ -138,4 +146,4 @@ const handleConfirm = () => dashboard.closeModal({ confirmed: true });
 const handleCancel = () => dashboard.closeModal({ confirmed: false });
 ```
 
-(Editing the item itself would be an `EntityPage`, not a modal — see the scope note at the top.)
+(Creating, updating, or displaying the item itself would be an `EntityPage`, not a modal — see the scope note at the top.)

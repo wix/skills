@@ -167,7 +167,7 @@ Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before im
 
 The `useEntityPage` call has three things worth getting right the first time — both generics, what `onSave` actually receives, and which params exist: [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
-Reserve dashboard modals for genuine dialogs — delete confirmations, short prompts — not entity editing.
+Reserve dashboard modals for dialogs that neither write nor display a listed record — a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. Dialog size and field count are not exceptions — a one-field create form is still an `EntityPage`. A page that lists no records is outside this rule entirely.
 
 ## When Patterns Has No Equivalent
 
