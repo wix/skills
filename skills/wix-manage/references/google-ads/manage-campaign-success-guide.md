@@ -1,6 +1,6 @@
 ---
 name: "Manage a Campaign Success Guide"
-description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it as an immediate next step after creating a supported campaign, even while it is learning or has no performance metrics yet, but retrieve it only after the user approves. Also use when a user asks how to improve a campaign, what to fix next, or indicates they completed or want to reopen a guide item. Covers campaign selection, retrieving or generating the prioritized guide, waiting up to 120 seconds without premature retries, and updating an unambiguously referenced suggestion without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
+description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it as an immediate next step after creating a supported campaign, even while it is learning or has no performance metrics yet, but retrieve it only after the user approves. Also use when a user asks how to improve a campaign, what to fix next, or reports that they completed or want to reopen a guide item. Treat a clear completion report as an actionable update request even when it is phrased as a statement rather than a question. Covers campaign selection, prioritized guide retrieval, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
 ---
 # RECIPE: Manage a Campaign Success Guide
 
@@ -89,7 +89,7 @@ Keep the enum value unchanged in API calls, but use these labels when explaining
 
 ## Mark an item completed or reopen it
 
-The update endpoint identifies the suggestion by its **`type`**, not its suggestion `id`. A clear statement that the user completed a specific guide recommendation—for example, "I made the call-to-action button clearer as the success guide recommended"—is sufficient instruction to mark that item `COMPLETED`. Do not ask for redundant confirmation.
+The update endpoint identifies the suggestion by its **`type`**, not its suggestion `id`. A clear statement that the user completed a specific guide recommendation—for example, "I made the call-to-action button clearer as the success guide recommended"—is an actionable request to mark that item `COMPLETED`, not merely an FYI. Do not require the user to turn it into a question or ask for redundant confirmation.
 
 Before executing an update:
 
