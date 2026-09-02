@@ -12,7 +12,21 @@ Create a form on a Wix site that appears in the Forms & Submissions dashboard. T
 
 ## Create the form
 
-Call the Create Form endpoint with the `wix.form_app.form` namespace. The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) is usually already installed on sites.
+Use the `wix.form_app.form` namespace for Wix Forms. The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) is usually already installed on sites, but the namespace is not always active for API-created forms.
+
+Before creating a form, perform a non-mutating namespace preflight:
+
+```bash
+curl -X GET \
+  'https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA&paging.limit=1' \
+  -H 'Authorization: <AUTH>'
+```
+
+- If the list call succeeds, the namespace is active. Continue with the create call below.
+- If it fails with `UNSUPPORTED_FORM_NAMESPACE`, `Permissions for given namespace not found`, or `Form has unsupported namespace`, do **not** retry `Create Form` with the same namespace and do **not** probe by creating throwaway forms. Tell the user the site needs the Wix Forms namespace activated first, and ask them to create or add a Wix Form once in the Forms & Submissions dashboard or Wix Editor. After they confirm a form exists, list forms again and then continue.
+- If it fails with `missing installed app`, install Wix Forms app `14ce1214-b278-a7e4-1373-00cebd1bef7c` using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe, then run the list preflight again.
+
+After the namespace preflight succeeds, call the Create Form endpoint with the `wix.form_app.form` namespace.
 
 ```bash
 curl -X POST \
@@ -292,6 +306,8 @@ The `postSubmissionTriggers.upsertContact` object maps form field targets to con
 
 The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
 
+Installation alone does not prove the `wix.form_app.form` namespace is active. Always run the non-mutating list preflight before creating a form. If the namespace is unsupported, the API cannot create the first Wix Forms schema for that site; the user must activate Wix Forms through the dashboard or editor first.
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
@@ -300,7 +316,7 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
 | `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
-| `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
+| `Permissions for given namespace not found` / `UNSUPPORTED_FORM_NAMESPACE` / `Form has unsupported namespace` | `wix.form_app.form` namespace is not active for API-created forms on this site | Stop; do not retry `Create Form` with the same body. Ask the user to create or add a Wix Form once in Forms & Submissions or the Wix Editor, then rerun the non-mutating list preflight before creating more forms by API |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
 
 ## Related Documentation
