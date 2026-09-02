@@ -4,6 +4,10 @@ Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write th
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 
+**Match each product's type to what the buyer receives** (the example shows both). *Access* — a
+membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's
+the `pricing-plans` vertical, not here.
+
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
@@ -22,13 +26,14 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
   products: [
+    // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
     // a product with buyer choices — see "Options, variants and sale prices" below
     { name: "The Understudy", description: "…", price: 245, quantity: 8, imageUrl: imageUrls[1],
       options: [{ name: "Color", type: "color", choices: [{ name: "Ink", colorCode: "#1B1B2F" }, { name: "Bone", colorCode: "#EDE6D6" }] }] },
     // a product on sale — compareAtPrice drives the strikethrough + the tile's percent-off badge
     { name: "Encore Jacket", description: "…", price: 68, compareAtPrice: 129, quantity: 5, imageUrl: imageUrls[2] },
-    // a digital download — `digitalFileUrl` is the switch into DIGITAL
+    // digital — a file the buyer downloads & keeps (ebook, PDF, video): `digitalFileUrl`, NO `quantity`
     { name: "Backstage Guide", description: "…", price: 12, digitalFileUrl: "https://…/guide.pdf" },
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
@@ -39,13 +44,15 @@ const result = await seed.setupStore(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
-## Options, variants and sale prices
+## How many, and exercising the UI
+
+**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the shape,
+not a full inventory; the owner adds the rest later, from the Wix dashboard or by asking you for more.
 
 The shipped storefront renders colour options as real swatches, shows a size/colour summary on each
 tile, and puts a percent-off badge on a discounted product. A catalog of plain single-price products
-leaves all of that invisible, so **seed a catalog that exercises it**: unless the brief says
-otherwise, give at least one product a colour option and put one product on sale. Keep it truthful
-to the business — a ceramics studio has glaze colours, a bakery does not.
+leaves all of that invisible, so **make those 3 exercise it**: unless the brief says otherwise, give
+at least one product a colour option and put one product on sale. Keep it truthful to the business.
 
 ```js
 options: [
@@ -63,6 +70,12 @@ options: [
   tile, computed from the two amounts. It works with or without options.
 
 ## Digital downloads
+
+**Pick the product type from what the buyer receives.** A shipped physical item is the default. A
+**downloadable file the buyer keeps** — ebook, PDF guide, template, preset pack, printable, music
+track, downloadable video — is a **digital** product: pass its file as `digitalFileUrl`. Selling
+*access* rather than a file — a membership, subscription, or an online course/program the buyer
+enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded here.
 
 `digitalFileUrl` (plus `digitalFileName` when the url carries no filename) makes a product a digital
 download — uploaded and created with both the file and stock, which is what the cart requires

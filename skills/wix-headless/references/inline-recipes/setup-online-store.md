@@ -31,6 +31,8 @@ A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products.
 
 Create the products in a **single bulk request** to `POST https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create`. **How many products, and which are in or out of stock, are set by the request you're fulfilling — this step only gives the call and the required format.** Each product needs a real web image URL relevant to it, and `price` via `actualPrice` (+ optional `compareAtPrice`).
 
+**First decide each product's type by what the buyer receives:** shipped → `PHYSICAL` (the JSON below); a file the buyer downloads and keeps → `DIGITAL` (the digital block below — carries a file, no `quantity`). *Access* — a membership or an online course/program the buyer enrolls in — is **Pricing Plans**, not a Stores product.
+
 **⚠️ CRITICAL: PRODUCT & VARIANT VISIBILITY — set `"visible": true` explicitly.**
 Storefront product queries (`searchProducts` / `queryProducts`) return **only visible products** to site visitors. A product created without `"visible": true` is created successfully but will **NOT appear** on the live site — the catalog looks empty. So:
 - Set `"visible": true` on **every product** (product level).
@@ -94,6 +96,7 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
 - **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
+- **Choose the product type from what the buyer receives:** a shipped item is `PHYSICAL` (default); a downloadable file they keep — ebook, PDF, template, preset pack, track, downloadable video — is `DIGITAL`. Selling *access* rather than a file — a membership, subscription, or an online course/program the buyer enrolls in — is **Pricing Plans**, not a Stores product.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Digital products (`"productType": "DIGITAL"`) drop `physicalProperties` and are sellable only when each variant carries both a file and stock** — miss either and the product is created fine, reads back `visible: true`, and is rejected at add-to-cart. Upload the file first (`POST /site-media/v1/files/generate-upload-url` → `PUT` the bytes → `file.id`):
 

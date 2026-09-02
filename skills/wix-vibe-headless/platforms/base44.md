@@ -26,7 +26,7 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 | `blog` | publish articles |
 | `events` | publish events with RSVPs or ticket sales |
 | `portfolio` | showcase creative work |
-| `pricing-plans` | sell memberships or subscriptions |
+| `pricing-plans` | sell memberships or subscriptions, incl. paid enrollment/access to an online course or program — but an "online store selling courses" is still `storefront` |
 | `restaurants` | show a menu, take orders, book tables |
 | `members` | let visitors sign in — this is **auth** |
 | `forms` | any visitor-fillable form: contact, signup, waitlist, application, survey, quote request (an event RSVP is `events`; a per-service booking form is `bookings`) |
@@ -114,4 +114,4 @@ Seeding is **admin-only** — not part of the client, which is built solely per 
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
 `wix-base44-connector` doc discovery — all over the connector.
 
-version: v1340
+version: v1341

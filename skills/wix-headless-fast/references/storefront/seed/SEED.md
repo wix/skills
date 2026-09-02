@@ -5,6 +5,11 @@ the REST calls. The script mints its own site token via the Wix CLI (requires a 
 session and a `wix.config.json` in the working directory), installs the Stores app if needed,
 waits for the V3 catalog, and creates everything in the right order.
 
+**Set each product's type by what the buyer receives** — physical (shipped, has `quantity`) or
+digital (a file they keep, `digitalFilePath`/`digitalFileUrl`, no `quantity`); the plan below shows
+both. *Access* — a membership or an online course/program the buyer enrolls in — is Pricing Plans,
+not a store product.
+
 ```bash
 # from the project root (where wix.config.json lives):
 node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
