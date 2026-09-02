@@ -80,7 +80,7 @@ Common types only; `dist/dts-bundle/index.json` has the authoritative set. Creat
 | `WixPatternsEssentialsProvider` | Yoshi Fullstack. |
 | `WixPatternsBaseProvider` | App does **not** run under Giza/WixEssentials and you inject services (i18n, sentry) yourself. |
 
-**Confirm the import path in the provider's own bundle** — they don't all share a subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`). Check the project's `package.json` to identify the flow.
+**Confirm the import path in the provider's own bundle** — they don't all share a subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`). The project's `package.json` identifies the flow.
 
 ### Keep Provider and Page Separate
 
@@ -107,10 +107,16 @@ import { CollectionPage } from '@wix/patterns/page';
 
 function MyCollectionPage() {
   // works — the provider context exists above this component
-  const state = useTableCollection({ /* config: dashboard-page/COLLECTION_TOOLKIT.md */ });
+  const state = useTableCollection({
+    queryName: 'my-items',
+    itemKey: (item) => item.id,
+    itemName: (item) => item.name,
+    fetchData: async () => ({ items: [], total: 0 }),
+    filters: {},
+  });
   return (
     <CollectionPage>
-      <Table state={state} columns={columns} />
+      <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
     </CollectionPage>
   );
 }
@@ -138,11 +144,11 @@ Not every real `@wix/patterns` export is in this index — only the names these 
 
 ### Reading the file the index names
 
-Once an index hands you an entry, the mechanics of the file it names — the types the docs don't cover, which one-line stubs are answers rather than truncation, subpath entry points, cross-references, and how compound-component docs are split — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before you open your first `dist/dts-bundle/*.d.ts` of the session.
+The mechanics of the file an index names — types the docs don't cover, which one-line stubs are answers rather than truncation, subpath entry points, cross-references, split compound-component docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
 
 ## The Collection → Entity Flow
 
-A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form in a dashboard modal is the most common way this goes wrong.
+A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form as a dashboard modal is the most common way this goes wrong.
 
 | Step | What owns it |
 | --- | --- |
@@ -157,9 +163,9 @@ Prefer `navigateToEntityPage` over a plain route change: the entity header (titl
 
 Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
 
-The `useEntityPage` call has three things worth getting right the first time — both generics, what `onSave` actually receives, and which params exist: [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+Three things about the `useEntityPage` call are worth getting right first time — both generics, what `onSave` receives, which params exist: [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
-Reserve dashboard modals for dialogs that neither write nor display a listed record — a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. Dialog size and field count are not exceptions — a one-field create form is still an `EntityPage`. A page that lists no records is outside this rule entirely.
+Reserve dashboard modals for dialogs that neither write nor display a listed record — a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. Size and field count are not exceptions — a one-field create form is still an `EntityPage`. A page that lists no records is outside this rule.
 
 ## When Patterns Has No Equivalent
 
@@ -167,6 +173,6 @@ A concept is only "missing" from patterns after you've checked `dist/dts-bundle/
 
 1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
-3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals or add another UI library.
+3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals, never add another UI library.
 
 Anything page- or collection-shaped (page shell, header, table, grid, filters, sorting, paging, row and bulk actions) is patterns' territory. If you're about to build one from WDS parts, you skipped a lookup.
