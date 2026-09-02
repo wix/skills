@@ -2,28 +2,48 @@
 
 ## Prerequisites
 
-This skill bundles `scripts/patterns.cjs`. It locates the docs itself (pnpm, Yarn PnP, workspaces, symlinks) and prints them. **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of a doc path.
-
-Invoke it by absolute path — no shell variable. One does not survive to the next Bash call, and `wix-design-system` bundles its helper the same way, so a `$PATTERNS` beside its `$WDS` is how one ends up holding the other's path.
+Lookups here are direct file reads — no script. Resolve the installed package root once per session and reuse it:
 
 ```bash
-node <this-skill-dir>/scripts/patterns.cjs list   # inventory, by category
+node -e "
+const fs = require('fs'), path = require('path');
+function tryEnablePnp() {
+  let dir = process.cwd();
+  for (;;) {
+    const pnp = path.join(dir, '.pnp.cjs');
+    if (fs.existsSync(pnp)) { try { require(pnp).setup(); } catch {} return; }
+    const parent = path.dirname(dir);
+    if (parent === dir) return;
+    dir = parent;
+  }
+}
+tryEnablePnp();
+try {
+  console.log(path.dirname(require.resolve('@wix/patterns/package.json', { paths: [process.cwd()] })));
+} catch {
+  let dir = process.cwd();
+  for (;;) {
+    const candidate = path.join(dir, 'node_modules', '@wix', 'patterns');
+    if (fs.existsSync(path.join(candidate, 'package.json'))) { console.log(candidate); process.exit(0); }
+    const parent = path.dirname(dir);
+    if (parent === dir) { console.error('@wix/patterns not found'); process.exit(1); }
+    dir = parent;
+  }
+}
+"
 ```
 
-Subcommands take that same prefix. The script echoes the resolved path in its hints, so copy it from there.
+A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when the package is genuinely installed — run the whole snippet, not a shortened version of it.
 
-| Subcommand | Gives you |
-| --- | --- |
-| `list` | every documented name, by category |
-| `docs <Name1> <Name2> ...` | import + API + one example, per name |
-| `docs <Name> --full` | the whole doc, design prose included |
-| `docs <Name> --refs` | cross-references, one level |
-| `types <Name1> <Name2> ...` | the signature of any export — hook, factory or type |
-| `exports [subpath]` | what an entry point exports; no argument lists them |
+Then confirm the installed version actually ships the bundle index:
 
-`list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
+```bash
+ls <pkgRoot>/dist/dts-bundle/index.json
+```
 
-If it exits non-zero, `@wix/patterns` is absent or older than **1.452.0**. The error names the install command — run it, then `list` once more.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates this feature; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. This is not the same failure as a name simply not being covered (see below) — a missing *file* here means the whole mechanism isn't available yet, not that one name isn't in it.
+
+**Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of an arbitrary path, and this extends to the sanctioned directories themselves: never browse `dist/dts-bundle/` or `dist/docs/` looking around. Every lookup below names the exact file to `Read` — go straight to it.
 
 ## Library Architecture
 
@@ -48,21 +68,21 @@ Each collection type follows the same Component + State + Hook pattern:
 | `TableFolders` | `TableFoldersState` | `useTableFolders()` |
 | `GridFolders` | `GridFoldersState` | `useGridFolders()` |
 
-Common types only; `list` has the authoritative set.
+Common types only; `dist/dts-bundle/index.json` has the authoritative set.
 
 Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
 ### Choosing the Right Provider
 
 | Provider                        | When to Use                                                                          |
-|---------------------------------|--------------------------------------------------------------------------------------|
+|----------------------------------|--------------------------------------------------------------------------------------|
 | `WixPatternsProvider`           | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza) and supplies the right context. |
 | `WixPatternsBMProvider`         | Optional alternative for Yoshi BM Flow over Business Manager.                        |
 | `WixPatternsGizaProvider`       | Optional alternative for Yoshi BM Flow over Giza.                                    |
 | `WixPatternsEssentialsProvider` | Yoshi Fullstack.                                                                     |
 | `WixPatternsBaseProvider`       | App does **not** run under a Giza/WixEssentials environment and you inject services (i18n, sentry) yourself. |
 
-**Confirm the import path in the provider's own doc file** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
+**Confirm the import path in the provider's own bundle** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
 
 ### Keep Provider and Page Separate
 
@@ -114,39 +134,55 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Finding the right name
 
-Use the `list` output from [Prerequisites](#prerequisites) — grouped by category, related components sharing a prefix.
+`Read <pkgRoot>/dist/dts-bundle/index.json` — one entry per name, grouped implicitly by its `category` field. Lookup is **exact-match only**: no fuzzy matching, no typo suggestions. If the exact key isn't there, scan the index you already have for something close before concluding the name isn't covered — it's one small file, already in hand.
 
-Matching is case-insensitive and a typo gets a suggestion (`Tabel` -> `Did you mean: Table`). Quote names with spaces: `docs "AI Assistant"`.
+Not every real `@wix/patterns` export is in this index — only the names these guides actually reference. If a name you need genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
 
 ### Reading doc files
 
-The inventory only tells you a component exists — read its doc before using it. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+`Read <pkgRoot>/dist/docs/index.json` to resolve a name (or a `symbols` alias, for the cases where the Storybook doc title doesn't match the export — `ExportTo.md` documents `ExportButton`, for instance) to its doc file, then `Read <pkgRoot>/dist/docs/<file>.md` directly — the whole file, not piped through `head`. It covers more names than the bundle index above, since it's produced for every documented component, not just the curated ones these guides name.
 
-Pass every name you need in **one** call; docs come back separated by `---`:
-
-```bash
-patterns.cjs docs Table useTableCollection TableState
-```
-
-Each name returns its import line and props table; ask for one or two names and you also get a usage example (batching more drops examples so the later props still fit). The first output line gives the total length, so **read it rather than piping through `head`** — trimming costs you the props, and then you are guessing at prop names. Need more than the table? `--full`, one component at a time.
+**Always check the import statement inside the doc** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
 
 ### Types the docs don't cover
 
-The docs cover components and props, not the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — several of which come from `@wix/bex-core`. Guess the path and `@wix/bex-core/dist/types/...` ends up in the tree: a deep import into an undeclared package.
+The docs cover components and props, not the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface. `Read <pkgRoot>/dist/dts-bundle/index.json`, look up the type name, then `Read <pkgRoot>/dist/dts-bundle/<entry.file>` using exactly the `file` path the index gives — **never reconstruct the path from the name**; bundles are nested one directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`, `types/RangeItem.d.ts`, …), so guessing `<Name>.d.ts` at the top level is wrong by construction.
 
-```bash
-patterns.cjs types RangeItem CursorQuery
+Several of these types (`RangeItem`, `Filter`, `CursorQuery`, the filter factory functions) actually live in `@wix/bex-core` — the bundle already resolves and inlines the real declaration, so you get the full shape with no deep, undeclared `@wix/bex-core/dist/types/...` path to chase. Still always import it from `@wix/patterns`, per the index's `importPath` field, never from wherever the bundle says it's really declared.
+
+That inlining applies to the data shapes you write. State objects you *receive* are a separate case — see the next section.
+
+### A bundle stops where you stop writing code
+
+A bundle carries its own name's declaration plus every shape **you** would write by hand. It deliberately does *not* expand what the library hands you, so two kinds of one-line stub are normal and are answers, not truncation:
+
+```ts
+/**
+ * `TableState` — you receive this, you don't construct it.
+ * Produced by `useTableCollection()` (also `useAmbassadorTable()`, `useTableContext()`).
+ * Look `TableState` up in the bundle index for its own API.
+ */
+declare class TableState<T, F> {
+}
 ```
 
-It prints the import to actually write — always from `@wix/patterns`, even for a type declared elsewhere — plus the declaration. Use it whenever you name one of these types in your own code.
+An empty body with a **"Produced by"** note means: call that hook or factory to get one. That is usually the whole answer — `<Table state={...}>` needs `useTableCollection()`, not `TableState`'s internals. If you do need its members (`state.toolbar`, `state.visibleColumns`), it has its own index entry — look the name up and read that bundle, where its body is complete.
 
-`@wix/patterns` is 31 entry points, not one namespace, and `/form` just re-exports `@wix/bex-core/form`. To see what lives behind one: `exports page`, or `exports` alone to list them.
+A stub saying **"cut here because it has its own bundle"** means the same thing for a shape you *do* write: it wasn't copied in twice, so look the name up and read its own file.
+
+Every bundle fits in a single read; the index's `bytes` field says how big before you open it. So a bundle is never partially shown — if something looks missing, it was cut on purpose and the stub names where to find it.
+
+A handful of names carry `"status": "unreachable"` with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
+
+### Subpath entry points
+
+`@wix/patterns` is 31 entry points, not one namespace, and `/form` re-exports `@wix/bex-core/form`. To see what's importable from a specific one: `Read <pkgRoot>/dist/dts-bundle/exports/<subpath>.d.ts` directly (`.` is `exports/index.d.ts`; a nested one like `./testkit/backend` is `exports/testkit/backend.d.ts`). This only lists the curated names covered above — a file with nothing in it (a one-line comment) means no curated name lives on that subpath yet, not that the subpath doesn't exist.
 
 ### Following cross-references
 
-Docs link to related names as Storybook URLs (`[TableState](./?path=/story/...--tablestate)`). The script resolves the link text back to a component and, after printing, lists the cross-referenced names it did not print plus the command to fetch them. Take what you need from that list rather than chasing every link; `--refs` follows one level automatically.
+Docs link to related names as Storybook URLs (`[TableState](./?path=/story/...--tablestate)`) — resolve the link text back to a filename via `dist/docs/index.json`, the same way you found the first doc, and `Read` it if you actually need it. There's no automatic multi-level expansion here; follow only the links you need.
 
-Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs.
+Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs. Likewise, a bundled `.d.ts` that references a deep `@wix/design-system/dist/...` path is pointing at that library's own internals — look the name up via the `wix-design-system` skill's own tool, not by opening the path.
 
 ## The Collection → Entity Flow
 
@@ -171,7 +207,7 @@ Reserve dashboard modals for dialogs that neither write nor display a listed rec
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `index.json` **and** searched the docs folder by keyword. Then, and only then:
+A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've already read. Then, and only then:
 
 1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
