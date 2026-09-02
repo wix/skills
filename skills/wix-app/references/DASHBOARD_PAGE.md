@@ -1,6 +1,6 @@
 # Wix Dashboard Page Builder
 
-Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
+Dashboard pages appear in the site owner's Wix dashboard, where administrators manage data, configure settings, and perform admin tasks.
 
 ## Plan the Workflow Before the Components
 
@@ -43,8 +43,6 @@ A dashboard page runs as the **Wix user** — see [Identity and Elevation Requir
 
 See [Wix Data Reference](data-collection/WIX_DATA.md) in the Data Collection reference for complete documentation.
 
-**Summary:**
-
 - Read: `items.query('Collection').filter/sort.limit.find()` → `{ items, totalCount, hasNext }`
 - Write: `items.insert | update | remove`. Ensure collection permissions allow the action
 
@@ -54,29 +52,17 @@ See [Wix Data Reference](data-collection/WIX_DATA.md) in the Data Collection ref
 
 See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete documentation including all methods, page IDs, and examples.
 
-**Key methods:**
+**Key methods**, all on the `dashboard` object from `@wix/dashboard` (signatures, page IDs, and examples in the reference above):
 
-- `dashboard.navigate()` - Navigate between dashboard pages
-- `dashboard.observeState()` - Receive contextual state and environmental information
-- `dashboard.showToast()` - Display toast notifications
-- `dashboard.openModal()` - Open dashboard modal extensions (see [Dashboard Modal reference](DASHBOARD_MODAL.md))
-- `dashboard.navigateBack()` - Navigate back to previous page
-- `dashboard.getPageUrl()` - Get full URL for a dashboard page
-- `dashboard.openMediaManager()` - Open Wix Media Manager
-- `dashboard.onBeforeUnload()` - Register beforeunload handler
-- `dashboard.addSitePlugin()` - Add site plugin to slots
-- `dashboard.setPageTitle()` - Set page title in browser tab
-- `dashboard.onLayerStateChange()` - Handle foreground/background state changes
+- Navigation: `navigate()`, `navigateBack()`, `getPageUrl()`
+- Feedback and chrome: `showToast()`, `setPageTitle()`
+- Overlays: `openModal()` (see [Dashboard Modal reference](DASHBOARD_MODAL.md)), `openMediaManager()`
+- State and lifecycle: `observeState()`, `onBeforeUnload()`, `onLayerStateChange()`
+- Slots: `addSitePlugin()`
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-Dashboard Pages cannot use `<Modal />`. When you need a true dialog overlay, you **MUST** use a dashboard modal extension — not a React modal and not the WDS `Modal` component.
-
-- **Use dashboard modals** for dialogs that neither write nor display a record this app lists: delete/discard confirmations, unsaved-changes prompts, informational notices — and any dialog on a page that lists nothing (settings, config)
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
-- **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
-
-Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
+Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** use a dashboard modal extension — never a React modal, never the WDS `Modal` component. Reserve it for dialogs that neither write nor display a record this app lists (delete/discard confirmations, unsaved-changes prompts, informational notices), plus any dialog on a page that lists nothing (settings, config). They open via `dashboard.openModal()`, which integrates them with the dashboard lifecycle, state management, and navigation — implementation guide: [Dashboard Modal reference](DASHBOARD_MODAL.md).
 
 > **🛑 The test — does the dialog create, update, or display one record this page lists?** If yes, it is an `EntityPage`, not a modal — whether those records come from a CMS collection or an existing Wix app's SDK. **A create / "add new" form is included**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading, and it is the single most common way the patterns-first rule gets dropped after the table is already correct.
 >
@@ -90,14 +76,13 @@ Dashboard modals are opened using `dashboard.openModal()` and provide proper int
 
 ### Embedded Script Configuration API
 
-When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](dashboard-page/DYNAMIC_PARAMETERS.md) for complete implementation guide.
+When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](dashboard-page/DYNAMIC_PARAMETERS.md) for the implementation guide.
 
 **Key points:**
 
 - Use `embeddedScripts` from `@wix/app-management`
-- Parameters are returned as strings - handle type conversions when loading
-- All parameters must be saved as strings (convert booleans/numbers to strings)
-- Use `withProviders` wrapper when dynamic parameters are present
+- Parameters cross the API as strings in both directions — convert on load, and convert booleans/numbers back to strings on save
+- Use the `withProviders` wrapper when dynamic parameters are present
 
 ## Examples
 
@@ -125,47 +110,16 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create a settings page for the coupon popup embedded script"
 
-**Output:** A `@wix/patterns` `SettingsPage` shell with WDS form fields for popup headline, coupon code, minimum cart value, and enable toggle. Uses `embeddedScripts` API to load/save parameters.
-
-```typescript
-// Key pattern for embedded script configuration pages
-import { embeddedScripts } from "@wix/app-management";
-
-// Load on mount
-useEffect(() => {
-  const load = async () => {
-    const script = await embeddedScripts.getEmbeddedScript();
-    const data = script.parameters || {};
-    setOptions({
-      headline: data.headline || "Default",
-      enabled: data.enabled === "true",
-      threshold: Number(data.threshold) || 0,
-    });
-  };
-  load();
-}, []);
-
-// Save handler
-const handleSave = async () => {
-  await embeddedScripts.embedScript({
-    parameters: {
-      headline: options.headline,
-      enabled: String(options.enabled),
-      threshold: String(options.threshold),
-    },
-  });
-  dashboard.showToast({ message: "Saved!", type: "success" });
-};
-```
+**Output:** A `@wix/patterns` `SettingsPage` shell with WDS form fields for popup headline, coupon code, minimum cart value, and enable toggle. `embeddedScripts.getEmbeddedScript()` loads the parameters on mount and `embeddedScripts.embedScript()` saves them back — both sides string-converted, per [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md).
 
 
 ## API Spec Support
 
-When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](dashboard-page/API_SPEC.md) for details on how to use API specs in dashboard pages.
+When an API specification is provided, you can call those endpoints — see [API Spec Reference](dashboard-page/API_SPEC.md).
 
 
 ## Layout Guidelines
 
 Content layout inside the page shell — the 6px base unit, the 12-column grid, spacing tokens, form/display/marketing/wizard layouts: see [WDS Layout Reference](dashboard-page/WDS_LAYOUT.md).
 
-Remember the split: `@wix/patterns` owns the page shell and anything collection-shaped (tables, grids, filters, sorting, empty states); that reference covers the content you place inside it.
+Remember the split: `@wix/patterns` owns the page shell and anything collection-shaped; that reference covers only the content you place inside it.
