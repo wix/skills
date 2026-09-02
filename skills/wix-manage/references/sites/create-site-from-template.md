@@ -1,6 +1,6 @@
 ---
 name: "Create Site from Template"
-description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
+description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, publishing, and permission-denied recovery. Not for headless sites.
 ---
 # Create Site from Template
 
@@ -8,8 +8,27 @@ This recipe guides you through creating a new Wix site from a template, includin
 
 ## Prerequisites
 
-- Wix account with site creation permissions
-- Account-level API access
+- Account-level API access for the account that will own the new site
+- An authenticated account owner or account-level team member whose role allows creating sites in
+  that account
+
+A site collaborator role is scoped to an existing site and is not sufficient for this
+account-level creation call, even when that role can edit or manage the existing site.
+
+### Authorization preflight
+
+Before creating the site:
+
+1. Identify the Wix account that should own the new site.
+2. Confirm that the authenticated identity is the owner of that account or a team member in that
+   account with permission to create sites. Do not infer account-level access from collaborator
+   access to an existing site.
+3. If the identity is only a site collaborator or has a restricted account role, stop before the
+   mutation. Ask the account owner or an Account Admin (Co-Owner) to create the site, or to grant
+   an account-level role that includes site creation.
+
+`MetaSite.Create` in a permission-denied response is the authorization check that failed; it is
+not the name of a role or a permission the user can assign directly in Roles & Permissions.
 
 ## Required APIs
 
@@ -112,6 +131,21 @@ If `siteName` is not provided, one is generated automatically.
 
 ### IMPORTANT NOTES:
 - This API creates regular Wix sites. Do NOT use it for headless sites (even with a `namespace` field) — use [Create Headless Site](create-headless-site.md) instead
+
+### Permission-denied recovery
+
+If the create call returns permission denied for `MetaSite.Create`:
+
+1. Do not retry the same request or change its payload; this error is about the authenticated
+   identity, not the template ID or site name.
+2. Report which account is expected to own the new site and whether the current identity is an
+   account owner, account-level team member, or site-only collaborator.
+3. For a collaborator or restricted team member, ask the account owner or an Account Admin
+   (Co-Owner) to run the creation, or grant an account-level role that includes creating sites,
+   then retry once.
+4. If the authenticated account owner receives the same error, stop. Preserve the error and the
+   resolved account/identity context and escalate for authentication or identity-forwarding
+   investigation; do not tell the owner to grant themselves a role or keep retrying.
 
 ---
 

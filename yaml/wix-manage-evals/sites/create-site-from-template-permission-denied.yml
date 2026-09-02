@@ -1,0 +1,48 @@
+name: sites/create-site-from-template-permission-denied
+description: >-
+  Verifies the agent reads the create-site-from-template skill and handles a MetaSite.Create
+  permission denial as an account-role problem, without retrying or presenting the error token as
+  a user-assignable permission.
+triggerPrompt: >-
+  I tried to create a new Wix site from a template for an account I help manage, but the call
+  returned "permission denied: MetaSite.Create". I am a collaborator on one of the account's
+  existing sites. Should I retry with a different site name, or what needs to happen next?
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/create-site-from-template
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user received "permission denied: MetaSite.Create" while creating a site from a
+      template and says they are only a collaborator on an existing site in the account.
+
+      Pass if the response:
+      - explains that site-collaborator access is scoped to an existing site and does not establish
+        authority for this account-level site creation, AND
+      - says changing the site name or retrying the same request will not fix this authorization
+        error, AND
+      - asks the account owner or an Account Admin (Co-Owner) to perform the creation or grant an
+        account-level role that includes creating sites, AND
+      - says that if an authenticated account owner also receives the error, the agent should stop
+        and escalate with the account/identity context for authentication or identity-forwarding
+        investigation, AND
+      - does not claim that "MetaSite.Create" is a role or a permission that can be assigned by
+        that exact name in the Wix Roles & Permissions UI.
+
+      Fail if the response retries the mutation, changes the payload or template to recover,
+      treats a site-management collaborator role as sufficient, tells the user to grant a role
+      named MetaSite.Create, or assumes the Wix MCP authentication is broken without an owner-role
+      reproduction.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path for this permission-denied diagnosis. A clean path reads the Create
+      Site from Template recipe, recognizes the account-vs-site role mismatch, and gives recovery
+      guidance without making another site-creation call. Penalize redundant docs searches,
+      speculative API calls, retries of the failed mutation, payload changes, or claims that the
+      MCP is broken before the same failure is reproduced for an authenticated account owner.
+      Return ONLY {"score":<0-10>,"reason":"<terse frictions and suspected docs/MCP gap, or clean path>"}.
