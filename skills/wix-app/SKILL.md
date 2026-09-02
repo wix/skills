@@ -22,7 +22,14 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then confirm `@wix/patterns` is in the project's `package.json` (install it if absent) and enumerate the real component list with `cat node_modules/@wix/patterns/dist/docs/index.json`. Do this BEFORE writing any JSX. You cannot apply [Component Selection Order](#component-selection-order) without the component list in front of you — skipping this step is why a page ends up built entirely from WDS.
+  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and [Collection Toolkit](references/dashboard-page/COLLECTION_TOOLKIT.md) for which component serves each need.
+    - [ ] **The page shows aggregate numbers, not only rows** (`SummaryBar`) — unless the prompt asks for a single record. "How many, and which ones need me" is why someone opens a dashboard.
+    - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
+    - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
+
+    A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -52,7 +59,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
-| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs in `node_modules/@wix/patterns/dist/docs/`, WDS via the `wix-design-system` skill |
+| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns via `dist/docs/index.json` + `dist/dts-bundle/index.json` (see [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md)), WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
 | Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
 | Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `members.getMyMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
@@ -113,15 +120,19 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
-**Confirm every name and prop against the generated docs — do not guess:**
+**Looking a component up is two direct file reads** — no script, never `node_modules` browsed by hand. Resolve the installed package root once per session ([Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites)), then reuse it. Start with what exists:
 
 ```bash
-cat node_modules/@wix/patterns/dist/docs/index.json
+cat <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-If that path does not exist, `@wix/patterns` is missing or too old — add it (`^1.367.0` or later ships `dist/docs/`) and re-read. **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+Then read the doc for each name you plan to use, including the state types they cross-reference — `Read <pkgRoot>/dist/docs/index.json` to find the file, then `Read` it directly. Props and import paths exist only there, and patterns is not a flat namespace — `@wix/patterns/page`, `/provider`, `/form` — so an import from memory is a guess.
 
-`index.json` maps component name → doc file + category; doc filenames match component names (`Table.md`, `useTableCollection.md`). Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
+Each doc gives its import line, props table, and an example. For a TypeScript type rather than a component — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — look it up the same way in `dist/dts-bundle/index.json` instead and `Read` the `.d.ts` at exactly the `file` path it gives; it's already fully resolved, which is what keeps a deep `@wix/bex-core/dist/types/...` path out of the tree.
+
+If `dist/dts-bundle/index.json` doesn't exist, the installed `@wix/patterns` predates this feature — upgrade it, then re-check. See [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing index is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+
+Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 
 ### 2. `@wix/design-system` — everything inside the shell
 
@@ -144,16 +155,20 @@ Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third U
 
 ### Entity create and edit
 
-**Adding, editing, or viewing a single item from a collection page is an `EntityPage` — not a Dashboard Modal.** This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
+**Any dialog that creates, updates, or displays one record listed by a collection page is an `EntityPage` — not a Dashboard Modal.** This holds whether the records come from a CMS collection or an existing Wix app's SDK. A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule.
+
+A page that lists nothing — a settings page, an embedded-script config page — carries no `EntityPage` obligation. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
+
+This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
 
 The documented flow:
 
 1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
 2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
-3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`.
+3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
 
-Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a delete confirmation, a short prompt, an unrelated popup. Reach for it because the interaction is a true dialog, never because "the form should open in a modal."
+Use a Dashboard Modal for dialogs that neither write nor display a listed record: a delete or discard confirmation, an unsaved-changes prompt, an informational notice, or any dialog on a page that lists nothing. Dialog size and field count are not exceptions — a one-field create form over a listed record is still an `EntityPage`. Reach for a modal because the interaction persists nothing, never because "the form should open in a modal."
 
 ---
 
@@ -200,6 +215,9 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
+| Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
+| Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
+| Reading a patterns bundle or doc file the index names | [PATTERNS_BUNDLE_READING.md](references/dashboard-page/PATTERNS_BUNDLE_READING.md) |
 
 ---
 
