@@ -41,7 +41,7 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates this feature; upgrade it and re-run the check. This is not the same failure as a name simply not being covered (see below) — a missing *file* here means the whole mechanism isn't available yet, not that one name isn't in it.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates this feature; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. This is not the same failure as a name simply not being covered (see below) — a missing *file* here means the whole mechanism isn't available yet, not that one name isn't in it.
 
 **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of an arbitrary path, and this extends to the sanctioned directories themselves: never browse `dist/dts-bundle/` or `dist/docs/` looking around. Every lookup below names the exact file to `Read` — go straight to it.
 
