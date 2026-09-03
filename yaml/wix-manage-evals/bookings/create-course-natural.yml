@@ -1,0 +1,55 @@
+name: bookings/create-course-natural
+description: >-
+  Verifies that a natural course-creation request (no recipe named) routes to the course
+  recipe and produces a COURSE service with full-course pricing — without inventing
+  Services V2 session fields, and without claiming the course is bookable before session
+  events exist.
+triggerPrompt: >-
+  Create a 6-week photography course on my Wix site for $300.
+tags: [bookings]
+maxTokens: 800000
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-course-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to create a 6-week photography course for $300.
+      Intent: create one COURSE service via Wix Bookings Services V2 with $300 as the
+      price of the entire course, and set correct expectations about scheduling the
+      course sessions. Evaluate the final response and the Wix API calls made.
+
+      Pass if the agent:
+      - creates exactly one service with `type: "COURSE"`, AND
+      - sets a fixed price of 300 as the FULL course price (`fixed.price.value` "300" or
+        "300.00" — not a per-session or per-week amount), AND
+      - sets a group capacity via `defaultCapacity`, AND
+      - EITHER successfully creates future course session events on the service's
+        schedule, OR clearly tells the user that session dates must be scheduled as
+        calendar events before the course can be booked (asking the user for session
+        dates/times also passes).
+
+      Fail if the agent:
+      - creates the service as CLASS or APPOINTMENT, OR
+      - puts session dates/counts inside the Services V2 payload (e.g. under
+        `course.sessions`, `CourseSession`, or any nested course field), OR
+      - divides the price into per-session amounts, OR
+      - tells the user the course is ready/bookable without future session events
+        existing and without a scheduling caveat, OR
+      - reports success without a successful create call in the trace, OR
+      - only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). Penalize
+      and LIST any of: a non-2xx error even if recovered; a request-body shape guessed
+      wrong then corrected (e.g. invented course/session fields); redundant or probing
+      calls clearer docs would avoid. Do not penalize a single post-create verification
+      read. For each friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
