@@ -1,15 +1,16 @@
 name: forms/forms-dashboard-navigation
 description: >-
-  Verifies the agent reads the forms-dashboard-navigation recipe when asked
-  for direct links to Wix Forms dashboard pages, and returns correct
-  manage.wix.com URLs across both the wix-forms-and-payments and wix-forms
-  namespaces.
+  Verifies the agent reads the forms-dashboard-navigation recipe when asked for
+  direct links to Wix Forms dashboard pages, and builds them under the
+  wix-forms namespace — including a form's submissions table, which hangs off
+  that form's builder path rather than existing site-wide.
 triggerPrompt: >-
-  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
-  direct dashboard links to: my forms list, my form submissions, the page
-  where I'd edit one specific form, and the form templates page.
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914 and my
+  contact form's id is b7ecfb42-c987-437f-99db-5d108cd1a075. Give me direct
+  dashboard links to: my forms list, the page where I'd edit that form, and
+  that form's submissions.
 tags: [forms]
-maxTokens: 30000
+maxTokens: 300000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -18,23 +19,28 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked for direct Wix dashboard links (meta site id
-      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the forms list, the form
-      submissions table, the edit page for a specific form, and the form
-      templates page.
+      The user asked for direct Wix dashboard links — meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914, form id
+      b7ecfb42-c987-437f-99db-5d108cd1a075 — to the forms list, that form's
+      edit page, and that form's submissions.
+
+      Every Forms page lives under the wix-forms namespace, and the recipe's
+      table is the authority: the list is wix-forms, the builder is
+      wix-forms/form/{formId}, and submissions are per form at
+      wix-forms/form/{formId}/submissions.
 
       Pass if the response:
       - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
-      - uses wix-forms-and-payments for the forms list,
-        wix-forms-and-payments/submissions for submissions, and
-        wix-forms-and-payments/templates for templates, AND
-      - explains the edit-form link is wix-forms/form/{formId} (a placeholder
-        or an explanation that the form id goes in the path is fine).
+      - uses wix-forms for the list, wix-forms/form/<the form id> for the
+        builder, and wix-forms/form/<the form id>/submissions for submissions,
+        substituting the id the user gave rather than leaving a placeholder.
 
       Fail if the response:
-      - invents dashboard routes that are not in the recipe (e.g.
-        forms/manage, dashboard/forms, wix-forms/submissions), OR
-      - puts submissions or templates under wix-forms/ instead of
-        wix-forms-and-payments/, OR
-      - omits the meta site id from the URLs or uses a different domain, OR
+      - builds any wix-forms-and-payments/... path (that namespace belongs to
+        the legacy Wix Forms (Old) app), OR
+      - offers a site-wide submissions page instead of the per-form one, OR
+      - invents dashboard routes that are not in the recipe (e.g. forms/manage,
+        dashboard/forms, wix-forms/submissions), OR
+      - omits the meta site id or the form id from the URLs, or uses a
+        different domain, OR
       - only describes how to click through the dashboard instead of giving links.

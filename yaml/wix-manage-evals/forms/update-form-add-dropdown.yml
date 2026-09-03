@@ -1,0 +1,151 @@
+name: forms/update-form-add-dropdown
+description: >-
+  Verifies the agent treats "add a dropdown to my form" as a schema change:
+  PATCHes the live form on its current revision (no invented fieldMask),
+  resends every field it means to keep, gives the new field the DROPDOWN
+  identifier rather than TEXT_INPUT, and verifies the read-back.
+triggerPrompt: >-
+  My Wix site already has a contact form. Add a "Job industry" dropdown to it
+  with the options Technology, Healthcare, Finance and Other.
+tags: [forms]
+maxTokens: 800000
+# Only meaningful against a form that already exists, so the run gets a fresh site with one
+# seeded in the recipe's own create shape. Bootstrap steps are fail-fast, so a broken setup
+# names itself instead of surfacing as a confused agent run.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Wix Forms (New) — a blank site has no forms app, and the create 400s without it
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 225dd912-7dea-4738-8688-4b8c6955ffc2
+      - label: seed the contact form the agent is asked to revise
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Contact form
+            namespace: wix.form_app.form
+            formFields:
+              - id: 270694f1-fb4c-44bd-8520-32b45a506de0
+                identifier: CONTACTS_FIRST_NAME
+                fieldType: INPUT
+                inputOptions:
+                  target: first_name_2706
+                  pii: true
+                  contactMapping: { contactField: FIRST_NAME }
+                  inputType: STRING
+                  stringOptions:
+                    validation: {}
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: First name, showLabel: true }
+              - id: 5e2e19e3-5a44-4c94-a70b-1f1d433305a2
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_5e2e
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+              - id: b9d49aa9-e28b-46b0-9ad3-62265c7f9ee7
+                identifier: TEXT_AREA
+                fieldType: INPUT
+                inputOptions:
+                  target: message_b9d4
+                  inputType: STRING
+                  stringOptions:
+                    validation: {}
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Your message, showLabel: true }
+              - id: 5b4ab861-a0c5-4347-b0b6-d771066f37d8
+                identifier: SUBMIT_BUTTON
+                fieldType: DISPLAY
+                displayOptions:
+                  displayFieldType: PAGE_NAVIGATION
+                  pageNavigationOptions: { submitText: Send }
+            steps:
+              - id: 83af2386-d860-4695-8f38-1c598d0c1bf7
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: 270694f1-fb4c-44bd-8520-32b45a506de0, row: 0, column: 0, width: 12, height: 1 }
+                      - { fieldId: 5e2e19e3-5a44-4c94-a70b-1f1d433305a2, row: 1, column: 0, width: 12, height: 1 }
+                      - { fieldId: b9d49aa9-e28b-46b0-9ad3-62265c7f9ee7, row: 2, column: 0, width: 12, height: 1 }
+                      - { fieldId: 5b4ab861-a0c5-4347-b0b6-d771066f37d8, row: 3, column: 6, width: 6, height: 1 }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/update-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to add a "Job industry" dropdown (Technology, Healthcare,
+      Finance, Other) to a Wix form that already exists.
+
+      Pass if the response changes the LIVE form schema and:
+      - updates it with PATCH /form-schema-service/v4/forms/{formId}, AND
+      - reads the form first (with the required `?namespace=wix.form_app.form`)
+        and sends that revision INSIDE the form object, with no fieldMask, AND
+      - resends the whole form — every formField including SUBMIT_BUTTON, and
+        every steps[].layout item, because the array replaces wholesale — with
+        the new field placed in the layout, AND
+      - gives the new field identifier DROPDOWN, inputType STRING,
+        componentType DROPDOWN, options each with a lowercase GUID id / value /
+        label, and validation.enum listing the same four values, AND
+      - verifies on a read-back (and/or .../{formId}/summary) that the field is
+        still a DROPDOWN with non-empty options.
+
+      Fail if the response:
+      - gives the new field identifier TEXT_INPUT, which Wix silently stores as
+        a plain text input, OR
+      - invents a fieldMask, or puts revision outside form, OR
+      - sends a partial formFields array, dropping the rest of the form, OR
+      - re-maps or "cleans" the fields it read back rather than appending to
+        them (`fieldType cannot be provided with any these fields`), OR
+      - creates a new form, or deletes and recreates the existing one, OR
+      - omits the option ids, gives them readable slugs instead of GUIDs
+        (`options[N].id is not a valid GUID`), omits `value` on an option, or
+        sends `validation` empty instead of an enum listing every value, OR
+      - treats the 200 as proof and skips the read-back, OR
+      - needs several attempts to get a call accepted — in particular answers a
+        `400 namespace must not be empty` on a read by reshaping the body
+        instead of adding the missing query parameter.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not just the final answer.
+
+      Pass if:
+      - the agent read the update-form recipe before writing the PATCH — going
+        straight to the article counts, the route it took to find it does not
+        matter, AND
+      - the change landed on the live schema, with the final PATCH accepted and
+        verified on a read-back, AND
+      - a read-back showing a text input was diagnosed as the identifier, not
+        answered by re-sending the same block or re-adding the field.
+
+      A rejected PATCH writes nothing, so one attempt rejected and then
+      corrected is not a failure. Repeatedly guessing at the body instead of
+      consulting the contract is.
+
+      Fail if:
+      - it took three or more PATCH attempts, or never got one accepted, OR
+      - it answered a 400 by deleting and recreating the form, or by switching
+        endpoint or method, rather than by fixing the body, OR
+      - it satisfied the request in local state instead of the schema, OR
+      - it hallucinated endpoints, parameters or enum values.

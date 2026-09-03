@@ -250,7 +250,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Forms
 
 ### [Create Form](references/forms/create-form.md)
-**Technical:** Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, and post-submission triggers.
+**Technical:** Creates a visitor-fillable form with Form Schemas v4 — contact, enquiry, signup, waitlist, application, survey, quote request.
+
+### [Update Form](references/forms/update-form.md)
+**Technical:** Changes a form that already exists with a Form Schemas v4 `PATCH` — add, remove a field or change its settings (label, required, order, etc.), keeping the `formId`.
 
 ### [Forms Dashboard Navigation](references/forms/forms-dashboard-navigation.md)
 **Technical:** Direct links to Wix Forms dashboard pages on manage.wix.com (forms list, submissions table, form builder for a specific form, standalone forms, templates, settings), pairing forms and submissions with their read APIs for "view it in your dashboard" links.
