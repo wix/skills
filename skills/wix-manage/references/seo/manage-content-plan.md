@@ -1,280 +1,110 @@
 ---
 name: "Generate and Read a Wix Site's Content Plan"
-description: Trigger an AI-generated SEO content plan for a Wix site, poll the generation to completion, read and optionally edit the keyword research, then read the blog post briefs it produced. The flow is asynchronous and parks mid-way until explicitly released.
+description: Trigger an AI content plan for a Wix site, poll to completion, and read the blog post briefs. The flow parks mid-way and must be explicitly released — this recipe tells you when and how.
 ---
 
 # Generate and Read a Wix Site's Content Plan
 
-Use the public **SEO Content Plan APIs** to ask Wix's AI to generate an SEO
-content plan for the authenticated site, then read and optionally edit the
-keyword research and blog post briefs it produces. The API selects the site
-from the caller's authorization context; never ask for or send a site ID.
-
-Writing keyword research requires the **Manage SEO Settings** permission.
-Reading flows and candidates requires the same permission.
-
-## The one rule that must never be skipped
-
-**The flow parks at `KEYWORD_RESEARCH` and never finishes on its own.** After
-triggering generation and polling until `KEYWORD_RESEARCH`, you must call
-**Create Content Plan** to advance it to `CONTENT_PLAN` and then `SUCCESS`.
-An agent that only polls will wait forever.
-
-## The loop: trigger, poll, release, poll, read
-
-Exactly this sequence, every time:
-
-1. **Trigger** the generation.
-2. **Poll** `GetContentPlanFlow` with the returned flow ID until `status` reaches `KEYWORD_RESEARCH`.
-3. **Release** the flow by calling `CreateContentPlan` with the flow ID.
-4. **Poll** again until `status` reaches `SUCCESS`.
-5. **Read** the results: `ListBlogPostCandidates` for briefs, `ListKeywordResearchItems` for keywords.
-
-Do not skip step 3. Do not call `ListBlogPostCandidates` before `SUCCESS`.
-
-## The three services
+Trigger, poll, release, poll, read. That is the full loop. The API is
+asynchronous — generation takes minutes — and the flow **parks at
+`KEYWORD_RESEARCH` until you explicitly release it**.
 
 All paths are relative to `https://www.wixapis.com/promote/seo/v1`.
+The API selects the site from the caller's authorization context.
+Writing requires the **Manage SEO Settings** permission.
 
-| Service | What it tracks | Methods |
-|---|---|---|
-| Content Plan Flow | The generation job | Trigger, Get (poll), Cancel |
-| Blog Post Candidate | The deliverable briefs | List, Create Content Plan (releases the flow) |
-| Keyword Research | The keyword rows the briefs are built from | List, Update (single, field-masked), Bulk Update |
+## The exact call sequence
 
-## REST request and response shapes
+### 1. Trigger
 
-Build requests from these shapes. Do not search API schemas.
-
-### Trigger Content Plan Generation Flow — `POST /content-plan-flows/trigger`
-
-No request body needed for external callers. `origin` is set to `AGENT` by the
-server automatically.
-
-```json
+```
 POST /content-plan-flows/trigger
 {}
 ```
 
-Response:
-```json
-{ "contentPlanFlowId": "a1b2c3d4-..." }
+Returns `{ "contentPlanFlowId": "..." }`. Hold this ID.
+
+### 2. Poll until KEYWORD_RESEARCH
+
+```
+GET /content-plan-flows/{contentPlanFlowId}
 ```
 
-### Get Content Plan Flow — `GET /content-plan-flows/{contentPlanFlowId}`
+Status walks: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`. Poll every
+few seconds. This takes 1–5 minutes.
 
-No request body. Returns the flow with its `status`. Omit the ID to get the
-site's most recent successful flow (useful for picking up a plan generated in
-the dashboard).
+**Stop polling and act on these terminal states:**
+- `PENDING_REQUIREMENTS` — the site has no business description or category.
+  Tell the user what is missing. Do not retry.
+- `FAIL` — the pipeline failed. Trigger a new flow to retry.
+- `CANCELED` — someone canceled the flow.
 
-Status values in order: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH` →
-`CONTENT_PLAN` → `SUCCESS`. Terminals: `FAIL`, `CANCELED`,
-`PENDING_REQUIREMENTS`.
+### 3. Release the flow
 
-```json
-{
-  "contentPlanFlow": {
-    "id": "a1b2c3d4-...",
-    "status": "KEYWORD_RESEARCH",
-    "createdAt": "2026-01-15T10:30:00Z",
-    "updatedAt": "2026-01-15T10:31:45Z",
-    "origin": "AGENT",
-    "keywordResearchId": "e5f6g7h8-..."
-  }
-}
 ```
-
-### Cancel Content Plan Flow — `POST /content-plan-flows/{contentPlanFlowId}/cancel`
-
-No request body. Moves the flow to `CANCELED`.
-
-### Create Content Plan — `POST /create-content-plan`
-
-Releases the flow past `KEYWORD_RESEARCH`. On a `SUCCESS` flow, regenerates
-under a new flow ID.
-
-```json
 POST /create-content-plan
-{ "contentPlanFlowId": "a1b2c3d4-..." }
+{ "contentPlanFlowId": "..." }
 ```
 
-Response includes `success`, `contentPlanFlowId` (may differ on regeneration),
-and `message` on failure.
+This advances the flow past `KEYWORD_RESEARCH`. Check `success` in the
+response. If `false`, read `message`.
 
-Check `success` in the response. If `false`, read `message` for the reason.
-Common failures:
-- `FLOW_NOT_READY_FOR_CONTENT_PLAN` — the flow is not at a status this method can act on
-- `CONTENT_PLAN_FLOW_NOT_FOUND` — bad flow ID
-- `CONTENT_PLAN_FLOW_CANCELED` — someone canceled the flow mid-generation
+**Without this call the flow waits forever.**
 
-### List Blog Post Candidates — `GET /content-plan-flows/{contentPlanFlowId}/blog-post-candidates`
+### 4. Poll until SUCCESS
 
-Returns briefs: title, keyword, SERP data, page URL. Set
-`includeOnlyUnmarked=true` to skip candidates already turned into posts.
-Omit `contentPlanFlowId` to read the latest successful flow.
+Same GET as step 2. Status walks `CONTENT_PLAN` → `SUCCESS`.
 
-```json
-{
-  "blogPostCandidates": [
-    {
-      "id": "flow123_candidate456",
-      "briefData": {
-        "h1Title": "10 Best Coffee Beans for Home Brewing",
-        "keyword": "best coffee beans",
-        "mainKeyword": "coffee beans",
-        "pageUrl": "/blog/coffee-guide"
-      }
-    }
-  ],
-  "pagingMetadata": { "cursors": { "next": "..." } }
-}
+### 5. Read the briefs
+
+```
+GET /content-plan-flows/{contentPlanFlowId}/blog-post-candidates
 ```
 
-### List Keyword Research Items — `GET /content-plan-keyword-research-items`
+Returns blog post briefs: title, keyword, page URL. Report each one.
 
-Returns keyword rows: keyword, page, search volume, competition, cluster.
-Always returns the site's most recent promoted research.
+## Editing keywords (optional)
 
-```json
-{
-  "keywordResearchItems": [
-    {
-      "id": "kw-abc-123",
-      "keyword": "best coffee beans",
-      "pageId": "page-1",
-      "pageUrl": "/blog/coffee-guide",
-      "searchVolume": 12100,
-      "competition": 45,
-      "primary": true,
-      "clusterName": "coffee brewing"
-    }
-  ],
-  "keywordResearchId": "e5f6g7h8-...",
-  "mainKeywordMap": { "page-1": "kw-abc-123" }
-}
+After step 2, before or after step 3, read the keywords:
+
+```
+GET /content-plan-keyword-research-items
 ```
 
-### Update Keyword Research Item — `PATCH /keyword-research-items/{item.id}`
+Edit one keyword (field-masked, only `keyword` and `main_keyword` writable):
 
-Single item, field-masked. Only `keyword` and `main_keyword` are writable.
-
-```json
+```
 PATCH /keyword-research-items/{itemId}
 {
-  "keywordResearchId": "e5f6g7h8-...",
-  "item": { "id": "kw-abc-123", "keyword": "organic coffee beans" },
+  "keywordResearchId": "...",
+  "item": { "id": "...", "keyword": "new keyword" },
   "fieldMask": "keyword"
 }
 ```
 
-**Copy-on-write:** the first edit to AI-generated research creates a copy.
-The response may carry a different `keywordResearchId`. Always use the one
-from the response for the next write.
+**Copy-on-write:** the response may carry a different `keywordResearchId`.
+Always use the one from the response for the next write. Edits are not
+durable across generations.
 
-**Edits are not durable across generations.** A later completed generation
-produces fresh research that shadows the edited copy.
+## What this recipe adds over the docs
 
-### Bulk Update Keyword Research Items — `POST /bulk/keyword-research-items/update`
+The published reference documents each method. This recipe adds:
 
-Same item shape as Update, no field mask. Per-entry results via
-`itemMetadata.originalIndex`. Check `bulkActionMetadata.totalFailures`; if
-non-zero, inspect each result's `itemMetadata` and retry only the failed
-entries.
+1. **The parking gate.** The docs say `KEYWORD_RESEARCH` is a status. This
+   recipe says: the flow stops there until you call Create Content Plan.
+   Without that call, polling runs forever.
 
-```json
-POST /bulk/keyword-research-items/update
-{
-  "keywordResearchId": "e5f6g7h8-...",
-  "items": [
-    { "id": "kw-abc-123", "keyword": "organic coffee beans" },
-    { "id": "kw-def-456", "mainKeyword": true }
-  ]
-}
-```
+2. **PENDING_REQUIREMENTS handling.** A blank site or one without business
+   data reaches this state. The correct action is to tell the user, not to
+   retry or wait.
 
-## Worked example: generate a content plan and read the briefs
+3. **Copy-on-write on keyword edits.** The `keywordResearchId` can change
+   on the first write. Use the one from the response.
 
-The user asks: *"Generate a content plan for my site and show me the blog
-topics."*
+## Do not
 
-**Step 1 — trigger.**
-
-```
-POST https://www.wixapis.com/promote/seo/v1/content-plan-flows/trigger
-{}
-```
-
-Response: `{ "contentPlanFlowId": "flow-abc-123" }`
-
-**Step 2 — poll until KEYWORD_RESEARCH.**
-
-```
-GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/flow-abc-123
-```
-
-Poll every few seconds. Status walks: `CREATED` → `SITE_ANALYSIS` →
-`KEYWORD_RESEARCH`. This takes a few minutes (AI pipeline).
-
-**Step 3 — release the flow.**
-
-```
-POST https://www.wixapis.com/promote/seo/v1/create-content-plan
-{ "contentPlanFlowId": "flow-abc-123" }
-```
-
-Check `success: true`.
-
-**Step 4 — poll until SUCCESS.**
-
-Same GET, same flow ID. Status walks `CONTENT_PLAN` → `SUCCESS`.
-
-**Step 5 — read the briefs.**
-
-```
-GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/flow-abc-123/blog-post-candidates
-```
-
-Report each brief: title, target keyword, page URL.
-
-## Common agent mistakes — do not make these
-
-- **Polling forever without calling Create Content Plan.** The flow parks at
-  `KEYWORD_RESEARCH`. Only step 3 moves it.
-- **Reading candidates before SUCCESS.** The briefs are not ready until the
-  flow reaches `SUCCESS`.
-- **Ignoring `PENDING_REQUIREMENTS`.** This means the site has no business
-  description or category. Surface this to the user and stop. The flow will
-  not proceed until the site data is provided.
-- **Discarding the `keywordResearchId` from a write response.** The copy-on-
-  write pattern means the ID can change. Always use the one from the response.
-- **Retrying a 403.** Stop after the first `PERMISSION_DENIED`. The caller
-  lacks **Manage SEO Settings**.
-- **Sending a site ID.** The API selects the site from the authorization
-  context. There is no site ID parameter.
-
-## Recovery rules
-
-- **`PENDING_REQUIREMENTS`:** the site needs a business description and
-  category before generation can proceed. Tell the user what is missing and
-  stop. Do not retry or cancel.
-- **`FAIL`:** the AI pipeline failed. Trigger a new flow to retry. Each
-  trigger creates a new flow with a new ID.
-- **`CANCELED`:** someone called Cancel. No recovery needed unless the
-  generation is still wanted, in which case trigger a new flow.
-- **`FLOW_NOT_READY_FOR_CONTENT_PLAN`:** the flow is not at `KEYWORD_RESEARCH`
-  or `SUCCESS`. Check the current status and act accordingly.
-- **Permission denied:** stop after the first 403. The caller lacks **Manage
-  SEO Settings**. Do not retry with a different request.
-
-## What this API does not do
-
-- **Mark candidates as used.** Marking happens through the Blog app when a
-  real post is created. `includeOnlyUnmarked` reflects only what Blog has
-  marked; track what you have written on your side.
-- **Add or delete keywords.** Public writes can only update existing keyword
-  rows. The dashboard can add/delete via an internal method.
-- **Create blog posts.** This API produces briefs. Writing the actual blog
-  post is done through the Blog API or the user's own tooling.
-
-This recipe is self-contained for the common flows. Build every request from
-the shapes above.
+- Poll forever without calling Create Content Plan (step 3).
+- Read candidates before `SUCCESS`.
+- Retry after `PENDING_REQUIREMENTS`.
+- Ask for a site ID.
+- Retry after a 403 — the caller lacks **Manage SEO Settings**.
