@@ -1,0 +1,57 @@
+name: bookings/multi-resource-room-setup
+description: >-
+  Verifies the multi-resource recipe on a real task: model two interchangeable rooms as
+  one resource type with two resources, and create a service that requires one room per
+  booking via serviceResources.
+triggerPrompt: >-
+  I rent out two treatment rooms, Room A and Room B. Set them up on my Wix site so
+  that my new 60-minute Massage service ($80) books whichever room is free.
+tags: [bookings]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/multi-resource-service-creation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has two interchangeable treatment rooms and wants a 60-minute $80 Massage
+      service that books whichever room is free. Evaluate the final response and the Wix
+      API calls made.
+
+      Pass if the agent:
+      - creates ONE resource type for the rooms (interchangeable resources share a type),
+        with 2xx in the trace, AND
+      - creates TWO resources ("Room A" and "Room B") under that resource type, AND
+      - creates a bookings service named for the massage with a fixed price of 80 that
+        references the room resource TYPE via `serviceResources` (binding to the type,
+        not to an individual room), AND
+      - reports the setup based on successful responses.
+
+      Pass also if everything above succeeds except the service-to-resource link, and
+      the agent transparently reports that the link step failed and what remains — but
+      only if it does not claim the room allocation is configured.
+
+      Fail if the agent:
+      - creates two separate resource types (one per room), so the rooms are not
+        interchangeable, OR
+      - binds the service to one specific room instead of the room type, OR
+      - creates the rooms as staff members, OR
+      - reports the setup as complete without the corresponding successful calls in the
+        trace, OR
+      - only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: one resource type, two resources, one
+      service create, no errors). Penalize and LIST any of: a non-2xx error even if
+      recovered (e.g. a wrong field name on resource creation, such as a nested type
+      object where a flat typeId is expected); a request-body shape guessed wrong then
+      corrected; redundant or probing calls clearer docs would avoid. For each friction,
+      name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

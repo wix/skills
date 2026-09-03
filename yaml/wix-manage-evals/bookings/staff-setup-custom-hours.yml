@@ -1,0 +1,59 @@
+name: bookings/staff-setup-custom-hours
+description: >-
+  Verifies the staff-setup recipe end to end: create a staff member and give them
+  custom working hours — the two-step flow (assign a working-hours schedule, then
+  create WORKING_HOURS events) rather than stopping after staff creation.
+triggerPrompt: >-
+  Add a staff member named Maya Cohen to my Wix bookings, and set her working hours
+  to Mondays and Wednesdays from 9am to 3pm.
+tags: [bookings]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/bookings-staff-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to add a staff member named Maya Cohen with custom working hours:
+      Mondays and Wednesdays, 9am-3pm. Evaluate the final response and the Wix API
+      calls made.
+
+      Pass if the agent:
+      - creates a staff member named Maya Cohen via the Bookings Staff Members API
+        (2xx response in the trace), AND
+      - gives HER schedule custom working hours for Monday and Wednesday 09:00-15:00 —
+        by creating recurring WORKING_HOURS calendar events on a schedule belonging to
+        this staff member (after assigning/detaching to a custom working-hours schedule
+        where needed), with one event per weekday, AND
+      - does NOT achieve the hours by editing the site-wide business default hours
+        (which would change every staff member), AND
+      - reports what was set up based on successful responses.
+
+      Pass also if the agent completes staff creation, makes a reasonable attempt at
+      the custom hours, and transparently reports exactly which part it could not
+      complete and why — but only if it does not claim the hours are configured.
+
+      Fail if the agent:
+      - only creates the staff member and claims the custom hours are done, OR
+      - sets the hours on the business schedule or via the Site Properties API instead
+        of the staff member's own schedule, OR
+      - uses the wrong identifier class throughout (e.g. treats the staff member id and
+        the resource/schedule ids as interchangeable) and never recovers, OR
+      - reports success without the corresponding successful calls in the trace, OR
+      - only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: create staff, assign schedule, create
+      the working-hours events, no errors). Penalize and LIST any of: a non-2xx error
+      even if recovered (e.g. wrong id type passed — staff id vs resource id vs schedule
+      id, "Resource not found", "Invalid scheduleId"); a request-body shape guessed
+      wrong then corrected; redundant or probing calls clearer docs would avoid. For
+      each friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
