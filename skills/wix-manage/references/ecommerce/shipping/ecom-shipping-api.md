@@ -13,6 +13,8 @@ Two services govern the shipping configuration of a Wix eCommerce store:
 
 **How to call these APIs**: Use `CallWixSiteAPI`.
 
+> **Discovery exception:** These Shipping Options and Delivery Profiles endpoints are not present as public resource/method pages in the Wix REST docs or `SearchWixAPISpec` light index. Do not try to find a method docs URL with `SearchWixRESTDocumentation` or `SearchWixAPISpec` before calling them. This article is the authoritative inline method spec; use the endpoint, request, response, and field rules below directly.
+
 ---
 
 ## Shipping Options
