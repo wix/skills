@@ -37,7 +37,7 @@ jobs:
     outputs:
       wix_app: ${{ steps.changes.outputs.wix_app }}
       evalforge: ${{ steps.changes.outputs.evalforge }}
-      changed_refs: ${{ steps.changes.outputs.changed_refs }}
+      wix_app_refs: ${{ steps.changes.outputs.wix_app_refs }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
@@ -63,19 +63,24 @@ jobs:
             echo "wix_app=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Reference files this PR touches, for the fetch-limit gate below. Deliberately
-          # NOT derived from $changed: that diffs against the base commit recorded when the
-          # PR opened, so once a branch merges the base back into itself, every file the
-          # base changed since looks like part of this PR. Diffing against the base branch's
-          # current tip keeps the set to what this branch actually authored. Only files that
-          # still exist are listed, so a deletion doesn't fail the gate on a missing path.
+          # wix-app reference files this PR touches, for the fetch-limit gate below.
+          # Scoped to wix-app on purpose: that skill is where the truncation limit actually
+          # bites — its docs are long and linked from SKILL.md as the authority — and its
+          # owners opted in. Other skills keep the report without the gate.
+          #
+          # Deliberately NOT derived from $changed: that diffs against the base commit
+          # recorded when the PR opened, so once a branch merges the base back into itself,
+          # every file the base changed since looks like part of this PR. Diffing against the
+          # base branch's current tip keeps the set to what this branch actually authored.
+          # Only files that still exist are listed, so a deletion doesn't fail the gate on a
+          # missing path.
           git fetch --no-tags --quiet origin "$BASE_REF"
           refs=$(git diff --name-only "origin/$BASE_REF...HEAD" \
-            | grep -E '^skills/[^/]+/references/.*\.md$' || true)
+            | grep -E '^skills/wix-app/references/.*\.md$' || true)
           present=""
           for f in $refs; do [ -f "$f" ] && present="${present:+$present,}$f"; done
-          echo "changed_refs=$present" >> "$GITHUB_OUTPUT"
-          echo "Changed reference files: ${present:-none}"
+          echo "wix_app_refs=$present" >> "$GITHUB_OUTPUT"
+          echo "Changed wix-app reference files: ${present:-none}"
 
           # evalforge-core plus both actions that bundle it. A change to core affects both
           # actions' committed bundles, so any of these paths exercises the whole set.
@@ -100,7 +105,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' || needs.detect.outputs.changed_refs != '' }}
+        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' || needs.detect.outputs.wix_app_refs != '' }}
         with:
           node-version: '24'
 
@@ -131,11 +136,13 @@ jobs:
 
       # Some agents truncate a fetched file at ~10k chars, so anything past that is
       # silently lost — usually the checklist or conclusion the file is linked for.
-      # Scoped to the files this PR touches: the repo has a pre-existing tail of
-      # over-limit files, and a whole-repo gate could only ever be red.
-      - name: skills — changed reference files fit the fetch limit
-        if: ${{ needs.detect.outputs.changed_refs != '' }}
-        run: node scripts/check-truncation.mjs --fail --files='${{ needs.detect.outputs.changed_refs }}'
+      # Scoped twice over: to wix-app, and within it to the files this PR touches. wix-app
+      # still carries 11 over-limit references (up to 22k), so gating the whole skill could
+      # only ever be red; gating what a PR authors stops *new* violations and asks for a
+      # split only when someone edits one of the existing ones.
+      - name: wix-app — changed reference files fit the fetch limit
+        if: ${{ needs.detect.outputs.wix_app_refs != '' }}
+        run: node scripts/check-truncation.mjs --fail --files='${{ needs.detect.outputs.wix_app_refs }}'
 
       # ── evalforge: typecheck the shared package and both actions ────────────────────
       # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.12.0 via
