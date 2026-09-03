@@ -1,6 +1,6 @@
 ---
 name: "Forms Dashboard Navigation"
-description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com. The paths are not guessable and appear in no API reference, so take them from here: under `https://manage.wix.com/dashboard/{metaSiteId}/`, the forms list is `wix-forms`, a form's builder is `wix-forms/form/{formId}`, and that form's submissions are `wix-forms/form/{formId}/submissions` — there is no site-wide submissions page, and nothing lives under `forms`, `form-builder` or `wix-forms-and-payments` (the legacy app). Also standalone forms, and each Forms entity paired with its read API so you can fetch one and hand back a 'view it in your dashboard' link."
+description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com. The paths are not guessable and appear in no API reference, so take them from here: under `https://manage.wix.com/dashboard/{metaSiteId}/`, the forms list is `wix-forms`, a form's builder is `wix-forms/form/{formId}`, and that form's submissions are `wix-forms/form/{formId}/submissions` — there is no site-wide submissions page, and nothing lives under `contacts/forms`, `forms`, `form-builder` or `wix-forms-and-payments` (the legacy app). Also standalone forms, and each Forms entity paired with its read API so you can fetch one and hand back a 'view it in your dashboard' link."
 ---
 
 # Forms Dashboard Navigation
@@ -8,6 +8,8 @@ description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com
 Build direct links into the Wix Forms pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
 
 ## Main Pages
+
+**Never goess or answer a Forms dashboard-link request from memory** because the routes below are the only correct ones.
 
 | Page | URL after `/dashboard/{metaSiteId}/` | What it manages |
 |---|---|---|
