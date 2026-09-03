@@ -18,9 +18,3 @@ assertions:
     prompt: |
       Pass if the response loads the setup-pickup recipe AND consults shipping-api-reference (for the List Installed Delivery Carriers / Query Delivery Profiles / Add Delivery Region / Add Delivery Carrier endpoints), discovers the Pickup carrier's `id`, attaches it to a delivery region with a free rate, and presents the result as a checkout-time pickup option.
       Fail if it confuses pickup with a Pricing & Promotions free-shipping coupon, invents endpoints that aren't in shipping-api-reference, or skips the carrier-discovery step.
-  - type: llm_judge
-    minScore: 7
-    maxTokens: 1024
-    prompt: |
-      Pass if the agent uses an available authenticated Wix site API capability without asking the user to invoke a specifically named internal tool.
-      Fail if the response exposes or requests a provider-specific tool name instead of describing the required capability.

@@ -1,0 +1,23 @@
+name: ecommerce/shipping/api-tool-agnostic
+description: Inspect current shipping configuration without directing the user to invoke a provider-specific internal tool.
+triggerPrompt: For my Wix store, show me the shipping options and delivery regions that are currently configured. Do not ask me to call a specific internal tool.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the agent consults shipping-api-reference, queries the site's shipping options and delivery profiles through authenticated Wix site API access, and summarizes the configured options and regions without mutating them.
+      Fail if it invents endpoints, skips either shipping options or delivery profiles, or changes the site's configuration.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: |
+      Pass if the agent uses the API capability available in its environment without asking the user to invoke a specifically named internal tool.
+      Fail if the response exposes or requests a provider-specific tool name instead of describing the required capability.
