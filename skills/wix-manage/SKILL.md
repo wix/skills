@@ -24,100 +24,100 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## App Installation
 
 ### [Install Wix Apps](references/app-installation/install-wix-apps.md)
-**Technical:** Installs Wix apps on a site using Apps Installer API. Covers enabling Velo (Wix Code), app installation, and common app definition IDs.
+Installs Wix apps on a site using Apps Installer API. Covers enabling Velo (Wix Code), app installation, and common app definition IDs.
 
 ### [List Installed Apps](references/app-installation/list-installed-apps.md)
-**Technical:** Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors.
+Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors.
 
 ### [App Management Dashboard Navigation](references/app-installation/app-installation-dashboard-navigation.md)
-**Technical:** Direct links to the App Market and installed-apps management dashboard pages on manage.wix.com, paired with the List Installed Apps read API.
+"Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## SEO
 
 ### [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md)
-**Technical:** Reads and writes SEO tags (titles, descriptions, social tags, structured data, indexing) at three levels: site-wide, page-type patterns, and individual items. Always read before write — every Set replaces in full.
+Read and update the SEO tags of a Wix site at the right level — site-wide tags, page-type patterns, or one item's tags. Discover item IDs and pattern variables instead of inventing them, read before every full-replace write, and report resolved tags with the source each one came from.
 
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
-**Technical:** Reads, creates, and deletes URL redirects through the public SEO Redirects API. Distinguishes exact from group redirects, handles language-scoped redirects on multilingual sites, reads per-item results from bulk responses, and confirms before writes, because creating a redirect can permanently delete an existing one.
+"Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
 
 ---
 
 ## Accessibility
 
 ### [Scan a Wix Site for Accessibility Issues](references/accessibility/scan-site-accessibility.md)
-**Technical:** Runs an asynchronous accessibility scan for a full site, one page, or every page in any supported Wix page collection. Discovers collection IDs instead of hardcoding verticals, polls the scan to completion, separates failed pages from clean pages, and returns prioritized, agent-friendly findings and fix guidance.
+Run a Wix accessibility scan for a full site, one page, or every page in any supported page collection, including products, blog posts, booking services, events, and restaurant pages. Poll the asynchronous scan to completion, report failed pages separately, retrieve prioritized findings, and use the returned fix guidance to help the user resolve and verify issues.
 
 ---
 
 ## Analytics
 
 ### [Query Site Analytics](references/analytics/query-site-analytics.md)
-**Technical:** Reads a site's analytics through the Semantic Model API. Covers listing semantic models, inspecting a model's schema (measures, dimensions, parameters), and querying data with a required time interval, filters, sorting, paging, and human-readable formatting. Key endpoints: /analytics/semantic-model/v3/semantic-models, /semantic-models/{id}, /semantic-models/query-data.
+Retrieve a Wix site's analytics through the Semantic Model API. Covers listing semantic models, inspecting a model's schema (measures, dimensions, parameters), and querying model data with a required time interval, filters, sorting, paging, and human-readable formatting.
 
 ### [Analytics Dashboard Navigation](references/analytics/analytics-dashboard-navigation.md)
-**Technical:** Direct links to Wix Analytics dashboard pages on manage.wix.com (highlights, reports, custom reports, traffic/behavior/sales/marketing overviews, performance insights, benchmarks), paired with the Semantic Model read API for "see it in your dashboard" links.
+"Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Blog
 
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
-**Technical:** Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
+Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
 ### [Blog Dashboard Navigation](references/blog/blog-dashboard-navigation.md)
-**Technical:** Direct links to Wix Blog dashboard pages on manage.wix.com (posts list with published/draft tabs, categories, tags, writers, comments, analytics, monetization, settings), pairing each main Blog entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Blog dashboard pages on manage.wix.com — posts list (published and draft tabs), categories, tags, writers, comment moderation, blog analytics, monetization, and settings. Pairs each main Blog entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Bookings
 
 ### [Booking Service Policy Setup](references/bookings/booking-service-policy-setup.md)
-**Technical:** Sets up booking policies, cancellation rules, and waitlist configuration using the Services API policy fields. Covers bookingPolicy, cancellationPolicy, and waitlist settings.
+Sets up booking policies, cancellation rules, and waitlist configuration using the Services API policy fields. Covers bookingPolicy, cancellationPolicy, and waitlist settings.
 
 ### [Booking System Integration Gaps](references/bookings/booking-system-integration-gaps.md)
-**Technical:** Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows.
+Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows.
 
 ### [Bookings Staff Setup](references/bookings/bookings-staff-setup.md)
-**Technical:** Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events.
+"Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
-**Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
 
 ### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
-**Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment", "create a hidden free test course with 8 sessions". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service. For COURSE services with session dates/counts, the course is not bookable until separate Calendar Events are created on the returned service schedule.
+"Create a booking service from a user prompt — e.g. 'create a yoga class for $50', 'set up consultations for $75', 'add a personal training appointment', 'create a 6-week photography workshop', 'create a hidden free test course with 8 online sessions'. Determines the service type (APPOINTMENT, CLASS, or COURSE) and delegates to the type-specific recipe. For COURSE services with session dates/counts, follow the course recipe's separate Calendar bulkCreateEvents step; Services V2 alone does not create bookable course sessions."
 
 ### [Create Appointment Service](references/bookings/create-appointment-service.md)
-**Technical:** Use when the user wants to create an appointment/consultation/1-on-1 service — e.g. "set up consultations for $75", "create a meeting service". Handles staff assignment, session duration, and pricing via bulkCreateServices API.
+"Create an appointment booking service — e.g. 'set up consultations', 'create a 1-on-1 session', 'add a personal training appointment', 'create a meeting service for $25'. Handles staff assignment (required), session duration, pricing, and 1-on-1 capacity defaults via bulkCreateServices API."
 
 ### [Create Class Service](references/bookings/create-class-service.md)
-**Technical:** Use when the user wants to create a group class — e.g. "create a yoga class for $50", "set up a pilates class". Handles group capacity, recurring sessions, and pricing via bulkCreateServices API.
+"Create a class booking service — e.g. 'create a yoga class for $50', 'set up a pilates class', 'add a group fitness session', 'create a weekly meditation class'. Handles group capacity, recurring session defaults, and pricing via bulkCreateServices API. Staff assignment is not used for classes."
 
 ### [Create Course Service](references/bookings/create-course-service.md)
-**Technical:** Use when the user wants to create a multi-session COURSE — e.g. "create a 6-week workshop", "set up a training program for $300", "create a hidden free test course with 8 online sessions". Handles group capacity, full-course pricing, `bulkCreateServices`, then creates bookable course session events with Calendar `bulkCreateEvents` using the returned `service.schedule.id`. Never put session dates under `course.sessions` in the Services V2 payload.
+"Create a course booking service — e.g. 'create a 6-week photography workshop', 'set up a training program', 'add a bootcamp course for $300', 'create a hidden free test course with 8 sessions'. Handles group capacity, full-course pricing, bulkCreateServices, and separate course session events via bulkCreateEvents. Staff assignment is not used for courses."
 
 ### [Check Bookings Availability (and Diagnose Issues)](references/bookings/diagnose-availability-issues.md)
-**Technical:** Use when someone asks whether an appointment-based service has bookable availability, or why it shows no times / "customers can't book". Reports the current availability status first (via ListAvailabilityTimeSlots); diagnoses the cause only when there's no availability or the owner asks why — ruling out service-level blockers (hidden / online booking off), then running DiagnoseAvailability (`POST /v2/time-slots/diagnose`) for ordered reason codes, with a policy/capacity fallback.
+"Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
 
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
-**Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
+Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 
 ### [External Calendar Integration](references/bookings/external-calendar-integration.md)
-**Technical:** OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management.
+OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management.
 
 ### [Multi-Resource Service Creation](references/bookings/multi-resource-service-creation.md)
-**Technical:** Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation.
+Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation.
 
 ### [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md)
-**Technical:** Direct links to Wix Bookings dashboard pages on manage.wix.com (services list, edit service, calendar, booking list, staff, availability, resources, settings), pairing each main Bookings entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Bookings dashboard pages on manage.wix.com — services list, edit a specific service, calendar, booking list, staff, availability, resources, and settings pages. Pairs each main Bookings entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Calendar
 
 ### [Configure Default Business Hours](references/calendar/configure-default-business-hours.md)
-**Technical:** Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
+Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
 
 > Dashboard links for calendar surfaces (availability, default business hours) are in [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md).
 
@@ -126,44 +126,44 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## CMS
 
 ### [CMS Data Items CRUD](references/cms/cms-data-items-crud.md)
-**Technical:** Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*.
+"Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
 
 ### [CMS Data Operations Extended](references/cms/cms-data-operations-extended.md)
-**Technical:** Additional CMS data operations including count, upsert (bulk save), and update by filter patterns.
+Additional CMS data operations including count, upsert (bulk save), and update by filter patterns.
 
 ### [CMS eCommerce Catalog Integration](references/cms/cms-ecommerce-catalog-integration.md)
-**Technical:** The recommended way to sell existing CMS collection items (tickets, bookings, memberships) through Wix checkout. Add the CATALOG plugin to convert any CMS collection into purchasable products with cart and payment integration.
+The recommended way to sell existing CMS collection items (tickets, bookings, memberships) through Wix checkout. Add the CATALOG plugin to convert any CMS collection into purchasable products with cart and payment integration.
 
-### [CMS References & Relationships](references/cms/cms-references-and-relationships.md)
-**Technical:** Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references.
+### [CMS References And Relationships](references/cms/cms-references-and-relationships.md)
+"Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references."
 
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
-**Technical:** Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
 
-### [CMS Publishing Flow & Visible/Hidden](references/cms/cms-publishing-flow.md)
-**Technical:** Interact with collections that gate items behind a draft/publish workflow — Visible/Hidden and Publishing Flow (Review, with DRAFT/PUBLISHED/CHANGED states). Detect the mode, read the combined draft+live view (`publishPluginOptions.includeDraftItems`), author/edit drafts against the `<collectionId>__drafts` shadow, and publish/unpublish/revert/delete items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-plugin.
+### [CMS Draft & Publish Workflow (Draft Items plugin)](references/cms/cms-publishing-flow.md)
+"Interact with CMS collections that gate their items behind a draft/publish workflow via the Draft Items plugin. Covers detecting the plugin, locating the paired drafts collection, reading published vs draft items, authoring/editing drafts, and publishing, unpublishing, reverting, and deleting items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-draft-items-plugin, and the paired drafts collection referenced by draftItemsPluginOptions.draftsCollectionId."
 
 ### [CMS Dashboard Navigation](references/cms/cms-dashboard-navigation.md)
-**Technical:** Direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com (collections list, a specific collection's items view), pairing collections and data items with their read APIs for "view it in your dashboard" links.
+"Builds direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com — the collections list and a specific collection's items view. Pairs collections and data items with their read APIs so you can fetch data and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Contacts
 
 ### [Bulk Delete Contacts](references/contacts/bulk-delete-contacts.md)
-**Technical:** Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
+Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
 
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
-**Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
+Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
 
 ### [Create a Contact](references/contacts/create-a-contact.md)
-**Technical:** Creates a contact in one Contacts API call. Covers the minimum identifying fields, the single-object shape of `email` and `phone` (a list is accepted and silently discarded), optionally attaching a physical address, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`) that state, region and province codes are validated against.
+Creates a contact with the Contacts API. Covers the minimum identifying fields, the single-object shape of `email` and `phone`, and adding a physical address with the ISO 3166-2 subdivision format required for state, region, and province codes.
 
 ### [Update a Contact](references/contacts/update-a-contact.md)
-**Technical:** Updates an existing contact's email, phone, name or address. Covers locating the contact with Search Contacts when the user names it (Query Contacts cannot filter by name), passing the current `revision`, appending an address via the contact's `addresses` sub-resource, and the ISO 3166-2 `subdivision` format (`US-NY`, not `NY`).
+Updates an existing contact's email, phone, name, or address with the Contacts API. Covers locating the contact when the user identifies it by name, passing its current revision, and the ISO 3166-2 subdivision format required for state, region and province codes.
 
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
-**Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -179,10 +179,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Domains
 
 ### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
-**Technical:** Purchase domains, connect domains to Wix sites, search for available domains and get domain suggestions. Covers availability checks, TLD filtering, purchase flow and connecting domains to Wix sites.
+Buy a domain through Wix or connect one the user already owns — intent, availability, suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path including ownership lookup and binding a domain to a site.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
-**Technical:** Direct links to the site-level domain settings page and the account-level My Domains page on manage.wix.com, paired with the Domain Search read APIs.
+"Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -241,40 +241,40 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Events
 
-### [Create Event](references/events/create-wix-event.md)
-**Technical:** Creates an event with the Wix Events V3 API — required request body, ISO-8601 date and time settings, venue/online/TBD location and street addresses, RSVP vs ticketed registration, guest capacity, short vs Ricos rich-text descriptions, ticket tiers and pricing, and recurring series from explicit occurrence dates. Distinguishes Wix Events from the Calendar, Marketing Calendar and Automations APIs that share the "events" name. Key endpoints: /events/v3/events, /events/v3/ticket-definitions.
+### [Create an Event with the Wix Events API](references/events/create-wix-event.md)
+"Creates an event with the Wix Events V3 API — the required request body, ISO-8601 date and time settings, venue/online/TBD location, RSVP vs ticketed registration, guest capacity, short vs rich-text descriptions, ticket tiers and pricing, and recurring series. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create an event, set its date, location, description, guest limit or ticket prices, or set up a repeating event."
 
-### [Manage Events](references/events/manage-wix-events.md)
-**Technical:** Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date, and counting events, plus the draft-event permission that makes those calls fail with 403. Key endpoint: /events/v3/events.
+### [Manage Wix Events — Publishing, Cancelling, Cloning and Counting](references/events/manage-wix-events.md)
+"Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date or details, and counting events. Use when the user wants to publish or cancel an event, duplicate one, move an event's date, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
 
 ---
 
 ## Forms
 
 ### [Create Form](references/forms/create-form.md)
-**Technical:** Creates a visitor-fillable form with Form Schemas v4 — contact, enquiry, signup, waitlist, application, survey, quote request.
+"Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Ships a complete create request, plus the field table for every kind Wix supports — dropdown, choice, file upload, rating, address, payment, and the silent breakers that produce an empty or invisible form. Changing a form that already exists is Update Form."
 
 ### [Update Form](references/forms/update-form.md)
-**Technical:** Changes a form that already exists with a Form Schemas v4 `PATCH` — add, remove a field or change its settings (label, required, order, etc.), keeping the `formId`.
+"Changes a Wix form that already exists, with Form Schemas v4 `PATCH` — add a field to my form, add a dropdown, make a field required or optional, rename a label, reorder or retire a question. Covers reading the form back for its `revision` (and the required `namespace` query parameter), the whole-form body that a `PATCH` needs, the wholesale `formFields` replace that silently soft-deletes anything you omit, changing a field's component type in place, retiring a field that already has submissions, and the read-back that proves what was stored. Use whenever the form exists and the request changes what it collects; use Create Form when there is no form yet."
 
 ### [Forms Dashboard Navigation](references/forms/forms-dashboard-navigation.md)
-**Technical:** Direct links to Wix Forms dashboard pages on manage.wix.com — every one under the `wix-forms` namespace (forms list `wix-forms`, a form's builder `wix-forms/form/{formId}`, that form's submissions `wix-forms/form/{formId}/submissions`, standalone forms), never under `contacts/forms` or the legacy `wix-forms-and-payments`. Read it before answering any "link me to my form / its submissions" request; also pairs forms and submissions with their read APIs for "view it in your dashboard" links.
+"Builds direct links to Wix Forms dashboard pages on manage.wix.com. The paths are not guessable and appear in no API reference, so take them from here: under `https://manage.wix.com/dashboard/{metaSiteId}/`, the forms list is `wix-forms`, a form's builder is `wix-forms/form/{formId}`, and that form's submissions are `wix-forms/form/{formId}/submissions` — there is no site-wide submissions page, and nothing lives under `contacts/forms`, `forms`, `form-builder` or `wix-forms-and-payments` (the legacy app). Also standalone forms, and each Forms entity paired with its read API so you can fetch one and hand back a 'view it in your dashboard' link."
 
 ---
 
 ## Get Paid
 
 ### [Create Payment Links](references/get-paid/create-payment-links.md)
-**Technical:** Creates payment links for collecting payments without a checkout flow. Covers store products (catalog items), custom line items, variants, due dates, and sending links via email.
+Creates payment links for collecting payments without a checkout flow. Covers store products (catalog items), custom line items, variants, due dates, and sending links via email.
 
 ### [How to Setup Wix Payments](references/get-paid/how-to-setup-wix-payments.md)
-**Technical:** Configures Wix Payments as the payment provider. Covers eligibility checking, business verification, bank account setup, and payment method configuration (cards, PayPal, Apple Pay).
+Configures Wix Payments as the payment provider. Covers eligibility checking, business verification, bank account setup, and payment method configuration (cards, PayPal, Apple Pay).
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
-**Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
 
 ### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
-**Technical:** Direct links to payments and invoicing dashboard pages on manage.wix.com (payment links, invoices list, new invoice, invoice settings, recurring invoices, accept-payments settings), pairing each get-paid entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix payments and invoicing dashboard pages on manage.wix.com — payment links, invoices (list, create, settings), recurring invoices, and the accept-payments settings page. Pairs each main get-paid entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -290,28 +290,28 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Ad spend, fees, upcoming charges, credit balance** → [Retrieve Billing and Payment Details](references/google-ads/billing-and-payment.md).
 
 ### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
-**Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
+"One-time setup for running Google paid ads on a Wix site: install the Wix Google Ads app, then create the Google Ads account that every campaign, suggestion, and analytics call depends on. Covers checking whether an account already exists, choosing a currency, optionally attaching a promotional incentive (credit offer), linking a Google Merchant Center account, and deleting an account. Use when the user wants to 'set up Google Ads', 'connect Google Ads', 'start advertising on Google', 'create a Google Ads account', or hits an ACCOUNT_NOT_FOUND / app-not-installed error before creating a campaign. Google Ads REST API, base https://www.wixapis.com/google-ads/v1."
 
 ### [Get AI Campaign Suggestions for Google Ads](references/google-ads/get-campaign-suggestions.md)
-**Technical:** Read-only Suggestions API reference — keyword themes, geo options, Smart budget tiers, PMAX budget recommendations, text/image assets, search themes, full AI campaign configs from a campaign brief (`POST /v1/campaign-suggestions`), and promotional incentive offers. Budgets in micros; generation endpoints have 60–120s SLAs.
+"Reference for the Google Ads Suggestions API on a Wix site: AI/Google-generated inputs that help build effective campaigns — keyword themes (from a URL or autocomplete), geo-target options, low/recommended/high daily-budget tiers with estimated clicks, PMAX budget recommendations, text assets (headlines/descriptions), AI image assets (auto-uploaded to Wix Media), search themes, promotional incentive offers, and complete AI-generated campaign configurations from a campaign brief. Use when the user asks 'suggest keywords for my ads', 'what budget should I use', 'where should I target', 'generate ad copy/headlines', 'generate ad images', 'suggest a whole campaign', or when a create-campaign flow needs suggested values. REST base https://www.wixapis.com/google-ads/v1."
 
 ### [Create and Launch a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md)
-**Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping. Generates AI text/image assets and search themes, gets a Google budget recommendation, assembles an asset group meeting Google's minimum asset counts (headlines/descriptions/images), creates in `PAUSED`, then launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
+"Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
 
 ### [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md)
-**Technical:** Lists/gets campaigns and runs lifecycle actions: launch (first activation) vs resume (reactivate after pause), pause (with optional `scheduledResumeDate`/reminder), partial `UpdateCampaign` (name, budget, targeting), delete (irreversible), and read the change log / status history. Covers the 5-live-campaign cap and budget-boundary validation.
+"Manages existing Google Ads campaigns on a Wix site: list/get, launch (first activation) vs resume (reactivate after a pause), pause a running campaign — optionally with a scheduled auto-resume date — update name/budget/targeting, change the daily budget, delete permanently, and read status history / change log. Use when the user wants to 'pause my Google ad', 'resume my campaign', 'stop the campaign', 'change my daily budget', 'rename the campaign', 'delete this campaign', 'list my Google Ads campaigns', or 'why did my campaign status change'. Requires an existing Google Ads account and campaign. REST base https://www.wixapis.com/google-ads/v1."
 
 ### [Manage a Campaign Success Guide](references/google-ads/manage-campaign-success-guide.md)
-**Technical:** Retrieves or generates the prioritized success guide for an existing Google Ads Performance Max Leads campaign and updates a returned suggestion's `OPEN` or `COMPLETED` tracking status. Use for "How can I improve my campaign?", "what should I fix next?", "show my campaign success guide", "mark this recommendation complete", and "reopen this recommendation". Also offer it directly after campaign creation—even while `LEARNING` or before metrics exist; only that proactive offer requires user approval before retrieval. A direct improvement or guide request is already approval. A clear statement that the user completed a returned recommendation is an actionable request to mark it `COMPLETED`, even when phrased as an update rather than a question; do not merely acknowledge it or ask for redundant confirmation. Pre-campaign assets, keywords, budgets, and targeting remain in Get AI Campaign Suggestions.
+"Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval before retrieval. A direct request to improve a campaign, see what to fix next, or show the guide is already approval to retrieve it. Also use when a user reports completing or wants to reopen a guide item. Treat a clear completion report as an actionable update request even when phrased as a statement. Covers campaign selection, prioritized guide retrieval, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
 
 ### [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md)
-**Technical:** Reads campaign analytics via six endpoints — daily performance metrics (with previous-period trends), conversion metrics (orders/revenue/ROAS from Wix), search terms, per-product shopping performance, and per-asset PMAX-Leads metrics. Explains `campaignResourceName` vs Wix `campaignId`, the `dateRange` shape, field enums, sorting, and paging.
+"Reads performance analytics for a Google Ads campaign on a Wix site: daily performance metrics (impressions, clicks, CTR, cost, leads, phone calls) with optional previous-period comparison and trends; conversion metrics from Wix Analytics (orders, revenue, leads, CPL, ROAS); the search terms that triggered a campaign's ads; per-product shopping performance for retail campaigns; and per-asset performance (headlines, descriptions, images) for PMAX Leads. Explains when to use campaignResourceName vs the Wix campaignId, the dateRange shape, field enums, sorting, and paging. Use when the user asks 'how is my campaign doing', 'show ad performance', 'what search terms triggered my ads', 'which products/assets perform best', 'campaign ROI/ROAS', or 'conversions from my Google ads'. REST base https://www.wixapis.com/google-ads/v1."
 
 ### [Retrieve Google Ads Billing and Payment Details](references/google-ads/billing-and-payment.md)
-**Technical:** Reads billing for the site's Google Ads account (`GET /v1/payment-details`, 30s SLA): current-period ad spend (`usageAmount`), Wix service fee, coupon adjustment, `totalAmount`, billing period, and `creditBalance` (positive = credits, negative = debt). Contrasts with the account's `currentBudget`/`spentBudget`.
+"Retrieves billing and payment details for a Wix site's Google Ads account: the current billing period's ad spend (usage), the Wix service fee, the total charge, any promotional coupon adjustment, the billing period dates, and the account's credit balance (positive = available credits, negative = outstanding debt not yet charged). Also explains reading current vs remaining budget from the account object. Use when the user asks 'how much have I spent on Google Ads', 'what's my next Google Ads charge', 'show my ad billing', 'do I have ad credits left', 'why was I charged', or 'upcoming Google Ads payment'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
-**Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
+"Builds a direct link to the Wix Google Ads dashboard page on manage.wix.com, where campaigns created via the Google Ads API recipes are managed. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -320,56 +320,56 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Routing — how a business appears on Google Search and Maps.** A Google connection is the prerequisite for all Google-backed location work: check it first, and route "connect / reconnect / disconnect Google" to the connection recipe.
 
 ### [Connect a Wix Site to Google Business Profile](references/google-business-profile/connect-google-business-profile.md)
-**Technical:** Establishes, checks, and removes the site's Google Business Profile connection. Reads the connection status (`NEVER_CONNECTED` / `VALID` / `NEEDS_RECONNECT`), requests a single-use 15-minute connect URL for the site owner to authorize in their own browser, confirms completion by re-reading the status, and warns before any reconnect that permanently removes the site's imported locations. Never auto-retries the non-idempotent connect-URL call.
+Connect the authenticated Wix site to a Google Business Profile account, check whether an existing connection is still usable, recover a connection whose stored credentials are gone, switch to a different Google account, or disconnect. The site owner authorizes in their own browser through a single-use connect URL; the agent never completes the Google authorization itself. Warns before any reconnect that permanently removes the site's imported locations.
 
 ### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
-**Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
+Import Google Business Profile locations into the authenticated Wix site, list and query them with or without live Google data, update Wix-side and Google-side details through the correct method for each, create a new Google listing, check whether a profile is actually live on Google, and remove a location from Wix or delete its Google listing. Checks the site's Google connection first and reports a missing one as a setup step, warns before destructive or Google-visible writes, and respects Google's shared rate budget.
 
 ---
 
 ## Marketing
 
 ### [Create and Publish a Social Media Post (with AI generation)](references/marketing/create-and-publish-social-post.md)
-**Technical:** Creates and publishes (or schedules) a social media post to a connected channel (Instagram, Facebook, LinkedIn, TikTok, Pinterest, YouTube, Google Business Profile) via the Publisher API. Optionally generates the whole post from a free-text idea or the site's own assets (products, blog posts, events, bookings, coupons, categories), generates caption/title suggestions, and edits an existing image with AI. Verifies the channel is connected (and runs the OAuth connect flow if not), checks premium publishing quota, creates a draft item, then publishes it immediately or schedules it for a future date. Use when the user wants to create, generate, write, post, or schedule a social post, wants caption ideas or suggestions, or wants to connect a social channel (e.g. "post this to Instagram", "make a post from my product", "write a caption", "give me caption ideas", "connect my Pinterest", "schedule a post").
+"End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Settles the post content with you first, then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'."
 
 ### [Generate a Marketing Plan and Schedule Its Posts](references/marketing/generate-and-publish-marketing-plan.md)
-**Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling, and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
+"End-to-end flow to generate an AI-powered social media marketing plan for a site and schedule its generated posts for publishing, using the Wix Marketing Plan API. Recommends configuring marketing settings (goal, tone, cadence, content pillars) before the first generation, generates the plan asynchronously, polls until it's ready, then schedules the DRAFT posts. Includes generating posts for additional activities. Use for 'generate a marketing plan', 'create a social media plan/calendar', or 'schedule my plan's posts' requests."
 
 ### [Marketing Dashboard Navigation](references/marketing/marketing-dashboard-navigation.md)
-**Technical:** Direct links to Wix marketing dashboard pages on manage.wix.com (social posts hub with drafts/scheduled/published posts, post design templates, saved designs, email campaigns list, campaign templates, campaign analytics), pairing each main marketing entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix marketing dashboard pages on manage.wix.com — the social posts hub (drafts, scheduled and published posts across connected channels), post design templates, saved designs, and the email marketing pages (campaigns list, campaign templates, campaign analytics). Pairs each main marketing entity (social post item, connected social account, marketing-plan post, email campaign) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Media
 
 ### [Upload Media to Wix](references/media/upload-media-to-wix.md)
-**Technical:** Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
 
 ### [Generate an Image with AI](references/media/generate-image-with-ai.md)
-**Technical:** Generates an image from a text prompt with the Wix AI APIs (`POST /runwareschemaless/v1/request`). The response is a short-lived URL, so keeping the image means importing it — that step hands off to Upload Media to Wix. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the UUIDv4 `taskUUID`, the AI credit each call spends, and why a content refusal arrives as a success response with no image. Use when the user wants an image they do not have; an image they supplied is uploaded, not generated.
+Generates an image from a text prompt with the Wix AI APIs (Runware). Returns a short-lived URL that must be imported to be kept — importing is Upload Media to Wix's job, and this recipe hands off to it. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the AI credit each call spends, and why a content refusal arrives as a success response with no image.
 
 ---
 
 ## Pricing Plans
 
 ### [Create and Update Pricing Plans](references/pricing-plans/create-and-update-pricing-plans.md)
-**Technical:** Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
 
 ### [Pricing Plans Bookings Integration](references/pricing-plans/pricing-plans-bookings-integration.md)
-**Technical:** Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.
+Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.
 
 ### [Pricing Plans Dashboard Navigation](references/pricing-plans/pricing-plans-dashboard-navigation.md)
-**Technical:** Direct links to Wix Pricing Plans dashboard pages on manage.wix.com (plans list, create plan, edit plan, new manual order, settings), pairing each main Pricing Plans entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Pricing Plans dashboard pages on manage.wix.com — plans list, create a plan, edit a plan, record a manual order, and settings. Pairs each main Pricing Plans entity (plan, order) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Restaurants
 
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
-**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
+Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
 
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
-**Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -378,70 +378,70 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 > **Routing rule (READ FIRST).** For every request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS, use the available full-documentation reading capability to retrieve and read the canonical [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md) recipe before using API schema search, convert/validate APIs, or memory. This also applies when the user asks for JSON only.
 
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
-**Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
+Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
 
 ### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
-**Technical:** Required first source for every request to hand-author, output, or return Ricos / `richContent` JSON (`nodes` tree) for Blog, Stores, Events, or CMS. Retrieve and read this full article before API schema search or constructing the JSON. Covers node shapes — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds — plus inline text decorations (including spoiler) and nesting rules.
+Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) used across Wix Blog posts, Stores product descriptions, Events, and CMS rich-text fields. Use whenever a user asks to create, output, or return Ricos, richContent, or nodes-tree JSON; retrieve and read this full recipe before API schema search or constructing the JSON. Covers paragraphs, headings, lists, blockquotes, dividers, tables, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds, inline decorations, and nesting rules.
 
 ---
 
 ## Site Properties
 
-### [Change Payment Currency](references/site-properties/change-payment-currency-site-properties.md)
-**Technical:** Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Also covers the site time zone and primary language, which use the same field-mask PATCH with top-level field names — not nested `locale.*` paths.
+### [RECIPE: Change a Site's Regional Properties (Currency, Time Zone, Language) via Site Properties API](references/site-properties/change-payment-currency-site-properties.md)
+"Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language through the same call, whose field mask names top-level properties."
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
-**Technical:** Direct links to the site-settings dashboard pages on manage.wix.com (settings hub, website settings, language & region), paired with the Site Properties read API.
+"Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Sites
 
 ### [Create Site from Template](references/sites/create-site-from-template.md)
-**Technical:** Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
+Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 
 ### [Create Headless Site](references/sites/create-headless-site.md)
-**Technical:** Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
+Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
 ### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
-**Technical:** Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's `id` is the `client_id` for frontends connecting to the site's Wix APIs. Secret and rotation are dashboard-only.
+Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs.
 
 ### [Query Sites](references/sites/query-sites.md)
-**Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
+List, count, and find the sites in a Wix account. Covers the namespace filter for headless sites, counting before enumerating, cursor pagination, and resolving a site by name.
 
 ### [Read Account or Site Context](references/sites/read-site-context.md)
-**Technical:** One call that returns a site's installed apps (by display name), locale, currency, status, and catalog version. Replaces separate query-sites + list-installed-apps + site-properties calls. Use this first on any unfamiliar site to decide which management recipes to follow.
+Probe a Wix site or account for full context in one call — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 
 ### [Site Import](references/sites/site-import.md)
-**Technical:** Drives the autonomous Wix Site Import agent over REST (`/site-import/v1/imports`) to migrate a store/site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Covers Start/Poll/Reply/Cancel, relaying agent questions and progress in plain language, handling `DEPLOYED`/`FAILED`/`AUTH_EXPIRED`/`SESSION_EXPIRED` states, and post-deploy follow-up changes. Use when the user wants to import, migrate, or clone an existing store/site into Wix.
+Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
-**Technical:** Direct links to the account-level My Sites list (manage.wix.com/account/websites) and per-site dashboard homes, paired with the Query Sites read API.
+"Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
 ## Stores
 
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
-**Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
+Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
 
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
-**Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
+Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
 
 ### [Create Product (Catalog V3)](references/stores/create-product-catalog-v3.md)
-**Technical:** **Mandatory first read for every Catalog V3 create-product request, including vague requests.** Before any other documentation or API tool, load exactly `https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3`. When no product is identified, that recipe read must be the final tool call; respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” Then stop. **Never replace this with a list or questions for name, price, description, type, images, inventory, SKU, options, SEO, or other fields.** If name or price is missing, ask for it or offer to suggest it, then stop. When name and price are present, create from supplied details without requiring optional enrichment. Never default price to `0`. The recipe owns single/bulk endpoint choice, inventory, physical/digital products, images, options, variants, prices, SKUs, limits, and validation.
+Mandatory first recipe for every Wix Stores Catalog V3 create-product request. Before any mutation, require an explicit name and price for every product; an absent price is never 0. If no product is identified, offer both image-upload and text-description paths and stop. If name or price is missing, ask or offer a suggestion and stop. When both are present, create from the supplied details without requiring optional enrichment. Covers single/bulk creation, inventory, physical/digital products, images, options, variants, SKUs, and validation.
 
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
-**Technical:** Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
+Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering (including by price), sorting, and paging.
 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
-**Technical:** Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
+Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
 
-### [Update Product Pre-Order](references/stores/update-product-pre-order.md)
-**Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
+### [Update Product Pre-Order (Catalog V3)](references/stores/update-product-pre-order.md)
+Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
-### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, and the writable choice/variant fields — media & displayImage, SKU/barcode, price incl. compareAtPrice (sale), visibility — plus revision-based updates and which fields are read-only (choice inStock/visible, variant media/inventory).
+### [Update Product with Options (Catalog V3)](references/stores/update-product-with-options.md)
+Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
-**Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.
+"Builds direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com — products list, edit a specific product, categories, inventory, orders list, a specific order, abandoned checkouts, gift cards, shipping and tax settings. Pairs each main Stores/eCommerce entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
