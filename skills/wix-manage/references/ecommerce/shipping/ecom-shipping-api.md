@@ -11,8 +11,6 @@ Two services govern the shipping configuration of a Wix eCommerce store:
 
 **Base URL**: `https://www.wixapis.com/ecom`
 
-**How to call these APIs**: Use `CallWixSiteAPI`.
-
 ---
 
 ## Shipping Options
