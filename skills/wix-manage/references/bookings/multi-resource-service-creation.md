@@ -18,8 +18,9 @@ Below are the recommended steps to successfully create Wix Bookings services tha
 Before creating multi-resource services, ensure the following requirements are met:
 
 1. **Wix Bookings** - Core app must be installed and configured
-2. **Premium Plan** - Advanced resource management typically requires premium features
-3. **Business Location** - At least one business location must be configured
+2. **Business Location** - At least one business location must be configured
+
+> Resource type, resource, and resource-bound service creation succeed via the API without any premium-related error. If a plan-gating error does occur, it surfaces explicitly (e.g. a 403) — don't preemptively block on plan checks.
 
 ### App Installation Process
 
@@ -112,6 +113,12 @@ Before creating anything, plan your resource type structure. Each type should re
 
 Create resource types using `createResourceType` API (`POST https://www.wixapis.com/bookings/v2/resources/resource-types`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resource-types-v2/create-resource-type)):
 
+```json
+{ "resourceType": { "name": "Treatment Room" } }
+```
+
+The response returns `resourceType.id` — save it for resource creation and the service's `serviceResources`.
+
 **Key Requirements:**
 - `name` must be unique across the site
 - Keep `name` descriptive but concise (appears in booking interface)
@@ -123,7 +130,13 @@ Create resource types using `createResourceType` API (`POST https://www.wixapis.
 
 For each resource type, create the individual resource instances using `createResource` API (`POST https://www.wixapis.com/bookings/v2/resources`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource)):
 
-**Gap Not in Docs**: The docs don't clearly explain that `availableInAllLocations: true` is the simplest approach and that specific location configuration is complex and often unnecessary.
+```json
+{ "resource": { "name": "Room A", "typeId": "<RESOURCE_TYPE_ID>" } }
+```
+
+**⚠️ Payload shape**: the type reference is the flat `typeId` field. Sending a nested object (`"type": {"id": ...}`) fails with 400 `Unexpected value for StringValue`. A resource without `typeId` is created but is not bookable.
+
+If you omit `locationOptions`, the resource defaults to `availableInAllLocations: true` — the simplest and usually correct configuration; specific location setup is complex and often unnecessary.
 
 **Advanced Configuration (Gap):**
 - Custom working hours override business location hours (this behavior isn't clearly documented)
@@ -133,16 +146,29 @@ For each resource type, create the individual resource instances using `createRe
 
 ### 4. Create Multi-Resource Service (Optional Connection)
 
-Create the service that optionally connects to multiple resource types using `bulkCreateServices` API ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)):
+Create the service that optionally connects to multiple resource types using `bulkCreateServices` API (`POST https://www.wixapis.com/bookings/v2/bulk/services/create`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)). Full working example (a class that needs one room per booking):
 
-**Service Resource Configuration:**
 ```json
-"serviceResources": [
-  {"resourceType": {"id": "room-type-id"}},
-  {"resourceType": {"id": "equipment-type-id"}},
-  {"resourceType": {"id": "instructor-type-id"}}
-]
+{
+  "services": [{
+    "name": "Massage",
+    "type": "CLASS",
+    "onlineBooking": { "enabled": true },
+    "defaultCapacity": 1,
+    "serviceResources": [
+      { "resourceType": { "id": "<ROOM_TYPE_ID>" } }
+    ],
+    "payment": {
+      "rateType": "FIXED",
+      "options": { "online": true, "inPerson": false },
+      "fixed": { "price": { "value": "80" } }
+    }
+  }],
+  "returnEntity": true
+}
 ```
+
+**⚠️ Verify from the response, not from assumptions**: without `returnEntity: true` the bulk response contains only `results[0].itemMetadata` (id + success flag) — there is no `item`. With the flag, the created service is at `results[0].item` (e.g. `item.id`, `item.serviceResources`). Check `bulkActionMetadata.totalFailures` and each `itemMetadata.success` before reporting the service as created.
 
 **Key Principle**: This creates a **loose connection** where the service requests resource allocation during booking, but resources remain independent entities with their own lifecycle and management.
 
@@ -170,6 +196,9 @@ The docs don't explain how multi-resource allocation actually works during booki
 - Verify resource type was created successfully before creating resources
 - Check that `typeId` exactly matches the resource type `id`
 - Ensure you're not using resource type `name` when `id` is required
+
+**400 "Unexpected value for StringValue" on createResource:**
+- The type reference was sent as a nested object — use the flat `"typeId": "<guid>"` field, not `"type": {"id": ...}`
 
 **"Resource type name already exists" Error (409):**
 - Resource type names must be unique across the site
@@ -211,7 +240,7 @@ The docs don't explain how multi-resource allocation actually works during booki
 - Consider how names appear in booking confirmations and staff interfaces
 
 **Availability Strategy:**
-- Default to 24/7 availability unless business rules require restrictions
+- Don't add `workingHoursSchedules` to non-staff resources unless business rules require it — without them the resource simply follows business location hours, which is usually what you want
 - Use working hours sparingly - they add complexity without always adding value
 - Test availability scenarios thoroughly before going live
 
