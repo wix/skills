@@ -42,6 +42,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 **Technical:** Reads, creates, and deletes URL redirects through the public SEO Redirects API. Distinguishes exact from group redirects, handles language-scoped redirects on multilingual sites, reads per-item results from bulk responses, and confirms before writes, because creating a redirect can permanently delete an existing one.
 
+### [Generate and Read a Wix Site's Content Plan](references/seo/manage-content-plan.md)
+**Technical:** Triggers AI-generated SEO content plans (blog topic ideas with keyword research), polls the async generation to completion, reads and optionally edits keyword research, and reads the resulting blog post briefs. The flow parks mid-way and must be explicitly released. Handles copy-on-write keyword edits and the PENDING_REQUIREMENTS state when the site lacks business data.
+
 ---
 
 ## Accessibility
