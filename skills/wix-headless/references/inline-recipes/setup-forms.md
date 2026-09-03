@@ -71,11 +71,24 @@ exhaust the site's form allowance (read it from
 [List Forms Providers Configs](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs)),
 which is also why you must **never create throwaway forms to probe the shape.**
 
+> **⚠️ `providers-config` tells you which namespaces the site can create in — NOT its limits.** A
+> provider app declares `restrictions` **once, for all sites**, in its app dashboard; the Wix Forms
+> app separately derives the site's real form/field/step limits from its **premium plan** and
+> enforces them on every create. (A missing `restrictions` means default platform limits, not
+> unlimited.) That is why free and unpublished sites report `maxFields: 150` / `maxForms: 150` here
+> while the create rejects with `Field count reached its limit of 10` and
+> `Steps count reached its limit of 3`. **The create call is the only authority** — when it returns
+> a count error, go to "Plan gates" below.
+
 ### STEP 2: Create each form schema
 
 **One POST per form** to `https://www.wixapis.com/form-schema-service/v4/forms`. How many forms, and
 each form's fields and labels, come from the request you're fulfilling; this step gives the call and
 the required format. Forms are independent (no shared revision), so concurrent creates are safe.
+
+**Every body carries `"namespace": "wix.form_app.form"`** — the same literal the reads below take as
+their required `?namespace=`. A form created under anything else is reachable over the API and
+invisible in the dashboard and Editor.
 
 **⚠️ Generate every `id` in the shell as a lowercase UUID v4 — never type one from memory**
 (`uuidgen | tr 'A-Z' 'a-z'`). Supply them at create rather than omitting them: `steps` must
@@ -96,9 +109,18 @@ step unless the request needs multiple pages.
 beside `target`/`inputType`:
 
 ```jsonc
-"inputOptions": { "target": "full_name", "required": true, "inputType": "STRING",
-  "stringOptions": { "validation": {}, "componentType": "TEXT_INPUT",
-                     "textInputOptions": { "label": "Full Name", "showLabel": true } } }
+"inputOptions": {
+  "target": "first_name",
+  "required": true,                                    // HERE — beside target/inputType
+  "pii": true,
+  "contactMapping": { "contactField": "FIRST_NAME" },  // per field; this is what creates the contact
+  "inputType": "STRING",
+  "stringOptions": {
+    "validation": {},                                  // always present, even empty — never `required`
+    "componentType": "TEXT_INPUT",
+    "textInputOptions": { "label": "First name", "showLabel": true }
+  }
+}
 ```
 
 A `required` key inside `stringOptions.validation` — or any `<inputType>Options.validation`, since no
@@ -126,12 +148,21 @@ surface in the dashboard or on the first real submission.
 Three plan-tier limits return a real `400` on create. **Do not work around any of them; tell the user
 to reduce or upgrade.**
 
-- **`FIELDS_COUNT_RESTRICTIONS_ERROR`** — the form exceeds the plan's per-form field cap. **Do NOT
-  split the form into multiple schemas** to dodge it. Reduce the field count, or upgrade.
+- **Field count — two caps, counting different things.** `Field count reached its limit of N` is the
+  **premium** cap the Wix Forms app enforces from the site's plan, and it counts **`INPUT` fields
+  only** (display elements and the `SUBMIT_BUTTON` don't count). `FORM_FIELDS_COUNT_EXCEEDED` /
+  `FIELDS_COUNT_RESTRICTIONS_ERROR` is the schema-service cap, which counts **every** field
+  including display elements. **Do NOT split the form into multiple schemas** to dodge either — that
+  trades one submission record for several and consumes more of the site's form allowance. Reduce
+  the field count, or upgrade.
+- **`Steps count reached its limit of N`** — the premium cap on `steps.length`. Collapse the form
+  into fewer pages, or upgrade. Conditions (`formRules`) are capped the same way. Neither has a
+  schema-service equivalent, so neither appears in the Create Form error table.
 - **`FILE_UPLOAD_RESTRICTIONS_ERROR`** — a file upload, signature, or payment field on a plan below
   Core. **Do NOT suggest inlining files as base64** — it stores no real file, gives the owner nothing
   usable, and blows past submission size limits. Drop the field, or upgrade.
-- **`FORMS_COUNT_RESTRICTIONS_ERROR`** — the site hit its plan's total-form cap. Upgrade, or free a
+- **`FORMS_COUNT_RESTRICTIONS_ERROR`** / **`NAMESPACE_FORMS_COUNT_EXCEEDED`** (and
+  `NAMESPACE_DELETED_FORMS_COUNT_EXCEEDED` for the trash bin) — the site hit its plan's total-form cap. Upgrade, or free a
   slot (STEP 1's list-then-delete — but only delete forms that are clearly install sample data; ask
   before deleting anything that could be the owner's real form).
 
@@ -167,10 +198,19 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
    `formSummary.fields` is NON-EMPTY**, with a count equal to **every input field you sent** (i.e.
    `formFields[]` minus the `SUBMIT_BUTTON`). A 6-input form returns all 6 — **including non-contact
    `DROPDOWN` and `TEXT_AREA` fields** — so do *not* expect only the contact-mapped ones. This is
-   the reliable dashboard-truth check: the summary returns exactly the fields the Wix dashboard
-   shows. A `summary.fields: []`, or a count short of your inputs, means the form renders blank (or
-   partly blank) for the owner even though the public site submits fine — **do not report success;
-   fix the `identifier`s and re-create.**
+   the dashboard-truth check for *placement*. A `summary.fields: []`, or a count short of your
+   inputs, means the form renders blank (or partly blank) for the owner even though the public site
+   submits fine — **do not report success; fix the layout placement or the GUID casing and
+   re-create.**
+
+   **⚠️ This step does NOT prove the `identifier`s are right, so check them in step 1.** An
+   unrecognized `identifier` is accepted and stored: it comes back in `formFields[]` and accepts
+   submissions, so every API-level check passes — but the **Wix Forms editor cannot render a field
+   it doesn't recognize**, so the owner can't see or edit it, and a form built entirely from
+   invented identifiers opens **empty** in the editor. Whether such a field is also omitted from
+   `formSummary.fields` is unverified, so don't rely on this count to catch it. Assert every
+   returned `formFields[].identifier` against the known values in About Form Fields — a plain string
+   comparison, no extra call.
 
 3. **⚠️ If the form has a multi-choice ARRAY field (`CHECKBOX_GROUP` / `TAGS`), the two checks above
    are NOT enough — send one real `createSubmission`.** A malformed `arrayOptions.validation.items`
@@ -201,8 +241,15 @@ To change a form the request has since revised — add a field, relabel one, tig
 [Update Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form):
 
 ```
+GET   https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds={formId}
 PATCH https://www.wixapis.com/form-schema-service/v4/forms/{formId}
+{ "form": { …the whole object you just read, with your change…, "revision": "<its current revision>" } }
 ```
+
+**Read the form back first** — the `PATCH` needs its current `revision`, and `formFields` is replaced
+wholesale (anything missing from the array you send moves to `deletedFormFields`), so the read-back
+*is* the body. The read needs the **required** `?namespace=wix.form_app.form`; without it it `400`s
+with `namespace must not be empty` — a violation naming a field, so it misreads as a body problem.
 
 **Prefer updating over delete-and-recreate.** An update keeps the `formId` the handoff already
 carries and consumes no additional slot against the site's form cap. **Re-run STEP 3 after any update**

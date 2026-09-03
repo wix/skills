@@ -1,18 +1,129 @@
 ---
 name: "Create Form"
-description: Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, and post-submission triggers.
+description: "Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Ships a complete create request, plus the field table for every kind Wix supports — dropdown, choice, file upload, rating, address, payment, and the silent breakers that produce an empty or invisible form. Changing a form that already exists is Update Form."
 ---
 # RECIPE: Create a Wix Form
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
 
-Create a form on a Wix site that appears in the Forms & Submissions dashboard. The form collects visitor information (e.g., name, email) and can automatically upsert contacts on submission.
+Create a form on a Wix site that appears in the **Forms & Submissions** dashboard and can be placed in the Editor. Wix Forms backs **any form a visitor fills in** — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, a registration questionnaire, etc. Whether a submission also becomes a CRM contact is the optional per-field `contactMapping` (§ Contact fields).
+
+**Two exceptions — route there instead:**
+
+| The ask                   | Owner |
+|---------------------------|-------|
+| RSVP to an event          | **Wix Events**, which ships its own registration form — [Create Event](../events/create-wix-event.md) |
+| A bookable service's form | **Wix Bookings** |
+
+**Flow:** STEP 0 confirm the app, read the caps → STEP 1 compose the fields → STEP 2 one POST, all fields → STEP 3 verify the read-back (**mandatory** — the `200` proves nothing).
 
 ---
 
-## Create the form
+## Silent breakers
 
-Call the Create Form endpoint with the `wix.form_app.form` namespace. The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) is usually already installed on sites.
+Four things are accepted with a **`200`** and produce a form that is empty, wrong, or invisible. There is no error to react to, so get them right on the first call — each is settled in the step named after it.
+
+1. **App — Wix Forms (New) `225dd912-7dea-4738-8688-4b8c6955ffc2` (STEP 0 · 1).** `14ce1214-b278-a7e4-1373-00cebd1bef7c` is the **Old** app: never install it, and never treat its presence as satisfying this API. *Get it wrong:* `UNSUPPORTED_FORM_NAMESPACE`; automations whose trigger belongs to the new app report "Forms app is not installed" even though *an* app named Wix Forms is installed.
+
+2. **Namespace — `wix.form_app.form` (STEP 2).** *Get it wrong:* a form under any other namespace (notably the **non-existent `wix.form_platform.form`**) reads back fine over the API and is **completely invisible** in the Forms dashboard and the Editor.
+
+3. **`identifier` — one of the predefined values in [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types.** *Get it wrong:* the field works over the API but the **Wix Forms editor cannot render it**, so the owner can't see or edit it. A form whose fields all carry invented identifiers opens **empty** in the editor.
+
+4. **Layout — every field, `SUBMIT_BUTTON` included, placed in `steps[].layout`, with lowercase GUIDs on both sides.** *Get it wrong:* the form appears in the Editor's form picker but renders **empty** — fields still store values, but nothing shows.
+
+**Never create throwaway "test" forms to probe the shape.** The site's form allowance is finite (§ Plan caps), and probing burns it. Assemble the whole form and POST once, then verify (STEP 3).
+
+---
+
+## STEP 0: Preflight — confirm the app, then read the caps
+
+**1 · Confirm Wix Forms (New) is installed.**
+
+```bash
+curl -X GET \
+  'https://www.wixapis.com/apps-installer-service/v1/app-instances' \
+  -H 'Authorization: <AUTH>'
+```
+
+Look for `225dd912-7dea-4738-8688-4b8c6955ffc2` in the response — see [List Installed Apps](../app-installation/list-installed-apps.md). If it isn't installed, install **`225dd912-7dea-4738-8688-4b8c6955ffc2`** via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe. A fresh install returns `appInstance.status: "UNKNOWN"` until it propagates; if the first create fails with an identity/propagation error, retry **once** — do not loop.
+
+**2 · Confirm the namespace is available** — [List Forms Providers Configs](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs):
+
+```bash
+curl -X GET \
+  'https://www.wixapis.com/form-schema-service/v4/forms/providers-config' \
+  -H 'Authorization: <AUTH>'
+```
+
+Use this to confirm `wix.form_app.form` is among the namespaces the site can create form schemas in. **Do not use it to decide how many fields you can build.**
+
+> **⚠️ `restrictions` here are NOT the site's limits.** A provider app declares them **once, for all sites**, in its app dashboard — so `maxForms` / `maxFields` / `maxDeletedForms` describe the app, not this site. The Wix Forms app separately derives the site's **real** form, field, step, condition and email-recipient limits (and whether premium-only field types are allowed) from its **premium plan**, and enforces them itself on every create and update. A missing `restrictions` object means default platform limits apply — not "unlimited".
+>
+> This is why free and unpublished sites have been seen reporting `maxFields: 150` / `maxForms: 150` here while the create rejects with **`Field count reached its limit of 10`** and **`Steps count reached its limit of 3`**. The config is not wrong; it answers a different question. **The create call is the only authority on what a site allows** — build the form you were asked for, and if it returns a count error, go to § Plan caps and put the choice to the user. A rejected create costs nothing: it consumes no form slot, so reading its errors is not "probing" (that rule is about leaving throwaway forms behind).
+
+**3 · Only if you need a free slot:** list what exists — `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA` (repeat with `&enabled=false`) — and `DELETE https://www.wixapis.com/form-schema-service/v4/forms/{formId}` **only** for forms that are obviously the install's own default sample (a "Get in touch" form with `first_name` / `email` / `message`). The site may hold the owner's **real** forms. If it isn't obviously sample data, **ask the user first** — never delete real content unprompted.
+
+---
+
+## STEP 1: Compose the fields
+
+**Read [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) before composing anything.** It is the authority on every field-level rule and is not repeated here: the `identifier` / `inputType` / `componentType` table for every field kind, how the two nested block names are derived, choice fields' twin declarations, Ricos checkbox labels, display fields, the `contactField` values and their extra-detail keys, the layout that orders fields (including matching a lowercase `id` with a lowercase `fieldId`), and which fields need a premium plan or another Wix app. Value shapes on the way back out are [About Submission Values](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values).
+
+The rules below are the ones those articles don't state.
+
+> **⚠️ "Must agree" is literal, and this is the one thing that really does make a field vanish.** The server builds a field's renderable view by dispatching on its `componentType` *within* its `inputType`. A pair that isn't valid together — `inputType: STRING` with `componentType: CHECKBOX_GROUP`, say — produces no view, and the field disappears without an error. Take both values from the same row of § Field types; never mix rows.
+
+- **`required` goes at `inputOptions.required`** — beside `target` and `inputType` — **NOT** inside `validation`. A `required` key inside `stringOptions.validation` (or any `<inputType>Options.validation`) is accepted at create and **silently discarded**: the form ships with nothing mandatory and no error anywhere. `validation` carries value constraints only (`format`, `enum`, `minimum`, `minLength`, `items`). The one exception is the multi-line address field, whose per-subfield flags genuinely live at `addressOptions.validation.fields.<sub>.required` (subfield **visibility** is separate, at `multilineAddressOptions.fieldSettings.addressLine2.show`).
+- **`id` must be a fresh lowercase GUID.** Generate them in the shell (`uuidgen | tr 'A-Z' 'a-z'`) — never type one from memory, never reuse the examples here. The server stores `id` lowercase: an **uppercase** `id` still saves, but the layout's `fieldId` no longer matches it, so the field is **silently unplaced** and the form renders empty.
+- **`target` is the immutable submission key** — a unique lowercase `snake_case` string per field (e.g. `first_name_f409`). It is the contract every submission and every frontend binding uses.
+- **Every example value you author is visitor-visible.** A `placeholder`, label or hint carrying a phone number, postcode, currency or date must follow the **site's** country, not a US/UK default.
+
+### Choice fields — the identifier is what routes the renderer
+
+**A choice field declares its choices twice, and both declarations are required.** Every option carries its own lowercase GUID `id`, a `value` and a `label`; `validation.enum` (for `STRING`) or `validation.items.stringOptions.enum` + `itemType` (for `ARRAY`) lists every one of those `value`s. **An empty `validation` is a free-text field, not a dropdown** — the general "always include `validation`, even as `{}`" rule does not apply to a choice field, and getting this wrong is accepted with a `200`.
+
+> **⚠️ A choice field whose `identifier` isn't the choice kind is stored as a plain text input.** `identifier: "TEXT_INPUT"` with `componentType: "DROPDOWN"` returns `200` and comes back as a `TEXT_INPUT` carrying `textInputOptions`: the identifier, not the `componentType`, routes the field to its renderer. **Diagnose it by which options block came home** — `textInputOptions` where you sent `dropdownOptions`, with a well-formed block and `enum`, means the `identifier`. Re-sending it, or delete-and-re-add with the same identifier, reproduces it.
+
+> **⚠️ ARRAY fields fail *after* creation.** A malformed `arrayOptions.validation.items` (missing `itemType`, empty or omitted `items`) lists fine and counts in the summary, so STEP 3's checks 1–2 both pass — but **every** submission to the form then `400`s. STEP 3 check 3 (a live test submission) is the only proof.
+
+A dropdown, in full — copy this and swap the label, target, options and every GUID:
+
+```json
+{
+  "id": "a4f0c9d2-1e77-4b3e-9a52-7c1d8f6b4e30",
+  "identifier": "DROPDOWN",
+  "fieldType": "INPUT",
+  "inputOptions": {
+    "target": "job_industry_7f2b",
+    "required": false,
+    "inputType": "STRING",
+    "stringOptions": {
+      "validation": { "enum": ["Technology", "Healthcare", "Finance", "Other"] },
+      "componentType": "DROPDOWN",
+      "dropdownOptions": {
+        "label": "Job industry",
+        "showLabel": true,
+        "options": [
+          { "id": "1b8e5a71-3c04-4f9a-9d62-08b7a5cf3e41", "label": "Technology", "value": "Technology" },
+          { "id": "6d29c4b8-7f15-4a20-8e93-b04d7e2a9c58", "label": "Healthcare", "value": "Healthcare" },
+          { "id": "c37fa910-52d6-4e8b-b1a7-9f4c60d38e2b", "label": "Finance", "value": "Finance" },
+          { "id": "e8b1d6c4-90a3-42f7-8c05-3d7e15b9a642", "label": "Other", "value": "Other" }
+        ]
+      }
+    }
+  }
+}
+```
+
+### Contact fields
+
+> **⚠️ Never use `postSubmissionTriggers.upsertContact` to map contacts** Older recipes and samples used it, but it is a noop / response-only. Use per-field `contactMapping` instead.
+
+---
+
+## STEP 2: Create the form — one POST, all fields
+
+**[Create Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form) ships complete request examples** for a dozen form types (contact, survey, order, job application, booking, donation, waiver, billing …) — start from the closest one rather than assembling from scratch.
 
 ```bash
 curl -X POST \
@@ -21,151 +132,116 @@ curl -X POST \
   -H 'Authorization: <AUTH>' \
   -d '{
     "form": {
-      "name": "Contact Form",
+      "name": "Contact form",
       "namespace": "wix.form_app.form",
-      "enabled": true,
-      "spamFilterProtectionLevel": "ADVANCED",
       "formFields": [
         {
-          "id": "c1a2b3d4-0001-4a00-b000-000000000001",
-          "hidden": false,
+          "id": "d7665e98-a7c4-4829-c104-fb856883e043",
           "identifier": "CONTACTS_FIRST_NAME",
           "fieldType": "INPUT",
           "inputOptions": {
-            "target": "first_name_0001",
+            "target": "first_name_f409",
             "pii": true,
-            "required": false,
+            "contactMapping": { "contactField": "FIRST_NAME" },
             "inputType": "STRING",
-            "readOnly": false,
             "stringOptions": {
-              "validation": {
-                "format": "UNKNOWN_FORMAT",
-                "enum": []
-              },
+              "validation": {},
               "componentType": "TEXT_INPUT",
-              "textInputOptions": {
-                "label": "First name",
-                "showLabel": true
-              }
+              "textInputOptions": { "label": "First name", "showLabel": true }
             }
           }
         },
         {
-          "id": "c1a2b3d4-0002-4a00-b000-000000000002",
-          "hidden": false,
+          "id": "740e294e-6ee4-4cda-c902-823002064985",
           "identifier": "CONTACTS_LAST_NAME",
           "fieldType": "INPUT",
           "inputOptions": {
-            "target": "last_name_0002",
+            "target": "last_name_b88c",
             "pii": true,
-            "required": false,
+            "contactMapping": { "contactField": "LAST_NAME" },
             "inputType": "STRING",
-            "readOnly": false,
             "stringOptions": {
-              "validation": {
-                "format": "UNKNOWN_FORMAT",
-                "enum": []
-              },
+              "validation": {},
               "componentType": "TEXT_INPUT",
-              "textInputOptions": {
-                "label": "Last name",
-                "showLabel": true
-              }
+              "textInputOptions": { "label": "Last name", "showLabel": true }
             }
           }
         },
         {
-          "id": "c1a2b3d4-0003-4a00-b000-000000000003",
-          "hidden": false,
+          "id": "19768973-65be-4a6f-b3de-57cfb1da48db",
           "identifier": "CONTACTS_EMAIL",
           "fieldType": "INPUT",
           "inputOptions": {
-            "target": "email_0003",
+            "target": "email_673d",
             "pii": true,
             "required": true,
+            "contactMapping": { "contactField": "EMAIL", "emailInfo": { "tag": "UNTAGGED" } },
             "inputType": "STRING",
-            "readOnly": false,
             "stringOptions": {
-              "validation": {
-                "format": "EMAIL",
-                "enum": []
-              },
+              "validation": { "format": "EMAIL" },
               "componentType": "TEXT_INPUT",
-              "textInputOptions": {
-                "label": "Email",
-                "showLabel": true
-              }
+              "textInputOptions": { "label": "Email", "showLabel": true }
             }
           }
         },
         {
-          "id": "c1a2b3d4-0004-4a00-b000-000000000004",
-          "hidden": false,
-          "identifier": "TEXT_INPUT",
+          "id": "95d528a8-8f3d-4692-7363-44db1f96ca18",
+          "identifier": "CONTACTS_PHONE",
           "fieldType": "INPUT",
           "inputOptions": {
-            "target": "message_0004",
-            "pii": false,
-            "required": false,
+            "target": "phone_6a4b",
+            "pii": true,
+            "contactMapping": { "contactField": "PHONE", "phoneInfo": { "tag": "UNTAGGED" } },
             "inputType": "STRING",
-            "readOnly": false,
             "stringOptions": {
-              "validation": {
-                "format": "UNKNOWN_FORMAT",
-                "enum": []
-              },
-              "componentType": "TEXT_INPUT",
-              "textInputOptions": {
-                "label": "Message",
-                "showLabel": true
-              }
+              "validation": { "format": "PHONE" },
+              "componentType": "PHONE_INPUT",
+              "phoneInputOptions": { "label": "Phone", "showLabel": true }
             }
           }
         },
         {
-          "id": "c1a2b3d4-0005-4a00-b000-000000000005",
-          "hidden": false,
+          "id": "bbecbd37-ca52-4fa6-a92c-90e70aa4ec2a",
+          "identifier": "TEXT_AREA",
+          "fieldType": "INPUT",
+          "inputOptions": {
+            "target": "message_7634",
+            "inputType": "STRING",
+            "stringOptions": {
+              "validation": {},
+              "componentType": "TEXT_INPUT",
+              "textInputOptions": { "label": "Your message", "showLabel": true }
+            }
+          }
+        },
+        {
+          "id": "2e56791e-926e-48fd-37d0-0ad60a27736d",
           "identifier": "SUBMIT_BUTTON",
           "fieldType": "DISPLAY",
           "displayOptions": {
             "displayFieldType": "PAGE_NAVIGATION",
-            "pageNavigationOptions": {
-              "nextPageText": "Next",
-              "previousPageText": "Back",
-              "submitText": "Submit"
-            }
+            "pageNavigationOptions": { "submitText": "Send" }
           }
         }
       ],
       "steps": [
         {
-          "id": "d1e2f3a4-0001-4b00-c000-000000000001",
+          "id": "a26d12fc-ed7a-4b7f-90e4-994f3ad56e4b",
           "name": "Page 1",
-          "hidden": false,
           "layout": {
             "large": {
               "items": [
-                { "fieldId": "c1a2b3d4-0001-4a00-b000-000000000001", "row": 0, "column": 0, "width": 6, "height": 1 },
-                { "fieldId": "c1a2b3d4-0002-4a00-b000-000000000002", "row": 0, "column": 6, "width": 6, "height": 1 },
-                { "fieldId": "c1a2b3d4-0003-4a00-b000-000000000003", "row": 1, "column": 0, "width": 12, "height": 1 },
-                { "fieldId": "c1a2b3d4-0004-4a00-b000-000000000004", "row": 2, "column": 0, "width": 12, "height": 1 },
-                { "fieldId": "c1a2b3d4-0005-4a00-b000-000000000005", "row": 3, "column": 6, "width": 6, "height": 1 }
-              ],
-              "sections": []
+                { "fieldId": "d7665e98-a7c4-4829-c104-fb856883e043", "row": 0, "column": 0, "width": 6,  "height": 1 },
+                { "fieldId": "740e294e-6ee4-4cda-c902-823002064985", "row": 0, "column": 6, "width": 6,  "height": 1 },
+                { "fieldId": "19768973-65be-4a6f-b3de-57cfb1da48db", "row": 1, "column": 0, "width": 12, "height": 1 },
+                { "fieldId": "95d528a8-8f3d-4692-7363-44db1f96ca18", "row": 2, "column": 0, "width": 12, "height": 1 },
+                { "fieldId": "bbecbd37-ca52-4fa6-a92c-90e70aa4ec2a", "row": 3, "column": 0, "width": 12, "height": 1 },
+                { "fieldId": "2e56791e-926e-48fd-37d0-0ad60a27736d", "row": 4, "column": 6, "width": 6,  "height": 1 }
+              ]
             }
           }
         }
       ],
-      "postSubmissionTriggers": {
-        "upsertContact": {
-          "fieldsMapping": {
-            "first_name_0001": { "contactField": "FIRST_NAME" },
-            "last_name_0002": { "contactField": "LAST_NAME" },
-            "email_0003": { "contactField": "EMAIL", "emailInfo": { "tag": "UNTAGGED" } }
-          },
-          "labels": []
-        }
-      },
       "submitSettings": {
         "submitSuccessAction": "THANK_YOU_MESSAGE",
         "thankYouMessageOptions": {
@@ -174,29 +250,13 @@ curl -X POST \
             "nodes": [
               {
                 "type": "PARAGRAPH",
-                "id": "ty1",
+                "id": "ctf1a20",
                 "nodes": [
-                  {
-                    "type": "TEXT",
-                    "id": "",
-                    "nodes": [],
-                    "textData": {
-                      "text": "Thanks, we received your submission.",
-                      "decorations": []
-                    }
-                  }
+                  { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Thanks for reaching out. We will get back to you soon.", "decorations": [] } }
                 ],
-                "paragraphData": {
-                  "textStyle": { "textAlignment": "CENTER" }
-                }
+                "paragraphData": { "textStyle": { "textAlignment": "CENTER" } }
               }
-            ],
-            "metadata": {
-              "version": 1,
-              "createdTimestamp": "2025-01-01T00:00:00.000Z",
-              "updatedTimestamp": "2025-01-01T00:00:00.000Z",
-              "id": "thank-you-msg-001"
-            }
+            ]
           }
         }
       }
@@ -204,107 +264,135 @@ curl -X POST \
   }'
 ```
 
-The response includes the created form with its `id`. Store this ID to manage the form later.
+Read `form.id` from the response — that is the `formId` to keep. Also read back `form.name`: **names are unique per namespace**, and a colliding name is silently saved as a numbered variation rather than erroring.
 
-Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/forms`
+> `spamFilterProtectionLevel` defaults to `ADVANCED`; set it only to change that.
 
-## Key Details
+**A `200` proves nothing. Always run STEP 3.** Every failure mode in § Silent breakers returns `200`.
 
-### Field Configuration
+---
 
-- All `id` fields (for `formFields`, `steps`) and all `fieldId` references in the layout **must be valid UUIDs**. Generate fresh UUIDs for each form you create — do not reuse the example UUIDs above.
-- Each field needs a unique `id` and a unique `target` value. The `target` is used to map submissions to contact fields.
-- **CRITICAL: The `identifier` must be a recognized Wix value.** Custom identifiers like `"product_name"` or `"color_preference"` will cause the field to be silently dropped from the form — no error is thrown. For any generic/custom text field, use `"TEXT_INPUT"` as the identifier and set the display name via the `label` property in `textInputOptions`.
-- For plain text fields, use `"format": "UNKNOWN_FORMAT"`. For email fields, use `"format": "EMAIL"`. For phone fields, use `"format": "PHONE"`. Valid format values: `UNKNOWN_FORMAT`, `DATE`, `TIME`, `DATE_TIME`, `EMAIL`, `URL`, `UUID`, `PHONE`, `URI`, `HOSTNAME`, `COLOR_HEX`, `CURRENCY`, `LANGUAGE`, `DATE_OPTIONAL_TIME`.
-- The submit button is a `DISPLAY` field with `identifier: "SUBMIT_BUTTON"`.
-- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** A site has a **low form cap (~4 forms)**; iterative probing hits the cap (`maximum number of forms reached`), forcing you to `GET` the form list and `DELETE` the test forms before the real create can succeed. Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once.
+## STEP 3: Verify the form persisted (mandatory)
 
-### Field Types Reference
+**1 · List it back** and diff against what you sent:
 
-| Identifier | componentType | format | Use case |
-|---|---|---|---|
-| `TEXT_INPUT` | `TEXT_INPUT` | `UNKNOWN_FORMAT` | Generic single-line text (use `label` for display name) |
-| `CONTACTS_FIRST_NAME` | `TEXT_INPUT` | `UNKNOWN_FORMAT` | Contact first name |
-| `CONTACTS_LAST_NAME` | `TEXT_INPUT` | `UNKNOWN_FORMAT` | Contact last name |
-| `CONTACTS_EMAIL` | `TEXT_INPUT` | `EMAIL` | Contact email |
-| `CONTACTS_PHONE` | `TEXT_INPUT` | `PHONE` | Contact phone |
-| `SUBMIT_BUTTON` | N/A (`DISPLAY` field) | N/A | Submit button |
-| `TEXT_INPUT` | `RADIO_GROUP` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (radio buttons) — see § "Choice fields" |
-| `TEXT_INPUT` | `DROPDOWN` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (dropdown) — same shape as RADIO_GROUP |
-
-> **Note:** `LONG_TEXT_INPUT` is not supported as a `componentType` via REST — it throws `INVALID_ARGUMENT`. Use `TEXT_INPUT` for all text fields.
-
-### Choice fields (RADIO_GROUP / DROPDOWN)
-
-A single-choice field (radio buttons or a dropdown — e.g. an RSVP "Will you attend?") is a **`STRING` input field**, not a separate field type. It uses `identifier: "TEXT_INPUT"`, `inputType: "STRING"`, and sets `componentType` to `RADIO_GROUP` (or `DROPDOWN`) **inside `stringOptions`**. Two things must agree or the field breaks:
-
-1. **`stringOptions.validation.enum`** must list every option `value` (an empty `enum` is for free-text only).
-2. **`stringOptions.radioGroupOptions.options[]`** carries the rendered choices — each option needs its own **UUID `id`**, a `value`, and a `label`. (For `DROPDOWN`, use `dropdownOptions` with the same `{id, value, label}` shape.)
-
-> **CRITICAL — silent fallback to TEXT_INPUT.** If `radioGroupOptions` is missing/malformed (wrong key like `choices` instead of `options`, an option missing its `id`, or an empty `validation.enum`), the API does **not** error — it silently creates the field as a plain `TEXT_INPUT`. If a choice field renders as a text box, this is why. Build it correctly on the first call; do not probe.
-
-```json
-{
-  "id": "a1b2c3d4-1002-4e00-8001-000000000002",
-  "hidden": false,
-  "identifier": "TEXT_INPUT",
-  "fieldType": "INPUT",
-  "inputOptions": {
-    "target": "attending_0002",
-    "pii": false,
-    "required": true,
-    "inputType": "STRING",
-    "readOnly": false,
-    "stringOptions": {
-      "validation": {
-        "format": "UNKNOWN_FORMAT",
-        "enum": ["Joyfully accepts", "Regretfully declines"]
-      },
-      "componentType": "RADIO_GROUP",
-      "radioGroupOptions": {
-        "label": "Will you attend?",
-        "showLabel": true,
-        "numberOfColumns": "ONE",
-        "options": [
-          { "id": "c3d4e5f6-3001-4a00-8001-000000000001", "value": "Joyfully accepts", "label": "Joyfully accepts" },
-          { "id": "c3d4e5f6-3001-4a00-8001-000000000002", "value": "Regretfully declines", "label": "Regretfully declines" }
-        ]
-      }
-    }
-  }
-}
+```bash
+curl -X GET \
+  'https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds=<formId>' \
+  -H 'Authorization: <AUTH>'
 ```
 
-`numberOfColumns` is a string enum (`"ONE"`, `"TWO"`, `"THREE"`) controlling the radio layout — omit it and the field still works (defaults to one column).
+Confirm the `id` appears, that `formFields[]` covers **every** field you sent, that `steps` is non-empty and **places every field**, and that each field's `inputOptions.required` matches what you sent — a misplaced `required` is dropped silently and this read-back is the only signal.
 
-### Layout
+**Also assert every returned `formFields[].identifier` is a value from [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types.** An invented identifier survives this read-back intact — it is stored and returned like any other — so nothing else here flags it, and the field is invisible to the owner in the editor. This is a pure string comparison against the table; it needs no extra call.
 
-The `steps[].layout.large.items` array controls how fields are positioned:
-- `row` and `column` set the position (0-based grid)
-- `width` sets the column span (max 12 for full width, 6 for half)
-- `height` is typically 1
+**2 · Verify the dashboard and Editor will actually render it:**
 
-### Post-Submission Triggers
+```bash
+curl -X GET \
+  'https://www.wixapis.com/form-schema-service/v4/forms/<formId>/summary' \
+  -H 'Authorization: <AUTH>'
+```
 
-The `postSubmissionTriggers.upsertContact` object maps form field targets to contact fields, so each submission automatically creates or updates a contact. The `fieldsMapping` keys must match the `target` values from the form fields.
+**Assert `formSummary.fields` is NON-EMPTY, with a count equal to every input field you sent** (`formFields[]` minus `SUBMIT_BUTTON` and any other `DISPLAY` field). A 5-input form returns all 5 — **including non-contact dropdowns and long-answer fields**, so do not expect only the contact-mapped ones.
 
-### Prerequisites
+**This is the dashboard-truth check for *placement*.** `summary.fields: []`, or a count short of your inputs, means the owner opens the Editor's form picker and sees an **empty form**. **Do not report success** — fix the layout placement or the GUID casing, then re-verify.
 
-The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
+> **⚠️ Do not lean on this check to catch a bad `identifier`.** Whether an unrecognized identifier is omitted from `formSummary.fields` is **unverified** — it may well be counted here and still be unrenderable in the editor. Check `identifier`s explicitly in step 1; treat this step as covering placement only.
+
+**3 · If the form has an ARRAY field (`CHECKBOX_GROUP` / `TAGS` / `IMAGE_CHOICE`), send one real submission.** Checks 1–2 both pass on a malformed `arrayOptions.validation.items` while every submission `400`s:
+
+```bash
+curl -X POST \
+  'https://www.wixapis.com/form-submission-service/v4/submissions' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  -d '{ "submission": { "formId": "<formId>", "submissions": { "email_673d": "test@example.com", "multi_choice_a1b2": ["Option 1"] } } }'
+```
+
+Assert `200`, not `400 SUBMISSION_VALIDATION`. Then delete the test submission (`DELETE https://www.wixapis.com/form-submission-service/v4/submissions/{submissionId}`) so the owner's dashboard stays clean.
+
+**4 · Hand back the dashboard links** (see [Forms Dashboard Navigation](./forms-dashboard-navigation.md)):
+
+```
+Edit it here:      https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}
+See submissions:   https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}/submissions
+```
+
+---
+
+## Changing a form that already exists
+
+Adding, relabelling, re-requiring, reordering or retiring a field on a live form is a `PATCH`, not a second create — see **[Update Form](./update-form.md)**. Never delete-and-recreate: the `formId` is what everything downstream holds.
+
+---
+
+## Plan caps — surface the choice, never engineer around it
+
+These limits return a real `400` on create. **Do not work around any of them. Put the choice to the user — reduce, or upgrade — with the MSID and the upgrade link, wait for their answer, then create and verify.**
+
+- **Field count** — **two different caps count two different things, so check which error you got:**
+  - `Field count reached its limit of N` — the **premium** cap, enforced by the Wix Forms app from
+    the site's plan. It counts **`INPUT` fields only** — display elements and the `SUBMIT_BUTTON` do
+    **not** count against it. This is the one free sites hit at 10.
+  - `FORM_FIELDS_COUNT_EXCEEDED` — the schema-service cap (`providers-config`'s `maxFields`), which
+    counts **all** fields **including** display elements and the submit button.
+
+For either: **do NOT split the form across several schemas** to dodge it — that trades one submission record for several and consumes more of the site's form allowance. Reduce the field count, or upgrade.
+- **Step count** (`Steps count reached its limit of N`) — the premium cap on `steps.length`. Collapse the form into fewer pages, or upgrade. There is **no schema-service equivalent**, so this error never appears in the Create Form error table.
+- **Condition count** (`formRules.length`) — also premium-capped, and also absent from the Create Form error table.
+- **Form count** (`NAMESPACE_FORMS_COUNT_EXCEEDED`, `NAMESPACE_DELETED_FORMS_COUNT_EXCEEDED`, or `FORM_SIZE_EXCEEDED` for a single oversized schema) — the site hit its total-form (or trash-bin) cap. Independently of the plan, `formFields` has a hard ceiling of 500 items. Upgrade, or free a slot per STEP 0 · 3 — deleting only what is clearly install sample data.
+- **Premium fields** — file upload, signature and all four payment fields need a **Core plan or higher**; payment fields additionally need **Wix eCommerce**. Appointment needs **Wix Meetings**; the service pickers need **Wix Services**. A create including one of these on a site without the plan or app **fails**. **Do NOT suggest inlining files as base64** — it stores no real file, gives the owner nothing usable, and blows past submission size limits. Drop the field, or upgrade.
+
+> **⚠️ A plan cap is a hard block on the run, not a "note it and continue" precondition.** The schema does not exist, so neither does its `formId` or its field `target`s. Nothing that depends on the form — a frontend binding, an automation, a submissions view — can be built "in the meantime" without guessing.
+
+---
+
+## Automations on form submission
+
+To auto-respond to submissions, the automation's trigger belongs to the **app that owns the form** — and the two Forms apps have different trigger keys:
+
+| App | `appId` | Trigger key for "Form submitted" |
+|---|---|---|
+| **Wix Forms (New)** | `225dd912-7dea-4738-8688-4b8c6955ffc2` | `wix_form_app-form_submitted` |
+
+**The app and the key must be the same generation.** A form created on Form Schemas v4 belongs to the New app, so its automation must use `wix_form_app-form_submitted` **and** the New app must be the installed one. `FAILED_PRECONDITION: "Forms app is not installed on the site"` on an automation create, on a site where Wix Forms visibly *is* installed, means the **Old** app is installed and the New one isn't — fix that at STEP 0 · 1, not by swapping trigger keys.
+
+Confirm the pair against the site rather than typing it from memory: [Query Triggers](https://dev.wix.com/docs/api-reference/business-management/automations/triggers/trigger-catalog/query-triggers) filtered by `appId`, or [Get Trigger By App Id And Key](https://dev.wix.com/docs/api-reference/business-management/automations/triggers/trigger-catalog/get-trigger-by-app-id-and-key).
+
+---
 
 ## Troubleshooting
 
-| Error | Cause | Fix |
+| Error / symptom | Cause | Fix |
 |---|---|---|
-| `Unrecognized value passed for enum` | Invalid `componentType` value (e.g., `LONG_TEXT_INPUT`) | Use only `componentType` values from the schema: `TEXT_INPUT`, `RADIO_GROUP`, `DROPDOWN`, `DATE_TIME`, `PHONE_INPUT`, `DATE_INPUT`, `TIME_INPUT`, `DATE_PICKER`, `PASSWORD` |
-| Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
-| Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
-| `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
-| `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
-| `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
+| `UNSUPPORTED_FORM_NAMESPACE`, or `Permissions for given namespace not found` | Wix Forms **(New)** not installed, or a namespace other than `wix.form_app.form` | Install `225dd912-7dea-4738-8688-4b8c6955ffc2`; use `wix.form_app.form` |
+| Form reads back fine over the API but is **invisible** in the Forms dashboard and Editor | Created under a non-dashboard namespace — typically the non-existent `wix.form_platform.form` | Re-create under `wix.form_app.form`. A namespace query returning **0 results is not proof it is unusable** — it may simply be empty |
+| Automation create fails `FAILED_PRECONDITION: Forms app is not installed` although Wix Forms is installed | The **Old** Forms app (`14ce1214-…`) is installed; the New app's trigger `wix_form_app-form_submitted` needs `225dd912-…` | Install `225dd912-…` — do **not** try to fix it by swapping in the Old app's key `wix_forms-form_submit`. See § Automations on form submission |
+| Form appears in the Editor's form picker but renders **empty** | Fields not placed in `steps[].layout`, or an **uppercase** `id` whose stored lowercase form no longer matches `fieldId` | Place every field (incl. `SUBMIT_BUTTON`); use lowercase GUIDs on both sides; re-verify with `/summary` |
+| Field is returned by the API and accepts submissions, but the owner **cannot see or edit it in the Wix Forms editor** (a whole form of them opens **empty**) | Invented `identifier` (e.g. `"product_name"`) — accepted and stored, but unrecognized by the editor | Use a value from [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types; put the user's wording in the component's `label`. Assert identifiers in STEP 3 · 1 — no other check catches this |
+| Field vanishes entirely from the created form | `componentType` not valid for the field's `inputType` — the server builds no view for it | Match the `inputType` / `componentType` pair in [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types |
+| Choice field renders as a plain text box, and reads back with `textInputOptions` | `identifier` was `TEXT_INPUT` rather than `DROPDOWN` / `RADIO_GROUP` — `componentType` alone doesn't route the renderer | Set `identifier` to the choice kind and re-send the field. Deleting and re-adding it with the same `identifier` reproduces the fallback |
+| `options[N].id is not a valid GUID` on a create or `PATCH` | Option `id`s were readable slugs (`tech-opt-1`) or omitted — each needs its own lowercase GUID, client-generated | Generate one GUID per option (`uuidgen`); the field's own `id` being a GUID is not enough |
+| Choice field renders as a plain text box | `radioGroupOptions` / `dropdownOptions` malformed — wrong key (`choices` instead of `options`), an option missing its GUID `id`, or an empty `validation.enum` | Match [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Choice fields exactly: `componentType` inside the `inputType` block, every option with a lowercase GUID `id`, `validation.enum` listing all values |
+| Form lists and summarizes fine, but **every** submission returns `400` | ARRAY field with malformed `arrayOptions.validation.items` — missing `itemType`, or empty/omitted `items` | Set both `items.itemType` and `items.stringOptions.enum`; prove it with STEP 3 · 3 |
+| Every field reads back `required: false` | `required` placed inside `validation` instead of `inputOptions` | Move it to `inputOptions.required`; fix with a `PATCH` ([Update Form](./update-form.md)) rather than re-creating |
+| Contacts are never created or updated on submission | Used `postSubmissionTriggers.upsertContact` (absent from the current v4 contract — it configures nothing) | Set per-field `inputOptions.contactMapping.contactField` + `pii: true` |
+| `400 namespace has size 0, expected 10 or more` / `namespace must not be empty` on a read | The `namespace` **query parameter** was omitted from `GET .../v4/forms` (or from the `query` filter) — it is required on every read, and the violation naming a field makes it look like a body problem | Add `?namespace=wix.form_app.form` to the read; leave the payload alone |
+| `Unrecognized value passed for enum` | Invented `componentType` (e.g. `LONG_TEXT_INPUT`) | Use the `componentType` from [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types — a long answer is `identifier: TEXT_AREA` with `componentType: TEXT_INPUT` |
+| `Field count reached its limit of N` / `FORM_FIELDS_COUNT_EXCEEDED` | The site's premium-plan field cap, enforced by the Wix Forms app — unrelated to the app-declared `maxFields` in `providers-config` | § Plan caps: reduce or upgrade. Never split across schemas |
+| `Steps count reached its limit of N` | Plan's per-form step cap | Collapse to fewer pages, or upgrade |
+| `NAMESPACE_FORMS_COUNT_EXCEEDED` | Site hit its total-form cap | § Plan caps: upgrade, or free a slot (STEP 0 · 3) |
+| `DUPLICATED_FIELD_TARGETS` / `DUPLICATED_FIELD_IDS` / `MISSING_FIELD_TARGETS` | Reused `target` or `id`, or omitted `target` | Give every field a unique lowercase GUID `id` and a unique `snake_case` `target` |
+| Form saved under a different name than requested | Names are unique per namespace; a collision saves a numbered variation | Read `name` from the response and report the actual name |
+
+---
 
 ## Related Documentation
 
-- [Form Schemas API Introduction](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/introduction)
-- [Create Form API Reference](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form)
-- [Form Submissions API](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction)
+- [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) — the authoritative field-composition guide
+- [Create Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form) — complete request examples for a dozen form types
+- [Form object](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object) · [Update Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form) · [Get Form Summary](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary) · [List Forms Providers Configs](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs)
+- [Form Schemas API Introduction](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/introduction) — including the namespaces of apps made by Wix
+- [Form Submissions API](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction) · [About Submission Values](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values)
+- [Forms Dashboard Navigation](./forms-dashboard-navigation.md) · [Install Wix Apps](../app-installation/install-wix-apps.md)

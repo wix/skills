@@ -1,11 +1,23 @@
 # Forms — seeding (Form Schemas v4 REST)
 
-Creating a form is an **admin/build-time** job, in six sequential steps. Each has a section below.
+**Two actions live in this doc — decide which one you're doing before reading on.** Both are
+**admin/build-time** work over an elevated credential, and both run through the same six steps:
+
+| action | when | the steps it uses |
+|---|---|---|
+| **CREATE a form** — `POST` | there's no form yet: the app needs a contact / quote / application form and nothing has been created for it | all six, in order |
+| **REVISE a form** — `PATCH` | the form already exists and a request changes **what it collects**: *"add a dropdown for job industry"*, *"make the phone optional"*, *"add a file upload"*, *"drop the budget question"* | 1 (auth) → 3 (author just the new field) → **4b · Revising a form later** → 5 (re-verify) → 6 (rewrite the config, then wire the control) |
+
+A field the visitor can fill that isn't in the schema is **silent data loss** — no submission, no
+inbox, no contact, and the submit still resolves `true`. So never local component state, and never
+delete-and-recreate a live form: **`PATCH` it**, keeping the `formId` the UI already imports.
+
+The six steps, each with a section below:
 
 1. **Authenticate** — get an elevated credential; the public client ID cannot write.
-2. **Install the Wix Forms app** — idempotent, and nothing works until it's there.
+2. **Install the Wix Forms app** — idempotent, and nothing works until it's there. *(create only.)*
 3. **Author the form body** — adapt the every-field payload to what the request asks for.
-4. **Create the form** — POST each body; a `200` here means almost nothing.
+4. **Create the form** — POST each body; a `200` here means almost nothing. *(revising: **4b**.)*
 5. **Verify it works** — read the form back, and **submit to it once** for real.
 6. **Hand off** — the verified `formId` + field `target`s are written to a file the UI imports.
 
@@ -22,7 +34,7 @@ live Wix API reference.
 | 3 | Create Form | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md | the create call, plus 10 complete request examples — the source of the payload below |
 | 3 | Form object | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object.md | each property individually, incl. form-level settings this doc doesn't cover |
 | 4 | Form Schemas API | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas.md | every schema method (get, list, delete, enable/disable) |
-| 4 | Update Form | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form.md | revising a form without losing its `formId` |
+| 4b | Update Form | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form.md | the `PATCH`: revising a form without losing its `formId`, and the whole-array replace semantics |
 | 4 | List Forms Providers Configs | https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs.md | the Forms **app's** ceiling on fields and forms — **not** the site's plan cap, which this call cannot tell you (see step 4) |
 | 5 | Create Submission | https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/create-submission.md | the submission call used to prove the form accepts data |
 | 5 | About Submission Values | https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values.md | the value shape each `inputType` submits — string, array, address object, … |
@@ -77,8 +89,10 @@ costs nothing.
 ## 3 · Author the form body — every field type
 
 There is **one** create call:
-`POST https://www.wixapis.com/form-schema-service/v4/forms` with `{ "form": { … } }`.
-**You author that body**, starting from the payload below and adapting it to the request.
+`POST https://www.wixapis.com/form-schema-service/v4/forms` with
+`{ "form": { "namespace": "wix.form_app.form", … } }` — that namespace is the Wix Forms app's, and
+the only one the owner's dashboard shows. **You author that body**, starting from the payload below
+and adapting it to the request.
 
 The payload is one form holding **every field type Wix Forms supports**. Each field block is copied
 verbatim from the official Create Form examples, so the `identifier` / `inputType` / `componentType`
@@ -155,10 +169,18 @@ owner's dashboard, or on the first real submission.
 - **`required` lives at `inputOptions.required`**, never inside a validation block.
 - **`validation` is always present**, even as `{}`, and nests under the **`inputType`** options
   object — not the `componentType` one.
+- **A choice field's `identifier` IS its kind** — `DROPDOWN`, `RADIO_GROUP`, `CHECKBOX_GROUP`,
+  `TAGS` — matching the `componentType`, never `TEXT_INPUT`: the identifier routes the field to its
+  renderer, so `TEXT_INPUT` + `componentType: DROPDOWN` is accepted and stored as a text input. (A
+  long answer is `TEXT_AREA` for the same reason.)
 - **A choice field declares its options twice** — the component's `options[]` and the validation
   `enum` (`STRING`) or `items.stringOptions.enum` + `itemType` (`ARRAY`) — and the two must agree.
   Get it wrong and the create still returns `200`: the field is created as a **plain text box**,
   losing its choices. Only the 5a component check catches it.
+- **A choice field that came back as a text box: read which options block came home.**
+  `textInputOptions` where you sent `dropdownOptions` is that fallback — and with a well-formed block
+  and `enum`, the cause is the `identifier`. Re-sending it, or delete-and-re-add with the same
+  identifier, reproduces it.
 - **`target` is the immutable submission key**: starts with an ASCII letter, letters/digits/`_`
   only, no `__`, unique within the form. Use field's label converted to snake_case with _ and 6 random alphanumeric  
   characters as the field target, e.g. "First name" -> `first_name_a689be`.
@@ -1578,7 +1600,7 @@ always on the public host, never `/_api/`:
 
 ```
 POST https://www.wixapis.com/form-schema-service/v4/forms
-{ "form": { … the body from step 3 … } }
+{ "form": { "namespace": "wix.form_app.form", … the rest of the body from step 3 … } }
 ```
 
 Read **`form.id`** from the response — that's the `formId` the rest of the run carries. **Record it
@@ -1625,16 +1647,64 @@ proves the form works. Two failures worth recognizing before you retry:
   than discovering the limit after a full authoring pass, and count every entry in `formFields`, the
   `SUBMIT_BUTTON` included.
 
-**Revising a form later** — add a field, relabel one, tighten a rule:
+## 4b · Revising a form later
+
+Add a field, relabel one, tighten a rule, retire one — a `PATCH`, never a second create. Everything
+above still applies; this is the delta.
+
+**Read the form back first — you need its `revision`.** The `formId` comes from
+`src/rest/wix-forms.config.js` (`WIX_FORMS.<key>.formId`), never typed by hand:
 
 ```
+GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds=<formId>
 PATCH https://www.wixapis.com/form-schema-service/v4/forms/<formId>
-{ "form": { …, "revision": "<the form's current revision>" } }
+{ "form": { …the whole object you just read, with your change…, "revision": "<its current revision>" } }
 ```
 
-Never delete-and-recreate: a `PATCH` keeps the `formId` the UI already holds and spends no extra slot
-against the site's form cap. Re-run step 5 afterwards — an update regresses a layout exactly as a
-create can.
+- **`namespace` is a required query parameter on the read**, hence the `?namespace=` above. Without it
+  the read `400`s with `namespace has size 0, expected 10 or more` — a violation naming a *field*, so
+  it reads like a body problem. Fix the call, not the payload.
+- **The read-back is the `PATCH` body.** Apply the change to what the `GET` returned and send that.
+  `namespace` is immutable and travels along; **there is no `fieldMask`**, and no `revision` outside
+  `form`. Inventing either is a silent partial write.
+- **`formFields` replaces wholesale.** Wix: *"Any field that's missing from the array you send is
+  moved to `deletedFormFields`, so resend every field you want to keep."* `steps` behaves the same
+  way. Drops are recoverable from `deletedFormFields` — if you notice, which is step 5's job.
+- **A stale `revision` is rejected** — re-`GET` and re-apply; never guess or increment it.
+- **A new field needs three things generated**: a fresh UUID `id`, a `target` unique in the form
+  (`job_industry_7f2b`), and — for a choice field — an options block whose `enum` and `options[]`
+  agree. Step 3 is the shape, and its warnings still hold.
+
+**Add the layout item too** — append to `steps[<n>].layout.large.items`, mirroring into `medium` /
+`small` if the form has them:
+
+```json
+{ "fieldId": "<the new field's id>", "row": <next row>, "column": 0, "width": 12, "height": 1 }
+```
+
+A field missing from the layout isn't dropped, but it sorts last and has no defined position in the
+owner's builder. To place it mid-form, insert at that `row` and bump every item at or after it — `row`
+restarts at 0 per step.
+
+**Changing a field's component type in place** — a text input that should have been a dropdown — means
+the choice `identifier` and **only** the new options block; don't leave `textInputOptions` beside
+`dropdownOptions`. A read-back still showing `textInputOptions` is the identifier, not the block.
+
+**The other revisions:**
+
+- **label, placeholder, options, validation, order** — patch and stop. The client reads all of those
+  live from the schema, so no config rewrite and no code change follows.
+- **retiring a field the form has submissions for** — set `hidden: true` ("hidden from submitters":
+  the field stops being rendered, and the submissions already collected under it keep their meaning)
+  rather than dropping it from the array. Drop only a field added by mistake in this same run.
+- **never rename a `target`** — it's the storage key, so a rename orphans every submission already
+  collected under the old one. Change the *label* instead.
+
+**Then re-run step 5 in full** — a `PATCH` regresses a form exactly as a create does, and §5a is where
+a dropdown that silently became a text input gets caught. Then step 6, revising: add the read-back
+`target` to `src/rest/wix-forms.config.js` (the one sanctioned edit to that file outside a seed run,
+and only *after* step 5 passes) and wire the control per `INSTRUCTIONS.md`. The field is live for new
+submissions; past ones don't carry it. Step 4's plan gates apply to an added field too.
 
 ## 5 · Verify it works
 
@@ -1670,6 +1740,9 @@ against the returned `form.formFields`:
 ```
 GET https://www.wixapis.com/form-schema-service/v4/forms/<formId>/summary
 ```
+
+*(The summary and the single-form `GET` take the id in the path, so neither needs the `namespace`
+query parameter — every **listing** read does.)*
 
 Assert `formSummary.fields` is **non-empty**, with one entry per input field you sent (everything in
 `formFields` except the `SUBMIT_BUTTON`). The summary is exactly what the Wix dashboard renders, so a
@@ -1735,8 +1808,8 @@ DELETE https://www.wixapis.com/form-submission-service/v4/submissions/<id>
 The id comes from the 5c response as **`submission.id`**: REST returns `id`, not the `_id` the
 reference schema shows (that's the SDK's shape). Do this every time — the owner's inbox is a real
 business inbox, and a probe left in it looks like a real enquiry. If a probe ever escapes, find it
-with `POST /form-submission-service/v4/submissions/namespace/query` filtered by `formId` +
-`namespace`.
+with `POST /form-submission-service/v4/submissions/namespace/query`, filtered by `formId` and
+`"namespace": "wix.form_app.form"`.
 
 ## 6 · Hand off
 
@@ -1745,8 +1818,9 @@ form, keyed by the form's name lowercased with each run of non-alphanumerics col
 `_` (`"Quote request"` → `quote_request`):
 
 ```js
-// Written by the seed run once step 5 passed. Do not hand-edit, and do not create it early:
-// its existence is what proves the form schemas were created AND verified.
+// Written by the seed run once step 5 passed. Do not create it early: its existence is what proves
+// the form schemas were created AND verified. Its only later edit is a verified schema change —
+// see step 4b; never a hand-typed field.
 export const WIX_FORMS = {
   contact: { formId: "…", name: "Contact", targets: { email: true, message: true } },
 };
