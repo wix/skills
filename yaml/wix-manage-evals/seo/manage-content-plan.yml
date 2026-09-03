@@ -9,7 +9,7 @@ tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-content-plan-flow-v1/skills/generate-and-read-a-wix-site-s-content-plan
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
