@@ -8,3 +8,6 @@
 /skills/wix-headless/references/astro/templates/bookings/   @wix-private/bookings-calendar-platform
 /skills/wix-headless/references/custom/bookings/            @wix-private/bookings-calendar-platform
 /skills/wix-headless/references/verticals/bookings.md       @wix-private/bookings-calendar-platform
+
+# Wix Manage
+/skills/wix-manage/                                        @wix/ax-agentic-experiences
