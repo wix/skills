@@ -35,7 +35,7 @@ If you do not have write permissions for this repository, please read [bo.wix.co
 When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
-2. Add a short entry to the relevant section in `skills/wix-manage/SKILL.md`.
+2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update its entry in the same commit.
 3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node).
 4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
@@ -81,7 +81,7 @@ Before opening a PR, confirm:
 
 - The content is in the right existing skill. New top-level skills are admin-only.
 - Each skill's `description` is at most 1024 characters.
-- The relevant `SKILL.md` index is updated.
+- The relevant `SKILL.md` index is updated, and each entry still matches its skill's frontmatter `name` and `description` word for word.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) on its doc URL.
 - Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
