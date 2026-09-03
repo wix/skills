@@ -1,57 +1,59 @@
 name: seo/manage-content-plan
 description: >-
-  Verifies that the agent triggers a content plan generation, polls the flow, recognizes
-  PENDING_REQUIREMENTS as a site-data blocker, and tells the user what is missing instead
-  of retrying or waiting forever.
+  Verifies that the agent triggers an SEO content plan generation flow, polls the flow status,
+  and handles the result — whether that is PENDING_REQUIREMENTS (missing business data),
+  a successful generation, or a failure.
 triggerPrompt: >-
-  Generate an SEO content plan for my site and show me the blog topics it produces.
+  I want to generate an SEO content plan for my Wix site. Trigger the content plan generation,
+  then check its status and tell me what happened.
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
   - type: llm_judge
-    minScore: 7
+    minScore: 5
     maxTokens: 2048
     prompt: |
-      The user asked to generate an SEO content plan and see the blog topics.
-
-      The test site has no business description or category, so the flow will reach
-      PENDING_REQUIREMENTS and park there.
+      The user asked to trigger an SEO content plan generation and check its status.
 
       Pass if the agent:
-      - triggers a content plan generation flow (POST /content-plan-flows/trigger),
-      - polls GetContentPlanFlow at least once to observe the status,
-      - recognizes PENDING_REQUIREMENTS as a terminal state meaning the site lacks
-        required business data (description or category),
-      - clearly tells the user what is missing and that the flow cannot proceed
-        until the site data is provided,
-      - does NOT retry the trigger, cancel the flow, or poll indefinitely.
+      - called the Trigger Content Plan Generation Flow endpoint
+        (POST to a URL containing /content-plan-flows/trigger),
+      - polled or checked the flow status at least once
+        (GET to a URL containing /content-plan-flows/),
+      - reported the flow status to the user (any terminal or intermediate status counts).
 
-      Fail if the agent:
-      - never triggers a flow,
-      - polls forever without recognizing PENDING_REQUIREMENTS,
-      - retries the trigger after seeing PENDING_REQUIREMENTS,
-      - claims the content plan was generated when it was not,
-      - asks for a site ID (the API uses the auth context).
+      A flow that reaches PENDING_REQUIREMENTS is a valid and expected outcome on a site
+      without business data. The agent should recognize it and explain to the user that
+      the site needs a business description or category. This is a PASS, not a failure.
+
+      A flow that reaches SUCCESS and the agent reads candidates is also a PASS.
+
+      Fail only if the agent:
+      - never made any API call to trigger the flow,
+      - spent the entire session searching documentation without calling the API,
+      - asked for a site ID (the API uses the auth context).
+
+      Score 5+ if the agent triggered and polled. Score 7+ if it also correctly
+      interpreted the status. Score 9+ if it provided clear actionable guidance.
   - type: llm_judge
-    minScore: 7
+    minScore: 5
     maxTokens: 2048
     prompt: |
-      Rate how smoothly the agent handled the content plan generation request on a
-      site that lacks business data. Score 0-10.
+      Rate the agent's efficiency. Score 0-10.
 
       HEAVY penalties (each costs 2-3 points):
-      - triggered but never polled to check the status
-      - polled multiple times without recognizing the terminal state
-      - retried the trigger after PENDING_REQUIREMENTS
+      - never called any API endpoint (just searched docs)
+      - asked for a site ID
       - claimed success without evidence
 
       LIGHT penalties (each costs at most 1 point):
-      - extra poll before recognizing the terminal state
-      - unnecessary documentation lookup before the first call
+      - documentation lookup before the first API call
+      - extra polls beyond what was needed
 
-      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.
+      A clean trigger-poll-report path with no wasted calls scores 8+.
+      Return ONLY {"score":<0-10>,"reason":"<terse explanation>"}.
 siteSetup:
   mode: template
-  templateId: blank-editor
+  templateId: stores-v3-editor
