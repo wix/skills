@@ -24,7 +24,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## App Installation
 
 ### [Install Wix Apps](references/app-installation/install-wix-apps.md)
-**Technical:** Installs Wix apps on a site using Apps Installer API. Covers enabling Velo (Wix Code), app installation, and common app definition IDs.
+**Technical:** Installs Wix apps on a site using Apps Installer API. Covers installable app IDs and distinguishes Wix CMS installation from manual Velo enablement.
 
 ### [List Installed Apps](references/app-installation/list-installed-apps.md)
 **Technical:** Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors.
