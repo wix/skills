@@ -9,7 +9,6 @@ triggerPrompt: >-
   block their booking availability. What exactly needs to happen to set this up, and
   what should I watch out for?
 tags: [bookings]
-maxTokens: 300000
 assertions:
   - tool: ReadFullDocsArticle
     params:

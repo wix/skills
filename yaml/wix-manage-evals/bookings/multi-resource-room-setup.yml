@@ -7,7 +7,6 @@ triggerPrompt: >-
   I rent out two treatment rooms, Room A and Room B. Set them up on my Wix site so
   that my new 60-minute Massage service ($80) books whichever room is free.
 tags: [bookings]
-maxTokens: 1200000
 siteSetup:
   mode: template
   templateId: bookings-editor

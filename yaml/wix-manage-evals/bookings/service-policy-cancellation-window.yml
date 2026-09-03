@@ -7,7 +7,6 @@ triggerPrompt: >-
   On my Wix site, customers should only be able to cancel a booking up to 24 hours
   before it starts. Set that up.
 tags: [bookings]
-maxTokens: 500000
 siteSetup:
   mode: template
   templateId: bookings-editor
