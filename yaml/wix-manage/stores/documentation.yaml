@@ -34,3 +34,8 @@ apiDoc:
       title: Stores Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+
+    - file: ../../../skills/wix-manage/references/stores/stores-recipes.md
+      title: Stores Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [wix-manage-index, stores]

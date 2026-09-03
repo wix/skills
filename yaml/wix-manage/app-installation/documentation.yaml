@@ -14,3 +14,8 @@ apiDoc:
       title: App Management Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
       tags: [app-installation]
+
+    - file: ../../../skills/wix-manage/references/app-installation/app-installation-recipes.md
+      title: App Installation Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
+      tags: [wix-manage-index, app-installation]

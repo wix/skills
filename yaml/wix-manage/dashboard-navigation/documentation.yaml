@@ -6,3 +6,8 @@ apiDoc:
       title: Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings, stores]
+
+    - file: ../../../skills/wix-manage/references/dashboard-navigation/dashboard-navigation-recipes.md
+      title: Dashboard Navigation Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [wix-manage-index, dashboard-navigation]

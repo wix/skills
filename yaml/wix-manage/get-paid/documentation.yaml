@@ -18,3 +18,8 @@ apiDoc:
       title: Get Paid Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid]
+
+    - file: ../../../skills/wix-manage/references/get-paid/get-paid-recipes.md
+      title: Get Paid Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
+      tags: [wix-manage-index, get-paid]

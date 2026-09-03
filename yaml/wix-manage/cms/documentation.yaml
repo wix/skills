@@ -30,3 +30,8 @@ apiDoc:
       title: CMS Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
+
+    - file: ../../../skills/wix-manage/references/cms/cms-recipes.md
+      title: Cms Recipes
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [wix-manage-index, cms]
