@@ -320,6 +320,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
 **Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
 
+### [Dummy Skill Alpha — Publishing Race Test](references/google-business-profile/dummy-skill-alpha.md)
+**Test fixture:** Returns a fixed marker for validating concurrent draft-skill publishing. Contains no product guidance and makes no API calls.
+
+### [Dummy Skill Beta — Publishing Race Test](references/google-business-profile/dummy-skill-beta.md)
+**Test fixture:** Returns a second fixed marker for validating concurrent draft-skill publishing. Contains no product guidance and makes no API calls.
+
 ---
 
 ## Marketing

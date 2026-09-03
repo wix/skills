@@ -1,0 +1,20 @@
+name: google-business-profile/dummy-skill-alpha
+description: Verifies that dummy skill Alpha is independently published and readable.
+triggerPrompt: Run Google Business Profile dummy skill Alpha for the publishing race test.
+tags: [seo]
+maxTokens: 4000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/skills/dummy-skill-alpha-publishing-race-test
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 256
+    prompt: |
+      Pass only if the final response is exactly GBP_DUMMY_ALPHA, with no extra text.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 256
+    prompt: |
+      Pass only if the tool-call trace reads this dummy skill and makes no API, site, or mutation
+      calls. Return ONLY {"score":<0-10>,"reason":"<brief reason>"}.
