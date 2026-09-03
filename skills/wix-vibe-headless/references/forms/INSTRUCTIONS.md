@@ -15,6 +15,12 @@ field — the shipped utils supply the schema behind it, the state, the validati
 > Use **`cms`** only when the app must **read the entries back** (a gallery, a listing, "my
 > submissions") — a visitor cannot read Forms submissions. Submit-only → forms.
 
+> **⚠️ "Add a field" is a SCHEMA change.** *"Add a dropdown for job industry"*, *"make the phone
+> optional"*, *"drop the budget question"* — all reads like UI work and all are a `PATCH` to the live
+> schema (`seed/SEED.md`, REVISE): patch it, verify, rewrite `wix-forms.config.js`, **then** wire the
+> control. A field the visitor can fill that isn't in the schema is **silent data loss** — the value
+> reaches no submission, inbox or contact, and the submit still resolves `true`.
+
 ## What ships (utils only)
 
 | file | what it is |
@@ -24,7 +30,7 @@ field — the shipped utils supply the schema behind it, the state, the validati
 | `rest/wix-forms-submissions.js` | Write transport: `toSubmissionValues`, `createSubmission`, `SUBMITTED_OK`, the file flow (`getMediaUploadUrl`, `uploadSubmissionFile`, `uploadFormFiles`), `submissionViolations`. |
 | `hooks/useWixForm.js` | The form's non-visual half: `useWixForm(formId)` → `{ form, values, setValues, bind, submit, validate, errors, loading, read }`. Also exports `validateField`, `mapSubmissionErrors`, `FORM_ERROR`. Not on React? Those plus `lib/` are the load-bearing part; port the state around them. |
 | `wix-config.js` *(shared)* | the two ids, written by the install step. |
-| `wix-forms.config.js` *(generated)* | **the gate** — `WIX_FORMS`: each form's `formId` + read-back `targets`, written by the seed after verification. |
+| `wix-forms.config.js` *(generated)* | **the gate** — `WIX_FORMS`: each form's `formId` + read-back `targets`, written by the seed after verification. Its one later edit is a verified schema change (REVISE), never a hand-typed field. |
 | `WixManageBanner` *(shared)* | Dev-only manage banner — mount it in your Layout. |
 
 ## Prerequisites — a HARD GATE
@@ -384,6 +390,9 @@ Don't reach for `role="form"`, an `aria-label` on an input that already has a `<
 ## Hard rules
 
 - A visitor-fillable form is this vertical, not `cms`.
+- **Never hold a form field in local component state** — a value outside the hook's `values` submits
+  nothing. Adding a field is a schema change: `seed/SEED.md`, REVISE.
+- **Never answer a field request with a dashboard link** — that link is for the owner's own edits.
 - Read and write only through the shipped helpers — never hand-build a Wix Forms URL.
 - Never invent a `target`, label, option or constraint — every one comes from the schema (authored
   markup included). Never detect a control by its `target` name either.
@@ -412,8 +421,8 @@ Don't reach for `role="form"`, an `aria-label` on an input that already has a `<
 
 Three sources answer what this file doesn't: the **JSDoc** in `hooks/useWixForm.js` and
 `lib/wix-form-schema-utils.js`; the **Wix reference** below; and `seed/SEED.md` for how a field was
-authored. Calling an endpoint the helpers don't wrap is fine via `wixApiRequest` — look up the exact
-method and body first (or use the `wix-docs` skill), never guess.
+authored, and REVISE for changing one. Calling an endpoint the helpers don't wrap is fine via
+`wixApiRequest` — look up the exact method and body first (or the `wix-docs` skill), never guess.
 
 - Form object (the shape `form` and its fields arrive in): https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object.md
 - Form Schemas API: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas.md
@@ -438,21 +447,28 @@ checks the dashboard summary, sends and deletes one real submission), then write
 `src/rest/wix-forms.config.js`. Needs an elevated credential, and **does not run in parallel with the
 client** — see Prerequisites.
 
+**Changing a form that already exists** — a new field, a relabel, a tightened rule — is that doc's
+**REVISE** action: `PATCH` on the current `revision`, re-verify, rewrite the config, wire the
+control. Never a second create.
+
 ## Point the user to their dashboard
 
 Substitute the site's `metaSiteId`:
 
 - **Forms list** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms`
-- **Form builder** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}` → add,
-  relabel, reorder or require fields; every change reflects on the site with no code change.
-- **Submissions** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms-and-payments/submissions`
-- **Forms settings** (incl. notifications) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms-and-payments/settings`
+- **Form builder** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}` → where
+  the **owner** edits fields; a relabel or new option reaches a looped form with no code change, a new
+  field still needs a control. **Asked to change the form yourself? REVISE, not this link.**
+- **Submissions** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}/submissions`
+  → per form, off its builder path; there's no site-wide submissions page to link
 - **Contacts** — `https://manage.wix.com/dashboard/{metaSiteId}/contacts` → contact-mapped fields
   create or update a contact automatically.
 
 ## Verify
 
 - [ ] `wix-forms.config.js` exists; every `formId` comes from `WIX_FORMS`, none typed by hand.
+- [ ] Every control's `name` inside the `<form>` is a target in `WIX_FORMS.<key>.targets`, and its
+      value lives in the hook's `values` — **no field is backed by local state**.
 - [ ] `WIX_CLIENT_ID` set (not the placeholder).
 - [ ] Looped form: relabel a field in the dashboard, reload, the new label appears with no code
       change. Authored form: every `target` in the JSX matches `WIX_FORMS.<key>.targets` exactly.

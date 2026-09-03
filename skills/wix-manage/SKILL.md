@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -169,6 +169,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Dashboard Navigation
 
+**Dashboard URLs are recipe data, not general knowledge.** A `manage.wix.com` route is an app-registered slug that appears in no API reference and cannot be derived from the entity's name or its API path (Forms pages live under `wix-forms`, not `contacts/forms`; Stores products under `wix-stores/products`). So for **every** request for a dashboard link — even one that needs no API call, and even when a route feels obvious — open the solution's dashboard-navigation recipe below and copy the route from its table. Answering from memory is the one failure mode these recipes exist to prevent.
+
 ### [Dashboard Navigation](references/dashboard-navigation/dashboard-navigation.md)
 **Index** — for any "where do I manage X in the dashboard" / "give me a dashboard link" request: the shared URL structure for all dashboard pages (`https://manage.wix.com/dashboard/{metaSiteId}/{route}`, app-ID fallback, legacy redirects, entity deep links), routing to the per-business-solution recipes (e.g. [Bookings](references/bookings/bookings-dashboard-navigation.md), [Stores](references/stores/stores-dashboard-navigation.md)) which live in their solution's section below.
 
@@ -250,10 +252,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Forms
 
 ### [Create Form](references/forms/create-form.md)
-**Technical:** Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, and post-submission triggers.
+**Technical:** Creates a visitor-fillable form with Form Schemas v4 — contact, enquiry, signup, waitlist, application, survey, quote request.
+
+### [Update Form](references/forms/update-form.md)
+**Technical:** Changes a form that already exists with a Form Schemas v4 `PATCH` — add, remove a field or change its settings (label, required, order, etc.), keeping the `formId`.
 
 ### [Forms Dashboard Navigation](references/forms/forms-dashboard-navigation.md)
-**Technical:** Direct links to Wix Forms dashboard pages on manage.wix.com (forms list, submissions table, form builder for a specific form, standalone forms, templates, settings), pairing forms and submissions with their read APIs for "view it in your dashboard" links.
+**Technical:** Direct links to Wix Forms dashboard pages on manage.wix.com — every one under the `wix-forms` namespace (forms list `wix-forms`, a form's builder `wix-forms/form/{formId}`, that form's submissions `wix-forms/form/{formId}/submissions`, standalone forms), never under `contacts/forms` or the legacy `wix-forms-and-payments`. Read it before answering any "link me to my form / its submissions" request; also pairs forms and submissions with their read APIs for "view it in your dashboard" links.
 
 ---
 

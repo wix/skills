@@ -114,4 +114,8 @@ Seeding is **admin-only** — not part of the client, which is built solely per 
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
 `wix-base44-connector` doc discovery — all over the connector.
 
+**A change to what the business data COLLECTS is one of these, however UI it sounds** — a new form
+field, product option or service setting. Change it on Wix first per the vertical's `seed/SEED.md`,
+then edit the client against the verified result.
+
 version: v1341
