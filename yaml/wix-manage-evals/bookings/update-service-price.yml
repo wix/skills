@@ -6,7 +6,6 @@ description: >-
 triggerPrompt: >-
   Change the price of my "Pilates Class" service to $35.
 tags: [bookings]
-maxTokens: 1200000
 siteSetup:
   mode: template
   templateId: bookings-editor

@@ -7,7 +7,6 @@ triggerPrompt: >-
   Change my business's default booking hours on my Wix site to Monday through Friday,
   8am to 4pm.
 tags: [bookings, calendar]
-maxTokens: 800000
 siteSetup:
   mode: template
   templateId: bookings-editor
