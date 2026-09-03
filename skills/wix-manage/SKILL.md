@@ -74,7 +74,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Bookings
 
 ### [Booking Service Policy Setup](references/bookings/booking-service-policy-setup.md)
-**Technical:** Sets up booking policies, cancellation rules, and waitlist configuration using the Services API policy fields. Covers bookingPolicy, cancellationPolicy, and waitlist settings.
+**Technical:** Sets up booking policies, cancellation rules, and waitlist configuration using the Booking Policies API — query for the (default) bookingPolicy entity, then PATCH it with its revision. Covers cancellationPolicy, reschedulePolicy, booking-notice limits, waitlistPolicy, and participants limits — e.g. "customers can cancel up to 24 hours before".
 
 ### [Booking System Integration Gaps](references/bookings/booking-system-integration-gaps.md)
 **Technical:** Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows.

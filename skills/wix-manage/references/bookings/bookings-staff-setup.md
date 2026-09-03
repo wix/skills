@@ -68,7 +68,8 @@ The most common mistake is confusing which ID to use in which API call, leading 
 
 * **Two-Step Requirement**: Custom working hours requires both `assignWorkingHoursSchedule` AND creating `WORKING_HOURS` events. Only doing the first step results in staff with no actual working hours.
 * **Foundation Dependencies**: Staff operations require Wix Bookings app installation and proper business schedule configuration. "Business schedule not found" errors indicate missing foundation setup.
-* **Event Field Requirements**: When creating `WORKING_HOURS` events, several fields that appear optional in documentation are actually required: `externalScheduleId`, `adjustedStart`, `adjustedEnd`, `resources` array, and `appId`.
+* **Bulk Request Envelope**: `bulkCreateEvents` requires each event to be wrapped in an `event` object — `{"events": [{"event": {...}}], "returnEntity": true}`. Sending a flat `{"events": [{...}]}` fails with 400 `event must not be empty`. Pass `returnEntity: true` to get the created events back; otherwise the response contains only `itemMetadata`.
+* **Minimal Event Fields**: A `WORKING_HOURS` event needs only `type`, `scheduleId`, `start.localDate`, `end.localDate`, and (for recurring hours) `recurrenceRule`. The server derives `externalScheduleId` (set to the staff member's resource ID automatically), `adjustedStart`/`adjustedEnd`, and `appId`; `resources` may stay empty on a working-hours schedule.
 * **Revision Numbers**: Event updates ALWAYS require the current revision number. Fetch current event details before any update operation.
 * **Time Format Precision**: All date/time fields must use precise ISO 8601 format (`YYYY-MM-DDTHH:mm:ss`) without timezone indicators.
 * **Separate Events for Each Day**: Each working day requires a separate event with single-day recurrence rules. You cannot specify multiple days in one event's `recurrenceRule.days` array.
@@ -113,9 +114,7 @@ Before creating staff members, ensure the foundation is properly configured:
 
 **Install Wix Bookings App** (if needed): Use the App Installer API with Wix Bookings app ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`.
 
-**Configure Business Schedule**: Set up site properties with business operating hours using the Site Properties API.
-
-**Create Calendar Schedule and Working Hours**: Create a calendar schedule for Wix Bookings integration and populate it with business `WORKING_HOURS` events.
+**Configure Business Schedule**: Default business hours live as `WORKING_HOURS` calendar events on the business schedule — set them up per the [Configure Default Business Hours](../calendar/configure-default-business-hours.md) recipe. Do **not** use the Site Properties API for this: its business-schedule fields are separate general site info and do not drive Bookings availability.
 
 ### 2. Verify Current Business Hours (CRITICAL)
 
@@ -174,15 +173,29 @@ Verify the response shows `"usesDefaultWorkingHours": false`.
 
 **Step 5B: Create WORKING_HOURS Events**
 
-Use the Events API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) to create working hours events for each working day. Each event must include:
-- `scheduleId`: Staff member's events schedule ID
-- `externalScheduleId`: Staff member's resource ID
-- `type`: `"WORKING_HOURS"`
-- `resources` array: Staff member's resource ID
-- `appId`: Wix Bookings app ID
-- Proper recurrence rules with single-day specification
+Use the Events API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) to create one recurring event per working day. Note the request envelope: each event is wrapped in an `event` object.
 
-Create separate events for each day of the week the staff member works.
+```json
+{
+  "events": [
+    {
+      "event": {
+        "type": "WORKING_HOURS",
+        "scheduleId": "<STAFF_EVENTS_SCHEDULE_ID>",
+        "start": { "localDate": "2026-09-07T09:00:00" },
+        "end": { "localDate": "2026-09-07T15:00:00" },
+        "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] }
+      }
+    }
+  ],
+  "returnEntity": true
+}
+```
+
+- `scheduleId` is the staff member's **events schedule ID** (`resource.eventsSchedule.id`).
+- `externalScheduleId`, `adjustedStart`/`adjustedEnd`, and `appId` are derived by the server — you do not need to send them (`externalScheduleId` comes back set to the staff member's resource ID).
+- `recurrenceRule.days` accepts exactly one uppercase day name; create a separate event for each working day.
+- `start`/`end` must be today or in the future for recurring events.
 
 ### 6. Verify Setup
 
@@ -193,10 +206,9 @@ Query the staff member to confirm:
 
 ### IMPORTANT NOTES
 
-* **ID Relationship Critical**: Use staff member ID for assignment, events schedule ID for event `scheduleId`, and resource ID for `externalScheduleId` and `resources` array
+* **ID Relationship Critical**: Use the staff member ID for assignment and the events schedule ID for event `scheduleId`; the resource ID appears in server-derived fields (`externalScheduleId`) and in `resources` arrays when attaching this staff member to CLASS/COURSE session events
 * **Foundation First**: Complete foundation setup before staff operations to avoid "Business schedule not found" errors
 * **Complete Two-Step Process**: Both schedule assignment AND event creation are mandatory for custom working hours
-* **Event Field Requirements**: Include all required fields even if they appear optional in basic documentation
 * **Revision Management**: Always fetch current revision numbers before updating events
 * **Date Format Strict**: Use precise ISO 8601 format without timezone indicators
 * **Inheritance is Permanent**: Once inherited, business hours changes don't affect existing staff
@@ -218,7 +230,10 @@ Completed assignment but missing event creation. Create `WORKING_HOURS` events u
 - **Solution**: Standardize by configuring custom hours for all staff, or recreate staff after fixing business hours
 
 **"Invalid scheduleId" or "Resource not found" Errors**:
-Using wrong ID type in API calls. Verify you're using events schedule ID for `scheduleId`, resource ID for `externalScheduleId` and `resources` array, and staff member ID for updates.
+Using wrong ID type in API calls. Verify you're using the events schedule ID for `scheduleId` and the staff member ID for updates.
+
+**400 "event must not be empty" on bulkCreateEvents**:
+The request body is missing the per-event wrapper. Each entry in `events` must be `{"event": {...}}`, not the event fields directly.
 
 **Event Update Fails with Revision Error**:
 Get current event details first and include the revision number in update requests.
@@ -227,7 +242,7 @@ Get current event details first and include the revision number in update reques
 Use current or future dates for recurring event start dates.
 
 **Events Not Linked to Staff Member**:
-Ensure `resources` array contains staff member's resource ID and `externalScheduleId` is properly set.
+Verify the event was created on the staff member's own events schedule (`resource.eventsSchedule.id`) — the schedule is what links working-hours events to the staff member. The returned event's `externalScheduleId` should equal the staff member's resource ID (server-derived).
 
 ### Working with Existing Staff
 
