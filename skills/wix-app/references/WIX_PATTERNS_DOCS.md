@@ -2,23 +2,48 @@
 
 ## Prerequisites
 
-This skill bundles `scripts/patterns.cjs`. It locates the docs itself (pnpm, Yarn PnP, workspaces, symlinks) and prints them. **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of a doc path.
+Lookups here are direct file reads — no script. Resolve the installed package root once per session and reuse it:
 
 ```bash
-PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
-
-node $PATTERNS list                        # inventory, by category
-node $PATTERNS docs <Name1> <Name2> ...    # print those docs in ONE call
-node $PATTERNS docs <Name> --refs          # ...following cross-references one level
+node -e "
+const fs = require('fs'), path = require('path');
+function tryEnablePnp() {
+  let dir = process.cwd();
+  for (;;) {
+    const pnp = path.join(dir, '.pnp.cjs');
+    if (fs.existsSync(pnp)) { try { require(pnp).setup(); } catch {} return; }
+    const parent = path.dirname(dir);
+    if (parent === dir) return;
+    dir = parent;
+  }
+}
+tryEnablePnp();
+try {
+  console.log(path.dirname(require.resolve('@wix/patterns/package.json', { paths: [process.cwd()] })));
+} catch {
+  let dir = process.cwd();
+  for (;;) {
+    const candidate = path.join(dir, 'node_modules', '@wix', 'patterns');
+    if (fs.existsSync(path.join(candidate, 'package.json'))) { console.log(candidate); process.exit(0); }
+    const parent = path.dirname(dir);
+    if (parent === dir) { console.error('@wix/patterns not found'); process.exit(1); }
+    dir = parent;
+  }
+}
+"
 ```
 
-`list` doubles as the prerequisite check — run it once. If it prints the inventory, you are set.
+A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when the package is installed — run the whole snippet, not a shortened version.
 
-If it exits non-zero, `@wix/patterns` is absent or predates 1.367.0 (the first version shipping `dist/docs/`). Install the latest version, then re-run `list` once:
+Then confirm the installed version actually ships the bundle index:
 
 ```bash
-npm install @wix/patterns@^1.367.0
+ls <pkgRoot>/dist/dts-bundle/index.json
 ```
+
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. A missing *file* is not the same as a name not being covered (see below): the mechanism itself isn't available yet.
+
+**Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of an arbitrary path, and that includes the sanctioned directories: never browse `dist/dts-bundle/` or `dist/docs/` looking around. Every lookup below names the exact file to `Read` — go straight to it.
 
 ## Library Architecture
 
@@ -35,55 +60,33 @@ Provider                     <- WixPatternsProvider or WixPatternsBMProvider
 
 Each collection type follows the same Component + State + Hook pattern:
 
-| Collection       | Component          | State Type              | Hook                            |
-|------------------|--------------------|-------------------------|---------------------------------|
-| Table            | `Table`            | `TableState`            | `useTableCollection()`          |
-| Grid             | `Grid`             | `GridState`             | `useGridCollection()`           |
-| TableGridSwitch  | `TableGridSwitch`  | `TableGridSwitchState`  | `useTableGridSwitchCollection()`|
-| TableFolders     | `TableFolders`     | `TableFoldersState`     | `useTableFolders()`             |
-| GridFolders      | `GridFolders`      | `GridFoldersState`      | `useGridFolders()`              |
+| Component | State Type | Hook |
+| --- | --- | --- |
+| `Table` | `TableState` | `useTableCollection()` |
+| `Grid` | `GridState` | `useGridCollection()` |
+| `TableGridSwitch` | `TableGridSwitchState` | `useTableGridSwitchCollection()` |
+| `TableFolders` | `TableFoldersState` | `useTableFolders()` |
+| `GridFolders` | `GridFoldersState` | `useGridFolders()` |
 
-This table covers the common collection types — `node $PATTERNS list` has the full, authoritative one.
-
-Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
+Common types only; `dist/dts-bundle/index.json` has the authoritative set. Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
 ### Choosing the Right Provider
 
-| Provider                        | When to Use                                                                          |
-|---------------------------------|--------------------------------------------------------------------------------------|
-| `WixPatternsProvider`           | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza) and supplies the right context. |
-| `WixPatternsBMProvider`         | Optional alternative for Yoshi BM Flow over Business Manager.                        |
-| `WixPatternsGizaProvider`       | Optional alternative for Yoshi BM Flow over Giza.                                    |
-| `WixPatternsEssentialsProvider` | Yoshi Fullstack.                                                                     |
-| `WixPatternsBaseProvider`       | App does **not** run under a Giza/WixEssentials environment and you inject services (i18n, sentry) yourself. |
+| Provider | When to Use |
+| --- | --- |
+| `WixPatternsProvider` | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza). |
+| `WixPatternsBMProvider` | Optional alternative for Yoshi BM Flow over Business Manager. |
+| `WixPatternsGizaProvider` | Optional alternative for Yoshi BM Flow over Giza. |
+| `WixPatternsEssentialsProvider` | Yoshi Fullstack. |
+| `WixPatternsBaseProvider` | App does **not** run under Giza/WixEssentials and you inject services (i18n, sentry) yourself. |
 
-Prefer `WixPatternsProvider` unless the project is on one of the specific Yoshi flows above — it is the documented recommendation for most apps, and it resolves the environment for you rather than making you pick.
-
-**Confirm the import path in the provider's own doc file** — these do not all come from the same subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`, for instance). Check the project's `package.json` to identify the flow.
+**Confirm the import path in the provider's own bundle** — they don't all share a subpath (`WixPatternsEssentialsProvider` and `WixPatternsBaseProvider` are under `@wix/patterns/essentials`). The project's `package.json` identifies the flow.
 
 ### Keep Provider and Page Separate
 
-The provider **must** be in a separate parent component from the page content. Hooks like `useTableCollection` require the provider's context to already exist above them in the React tree.
+The provider **must** live in a parent component of the page content: hooks like `useTableCollection` need its context to already exist above them in the React tree.
 
-**Wrong — provider and page in the same component:**
-```tsx
-function BadApp() {
-  const state = useTableCollection({
-    queryName: 'my-items',
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    fetchData: async () => ({ items: [], total: 0 }),
-    filters: {},
-  }); // fails at runtime — no provider context above this component
-  return (
-    <WixPatternsProvider>
-      <CollectionPage>
-        <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
-      </CollectionPage>
-    </WixPatternsProvider>
-  );
-}
-```
+**Wrong:** calling `useTableCollection` in the same component that renders `WixPatternsProvider`. The hook runs before the provider exists above it, so it throws at runtime — and the JSX nesting looks right, which is what makes this hard to spot.
 
 **Correct — provider in root, page in a separate file:**
 ```tsx
@@ -103,13 +106,14 @@ import { Table, useTableCollection } from '@wix/patterns';
 import { CollectionPage } from '@wix/patterns/page';
 
 function MyCollectionPage() {
+  // works — the provider context exists above this component
   const state = useTableCollection({
     queryName: 'my-items',
     itemKey: (item) => item.id,
     itemName: (item) => item.name,
     fetchData: async () => ({ items: [], total: 0 }),
     filters: {},
-  }); // works — the provider context exists above this component
+  });
   return (
     <CollectionPage>
       <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
@@ -118,9 +122,9 @@ function MyCollectionPage() {
 }
 ```
 
-Always keep the provider (and router if needed) in the app's root component, and each page in its own file.
+Keep the provider (and router, if any) in the app's root component and each page in its own file.
 
-When the user needs **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) instead of a separate router. Look up the relevant doc files for setup details.
+For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router; look the doc files up for setup.
 
 ## How to Look Things Up
 
@@ -128,29 +132,23 @@ When the user needs **multiple pages**, use the `@wix/patterns` routing solution
 
 ### Finding the right name
 
-Use the `node $PATTERNS list` output from [Prerequisites](#prerequisites) — it groups every name by category, and related components share a prefix. Don't run it twice.
+`Read <pkgRoot>/dist/dts-bundle/index.json` — one entry per name, grouped implicitly by its `category` field. Lookup is **exact-match only**: no fuzzy matching, no typo suggestions. If the exact key isn't there, scan the index you already hold for something close before concluding the name isn't covered.
 
-Matching is case-insensitive, and a typo gets a suggestion back (`Tabel` -> `Did you mean: Table`). Quote names containing spaces: `node $PATTERNS docs "AI Assistant"`.
+Not every real `@wix/patterns` export is in this index — only the names these guides actually reference. If a name you need genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
 
 ### Reading doc files
 
-The inventory only tells you a component exists — read its doc before using it. Each doc has the category, import path, description, code examples, and API props table. **Always check the import statement** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+`Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for the cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above: it's produced for every documented component, not just the curated ones.
 
-Pass every name you need in **one** call; docs come back separated by `---`:
+**Always check the import statement inside the doc** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
 
-```bash
-node $PATTERNS docs Table useTableCollection TableState
-```
+### Reading the file the index names
 
-### Following cross-references
-
-Docs link to related names as Storybook URLs (`[TableState](./?path=/story/...--tablestate)`). The script resolves the link text back to a component and, after printing, lists the cross-referenced names it did not print plus the command to fetch them. Take what you need from that list rather than chasing every link; `--refs` follows one level automatically.
-
-Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System) — not part of `@wix/patterns` docs.
+The mechanics of the file an index names — types the docs don't cover, which one-line stubs are answers rather than truncation, subpath entry points, cross-references, split compound-component docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
 
 ## The Collection → Entity Flow
 
-A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form in a dashboard modal is the most common way this goes wrong.
+A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form as a dashboard modal is the most common way this goes wrong.
 
 | Step | What owns it |
 | --- | --- |
@@ -161,24 +159,20 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
 | The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
 
-`navigateToEntityPage` is preferred over a plain route change because the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.
+Prefer `navigateToEntityPage` over a plain route change: the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.
 
-Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note that `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
+Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
 
-Reserve dashboard modals for genuine dialogs — delete confirmations, short prompts — not entity editing.
+Three things about the `useEntityPage` call are worth getting right first time — both generics, what `onSave` receives, which params exist: [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+
+Reserve dashboard modals for dialogs that neither write nor display a listed record — a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. Size and field count are not exceptions — a one-field create form is still an `EntityPage`. A page that lists no records is outside this rule.
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `index.json` **and** searched the docs folder by keyword. Then, and only then:
+A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then, and only then:
 
 1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
-3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals or add another UI library.
+3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals, never add another UI library.
 
-Anything page- or collection-shaped (page shell, header, table, grid, filters, sorting, paging, row actions, bulk actions) is patterns' territory. If you're about to build one of those from WDS parts, you skipped a lookup.
-
-## Tips
-
-- **Compound components** have separate docs per sub-part: `CollectionPage.md`, `CollectionPage.Header.md`, `CollectionPage.Content.md`.
-- **Hook docs** list configuration options as props in the API table.
-- **Type docs** (e.g., `TableState.md`) describe the shape of state objects.
+Anything page- or collection-shaped (page shell, header, table, grid, filters, sorting, paging, row and bulk actions) is patterns' territory. If you're about to build one from WDS parts, you skipped a lookup.

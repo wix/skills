@@ -20,7 +20,7 @@ file responsibilities:
 | `<component-name>.tsx` | Edit | Implement the component UI and behavior. |
 | `<component-name>.module.css` | Edit | Define scoped component styles. |
 | `component.tsx` | Keep generated | Wire the component and `defaultProps` with `withDefaults`. |
-| `component.preview.tsx` | Usually keep generated | Customize only for editor-specific behavior, such as suppressing autoplay. |
+| `component.preview.tsx` | Edit narrowly | Keep generated wrappers; sync the preview adapter, one crucial data field, and root class. |
 | `<component-name>.generated.ts` | NEVER edit | Generated manifest consumed by the editor. |
 | `<component-name>.extension.ts` | Edit narrowly | Apply supported partial manifest overrides. |
 
@@ -64,7 +64,9 @@ their responsibilities intact.
 6. **Configure the editor extension when required.** For a new component or a
    requested sizing, installation, or manifest change, apply
    [`editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
-   to `<component-name>.extension.ts`. Otherwise preserve the existing file.
+   to `<component-name>.extension.ts`. Otherwise leave the file unchanged.
+   Finally, synchronize `requiredDataFields` and `rootClassName` in
+   `component.preview.tsx`.
 
 7. **Generate and validate.** Run:
 
@@ -103,9 +105,10 @@ component or edit `*.generated.ts` as a reference-driven fix.
 
 | Scope | Required references |
 | --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), and [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), and [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
 | Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md) and [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
 | Changing the public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), and [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
+| Changing public data props or the elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Creating or changing an item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), and [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
 | Changing the root direction contract, direction-sensitive behavior, or a `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
@@ -118,6 +121,7 @@ component or edit `*.generated.ts` as a reference-driven fix.
 | An interactive or selectable part is created or changed—for example a button, link, input, tab, accordion trigger, or carousel control—or a custom state is added | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Public event callbacks are added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output are introduced | [`SSR.md`](editor-react-component/SSR.md) |
+| A CSS feature or DOM API that is not clearly long-established is introduced, or the user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
 | Primary content is playable, looped, or autoplaying | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) and [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Runtime site pages, URLs, JavaScript direction, or reduced-motion context is needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) |
@@ -131,6 +135,9 @@ component or edit `*.generated.ts` as a reference-driven fix.
 - Apply `dir={direction}` and the unconditional fallback-direction class to the
   elected root. Use logical CSS properties for direction-sensitive layout.
 - Keep render output deterministic and avoid browser globals during render.
+- Use only Baseline Widely Available CSS features and DOM APIs, or ones that
+  fall back to them. When a design needs a feature that is not, build the
+  supported alternative.
 - Route ARIA through the typed `a11y` contract; do not add one-off ARIA props.
 - Give every named inner part a global class, a CSS Module class, and a matching
   `elementProps` entry. The elected root uses top-level props instead.
@@ -143,3 +150,7 @@ component or edit `*.generated.ts` as a reference-driven fix.
   bodies accessibly.
 - If primary content autoplays or loops, provide an accessible play/pause
   control, honor reduced motion, and suppress autoplay in editor design mode.
+- In `component.preview.tsx`, keep `withDefaults` and `withFallbackPlaceholder`,
+  wrap the preview adapter when present, normally put
+  only the one data prop crucial to meaningful rendering in
+  `requiredDataFields`, and match `rootClassName` to the root global class.

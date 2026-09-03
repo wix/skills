@@ -1,0 +1,23 @@
+---
+// Shop listing — products and categories are fetched SERVER-SIDE (SEO) and handed to the
+// island as serialized DTO props; category switches then filter live on the client.
+// Wire as-is; theme via SiteLayout's tokens.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import ShopView from "../components/storefront/ShopView";
+import { fetchProducts, fetchCategories } from "../wix/storefront/catalog";
+import type { Category, ProductSummary } from "../wix/storefront/types";
+
+let products: ProductSummary[] = [];
+let categories: Category[] = [];
+try {
+  [products, categories] = await Promise.all([fetchProducts(), fetchCategories()]);
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // shipped empty state instead.
+}
+---
+
+<SiteLayout title="Shop">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Shop</h1>
+  <ShopView client:load initialProducts={products} initialCategories={categories} />
+</SiteLayout>

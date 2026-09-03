@@ -1,0 +1,10 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import AccountView from "../components/members/AccountView";
+import RequireAuth from "../components/members/RequireAuth";
+---
+
+<SiteLayout title="My account">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">My account</h1>
+  <RequireAuth client:only="react"><AccountView /></RequireAuth>
+</SiteLayout>

@@ -1,0 +1,49 @@
+name: google-ads/manage-campaign-success-guide-update
+description: >-
+  Verifies the agent treats an unambiguous statement that the user completed a
+  success guide recommendation as sufficient information to perform the correct
+  status update without another confirmation step.
+triggerPrompt: >-
+  I made the call-to-action button clearer as my Google Ads campaign success
+  guide recommended. Mark that recommendation as done.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-a-campaign-success-guide
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response:
+      - treats the user's completion statement as sufficient information and
+        does not ask whether they want to mark the recommendation complete or
+        which recommendation they mean;
+      - maps it to type CLEAR_CTA_COPY and status COMPLETED, identifying the
+        suggestion by type rather than by suggestion id;
+      - when campaign identity is available, uses POST
+        /pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status;
+        when the isolated scenario lacks site or campaign identity, asks only
+        one targeted question to resolve that identity before making this same
+        update; and
+      - does not claim that marking the item COMPLETED changed the campaign,
+        landing page, or call-to-action itself.
+
+      Fail if it treats the statement as an FYI, asks whether to perform the
+      update, maps to a different or multiple suggestions, uses a suggestion id
+      as the update key, invents an endpoint, or claims the underlying
+      recommendation was implemented.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path with the correct skill and
+      public documentation and one correct update request with no redundant
+      probing. Do not penalize one concise site or campaign selection question
+      when that identity is absent from the isolated scenario. Penalize treating
+      the report as an FYI, asking for confirmation despite the unambiguous
+      completion statement, guessed request shapes, wrong endpoints, repeated
+      mutations, and internal service or tool names in the user-facing answer.
+      Name the likely recipe/docs gap for each detour. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.

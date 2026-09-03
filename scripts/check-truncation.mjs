@@ -11,6 +11,14 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
 const LIMIT = parseInt(process.argv.find(a => a.startsWith('--limit='))?.split('=')[1] ?? '10000', 10);
+
+// --files=a,b,c limits the scan to specific paths, and --fail exits non-zero when
+// any of them is over. The repo has a long tail of pre-existing over-limit files,
+// so a gate that scans everything can only ever be red; scoping it to what a PR
+// touches stops *new* violations without demanding that backlog be cleared first.
+const ONLY = (process.argv.find(a => a.startsWith('--files='))?.split('=')[1] ?? '')
+  .split(',').map(f => f.trim()).filter(Boolean);
+const FAIL_ON_OVER = process.argv.includes('--fail');
 const ROOT = new URL('..', import.meta.url).pathname;
 const SKILLS_DIR = join(ROOT, 'skills');
 
@@ -74,8 +82,9 @@ for (const skillDir of readdirSync(SKILLS_DIR)) {
   }
 
   for (const f of files) {
-    const content = readFileSync(f, 'utf8');
     const rel = relative(ROOT, f);
+    if (ONLY.length && !ONLY.includes(rel)) continue;
+    const content = readFileSync(f, 'utf8');
     const result = analyze(f, content);
     result.path = rel;
     if (result.ok) {
@@ -129,3 +138,11 @@ if (totalLost > 0) {
   console.log(`Total distinct exported functions lost: ${allLostExports.length}`);
 }
 console.log();
+
+if (FAIL_ON_OVER && overLimit.length) {
+  console.error(
+    `\n${overLimit.length} file(s) exceed the ${LIMIT.toLocaleString()}-char fetch limit. ` +
+      `An agent fetching one of these silently loses the tail — usually the part the file is linked for.`,
+  );
+  process.exit(1);
+}

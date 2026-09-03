@@ -275,6 +275,8 @@ curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
 
 ### Update Media Only
 
+Sets the product-level gallery (`media.itemsInfo.items`). For an image shown per option choice (a swatch's photo), see **Per-choice media** below.
+
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" \
@@ -295,6 +297,56 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
       }
     }
   }'
+```
+
+### Choice & variant fields (what you can set)
+
+Send these inside the `options` / `variantsInfo.variants` arrays — **both arrays complete, in the
+same PATCH**, with the current `revision`, and **identity-preserving** (see *Update Options and
+Variants*): keep the option's `id` and every `choiceId`, or the ids are re-minted and the existing
+variants no longer resolve (`400 "Variant choice not found in product options"`). Each variant needs
+its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *Gotchas*) **and** a
+`price` — omitting price is `400 "price must not be empty"`.
+
+**Option choice** (`options[].choicesSettings.choices[]`):
+- `name`, `choiceType`, `colorCode` — the choice's identity and swatch colour.
+- `media` = `{ "items": [ { "mediaId" } | { "url" } ] }` — the product photos shown when this choice is picked. `url` is write-only; on read you get `mediaId` (request the `PRODUCT_CHOICES_MEDIA_REFERENCES` mask). Use `media`, **not** `linkedMedia` (a separate display-filter, returned empty when you read `media`).
+  - **Gallery-first; the id you link is the gallery item's, not the upload's.** Add the `url` to the gallery, then read the product back and link the id you see there:
+
+    ```
+    GET /stores/v3/products/{id}?fields=MEDIA_ITEMS_INFO
+    #  → media.itemsInfo.items[].id = "abc~mv2.jpg"   ← link THIS as choice media.items[].mediaId
+    # the id from POST /site-media/v1/files/import or /files/get-file-by-id 400s as a choice mediaId
+    ```
+    `{ "url" }` works in place of `{ "mediaId" }` too, but only once the image is already in the gallery.
+- `displayImage` — the image shown on the swatch itself (distinct from `media`).
+- Read-only, don't send: `inStock`, `visible`, `key`.
+
+**Variant** (`variantsInfo.variants[]`, by its `id` from Get Product; always send `choices` + `price` with it):
+- `price` = `{ "actualPrice": { "amount" }, "compareAtPrice": { "amount" } }` — set `compareAtPrice` above `actualPrice` for a strikethrough sale; omit it for full price.
+- `sku`, `barcode` — per combination.
+- `visible` — hide a single variant.
+- `revenueDetails` — cost / profit tracking.
+- Read-only, don't send: `media` (derived from the choices' media), `inventoryStatus` (stock — use the Inventory API, see *Set Stock for New Variants*), `subscriptionPricesInfo`.
+
+```bash
+# A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
+# this exact shape is the one that succeeds; the two shortcuts (choices by name only, or a variant
+# without its choices/price) each 400.
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" -H "Authorization: <AUTH>" \
+  -d '{ "product": { "id": "{productId}", "revision": "{currentRevision}",
+        "options": [ { "id": "{optionId}", "name": "Color", "optionRenderType": "COLOR_CHOICES",
+          "choicesSettings": { "choices": [
+            { "choiceId": "{choiceId1}", "name": "Red", "choiceType": "ONE_COLOR", "colorCode": "#C0392B",
+              "media": { "items": [ { "mediaId": "abc~mv2.jpg" } ] } },
+            { "choiceId": "{choiceId2}", "name": "Blue", "choiceType": "ONE_COLOR", "colorCode": "#2C3E50" } ] } } ],
+        "variantsInfo": { "variants": [
+          { "id": "{variantId1}", "sku": "TEE-RED-L",
+            "price": { "actualPrice": { "amount": "20" }, "compareAtPrice": { "amount": "30" } },
+            "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId1}" } } ] },
+          { "id": "{variantId2}", "price": { "actualPrice": { "amount": "20" } },
+            "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId2}" } } ] } ] } } }'
 ```
 
 ### Update Variant Price Only
@@ -325,6 +377,35 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
+### Attach a Digital File
+
+A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "variantsInfo": {
+        "variants": [
+          {
+            "id": "{existingVariantId}",
+            "price": { "actualPrice": { "amount": "9.99" } },
+            "visible": true,
+            "inventoryItem": { "inStock": true },
+            "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
+          }
+        ]
+      }
+    }
+  }'
+```
+
+Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in the response.
+
 ## Important Notes
 
 - A request to hide a product is a `visible: false` update on the product, never a Delete Product call and never a variant-only change.
@@ -348,3 +429,5 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
+| `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
+| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Set `inventoryItem.inStock: true` on the variant |

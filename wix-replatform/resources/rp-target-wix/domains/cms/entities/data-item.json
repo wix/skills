@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "entity": "data-item",
+  "displayName": "CMS Data Item",
+  "capability": "cms.data-item",
+  "target": {
+    "classification": "cms",
+    "nativeEntity": "Wix Data Item",
+    "verifiedFqdn": "wix.data.v2.data_item",
+    "idPolicy": "client-assigned",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "custom_post_type_item",
+      "routes": [
+        "/wp/v2/{type}"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "cmsDataItem",
+      "routes": [
+        "Wix Data Items"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Wix Data Items",
+    "endpoint": "POST /wix-data/v2/items",
+    "writerId": "insertDataItem",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "readonly-dates",
+      "severity": "warning",
+      "summary": "_createdDate and _updatedDate are read-only; preserve source dates in explicit fields."
+    },
+    {
+      "code": "bulk-save-replaces",
+      "severity": "warning",
+      "summary": "Bulk Save replaces complete items, so generated records must include all fields."
+    }
+  ],
+  "mappingGuidance": [
+    "Use client-supplied IDs where possible for recoverable CMS imports.",
+    "Large-volume alternative: the Data Movement Jobs API imports a file into a collection as an async job (Submit Job + Create File Upload Url). Per-item API writes stay preferred — deterministic per-row errors and crosswalk stamping — but evaluate the job channel live when a collection import is large enough that per-item calls dominate the run."
+  ],
+  "setupRequirements": [
+    "Wix Data enabled",
+    "Target collection exists before item writes."
+  ],
+  "evidence": [
+    
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/data-movement-jobs/introduction",
+      "note": "file-to-collection bulk import jobs; evaluated at the docs-survey sweep 2026-08-11"
+    }
+  ]
+}

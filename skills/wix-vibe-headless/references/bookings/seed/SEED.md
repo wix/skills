@@ -101,6 +101,47 @@ await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: servic
 Both bulk calls report per-item `success`/`error` — retry only the failed items **once** with the
 same body; don't loop and don't re-create the ones that already succeeded.
 
+## Rentals
+
+`seed-rentals.js` is the rentals half — the same transport, a different create order and payload.
+Wix Rentals has no APIs of its own, so a rental is a Bookings service with rentals-specific
+field values.
+
+```js
+const seed = require("…/references/bookings/seed/seed-rentals.js");
+await seed.setupRentals(ctx, {
+  resourceTypeName: "Meeting rooms",
+  resources: ["Room A", "Room B"],              // parallel capacity = MORE RESOURCES
+  rentals: [
+    { name: "Meeting room, hourly", description: "…", price: 25, unit: "HOUR", min: 60, max: 480 },
+    { name: "Meeting room, daily",  description: "…", price: 180, unit: "DAY", min: 1, max: 5 },
+  ],
+});
+// → { resourceType, resources, services, ok, problems }
+```
+
+`price` is a RATE — per hour or per day — not the cost of a rental.
+Hourly `min`/`max` are MINUTES (30–1440); daily are DAYS (1–8).
+
+**`ok` must be true.** `problems` is the read-back check: a service created without `appId` or
+without `durationRange` still returns 200 and is simply a plain Bookings service from then on.
+
+### The four traps this seed handles
+
+- **Install Rentals ONLY.** It provisions the Bookings infrastructure it runs on; installing
+  Wix Bookings as well is redundant.
+- **`appId` is immutable after create.** A service created without it is a plain Bookings
+  service forever — there is no update that converts it.
+- **Order is load-bearing: resource type → resources → services.** A service whose resource
+  type holds no resources has permanently empty availability, and nothing errors.
+- **Rental services do not use categories.** Unlike bookings, do not create or assign one.
+- **`serviceResources` is required** and the docs' Create Service parameter list omits it.
+  Without it the create fails `MISSING_APPOINTMENT_RESOURCES`, whose message sends you to check
+  the resource type's contents — a dead end, since it fails even when the type is populated.
+
+Resources are seeded **24/7** (no working hours) so a multi-day rental stays one booking rather
+than a multi-service group. Pass `workingHours` only when the brief names opening hours.
+
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
 use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The

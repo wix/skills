@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "entity": "email-subscription",
+  "displayName": "Email Subscription",
+  "capability": "crm.email-subscription",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Email Subscription",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "newsletter_subscription",
+      "routes": [
+        "plugin-specific subscription routes"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "emailSubscription",
+      "routes": [
+        "Email Subscriptions API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Email Subscriptions",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": true
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for consent evidence and source subscription audit history."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "consent-proof-required",
+      "severity": "blocker",
+      "summary": "Only set subscribed states when the migration has consent evidence."
+    }
+  ],
+  "mappingGuidance": [
+    "Keep consent evidence and source timestamps available for review."
+  ],
+  "setupRequirements": [
+    "Consent policy decision before subscription writes."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/email-subscriptions/emailsubscription-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+    
+  ]
+}

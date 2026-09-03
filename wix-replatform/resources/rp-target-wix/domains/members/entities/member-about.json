@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "entity": "member-about",
+  "displayName": "Member About",
+  "capability": "identity.member-about",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Members About",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Members About V2",
+    "endpoint": "POST /members/v2/abouts",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "Create with { memberAbout: { memberId, content: { nodes: [...] } } }; content is a Ricos RichContent node tree. One About per member (unique constraint on memberId), so the import path is upsert: query by memberId, PATCH the existing About with its revision, otherwise create."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "rich-content-wrapping",
+      "severity": "warning",
+      "summary": "content is Ricos RichContent (node tree), not plain text; a WordPress user description must be wrapped as paragraph nodes. Malformed node trees fail the write. Verified-live minimal shape: { nodes: [ { type: 'PARAGRAPH', id: 'p1', paragraphData: {}, nodes: [ { type: 'TEXT', id: '', nodes: [], textData: { text, decorations: [] } } ] } ] }."
+    },
+    {
+      "code": "member-must-exist",
+      "severity": "blocker",
+      "summary": "Keyed by memberId — the member import must complete and the crosswalk resolve before abouts are written."
+    },
+    {
+      "code": "one-about-per-member",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: a second create for the same memberId returns 409 ALREADY_EXISTS (uniqueConstraintViolation on memberId). A resumed/retried import must upsert — POST /members/v2/abouts/query { query: { filter: { memberId } } }, then PATCH /members/v2/abouts/{id} with { memberAbout: { id, revision, memberId, content } } (revision required; returns revision+1)."
+    },
+    {
+      "code": "about-outlives-member",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: DELETE /members/v1/members/{id} does NOT delete that member's About — the record is still returned by the abouts query afterwards. Probe/rollback cleanup must delete the About explicitly (DELETE /members/v2/abouts/{id}), and a re-import onto a cleaned site can collide with an orphan About."
+    }
+  ],
+  "mappingGuidance": [
+    "Import after members/member: resolve memberId from the crosswalk, wrap the source bio (WP user description) in a minimal RichContent paragraph tree.",
+    "Skip empty bios rather than writing empty abouts.",
+    "Use upsert semantics (query by memberId → PATCH with revision, else POST) so re-runs don't 409."
+  ],
+  "setupRequirements": [
+    "Wix Members Area app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members-about-v2/member-about-object",
+      "note": "object page: memberId + RichContent content"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members-about-v2/create-member-about"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: create → 200 (about aedb21d9…, revision 1) on a probe member; GET by id and query-by-memberId both read the content back; PATCH with revision → 200 revision 2; duplicate create → 409 ALREADY_EXISTS; probe member + orphan About deleted"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Members About V2). WordPress core user description maps here; not covered by the members/member basic-profile import. Promoted to verified-live 2026-08-16 by a create/read/update/delete probe on the probe site — one-About-per-member and About-outlives-member were discovered by that probe."
+}

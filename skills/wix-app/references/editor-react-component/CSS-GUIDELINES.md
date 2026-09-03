@@ -177,6 +177,22 @@ A dynamic runtime value that cannot be represented statically may use a narrowly
 scoped CSS custom property set from JSX, but keep the actual style rule in CSS
 and do not expose a visual prop solely for that purpose.
 
+```css
+/* Typography: zero config builds the `font` control from both longhands.
+   A part with a size but no family gets a control with no default. */
+.cta {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Avoid: a module-only wrapper is not an editor element. A size here is
+   uneditable and silently overrides the parent's typography control. */
+.cta-label {
+  font-size: 14px;
+}
+```
+
 ## Interaction and Motion
 
 - Set `pointer-events: auto` on the root and each interactive element.
@@ -198,7 +214,7 @@ When creating a component and the request has no visual direction, use a
 restrained accessible default. When editing an existing component, preserve its
 visual language unless the request changes it.
 
-- body text at least 16px and labels at least 14px
+- body text at least 16px and labels at least 14px, with an explicit `font-family`
 - WCAG AA contrast (4.5:1 body text, 3:1 large text and UI controls)
 - touch targets at least 44 by 44px
 - clear hierarchy and visible focus states
@@ -220,4 +236,6 @@ than hardcoded generic color choices.
 - [ ] A sizing chain exists only on bounded growing axes.
 - [ ] Layout is container-driven and uses logical inline properties.
 - [ ] Static styling stays in CSS; custom properties exist only when needed.
+- [ ] Every part that sets `font-size` also sets `font-family`, on the part that
+      should own the typography control.
 - [ ] Interactive elements expose pointer events and accessible design states.

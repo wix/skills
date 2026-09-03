@@ -2,7 +2,7 @@
 
 What makes a generated dashboard page actually *succeed* for the person using it. Use this to turn a vague prompt ("help me manage order exceptions") into concrete requirements, and as the checklist before calling a dashboard done.
 
-Source: [FeatureVibe Product Doc](https://docs.google.com/document/d/1874rP_5_uMLzfF_kMGWYuSLvsW_PXVh4REg7pJeixT4/edit)
+Ported from the FeatureVibe dashboard product doc.
 
 > **North Star.** A successful dashboard helps a site owner or collaborator **understand what matters, complete the intended task, and trust the result**. It fulfills the user's prompt through a clear workflow, the right presentation, and trustworthy business data.
 
@@ -24,13 +24,13 @@ A generated dashboard succeeds across three connected dimensions.
 
 The prompt defines the outcome. The stages define the journey from understanding the situation to confirming the result. They are **user needs**, not necessarily separate screens or a rigid sequence.
 
-| Stage | User outcome | Typical dashboard support |
-|---|---|---|
-| **Understand** | Know the current situation. | Summaries, status indicators, trends, counts, scope, and freshness. |
-| **Focus** | Recognize what matters or requires attention. | Search, filters, sorting, saved views, alerts, hierarchy, and useful empty states. |
-| **Investigate** | Access the details needed to decide. | Record details, related information, history, and visible data gaps. |
-| **Act** | Complete the intended business task. | Create, edit, approve, assign, delete, and bulk actions that respect permissions. |
-| **Feedback** | See that the action succeeded and the state changed correctly. | Feedback, refreshed records, updated counts and views, and visible history. |
+| Stage | User outcome |
+|---|---|
+| **Understand** | Know the current situation. |
+| **Focus** | Recognize what matters or requires attention. |
+| **Investigate** | Access the details needed to decide. |
+| **Act** | Complete the intended business task. |
+| **Feedback** | See that the action succeeded and the state changed correctly. |
 
 ### 1. Understand
 
@@ -130,6 +130,8 @@ Choose the smallest interface that gives users enough context and room to comple
 | **Entity page** | The task involves complex details, multi-section editing, history, or related information. | The user has enough space and structure to complete deeper work. |
 | **Inline or expanded row** | The user needs a quick inspection or simple action. | Detail appears without creating a separate workspace. |
 
+Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in [Collection Toolkit](COLLECTION_TOOLKIT.md). Patterns has no side panel; that one is WDS.
+
 
 ## Data Success
 
@@ -166,8 +168,6 @@ Data success means giving users a complete and trustworthy view of the business.
 |---|---|---|---|
 | **Order exceptions** | eCommerce order | Payments, Contacts, Stores | Resolve unpaid, delayed, or incorrect orders from one queue. |
 | **Booking follow-up** | Booking or appointment | Bookings, Contacts, Payments | Find missed or unpaid appointments and contact the client. |
-| **Subscription health** | Pricing-plan subscription | Pricing Plans, Payments, Members | Identify at-risk subscribers and take retention action. |
-| **Inventory reorder** | Store product or variant | Stores, eCommerce orders, CMS | Recognize shortages and decide what to reorder. |
 
 
 ## Evaluation

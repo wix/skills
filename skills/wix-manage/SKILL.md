@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -278,6 +278,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Routing — Google paid-advertising campaigns for a site (Smart & Performance Max).** All flows require a Google Ads account, created once via the setup recipe. Budgets are in micros (1,000,000 = 1 currency unit). REST base: `https://www.wixapis.com/google-ads/v1`.
 - **First-time setup / "connect Google Ads" / `ACCOUNT_NOT_FOUND`** → [Install and Create an Account](references/google-ads/install-and-create-account.md) (do this before anything else).
 - **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
+- **Offer a Success Guide after creating a PMAX Leads campaign (a proactive offer requires approval) / improve it / success guide / says they completed or fixed a guide recommendation / mark or reopen a recommendation** → [Manage a Campaign Success Guide](references/google-ads/manage-campaign-success-guide.md) (a direct improvement/guide request is already approval; works while `LEARNING` and before metrics exist).
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
 - **Pause / resume / launch / update budget / delete / history** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
 - **Performance, conversions, search terms, per-product / per-asset metrics** → [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md).
@@ -295,6 +296,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md)
 **Technical:** Lists/gets campaigns and runs lifecycle actions: launch (first activation) vs resume (reactivate after pause), pause (with optional `scheduledResumeDate`/reminder), partial `UpdateCampaign` (name, budget, targeting), delete (irreversible), and read the change log / status history. Covers the 5-live-campaign cap and budget-boundary validation.
 
+### [Manage a Campaign Success Guide](references/google-ads/manage-campaign-success-guide.md)
+**Technical:** Retrieves or generates the prioritized success guide for an existing Google Ads Performance Max Leads campaign and updates a returned suggestion's `OPEN` or `COMPLETED` tracking status. Use for "How can I improve my campaign?", "what should I fix next?", "show my campaign success guide", "mark this recommendation complete", and "reopen this recommendation". Also offer it directly after campaign creation—even while `LEARNING` or before metrics exist; only that proactive offer requires user approval before retrieval. A direct improvement or guide request is already approval. A clear statement that the user completed a returned recommendation is an actionable request to mark it `COMPLETED`, even when phrased as an update rather than a question; do not merely acknowledge it or ask for redundant confirmation. Pre-campaign assets, keywords, budgets, and targeting remain in Get AI Campaign Suggestions.
+
 ### [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md)
 **Technical:** Reads campaign analytics via six endpoints — daily performance metrics (with previous-period trends), conversion metrics (orders/revenue/ROAS from Wix), search terms, per-product shopping performance, and per-asset PMAX-Leads metrics. Explains `campaignResourceName` vs Wix `campaignId`, the `dateRange` shape, field enums, sorting, and paging.
 
@@ -303,6 +307,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
 **Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
+
+---
+
+## Google Business Profile
+
+**Routing — how a business appears on Google Search and Maps.** A Google connection is the prerequisite for all Google-backed location work: check it first, and route "connect / reconnect / disconnect Google" to the connection recipe.
+
+### [Connect a Wix Site to Google Business Profile](references/google-business-profile/connect-google-business-profile.md)
+**Technical:** Establishes, checks, and removes the site's Google Business Profile connection. Reads the connection status (`NEVER_CONNECTED` / `VALID` / `NEEDS_RECONNECT`), requests a single-use 15-minute connect URL for the site owner to authorize in their own browser, confirms completion by re-reading the status, and warns before any reconnect that permanently removes the site's imported locations. Never auto-retries the non-idempotent connect-URL call.
+
+### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
+**Technical:** Imports locations from the connected Google account (accounts → unimported locations → bulk create with per-item results), queries them Wix-only or hydrated with live Google data, routes each update to the correct side (Wix row vs Google listing), creates new Google listings, checks profile liveness via Voice of Merchant, and distinguishes un-importing from Wix from deleting the real Google listing. Reports a missing connection as a setup step and respects Google's shared ~10-edits-per-minute budget.
 
 ---
 
@@ -417,7 +433,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, and the writable choice/variant fields — media & displayImage, SKU/barcode, price incl. compareAtPrice (sale), visibility — plus revision-based updates and which fields are read-only (choice inStock/visible, variant media/inventory).
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.

@@ -225,6 +225,49 @@ the areas they sit in:
 - eCommerce checkout (paid bookings): https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md
 - Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
 
+## Rentals — the same client, one extra step
+
+**Wix Rentals has no APIs of its own.** A rental is a Bookings *service* with rentals-specific
+field values, so this whole client works on it: the catalog read, the booking form, and the
+`createBooking → cart → checkout` chain are all unchanged. `rest/wix-bookings-rentals.js` and
+`hooks/useRentalDuration.js` carry the only differences.
+
+**What tells a rental apart — the DATA, never the brief.** A service carries either a fixed
+session length or a duration RANGE the customer picks within; the two are mutually exclusive:
+
+```js
+import { isRental, rentalDuration, rentalRateLabel } from "@/rest/wix-bookings-rentals";
+isRental(service)   // true only when schedule.availabilityConstraints.durationRange is present
+```
+
+A 60-minute yoga class and a 60-minute massage are **not** rentals even though a massage is
+`type: "APPOINTMENT"` exactly like a rental is. Never branch on the service's name, its
+category, or what the brief called it.
+
+**The extra step.** An ordinary service is one choice (a slot). A rental is two: pick a START,
+then pick HOW LONG — and the price follows the length.
+
+```jsx
+const detail = useServiceDetail(serviceId);                        // service + start times
+const rental = useRentalDuration(detail.service, detail.selectedSlot, detail.timeZone);
+
+<SlotPicker … />                                                   {/* pick a start, as ever */}
+{rental.isRental && <RentalDurationPicker rental={rental} />}      {/* then pick a length */}
+```
+
+Book with `rental.endDate` as the slot's `localEndDate`; everything else in the booking call is
+identical.
+
+**Hard rules on top of the ones below:**
+
+- **Filter every catalog read by `appId`.** `queryRentals()` does it. On a site with both apps
+  an unfiltered `queryServices` returns haircuts next to meeting rooms.
+- **Never compute the total yourself.** A rental is charged as a rate, hourly at per-minute
+  granularity — 90 minutes of a $10/hour room is $15. `useRentalDuration` prices the chosen
+  length on the server; multiplying the displayed rate disagrees with checkout.
+- **Show the total before the customer commits.** A rate alone is not a price.
+- **One unit type per service.** A room rented by the hour *and* by the day is two services.
+
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped

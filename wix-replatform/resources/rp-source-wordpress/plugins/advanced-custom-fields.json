@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "plugin": "advanced-custom-fields",
+  "displayName": "Advanced Custom Fields",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/advanced-custom-fields/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.custom-fields",
+    "content.custom-field-schema"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "advanced-custom-fields/acf"
+    ],
+    "recordProperties": [
+      "acf",
+      "_acf_changed"
+    ],
+    "assetPathSlugs": [
+      "advanced-custom-fields"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "field-values",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wp/v2/posts",
+        "/wp/v2/media",
+        "/wp/v2/categories",
+        "/wp/v2/tags",
+        "/wp/v2/users"
+      ],
+      "propertyPath": "acf",
+      "candidateTargetRefs": [
+        "cms/data-item",
+        "cms/collection"
+      ],
+      "pitfalls": [
+        {
+          "code": "acf-key-rides-every-wp-v2-object-type",
+          "severity": "info",
+          "summary": "ACF registers a single REST field named `acf` per request, against whichever object sub type the request resolves to - post type, taxonomy or user. [VERIFIED IN PLUGIN SOURCE v6.8.7, includes/rest-api/class-acf-rest-api.php register_field(), 2026-08-16.] [VERIFIED LIVE 2026-08-16] the key is present on /wp/v2/posts (5/5), /wp/v2/pages (5/5), /wp/v2/media (5/5), /wp/v2/product (5/5), /wp/v2/podcast (4/4), /wp/v2/tribe_events (5/5), /wp/v2/categories (8/8) and /wp/v2/users (5/5). embeddedIn lists the core routes; any plugin CPT the classifier accepts through wp.data.registered-type carries it too, so an extraction step must look for `acf` on every wp/v2 record it fetches rather than only on the listed routes. /wp/v2/pages is listed nowhere because pages are excluded from backend-data scope by wp.frontend.pages."
+        },
+        {
+          "code": "absent-from-woocommerce-rest",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] the `acf` key does NOT appear on /wc/v3/products (0/100) or /wc/v3/products/categories (0/20) - ACF only extends the wp/v2 controllers. Custom field values on a WooCommerce product are therefore readable only through /wp/v2/product, which returns no commerce fields, so a product import that wants both must join the two by post id."
+        },
+        {
+          "code": "empty-array-means-no-groups-not-no-plugin",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] every sampled record on the reference store returned `acf: []` - an empty ARRAY, not an object - because the site has no field groups defined. Detection must treat presence of the key as the signal and must not require a truthy value; and a run that finds only empty acf keys should report 'ACF installed, no field data' rather than a failed read. [NEEDS-VERIFICATION on a site with real field groups: the populated shape (a {fieldName: value} object) and the per-field-type value shapes.]"
+        },
+        {
+          "code": "value-shapes-are-field-type-dependent",
+          "severity": "warning",
+          "summary": "ACF returns typed values, not strings: a relationship or post-object field returns post IDs (or embedded objects when ACF's rest_api_embed_links setting is on), an image/file field returns an attachment ID or an object, a repeater returns an array of row objects, a flexible-content field returns rows tagged with acf_fc_layout, and a taxonomy field returns term IDs. Every ID-bearing value must be remapped through the relevant crosswalk after its target exists, exactly like any other reference. A CMS collection column type cannot be chosen without knowing the field type, which is why field-group-definitions is a prerequisite rather than a nice-to-have. [DOCUMENTED - ACF field-type reference; not exercised live on this store.]"
+        },
+        {
+          "code": "rest-visibility-is-opt-in-per-field-group",
+          "severity": "warning",
+          "summary": "The `acf` property only carries a group's fields when that field group has Show in REST API enabled, and the whole integration can be switched off site-wide (acf_get_setting('rest_api_enabled')). Accordion, tab and message field types are never exposed (show_in_rest = false on those classes). [VERIFIED IN PLUGIN SOURCE v6.8.7, includes/rest-api/class-acf-rest-api.php and includes/fields/class-acf-field-{accordion,tab,message}.php, 2026-08-16.] So an empty or partial acf object can mean 'not exposed' rather than 'not set', and the run cannot tell the two apart from REST alone - reconcile against the field-group definitions before reporting completeness."
+        }
+      ]
+    },
+    {
+      "entity": "field-group-definitions",
+      "channel": "export-file",
+      "candidateTargetRefs": [
+        "cms/collection"
+      ],
+      "pitfalls": [
+        {
+          "code": "acf-field-group-cpt-is-not-rest-visible",
+          "severity": "blocker",
+          "summary": "Field group definitions are stored as posts of the `acf-field-group` post type, registered with 'show_in_rest' => false. [VERIFIED IN PLUGIN SOURCE v6.8.7, includes/post-types/class-acf-field-group.php:104, 2026-08-16.] [VERIFIED LIVE 2026-08-16: acf-field-group is absent from /wp/v2/types - 34 types, identical authenticated and unauthenticated - and GET /wp/v2/acf-field-group returns 404, as do acf-field, acf-post-type, acf-taxonomy and acf-ui-options-page.] There is no REST read path, authenticated or otherwise, so this entity is Blocked - recoverable (kind: user-file) until the user supplies an export."
+        },
+        {
+          "code": "the-export-the-user-must-produce",
+          "severity": "warning",
+          "summary": "ACF ships its own exporter - ACF > Tools > Export Field Groups, which emits a JSON file (or generates PHP) - and many themes keep the same JSON checked in under an acf-json/ directory. Either is the file to ask for. That JSON carries the field key, name, label, type, per-type settings (choices, sub_fields, layouts, return_format) and the location rules that say which post types the group applies to; the WXR export does NOT reliably carry it, because the definitions are posts plus their own acf-field child posts. Ask for the ACF JSON specifically, not for a WXR."
+        },
+        {
+          "code": "definitions-are-the-cms-schema",
+          "severity": "warning",
+          "summary": "This entity does not migrate as records - it is the input that decides the shape of the Wix CMS collection that field-values lands in: one column per ACF field, with the column type derived from the ACF field type, and one collection per (post type x field group) grouping. cms/collection is setup-config: the collection must exist before any item import, and creating it is not automated. Import ordering is therefore definitions (setup) -> owning records -> field values."
+        },
+        {
+          "code": "group-definitions-are-not-lost-if-unavailable",
+          "severity": "info",
+          "summary": "If the user cannot supply the export, the field VALUES are still fully readable from the `acf` key and can land in a CMS collection whose columns are inferred from the observed values. That is reduced fidelity - inferred types, no labels, no choice lists, repeaters flattened or stored as JSON - and it must be ledgered as such, but it is never a reason to drop the data."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `advanced-custom-fields/acf` - the main-file basename is `acf`, not the directory name, and the /wp/v2/plugins id carries no .php suffix [VERIFIED LIVE 2026-08-16 against the reference store: active, version 6.8.7, textdomain acf]. Never construct dir/dir.php. ACF PRO is a separate directory (advanced-custom-fields-pro/acf) and would appear as its own row.",
+    "Storage model: two different ones in one plugin, which is why it has two entities. Field VALUES are ordinary post/term/user meta that ACF re-exposes as a computed REST property (`acf`), so they are REST-visible without being registered meta - channel core-embedded. Field GROUP DEFINITIONS are a post type deliberately hidden from REST - channel export-file. Reading the values without the definitions is possible but lossy; reading the definitions without a user-supplied file is impossible.",
+    "Registers NO REST namespace of its own [VERIFIED LIVE 2026-08-16: the site's REST index advertises 93 namespaces and none is acf/*, acf/v3 or similar]. ACF is a textbook route-less plugin: nothing about it appears in the REST index, and the only way to see it is the payload-key pass over sampled records - the 'record payload keys' tier, and the reason detection is split into two passes.",
+    "Enqueues no front-end asset on this store [VERIFIED LIVE 2026-08-16: no wp-content/plugins/advanced-custom-fields path in the homepage or a post permalink], so assetPathSlugs will not fire and the fingerprinted tier cannot see ACF from public HTML. It is listed anyway because a theme that enqueues an ACF-provided script would expose it.",
+    "ACF also leaves a registered meta key `_acf_changed` on every post [VERIFIED LIVE 2026-08-16: present in the `meta` object of /wp/v2/posts, /wp/v2/pages, /wp/v2/product and /wp/v2/categories records, authenticated AND unauthenticated, value false]. It is an editor bookkeeping flag with no migration value, but it is a reliable secondary detection signal that survives when a site has zero field groups and every `acf` value is empty.",
+    "ACF's newer builders - ACF Post Types, ACF Taxonomies and ACF Options Pages - are stored as the acf-post-type / acf-taxonomy / acf-ui-options-page post types, all equally hidden from REST [VERIFIED LIVE 2026-08-16: all 404]. The custom post types they CREATE are normal registered types and are discovered by the classifier's wp.data.registered-type rule as usual, so their records are never missed; only the builder definitions are invisible. Options-page values are wp_options rows and are not readable at all."
+  ]
+}

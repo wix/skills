@@ -54,13 +54,16 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to request params (note the redirect session's `checkoutId`, which is just the cart's `_id`).
 
 ```jsonc
-// productsV3.queryProducts().…find()  →  result.items[]
-// productsV3.searchProducts({...})    →  result.products[]
+// Request CURRENCY and PLAIN_DESCRIPTION on every product read — they populate formattedAmount and plainDescription.
+const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
+// productsV3.queryProducts({ fields: PRODUCT_FIELDS }).…find()  →  result.items[]
+// productsV3.searchProducts({ ..., fields: PRODUCT_FIELDS })    →  result.products[]
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
-  actualPriceRange:    { minValue: { amount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
-  compareAtPriceRange: { minValue: { amount } },  // strike-through price
+  currency,                                       // present when CURRENCY is requested
+  actualPriceRange:    { minValue: { amount, formattedAmount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
+  compareAtPriceRange: { minValue: { amount, formattedAmount } },  // strike-through price
   inventory: { availabilityStatus },              // product-level stock, "IN_STOCK"
   media: { main: { image } },                     // image is a wix:image:// id → resolve it (see Rendering images)
   plainDescription,                               // plain string; description.nodes is the rich-text form
@@ -90,10 +93,22 @@ Each section below is a **self-contained storefront feature** — implement only
 
 ### Listing products (and the `_id` rule)
 
-Query products with `productsV3.queryProducts()` / `.searchProducts()`.
+Query products with `productsV3.queryProducts()` / `.searchProducts()`. **Every product listing,
+category search, and detail read must request `CURRENCY` and `PLAIN_DESCRIPTION`**. Without `CURRENCY`, `formattedAmount` is omitted
+and a product card renders an unsymbolled number such as `34.99` instead of a localized price. Without `PLAIN_DESCRIPTION`, `product.plainDescription` is absent for cards and detail pages.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md?apiView=SDK>
 
-**⚠️ `queryProducts()` takes NO arguments — it returns a builder, not a Promise.** Chain `.eq(...)`/`.limit(...)`/`.find()` on it (e.g. `await productsV3.queryProducts().limit(50).find()`). Passing a query object (`queryProducts({...})`) does **not** type-check and returns a `Promise` that has no `.limit`/`.eq`/`.find` to chain — if the SDK reference page shows a `(query, options)→Promise` signature, trust the installed no-arg builder over that example. (`searchProducts` is the one that *does* take a query — see category filtering below.)
+**⚠️ `queryProducts()` returns a builder, not a Promise.** Pass requested fields when needed, then chain `.eq(...)`/`.limit(...)`/`.find()` — for example:
+
+```js
+const PRODUCT_FIELDS = ['CURRENCY', 'PLAIN_DESCRIPTION'];
+const { items } = await productsV3
+  .queryProducts({ fields: PRODUCT_FIELDS })
+  .limit(50)
+  .find();
+```
+
+Do not pass a search/filter object to `queryProducts`; use `searchProducts` for that (see category filtering below). Reuse the same `PRODUCT_FIELDS` constant for every product read so home, shop, category, and detail pages cannot drift.
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
@@ -101,7 +116,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
 
-**Price** comes from `actualPriceRange.minValue.amount` (see the cheat-sheet) — **not** `price.actualPrice.amount` (the seed/write shape), which reads `undefined` → `$NaN`.
+**Price:** after requesting `CURRENCY`, render `actualPriceRange.minValue.formattedAmount` (and the matching `compareAtPriceRange` value) directly. Fall back to raw `.amount` only if the formatted value is unexpectedly absent. Never use `price.actualPrice.amount`: that is the seed/write shape and reads `undefined` → `$NaN`.
 
 ### Category navigation — list categories live
 
@@ -114,7 +129,7 @@ const res = await categories.queryCategories({
 }).exists('name', true).find();   // read the returned array per the SDK doc; ids are `_id`; link each to /category/<slug>
 ```
 
-**⚠️ The query MUST carry a filter condition — chain `.exists('name', true)` (as above), do NOT call a bare `.find()`.** A `.find()` with no chained filter serializes an empty `"filter": {}`, which `categories/v1/categories/query` rejects with `400 INVALID_FILTER` ("Filter expression cannot contain an empty condition"). **This is fatal on the visitor/manual-client (non-Astro) path** — the call throws and the nav never renders; managed-Astro's server-side transport happens to tolerate the empty filter, so a bare `.find()` *looks* fine there but breaks the moment the same code runs client-side. `.exists('name', true)` is a tautology (every category has a `name`), so it matches **all** categories and is accepted on **both** paths — use this one shape everywhere. **Do NOT filter on `visible`** (`.eq('visible', true)`): unlike `name`, `visible` is **not declared filterable** on `queryCategories`, so it triggers a silently-swallowed `400` and the nav renders blank; if you ever need to hide a category, filter the returned array **client-side**. (`getCategoryBySlug(slug, { appNamespace: '@wix/stores' })` on the category page is unaffected — it takes no query filter.) This is a **distinct API from bookings' `categoriesV2`** — don't copy that module's query shape here; read the exact result-array key + field names from the `@wix/categories` SDK doc: <https://dev.wix.com/docs/sdk/business-solutions/categories/introduction.md?apiView=SDK>.
+**⚠️ The query MUST carry a filter condition — chain `.exists('name', true)` (as above), do NOT call a bare `.find()`.** A `.find()` with no chained filter serializes an empty `"filter": {}`, which `categories/v1/categories/query` rejects with `400 INVALID_FILTER` ("Filter expression cannot contain an empty condition"). **This is fatal on the visitor/manual-client (non-Astro) path** — the call throws and the nav never renders; managed-Astro's server-side transport happens to tolerate the empty filter, so a bare `.find()` *looks* fine there but breaks the moment the same code runs client-side. `.exists('name', true)` is a tautology (every category has a `name`), so it matches **all** categories and is accepted on **both** paths — use this one shape everywhere. **Do NOT filter on `visible`** (`.eq('visible', true)`): unlike `name`, `visible` is **not declared filterable** on `queryCategories`, so it triggers a silently-swallowed `400` and the nav renders blank; if you ever need to hide a category, filter the returned array **client-side**. (`getCategoryBySlug(slug, { appNamespace: '@wix/stores' })` on the category page is unaffected — it takes no query filter.) This is a **distinct API from bookings' `categoriesV2`** — don't copy that module's query shape here; read the exact result-array key + field names from the `@wix/categories` SDK doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/introduction.md?apiView=SDK>.
 
 ### Filtering products by category
 
@@ -125,6 +140,7 @@ const res = await categories.queryCategories({
 ```js
 const { products } = await productsV3.searchProducts({
   filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
+  fields: PRODUCT_FIELDS,
 });
 ```
 
@@ -168,6 +184,8 @@ await currentCartV2.addLineItemsToCurrentCart({
 ```
 
 **⚠️ CRITICAL: `options.variantId` is MANDATORY for any product that has variants.** Adding by `catalogItemId` alone **fails** — the catalog can't resolve a variant-bearing product without it, and Cart V2 **rejects the add with an explicit error** rather than accepting an invalid line. The cart method's required-params list omits `variantId`, so it's an easy one to miss. Always resolve and include it (part 1 above).
+
+**CRITICAL: `ITEM_NOT_FOUND_IN_CATALOG` for a product that exists is a catalog defect, not a stale id.** A `DIGITAL` product whose variant has no `digitalProperties.digitalFile` is rejected under that code, and one with no stock is rejected as `exceeds available inventory` — both read back `visible: true` and in the catalog. Fix the product (`setup-online-store.md` → digital products); re-reading ids won't help.
 
 **⚠️ CRITICAL: `options.options` is for MODIFIERS, not variant selection.** Product option selections (Size/Color) are resolved to a **variant** and referenced by `variantId`. `options.options` is only for free-text / TEXT_CHOICES add-on **modifiers**. Do **not** encode Size/Color as `options.options` — that is the coffee-grind bug: the variant never resolves, so Cart V2 rejects the add with an explicit error.
 

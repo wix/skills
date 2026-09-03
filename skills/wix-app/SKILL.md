@@ -16,14 +16,22 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
+  - [ ] **🛑 SDK-First Gate (MANDATORY before any Data Collection):** Confirmed the data is NOT owned by an existing Wix app — if it is, use its SDK module, never CMS (see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms))
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then list the component inventory with `node <this-skill-dir>/scripts/patterns.cjs list`, installing `@wix/patterns@^1.367.0` if it reports the package missing or too old. Never inspect `node_modules` by hand.
-  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Read the `.md` doc file for every patterns component, hook, and state type you are about to write — `list` gives the name, the doc gives the props and the import path. Name the files you read before the first line of JSX.
+  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and [Collection Toolkit](references/dashboard-page/COLLECTION_TOOLKIT.md) for which component serves each need.
+    - [ ] **The page shows aggregate numbers, not only rows** (`SummaryBar`) — unless the prompt asks for a single record. "How many, and which ones need me" is why someone opens a dashboard.
+    - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
+    - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
+
+    A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
+  - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
@@ -44,14 +52,18 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 | ❌ WRONG                                    | ✅ CORRECT                                     |
 | ------------------------------------------- | ---------------------------------------------- |
+| Creating a CMS Data Collection for data an existing Wix app already owns (orders, products, bookings, contacts…), or deciding "no SDK exists" without a single MCP search | Use the domain's SDK module per the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) |
 | Hand-writing builder files, folders, UUIDs, or extension registration | Run `wix generate --params` — it owns scaffolding |
 | Implementing without reading the extension reference | Always read the relevant reference file first |
 | Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
-| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns docs via `scripts/patterns.cjs`, WDS via the `wix-design-system` skill |
+| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns via `dist/docs/index.json` + `dist/dts-bundle/index.json` (see [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md)), WDS via the `wix-design-system` skill |
 | Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
+| Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
+| Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `members.getMyMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
+| Elevating a read the platform filters by caller (`members.getMember`/`queryMembers`, `items.*`, catalog) to "make it return more" | Call it directly — elevating removes the filter and returns data the visitor was never entitled to |
 
 ---
 
@@ -60,7 +72,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 1. **What are you trying to build?**
    - Admin interface → Dashboard Extensions
    - Backend logic → Backend Extensions
-   - Data storage / CMS collections → Data Collection
+   - Data storage / CMS collections → Data Collection (app-owned data only — see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms))
    - Editor React component → Site Extensions (app projects only)
 
 2. **Who will see it?**
@@ -84,7 +96,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 ## Decision Flow (Not sure?)
 
 - **Admin:** Admin screen in the site owner's dashboard? → Dashboard Page — build its UI with `@wix/patterns` first, `@wix/design-system` for whatever patterns does not cover (see [Component Selection Order](#component-selection-order)). Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
-- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
+- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app-owned data? → Data Collection (see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms)).
 - **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ---
@@ -108,20 +120,17 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
-**Looking a component up takes two calls**, both through this skill's `scripts/patterns.cjs` — it finds the docs in `node_modules` for you, so never go looking yourself. Start with what exists:
+**Looking a component up is two direct file reads** — no script, never `node_modules` browsed by hand. Resolve the installed package root once per session ([Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites)), then reuse it. Start with what exists:
 
 ```bash
-PATTERNS="<this-skill-dir>/scripts/patterns.cjs"
-node $PATTERNS list
+cat <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-Then read the doc for each name you plan to use, including the state types they cross-reference. Props and import paths exist only there, and patterns is not a flat namespace — `@wix/patterns/page`, `/provider`, `/form` — so an import from memory is a guess. Pass them all at once:
+Then read the doc for each name you plan to use, including the state types they cross-reference — `Read <pkgRoot>/dist/docs/index.json` to find the file, then `Read` it directly. Props and import paths exist only there, and patterns is not a flat namespace — `@wix/patterns/page`, `/provider`, `/form` — so an import from memory is a guess.
 
-```bash
-node $PATTERNS docs Table useTableCollection TableState
-```
+Each doc gives its import line, props table, and an example. For a TypeScript type rather than a component — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface — look it up the same way in `dist/dts-bundle/index.json` instead and `Read` the `.d.ts` at exactly the `file` path it gives; it's already fully resolved, which is what keeps a deep `@wix/bex-core/dist/types/...` path out of the tree.
 
-If the script exits non-zero, `@wix/patterns` is missing or older than 1.367.0 — install it (`npm install @wix/patterns@^1.367.0`) and re-run `list`, per [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing docs folder is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
+If `dist/dts-bundle/index.json` doesn't exist, the installed `@wix/patterns` predates this feature — upgrade it, then re-check. See [Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites). **A missing index is not a reason to fall through to step 2**; it means the lookup has not happened yet. Falling through here is the single most common way a dashboard page ends up built entirely from WDS.
 
 Full lookup workflow, provider selection, and the provider/page separation rule: [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md).
 
@@ -146,16 +155,20 @@ Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third U
 
 ### Entity create and edit
 
-**Adding, editing, or viewing a single item from a collection page is an `EntityPage` — not a Dashboard Modal.** This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
+**Any dialog that creates, updates, or displays one record listed by a collection page is an `EntityPage` — not a Dashboard Modal.** This holds whether the records come from a CMS collection or an existing Wix app's SDK. A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule.
+
+A page that lists nothing — a settings page, an embedded-script config page — carries no `EntityPage` obligation. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
+
+This is the most common place the selection order gets dropped: the collection gets built correctly with patterns, then the "add item" flow is hand-built as a WDS form in a modal.
 
 The documented flow:
 
 1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
 2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
-3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`.
+3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
 
-Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a delete confirmation, a short prompt, an unrelated popup. Reach for it because the interaction is a true dialog, never because "the form should open in a modal."
+Use a Dashboard Modal for dialogs that neither write nor display a listed record: a delete or discard confirmation, an unsaved-changes prompt, an informational notice, or any dialog on a page that lists nothing. Dialog size and field count are not exceptions — a one-field create form over a listed record is still an `EntityPage`. Reach for a modal because the interaction persists nothing, never because "the form should open in a modal."
 
 ---
 
@@ -202,12 +215,64 @@ Use a Dashboard Modal only for dialogs that are genuinely not entity editing: a 
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
+| Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
+| Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
+| Reading a patterns bundle or doc file the index names | [PATTERNS_BUNDLE_READING.md](references/dashboard-page/PATTERNS_BUNDLE_READING.md) |
+
+---
+
+## SDK-First Rule (Existing Wix App Data Is Never CMS)
+
+**CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
+
+**Entity → SDK module map** (find the entity the user mentioned, use that package):
+
+| Entity | SDK package |
+| --- | --- |
+| orders / carts / checkout / refund records / fulfillments | `@wix/ecom` — orders live here regardless of vertical |
+| products / inventory / catalog | `@wix/stores` — ⚠️ V1/V3 check, see [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
+| payments / refunds / disputes | `@wix/payments` |
+| invoices / payment links / receipts | `@wix/get-paid` |
+| gift cards | `@wix/gift-vouchers` |
+| coupons | `@wix/marketing` |
+| pricing plans / subscriptions | `@wix/pricing-plans` |
+| bookings / services / staff / time slots | `@wix/bookings` |
+| calendar events / schedules | `@wix/calendar` |
+| table reservations | `@wix/table-reservations` |
+| restaurant menus / online orders | `@wix/restaurants` |
+| blog posts | `@wix/blog` |
+| site events / tickets / RSVPs | `@wix/events` |
+| reviews | `@wix/reviews` |
+| comments | `@wix/comments` |
+| groups | `@wix/groups` |
+| online programs | `@wix/online-programs` |
+| donations | `@wix/donations` |
+| portfolio | `@wix/portfolio` |
+| media files | `@wix/media` |
+| contacts / labels / tasks | `@wix/crm` |
+| members | `@wix/members` |
+| inbox conversations | `@wix/inbox` |
+| forms / form submissions | `@wix/forms` |
+| loyalty points / rewards | `@wix/loyalty` |
+| email marketing | `@wix/email-marketing` |
+| notifications | `@wix/notifications` |
+| analytics | `@wix/analytics-data` |
+| automations | `@wix/automations` |
+| SEO tags / redirects | `@wix/seo` |
+| site search | `@wix/search` |
+| secrets | `@wix/secrets` |
+| locations / site properties | `@wix/business-tools` |
+| app instances | `@wix/app-management` |
+
+If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
 ---
 
 ## Data Collection Inference
 
 **CRITICAL:** Data collections are often needed implicitly — don't wait for the user to explicitly say "create a CMS collection." Infer the need automatically.
+
+**⚠️ Apply the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) first** — the indicators below only apply to data your app itself owns, not to entities a Wix app already manages.
 
 **Skip this section if the user provides a collection ID directly** (e.g., an existing site-level collection). In that case, use the provided ID as-is — no Data Collection extension or namespace scoping needed.
 
@@ -257,6 +322,35 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 ---
 
+## Identity and Elevation Requirement
+
+**Applies whenever an extension calls a Wix SDK method.** Decide where the call runs before writing it.
+
+Who the extension runs as decides everything below — the Category column in [Extension Types Reference Table](#extension-types-reference-table) tells you which one you have:
+
+- **Site and editor extensions** — custom element widgets, site plugins, Editor React components, embedded scripts — run as the site visitor or member, never as the app.
+- **Dashboard extensions** run as the Wix user — not as a site visitor, and not as the app.
+- **Backend extensions** — Backend API, Backend Event, Service Plugin — run as the app.
+
+**`auth.elevate` works only in backend code.** In a site, editor, or dashboard extension it doesn't work at all.
+
+**Default: call the SDK directly from the extension.** Routing a call that didn't need it is not a harmless extra hop — it is how working features break. Sort by who the call acts for, never by its scope name:
+
+- **Acts for the current visitor or member** — their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`, and anything else operating on "my" or "the current" entity. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order with no buyer, a booking with no attendee.
+- **The platform filters the result by caller** — an elevated call returns what the direct call withheld, so a "fix" for a sparse result becomes a leak. Wix Data `items.*` follows the collection's `dataPermissions` (scaffolded default: `itemRead: 'ANYONE'`, writes `'PRIVILEGED'` — fix writes with permissions, not routing; see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)). Catalog reads return base fields to anyone, withholding `MERCHANT_DATA` and non-visible products unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`. `members.getMember`/`queryMembers` withhold `PRIVATE` members from visitor and member callers.
+
+**Route out only when the method acts on the business as a whole**, which a visitor or member genuinely cannot do: `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management. **When the method's docs show the call elevated, route it out and elevate there** — from any host, dashboard included, because `auth.elevate` only works in backend code, so the endpoint is the only place the documented pattern can run.
+
+**When you're unsure, call it directly and let it fail.** A method a site extension may not call returns a permission error you see immediately; a method wrongly routed and elevated *succeeds* and silently returns the wrong data or acts for the wrong person. Some method pages carry a prose note that settles it — `get-my-member`: "This method requires visitor or member authentication." Authoritative when present, but only a minority of pages have one, so its absence decides nothing.
+
+Two signals never settle it: the scope name — `locations.queryLocations` is `SCOPE.DC-MULTILOCATION.READ-LOCATIONS` yet admin-only, while `currentCartV2.addLineItemsToCurrentCart` carries `SCOPE.ECOM.MANAGE-ADMIN` yet is visitor-callable and breaks if elevated — and the SDK schema line's client prefix, which varies by docs channel for the same method, so carries nothing and isn't worth re-deriving.
+
+Routing out means a Backend API endpoint that elevates and is reached with `httpClient.fetchWithAuth()`. Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself — see [Identity and Authorization](references/BACKEND_API.md#identity-and-authorization) for what each host can actually verify, and why an owner-only operation belongs in a dashboard extension instead.
+
+Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
+
+---
+
 ## App Market Review
 
 **Applies when a user wants to submit their app to the Wix App Market, list it publicly, prepare for App Market review, audit decline risk, or fix App Market review feedback.** Not needed for private apps or routine version releases.
@@ -296,13 +390,14 @@ Use the Extension Types Reference Table and decision content above. State extens
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
+- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix eCommerce, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations — find the right `@wix/*` package in the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) module map first, then discover methods via MCP
 
 **Decision table:**
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
 | "Display store products"             | ✅ YES (MCP discovery)               | Wix Stores API — **include Stores Versioning reference** |
+| "Dashboard for orders / refunds"     | ✅ YES (MCP discovery)               | Wix eCommerce API (`@wix/ecom`) — **NEVER a CMS collection** |
 | "Show booking calendar"              | ✅ YES (MCP discovery)               | Wix Bookings API not in reference files             |
 | "Send emails to users"               | ✅ YES (MCP discovery)               | Wix Triggered Emails not in reference files         |
 | "Get member info"                    | ✅ YES (MCP discovery)               | Wix Members API not in reference files              |

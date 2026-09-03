@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "shipping-option",
+  "displayName": "Wix Shipping Option",
+  "capability": "commerce.shipping-rate",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "ShippingOption",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "ecom/delivery-profile"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "shipping-zone.method",
+      "routes": ["/wc/v3/shipping/zones/{id}/methods"],
+      "confidence": "high",
+      "note": "Same source data shipping-build.js's classifyMethod already classifies for delivery-profile.json's deliveryCarrier.backupRate -- a 'carrier' classification (flat_rate/free_shipping/local_pickup) produces BOTH a DeliveryCarrier.backupRate AND a ShippingOption from the same classified method; they are not alternatives."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Shipping Options",
+    "endpoint": "POST /ecom/v1/shipping-options",
+    "writerId": "createShippingOption",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "VERIFIED LIVE 2026-08-15 against the reference store: created two ShippingOptions (Europe 'Flat rate' $8, Israel 'Free shipping' $0) matching the DeliveryCarrier.backupRate already set for those regions, then re-verified via listDeliveryCarriers that the dashboard's own rate table (dashboardTables[].rows[]) picked up a real row for both regions where it previously showed none."
+  },
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    {
+      "code": "not-derived-from-backup-rate-a-separate-required-write",
+      "severity": "blocker",
+      "summary": "CRITICAL, LIVE-DISCOVERED 2026-08-15 (not documented on any Delivery Profile/Delivery Carrier doc page -- found only via dev.wix.com's 'Fix Shipping Coverage Gaps' skill article, a separate doc tree from shipping-delivery/delivery-profiles/*): DeliveryCarrier.backupRate does NOT create a ShippingOption, and does NOT clear Wix's own 'This region is missing rates. Add them so customers can complete checkout.' dashboard warning. VERIFIED on the reference store: 'Europe'/'Israel' (created by this pipeline via addDeliveryRegion + addDeliveryCarrier with a correctly-shaped, active backupRate) still showed the warning and had ZERO linked ShippingOptions, while 'Domestic'/'International' (Wix's own auto-created defaults, never touched by this pipeline) each already had a real ShippingOption. A region migration that only calls addDeliveryCarrier is INCOMPLETE -- it appears fully successful (the write returns 200, the read-back matches exactly what was sent) while silently leaving the region non-functional at checkout. Always create a matching ShippingOption (via createShippingOption) for every DeliveryRegion this pipeline creates, from the SAME classified method used for that region's DeliveryCarrier.backupRate -- see shipping-build.js's buildShippingOptionInput."
+    },
+    {
+      "code": "delivery-region-id-singular-not-plural",
+      "severity": "warning",
+      "summary": "Create Shipping Option takes `deliveryRegionId` (singular, required) on the request; the response also echoes a `deliveryRegionIds` (plural) array which was empty/unused in the reference store's real response even though the singular field was set -- don't rely on the plural field being populated. dev.wix.com's own 'Fix Shipping Coverage Gaps' skill article calls this out explicitly as a live error source (`deliveryRegionId is not a valid GUID` when the plural field is used by mistake)."
+    },
+    {
+      "code": "estimated-delivery-time-required-in-practice",
+      "severity": "warning",
+      "summary": "`estimatedDeliveryTime` is not enforced by the create call itself, but Wix's own shipping-setup guidance treats a blank value as a defect to avoid ('Always set estimatedDeliveryTime -- never leave it empty'). shipping-build.js's buildShippingOptionInput defaults it to '5-7 business days' when the caller doesn't override; WooCommerce has no equivalent field to source a real value from."
+    },
+    {
+      "code": "one-option-per-classified-carrier-method-not-per-zone",
+      "severity": "info",
+      "summary": "A WooCommerce zone can have multiple carrier-classified methods (e.g. both flat_rate and free_shipping enabled with different conditions); each becomes its own ShippingOption against the same deliveryRegionId, mirroring how each becomes its own DeliveryCarrier entry -- never collapse multiple methods into one option."
+    }
+  ],
+  "mappingGuidance": [
+    "For every WooCommerce shipping-zone method that shipping-build.js's classifyMethod resolves to kind:'carrier', create BOTH a DeliveryCarrier (backupRate, on the delivery profile) AND a ShippingOption (rates[], standalone resource keyed by deliveryRegionId) from the same classified result -- shipping-build.js's buildDeliveryCarrierInput and buildShippingOptionInput. Creating only the former leaves the region looking fully configured via the API (and even via a plain Query Delivery Profiles read-back) while Wix's own checkout and dashboard still treat it as missing rates.",
+    "amount is a plain decimal string ('8', '0'), same convention as backupRate.amount -- no separate currency/format handling needed.",
+    "conditions[] supports tiered/threshold rates (e.g. BY_TOTAL_PRICE >= X for a free-shipping threshold) but WooCommerce's free_shipping requires/min_amount condition is already flagged as a lost-condition gap at the DeliveryCarrier level (delivery-profile.json's free-shipping-condition-lost pitfall) -- do not also attempt to re-derive a conditions[] entry from that same WooCommerce field without live-verifying the mapping first; ship an unconditional rates[] entry (conditions: []) to match what this pipeline actually verified live."
+  ],
+  "setupRequirements": [],
+  "objectPageException": "The standard API reference menu (dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery, checked 2026-08-15) has exactly one subsection, 'Delivery Profiles' -- no 'Shipping Options' subsection and no dedicated ShippingOption '…-object' page exist anywhere in that tree. The entire resource is undocumented there; the only place it's described at all is the 'Shipping: API Reference' skills article (a distilled, AI-agent-oriented reference in a completely separate doc tree, business-solutions/e-commerce/skills/) plus its sibling 'Fix Shipping Coverage Gaps' article. The full field shape is sourced from those two pages' request/response examples instead.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-fix-coverage-gaps",
+      "note": "the article that surfaced ShippingOption's existence and its role in clearing a checkout coverage gap; not linked from or mentioned on any shipping-delivery/delivery-profiles/* page"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference",
+      "note": "full Query/Create/Get/Update/Delete Shipping Option + Add/Remove Delivery Region (on a shipping option) schema and the singular-vs-plural deliveryRegionId gotcha, confirmed 2026-08-15"
+    },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-15): Query Shipping Options showed 'Domestic'/'International' (Wix auto-created defaults) each with a real ShippingOption, and 'Europe'/'Israel' (this pipeline's own prior live migration) with none despite a correctly-shaped, active DeliveryCarrier.backupRate on both. Created two real ShippingOptions matching the existing backupRate values, then re-verified via List Delivery Carriers (dashboardTables) that both regions now show an active rate row identical in shape to the two pre-existing defaults."
+    }
+  ]
+}

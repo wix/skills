@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "docsRoots": [
+    "api-reference/crm/members-contacts/contacts",
+    "api-reference/crm/communication",
+    "api-reference/crm/community/feedback-moderation"
+  ],
+  "displayName": "Wix CRM",
+  "ownerHint": "Contacts, labels, extended fields, and subscription-consent domain owners",
+  "defaultImportOrder": [
+    "label",
+    "contact",
+    "email-subscription"
+  ],
+  "sideEffectNotes": [
+    "Contact creation and subscription updates can trigger automations."
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/crm/entities/contact.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (label, contact, email-subscription)"
+    }
+  ]
+}

@@ -34,6 +34,7 @@ Hold these as the run's design tokens. Reuse them literally in the themed-block 
   | forms | The form itself — clear single-column, one obvious submit |
   | events | Event list, event detail + RSVP |
   | bookings | Service list, booking widget/flow |
+  | rentals | Rentable-item grid, item detail (rate + attributes), date/length picker showing the running total |
   | pricing-plans | Plan comparison, checkout/signup |
   | restaurants | Menu, reservation/ordering flow |
   | portfolio | Project grid, case-study/project detail |

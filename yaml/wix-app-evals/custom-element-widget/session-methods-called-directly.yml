@@ -1,0 +1,43 @@
+name: custom-element-widget/session-methods-called-directly
+description: Site widget using session-resolved and permission-checked SDK methods — these must be called directly from the widget, never routed to a backend endpoint and never elevated, because elevation retargets them away from the visitor
+triggerPrompt: |-
+  Build a custom element widget for my app that site visitors see on the storefront. It should show the products in the visitor's current cart with a total, let them add a featured product to the cart, and show a short promotional message that I store in a CMS collection.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [custom-element-widget, backend-api, data-collection]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/CUSTOM_ELEMENT_WIDGET.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Every SDK call this task needs is callable directly by a site visitor, and routing or elevating them is a correctness bug, not just extra work:
+
+      - `currentCartV2.getCurrentCart` and `currentCartV2.addLineItemsToCurrentCart` resolve the cart from the **caller's session identity** (visitor or member ID). Elevating them makes the call run as the app, which targets a different cart — the widget would show or mutate the wrong cart. Note that `addLineItemsToCurrentCart` carries `SCOPE.ECOM.MANAGE-ADMIN` among its scopes; that scope name is not a reason to route it.
+      - `items.query` on a CMS collection enforces per-collection permissions and is called directly from site extensions.
+      - Product catalog reads return base fields to anyone. `fields: ["MERCHANT_DATA"]` (cost, profit, margin) and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`, so a widget must not request them.
+
+      Check: (1) All cart, data, and product calls appear in the widget's own code, not behind an HTTP endpoint. (2) There is **no** `auth.elevate` anywhere in the project. (3) **No endpoint was created under `src/pages/api/`** for any of these calls. (4) The cart total and line items render from the fetched cart, and adding the featured product updates what is displayed. (5) The collection the promotional message reads from has read permissions that actually permit an anonymous site visitor — a collection defaulting to admin-only read would leave the widget blank on a real site. (6) The featured-product read requests only base catalog fields — no `MERCHANT_DATA` fieldset and no reliance on non-visible products, either of which renders empty for an anonymous visitor.
+
+      Score 0-10. Score 2 or below if any cart call is wrapped in `auth.elevate` — that is the specific defect this scenario exists to catch. Score 4 or below if the cart or data calls were routed through a backend endpoint without elevation.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It recognised these as visitor-callable and did not treat the presence of a `MANAGE`/`WRITE` scope name, or any other per-method textual signal, as a reason to route or elevate. (2) It did not build a backend endpoint and then remove it. (3) It set the CMS collection's permissions deliberately for anonymous read rather than accepting a default it never inspected. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

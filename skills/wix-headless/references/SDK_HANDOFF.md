@@ -32,7 +32,9 @@ For the current `createClient` + auth-strategy shape, link:
 ### 3 · Per-capability packages + API docs (package from the map; recipe for shapes)
 For each loaded capability, give the host the **package(s)** from the map below and point it at the capability's **inline recipe** (`references/inline-recipes/how-to-code-*.md`) — the pinned API shape, methods, version, and failure modes live there; don't re-summarize them here. The map is the source of truth for *which* packages; the recipe is the source of truth for *how* to call them. **The recipes are local — Read them with the file tool, don't curl.**
 
-| Capability | Package(s) | Recipe — the pinned frontend contract |
+Before implementing a capability, Read the local recipe linked in its row.
+
+| Capability | Package(s) | Required recipe |
 |---|---|---|
 | stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | `how-to-code-a-store.md` — Catalog V3 read + cart/checkout. |
 | blog | `@wix/blog` (+ `@wix/ricos` to render `richContent`; **`@wix/comments` + `@wix/members`** when the blog has comments/members; `@wix/blog` `likes` when the site has members) | `how-to-code-a-blog.md` — Blog V3 read/render + member features (likes, comments). Supplement: <https://dev.wix.com/docs/sdk/business-solutions/blog.md>. |
@@ -40,6 +42,7 @@ For each loaded capability, give the host the **package(s)** from the map below 
 | forms | `@wix/forms` | `how-to-code-forms.md` — schema-driven render (read the live form schema, visitor token/no elevate) + Form Submissions v4 write contract. |
 | events | `@wix/events` (+ `@wix/redirects` for the ticketed hosted-checkout redirect) | `how-to-code-events.md` — Events V3 read + the `TICKETING`-vs-`RSVP` branch. |
 | bookings | `@wix/bookings` (+ `@wix/auto_sdk_ecom_cart-v-2`, `@wix/redirects` for the cart/checkout that holds the seat; `@wix/forms` for the schema-driven booking form) | `how-to-code-bookings.md` — Services V2 read + `createBooking → ecom Cart V2 → checkout-or-place`. |
+| rentals | **`@wix/bookings`** — the same package set as bookings (`@wix/auto_sdk_ecom_cart-v-2`, `@wix/redirects`, `@wix/forms`). **There is NO `@wix/rentals` package** and its absence is not a missing capability: Wix Rentals ships no APIs of its own and runs on the Bookings APIs with rentals-specific field values. Never report rentals as "not buildable headlessly". | `how-to-code-rentals.md` — a **delta** on `how-to-code-bookings.md`: filter the catalog by the rentals `appId` (`ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e`), two-call hourly availability (start slots → end options), the consecutive-day walk for daily, duration-based `previewPrice`, then the **unchanged** booking/cart/checkout sequence carrying the rentals `appId` on `catalogReference`. |
 | pricing-plans | `@wix/pricing-plans` (+ `@wix/members` — login is a hard dep; and for the Bookings-membership integration `@wix/bookings` + `@wix/ecom` (+ `@wix/redirects`)). **Use `@wix/pricing-plans`, NOT the Wix-site `@wix/site-pricing-plans` (`startOnlinePurchase` is site page-code, not headless).** | `how-to-code-pricing-plans.md` — Plans V3 grid + login-gated order/subscribe + book-with-membership. |
 | restaurants | `@wix/restaurants` (menu display — **no `@wix/ecom`** unless online ordering is in the run; reservations are a separate app) | `how-to-code-restaurants.md` — Menus V1 display-only read. |
 | restaurants — online ordering (add-on; only when the Orders app is in the run) | add `@wix/ecom` + `@wix/redirects` to the row above | `how-to-code-restaurant-orders.md` — ordering cart/checkout on top of the menu display. |

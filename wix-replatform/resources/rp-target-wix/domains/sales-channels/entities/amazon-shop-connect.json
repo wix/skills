@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "amazon-shop-connect",
+  "displayName": "Amazon",
+  "capability": "commerce.amazon-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": "wix.stores_channels.amazon.v1.amazon_passive_feed",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "amazon-for-woocommerce",
+      "confidence": "low",
+      "note": "No WooCommerce plugin profile authored yet for an Amazon channel plugin; this alias is a forward-pointer. Confidence is low because of the unresolved history noted in pitfalls."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant connects/creates an Amazon Seller account via the Wix dashboard",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": ["not-independently-verified-live"]
+  },
+  "pitfalls": [
+    {
+      "code": "amazon-integration-history-unclear",
+      "severity": "warning",
+      "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated since 2025-05-04, with Wix recommending a third-party app (Koongo) as the replacement. But a live internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, was created 2026-06-17 and last updated 2026-07-20 — well after that deprecation — and implements an automatic feed-push mechanism (AMAZON_XML format, pushed to an Amazon-owned S3 bucket). This suggests Wix has since built a newer native Amazon integration distinct from the deprecated app, but the exact current merchant click-path was not independently confirmed against a live dashboard this session. Re-verify the steps below (and whether the current \"Amazon\" sidebar entry is this newer service or a third-party app) against a live site before relying on them for a real migration report."
+    }
+  ],
+  "mappingGuidance": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-amazon-shop"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/adding-and-setting-up-the-amazon-app"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.amazon.v1.amazon_passive_feed — PushAmazonFeed; feed built via wix.stores_channels.feed.v1.catalog's AMAZON_XML format — verified via docs-schema MCP, 2026-08-16 (created 2026-06-17, post-dating the public deprecation notice)"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "A registered Amazon Seller account.",
+    "steps": [
+      { "actor": "merchant", "text": "Go to Catalog > Sales Channels > Amazon in the Wix dashboard and follow Connect/Setup to link (or create) an Amazon Seller account." },
+      { "actor": "merchant", "text": "Publish Wix products to Amazon, or link existing Amazon listings back to their Wix product counterparts, per the dashboard flow." }
+    ],
+    "mechanism": "Believed push-based (a feed is built and automatically pushed to an Amazon-owned S3 bucket per live internal evidence), but the exact current onboarding click-path was not reconfirmed against a live Wix site this session — see the amazon-integration-history-unclear pitfall.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-amazon-shop" },
+      { "type": "internal-fqdn", "path": "wix.stores_channels.amazon.v1.amazon_passive_feed" }
+    ]
+  }
+}
