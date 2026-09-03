@@ -10,6 +10,28 @@ tags: [bookings]
 siteSetup:
   mode: template
   templateId: bookings-editor
+  # Seed one service so the cancellation-policy request has a concrete target —
+  # on an empty site the agent sometimes concludes there is nothing to update.
+  bootstrap:
+    steps:
+      - label: seed a class service the policy applies to
+        method: post
+        url: https://www.wixapis.com/bookings/v2/bulk/services/create
+        body:
+          services:
+            - name: Pilates Class
+              type: CLASS
+              onlineBooking:
+                enabled: true
+              defaultCapacity: 10
+              payment:
+                rateType: FIXED
+                options:
+                  online: true
+                  inPerson: false
+                fixed:
+                  price:
+                    value: "30"
 assertions:
   - tool: ReadFullDocsArticle
     params:
