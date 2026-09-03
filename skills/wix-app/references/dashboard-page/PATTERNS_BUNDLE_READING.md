@@ -6,9 +6,25 @@
 > against browsing `node_modules` by hand — is in
 > [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md). Nothing here replaces those steps.
 
+## Where props live
+
+From `@wix/patterns` **1.460.0** onward a doc does not repeat props that the bundle already
+describes. Which one holds them is stated in the doc's own index entry:
+
+| `dist/docs/index.json` entry | where the props are |
+| --- | --- |
+| has a `bundle` field | that bundle — the doc's `### Props` is a pointer to it, on purpose |
+| no `bundle` field | the doc's own `### Props` table, as before |
+
+Roughly 74 of 167 docs point at a bundle and 62 still carry a table, so expect both. When a doc
+says `Read \`dist/dts-bundle/...\``, that **is** the props answer — read the named file rather
+than treating the doc as incomplete. The bundle is the better source anyway: it keeps the
+`extends` clause with its exclusions, so `Omit<PopoverMenuItemProps, 'text' | 'prefixIcon' | 'onClick'>` tells
+you what you do *not* inherit, which the old doc link did not.
+
 ## Types the docs don't cover
 
-The docs cover components and props, not the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface. `Read <pkgRoot>/dist/dts-bundle/index.json`, look up the type name, then `Read <pkgRoot>/dist/dts-bundle/<entry.file>` using exactly the `file` path the index gives — **never reconstruct the path from the name**; bundles are nested one directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`, `types/RangeItem.d.ts`, …), so guessing `<Name>.d.ts` at the top level is wrong by construction.
+The same bundles also hold the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface. `Read <pkgRoot>/dist/dts-bundle/index.json`, look up the type name, then `Read <pkgRoot>/dist/dts-bundle/<entry.file>` using exactly the `file` path the index gives — **never reconstruct the path from the name**; bundles are nested one directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`, `types/RangeItem.d.ts`, …), so guessing `<Name>.d.ts` at the top level is wrong by construction.
 
 Several of these types (`RangeItem`, `Filter`, `CursorQuery`, the filter factory functions) actually live in `@wix/bex-core` — the bundle already resolves and inlines the real declaration, so you get the full shape with no deep, undeclared `@wix/bex-core/dist/types/...` path to chase. Still always import it from `@wix/patterns`, per the index's `importPath` field, never from wherever the bundle says it's really declared.
 
@@ -49,4 +65,9 @@ Links to `https://www.docs.wixdesignsystem.com/` are external (Wix Design System
 ## Tips
 
 - **Compound components** have separate docs per sub-part: `CollectionPage.md`, `CollectionPage.Header.md`, `CollectionPage.Content.md`.
-- **Hook docs** list configuration options as props in the API table.
+- **Hook docs** list configuration options as props — in the API table when the doc has no
+  `bundle` field, otherwise in the bundle it points at.
+- **Heavy examples live beside the doc.** A variation whose code was long is written out
+  separately, and the doc keeps the heading, the description and an exact path:
+  `Example code: read \`dist/docs/ToolbarFilters/apply-changes.tsx\``. Read that path only if you
+  need that particular variation — the heading and description are usually enough to choose.
