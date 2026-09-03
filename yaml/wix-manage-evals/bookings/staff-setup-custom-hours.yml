@@ -7,7 +7,7 @@ triggerPrompt: >-
   Add a staff member named Maya Cohen to my Wix bookings, and set her working hours
   to Mondays and Wednesdays from 9am to 3pm.
 tags: [bookings]
-maxTokens: 40000
+maxTokens: 800000
 siteSetup:
   mode: template
   templateId: bookings-editor

@@ -7,7 +7,7 @@ triggerPrompt: >-
   Set up a 60-minute strategy consultation for $75 on my Wix site that customers
   can book online.
 tags: [bookings]
-maxTokens: 30000
+maxTokens: 400000
 siteSetup:
   mode: template
   templateId: bookings-editor
