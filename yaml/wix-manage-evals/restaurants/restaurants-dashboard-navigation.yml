@@ -39,3 +39,17 @@ assertions:
         wix-restaurants-orders-new/, OR
       - omits the meta site id from the URLs or uses a different domain, OR
       - only describes how to click through the dashboard instead of giving links.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent answer this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; calling site
+      or app APIs to discover routes that the recipe already lists; hunting
+      through unrelated dashboard-navigation docs before finding the restaurants
+      one; guessing a route, then correcting it; asking the user for the meta
+      site id when the prompt already carries it; redundant or probing calls
+      clearer docs would avoid. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

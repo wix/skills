@@ -1,6 +1,6 @@
 name: restaurants/create-modifier-group-with-options
 description: >-
-  Verifies the agent reads the wix-restaurants-setup recipe and creates a
+  Verifies the agent reads the restaurants-menus-setup recipe and creates a
   Toppings modifier group whose choices actually persist — item modifiers
   created first, then a modifier group wrapped in `modifierGroup` that
   references their IDs with per-choice surcharges under
@@ -16,7 +16,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/wix-restaurants-setup
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-menus-setup
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -60,3 +60,19 @@ assertions:
         - `required`, `minSelections`, or `maxSelections` were sent flattened on
           `modifierGroup` instead of nested under `rule`.
         - The agent only described the steps without executing them.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; sending the
+      group wrapped in `modifier` instead of `modifierGroup` and correcting
+      after a 400; attempting to send the toppings inline on the group before
+      discovering item modifiers are separate entities; flattening the
+      selection rule onto the group instead of nesting it under `rule`;
+      creating the group before its item modifiers and having to patch it
+      afterwards; redundant or probing calls clearer docs would avoid. For each,
+      name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.

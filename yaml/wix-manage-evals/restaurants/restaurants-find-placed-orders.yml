@@ -1,0 +1,66 @@
+name: restaurants/find-placed-orders
+description: >-
+  Verifies the agent reads the orders-management recipe and looks for placed
+  restaurant orders through the eCommerce Orders API filtered by the restaurants
+  catalog app ID, rather than hunting for a restaurants-specific orders endpoint
+  and concluding none exists.
+triggerPrompt: >-
+  Have we had any orders come through today? I want to know how many and what
+  people actually ordered.
+tags: [restaurants]
+maxTokens: 40000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-orders-management
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked how many orders came in today and what was ordered.
+
+      Restaurant online orders are eCommerce orders. There is no restaurants
+      orders endpoint. They are identified by their line items'
+      `catalogReference.appId` being 9a5d83fd-8570-482e-81ab-cfa88942ee60, and
+      what the customer actually chose — modifiers, menu, section, operation —
+      lives in `catalogReference.options` rather than in the item name.
+
+      A test site may legitimately have zero orders. Reporting zero after
+      looking in the right place is a pass; the test is where the agent looked
+      and what it concluded, not the count.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. The agent searched or read orders through the eCommerce Orders API.
+        2. It scoped to restaurant orders by the catalog app ID rather than by
+           guessing from item names.
+        3. It answered in the merchant's terms — a count, and if any orders
+           exist, what was ordered including chosen modifiers.
+        4. If no orders exist, it said so plainly instead of implying a failure
+           or an API gap.
+
+      Fail if ANY of these hold:
+        - The agent concluded that no API exists for reading restaurant orders.
+        - It searched only restaurants-namespaced endpoints and gave up.
+        - It described modifiers from item names rather than reading
+          `catalogReference.options`.
+        - It refunded, cancelled or modified any order — the merchant asked a
+          read-only question.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent answer this. Examine the
+      tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; searching
+      restaurants-namespaced endpoints for placed orders before finding the
+      eCommerce Orders API; a 403 from restaurants permissions not covering
+      eCommerce orders; not finding how to distinguish restaurant orders from
+      other orders on the same site; failing to locate the chosen modifiers on
+      a line item. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.
