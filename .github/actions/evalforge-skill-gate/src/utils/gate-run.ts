@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { EvalForgeClient, draftTagFor, formatGateSkipped } from '@wix/evalforge-core';
+import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, formatGateSkipped } from '@wix/evalforge-core';
 import { getGateConfig } from './config';
 import { workspaceRoot } from './workspace';
 import { guardedCall, makeAnalysisUpdater, makeGateCommenter } from './report';
@@ -46,6 +46,16 @@ export async function runGate(): Promise<void> {
     comment, config.isBlocking,
   );
   if (!version.ok) return;
+
+  // Keep only the current commit's version live. Each push mints a fresh pr-<n>-<sha>, and a
+  // superseded run is cancelled mid-flight, leaving its version behind — prune those now so a
+  // long-lived PR stops accumulating one version per commit. Best-effort: never fails the gate,
+  // and close-time cleanup still sweeps the rest.
+  await deletePrCapabilityVersions(
+    client, config.capabilityId, config.projectId, config.prNumber,
+    { log: core.info, warn: core.warning },
+    { keepVersionId: version.value.id },
+  );
 
   const nameToId = await syncDraftScenarios(
     client, octokit, config, scope.value, draftTag, workspace, comment,

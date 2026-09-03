@@ -36058,11 +36058,12 @@ function describeError(error) {
     return error instanceof Error ? error.message : String(error);
 }
 /**
- * Deletes every capability version this PR minted (`pr-<n>-*`). Best-effort throughout:
- * cleanup runs after the PR closed, so a failure here must never fail the workflow — the
- * next run of the same job sweeps whatever was left behind.
+ * Deletes the capability versions this PR minted (`pr-<n>-*`). `keepVersionId` spares one —
+ * the gate passes the current commit's version so each push prunes only its predecessors;
+ * close-time cleanup passes nothing and sweeps them all. Best-effort throughout: a failure
+ * here must never fail the workflow, and the next run sweeps whatever was left behind.
  */
-async function deletePrCapabilityVersions(client, capabilityId, projectId, prNumber, io) {
+async function deletePrCapabilityVersions(client, capabilityId, projectId, prNumber, io, options = {}) {
     let versions;
     try {
         versions = await client.listCapabilityVersions(capabilityId, projectId);
@@ -36072,7 +36073,8 @@ async function deletePrCapabilityVersions(client, capabilityId, projectId, prNum
         return;
     }
     const prefix = `pr-${prNumber}-`;
-    for (const version of versions.filter(candidate => candidate.version.startsWith(prefix))) {
+    const doomed = versions.filter(candidate => candidate.version.startsWith(prefix) && candidate.id !== options.keepVersionId);
+    for (const version of doomed) {
         try {
             await client.deleteCapabilityVersion(capabilityId, projectId, version.id);
             io.log(`Deleted capability version ${version.version}`);
