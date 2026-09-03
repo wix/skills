@@ -38,10 +38,16 @@ assertions:
 
       Pass if ALL of these are true:
         1. The agent loaded the `pricing-create-coupon` recipe (NOT the legacy `setup-coupons` slug).
-        2. The create payload correctly maps recommendation fields: `percentOffRate: 20`, `code: "TECH20"`, `usageLimit: 100`, `limitPerCustomer: 1`, and `expirationTime` in UNIX milliseconds for 2026-06-30 (value ~1782777600000, ending in three zeros).
-        3. It applied the recommendation's `scope: "SITE"` — no category filter.
+        2. The create payload correctly maps recommendation fields: `percentOffRate: 20`, `code: "TECH20"`, `usageLimit: 100`, `limitPerCustomer: 1`, `startTime: 1780272000000` for 2026-06-01, and `expirationTime: 1782777600000` for 2026-06-30.
+        3. It maps `scope: "SITE"` to exactly `scope: { "namespace": "stores" }`. The payload must omit `scope.group`, because a Stores group requires an entity ID.
 
       Fail if ANY of these are true:
         - The agent used the legacy `setup-coupons` slug or its content.
-        - `expirationTime` was sent in seconds (ten-digit integer) instead of milliseconds.
+        - Either timestamp was sent in seconds, used the recipe's old 2025 values, or otherwise did not represent the supplied 2026 dates.
+        - The site-wide scope included `group: { "name": "product" }` without an entity ID.
         - The agent ignored the recommendation fields and invented its own coupon parameters.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent convert the fully specified coupon recommendation. Examine the tool-call trace. Score 0-10 (10 = direct and correct on the first mutation call). Penalize and LIST any of: a non-2xx API response even if recovered; a Stores site-wide scope containing a group without an entity ID; a timestamp copied from an example instead of calculated from the supplied date; invented coupon parameters; redundant API calls or repeated docs discovery. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected docs/skill gap, or 'clean path' if none>"}.

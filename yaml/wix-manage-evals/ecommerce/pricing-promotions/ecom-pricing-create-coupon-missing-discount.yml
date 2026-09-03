@@ -1,0 +1,26 @@
+name: ecommerce/pricing-promotions/create-coupon-missing-discount
+description: Require the agent to collect missing coupon semantics instead of inventing a discount and making a failing mutation.
+triggerPrompt: |
+  Create a coupon code LIMIT100 that can only be used 100 times in total.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user supplied only a coupon code and total usage limit. Those values do not define the required coupon type/value or what the coupon applies to.
+
+      Pass if the agent asks one concise follow-up question that collects the missing discount type/value and target scope or minimum subtotal, and does not claim that the coupon was created.
+
+      Fail if the agent invents any discount type or value (for example, 10% off or free shipping), invents a scope, calls a coupon mutation before the user answers, or claims success.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate the quality of the tool-call path. Score 0-10 (10 = the recipe was loaded and the agent stopped for the missing business choices without attempting a mutation). Penalize and LIST any of: a Create Coupon API call; any non-2xx response; guessed coupon type, amount, scope, or schedule; multiple repetitive clarification questions; unnecessary API or docs calls after the missing inputs were identified. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected docs/skill gap, or 'clean path' if none>"}.
