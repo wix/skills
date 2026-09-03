@@ -345,6 +345,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Upload Media to Wix](references/media/upload-media-to-wix.md)
 **Technical:** Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
 
+### [Generate an Image with AI](references/media/generate-image-with-ai.md)
+**Technical:** Generates an image from a text prompt with the Wix AI APIs (`POST /runwareschemaless/v1/request`). The response is a short-lived URL, so keeping the image means importing it — that step hands off to Upload Media to Wix. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the UUIDv4 `taskUUID`, the AI credit each call spends, and why a content refusal arrives as a success response with no image. Use when the user wants an image they do not have; an image they supplied is uploaded, not generated.
+
 ---
 
 ## Pricing Plans
