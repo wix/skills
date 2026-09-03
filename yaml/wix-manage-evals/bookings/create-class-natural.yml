@@ -6,7 +6,6 @@ description: >-
 triggerPrompt: >-
   Add a yoga class to my Wix site for $25, with room for 12 people.
 tags: [bookings]
-maxTokens: 400000
 siteSetup:
   mode: template
   templateId: bookings-editor

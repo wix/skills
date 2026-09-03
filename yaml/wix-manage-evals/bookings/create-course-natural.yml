@@ -7,7 +7,6 @@ description: >-
 triggerPrompt: >-
   Create a 6-week photography course on my Wix site for $300.
 tags: [bookings]
-maxTokens: 800000
 siteSetup:
   mode: template
   templateId: bookings-editor
