@@ -135,6 +135,8 @@ component or edit `*.generated.ts` as a reference-driven fix.
 - Apply `dir={direction}` and the unconditional fallback-direction class to the
   elected root. Use logical CSS properties for direction-sensitive layout.
 - Keep render output deterministic and avoid browser globals during render.
+- Pair explicit foreground colors with a known contrasting background.
+  Transparent roots inherit their foreground from the host surface.
 - Use only Baseline Widely Available CSS features and DOM APIs, or ones that
   fall back to them. When a design needs a feature that is not, build the
   supported alternative.
