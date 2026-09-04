@@ -46,41 +46,17 @@ pnpm install
 
 Run TypeScript compiler to check for type errors.
 
-**Full project check:**
 ```bash
 npx tsc --noEmit
 ```
 
-**Targeted check (specific files/directories):**
-
-When validating after implementing a specific extension, you can run TypeScript checks on just those files:
-
-```bash
-# Check specific directory
-npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/dashboard/pages/survey/**/*.tsx
-
-# Check dashboard pages only
-npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
-
-# Check custom element widgets only
-npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
-
-# Check dashboard modals only
-npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
-
-# Check backend only
-npx tsc --noEmit src/extensions/backend/**/*.ts
-```
-
-**When to use targeted checks:**
-- After implementing a single extension (faster feedback)
-- When debugging type errors in a specific area
-- During iterative development
-
-**When to use full project check:**
-- Before final validation
-- When changes affect shared types
-- Before building/deploying
+**This is the only form to use.** Passing filenames or globs on the command line makes TypeScript
+ignore `tsconfig.json` altogether — no `strict`, no `noImplicitAny`, no `jsx`, no `paths`. A targeted
+run therefore checks the code against *no* configuration: it misses the errors that matter and
+floods the output with errors that do not. Measured on a real app — a file with an untyped parameter
+reports `TS7006` under `tsc --noEmit`, and under `tsc --noEmit <file>` reports no `TS7006` at all,
+just dozens of `Cannot find name 'Set'` from `node_modules/@types` (no `lib`, no `skipLibCheck`).
+Always check the project, never a file list.
 
 **Success criteria:**
 - Exit code 0
