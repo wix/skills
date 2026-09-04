@@ -72,7 +72,7 @@ their responsibilities intact.
 
    ```bash
    npx wix build && npx wix generate manifest
-   npx tsc --noEmit
+   npx tsc --noEmit -p .
    ```
 
    Run relevant project tests and lint commands when available. Inspect the
