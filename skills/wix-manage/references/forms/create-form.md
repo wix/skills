@@ -8,6 +8,8 @@ description: "Creates a visitor-fillable Wix form with Form Schemas v4 — a con
 
 Any form a visitor fills in — contact, signup, application, survey — in the **Forms & Submissions** dashboard, placeable in the Editor. Submissions become CRM contacts only via the per-field `contactMapping`. Event RSVPs belong to **Wix Events** ([Create Event](../events/create-wix-event.md)); booking forms to **Wix Bookings**.
 
+**Non-negotiable**: never compose form and field payloads form memory, never guess their shape. Follow this recipe steps.
+
 **Four things return a `200` and produce a form that is empty, wrong or invisible:** the wrong Forms app (STEP 0), a namespace other than `wix.form_app.form` (STEP 2), an invented `identifier` (STEP 1), any field left out of `steps[].layout` (STEP 2). Nothing errors, so get them right first time, and **never create throwaway "test" forms to probe the shape** — the form allowance is finite. Assemble it whole, POST once, verify.
 
 ---
@@ -28,15 +30,17 @@ If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/
 
 ## STEP 1: Compose the fields
 
-**Read [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) first** — it owns the `identifier` / `inputType` / `componentType` table and the `contactField` values. Then **start from a worked example rather than composing from scratch.** The REST reference is published as markdown, so print just the one you need — swap in any **Example name** from the table:
+1. Use the example table below to find the most relevant payload example. Do not start authoring payload from scratch.
+2. Retrieve [create-form.md](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md) and find chosen example's payload, e.g.:
 
-```bash
-EXAMPLE='Create a contact form'   # any Example name from the table below
-curl -sS 'https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md' \
-  | awk -v h="### $EXAMPLE" '/^### /{p=($0==h)} p'
-```
+    ```bash
+    EXAMPLE='Create a contact form'   # any Example name from the table below
+    curl -sS 'https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md' \
+      | awk -v h="### $EXAMPLE" '/^### /{p=($0==h)} p'
+    ```
 
-Empty output means the name didn't match a heading — check it against the table, don't reshape the command.
+3. Copy relevant form fields, adapt and configure to match user's request, generate GUIDs, validation, etc.
+4. If needed, read [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) - a definitive guide to form field configuration — it owns the `identifier` / `inputType` / `componentType` table and the `contactField` values
 
 | Example name                           | Use it for |
 |----------------------------------------|---|
