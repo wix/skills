@@ -30,7 +30,7 @@ If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/
 
 ## STEP 1: Compose the fields
 
-1. Use the example table below to find the most relevant payload example. Do not start authoring payload from scratch.
+1. Use the [form examples](#form-examples) table below to find the most relevant payload example. Do not start authoring payload from scratch.
 2. Retrieve [create-form.md](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md) and find chosen example's payload, e.g.:
 
     ```bash
@@ -41,6 +41,8 @@ If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/
 
 3. Copy relevant form fields, adapt and configure to match user's request, generate GUIDs, validation, etc.
 4. If needed, read [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) - a definitive guide to form field configuration — it owns the `identifier` / `inputType` / `componentType` table and the `contactField` values
+
+### Form examples
 
 | Example name                           | Use it for |
 |----------------------------------------|---|
@@ -56,6 +58,8 @@ If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/
 | `Create a product order form`          | Sell products, fixed fee — Core plan + Wix eCommerce |
 | `Create a consultation booking form`   | Appointment slot picker — Wix Meetings |
 | `Create a service booking form`        | Bookable service and extras — Wix Services |
+
+### Authoring guide
 
 **Keep these exactly as the example has them:**
 
