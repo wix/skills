@@ -49,7 +49,7 @@ curl -X PATCH \
 
 Four things are yours to generate:
 
-- **`id`** — a fresh lowercase GUID (`uuidgen | tr 'A-Z' 'a-z'`), unique in the form.
+- **`id`** — a fresh **UUID v4**, lowercase, unique in the form. Generate it; a hand-typed GUID-shaped string is rejected with `id is not a valid GUID`.
 - **`target`** — the immutable submission key, unique across the form: `snake_case` plus a short suffix (`job_industry_7f2b`). **A duplicate `target` is accepted and silently stores nothing** for every field but one.
 - **the choices, declared twice** — every option needs its own lowercase GUID `id` (a readable slug is rejected — `options[N].id is not a valid GUID`) plus `value` and `label`, and `validation.enum` must list every one of those `value`s. **An empty `validation` is a free-text field, not a dropdown**, and getting it wrong is accepted with a `200`.
 - **the layout item** — append to `steps[<n>].layout.large.items`, mirroring into `medium` / `small` if the form has them: `{ "fieldId": "<new field id>", "row": <next row>, "column": 0, "width": 12, "height": 1 }`. A field missing from the layout isn't dropped, but sorts last with no defined position in the owner's builder. To place it mid-form, insert at that `row` and bump every item at or after it — `row` restarts at 0 per step.
