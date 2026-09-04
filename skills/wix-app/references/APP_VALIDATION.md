@@ -66,9 +66,8 @@ And the config cannot be handed back on the side: `tsc -p tsconfig.json <file>` 
 **Checking only what you generated does not work even when the config is right.** A type error caused
 by generated code usually surfaces where that code is *consumed* — the page compiles and `App.tsx`
 does not. Measured: a scoped check over the generated directory reported nothing, while the project
-check reported `TS2322` in the consuming file. Scope hides the wiring errors, which are the ones an
-agent actually makes. It is also not worth much — the whole project takes about 1.3s on a real app,
-where 3,169 of the files in the program come from `node_modules` and 13 are yours.
+check reported `TS2322` in the consuming file. Scoping is only sound if you already know the error is
+confined to those files, which is what the check exists to find out.
 
 **Success criteria:**
 - Exit code 0
