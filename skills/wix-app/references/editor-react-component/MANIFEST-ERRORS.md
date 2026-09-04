@@ -13,8 +13,8 @@ exits with an error. Read the error name from the first token before the colon
 | `IoError` (render phase, no other pattern) | SSR crash — remove browser-only APIs (`window`, `document`, `localStorage`) used at render time; ensure props have defaults |
 | `NotFoundError: File not found` | Restore the missing source file or fix its registered/imported path; do not re-scaffold an existing component |
 | `NotFoundError: Component "X" was not found as a named export` | Confirm `component.tsx` has a default export and re-run `npx wix build` |
-| `ParseError: Failed to parse TypeScript config` | Fix `tsconfig.json`; run `npx tsc --noEmit` to surface the error |
-| `ParseError: Failed to extract component types from "X"` | TypeScript error in the component — run `npx tsc --noEmit` and fix |
+| `ParseError: Failed to parse TypeScript config` | Fix `tsconfig.json`; run `npx tsc --noEmit -p .` to surface the error |
+| `ParseError: Failed to extract component types from "X"` | TypeScript error in the component — run `npx tsc --noEmit -p .` and fix |
 | `ParseError: Failed to compile "<file.scss>"` | SCSS syntax error — line/column is in the error message |
 | `ParseError: Failed to parse CSS file for component "X"` | CSS syntax error in `.module.css` — line/column is in the error message |
 
