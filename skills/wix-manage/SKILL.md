@@ -252,7 +252,7 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 ## Forms
 
 ### [Create Form](references/forms/create-form.md)
-"Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Ships the create request plus the silent breakers that leave a form empty or invisible. Changing an existing form is Update Form."
+"Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Open this before any form create: which Wix Forms app must be installed (the legacy one 400s), the namespace that decides whether the form is visible in the dashboard at all, the four settings that return 200 and still produce an empty form, the site's plan caps, and the dashboard links to hand back. Field bodies come from the REST reference's examples. Changing an existing form is Update Form."
 
 ### [Update Form](references/forms/update-form.md)
 "Changes a Wix form that already exists, with Form Schemas v4 `PATCH` — add a field to my form, add a dropdown, make a field required or optional, rename a label, reorder or retire a question. Covers the read-back for the `revision` (and the required `namespace` query parameter), the whole-form body a `PATCH` needs, the wholesale `formFields` replace that silently soft-deletes anything you omit, and the verification that proves what was stored. Use Create Form when there is no form yet."
