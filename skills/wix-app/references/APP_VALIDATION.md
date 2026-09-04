@@ -47,16 +47,22 @@ pnpm install
 Run TypeScript compiler to check for type errors.
 
 ```bash
-npx tsc --noEmit
+npx tsc --noEmit -p .
 ```
 
-**This is the only form to use.** Passing filenames or globs on the command line makes TypeScript
-ignore `tsconfig.json` altogether — no `strict`, no `noImplicitAny`, no `jsx`, no `paths`. A targeted
-run therefore checks the code against *no* configuration: it misses the errors that matter and
-floods the output with errors that do not. Measured on a real app — a file with an untyped parameter
-reports `TS7006` under `tsc --noEmit`, and under `tsc --noEmit <file>` reports no `TS7006` at all,
-just dozens of `Cannot find name 'Set'` from `node_modules/@types` (no `lib`, no `skipLibCheck`).
-Always check the project, never a file list.
+**This is the only form to use, and there is no targeted variant.** Passing filenames or globs makes
+TypeScript ignore `tsconfig.json` altogether — no `strict`, no `noImplicitAny`, no `jsx`, no `paths`,
+no `lib`, no `skipLibCheck` — so the run checks the code against *no* configuration: it misses the
+errors that matter and floods the output with errors that do not. Measured on a real app, on a file
+with one untyped parameter:
+
+- `npx tsc --noEmit -p .` → `TS7006: Parameter 'x' implicitly has an 'any' type`
+- `npx tsc --noEmit <that file>` → no `TS7006` at all, and instead dozens of
+  `Cannot find name 'Set'` from `node_modules/@types`
+
+And the config cannot be handed back on the side: `tsc -p tsconfig.json <file>` fails outright with
+`TS5042: Option 'project' cannot be mixed with source files on a command line`. Checking a subset of
+files under the project's own settings is not something the compiler offers, so check the project.
 
 **Success criteria:**
 - Exit code 0
