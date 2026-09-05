@@ -6,6 +6,8 @@ description: Probe a Wix site or account for full context in one call — instal
 
 Returns a site's name, URL, status, locale/region, and all installed apps with human-readable display names.
 
+> **Staleness warning:** the `properties` block (locale, timezone, currency, address) is served from a per-site cache with up to a **30-minute TTL and no write-side invalidation**. If you just wrote to Site Properties or Locations (e.g. changed the business address or timezone), this endpoint can keep returning the pre-write value for up to 30 minutes. Don't use it to verify a property write just landed — call [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) directly for that instead.
+
 ---
 
 ## Markdown endpoint (recommended)
