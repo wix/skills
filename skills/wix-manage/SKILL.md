@@ -184,6 +184,9 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Domain Connection Troubleshooting](references/domains/domain-connection-troubleshooting.md)
+**Technical:** Diagnose why an already-connected domain isn't resolving or shows an SSL error — checks DNS propagation status via the DNS Propagation API and explains the record-level failure. Use this instead of the connect flow above when the domain is already bound and the user reports the site is down or unreachable.
+
 ---
 
 ## eCommerce
