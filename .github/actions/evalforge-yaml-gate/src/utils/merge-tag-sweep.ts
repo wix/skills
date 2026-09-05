@@ -4,8 +4,8 @@ import { scenariosToRun } from './gate';
 import type { AttemptOutcome } from './confirm';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { EvalForgeClient, pollUntilDone, EvalRunTimeoutError, evalRunUrl } from '@wix/evalforge-core';
-import { getMergeSweepConfig } from './config';
+import { EvalForgeClient, pollUntilDone, EvalRunTimeoutError, evalRunUrl, type EvalRunInput } from '@wix/evalforge-core';
+import { getMergeSweepConfig, type MergeSweepConfig } from './config';
 import { loadEvals } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
@@ -76,6 +76,27 @@ export function rowsToOutcomes(rows: EvalRunResultRow[]): AttemptOutcome[] {
 }
 
 /**
+ * Builds one sweep attempt's eval run. `capabilityIds` is what attaches the MCP — it is not
+ * inherited from the agent, so omitting it evaluates a tool-less agent and fails every docs
+ * assertion. No version is pinned: the sweep checks `main` against the production MCP.
+ */
+export function buildEvalRunInput(
+  config: Pick<MergeSweepConfig, 'projectId' | 'agentId' | 'prodMcpId'>,
+  name: string,
+  description: string,
+  scenarioIds: string[],
+): EvalRunInput {
+  return {
+    name,
+    description,
+    projectId: config.projectId,
+    agentId: config.agentId,
+    scenarioIds,
+    capabilityIds: [config.prodMcpId],
+  };
+}
+
+/**
  * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
  * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
  * Without this the job would only go red, and a red check on a `main` commit is not a signal
@@ -122,13 +143,10 @@ async function sweep(): Promise<void> {
 
   const runName = `merge-sweep-${github.context.sha.slice(0, 7)}`;
   const runOnce = async (name: string, scenarioIds: string[]) => {
-    const created = await evalforge.createAndRunEvalRun(config.projectId, {
-      name,
-      description: `Merge-tag sweep for tags: ${sortedTags.join(', ')}`,
-      projectId: config.projectId,
-      agentId: config.agentId,
-      scenarioIds,
-    });
+    const created = await evalforge.createAndRunEvalRun(
+      config.projectId,
+      buildEvalRunInput(config, name, `Merge-tag sweep for tags: ${sortedTags.join(', ')}`, scenarioIds),
+    );
     await evalforge.triggerEvalRun(config.projectId, created.id);
     const status = await pollUntilDone(evalforge, config.projectId, created.id, { log: core.info, warn: core.warning });
     return { id: created.id, status };
