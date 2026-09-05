@@ -148,6 +148,27 @@ function buildOptions(options = []) {
   });
 }
 
+// Validate the whole batch before installation, uploads, or product creation.
+function validateColorChoices(products) {
+  const seen = new Map();
+  for (const product of products) {
+    for (const option of product.options ?? []) {
+      if (option.type !== "color") continue;
+      for (const choice of option.choices ?? []) {
+        const key = JSON.stringify([option.name.trim().toLowerCase(), choice.name.trim().toLowerCase()]);
+        const code = choice.colorCode?.trim().toLowerCase();
+        const previous = seen.get(key);
+        if (previous && previous.code !== code) {
+          throw new Error(`Conflicting color "${choice.name}" in option "${option.name}": ` +
+            `"${previous.product}" uses ${previous.code}, but "${product.name}" uses ${code}. ` +
+            `Use one color code for this name across the batch, or distinct names for different shades. No products were created by this call.`);
+        }
+        seen.set(key, { code, product: product.name });
+      }
+    }
+  }
+}
+
 // full Cartesian product of variants, each priced/stocked from the product; visible:true baked in
 function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
   const base = {
@@ -233,6 +254,7 @@ async function listProducts(ctx) {
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
+  validateColorChoices(products);
   const fileIds = await Promise.all(products.map((p) =>
     p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
   const body = {
@@ -251,13 +273,39 @@ async function bulkCreateProducts(ctx, products) {
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
   // NB: results nest under productResults.results[].item — NOT a top-level `results`.
-  const created = (r.productResults?.results ?? []).map((x, i) => ({
-    id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
-    variantId: x.item?.variantsInfo?.variants?.[0]?.id,
-    hasOptions: (products[i]?.options?.length ?? 0) > 0,
-    isDigital: !!fileIds[i],
-    quantity: products[i]?.quantity ?? 0,
-  }));
+  const results = r.productResults?.results ?? [];
+  const created = [];
+  const failures = [];
+  const seen = new Set();
+  for (const [position, result] of results.entries()) {
+    const index = result.itemMetadata?.originalIndex ?? position;
+    seen.add(index);
+    if (result.itemMetadata?.success === false || !result.item?.id) {
+      failures.push({ index, name: products[index]?.name, ...result.itemMetadata?.error,
+        message: result.itemMetadata?.error?.description ?? "Create result has no product ID" });
+      continue;
+    }
+    created.push({
+      id: result.item.id, slug: result.item.slug, revision: result.item.revision,
+      variantId: result.item.variantsInfo?.variants?.[0]?.id,
+      hasOptions: (products[index]?.options?.length ?? 0) > 0,
+      isDigital: !!fileIds[index], quantity: products[index]?.quantity ?? 0,
+      index, name: products[index]?.name,
+    });
+  }
+  products.forEach((product, index) => {
+    if (!seen.has(index)) failures.push({ index, name: product.name, message: "Missing bulk-create result; creation status unknown" });
+  });
+  if (failures.length) {
+    const successes = created.map(({ id, name, index }) => ({ id, name, index }));
+    const error = new Error(`Product creation did not fully succeed. ` +
+      `Created: ${JSON.stringify(successes)}. Failures: ${JSON.stringify(failures)}. ` +
+      `Stopped before stock, categories, or images. Do not rerun the full seed: existing products would be duplicated.`);
+    error.createdProducts = successes;
+    error.failures = failures;
+    throw error;
+  }
+  created.sort((a, b) => a.index - b.index);
   await stockOptionlessProducts(ctx, created);
   return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
 }
@@ -317,6 +365,7 @@ async function addProductsToCategories(ctx, mapping) {
 // (propagation) — that's normal, not a failure, so we don't block on it.
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
+  if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
   const ids = items.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
@@ -342,6 +391,7 @@ async function attachProductImages(ctx, items) {
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
+  validateColorChoices(products);
   await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
 
   const created = await bulkCreateProducts(ctx, products);
