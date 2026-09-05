@@ -276,6 +276,9 @@ Creates payment links for unpaid bookings using Payment Links API. Links booking
 ### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
 "Builds direct links to Wix payments and invoicing dashboard pages on manage.wix.com — payment links, invoices (list, create, settings), recurring invoices, and the accept-payments settings page. Pairs each main get-paid entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Checkout Payment Button Unresponsive](references/get-paid/get-paid-troubleshoot-checkout-unresponsive-button.md)
+**Technical:** Diagnostic tree for when "Place Order & Pay" does nothing — no redirect, no order, no Cashier transaction. Distinguishes a provider-side decline from a platform/client-side bug via Abandoned Checkouts + Order Transactions + Cashier Transactions signals, and flags the benign `ecom-platform-providers` console warning that's commonly misdiagnosed as the root cause.
+
 ---
 
 ## Google Ads
