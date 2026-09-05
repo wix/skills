@@ -65,6 +65,8 @@ options: [
   Any other `type` → text pills. Give every colour choice a `colorCode`.
   Within a batch, reuse the same color code for the same option/choice name across products;
   give different shades distinct names (for example, Forest Green and Light Green).
+- Choice names must be unique within each product option, for both text and color choices.
+  Reusing a choice name across different products is fine; color choices must follow the consistency rule above.
 - Variants are expanded for you: the full cross-product of the options, each carrying the product's
   `price`, `compareAtPrice` and `quantity`. Two options with 2 and 3 choices means 6 variants — keep
   option counts small.

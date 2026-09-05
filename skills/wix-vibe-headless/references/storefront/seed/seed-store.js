@@ -149,12 +149,20 @@ function buildOptions(options = []) {
 }
 
 // Validate the whole batch before installation, uploads, or product creation.
-function validateColorChoices(products) {
+function validateProductOptions(products) {
   const seen = new Map();
   for (const product of products) {
     for (const option of product.options ?? []) {
-      if (option.type !== "color") continue;
+      const choiceNames = new Set();
       for (const choice of option.choices ?? []) {
+        const name = typeof choice === "string" ? choice : choice.name;
+        const normalized = name.trim().toLowerCase();
+        if (choiceNames.has(normalized)) {
+          throw new Error(`Duplicate choice "${name}" in option "${option.name}" on product "${product.name}". ` +
+            `Each choice name must be unique within an option. No products were created by this call.`);
+        }
+        choiceNames.add(normalized);
+        if (option.type !== "color") continue;
         const key = JSON.stringify([option.name.trim().toLowerCase(), choice.name.trim().toLowerCase()]);
         const code = choice.colorCode?.trim().toLowerCase();
         const previous = seen.get(key);
@@ -254,7 +262,7 @@ async function listProducts(ctx) {
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
-  validateColorChoices(products);
+  validateProductOptions(products);
   const fileIds = await Promise.all(products.map((p) =>
     p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
   const body = {
@@ -391,7 +399,7 @@ async function attachProductImages(ctx, items) {
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
-  validateColorChoices(products);
+  validateProductOptions(products);
   await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
 
   const created = await bulkCreateProducts(ctx, products);
