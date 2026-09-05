@@ -57,6 +57,9 @@ export default function Shop() {
   // select with s.setActiveCategory(category), or null for all products.
   // Sort controls: Object.entries(SORTS) -> [key, { label }];
   // selected value s.sort; change with s.setSort(key).
+  // Optional filters: s.setFilters({ minPrice: 20, maxPrice: 100,
+  //   inStockOnly: true, search: "linen" }); s.setFilters({}) clears them.
+  // Apply a submitted/debounced search value; the hook queries on every change.
   // Render s.error with s.retry separately from loading/empty results.
   // On a later-page error, keep already loaded products visible.
   // Pagination: when s.hasMore, call s.loadMore(); disable while s.loadingMore.
@@ -121,30 +124,45 @@ failure does not open the drawer.
 const {
   categories, activeCategory, setActiveCategory,
   products, loading, error, retry,
-  hasMore, loadMore, loadingMore, sort, setSort,
+  hasMore, loadMore, loadingMore, sort, setSort, filters, setFilters,
 } = useShop({ pageSize: 24 }); // optional argument; default pageSize 24
 // categories: category[]; activeCategory: category | null (null = all products)
-// setActiveCategory(categoryOrNull): starts a fresh product query
-// products: product[] | null; loading: boolean (first page/category load)
+// setActiveCategory(categoryOrNull): starts a fresh product query, keeping sort/filters
+// products: product[] | null; loading: boolean (fresh query, including sort/filter changes)
 // error: string | null; retry(): reloads the active category's first page
 // hasMore, loadingMore: booleans; loadMore(): appends another page when available
-// sort: 'featured' | 'priceAsc' | 'priceHigh' | 'name'; setSort(key)
+// sort: 'featured' | 'priceAsc' | 'priceHigh' | 'name' | 'newest'; setSort(key)
+// filters: { minPrice?, maxPrice?, inStockOnly?, search? }
+// setFilters(object): replaces filters; setFilters(previous => ({ ...previous, ...patch })) merges
 // SORTS: { [key]: { label } } for those keys
 ```
-Sorting applies only to loaded products. Initial product failure sets `error` and an empty array;
-a later page failure preserves loaded products and sets `error`. Render the error separately from
+Wix filters and sorts the full matching catalog before paging; the hook never sorts a loaded subset.
+Changing category, sort, or filters resets products and the cursor; stale responses are ignored.
+`featured` retains its existing key but means **Default order**, not merchant-curated placement.
+Prices use the product's minimum actual variant price in site currency, in either direction and
+for both bounds; this is not a selected-variant or checkout-discount price. Bounds are inclusive,
+non-negative numbers (numeric strings accepted); null/empty omits a bound. Min must not exceed max.
+`inStockOnly` matches `IN_STOCK` products, excluding partially stocked and preorder-only products.
+`search` searches product names (up to 100 characters). These filters can be combined.
+
+Initial product failure sets `error` and an empty array;
+a later page failure preserves products and cursor; call `loadMore()` again to retry that page.
+`retry()` starts over at page one with current selections. Render the error separately from
 an empty catalog. Category loading fetches only the first 100 categories, excludes `visible: false`
 and `slug: "all-products"`, and falls back to `[]` on failure without setting `error`.
 
 For a standalone product selection or category menu, import these named functions from
-`@/rest/wix-store-catalog`. All three return promises and reject on request failure.
+`@/rest/wix-store-catalog`. They return promises and reject on invalid query options or request failure.
 
 | Function | Result |
 |---|---|
-| `queryProducts({ limit = 100, cursor } = {})` | `{ products: product[], nextCursor: string or null }` — visible catalog products |
+| `searchProducts({ limit = 100, cursor, categoryId, sort, minPrice, maxPrice, inStockOnly, search } = {})` | `{ products: product[], nextCursor: string or null }` — same sort/filter semantics as the hook |
+| `queryProducts(options = {})` | `{ products: product[], nextCursor: string or null }` — visible catalog products |
 | `queryCategories({ limit = 100, cursor } = {})` | `{ categories: category[], nextCursor: string or null }` — one category page |
-| `queryProductsByCategory(categoryId, { limit = 100, cursor } = {})` | `{ products: product[], nextCursor: string or null }` — visible products in the category identified by `id` |
+| `queryProductsByCategory(categoryId, options = {})` | `{ products: product[], nextCursor: string or null }` — visible products in the category identified by `id` |
 
+`queryProducts` and `queryProductsByCategory` accept the same options as `searchProducts`.
+A cursor continues the original query; changed filters/sort require starting without one.
 Products are the full listing objects consumed by `useProductCard`. Category menu fields are
 `id`, `name`, `slug`, and `visible`. Filter out `visible === false` and the system category
 `slug === "all-products"`; an empty category list is valid.
@@ -157,7 +175,7 @@ const { products, nextCursor } = await queryProductsByCategory(selectedCategory.
 ```
 Destructure the arrays; these calls never return bare arrays. Pass a result's `nextCursor` back
 as `cursor` to the same query for the next page, stopping at null. Keep category and product
-cursors separate; changing category starts without a cursor. Handle failure separately from
+cursors separate; changing category, sort, or filters starts without a cursor. Handle failure separately from
 loading so a failed request does not leave a spinner.
 
 ### Product detail
