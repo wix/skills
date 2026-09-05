@@ -38,7 +38,7 @@
 //
 // **NOT yet live-verified — transcribed from setup-restaurants.md / setup-restaurant-orders.md /
 // setup-restaurant-reservations.md / setup-restaurant-experiences.md.** If any call fails with a
-// shape the caller didn't expect, fall back to the wix-base44-connector skill (search + read the live Wix API
+// shape the caller didn't expect, fall back to the documentation skill available in your environment (search + read the live Wix API
 // reference) — never guess.
 //
 // ── PRECONDITIONS the recipes flag (record in the handoff, do NOT fail the seed) ─────────────────

@@ -57,18 +57,12 @@ within each. **One exception — `forms` must be seeded before its UI is built; 
 ### 1 · Install the skills
 
 Two skills, into `.agents/skills/`: **`wix-vibe-headless`** (this build guide + the seed modules —
-self-contained) and **`wix-base44-connector`** (fallback to search/read the Wix API reference).
+self-contained) and **`wix-docs`** (search/read the Wix API reference).
 
 ```bash
 CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
-CI=1 npx skills@latest add wix/skills/skills/wix-base44-connector --yes
+CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
 ```
-
-Outside Base44, use the connector skill's **documentation-discovery helpers only**: search/browse,
-read pages, and inspect method schemas. Its `scripts/utils.js` runs in a build-time Node.js
-environment with `fetch` and filesystem access; those helpers do not require a Base44 connection.
-Adapt its exec/file-reading examples to your local tools. Its Base44 site-context and connector-token
-instructions do not apply here; keep the visitor authentication and seeding credentials in this guide.
 
 ### 2 · Build the client
 
@@ -116,8 +110,9 @@ V=<vertical>
 find .agents/skills/wix-vibe-headless/references/$V/seed -name '*.js' -exec tail -n +1 {} +
 ```
 
-They encode the Wix API sequences (incl. app-install + provisioning-race handling); use `wix-base44-connector`
-for anything they don't cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
+They encode the Wix API sequences (incl. app-install + provisioning-race handling). For anything
+they don't cover, consult the official Wix API documentation using the documentation skill available
+in your environment. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
 installed + seeded (expected; the seed modules install it first). Image seeding = two Wix Media calls
 (`generate-upload-url` → `PUT` the bytes) before attaching.
 

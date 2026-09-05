@@ -254,7 +254,7 @@ Members Area app:
 
 Fallback only — when you hit an error or need something not shown here (password reset, custom SSO
 connection ids, a profile field these snippets don't have): read the relevant shipped file under
-`src/rest/`, or look it up via the **`wix-base44-connector`** skill.
+`src/rest/`, or look it up via the documentation skill available in your environment.
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.

@@ -196,7 +196,7 @@ Cover images live at `collection.coverImage.imageInfo.url` and `project.coverIma
 
 Fallback only — when you hit an error or need something not shown here (collection SEO, portfolio
 settings, a field these snippets don't have): read the relevant shipped file under `src/`, or look
-it up via the **`wix-base44-connector`** skill / the Portfolio API reference. Each helper in `wix-portfolio.js`
+it up via the documentation skill available in your environment / the Portfolio API reference. Each helper in `wix-portfolio.js`
 links its own reference page inline; the whole area is here:
 - Portfolio (collections, projects, project items): https://dev.wix.com/docs/api-reference/business-solutions/portfolio.md
 

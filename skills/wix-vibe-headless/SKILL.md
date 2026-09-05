@@ -86,8 +86,8 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   genuine gap (a field, an endpoint, or an error the snippets don't cover), extend the client with
   `wixApiRequest` — confirming the exact endpoint, method, and body first. **For that iteration and
   troubleshooting** — finding the right endpoint, reading a method's request/response schema, or
-  diagnosing an API error — fall back to the **`wix-base44-connector`** skill (`../wix-base44-connector/SKILL.md` when
-  co-installed): use its documentation discovery to search methods, read pages, and inspect API schemas.
+  diagnosing an API error — consult the official Wix API documentation using the documentation
+  skill available in your environment to search methods, read pages, and inspect API schemas.
   Reference index: https://dev.wix.com/docs/api-reference.md
 - **Provide the user with deep links to the Wix dashboard**: In many cases, the user will need to modify the default vertical data in the Wix dashboard. Always provide the user with these links. The relevant information for each vertical's links is in its `INSTRUCTIONS.md` file.
 
