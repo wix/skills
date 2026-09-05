@@ -169,7 +169,7 @@ installed, not what the business is about. Never default to store/bookings on si
 4. **Build the presentation and wire the integration** following the vertical's `INSTRUCTIONS.md`.
    Reuse its supplied pieces through their documented interfaces, build the presentation it leaves
    to you, and connect routes/providers as specified. Do not reimplement shipped logic. Style new
-   presentation using the existing platform theme; on Base44, use the established `src/index.css` theme.
+   presentation using the existing platform theme.
 5. **Complete the applicable platform and vertical guidance**, including any required checks and
    handoff instructions they provide.
 
