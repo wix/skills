@@ -3,7 +3,8 @@
 Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
-For Stores installation only, the module reads the site ID from `/app/src/rest/wix-config.js`; do not read or pass it yourself.
+Pass only the connector token and catalog data. The module handles site configuration internally;
+do not read the config or supply site/client IDs.
 
 **Match each product's type to what the buyer receives** (the example shows both). *Access* — a
 membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's

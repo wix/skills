@@ -4,12 +4,12 @@ The storefront ships the commerce hooks, server cart, REST transport, image help
 You build the presentation: Shop page, product grid and cards, variant controls, product detail
 (PDP) page, Home, header, and footer. Use the interfaces below and proceed directly to implementation.
 
-The client talks to Wix over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock
-products or hand-build a `/checkout` URL; the shipped cart uses the eCom redirect session.
+The shipped client handles visitor authentication using its deployed configuration. No ID lookup
+or configuration changes are needed to build the UI. Never mock products or hand-build a
+`/checkout` URL; the shipped cart uses the eCom redirect session.
 
 ## Prerequisites
 - The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately, in parallel with this build — so it may be empty at build time; render the empty state until products land.
-- The public headless **`WIX_CLIENT_ID`** from your prompt (buyer-facing, safe to hardcode/commit).
 
 ## Already installed in `src/`
 Successful deployment verified these files are in place; use this map without needing to read their source (`@/` → `src/`).
@@ -25,7 +25,7 @@ Successful deployment verified these files are in place; use this map without ne
 | `components/CartButton.jsx` | Cart icon button with a live-count badge |
 | `components/CartDrawer.jsx` | Cart drawer; mount once, opens through `useCart` |
 | `components/WixManageBanner.jsx` | Preview-only manage banner; include only when the entry guide enables it |
-| `rest/wix-config.js` | Wix client and site ids |
+| `rest/wix-config.js` | Deployed configuration; consumed internally by the shipped client |
 | `rest/wix-client.js` | REST transport and visitor authentication |
 | `rest/wix-store-catalog.js` | Product and category queries |
 | `rest/wix-store-cart.js` | Cart mutations and hosted checkout |
@@ -363,8 +363,8 @@ function Layout() {
 Follow the entry guide's banner choice. If it disables the banner, use the common wiring above
 without a banner import, mount, or banner-specific fixed region.
 
-When enabled, `WixManageBanner` is a default export with no props. It uses `WIX_METASITE_ID` from
-`@/rest/wix-config`, links to that site's dashboard, and renders only in preview; it returns null
+When enabled, `WixManageBanner` is a default export with no props. It reads its own configuration,
+links to the site's dashboard, and renders only in preview; it returns null
 when dismissed or while the site id is a placeholder. Mount it once above the header in one fixed
 region; keep the header in flow within that region and offset the content by its measured height
 so dismissal or resizing leaves no gap or overlap. Replace only the example's `Layout` with:
