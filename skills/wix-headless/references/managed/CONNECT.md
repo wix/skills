@@ -31,6 +31,22 @@ place it into CWD **first** — unzip/copy/fetch the design's files into the wor
 project on disk — **then** `init`. An empty CWD plus a brought-in design is still `connect`, not create:
 land the design, then attach Wix to it.
 
+> **No supported way to target a pre-existing siteId/clientId.** `init` (and `create` / `headless
+> link`) always **provisions a brand-new site + private app** — there is no flag or config to point
+> any of them at a specific `siteId`/`clientId` a user already has (e.g. from Wix's own headless
+> onboarding, which hands over a real siteId/clientId/dashboard link before any code exists).
+> Hand-writing `wix.config.json` with that pre-existing siteId/appId is **not** a working substitute:
+> every backend REST call succeeds (install, seed, even `wix release` itself) because those only need
+> a valid, authorized siteId/appId — but the deployed frontend never serves (Wix's edge 404s as if the
+> site doesn't exist), because `init`/`create`/`link` perform an origin-registration step
+> (`updateOAuthApp` with `redirectUrlWixPages` set) that only they can reach, and nothing else — no
+> error, no warning — flags it as missing. **If the user already has a pre-provisioned siteId and
+> wants it specifically, say so and stop rather than hand-writing `wix.config.json`** (do not spend the
+> run's time on hand-authored-config debugging — it cannot work today). The field-tested fallback,
+> approved by the user first: run `init`/`create` normally (it provisions a **new** site + app pair),
+> re-run Setup/Seed against that new `SITE_ID`, and tell the user the original pre-provisioned site
+> is being left unused (they may want to delete it from the dashboard later).
+
 ## 2 · Authenticate
 
 Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mint the site token
