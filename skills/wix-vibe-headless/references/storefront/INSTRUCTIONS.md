@@ -194,38 +194,49 @@ Retired option choices are filtered out. Respect each choice's `inStock` and mod
 | `storeImage(value)` | Accepts a URL string, `{ image: { url } }`, or `{ url }`; prefixes `//` with `https:`, returns other URLs unchanged or null when absent |
 
 Gallery URLs are normalized too. Handle missing images; don't reconstruct media URLs or resolve
-choice/variant media yourself. Custom cart images use `storeImage(line.attributes?.image?.url)`.
+choice/variant media yourself.
 
 ### Cart
-Use the named `useCart` export from `@/context/CartContext` within `CartProvider`.
+Use the shipped `CartDrawer` and `CartButton` with `CartProvider`, as wired below. The drawer
+already renders cart lines, quantities, subtotal, and checkout; you do not need to build a cart UI.
+Your card/PDP adds products through the named `useCart` export from `@/context/CartContext`
+within `CartProvider` (the PDP hook calls it for you).
 
 ```js
-const {
-  cart, itemCount, isOpen, setIsOpen, loading, error, clearError,
-  addToCart, removeItem, updateQuantity, checkout, refreshCart,
-} = useCart();
-// cart: server cart | null; itemCount: sum of confirmed line quantities
-// isOpen: boolean; setIsOpen(boolean); loading: mutation-in-progress boolean
-// error: string | null; clearError(): clears it
+const { addToCart, isOpen, setIsOpen, loading, error, clearError } = useCart();
 // addToCart(productId, variantId?, qty = 1, { modifierChoices?, customTextFields? }?)
-// removeItem(lineItemId); updateQuantity(lineItemId, qty)
-// checkout(); refreshCart()
+// isOpen: boolean; setIsOpen(true): open the drawer; setIsOpen(false): close it
+// loading: mutation-in-progress boolean; disable repeated adds while true
+// error: string | null; clearError(): clears it
 ```
 `addToCart` uses `product.id` and the resolved `variant.id` when needed. Extras are string maps:
 `modifierChoices: { [modifier.key]: choiceKey }` and
 `customTextFields: { [modifier.freeTextSettings.key]: userInput }`; include mandatory values.
+
+The context's add/remove/update/checkout methods return promises resolving to `undefined` on
+success or `null` on failure, storing the failure in `error`. They clear the previous error and
+set `loading` during the operation. Successful add updates the server-cart snapshot and opens the
+drawer; failed add does not open it. The drawer displays errors only while open, so your card/PDP
+must surface `error` too. These context methods do not return the updated cart or checkout URL.
+The lower-level REST helpers can reject; don't apply their rejection contract to `useCart()`.
+
+#### Custom cart UI — optional
+Only use these additional contracts if you choose to render your own cart surface. They come
+from the same `useCart()` context; mutation results and error handling are described above.
+
+```js
+const { cart, itemCount, removeItem, updateQuantity, checkout, refreshCart } = useCart();
+// cart: server cart | null; itemCount: sum of confirmed line quantities
+// removeItem(lineItemId); updateQuantity(lineItemId, qty)
+// checkout(); refreshCart()
+```
 For custom cart presentation, `cart?.lineItems ?? []` is the list. Each line has `id`,
 `name.original`, and optional `attributes.image.url`. Option/modifier labels are in
 `attributes.descriptionLines`: `[{ name: { original }, plainText?: { original },
 colorInfo?: { original, code } }]`; use `plainText.original` or `colorInfo.original` for the value.
 Update/remove use the line's `id`, not a catalog product id.
 
-The context's add/remove/update/checkout methods return promises resolving to `undefined` on
-success or `null` on failure, storing the failure in `error`. They clear the previous error and
-set `loading` during the operation. Successful add updates the server-cart snapshot and opens the
-drawer; failed add does not open it. The drawer displays errors only while open, so custom add UI
-must surface `error` too. These context methods do not return the updated cart or checkout URL.
-The lower-level REST helpers can reject; don't apply their rejection contract to `useCart()`.
+Normalize custom cart images with `storeImage(line.attributes?.image?.url)` (see **Images**).
 
 `checkout()` navigates to the hosted checkout URL; it refuses empty carts and lines with a status
 other than `IN_STOCK`, and refreshes the cart after failure. `refreshCart()` replaces the snapshot
