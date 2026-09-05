@@ -3,6 +3,8 @@
 Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
+Pass only the connector token and catalog data. The module handles site configuration internally;
+do not read the config or supply site/client IDs.
 
 **Match each product's type to what the buyer receives** (the example shows both). *Access* — a
 membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's
@@ -16,7 +18,7 @@ const fs = require("fs");
 const seed = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
   return m.exports; })();
-const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product

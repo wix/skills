@@ -6,7 +6,7 @@
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js");
-//   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+//   const ctx = { token: accessToken }; // Installation reads the site ID from the deployed Wix config.
 //   await seed.installStoresApp(ctx);
 //   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
 //   const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);
@@ -19,8 +19,30 @@
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+const WIX_CONFIG_PATH = "/app/src/rest/wix-config.js";
+let siteId;
 
-async function req(ctx, path, { method = "POST", body } = {}) {
+function getSiteId() {
+  if (siteId) return siteId;
+  let source;
+  try {
+    source = require("fs").readFileSync(WIX_CONFIG_PATH, "utf8");
+  } catch {
+    throw new Error(`Cannot read ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  // Base44/deploy writes a named export containing a JSON string literal. Do not execute config.
+  const match = source.match(/^export const WIX_METASITE_ID\s*=\s*("(?:[^"\\]|\\.)*")\s*;/m);
+  let value;
+  try { value = match && JSON.parse(match[1]); } catch { /* invalid config */ }
+  if (typeof value !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error(`Missing or invalid WIX_METASITE_ID in ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  siteId = value;
+  return siteId;
+}
+
+
+async function req(ctx, path, { method = "POST", body, headers = {} } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
   // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
   // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
@@ -30,7 +52,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
       method,
       headers: {
         Authorization: `Bearer ${ctx.token}`,
-        "wix-site-id": ctx.siteId,
+        ...headers,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -69,7 +91,7 @@ async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${ctx.token}`, "wix-site-id": ctx.siteId, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query: { paging: { limit: 1 } } }),
     });
     if (res.ok) return;
@@ -230,9 +252,10 @@ const digitalFileName = (p) =>
 // ---- exported operations ----
 
 async function installStoresApp(ctx) {
+  const siteId = getSiteId(); // Fail before the install-error catch if config is missing.
   try {
-    await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
-      tenant: { tenantType: "SITE", id: ctx.siteId },
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", { headers: { "wix-site-id": siteId }, body: {
+      tenant: { tenantType: "SITE", id: siteId },
       appInstance: { appDefId: STORES_APP_ID, enabled: true },
     } });
   } catch {

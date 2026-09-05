@@ -3,8 +3,8 @@
 You are building a **Wix Managed** headless storefront inside Base44 — the business is described in your
 initial prompt, and the Wix connector is already configured.
 
-Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
-only), safe in the frontend; use it directly for the Wix client setup.
+The shipped client is already configured. Use its documented hooks and components; no ID lookup
+or configuration changes are needed.
 
 > **The Wix skills installed below are the complete build and seed path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
