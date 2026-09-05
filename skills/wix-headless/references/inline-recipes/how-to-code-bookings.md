@@ -150,6 +150,8 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-s
 
 The booking form is a `@wix/forms` form attached to the service at `service.form._id`. Render it **schema-driven** — never hardcode field names.
 
+**`service.form._id` can be the literal all-zeros sentinel `00000000-0000-0000-0000-000000000000`** on a default/unassigned booking form — confirmed live, this is the normal value for a fresh service, not a broken reference. `getFormSummary` still resolves fields for it; call it and trust the result regardless of the id's value.
+
 **⚠️ CRITICAL: use `getFormSummary`, NOT `getForm`.** `getForm` returns the full nested schema (`form.formFields[].inputOptions.stringOptions.componentType…`), and hand-parsing that deep shape is the #1 source of a **silently empty form** — when your guess at the nested path is wrong, the parse yields zero fields and the form renders no inputs (→ empty `formSubmission` → `createBooking` 400 `first_name must have required property`) or hangs on a "loading" state. Use the **flat** summary instead:
 
 ```js
