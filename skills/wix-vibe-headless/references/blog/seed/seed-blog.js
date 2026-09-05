@@ -22,8 +22,7 @@
 //   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 //
 // Live-verified end-to-end (members author, categories, posts single+bulk, tags, covers, idempotent
-// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the wix-docs
-// skill (search + read the live Wix Blog API reference) — never guess. Source recipe:
+// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment (search + read the live Wix Blog API reference) — never guess. Source recipe:
 // wix-headless/references/inline-recipes/setup-blog.md.
 
 const API = "https://www.wixapis.com";

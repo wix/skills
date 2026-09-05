@@ -57,7 +57,7 @@ within each. **One exception — `forms` must be seeded before its UI is built; 
 ### 1 · Install the skills
 
 Two skills, into `.agents/skills/`: **`wix-vibe-headless`** (this build guide + the seed modules —
-self-contained) and **`wix-docs`** (fallback to search/read the Wix API reference).
+self-contained) and **`wix-docs`** (search/read the Wix API reference).
 
 ```bash
 CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
@@ -110,8 +110,9 @@ V=<vertical>
 find .agents/skills/wix-vibe-headless/references/$V/seed -name '*.js' -exec tail -n +1 {} +
 ```
 
-They encode the Wix API sequences (incl. app-install + provisioning-race handling); use `wix-docs`
-for anything they don't cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
+They encode the Wix API sequences (incl. app-install + provisioning-race handling). For anything
+they don't cover, consult the official Wix API documentation using the documentation skill available
+in your environment. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
 installed + seeded (expected; the seed modules install it first). Image seeding = two Wix Media calls
 (`generate-upload-url` → `PUT` the bytes) before attaching.
 

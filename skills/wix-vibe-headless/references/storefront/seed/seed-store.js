@@ -13,7 +13,7 @@
 //   await seed.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
 //   await seed.attachProductImages(ctx, products.map((p,i) => ({ id:p.id, url:imageUrls[i], altText:p.slug })));
 //
-// If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
+// If any call fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-online-store.md.
 
