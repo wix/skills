@@ -418,6 +418,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Manage Custom Embeds — Sitewide HTML/JS Injection (Head/Body)](references/sites/manage-custom-embeds.md)
+**Technical:** Create/List/Get/Update/Delete sitewide HTML/JS injections at `HEAD`/`BODY_START`/`BODY_END` via the Custom Embeds API (`/embeds/v1/custom-embeds`). Covers the undocumented premium-plan precondition (`428 NOT_A_PREMIUM_SITE`), the required `revision` on updates, and the consent-gating `embedData.category` behavior (non-`ESSENTIAL` embeds may not appear in a plain fetch even though the write succeeded). Use for tracking/analytics scripts, chat widgets, and sitewide banners — not for per-page visual HTML embeds.
+
 ---
 
 ## Stores
