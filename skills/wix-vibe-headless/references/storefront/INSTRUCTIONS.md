@@ -67,7 +67,7 @@ export default function Shop() {
     <ProductGrid
       products={s.products}
       loading={s.loading}
-      empty={s.error ? "" : "No products yet."}
+      emptyMessage={s.error ? "" : "No products yet."}
       emptyHint={s.error ? "" : "Try another category or check back later."}
     />
   ); // Add the controls and states above; layout and styling are yours.
@@ -78,12 +78,15 @@ export default function Shop() {
 // src/components/ProductGrid.jsx
 import ProductCard from "@/components/ProductCard";
 
-export default function ProductGrid({ products, loading, empty, emptyHint }) {
-  // products: array | null (null while loading); loading: boolean
-  // empty: heading string; emptyHint: optional supporting string
-  // Render loading, empty (when empty is nonempty), or ProductCard items.
-  // Pass the full product: <ProductCard key={product.id} product={product} />.
+export default function ProductGrid({ products, loading, emptyMessage, emptyHint }) {
+  // products: array | null; emptyMessage and emptyHint are display text, not state.
   // Layout and styling are yours; this component does not fetch products.
+  if (loading && !products?.length) return null; // Replace null with your loading UI.
+  if (!products?.length) {
+    // The page handles errors separately and suppresses emptyMessage on error.
+    return emptyMessage ? <div><p>{emptyMessage}</p><p>{emptyHint}</p></div> : null;
+  }
+  return products.map(product => <ProductCard key={product.id} product={product} />);
 }
 ```
 
