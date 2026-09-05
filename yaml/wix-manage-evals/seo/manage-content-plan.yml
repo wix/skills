@@ -1,0 +1,59 @@
+name: seo/manage-content-plan
+description: >-
+  Verifies that the agent triggers an SEO content plan generation flow, polls the flow status,
+  and handles the result — whether that is PENDING_REQUIREMENTS (missing business data),
+  a successful generation, or a failure.
+triggerPrompt: >-
+  I want to generate an SEO content plan for my Wix site. Trigger the content plan generation,
+  then check its status and tell me what happened.
+tags: [seo, content-plan]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
+  - type: llm_judge
+    minScore: 5
+    maxTokens: 2048
+    prompt: |
+      The user asked to trigger an SEO content plan generation and check its status.
+
+      Pass if the agent:
+      - called the Trigger Content Plan Generation Flow endpoint
+        (POST to a URL containing /content-plan-flows/trigger),
+      - polled or checked the flow status at least once
+        (GET to a URL containing /content-plan-flows/),
+      - reported the flow status to the user (any terminal or intermediate status counts).
+
+      A flow that reaches PENDING_REQUIREMENTS is a valid and expected outcome on a site
+      without business data. The agent should recognize it and explain to the user that
+      the site needs a business description or category. This is a PASS, not a failure.
+
+      A flow that reaches SUCCESS and the agent reads candidates is also a PASS.
+
+      Fail only if the agent:
+      - never made any API call to trigger the flow,
+      - spent the entire session searching documentation without calling the API,
+      - asked for a site ID (the API uses the auth context).
+
+      Score 5+ if the agent triggered and polled. Score 7+ if it also correctly
+      interpreted the status. Score 9+ if it provided clear actionable guidance.
+  - type: llm_judge
+    minScore: 5
+    maxTokens: 2048
+    prompt: |
+      Rate the agent's efficiency. Score 0-10.
+
+      HEAVY penalties (each costs 2-3 points):
+      - never called any API endpoint (just searched docs)
+      - asked for a site ID
+      - claimed success without evidence
+
+      LIGHT penalties (each costs at most 1 point):
+      - documentation lookup before the first API call
+      - extra polls beyond what was needed
+
+      A clean trigger-poll-report path with no wasted calls scores 8+.
+      Return ONLY {"score":<0-10>,"reason":"<terse explanation>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor

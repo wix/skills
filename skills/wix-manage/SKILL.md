@@ -42,6 +42,9 @@ Read and update the SEO tags of a Wix site at the right level — site-wide tags
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 "Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
 
+### [Generate and Read a Wix Site's Content Plan](references/seo/manage-content-plan.md)
+**Technical:** Triggers AI-generated SEO content plans (blog topic ideas with keyword research), polls the async generation to completion, reads and optionally edits keyword research, and reads the resulting blog post briefs. The flow parks mid-way and must be explicitly released. Handles copy-on-write keyword edits and the PENDING_REQUIREMENTS state when the site lacks business data.
+
 ---
 
 ## Accessibility
