@@ -184,6 +184,9 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Connect an External Domain](references/domains/connect-external-domain.md)
+**Technical:** Connect a domain the user already owns elsewhere to a Wix site via pointing or nameservers, using the Connected Domains and DNS Propagation APIs. Covers correctly interpreting DNS propagation status (which does NOT mean the site is actually being served yet) and the safe order of operations for domain migrations, so you don't advise reassigning primary before the new domain is confirmed live.
+
 ---
 
 ## eCommerce
