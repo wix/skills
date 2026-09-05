@@ -1,0 +1,83 @@
+name: pricing-plans/create-recurring-plan-limited-duration
+description: >-
+  Verifies the agent can assemble the billingTerms for a recurring plan that
+  ends after a set number of charges straight from the
+  create-and-update-pricing-plans recipe, without falling back to probing the
+  generated Create Plan schema for the shape of billingCycle and
+  cyclesCompletedDetails.
+triggerPrompt: >-
+  Create a plan called Quarterly Pass at $50 a month that automatically ends after 3 months.
+tags: [pricing-plans]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/create-and-update-pricing-plans
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create a plan called Quarterly Pass at $50
+      a month that automatically ends after 3 months."
+
+      Intent: create a Wix Pricing Plans plan named "Quarterly Pass" that charges
+      50 every month and stops after 3 charges, via
+      POST https://www.wixapis.com/pricing-plans/v3/plans.
+
+      Judge the END STATE of the plan that exists when the run finishes. Do not
+      score the number of attempts here — the second judge covers the path.
+
+      Score 9-10: a plan named "Quarterly Pass" exists, created by a successful
+      (2xx) Create Plan call, whose pricing variant charges a flat rate of 50 on a
+      MONTH billing cycle of count 1, and whose billing terms end the plan after 3
+      charges — `endType: "CYCLES_COMPLETED"` with
+      `cyclesCompletedDetails.billingCycleCount: 3`.
+
+      Score 7-8: the plan exists with the right name, price and monthly cadence and
+      does end after 3 monthly charges, but the agent's final answer is vague about
+      how the plan ends.
+
+      Score 4-6: the plan was created but does not end after 3 charges — for
+      example `endType: "UNTIL_CANCELLED"` (it never ends), or
+      `billingCycleCount` is not 3.
+
+      Score 1-3: the plan encodes the 3 months as the billing cycle instead of the
+      recurrence — a single charge on a `{ period: "MONTH", count: 3 }` cycle,
+      which bills 50 once for three months rather than 50 a month three times; OR
+      the plan was never created; OR the name or the amount is wrong; OR the agent
+      only described how to create the plan instead of creating it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP and its docs let the agent create a recurring
+      pricing plan that ends after a set number of charges. Examine the tool-call
+      trace, not just the final answer. Score 0-10 (10 = direct: read the docs,
+      then one successful call).
+
+      Penalize and LIST any of:
+
+      - a Create Plan call that returned a non-2xx error, even if a later retry
+        succeeded — in particular a 400 naming `plan.status`,
+        `plan.pricingVariants[0].id`, or `billingTerms.startType`;
+      - `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls made AFTER reading a
+        docs article, in order to work out the shape of `billingTerms`,
+        `billingCycle`, `cyclesCompletedDetails` or the `endType` values;
+      - custom code written to expand `$circular` / `$ref` schema references
+        because the resolved request shape was not available in one place;
+      - re-reading a docs article to recover from a failed call.
+
+      Score 1-3 if the agent read the pricing-plans recipe and STILL had to probe
+      the generated Create Plan schema to determine how `billingCycle` and
+      `cyclesCompletedDetails` combine to end a recurring plan after N charges.
+      That is the specific gap this scenario exists to catch: the recipe is
+      supposed to supply that `billingTerms` object ready to copy.
+
+      For each issue, name the likely MCP or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and the
+      suspected MCP/docs gap, or 'clean path' if none>"}.
