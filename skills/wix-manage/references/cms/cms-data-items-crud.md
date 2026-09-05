@@ -4,7 +4,7 @@ description: "Add, query, update, and delete items in CMS collections. Use this 
 ---
 # CMS Data Items CRUD
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`
 
 This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix CMS data items.
 
