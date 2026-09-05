@@ -182,16 +182,21 @@ loading so a failed request does not leave a spinner.
 ```jsx
 import { useParams } from "react-router-dom";
 import { useProductDetail } from "@/hooks/useProductDetail";
+import { useVariantOptions } from "@/hooks/useVariantOptions";
 import { productGallery } from "@/lib/storeImage";
 
 export default function ProductDetail() {
   const { slug } = useParams();
   const d = useProductDetail(slug);
+  const { optionGroups, modifierGroups } = useVariantOptions(
+    d.options, d.modifiers, d.selectedOptions, d.modifierValues
+  );
+  // Keep all hooks above every conditional return, including while the product loads.
   // d contains:
   // product: Wix product | null; .name, .slug, .plainDescription (HTML)
   // notFound: boolean; error: string | null (load error); retry: () => void
   // price, compareAtPrice: formatted strings ("" if absent), follow the selected variant
-  // options, modifiers: arrays for useVariantOptions below
+  // options, modifiers: arrays consumed by useVariantOptions above
   // selectedOptions: { [optionId]: choiceId }; selectOption(optionId, choiceId)
   // modifierValues: { [key]: value }; setModifier(key, value)
   // variant: resolved variant | null; null if required choices are missing or no match exists
@@ -199,11 +204,16 @@ export default function ProductDetail() {
   // quantity, setQuantity(n): number (may be "" mid-edit)
   // inStock, canAdd, adding: booleans
   // submit: async () => adds product + resolved variant + quantity + modifiers
+  // Replace these placeholders with your error, not-found, and loading UI.
+  if (d.error) return null; // show d.error and offer d.retry()
+  if (d.notFound) return null;
+  if (!d.product) return null;
+
   const images = productGallery(d.product); // [{ url, altText }], main first, de-duplicated
-  // Render your PDP.
+  // Render your PDP using d, images, optionGroups, and modifierGroups.
+  return null;
 }
 ```
-- Handle `error` with `retry()`, then `notFound`, then `!product` as loading.
 - Render `product.plainDescription` as HTML; strike `compareAtPrice` only when present and different from `price`.
 - Make the gallery follow `focusMediaUrl` when the selected option changes.
 - Render the option/modifier controls below; show a selection hint when `options.length && !variant`.
@@ -212,12 +222,8 @@ export default function ProductDetail() {
 - `submit()` resets `adding` after completion and resolves without a cart result. Add failures live in `useCart().error`, not the PDP load `error`; show them even when the drawer is closed.
 
 ### Variant and modifier controls
-```jsx
-import { useVariantOptions } from "@/hooks/useVariantOptions";
-
-const { optionGroups, modifierGroups } = useVariantOptions(
-  d.options, d.modifiers, d.selectedOptions, d.modifierValues
-);
+The product-detail example above provides both groups:
+```js
 // optionGroups: [{ id, name, isColor, choices: [
 //   { choiceId, name, colorCode: string | null, isColorSwatch, inStock, selected }
 // ] }]
