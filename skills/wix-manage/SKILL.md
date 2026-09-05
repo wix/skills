@@ -276,6 +276,9 @@ Creates payment links for unpaid bookings using Payment Links API. Links booking
 ### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
 "Builds direct links to Wix payments and invoicing dashboard pages on manage.wix.com — payment links, invoices (list, create, settings), recurring invoices, and the accept-payments settings page. Pairs each main get-paid entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Diagnose Checkout Payment Failures](references/get-paid/diagnose-checkout-payment-failures.md)
+**Technical:** Diagnoses why online checkout payments fail — especially when one payment method (e.g. Apple Pay/Google Pay) fails while another (e.g. cards) succeeds through the same provider. Checks Cashier transaction reason codes, then cross-checks the connected provider's declared `expressFlow`/`regularFlow` capabilities via Site Payment Method Types before concluding it's a platform bug.
+
 ---
 
 ## Google Ads

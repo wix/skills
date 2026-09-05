@@ -1,0 +1,38 @@
+name: get-paid/diagnose-checkout-payment-failures
+description: >-
+  Verifies the agent reads the diagnose-checkout-payment-failures recipe when
+  a site owner reports one payment method failing while another succeeds
+  through the same provider, and checks the provider's declared
+  expressFlow/regularFlow capabilities before concluding it's a platform bug.
+triggerPrompt: >-
+  My customers can pay by credit card at checkout, but Apple Pay always fails
+  immediately with no error shown. Both go through the same connected payment
+  provider. Is this a bug on Wix's end?
+tags: [get-paid, stores]
+maxTokens: 300000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/payments/site-payment-method-types/skills/diagnose-checkout-payment-failures
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user reports that Apple Pay fails immediately at checkout while
+      cards succeed, through the same connected payment provider, and asks
+      whether it's a Wix bug.
+
+      Pass if the response:
+      - looks up the connected provider's declared capabilities (Site
+        Payment Method Types `features.expressFlow.supported` /
+        `regularFlow.supported`) before concluding anything, AND
+      - explains that if `expressFlow.supported` is false for that provider,
+        the provider simply isn't wired for wallet/express payments through
+        Wix — regardless of the provider's own marketing description — and
+        that's the answer, not a platform bug.
+
+      Fail if the response:
+      - immediately declares this a Wix platform bug without checking the
+        provider's declared capabilities first, OR
+      - dumps raw reason codes / JSON at the user instead of a plain-language
+        explanation.
