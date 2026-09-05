@@ -63,6 +63,9 @@ Retrieve a Wix site's analytics through the Semantic Model API. Covers listing s
 
 ## Blog
 
+### [Fix Blog SEO: Distinct Title Tag from H1](references/blog/fix-blog-seo-title-tag-duplicates-h1.md)
+**Technical:** Sets a distinct SEO <title> tag on blog posts and categories without changing the visible H1, using seoData.tags on UpdateDraftPost and UpdateCategory. Fixes "H1 duplicates title tag" findings from SEO audit tools (e.g. Semrush, Ahrefs).
+
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
 Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 

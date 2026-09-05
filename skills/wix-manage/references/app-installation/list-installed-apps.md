@@ -95,12 +95,13 @@ if (!hasBookings) {
 
 ### Diagnose Authorization Errors
 
-If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
+If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs, first tell the two failure modes apart — they need different fixes:
 
-1. **List installed apps** using this recipe
-2. **Check if the required app** is in the response
-3. **If missing**: Install the app using the [Install Wix Apps](install-wix-apps.md) recipe
-4. **Retry the original API call**
+- **App not installed** — typically a `401` with a message like `"No <app> instanceId found"`. Fix: **list installed apps** using this recipe; if the required app is missing, install it with the [Install Wix Apps](install-wix-apps.md) recipe, then retry.
+- **App installed, but the calling identity lacks the permission scope for that app's API** — typically a `403` with a message like `"The auth identity is not allowed on this resource for this site/account"`. Installing the app again will **not** fix this — the app is already there. This means the token making the call doesn't carry the required scope (e.g. Blog, Stores) for this identity:
+  - **API key**: open the [API Keys Manager](https://manage.wix.com/account/api-keys) and check the key's assigned permissions; add the missing one and retry.
+  - **OAuth app**: check the app's granted [permission scopes](https://dev.wix.com/docs/build-apps/develop-your-app/access/authorization/configure-permissions-for-your-app) in the Dev Center and add the missing one.
+  - **Wix MCP connector (e.g. the built-in Claude connector)**: disconnecting/reconnecting does **not** let you add scopes — the connector's OAuth grant is fixed by its registration, not chosen per-session, and there's currently no self-service scope picker. If a required scope is missing, report it as feedback rather than repeatedly retrying reconnect.
 
 ---
 
@@ -120,5 +121,5 @@ If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
 
 After checking installed apps:
 - **If app is missing**: Use the [Install Wix Apps](install-wix-apps.md) recipe to install required apps
-- **If app is installed but API fails**: Check API permissions and authentication
+- **If app is installed but API fails with 403**: See [Diagnose Authorization Errors](#diagnose-authorization-errors) above — this is almost always a missing permission scope on the caller's token, not an installation problem
 - **For Bookings APIs**: See [Bookings recipes](../../SKILL.md) for service setup
