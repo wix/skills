@@ -371,6 +371,9 @@ Configures restaurant menus, sections, and items using Menus API. Covers menu st
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Table Reservations Widget Localization Gap](references/restaurants/table-reservations-widget-localization-gap.md)
+**Technical:** Explains why the built-in Table Reservations reservation-form widget can show untranslated English copy on a non-English site, and why no API or Editor control can fix it — built-in labels come from Wix's internal translation bundles keyed to site language, not editable content.
+
 ---
 
 ## Rich Content
