@@ -184,6 +184,9 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Diagnose Domain Connectivity Issues](references/domains/diagnose-domain-connectivity-issues.md)
+**Technical:** Diagnoses a down/unreachable domain or NXDOMAIN using the DNS Propagation API, then distinguishes genuine DNS misconfiguration from registry-level status holds (clientHold/serverHold), pending ICANN contact verification, and expired/redemption states -- none of which are visible via any public Domains API and most of which have no self-serve fix. Use when DNS looks correct but the domain still doesn't resolve, or the dashboard's connectivity banner seems wrong.
+
 ---
 
 ## eCommerce
