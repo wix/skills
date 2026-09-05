@@ -6,7 +6,7 @@
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js");
-//   const ctx = { token: accessToken }; // Site ID is read from the deployed Wix config.
+//   const ctx = { token: accessToken }; // Installation reads the site ID from the deployed Wix config.
 //   await seed.installStoresApp(ctx);
 //   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
 //   const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);
@@ -42,7 +42,7 @@ function getSiteId() {
 }
 
 
-async function req(ctx, path, { method = "POST", body } = {}) {
+async function req(ctx, path, { method = "POST", body, headers = {} } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
   // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
   // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
@@ -52,7 +52,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
       method,
       headers: {
         Authorization: `Bearer ${ctx.token}`,
-        "wix-site-id": getSiteId(),
+        ...headers,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -91,7 +91,7 @@ async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${ctx.token}`, "wix-site-id": getSiteId(), "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query: { paging: { limit: 1 } } }),
     });
     if (res.ok) return;
@@ -254,7 +254,7 @@ const digitalFileName = (p) =>
 async function installStoresApp(ctx) {
   const siteId = getSiteId(); // Fail before the install-error catch if config is missing.
   try {
-    await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", { headers: { "wix-site-id": siteId }, body: {
       tenant: { tenantType: "SITE", id: siteId },
       appInstance: { appDefId: STORES_APP_ID, enabled: true },
     } });
