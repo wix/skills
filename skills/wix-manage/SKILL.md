@@ -400,6 +400,9 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 ### [Create Site from Template](references/sites/create-site-from-template.md)
 Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 
+### [Diagnosing a Published Site That's Unreachable](references/sites/diagnosing-published-site-unreachable.md)
+**Technical:** What to do when a publish/site-creation tool reports success but the URL doesn't load (commonly `ERR_CONNECTION_RESET`, persisting across devices). Covers verifying the URL independently rather than trusting the tool's success text, telling a hosting-domain/network-layer failure apart from a content or routing problem, and a known incident shape on `*.wix-site-host.com` (the free Editorless/Harmony hosting domain). Use when a user says a published site "won't open"/"doesn't load" on any device.
+
 ### [Create Headless Site](references/sites/create-headless-site.md)
 Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
