@@ -13,6 +13,7 @@ CI=1 npx @wix/cli@latest release
 - Publishes whatever the managed project is configured to deploy to Wix's hosting/CDN, and brings the live site up.
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
 - The published URL is printed on stdout (`Site published on <url>`).
+- **CWD must be the exact project root** — `release` (like every `wix.config.json`-driven command) looks for the file only in CWD, with no upward directory search and no `--dir`/`--cwd` flag. Running it from a parent or sibling directory fails with `Project type could not be determined due to a missing configuration file "wix.config.json"`, which reads like a missing/corrupt config rather than a wrong-CWD issue. `cd` into the project root (the directory holding `wix.config.json`) before running `release` or any other `wix`/`npx @wix/cli` command.
 
 ## Give the user both links — the live site **and** the dashboard
 
