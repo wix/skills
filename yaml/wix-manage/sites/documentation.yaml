@@ -30,3 +30,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/diagnosing-page-504-runtime-unreachable.md
+      title: Diagnosing a Live Page Returning 504 / "Runtime is unreachable" — Known Gap
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/site-actions
+      tags: [sites, gap]

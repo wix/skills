@@ -418,6 +418,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Diagnosing a Live Page Returning 504 / "Runtime is unreachable" — Known Gap](references/sites/diagnosing-page-504-runtime-unreachable.md)
+**Technical:** A Velo-enabled site's non-home pages return HTTP 504 "Runtime is unreachable" — Wix's Velo runtime supervisor's own signal for an unreachable backend pod, not a content/publish/routing problem. Republishing doesn't fix it, `ListSitemapPages` cannot diagnose it (it only covers dynamic items, never static pages), and there's no public API to check or restart the runtime. Read this before spending multiple tool calls chasing it.
+
 ---
 
 ## Stores
