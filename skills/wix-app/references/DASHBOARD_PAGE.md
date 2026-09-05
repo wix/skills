@@ -35,6 +35,8 @@ The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `s
 
 **Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
 
+Wiring — both providers, the `withDashboard` export, and the `@wix/dashboard` dependency: [Page Wiring](WIX_PATTERNS_DOCS.md#page-wiring).
+
 ## Capabilities
 
 A dashboard page runs as the **Wix user** — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before deciding where an SDK call runs.
@@ -92,7 +94,7 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create a dashboard page to manage blog posts"
 
-**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. The provider lives in a parent component, in a separate file from the hook call.
+**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. Both providers sit above the component that calls the hook, and the page is exported via `withDashboard(...)`.
 
 ### Settings Form
 

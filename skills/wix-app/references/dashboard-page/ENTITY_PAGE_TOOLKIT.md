@@ -66,7 +66,30 @@ Confirm the shape rather than guessing — the hook's doc has an empty API secti
 | Registering the route | `PatternsReactRoute` inside `PatternsReactRouter` |
 | Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` |
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
+| Reaching the form from a child component | `useEntityPageContext()` |
 | The fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
+
+## Child components read context, not props
+
+`useEntityPageContext` returns the `EntityPageState` from context, so a field component rendered anywhere inside `EntityPage` reaches the form and the entity without prop-drilling:
+
+```tsx
+const FormContent = () => {
+  const pageState = useEntityPageContext<Shift, ShiftFormFields>();
+  const field = useController({
+    name: 'name',
+    control: pageState.form.control,
+    defaultValue: pageState.entity?.name,
+  });
+  return (
+    <FormField label="Name">
+      <Input value={field.field.value} onChange={field.field.onChange} />
+    </FormField>
+  );
+};
+```
+
+Threading `form` or `entity` down through props is the thing this hook exists to remove. Name both generics here too — the context is typed by the same pair as the hook.
 
 `@wix/patterns/form` re-exports `@wix/bex-core/form`, which wraps `react-hook-form` — so `form.getValues()`, `form.reset()` and the rest are react-hook-form's API, documented there rather than in the patterns docs.
 
