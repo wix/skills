@@ -185,7 +185,7 @@ other than `IN_STOCK`, and refreshes the cart after failure. `refreshCart()` rep
 and resolves to `undefined`; its underlying read returns null for no cart or a failed request. It
 does not set mutation `loading` or `error`.
 
-Cart V2 money is `{ amount, convertedAmount }`, with no formatted string. `amount` is in site
+Cart money is `{ amount, convertedAmount }`, with no formatted string. `amount` is in site
 currency; `convertedAmount` is in display currency. Format
 `money.convertedAmount ?? money.amount` with `Intl.NumberFormat` and
 `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode` (the shipped drawer falls
@@ -197,9 +197,6 @@ not fetch. Tax and shipping resolve at checkout.
 Line `quantityInfo.confirmedQuantity` is the current quantity; `availableQuantity` caps increases
 when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, or
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
-
-Migrating from Cart V1 / Checkout V1? These helpers are V2-only; see the
-[migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide).
 
 ## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
