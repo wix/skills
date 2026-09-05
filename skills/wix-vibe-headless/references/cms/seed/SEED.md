@@ -141,5 +141,5 @@ permission scope, and the response envelope.
 - Bulk Insert Data Item References: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
 - Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
 - Collections: https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections.md
-- Anything not covered → use the `wix-docs` skill (search + read the live reference); never guess.
-- Anything not covered → use the `wix-docs` skill (search + read the live reference); never guess.
+- Anything not covered → use the `wix-base44-connector` skill (search + read the live reference); never guess.
+- Anything not covered → use the `wix-base44-connector` skill (search + read the live reference); never guess.

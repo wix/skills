@@ -155,7 +155,7 @@ await seed.createExperiences(ctx, loc.id, [{ configuration: { /* per Create-Expe
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover, use the
-**`wix-docs`** skill to search + read the live Wix API reference — never guess. The **Experiences** create
+**`wix-base44-connector`** skill to search + read the live Wix API reference — never guess. The **Experiences** create
 payload especially lives in the docs (fields evolve). The authoritative source recipes are
 `wix-headless/references/inline-recipes/setup-restaurants.md`, `setup-restaurant-orders.md`,
 `setup-restaurant-reservations.md`, and `setup-restaurant-experiences.md`.

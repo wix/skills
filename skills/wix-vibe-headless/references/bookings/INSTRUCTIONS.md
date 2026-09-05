@@ -207,7 +207,7 @@ window.location.href = checkoutUrl;   // hosted checkout; on return the booking 
 ## Extending the client
 The shipped flow covers **APPOINTMENT and CLASS** services (`listSlotsForService` routes by
 `service.type`). For anything beyond that, add a helper on `wixApiRequest`, looking the endpoint up
-in the **`wix-docs`** skill first (never guess):
+in the **`wix-base44-connector`** skill first (never guess):
 - **COURSE** enrollment — a course is enrolled as a *whole*, not per session; `listEventTimeSlots`
   returns no slots for it, so the slot-picker flow doesn't apply (course-specific flow).
 - **Service variants / participants** (duration- or person-based pricing), **add-ons**, and
@@ -217,7 +217,7 @@ in the **`wix-docs`** skill first (never guess):
   them see their own appointments.
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped
-file under `src/`, or look it up via the **`wix-docs`** skill. Each helper in
+file under `src/`, or look it up via the **`wix-base44-connector`** skill. Each helper in
 `wix-bookings-services.js` / `wix-bookings-checkout.js` links its own reference page inline; these are
 the areas they sit in:
 - Bookings (services, categories, bookings): https://dev.wix.com/docs/api-reference/business-solutions/bookings.md

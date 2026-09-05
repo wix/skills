@@ -1,6 +1,6 @@
 // Member plan-order row — pure UI for the "My plans" screen. Renders only fields the Order object
 // actually returns (planName, status, start/end dates); for anything else (amount paid, next-billing)
-// look it up in the Orders API reference (wix-docs) — never invent it. Styled with base44 design
+// look it up in the Orders API reference (wix-base44-connector) — never invent it. Styled with base44 design
 // tokens (shadcn Tailwind classes).
 
 // Each status carries its OWN text colour: a shared `text-primary-foreground` over a varying

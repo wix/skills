@@ -206,7 +206,7 @@ official Wix Events API reference first, never guess:
 - Member login + "my registrations" → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped file
-under `src/`, or look it up via the **`wix-docs`** skill.
+under `src/`, or look it up via the **`wix-base44-connector`** skill.
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.

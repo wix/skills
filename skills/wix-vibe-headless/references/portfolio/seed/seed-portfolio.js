@@ -19,7 +19,7 @@
 //   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId: files[0].id, height:1024, width:1024 }]);
 //
 // **NOT yet live-verified — transcribed from setup-portfolio.md.** If any call fails with a
-// shape the caller didn't expect, fall back to the wix-docs skill (search + read the live Wix
+// shape the caller didn't expect, fall back to the wix-base44-connector skill (search + read the live Wix
 // API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-portfolio.md.
 

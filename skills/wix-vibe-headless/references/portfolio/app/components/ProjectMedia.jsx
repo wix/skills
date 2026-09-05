@@ -16,7 +16,7 @@ export default function ProjectMedia({ item }) {
   }
   if (item.type === "VIDEO") {
     // resolutions[].url is the confirmed field; posters[0] is the poster (sub-shape not in the
-    // helper JSDoc — posters[0].url used here; confirm in wix-docs if a brand needs more).
+    // helper JSDoc — posters[0].url used here; confirm in wix-base44-connector if a brand needs more).
     const vi = item.video?.videoInfo;
     const src = https(vi?.resolutions?.[0]?.url);
     const poster = https(vi?.posters?.[0]?.url);

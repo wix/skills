@@ -31,7 +31,7 @@
 //   const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
 //   await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 //
-// If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
+// If any call fails with a shape the caller didn't expect, fall back to the wix-base44-connector skill
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-events.md.
 

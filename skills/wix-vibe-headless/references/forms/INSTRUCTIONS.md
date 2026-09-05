@@ -422,7 +422,7 @@ Don't reach for `role="form"`, an `aria-label` on an input that already has a `<
 Three sources answer what this file doesn't: the **JSDoc** in `hooks/useWixForm.js` and
 `lib/wix-form-schema-utils.js`; the **Wix reference** below; and `seed/SEED.md` for how a field was
 authored, and REVISE for changing one. Calling an endpoint the helpers don't wrap is fine via
-`wixApiRequest` — look up the exact method and body first (or the `wix-docs` skill), never guess.
+`wixApiRequest` — look up the exact method and body first (or the `wix-base44-connector` skill), never guess.
 
 - Form object (the shape `form` and its fields arrive in): https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object.md
 - Form Schemas API: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas.md

@@ -25,7 +25,7 @@ The Wix skills live under \`.agents/skills/\` — on ANY turn, read them from th
   - **events** — publish events and handle RSVPs or ticket sales.
   - **members** — let visitors create an account and sign in — this is **auth**.
   - **restaurants** — publish a menu, take online orders, and manage table reservations.
-- \`wix-docs\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
+- \`wix-base44-connector\` — **fallback** for **frontend code**, **backend code**, or **runtime / API management operations** alike: search + read the Wix API reference docs.
 `;
 
 const amd = '/app/AGENTS.md';

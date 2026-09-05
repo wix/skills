@@ -74,7 +74,7 @@ is NOT a plan field or a perk). Those ids come from the **bookings seed**
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the **`wix-base44-connector`** skill to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-pricing-plans.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

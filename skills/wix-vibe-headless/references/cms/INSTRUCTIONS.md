@@ -148,7 +148,7 @@ Validate the mime type and the size there as well.
 
 ## Fallback — beyond the helpers
 Need something the helpers don't cover? Call it yourself with `wixApiRequest`, but look up the exact
-endpoint/method/body in the official Wix reference first (or use the `wix-docs` skill) — never guess.
+endpoint/method/body in the official Wix reference first (or use the `wix-base44-connector` skill) — never guess.
 - Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
 - Partial update (Patch): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
 - Upsert by id (Save): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/save-data-item.md

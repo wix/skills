@@ -192,7 +192,7 @@ window.location.href = await checkout(plan.id, { thankYouPageUrl: `${window.loca
 const orders = await getMyPlanOrders({ orderStatuses: ["ACTIVE"] });   // omit orderStatuses for all
 
 // Plan image: plan.image is a WixMedia object { id, width, height, altText } with NO .url. The shipped
-// cards render text only to avoid this. To show it, resolve the WixMedia `id` to a URL (wix-docs),
+// cards render text only to avoid this. To show it, resolve the WixMedia `id` to a URL (wix-base44-connector),
 // or omit — never <img src={plan.image}> / <img src={plan.image.url}> (undefined / [object Object]).
 ```
 
@@ -208,7 +208,7 @@ method, and body first (never guess):
 - Headless redirect session: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped
-file under `src/`, or look it up via the **`wix-docs`** skill.
+file under `src/`, or look it up via the **`wix-base44-connector`** skill.
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.

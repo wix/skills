@@ -9,7 +9,7 @@ see this vertical's `INSTRUCTIONS.md` and the reference components.
 
 _Optional, off by default:_ only if a run's prompt explicitly asks to exercise the pricing-plans
 purchase path end-to-end, one test member may be created — keep this off so headless runs stay
-deterministic and don't stall on an interactive login. If you need that, use the **`wix-docs`**
+deterministic and don't stall on an interactive login. If you need that, use the **`wix-base44-connector`**
 skill for the current member-create shape (source: `wix-headless/references/SEED.md` § members).
 
 ## Reference
