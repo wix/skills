@@ -45,21 +45,17 @@ Wix Bookings default business hours define the base availability for your bookin
 **✅ CORRECT API**: Calendar Events V3 API (`/calendar/v3/events`)
 - Creates `WORKING_HOURS` events on the business schedule
 - Each `MASTER` event creates one time slot in the dashboard
-- Uses fixed business resource ID: `4e0579a5-491e-4e70-a872-d097eed6e520`
+- The business schedule is identified by a constant `externalId` (`4e0579a5-491e-4e70-a872-d097eed6e520`) — use it only to *find* the schedule (Step 1). It is **not** a resource id and must never be placed inside an event body.
 
-### Key Discovery: Universal Business Schedule External ID
+### Business Schedule External ID
 
-**VERIFIED**: The business schedule external ID `"4e0579a5-491e-4e70-a872-d097eed6e520"` is **universal across all Wix sites**.
+The business schedule's `externalId` is constant across Wix sites: `"4e0579a5-491e-4e70-a872-d097eed6e520"` (schedule name `"business"`). Use it as the filter in Step 1 to look up the schedule.
 
-This has been tested and confirmed on multiple different Wix sites:
-- All sites have a business schedule with this exact external ID
-- The schedule name is consistently `"business"`
-- While the internal schedule `id` varies per site, the `externalId` is constant
-- This makes the recipe reliable without requiring site-specific discovery
+**Crucial distinction:** the schedule's internal `id` differs per site. That per-site `id` — **not** the `externalId` — is what you pass as `scheduleId` when creating or updating events. The `externalId` is only a lookup key; it is not an event field and not a resource id.
 
 ### IMPORTANT NOTES
 
-* **Universal External ID**: The business schedule external ID `"4e0579a5-491e-4e70-a872-d097eed6e520"` is verified to work across all Wix sites
+* **Business schedule lookup**: Use the constant `externalId` `"4e0579a5-491e-4e70-a872-d097eed6e520"` only to find the schedule (Step 1). Pass the resolved per-site `schedule.id` — not the `externalId` — as `scheduleId` on events.
 * **Default Hours Always Exist**: Every Wix Bookings installation creates default hours automatically
 * **Event Scheduling Flexibility**: Businesses can create multiple time slots per day or complex schedules as needed - there are no restrictions on number of events per day
 * **MASTER vs INSTANCE Events**: Based on observed behavior, MASTER events appear to generate INSTANCE events automatically, but always verify current event state when working with recurring events
@@ -110,11 +106,11 @@ Query pattern:
 
 Based on the existing hours found in Step 2, choose one approach:
 
-#### Strategy A: Update Existing Hours (Recommended)
-If you want to modify the times but keep the same days, update the existing events.
+#### Strategy A: Update Existing Hours (Recommended when the number of working days stays the same)
+Update the existing events in place. Update can change the times (`fieldmask: "start,end"`) and even which day an event falls on (`fieldmask: "recurrenceRule"`). It **cannot** add or remove events, so use it when the desired number of working days matches what already exists (the default install has 5: Mon–Fri).
 
-#### Strategy B: Replace All Hours
-If you want completely different days/times, delete existing events and create new ones.
+#### Strategy B: Replace Hours (when the number of working days changes)
+When you need a different number of working days than exist — e.g. going from the default Mon–Fri (5) to Tue/Wed/Thu (3) — cancel the events you don't want (Step 4B.1) and create the ones you do (Step 4B.2).
 
 ### 4A. Update Existing Business Hours (Strategy A)
 
@@ -133,8 +129,8 @@ Update fields:
   "events": [{
     "event": {
       "id": "existing-monday-event-id",
-      "start": {"localDate": "2025-06-16T00:00:00"},
-      "end": {"localDate": "2025-06-16T16:00:00"},
+      "start": {"localDate": "2026-06-29T00:00:00"},
+      "end": {"localDate": "2026-06-29T16:00:00"},
       "revision": "current-revision-number"
     }
   }],
@@ -154,17 +150,35 @@ Cancel existing MASTER events using `bulkCancelEvents` API (`POST https://www.wi
 ```
 
 #### Step 4B.2: Create New Business Hours
-Create `WORKING_HOURS` events for each day using `bulkCreateEvents` API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)).
+Create `WORKING_HOURS` events using `bulkCreateEvents` API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)). Create one event object per working day.
 
-**Each event pattern**:
-- `type`: `"WORKING_HOURS"`
-- `scheduleId`: Business schedule ID from step 1
-- `scheduleOwnerId`: `"4e0579a5-491e-4e70-a872-d097eed6e520"`
-- `externalScheduleId`: `"4e0579a5-491e-4e70-a872-d097eed6e520"`
-- `recurrenceRule`: Weekly recurring with single day
-- `start`/`end`: Business hours times
+**A WORKING_HOURS event takes only these fields**: `type`, `scheduleId` (the per-site `schedule.id` from Step 1), `start`, `end`, and `recurrenceRule`.
 
-**Note**: Create separate events for each day of the week (Monday, Tuesday, etc.).
+```json
+{
+  "timeZone": "America/New_York",
+  "events": [
+    {
+      "event": {
+        "type": "WORKING_HOURS",
+        "scheduleId": "<schedule.id from step 1>",
+        "start": { "localDate": "2026-06-29T09:00:00" },
+        "end":   { "localDate": "2026-06-29T17:00:00" },
+        "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] }
+      }
+    }
+  ]
+}
+```
+
+**Do NOT set `location`, `conferencingDetails`, `participants`, `title`, or `capacity` on the event.** These are inherited from the business schedule (a created event's `inheritedFields` lists `LOCATION`, `CONFERENCING_DETAILS`, `TIME_ZONE`, `TITLE`, `CAPACITY`). Setting them triggers nested validation errors such as `location.type value is required` or `conferencing_details.type or provider is required`.
+
+**Do NOT set `resources`.** WORKING_HOURS events have an empty `resources: []`. In particular, never put the schedule's `externalId` (`4e0579a5-…`) into `resources[].id` — it is not a resource id, and the API returns `404 Resource … not found`.
+
+**Notes:**
+- Add one `event` object per day (Monday, Tuesday, …) to the `events` array.
+- `start`/`end` `localDate` must be today or in the future.
+- The created event id is returned at `results[].itemMetadata.id`.
 
 ### 5. Verify Final Configuration
 
