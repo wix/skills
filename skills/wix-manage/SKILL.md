@@ -418,6 +418,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Diagnosing Picasso/Vibe Site 5xx Errors](references/sites/diagnosing-picasso-vibe-site-5xx-errors.md)
+**Technical:** Explains why a published Wix Vibe/Picasso site (Astro SSR via `@astrojs/cloudflare`, served by the `wix-hosting-dispatcher` Cloudflare Worker) can intermittently return content-less HTTP 500s under parallel load or right after a publish with zero application-log trace, and what's actually worth checking (Site Monitoring aggregate error rate) versus what to skip (classic Editor/Velo runtime diagnostics, which target a different hosting stack). Use when a report matches this exact signature for a Picasso-editor-type site.
+
 ---
 
 ## Stores

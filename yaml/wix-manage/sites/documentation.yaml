@@ -30,3 +30,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/diagnosing-picasso-vibe-site-5xx-errors.md
+      title: Diagnosing Picasso/Vibe Site 5xx Errors
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]
