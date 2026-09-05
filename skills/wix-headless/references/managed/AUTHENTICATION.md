@@ -60,3 +60,19 @@ Re-mint is **not** a recovery step (the token is byte-identical) — retry the *
 | `401 Unauthorized` | Retry once with the cached token. | CLI session expired — run `npx @wix/cli@latest login` (a new session), then re-mint. |
 | `403 Forbidden` | Retry once with the cached token. | App not installed yet (re-check the apps-installer returned 200), or the caller lacks permission — surface the response; don't loop. |
 | `404` on a documented URL | Re-read the recipe — a path typo. | Recipe bug; surface and stop. |
+| `404` body is an **HTML** page (`<!DOCTYPE html>`, title `"404 Error: Page Not Found \| Wix.com"`) instead of JSON | The path itself is wrong — `www.wixapis.com` renders this classic-error page for **any** unmatched route, it does not mean "forbidden" or "empty." Re-verify the endpoint against the method's docs page (path, verb — not every "get" resource also has a "query" variant; a per-site singleton like Site Properties only has `GET`, no `/query`). | Recipe/docs bug; surface and stop rather than guessing another path. |
+| A visitor/frontend read returns **`200` with an empty/zero result** where content was expected | Don't assume the store/collection is genuinely empty — first rule out a **site mismatch** (below). | If the site-scoped token (this file, §2) returns real data for the same query, the frontend's `clientId` is bound to a different site — fix that before touching the data. |
+
+## Verify which site a token/client is bound to
+
+A visitor `clientId` (or a token) has no notion of "the site I'm supposed to be talking to" — it just **is** bound to whatever site it was issued for, and a query against it succeeds normally (`200`, real response) no matter which site that is. So a frontend that ends up with the **wrong** `clientId` (e.g. a leftover manual client from before `CONNECT.md` was run — see `astro.md` Caveat A7 / `CONNECT.md` § "Remove any pre-existing manual Wix client before wiring") doesn't error — it silently reads a **different, valid** site, which is indistinguishable from "this store has no products yet" when that other site's catalog happens to be empty.
+
+To confirm which site you're actually talking to, compare against the site-scoped CLI token from this project's `$SITE_ID` (§2), which is unambiguous:
+
+```bash
+curl -sS "https://www.wixapis.com/site-properties/v4/properties" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "wix-site-id: $SITE_ID"
+```
+
+This returns the `siteDisplayName`/`businessName` for `$SITE_ID` (a `GET`, no request body — there is **no** `/site-properties/v4/properties/query` endpoint; Site Properties is a per-site singleton, not a queryable collection). If the frontend's data disagrees with what this call reports for `$SITE_ID`, the frontend is authenticated against a different site — the fix is in the frontend's client/env config, not the API.
