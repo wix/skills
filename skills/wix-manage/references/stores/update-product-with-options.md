@@ -218,6 +218,16 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID. Each variant object is replaced whole rather than merged, so carry over the fields you are not changing: rebuilding a variant from just its `id` plus the field you want to set drops everything else and is rejected on the first required field it lost (`price must not be empty`). Start from the variant as returned by Get Product and override only what the user asked to change.
 
+### Renaming an Existing Choice Is Not Supported
+
+If the user asks to rename an existing choice (for example "rename the `S` size choice to `Small`"), do not send a changed `name` for that choice's existing `choiceId` in Update Product — it returns 200 and increments `revision`, but the name is silently unchanged, both in the response and on a subsequent Get Product. This is because an existing choice's displayed name always comes from its underlying Customization entity, not from what you send here.
+
+There is currently no supported API path to rename a choice that's already assigned to a product:
+- [Update Customization Choices](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3/update-customization-choices) only supports updating `primaryChoiceIds`, not `name`.
+- [Set Customization Choices](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3/set-customization-choices) rejects any choice already assigned to a product (`428 CHOICE_ASSIGNED_TO_PRODUCT`).
+
+Tell the user this isn't currently possible via the API; renaming only works from the Wix dashboard, or by removing the old choice and adding a new one with the new name (which changes `choiceId` and requires rebuilding affected variants).
+
 ### Convert a Simple Product to Color Variants
 
 When adding the first option to a simple product, do not preserve a choice-less default variant unchanged. A simple product often has one existing variant with price or stock but no `choices`. After you add a `Color` option, every variant in `variantsInfo.variants` must include choices that match the product options.
@@ -413,6 +423,7 @@ Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in 
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
+- Renaming an existing choice (same `choiceId`) via Update Product is a silent no-op — it returns 200 and bumps `revision` without applying the new name. There is no supported API rename path for an assigned choice; see "Renaming an Existing Choice Is Not Supported" above.
 - Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates. Reading them back is not symmetric: Get Product returns each variant's `choices` with `optionChoiceIds` only, and fills in `optionChoiceNames` just when the request's `fields` array includes `"VARIANT_OPTION_CHOICE_NAMES"`. So to find the variant for a named choice such as `Large`, either pass that field and match on the name, or take the choice GUID from `options[].choicesSettings.choices[].choiceId` and match it against `variants[].choices[].optionChoiceIds.choiceId`. Matching on a name the response never carried raises nothing — it just selects no variant.
 - Include the `renderType` in `optionChoiceNames`.
 
