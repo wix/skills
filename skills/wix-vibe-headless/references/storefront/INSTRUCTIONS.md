@@ -1,7 +1,7 @@
 # Wix Storefront — ready-made client
 
-The storefront ships the commerce hooks, server cart, REST transport, image helpers, and `Shop`
-listing page. You build the presentation: product card, grid, variant controls, product detail
+The storefront ships the commerce hooks, server cart, REST transport, image helpers, and cart UI.
+You build the presentation: Shop page, product grid and cards, variant controls, product detail
 (PDP) page, Home, header, and footer. Use the interfaces below and proceed directly to implementation.
 
 The client talks to Wix over the public `WIX_CLIENT_ID` (anonymous visitor tokens). Never mock
@@ -18,14 +18,13 @@ Successful deployment verified these files are in place; use this map without ne
 |---|---|
 | `context/CartContext.jsx` | `CartProvider` and `useCart()`: server cart, add/update/remove, checkout |
 | `hooks/useProductDetail.js` | PDP product, variant resolution, selection, load/add state |
-| `hooks/useShop.js` | Catalog listing, categories, cursor paging, sort, failure state; used by `Shop` |
+| `hooks/useShop.js` | Catalog listing, categories, cursor paging, sort, failure state; use in your `Shop` |
 | `hooks/useProductCard.js` | Card badges, prices, options summary, quick-add flag, images |
 | `hooks/useVariantOptions.js` | Render-agnostic option and modifier groups for PDP controls |
 | `lib/storeImage.js` | Wix image URL and gallery helpers |
 | `components/CartButton.jsx` | Cart icon button with a live-count badge |
 | `components/CartDrawer.jsx` | Cart drawer; mount once, opens through `useCart` |
 | `components/WixManageBanner.jsx` | Preview-only manage banner; include only when the entry guide enables it |
-| `pages/Shop.jsx` | `/shop` page; imports your `ProductGrid` |
 | `rest/wix-config.js` | Wix client and site ids |
 | `rest/wix-client.js` | REST transport and visitor authentication |
 | `rest/wix-store-catalog.js` | Product and category queries |
@@ -37,12 +36,53 @@ If deployment failed or files are missing, re-run the install/deploy step.
 
 ## Theme
 Use the existing Base44 theme in `src/index.css` for new components. The shipped client already
-uses it; don't add a parallel theme or restyle shipped pages.
+uses it; don't add a parallel theme or restyle shipped components.
 
 ## Presentation interfaces
-Build `components/ProductCard.jsx`, `components/ProductGrid.jsx`, and `pages/ProductDetail.jsx`
-from these contracts. `Shop` needs your grid; `/product/:slug` needs your PDP. Home, header, and
+Build `pages/Shop.jsx`, `components/ProductGrid.jsx`, `components/ProductCard.jsx`, and
+`pages/ProductDetail.jsx` from these contracts. All paths are under `src/`. Home, header, and
 footer are yours to design; their integration is in **Routes and provider** below.
+
+### Shop page and product grid
+Create both files below. The hook owns catalog data; your page owns its presentation.
+
+```jsx
+// src/pages/Shop.jsx
+import { useShop, SORTS } from "@/hooks/useShop";
+import ProductGrid from "@/components/ProductGrid";
+
+export default function Shop() {
+  const s = useShop();
+  // Category controls: s.categories ({ id, name }), s.activeCategory;
+  // select with s.setActiveCategory(category), or null for all products.
+  // Sort controls: Object.entries(SORTS) -> [key, { label }];
+  // selected value s.sort; change with s.setSort(key).
+  // Render s.error with s.retry separately from loading/empty results.
+  // On a later-page error, keep already loaded products visible.
+  // Pagination: when s.hasMore, call s.loadMore(); disable while s.loadingMore.
+  return (
+    <ProductGrid
+      products={s.products}
+      loading={s.loading}
+      empty={s.error ? "" : "No products yet."}
+      emptyHint={s.error ? "" : "Try another category or check back later."}
+    />
+  ); // Add the controls and states above; layout and styling are yours.
+}
+```
+
+```jsx
+// src/components/ProductGrid.jsx
+import ProductCard from "@/components/ProductCard";
+
+export default function ProductGrid({ products, loading, empty, emptyHint }) {
+  // products: array | null (null while loading); loading: boolean
+  // empty: heading string; emptyHint: optional supporting string
+  // Render loading, empty (when empty is nonempty), or ProductCard items.
+  // Pass the full product: <ProductCard key={product.id} product={product} />.
+  // Layout and styling are yours; this component does not fetch products.
+}
+```
 
 ### Product card
 Pass a catalog product to `ProductCard`: use `product.id` for identity/quick-add, `product.name`
@@ -74,18 +114,8 @@ pre-orders. Listing results have no full variants; the PDP hook loads and resolv
 Use cart-context `loading` to disable repeated adds and display `error` on failure (see **Cart**);
 failure does not open the drawer.
 
-### Product grid
-```jsx
-export default function ProductGrid({ products, loading, empty, emptyHint }) {
-  // products: array | null (null while loading); loading: boolean
-  // empty: heading string; emptyHint: optional supporting string
-  // Render loading, empty, or the list of <ProductCard product={product} /> items.
-}
-```
-
-### Catalog views and queries
-For a custom catalog view, use the named `useShop` and `SORTS` exports from `@/hooks/useShop`.
-The shipped `Shop` already uses this hook; your `ProductGrid` receives its products and loading state.
+### Catalog hook reference
+`useShop` and `SORTS` are named exports from `@/hooks/useShop`; the Shop skeleton above uses them.
 
 ```js
 const {
@@ -257,7 +287,7 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
-**No file reads needed to wire this.** `Shop`, `CartDrawer`, and `CartButton`
+**No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
@@ -265,9 +295,8 @@ replace it.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
-  — including the shipped `Shop` and your own pages — so you **never edit the shipped `Shop` to add a
-  header/footer** (it renders inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
-- Routes under the Layout: `/shop` → `Shop` (shipped, renders your grid); `/product/:slug` → **your
+  — including your Shop and product-detail pages. Mount `<CartDrawer/>` once in the Layout.
+- Routes under the Layout: `/shop` → **your `Shop`** (renders your grid); `/product/:slug` → **your
   `ProductDetail`**; `/` → **your `Home`**.
 
 Mount the default export `CartButton` from `@/components/CartButton` once in your header. It opens
@@ -277,7 +306,7 @@ the drawer and shows the live count, inheriting `currentColor`; use it as-is, wi
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
-import Shop from "@/pages/Shop";                       // shipped · default export, no props
+import Shop from "@/pages/Shop";                       // YOU build
 import ProductDetail from "@/pages/ProductDetail";     // YOU build
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build
@@ -296,7 +325,7 @@ function Layout() {
   <Routes>
     <Route element={<Layout />}>                                   {/* chrome wraps all */}
       <Route path="/" element={<Home />} />                        {/* yours */}
-      <Route path="/shop" element={<Shop />} />                    {/* shipped, as-is */}
+      <Route path="/shop" element={<Shop />} />                    {/* yours */}
       <Route path="/product/:slug" element={<ProductDetail />} />  {/* yours */}
     </Route>
   </Routes>
@@ -346,7 +375,7 @@ For a specifically missing field/interface or an observed runtime error, read on
 shipped file; catalog and cart helpers link their API references inline.
 
 ## Hard rules
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped pages or adding a parallel theme file. Everything you build (card, grid, PDP, variant controls, Home) draws from the same tokens.
-- Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — never edit the shipped `Shop` to add chrome.
+- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file. Everything you build (Shop, grid, card, PDP, variant controls, Home) draws from the same tokens.
+- Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — keep shared chrome out of individual pages.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
-- Render live Wix data or the shipped empty state — never mock products.
+- Render live Wix data or your empty state — never mock products.
