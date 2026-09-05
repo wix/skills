@@ -348,6 +348,9 @@ Uploads images and files to the Wix Media Manager using the Import File API. Cov
 ### [Generate an Image with AI](references/media/generate-image-with-ai.md)
 Generates an image from a text prompt with the Wix AI APIs (Runware). Returns a short-lived URL that must be imported to be kept — importing is Upload Media to Wix's job, and this recipe hands off to it. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the AI credit each call spends, and why a content refusal arrives as a success response with no image.
 
+### [Update Media Manager File Descriptors (Names, Labels, Alt Text)](references/media/update-media-file-descriptors.md)
+**Technical:** Updates existing Media Manager files (display name, labels, folder, internal tags) via UpdateFileDescriptor. Covers the required `fieldMask` parameter's real format (a comma-separated string, not an array or object, and undocumented on the method's docs page) and the fact that image `altText` cannot be set through this API today.
+
 ---
 
 ## Pricing Plans
