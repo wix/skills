@@ -45,12 +45,15 @@ from these contracts. `Shop` needs your grid; `/product/:slug` needs your PDP. H
 footer are yours to design; their integration is in **Routes and provider** below.
 
 ### Product card
+Pass a catalog product to `ProductCard`: use `product.id` for identity/quick-add, `product.name`
+for the title, and `product.slug` for the PDP link. Pass the full object to `useProductCard`.
+
 ```jsx
 import { useProductCard } from "@/hooks/useProductCard";
 import { useCart } from "@/context/CartContext";
 
 export default function ProductCard({ product }) {
-  const { addToCart, error } = useCart();
+  const { addToCart, loading, error } = useCart();
   const {
     isSoldOut, isPreorder, isPartiallyOutOfStock, // booleans
     leftBadges,       // [{ type: 'pre-order'|'sold-out'|'limited-stock', label }]
@@ -68,9 +71,10 @@ export default function ProductCard({ product }) {
 For quick-add, call `addToCart(product.id)` only when `isQuickAddable` and no mandatory
 modifier needs input (`product.modifiers` entries have a `mandatory` boolean). Otherwise link to `/product/${product.slug}` for selection, including
 pre-orders. Listing results have no full variants; the PDP hook loads and resolves them.
-Display cart-context `error` for a failed quick-add (see **Cart**); failure does not open the drawer.
+Use cart-context `loading` to disable repeated adds and display `error` on failure (see **Cart**);
+failure does not open the drawer.
 
-### Product grid and catalog data
+### Product grid
 ```jsx
 export default function ProductGrid({ products, loading, empty, emptyHint }) {
   // products: array | null (null while loading); loading: boolean
@@ -78,13 +82,53 @@ export default function ProductGrid({ products, loading, empty, emptyHint }) {
   // Render loading, empty, or the list of <ProductCard product={product} /> items.
 }
 ```
-For catalog data in your own pages, import `queryProducts` from `@/rest/wix-store-catalog`:
+
+### Catalog views and queries
+For a custom catalog view, use the named `useShop` and `SORTS` exports from `@/hooks/useShop`.
+The shipped `Shop` already uses this hook; your `ProductGrid` receives its products and loading state.
+
 ```js
-const { products, nextCursor } = await queryProducts({ limit: 8 });
-// Returns { products: object[], nextCursor: string | null }, never a bare array.
-// Pass nextCursor as cursor for another page; default limit is 100.
+const {
+  categories, activeCategory, setActiveCategory,
+  products, loading, error, retry,
+  hasMore, loadMore, loadingMore, sort, setSort,
+} = useShop({ pageSize: 24 }); // optional argument; default pageSize 24
+// categories: category[]; activeCategory: category | null (null = all products)
+// setActiveCategory(categoryOrNull): starts a fresh product query
+// products: product[] | null; loading: boolean (first page/category load)
+// error: string | null; retry(): reloads the active category's first page
+// hasMore, loadingMore: booleans; loadMore(): appends another page when available
+// sort: 'featured' | 'priceAsc' | 'priceHigh' | 'name'; setSort(key)
+// SORTS: { [key]: { label } } for those keys
 ```
-Handle query failure separately from loading; don't leave a failed request on a spinner.
+Sorting applies only to loaded products. Initial product failure sets `error` and an empty array;
+a later page failure preserves loaded products and sets `error`. Render the error separately from
+an empty catalog. Category loading fetches only the first 100 categories, excludes `visible: false`
+and `slug: "all-products"`, and falls back to `[]` on failure without setting `error`.
+
+For a standalone product selection or category menu, import these named functions from
+`@/rest/wix-store-catalog`. All three return promises and reject on request failure.
+
+| Function | Result |
+|---|---|
+| `queryProducts({ limit = 100, cursor } = {})` | `{ products: product[], nextCursor: string or null }` — visible catalog products |
+| `queryCategories({ limit = 100, cursor } = {})` | `{ categories: category[], nextCursor: string or null }` — one category page |
+| `queryProductsByCategory(categoryId, { limit = 100, cursor } = {})` | `{ products: product[], nextCursor: string or null }` — visible products in the category identified by `id` |
+
+Products are the full listing objects consumed by `useProductCard`. Category menu fields are
+`id`, `name`, `slug`, and `visible`. Filter out `visible === false` and the system category
+`slug === "all-products"`; an empty category list is valid.
+
+```js
+const { categories, nextCursor: categoryCursor } = await queryCategories({ limit: 100 });
+const menu = categories.filter((c) => c.visible !== false && c.slug !== "all-products");
+// Once a category has been selected:
+const { products, nextCursor } = await queryProductsByCategory(selectedCategory.id, { limit: 24 });
+```
+Destructure the arrays; these calls never return bare arrays. Pass a result's `nextCursor` back
+as `cursor` to the same query for the next page, stopping at null. Keep category and product
+cursors separate; changing category starts without a cursor. Handle failure separately from
+loading so a failed request does not leave a spinner.
 
 ### Product detail
 ```jsx
@@ -139,19 +183,18 @@ Retired option choices are filtered out. Respect each choice's `inStock` and mod
 `mandatory` flag; the hook supplies colour values and selection state without prescribing layout.
 
 ### Images
-Import from `@/lib/storeImage`; URLs may be null, so handle missing images.
+`useProductCard` returns normalized `image`/`hoverImage`, and `useProductDetail` returns normalized
+`focusMediaUrl`; use them directly. For a gallery or images outside those hooks, import from
+`@/lib/storeImage`:
 
 | Helper | Contract |
 |---|---|
+| `productGallery(product)` | `[{ url, altText }]`, main image first, de-duplicated; skips entries without an image URL; empty array when no images |
+| `productImage(product)` | Normalized primary image URL or null, for a standalone catalog image |
 | `storeImage(value)` | Accepts a URL string, `{ image: { url } }`, or `{ url }`; prefixes `//` with `https:`, returns other URLs unchanged or null when absent |
-| `productImage(product)` | Normalised `product.media.main.image.url`, or null |
-| `productGallery(product)` | `[{ url, altText }]` from the main image and `media.itemsInfo.items`, main first, de-duplicated; skips items without an image URL |
-| `choiceImage(choice)` | First `choice.media.items[].mediaId` as a URL, or null; storefront reads use this field, not `linkedMedia` |
-| `variantImage(variant)` | Uses `media.image.url`, then `media.id`, then `media.thumbnail.url`; never `media.uploadId` |
-| `wixMediaUrl(mediaId)` | Converts a Wix media id to a static CDN URL; normalises existing URLs; null for missing/non-string input |
-| `wixMediaId(url)` | Extracts the id after `/media/` for comparison across sizing URLs; returns input unchanged if unmatched |
 
-Cart line images are at `lineItems[].attributes.image.url`; normalise them with `storeImage`.
+Gallery URLs are normalized too. Handle missing images; don't reconstruct media URLs or resolve
+choice/variant media yourself. Custom cart images use `storeImage(line.attributes?.image?.url)`.
 
 ### Cart
 Use the named `useCart` export from `@/context/CartContext` within `CartProvider`.
@@ -171,7 +214,11 @@ const {
 `addToCart` uses `product.id` and the resolved `variant.id` when needed. Extras are string maps:
 `modifierChoices: { [modifier.key]: choiceKey }` and
 `customTextFields: { [modifier.freeTextSettings.key]: userInput }`; include mandatory values.
-Update/remove use `cart.lineItems[].id`, not a catalog product id.
+For custom cart presentation, `cart?.lineItems ?? []` is the list. Each line has `id`,
+`name.original`, and optional `attributes.image.url`. Option/modifier labels are in
+`attributes.descriptionLines`: `[{ name: { original }, plainText?: { original },
+colorInfo?: { original, code } }]`; use `plainText.original` or `colorInfo.original` for the value.
+Update/remove use the line's `id`, not a catalog product id.
 
 The context's add/remove/update/checkout methods return promises resolving to `undefined` on
 success or `null` on failure, storing the failure in `error`. They clear the previous error and
@@ -199,7 +246,9 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
-**No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
+**No file reads needed to wire this.** `Shop`, `CartDrawer`, `CartButton`, and `WixManageBanner`
+are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
+wire these exactly as shown below.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
@@ -262,28 +311,10 @@ function Layout() {
 </CartProvider>
 ```
 
-## Extending the client
-Building something beyond the shipped pages? Copy these:
-
-```jsx
-// Catalog list helpers return { <plural>, nextCursor } — destructure the array:
-const { products, nextCursor } = await queryProducts({ limit: 24 });
-const { categories } = await queryCategories();
-const menu = categories.filter((c) => c.slug !== "all-products");   // drop Wix's system category
-const { products: inCategory } = await queryProductsByCategory(menu[0].id, { limit: 24 });
-
-// product.plainDescription is HTML → render as HTML (the PDP does this):
-<div dangerouslySetInnerHTML={{ __html: product.plainDescription }} />
-// image urls live at: product.media.main.image.url  ·  cart lineItems[].attributes.image.url
-```
-
-Fallback only — when you hit an error or need something not shown here (coupons, members, a field
-these snippets don't have): read the relevant shipped file under `src/`, or look it up via the
-**`wix-docs`** skill. Each helper in `wix-store-catalog.js` / `wix-store-cart.js` links its own
-reference page inline; these are the areas they sit in:
-- Stores catalog (products, categories, inventory): https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3.md
-- eCommerce (cart, checkout, orders): https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md
-- Headless redirect session (hosted checkout): https://dev.wix.com/docs/api-reference/business-management/headless/redirects.md
+## Missing capabilities
+For a capability these interfaces do not cover, use Wix documentation via the **`wix-docs`** skill.
+For a specifically missing field/interface or an observed runtime error, read only the relevant
+shipped file; catalog and cart helpers link their API references inline.
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped pages or adding a parallel theme file. Everything you build (card, grid, PDP, variant controls, Home) draws from the same tokens.
