@@ -184,6 +184,9 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Pointing a Wix-Registered Domain at External (Non-Wix) Hosting](references/domains/pointing-a-registered-domain-to-external-hosting.md)
+**Technical:** Moves hosting for a domain purchased through Wix to a non-Wix host without transferring or unlocking the domain, using the Domain DNS API's Update DNS Zone to edit A/CNAME records — not the Connected Domains / domain-purchase flow, which only connects domains *into* Wix. Use when the user wants to keep a Wix-registered domain but host elsewhere.
+
 ---
 
 ## eCommerce

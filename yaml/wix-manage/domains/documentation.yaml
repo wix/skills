@@ -10,3 +10,7 @@ apiDoc:
       title: Domains Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/pointing-a-registered-domain-to-external-hosting.md
+      title: Pointing a Wix-Registered Domain at External (Non-Wix) Hosting
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains/domain-dns
+      tags: [domains]
