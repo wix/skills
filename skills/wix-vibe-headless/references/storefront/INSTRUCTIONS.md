@@ -39,11 +39,13 @@ so you don't need to open them:**
 | `rest/wix-config.js` | the two ids, written by the install step |
 | `rest/wix-client.js` + `rest/wix-store-*.js` | REST transport + catalog/cart helpers |
 
-Everything in the table is already in place — go **straight to wiring + building your presentation**
-(card, grid, variant controls, the product page, Home — STEP 3), nothing to verify first.
-**Don't `read_file` the shipped page/hook source to inspect it** — the table says what each is and
-every field shape you need is in the outlines below. Read a shipped file's source **only** on a real
-fallback — a runtime error, or a field the outlines don't cover (see "Fallback only" at the end).
+A successful install/deploy step is your verification that the listed storefront files are in
+place. **Use the component outlines and interfaces below, then go straight to building your
+presentation and wiring it** (card, grid, variant controls, the product page, Home — STEP 3).
+There is no separate source-inspection or verification phase before implementation; don't read
+shipped page/hook source just to confirm its structure. Read a shipped file **only** to resolve a
+specifically identified field or interface missing from the outlines, or an observed runtime
+error, and scope the read to the relevant file (see "Fallback only" at the end).
 (Shipped files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/storefront/app/` → `src/`.)
 

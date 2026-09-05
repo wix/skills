@@ -46,7 +46,7 @@ Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/s
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
-**REST scaffolds are already in `src/rest/`** (STEP 1 deployed them). The storefront also ships a ready UI client in `src/` — theme + wire it per `INSTRUCTIONS.md`, don't rebuild. **Don't `read_file` deployed files** — every field shape is in `INSTRUCTIONS.md`; read one only on a real error or gap.
+**Successful STEP 1 verifies installation of the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly; don't rebuild the shipped client or inspect its source to confirm structure. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
