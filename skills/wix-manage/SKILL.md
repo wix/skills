@@ -431,6 +431,9 @@ Create products using the Catalog V1 Products API. Use this recipe when the site
 ### [Create Product (Catalog V3)](references/stores/create-product-catalog-v3.md)
 Mandatory first recipe for every Wix Stores Catalog V3 create-product request. Before any mutation, require an explicit name and price for every product; an absent price is never 0. If no product is identified, offer both image-upload and text-description paths and stop. If name or price is missing, ask or offer a suggestion and stop. When both are present, create from the supplied details without requiring optional enrichment. Covers single/bulk creation, inventory, physical/digital products, images, options, variants, SKUs, and validation.
 
+### [Convert Catalog V1 Products to Catalog V3 Import CSV](references/stores/convert-catalog-v1-to-v3-import-csv.md)
+**Technical:** **MANDATORY entry point** for requests to export, convert, migrate, or reformat Wix Stores Catalog V1 products into Catalog V3 dashboard import CSV files, especially when the user asks to preserve images/media or split import files under the 10,000-row limit. Call `ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/convert-catalog-v1-products-to-catalog-v3-import-csv")` before giving conversion or splitting instructions. Covers product/media row grouping, category slug mapping, and safe batching without splitting a product's `PRODUCT` row from its `MEDIA` rows.
+
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
 Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering (including by price), sorting, and paging.
 
