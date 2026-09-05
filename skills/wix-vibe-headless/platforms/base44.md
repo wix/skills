@@ -8,6 +8,9 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **The Wix skills installed below are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
+**Banner enabled for this entry flow:** mount `<WixManageBanner/>` once in the Layout, above
+the header in the fixed top region, per the vertical instructions. It is preview-only.
+
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
@@ -104,8 +107,7 @@ Seeding is **admin-only** — not part of the client, which is built solely per 
 
 ## STEP 5 — Wrap up
 
-1. **Mount `<WixManageBanner/>`** (required) in your Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS — it links the app to its Wix back office, self-gates to the preview, and never shows on the published site.
-2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (your metasite id) to complete setup in Wix.
+**Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (your metasite id) to complete setup in Wix.
 
 **Don't chase images.** A `/__generating__/…` placeholder is swapped for the final url automatically at turn end — do **not** edit, re-seed, or debug image urls.
 

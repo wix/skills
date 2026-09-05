@@ -8,6 +8,9 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **The Wix skills installed below are the complete build path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).** **This flow builds the client only — there is no seeding step.**
 
+**Banner disabled for this entry flow:** do not add `<WixManageBanner/>`; skip the shared
+storefront instructions' optional banner integration.
+
 Follow STEPs 1–3 below exactly.
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
@@ -56,7 +59,7 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 **No seeding in this flow** — the client is the only deliverable. Do not seed, populate, or write data to Wix.
 
-**Do NOT add the `<WixManageBanner/>` component** and never paste a Wix dashboard link or path.
+**Never paste a Wix dashboard link or path.**
 
 **Hand off with one call, before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say.
 

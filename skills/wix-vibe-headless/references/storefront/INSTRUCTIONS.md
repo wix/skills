@@ -24,7 +24,7 @@ Successful deployment verified these files are in place; use this map without ne
 | `lib/storeImage.js` | Wix image URL and gallery helpers |
 | `components/CartButton.jsx` | Cart icon button with a live-count badge |
 | `components/CartDrawer.jsx` | Cart drawer; mount once, opens through `useCart` |
-| `components/WixManageBanner.jsx` | Preview-only manage banner for the Layout |
+| `components/WixManageBanner.jsx` | Preview-only manage banner; include only when the entry guide enables it |
 | `pages/Shop.jsx` | `/shop` page; imports your `ProductGrid` |
 | `rest/wix-config.js` | Wix client and site ids |
 | `rest/wix-client.js` | REST transport and visitor authentication |
@@ -246,7 +246,7 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
-**No file reads needed to wire this.** `Shop`, `CartDrawer`, `CartButton`, and `WixManageBanner`
+**No file reads needed to wire this.** `Shop`, `CartDrawer`, and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
@@ -256,11 +256,6 @@ replace it.
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including the shipped `Shop` and your own pages — so you **never edit the shipped `Shop` to add a
   header/footer** (it renders inside `<Outlet/>` as-is). Mount `<CartDrawer/>` once in the Layout.
-- **Pin the top chrome as one fixed block.** Put `<WixManageBanner/>` (shipped, preview-only) **above**
-  your `<Header/>` inside a single `position:fixed` top region — the header itself is plain in-flow
-  markup, the region owns the fixing — so banner + header ride together (no scroll drift/gap). Pad
-  the content by the region's measured height so it clears the chrome and self-corrects when the
-  banner is dismissed.
 - Routes under the Layout: `/shop` → `Shop` (shipped, renders your grid); `/product/:slug` → **your
   `ProductDetail`**; `/` → **your `Home`**.
 
@@ -268,35 +263,21 @@ Mount the default export `CartButton` from `@/components/CartButton` once in you
 the drawer and shows the live count, inheriting `currentColor`; use it as-is, without a nested button.
 
 ```jsx
-import { useRef, useState, useEffect } from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
-import WixManageBanner from "@/components/WixManageBanner";   // shipped, preview-only · default export, no props
 import Shop from "@/pages/Shop";                       // shipped · default export, no props
 import ProductDetail from "@/pages/ProductDetail";     // YOU build
 import Home from "@/pages/Home";       // YOU build
-import Header from "@/components/Header";   // YOU build — plain in-flow markup, NOT position:fixed
+import Header from "@/components/Header";   // YOU build
 import Footer from "@/components/Footer";   // YOU build
 
 function Layout() {
-  const topRef = useRef(null);
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {                                  // measure the fixed region → pad content below it
-    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
-    if (topRef.current) ro.observe(topRef.current);
-    return () => ro.disconnect();
-  }, []);
   return (<>
-    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
-      <WixManageBanner />                    {/* null on the published site / when dismissed */}
-      <Header />                             {/* your brand header, in-flow inside this fixed block */}
-    </div>
-    <div style={{ paddingTop: offset }}>     {/* clears the chrome; shrinks when the banner is dismissed */}
-      <Outlet />                             {/* shipped Shop + your pages render here */}
-      <Footer />
-    </div>
-    <CartDrawer />                           {/* overlays every page */}
+    <Header />
+    <Outlet />
+    <Footer />
+    <CartDrawer />
   </>);
 }
 
@@ -311,6 +292,42 @@ function Layout() {
 </CartProvider>
 ```
 
+### Optional banner integration — enabled entry flows only
+Follow the entry guide's banner choice. If it disables the banner, use the common wiring above
+without a banner import, mount, or banner-specific fixed region.
+
+When enabled, `WixManageBanner` is a default export with no props. It uses `WIX_METASITE_ID` from
+`@/rest/wix-config`, links to that site's dashboard, and renders only in preview; it returns null
+when dismissed or while the site id is a placeholder. Mount it once above the header in one fixed
+region; keep the header in flow within that region and offset the content by its measured height
+so dismissal or resizing leaves no gap or overlap. Replace only the example's `Layout` with:
+
+```jsx
+import { useRef, useState, useEffect } from "react";
+import WixManageBanner from "@/components/WixManageBanner";
+
+function Layout() {
+  const topRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {
+    const ro = new ResizeObserver(() => setOffset(topRef.current?.offsetHeight ?? 0));
+    if (topRef.current) ro.observe(topRef.current);
+    return () => ro.disconnect();
+  }, []);
+  return (<>
+    <div ref={topRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}>
+      <WixManageBanner />
+      <Header />
+    </div>
+    <div style={{ paddingTop: offset }}>
+      <Outlet />
+      <Footer />
+    </div>
+    <CartDrawer />
+  </>);
+}
+```
+
 ## Missing capabilities
 For a capability these interfaces do not cover, follow the installed docs-discovery skill:
 **`wix-base44-connector`** on Base44, or **`wix-docs`** in setups that install it.
@@ -320,6 +337,5 @@ shipped file; catalog and cart helpers link their API references inline.
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped pages or adding a parallel theme file. Everything you build (card, grid, PDP, variant controls, Home) draws from the same tokens.
 - Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — never edit the shipped `Shop` to add chrome.
-- The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or the shipped empty state — never mock products.
