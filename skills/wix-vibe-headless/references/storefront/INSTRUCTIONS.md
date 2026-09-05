@@ -312,7 +312,8 @@ function Layout() {
 ```
 
 ## Missing capabilities
-For a capability these interfaces do not cover, use Wix documentation via the **`wix-docs`** skill.
+For a capability these interfaces do not cover, follow the installed docs-discovery skill:
+**`wix-base44-connector`** on Base44, or **`wix-docs`** in setups that install it.
 For a specifically missing field/interface or an observed runtime error, read only the relevant
 shipped file; catalog and cart helpers link their API references inline.
 
