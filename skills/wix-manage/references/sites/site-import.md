@@ -279,6 +279,19 @@ the user has no way to open a file.
   dead end. If a Wix feedback tool is available in your environment, you may
   offer to send feedback noting their interest; that is the only channel that
   reaches the team. Do not retry or fall back to another site-creation tool.
+- **NOT_ENABLED exception — commerce-data-only migrations.** If the user's
+  goal is specifically moving their **product catalog and/or order history**
+  off Shopify/WooCommerce/Magento (not a full page-for-page site clone), two
+  separate, ungated REST APIs cover that without Site Import: [Bulk Create
+  Products / Bulk Create Products With Inventory](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory)
+  (`POST /stores/v3/bulk/products[-with-inventory]/create`, up to 100
+  products/request) and [Import Order](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order)
+  (`POST /ecom/v1/orders/import`, Beta, one historical order per call,
+  preserves original number/date/status). After delivering the NOT_ENABLED
+  message above, you may offer this as a fallback — but only after the user
+  confirms they want catalog/orders moved without a full site clone (it
+  won't recreate pages, theme, or design), and only if they can supply their
+  platform's own product/order export for you to map into the Wix shape.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
   required field is missing (`request`/`message` must be 1–20000 chars),
