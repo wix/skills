@@ -76,6 +76,7 @@ export type MergeSweepConfig = {
   evalforgeUrl: string;
   projectId: string;
   agentId: string;
+  prodMcpId: string;
   appId: string;
   appSecret: string;
   githubToken: string;
@@ -89,6 +90,7 @@ export function getMergeSweepConfig(): MergeSweepConfig {
     evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     agentId: core.getInput('evalforge-agent-id', { required: true }),
+    prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: true }),
     appId: coreSafeGetSecret(core, 'evalforge-app-id'),
     appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
     githubToken: coreSafeGetSecret(core, 'github-token'),
