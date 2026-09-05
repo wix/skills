@@ -2,6 +2,10 @@ apiDoc:
   title: Wix Sites Management Recipes
 
   docs:
+    - file: ../../../skills/wix-manage/references/sites/branches-and-test-sites.md
+      title: Branches and Test Sites
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/branches
+      tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/read-site-context.md
       title: Read Account or Site Context
       docsEntry: https://dev.wix.com/docs/api-reference/tools/dynamic-site-context
