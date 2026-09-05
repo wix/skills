@@ -46,41 +46,28 @@ pnpm install
 
 Run TypeScript compiler to check for type errors.
 
-**Full project check:**
 ```bash
-npx tsc --noEmit
+npx tsc --noEmit -p .
 ```
 
-**Targeted check (specific files/directories):**
+**This is the only form to use, and there is no targeted variant.** Passing filenames or globs makes
+TypeScript ignore `tsconfig.json` altogether — no `strict`, no `noImplicitAny`, no `jsx`, no `paths`,
+no `lib`, no `skipLibCheck` — so the run checks the code against *no* configuration: it misses the
+errors that matter and floods the output with errors that do not. Measured on a real app, on a file
+with one untyped parameter:
 
-When validating after implementing a specific extension, you can run TypeScript checks on just those files:
+- `npx tsc --noEmit -p .` → `TS7006: Parameter 'x' implicitly has an 'any' type`
+- `npx tsc --noEmit <that file>` → no `TS7006` at all, and instead dozens of
+  `Cannot find name 'Set'` from `node_modules/@types`
 
-```bash
-# Check specific directory
-npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/dashboard/pages/survey/**/*.tsx
+And the config cannot be handed back on the side: `tsc -p tsconfig.json <file>` fails outright with
+`TS5042: Option 'project' cannot be mixed with source files on a command line`.
 
-# Check dashboard pages only
-npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
-
-# Check custom element widgets only
-npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
-
-# Check dashboard modals only
-npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
-
-# Check backend only
-npx tsc --noEmit src/extensions/backend/**/*.ts
-```
-
-**When to use targeted checks:**
-- After implementing a single extension (faster feedback)
-- When debugging type errors in a specific area
-- During iterative development
-
-**When to use full project check:**
-- Before final validation
-- When changes affect shared types
-- Before building/deploying
+**Checking only what you generated does not work even when the config is right.** A type error caused
+by generated code usually surfaces where that code is *consumed* — the page compiles and `App.tsx`
+does not. Measured: a scoped check over the generated directory reported nothing, while the project
+check reported `TS2322` in the consuming file. Scoping is only sound if you already know the error is
+confined to those files, which is what the check exists to find out.
 
 **Success criteria:**
 - Exit code 0
@@ -162,7 +149,7 @@ Read: .wix/debug.log (with offset to the end)
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
-| TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit` output |
+| TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit -p .` output |
 | Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
 | Preview fails to start | Port conflict, config issue, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
 | Console errors in preview | Runtime exceptions | Check browser console output |

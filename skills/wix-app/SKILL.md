@@ -443,7 +443,7 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
 
 1. Package installation (detect package manager, run install)
-2. TypeScript compilation check (`npx tsc --noEmit`)
+2. TypeScript compilation check (`npx tsc --noEmit -p .`)
 3. Build validation (`npx wix build`)
 4. Preview deployment (`npx wix preview`)
 
@@ -506,7 +506,7 @@ The following actions need to be done manually by you:
 Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide.
 
 1. **Package Installation** — Detect package manager, run install
-2. **TypeScript Compilation** — `npx tsc --noEmit`
+2. **TypeScript Compilation** — `npx tsc --noEmit -p .`
 3. **Build** — `npx wix build`
 4. **Preview** — `npx wix preview`
 
