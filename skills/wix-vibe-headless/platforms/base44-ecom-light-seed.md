@@ -67,11 +67,13 @@ urls are ready by the time you seed.
 
 ## STEP 3 — Wrap up
 
+**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
+
+### Final text response
+
 **Never paste a Wix dashboard link or path.**
 
-**Hand off with one call, before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
-
-**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
+**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
 
 ## Later admin requests
 
