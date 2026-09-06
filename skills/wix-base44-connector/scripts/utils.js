@@ -195,6 +195,20 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
              ...(steps.length && { steps: steps.slice(0, 6) }),
              ...(calls.length && { calls: calls.slice(0, 4) }) };
   }).filter(h => h.docsUrl && h.recipe);
+  const articleOutline = (block, start) => {
+    const outline = [];
+    let fenced = false, offset = 0;
+    for (const row of block.split("\n")) {
+      if (/^\s*(```|~~~)/.test(row)) fenced = !fenced;
+      const heading = !fenced && row.match(/^#{2,3} (.+)$/);
+      if (heading && !/^(Resource|Article|Article Link|Article Content):/.test(heading[1])) {
+        outline.push({ title: heading[1].slice(0, 64), line: lineAt(start + offset) });
+        if (outline.length === 3) break;
+      }
+      offset += row.length + 1;
+    }
+    return outline;
+  };
   let cursor = recipeText.length;
   const hits = main.content.split(/\n---\n+(?=#### )/).map(b => {
     const start = content.indexOf(b, cursor); cursor = start + b.length;
@@ -205,7 +219,8 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
     // the REST corpus mixes guides in with the methods — an article has no method header, so
     // name it from its own title rather than returning a row of nulls
     if (!method) return { article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1], docsUrl,
-                          line: start < 0 ? 1 : lineAt(start) };
+                          line: start < 0 ? 1 : lineAt(start),
+                          outline: articleOutline(b, start) };
     return {
     method,
     endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
@@ -224,6 +239,7 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
       article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1],
       docsUrl: (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
       line: start < 0 ? 1 : lineAt(start),
+      outline: articleOutline(b, start),
     };
   }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
@@ -249,7 +265,8 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
                       () => recipeRows.forEach(r => delete r.steps),
                       () => uniq.forEach(h => { if (h.examples) h.examples = h.examples.slice(0, 3); }),
                       () => uniq.forEach(h => delete h.examples),
-                      () => uniq.forEach(h => delete h.gist)]) {
+                      () => uniq.forEach(h => delete h.gist),
+                      () => uniq.forEach(h => delete h.outline)]) {
     if (JSON.stringify(out).length <= BUDGET) break;
     shed();
   }
