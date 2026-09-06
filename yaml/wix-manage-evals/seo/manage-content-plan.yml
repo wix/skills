@@ -1,53 +1,58 @@
 name: seo/manage-content-plan
 description: >-
-  Verifies that the agent triggers an SEO content plan generation flow, polls the flow status,
-  and correctly reports on the flow's state — including awareness of the KEYWORD_RESEARCH
-  parking gate and PENDING_REQUIREMENTS terminal state.
+  Verifies that the agent knows the content plan flow parks at KEYWORD_RESEARCH
+  and must be released with Create Content Plan — the key behavior this recipe teaches.
 triggerPrompt: >-
-  Trigger an SEO content plan generation for my Wix site and check the flow status once.
-  Tell me the current status — don't wait for the full generation to complete.
+  I triggered an SEO content plan generation on my Wix site earlier. The flow status
+  shows KEYWORD_RESEARCH. What does that mean and what should I do next to get the
+  blog post topics?
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
   - type: llm_judge
-    minScore: 5
+    minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked to trigger an SEO content plan generation and check the status once.
+      The user said their content plan flow is at KEYWORD_RESEARCH and asked
+      what to do next.
+
+      The correct answer: the flow parks at KEYWORD_RESEARCH and the user must
+      call Create Content Plan (POST /create-content-plan) to release it.
+      Without that call, the flow stays parked forever.
 
       Pass if the agent:
-      - triggered the flow (POST to /content-plan-flows/trigger),
-      - polled the flow status at least once (GET to /content-plan-flows/{id}),
-      - reported the current status to the user.
+      - explained that KEYWORD_RESEARCH is a parking state (not a failure),
+      - told the user to call Create Content Plan to advance the flow,
+      - mentioned the endpoint or described the action clearly enough to act on.
 
-      Score 5+ if the agent triggered and polled and reported a status.
-      Score 7+ if the agent also explained what the status means or what the
-      user should do next (e.g. "the flow is at SITE_ANALYSIS, it will
-      proceed to KEYWORD_RESEARCH" or "the site needs business data").
-      Score 9+ if the agent mentioned that the flow will park at
-      KEYWORD_RESEARCH and needs Create Content Plan to release it.
+      Score 7+ if the agent correctly identified the parking behavior and the
+      release action. Score 9+ if it also mentioned that after releasing, the
+      flow continues to CONTENT_PLAN then SUCCESS, and candidates become
+      readable at SUCCESS.
 
-      Fail only if the agent never triggered or never checked status.
+      Fail if the agent:
+      - said KEYWORD_RESEARCH means the generation is still running (it's parked),
+      - told the user to just keep polling,
+      - did not mention Create Content Plan or the release step.
   - type: llm_judge
     minScore: 5
     maxTokens: 2048
     prompt: |
-      Rate the agent's efficiency. Examine the tool-call trace. Score 0-10.
+      Rate the agent's efficiency. Score 0-10.
 
       HEAVY penalties (each costs 2-3 points):
-      - never called any API endpoint (just searched docs)
-      - asked for a site ID
-      - claimed the generation completed when it was still running
+      - told the user to keep waiting or polling without mentioning the release step
+      - gave wrong information about what KEYWORD_RESEARCH means
+      - searched docs extensively without answering the question
 
       LIGHT penalties (each costs at most 1 point):
-      - documentation lookup before the first call
-      - extra polls beyond the one requested
+      - documentation lookup before answering
+      - mentioned steps beyond what was asked
 
-      For each friction, name the likely cause: skill, MCP, or docs gap.
-      A clean trigger-poll-report path scores 8+.
-      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + cause, or 'clean path' if none>"}.
+      A direct answer naming the parking behavior and Create Content Plan scores 8+.
+      Return ONLY {"score":<0-10>,"reason":"<terse explanation>"}.
 siteSetup:
   mode: template
   templateId: blank-editor
