@@ -72,10 +72,29 @@ on every evaluation. Select a length, a total or an id, then derive the rest onc
 `fetchData(query)` receives a `ComputedQuery<F>`: `limit`, `offset`, `page`, `search`, `rawSearch`,
 `cursor`, `filters`, `rawFilters`, `sort`. What you return depends on `paginationMode`:
 
-| Mode | Return |
-| --- | --- |
-| `'offset'` | `{ items, total? }` |
-| `'cursor'` | `{ items, cursor, hasNext? }` — **`cursor` is a required `string`**, so return `''` when the pages are exhausted, not `null` |
+| Mode | Return | Declared as |
+| --- | --- | --- |
+| `'offset'` | `{ items, total?, hasNext? }` | `OffsetQueryResult` |
+| `'cursor'` | `{ items, cursor?, total? }` | `CursorQueryResult` |
+
+```ts
+// dist/types/types/SchemaConfig.d.ts — read it, don't recall it
+export interface CursorQueryResult { items: any[]; cursor?: string | undefined | null; total?: number | null }
+export interface OffsetQueryResult { items: any[]; total?: number | null; hasNext?: boolean }
+```
+
+**`hasNext` is offset-only.** It is not a member of `CursorQueryResult`; returning it from a
+cursor-mode `fetchData` is a no-op that type-checks, because the object flows through your own
+return type rather than an object literal. In cursor mode, `cursor` alone says whether there is more.
+
+**On the last page return no cursor — `undefined`, not `''`.** An empty string is still a value the
+collection treats as a cursor: it requests the next page forever and appends the same rows each
+pass, a table that grows without end while the API is perfectly happy. It renders as a spinner under
+the last row, which reads as "still loading". Derive it so the empty case collapses:
+
+```ts
+cursor: response.pagingMetadata?.cursors?.next || undefined,
+```
 
 Look any of these up yourself with `Read <pkgRoot>/dist/dts-bundle/index.json` and the `file` path it
 gives; the index is the single source of truth, and it moves between versions.
