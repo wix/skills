@@ -1,8 +1,8 @@
 # Draft Template — the starting point for every dashboard page
 
-**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file for [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md), [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md), a component doc, or an MCP lookup when the request needs something no case shows — an unusual filter type, a column renderer not shown here.
+**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file for [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md), [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md), [TABLE_STATE.md](TABLE_STATE.md), a component doc, or an MCP lookup when the request needs something no case shows.
 
-Every snippet below is copied from the installed `dist/docs/*.md` this session read, not written from memory — confirm props against your own installed version the same way before you deviate from the shape shown here.
+Every snippet below is copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts` this session read, not from memory — confirm props against your own installed version before deviating.
 
 ## Which case matches the request?
 
@@ -13,9 +13,9 @@ Every snippet below is copied from the installed `dist/docs/*.md` this session r
 | Only app-wide settings/config — no list at all | **C — Settings only** | No |
 | A list, create/edit, **and** an app-settings area, all in one extension | **D — Collection + Entity + Settings** | Yes |
 
-Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings page or an entity page unless the request needs one. Oversized (a router and three page types for a request that named one) is the kind of thing that ships unnoticed. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B, not D.
+Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings or entity page unless the request needs one. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B.
 
-**Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). This file's Collection page (Section 2) and Settings page (Section 3) are shared by every case that uses them, including B and D — the router file links back rather than repeating the code.
+**Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). Section 2's collection page and the settings file are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
 
 ## File layout
 
@@ -26,7 +26,7 @@ src/extensions/dashboard/pages/{feature}/
   {Feature}App.tsx              # Case B/D only — see DRAFT_TEMPLATE_ROUTER.md
   {Feature}CollectionPage.tsx   # Case A, B, D — Section 2 below
   {Feature}EntityPage.tsx       # Case B, D only — see DRAFT_TEMPLATE_ROUTER.md
-  {Feature}SettingsPage.tsx     # Case C, D only — Section 3 below
+  {Feature}SettingsPage.tsx     # Case C, D only — see DRAFT_TEMPLATE_SETTINGS.md
   {feature}-api.ts              # fetch/save calls — keep these out of the components
 ```
 
@@ -47,7 +47,7 @@ import { withDashboard } from '@wix/patterns';
 import { WixPatternsProvider } from '@wix/patterns/provider';
 import { WixDesignSystemProvider } from '@wix/design-system';
 import '@wix/design-system/styles.global.css';
-import { {Feature}CollectionPage } from './{Feature}CollectionPage'; // or {Feature}SettingsPage for Case C
+import { {Feature}CollectionPage } from './{Feature}CollectionPage'; // or {Feature}SettingsPage for Case C — DRAFT_TEMPLATE_SETTINGS.md
 
 const Page: FC = () => (
   <WixDesignSystemProvider>
@@ -64,35 +64,59 @@ Case B/D's entry file differs — it needs `location` supplied manually for `Pat
 
 ## 2. Collection page — Case A, B, D
 
-This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is actually about: `SummaryBar` for the aggregate, and a drill-in so a row can be opened. The two drill-in tiers below are independent — Case A only ever gets the first one, since there's no EntityPage route to escalate to.
+This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: `SummaryBar`, a working filter, and a drill-in. The two drill-in tiers are independent — Case A only gets the first, having no EntityPage route to escalate to.
 
 ```tsx
 // {Feature}CollectionPage.tsx — Case A, B, D
 import { useState, type FC } from 'react';
-import { Table, SummaryBar, useTableCollection, type SummaryData } from '@wix/patterns';
+import {
+  CollectionEmptyState, CollectionNoResultsState, CollectionSearch, CollectionToolbarFilters,
+  MultiSelectCheckboxFilter, SummaryBar, Table, stringsArrayFilter,
+  useStaticListFilterCollection, useTableCollection, type SummaryData,
+} from '@wix/patterns';
 import { CollectionPage } from '@wix/patterns/page';
-import { Box, Button, SidePanel, Text } from '@wix/design-system';
+import { Box, SidePanel, Text } from '@wix/design-system'; // + Button for Case B/D
 // Case B/D only — Case A has no EntityPage route to navigate to, so no import, no button:
 import { usePatternsNavigate } from '@wix/patterns/router';
 import { fetch{Feature}Page, type {Entity}Row } from './{feature}-api';
+
+const STATUS_LABELS: Record<string, string> = { ACTIVE: 'Active', ARCHIVED: 'Archived' };
+// Filter factories are module-level: one filter instance per page, not one per render.
+const statusFilter = stringsArrayFilter<'ACTIVE' | 'ARCHIVED'>({
+  name: 'Status',
+  itemKey: (item) => item,
+  itemName: (item) => STATUS_LABELS[item] ?? item,
+});
 
 export const {Feature}CollectionPage: FC = () => {
   const [quickViewItem, setQuickViewItem] = useState<{Entity}Row | null>(null);
   const { navigateToEntityPage } = usePatternsNavigate(); // Case B/D only
 
-  const state = useTableCollection<{Entity}Row>({
+  const state = useTableCollection<{Entity}Row, { status: typeof statusFilter }>({
     queryName: '{feature}',
-    paginationMode: 'offset',
+    paginationMode: 'cursor', // 'offset' if your API pages by offset, not a cursor
     itemKey: (item) => item.id,
     itemName: (item) => item.name,
-    fetchData: async (query) => fetch{Feature}Page(query),
+    filters: { status: statusFilter },
+    // Every declared filter AND the search box are read here — a filter that never
+    // reaches the query renders fine and narrows nothing.
+    fetchData: async (query) =>
+      fetch{Feature}Page({
+        limit: query.limit,
+        cursor: query.cursor, // cursor mode returns `cursor` as a required string, '' when done
+        search: query.search,
+        filters: { status: query.filters.status },
+      }),
     fetchErrorMessage: ({ err }) => (err instanceof Error ? err.message : 'Failed to load {feature}'),
-    filters: {},
   });
 
-  // Compute from the same query the table uses — a metric that disagrees with the visible rows
-  // is worse than no metric. See COLLECTION_TOOLKIT.md's "Understand" section.
-  const summaryData: SummaryData = [{ title: 'Total', value: String(state.collection.result.total) }];
+  // A fixed option list still needs a filter collection — the component takes both.
+  const statusOptions = useStaticListFilterCollection(statusFilter, ['ACTIVE', 'ARCHIVED']);
+
+  // `state.keyedItems` is typed; `state.collection` is a stub whose members are `unknown`
+  // and will not compile — see [TABLE_STATE.md](TABLE_STATE.md).
+  const rows = state.keyedItems.map((keyed) => keyed.item);
+  const summaryData: SummaryData = [{ title: 'Total', value: String(rows.length) }];
 
   return (
     <>
@@ -101,19 +125,37 @@ export const {Feature}CollectionPage: FC = () => {
         <CollectionPage.Content>
           <Table
             state={state}
-            summaryBar={<SummaryBar data={summaryData} status="success" onRetry={async () => {}} />}
+            summaryBar={
+              <SummaryBar
+                data={summaryData}
+                // NOT `showLoadingState`: it stays true at zero rows and the bar
+                // sticks on skeleton pills forever.
+                status={state.showErrorState ? 'error' : 'success'}
+                onRetry={() => state.retryErrorState()}
+              />
+            }
+            search={<CollectionSearch placeholder="Search {feature}" />}
+            filters={
+              <CollectionToolbarFilters>
+                <MultiSelectCheckboxFilter filter={statusFilter} collection={statusOptions} />
+              </CollectionToolbarFilters>
+            }
+            // Two different messages; shipping only the first makes a working filter look
+            // broken, and the default copy is wrong on a read-only page.
+            emptyState={<CollectionEmptyState title="No {feature} yet" />}
+            noResultsState={<CollectionNoResultsState />}
             onRowClick={(item) => setQuickViewItem(item)}
             columns={[
-              // One column per field the prompt names. Verify each source field —
-              // see COLLECTION_TOOLKIT.md's "A column must show what its header promises."
+              // One column per field the prompt names; verify each source field against
+              // COLLECTION_TOOLKIT.md's "A column must show what its header promises."
               { id: 'name', title: 'Name', render: (item) => item.name },
             ]}
           />
         </CollectionPage.Content>
       </CollectionPage>
 
-      {/* SidePanel has no built-in open/close state or overlay portal — position/animate it
-          yourself. Minimal version; see wix-design-system's SidePanel "Quick view" example. */}
+      {/* SidePanel has no built-in open state or portal — position it yourself. See
+          wix-design-system's SidePanel "Quick view" example. */}
       {quickViewItem ? (
         <Box style={{ position: 'fixed', top: 0, right: 0, height: '100%', zIndex: 1000 }}>
           <SidePanel onCloseButtonClick={() => setQuickViewItem(null)}>
@@ -121,16 +163,8 @@ export const {Feature}CollectionPage: FC = () => {
             <SidePanel.Content>
               <Text>{/* read-only glance fields — not the full form */}</Text>
             </SidePanel.Content>
-            {/* Case B/D only — Case A ends here, there's nowhere further to go: */}
-            <SidePanel.Footer>
-              <Button
-                onClick={() =>
-                  navigateToEntityPage({ path: `/${quickViewItem.id}`, entity: quickViewItem })
-                }
-              >
-                Open full record
-              </Button>
-            </SidePanel.Footer>
+            {/* Case B/D only — Case A ends here. Footer button:
+                navigateToEntityPage({ path: `/${quickViewItem.id}`, entity: quickViewItem }) */}
           </SidePanel>
         </Box>
       ) : null}
@@ -141,40 +175,8 @@ export const {Feature}CollectionPage: FC = () => {
 
 ## 3. Settings page — Case C, D
 
-No dedicated toolkit file exists for this yet (unlike Entity/Collection) — the shape, verified against `useSettingsPage.md`:
-
-```tsx
-// {Feature}SettingsPage.tsx — Case C or D
-import { SettingsPage, useSettingsPage, useSettings } from '@wix/patterns';
-import { useForm } from '@wix/patterns/form';
-import { fetch{Feature}Settings, save{Feature}Settings } from './{feature}-api';
-
-export const {Feature}SettingsPage = () => {
-  const form = useForm<{Feature}SettingsFormFields>();
-
-  const state = useSettingsPage<{Feature}Settings, {Feature}SettingsFormFields>({
-    form,
-    fetch: () => fetch{Feature}Settings().then((settings) => ({ settings })),
-    onSave: () => save{Feature}Settings(form.getValues()),
-    onCancel: async () => form.reset(),
-    saveSuccessToast: 'Settings saved',
-    saveErrorToast: (err, { retry }) => ({ message: 'Failed to save settings', action: { text: 'Retry', onClick: retry } }),
-  });
-
-  const settings = useSettings<{Feature}Settings, {Feature}SettingsFormFields>(state);
-
-  return (
-    <SettingsPage state={state}>
-      <SettingsPage.Header title={{ text: '{Settings Page Title}' }} />
-      <SettingsPage.Content>
-        <SettingsPage.MainContent>{/* form cards — same field-controller patterns as EntityPage */}</SettingsPage.MainContent>
-      </SettingsPage.Content>
-    </SettingsPage>
-  );
-};
-```
-
-`useSettingsPage`'s params are all required except `saveSuccessToast`/`saveErrorToast`: `form`, `fetch`, `onSave`, `onCancel`. There is no `parentPath`/`parentPageId` — a settings page isn't reached by drilling into a row, so it carries no back-navigation contract, and Case C needs no router at all to reach it (Section 1's entry renders it directly).
+In [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md) — `useSettingsPage` + `useForm`,
+with the same field-controller patterns as the entity page.
 
 ## What to change vs. keep, per case
 
