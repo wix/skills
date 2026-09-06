@@ -137,7 +137,7 @@ function recipeFile(title, docsUrl) {
 // filter before listing methods. An oversized listing is saved with its outline.
 async function browse(menuUrl, { include, filter, depth } = {}) {
   const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse", {
-    menu_url: menuUrl.replace(/\.md(?=\?|$)/, ""), ...(include && { include }),
+    menu_url: menuUrl, ...(include && { include }),
     ...(filter && { name_filter: filter }), ...(depth && { depth }),
   });   // 404 "No menu node found" ⇒ re-orient a level up
   if (content.length <= BUDGET) return content;

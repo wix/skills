@@ -121,10 +121,10 @@ await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB
 // exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
-await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings.md",
+await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
                 { include: ["METHOD"], filter: "resched", depth: 4 });
 // non-REST portal — same call, that portal's menu URL:
-await wx.browse("https://dev.wix.com/docs/go-headless/authentication.md", { depth: 2 });
+await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 2 });
 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
