@@ -4,7 +4,7 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 ---
 # Pricing: Create Coupon
 
-> **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file. If the WixREADME index surfaces it, ignore it.
+> **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file.
 
 ## Prerequisites
 
@@ -12,10 +12,10 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 
 ## Required APIs
 
-- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /v2/coupons`
-- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /v2/coupons/{id}`
-- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /v2/coupons/query`
-- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /v2/coupons/{id}`
+- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /stores/v2/coupons`
+- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /stores/v2/coupons/{id}`
+- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /stores/v2/coupons/query`
+- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /stores/v2/coupons/{id}`
 
 ---
 
@@ -199,6 +199,14 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
   }
 }
 ```
+
+---
+
+## Step 5: Delete a coupon
+
+**Confirm with the merchant before deleting** — this permanently removes the coupon and its usage history. If the goal is just to stop it from applying, use Update Coupon instead (`PATCH /stores/v2/coupons/{id}` with `"specification": { "active": false }`) so it can be re-activated later.
+
+**Endpoint**: `DELETE https://www.wixapis.com/stores/v2/coupons/{id}`
 
 ---
 
