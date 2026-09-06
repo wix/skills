@@ -148,8 +148,8 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 // Semantic search — ranks, never says "no match". The reduced hits come back inline AND the full
 // raw content is saved for grep/window follow-ups. { type } picks the corpus, one per request:
 // REST (default) · SKILLS · WIX_HEADLESS · SDK · VELO · CLI · WDS · BUILD_APPS · OVERVIEW ·
-// BUSINESS_SOLUTIONS. A REST search also runs SKILLS and WIX_HEADLESS — the management recipes rank as their own
-// hits, ahead of the methods, and land in the saved file whole. Each method hit lists the worked
+// BUSINESS_SOLUTIONS. A REST search also runs SKILLS and WIX_HEADLESS — the management recipes appear as recipe hits
+// alongside methods and articles, and land in the saved file whole. Each method hit lists the worked
 // requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
 async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST", headless = type === "REST" } = {}) {
   const ask = (document_type, maximum_results) =>
@@ -231,7 +231,7 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
   const seen = new Set();
   const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
   const uniq = [...hits, ...guideHits].filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
+  const out = { ...saved, hits: [...recipeRows, ...uniq] };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
   for (const shed of [() => recipeRows.forEach(r => delete r.calls),
@@ -242,12 +242,13 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
     if (JSON.stringify(out).length <= BUDGET) break;
     shed();
   }
-  // Keep a usable index for every corpus even when URL lengths exhaust the budget.
+  // Preserve at least one result of each kind when the inline index needs trimming.
   while (JSON.stringify(out).length > BUDGET) {
-    const rows = [uniq, recipeRows].filter(r => r.length > 1)
-      .sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
-    if (!rows) break;
-    rows.pop();
+    const kind = h => h.recipe ? "recipe" : h.method ? "method" : "article";
+    const counts = out.hits.reduce((n, h) => (n[kind(h)] = (n[kind(h)] || 0) + 1, n), {});
+    const index = out.hits.findLastIndex(h => counts[kind(h)] > 1);
+    if (index < 0) break;
+    out.hits.splice(index, 1);
     out.note = "Additional results are in the saved file.";
   }
   return clip(out);
