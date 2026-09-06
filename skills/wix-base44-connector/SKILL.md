@@ -292,3 +292,8 @@ the returned `id` IS the `clientId`:
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
   { oAuthApp: { name: "My App" } }, accessToken);   // oAuthApp.id is the visitor clientId
 ```
+
+For visitor flows that send people to Wix-hosted pages and back to your app, read
+[Redirect to Wix-Hosted Pages Using the REST API](https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api)
+before implementing the flow. It covers redirect sessions, return URLs, and allowed redirect
+domains, and links to the OAuth app setup prerequisites.
