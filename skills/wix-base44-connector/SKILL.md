@@ -290,8 +290,29 @@ the returned `id` IS the `clientId`:
 
 ```js
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
-  { oAuthApp: { name: "My App" } }, accessToken);   // oAuthApp.id is the visitor clientId
+  { oAuthApp: {
+    name: "My App",
+    allowedRedirectUris: ["https://my-app.example.com/login-callback"],
+    allowedRedirectDomains: ["my-app.example.com"],
+  } }, accessToken);   // oAuthApp.id is the visitor clientId
 ```
+
+
+Replace the example addresses with your app's actual destinations:
+
+- `allowedRedirectUris` contains exact login callback URLs, including the path. The
+  authorization request's redirect URI must match an entry exactly.
+- `allowedRedirectDomains` contains hostnames, without a scheme or path, for returns from
+  non-authentication Wix-hosted flows such as checkout. It allows return URLs under those domains.
+
+These lists allow destinations; they do not choose the return URL. Supply the login callback in
+its authorization request and the return URL in the redirect session's `callbacks.postFlowUrl`.
+Include the actual preview and published destinations when supporting both environments.
+If the destinations become known later, update the existing OAuth app, preserving its current
+entries. See [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains).
+
+[Create OAuth App](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app)
+has no scopes field in its request; create it using the admin connector token as above.
 
 For visitor flows that send people to Wix-hosted pages and back to your app, read
 [Redirect to Wix-Hosted Pages Using the REST API](https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api)
