@@ -51,8 +51,8 @@ the current site currency is preserved.
 Currency update or verification failures do not stop seeding: inspect `result.currency.status`
 and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
 unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
-If you change currency after seeding, verify existing product prices against the cart: existing
-products may still report the previous currency even when new products and carts use the new one.
+Currency changes may take time to appear in existing product responses, even after carts and
+checkout use the new currency. Allow time for the change to propagate, then recheck the catalog.
 
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
