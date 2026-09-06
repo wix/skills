@@ -58,8 +58,7 @@ Inline via exec_tool, `base44` is already declared — use it directly; do **not
 inline it throws *"Identifier 'base44' has already been declared."*).
 
 **Product images.** Generate with **Base44's built-in image generation**, then attach via the
-storefront seed module's image-attach step — consult official Wix API documentation using the documentation skill
-available in your environment if the module doesn't cover it.
+storefront seed module's image-attach step.
 
 **Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
 from the **completed** `generate_image` result and pass it straight into your single `setupStore`
