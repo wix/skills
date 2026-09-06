@@ -5,7 +5,7 @@ description: >-
   when it parks at KEYWORD_RESEARCH, or recognizing PENDING_REQUIREMENTS as a terminal state.
 triggerPrompt: >-
   I want to generate an SEO content plan for my Wix site. Trigger the content plan generation,
-  wait for it to finish, and show me the blog topics it produces.
+  then check its status and tell me what happened.
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
