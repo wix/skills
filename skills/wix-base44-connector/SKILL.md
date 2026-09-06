@@ -121,10 +121,10 @@ await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB
 // exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
-await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings",
+await wx.browse("https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings.md",
                 { include: ["METHOD"], filter: "resched", depth: 4 });
 // non-REST portal — same call, that portal's menu URL:
-await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 2 });
+await wx.browse("https://dev.wix.com/docs/go-headless/authentication.md", { depth: 2 });
 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
@@ -273,7 +273,7 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-Token contract: `…/headless/authentication/retrieve-tokens`. Prove the lane in one exec before
+Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md). Prove the lane in one exec before
 writing pages — mint a visitor, make one public read with it:
 
 ```js
@@ -294,7 +294,7 @@ const loginCallbacks = appOrigins.map(origin => new URL("/login-callback", origi
 const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
 
 // OAuth redirect configuration: exact login URLs versus domains for other returns.
-// https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
+// https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains.md
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
   oAuthApp: {
@@ -309,7 +309,7 @@ const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend 
 
 // If destinations change later, update this OAuth app rather than creating another.
 // Read its existing lists and merge new entries before updating, preserving old entries.
-// https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app
+// https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app.md
 
 ```
 
@@ -319,7 +319,7 @@ Frontend redirect example, using the visitor client above after obtaining a visi
 import { wix } from "@/lib/wixClient";
 
 // Flow prerequisites and supported intents:
-// https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api
+// https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
 export async function redirectToWix(intent, returnPath = "/") {
   // Pass the intent required by the selected flow's schema.
   const response = await wix("/headless/v1/redirect-session", {
