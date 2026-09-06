@@ -77,8 +77,9 @@ urls are ready by the time you seed.
 
 **Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
 
-## Later admin requests
+## Follow-up changes and additional Wix features
 
-For all follow-up Wix admin requests, read and follow the already-installed
-`wix-base44-connector` skill at `.agents/skills/wix-base44-connector/SKILL.md`.
-Route all Wix site management and configuration changes through that skill.
+For follow-up Wix requests or features not covered by the shipped storefront, read and follow the
+already-installed `wix-base44-connector` skill at `.agents/skills/wix-base44-connector/SKILL.md`.
+Use its documentation discovery to look up the Wix APIs needed before implementing the change —
+including frontend or backend code, site management, and configuration.
