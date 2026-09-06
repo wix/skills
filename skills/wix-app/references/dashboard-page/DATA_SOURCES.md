@@ -143,6 +143,29 @@ assume it is missing on a fresh app, and report it under
 [Manual Steps Required](../../SKILL.md#-manual-steps-required) by name. Wiring `errorState` on the
 table (the draft template does) is what turns this from silent skeletons into a message you can read.
 
+## A second vertical is a second scope
+
+The two checks above are easy to run once, at Step 3, for the vertical the page is obviously about —
+and then to skip for the *next* one, because by then you are deep in Step 4b adding a detail column
+or resolving a search term. That second package needs the same two things, and it fails differently:
+the page already worked, so the regression looks like something you broke in the UI.
+
+A measured run added `@wix/crm` mid-implementation to resolve a client-name search. The app held
+Bookings scopes and not `SCOPE.DC-CONTACTS.READ-CONTACTS`, the contacts call answered 403, and
+because the search awaited it unconditionally, a page that had been loading fine stopped loading at
+all.
+
+**Run the package-and-scope check for every `@wix/*` import you add, whenever you add it** — and
+then decide what its failure should cost:
+
+- **Primary source** — the rows themselves. Its failure is the page's failure; `errorState` reports it.
+- **Secondary source** — an enrichment lookup, a filter's option list, a term resolved to ids. Its
+  failure must cost only that feature. Wrap the call, fall back to the empty result, and say so in
+  the UI (`TableTopNotification` is the patterns component for it) rather than degrading silently.
+
+Ask which one you are adding before you write the `await`. An unwrapped secondary call is a page
+whose availability is the *intersection* of every scope it touches.
+
 ## Querying and paging
 
 Filter field paths, WQL's one-operator-per-field rule, and the two cursor-paging traps are in

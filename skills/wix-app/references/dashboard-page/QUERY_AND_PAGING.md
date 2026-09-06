@@ -22,6 +22,13 @@ Pipelines and Bookings all do. Find the link before you guess:
 grep -rho "https://[^)]*supported-filters[^)]*" node_modules/@wix/<pkg>/build/es/*.d.mts | sort -u
 ```
 
+**Read the page, don't just find it.** It is a table of field → operators, and it routinely lists
+more than the endpoint's prose implies — Query Extended Bookings' prose mentions filtering courses
+"by `scheduleId`", while its table also declares `serviceId` and the staff `resource.id` on both
+`bookedEntity` branches, and `contactDetails.contactId` / `.email`. Those are the difference between
+a page with two working filters and one with five. Many pages also carry a *Filter Performance*
+note naming the fields to include in every request — send them.
+
 Two traps the list resolves, both of which look like a working filter:
 
 **Nested paths.** A field that reads as top-level on the entity is often only filterable at its full

@@ -44,7 +44,8 @@ export const {Feature}CollectionPage: FC = () => {
     fetchData: async (query) =>
       fetch{Feature}Page({
         limit: query.limit,
-        cursor: query.cursor ?? undefined, // and return `cursor: next || undefined` — never ''
+        cursor: query.cursor ?? undefined, // return `cursor: next || undefined` — key always
+        //                                    present, '' walks pages forever
         search: query.search,
         filters: { status: query.filters.status },
       }),

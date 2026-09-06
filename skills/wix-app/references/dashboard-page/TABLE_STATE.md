@@ -76,31 +76,42 @@ on every evaluation. Select a length, a total or an id, then derive the rest onc
 ## Query and result shapes
 
 `fetchData(query)` receives a `ComputedQuery<F>`: `limit`, `offset`, `page`, `search`, `rawSearch`,
-`cursor`, `filters`, `rawFilters`, `sort`. What you return depends on `paginationMode`:
+`cursor`, `filters`, `rawFilters`, `sort`.
 
-| Mode | Return | Declared as |
-| --- | --- | --- |
-| `'offset'` | `{ items, total?, hasNext? }` | `OffsetQueryResult` |
-| `'cursor'` | `{ items, cursor?, total? }` | `CursorQueryResult` |
+**Read the return type from `@wix/bex-core`, not from `@wix/patterns`.** The name
+`CursorQueryResult` exists in both packages and they are different types. The one your `fetchData`
+must satisfy is the generic in `node_modules/@wix/bex-core/dist/types/hooks/paginationModeConfig.d.ts`:
 
 ```ts
-// dist/types/types/SchemaConfig.d.ts — read it, don't recall it
-export interface CursorQueryResult { items: any[]; cursor?: string | undefined | null; total?: number | null }
-export interface OffsetQueryResult { items: any[]; total?: number | null; hasNext?: boolean }
+interface DataResultRaw<T> {
+  items: T[];
+  total?: number | null;
+  available?: number;                          // total BEFORE filters
+  cursor?: string | undefined | null;
+  hasNext?: boolean | null;
+}
+type OffsetQueryResult<T> = Omit<DataResultRaw<T>, 'cursor'>;
+type CursorQueryResult<T> = Omit<DataResultRaw<T>, 'cursor'> & { cursor: string | undefined | null };
 ```
 
-**`hasNext` is offset-only.** It is not a member of `CursorQueryResult`; returning it from a
-cursor-mode `fetchData` is a no-op that type-checks, because the object flows through your own
-return type rather than an object literal. In cursor mode, `cursor` alone says whether there is more.
+Three consequences, each of which has shipped as a bug:
 
-**On the last page return no cursor — `undefined`, not `''`.** An empty string is still a value the
-collection treats as a cursor: it requests the next page forever and appends the same rows each
-pass, a table that grows without end while the API is perfectly happy. It renders as a spinner under
-the last row, which reads as "still loading". Derive it so the empty case collapses:
+**In cursor mode the `cursor` key is required; its value may be `undefined`.** The intersection
+re-declares `cursor` without `?`, so `return { items }` does not compile — but
+`{ items, cursor: undefined }` does. "Required" is about the key, not the value.
+
+**On the last page return `undefined`, never `''`.** An empty string is still a cursor to the
+collection: it requests the next page forever and appends the same rows each pass, a table that
+grows without end while the API is perfectly happy, rendering as a spinner under the last row that
+reads as "still loading". Derive it so the empty case collapses:
 
 ```ts
 cursor: response.pagingMetadata?.cursors?.next || undefined,
 ```
+
+**`hasNext` and `total` exist in both modes** — they are on `DataResultRaw`, which both aliases
+extend. Cursor mode also accepts a separate `fetchTotal`, since a cursor-paged response carries no
+total; build its filter exactly as the page's or the count disagrees with the rows it counts.
 
 Look any of these up yourself with `Read <pkgRoot>/dist/dts-bundle/index.json` and the `file` path it
 gives; the index is the single source of truth, and it moves between versions.

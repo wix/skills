@@ -40,22 +40,30 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 never mentions it still ships a search input that reaches no query and silently does nothing. Wire
 it (`search={<CollectionSearch />}`) *and* read `query.search` inside `fetchData`.
 
-**When the API has no free-text filter, resolve the term into one it does have** — deleting the box
-is the wrong fix, since the user asked for search. Bookings' Query Extended Bookings takes `id`,
-`status`, dates and a schedule id, so a term is matched against service names and reaches the query
-as a schedule-id filter. Return `$in: []` for no match, so "nothing found" means no rows rather than
-every row.
+**When the API has no free-text filter, resolve the term into every identity field it does have.**
+Deleting the box is the wrong fix — the user asked for search — and picking one field is barely
+better: an exact `contactDetails.email` match finds nothing unless someone pastes a whole address.
+Read the *Supported Filters* page and enumerate. Query Extended Bookings accepts service ids and the
+staff `resource.id` on both `bookedEntity` branches, plus `contactDetails.contactId` and `.email`, so
+a term becomes an `$or` over all of them, matched against the lists you already fetched for the
+filters. Give the no-match case an id nothing can reference, so "nothing found" means no rows.
+
+**A term only another vertical can resolve is optional, not required.** Client *name* isn't
+filterable on a booking, so matching it means asking Contacts for ids — a second vertical, a second
+scope, a second thing that can 403. Wrap it so failure costs one branch, not the page:
+[DATA_SOURCES.md](DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
 
 **Confirm the filter's field path before wiring it.** A path that reads correctly in the endpoint's
-prose can still be rejected — see [DATA_SOURCES.md](DATA_SOURCES.md#confirm-a-filter-field-path-before-you-ship-it).
+prose can still be rejected, and the endpoint's *Supported Filters* page settles it — see
+[QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint).
 
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 
 **A column must show what its header promises.** When mapping an API item to a row, treat a generic-sounding field (`.title`, `.name`, `.label`, `.summary`) as unverified until you've read its type declaration — `dist/dts-bundle/index.json` for a patterns type, the SDK's own bundled `.d.ts` for a Wix SDK response. An `Extended*`/`*WithDetails` response shape usually exists specifically to attach the real related entity (the service, the product, the contact) alongside the base record; a generic summary field on the base item is not a substitute for it, and the mistake reads as correct until someone opens a record where the two disagree. Do this for every column, not just the ones that look uncertain — the wrong-but-plausible field is the one nobody double-checks.
 
-**A field the SDK marks `@deprecated` is a wrong-column defect waiting to happen.** The deprecated field and its replacement both compile and both render, and the deprecated one is usually the rawer value — a bare gateway code where the replacement is the localised name a person expects. `@wix/ecom`'s `RegularPaymentDetails.paymentMethod` is the worked example: its banner names `paymentMethodName.buyerLanguageName` as the replacement. Grep the declaration for `@deprecated` around every field you map, not just the ones that look uncertain. See [DATA_SOURCES.md](DATA_SOURCES.md).
+**A field the SDK marks `@deprecated` is a wrong-column defect waiting to happen** — both it and its replacement compile and render, and the deprecated one is usually the rawer value. Grep the declaration for `@deprecated` around every field you map: [DATA_SOURCES.md](DATA_SOURCES.md#confirming-a-field--the-part-that-ships-bugs).
 
-**Row-mapping must cover every shape the API returns, not just the one your test data happens to have.** A Wix SDK response often carries a union/oneof field for entities that can take more than one form — Bookings' `bookedEntity` is `slot` for an individual appointment and `schedule` for a class or course, for instance. A mapper that only reads one variant renders blank cells for every row using the other, and it will pass `tsc` and look correct against whatever sample data was on hand. Find the oneof in the type declaration before writing the mapper, and handle each branch.
+**Row-mapping must cover every shape the API returns, not just the one your test data has.** A Wix SDK response often carries a oneof for entities that take more than one form — Bookings' `bookedEntity` is `slot` for an appointment, `schedule` for a class or course. A mapper reading one variant renders blank cells for every row of the other, passes `tsc`, and looks right against whatever sample data was on hand. Find the oneof in the declaration before writing the mapper, and handle each branch.
 
 ## Investigate — opening one record
 
