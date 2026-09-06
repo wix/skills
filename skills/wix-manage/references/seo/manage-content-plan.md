@@ -50,6 +50,9 @@ GET /content-plan-flows/{contentPlanFlowId}
 The response is `{ "contentPlanFlow": { "id": "...", "status": "..." } }`.
 Read `contentPlanFlow.status`, not a top-level `status`. A missing status is a
 response-shape problem: inspect the response instead of silently looping.
+`CREATED` alone does not identify a missing prerequisite. If the flow remains
+there without progressing, report the stalled flow ID and observed status; do
+not invent a missing business category or description.
 Always send the trigger's ID; omitting it selects a previous successful flow.
 See [Get Content Plan Flow](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-content-plan-flow-v1/get-content-plan-flow).
 
@@ -57,8 +60,10 @@ Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`
 few seconds using the bounded approach above. Completion time varies.
 
 **Stop polling and act on these terminal states:**
-- `PENDING_REQUIREMENTS` — the site has no business description or category.
-  Tell the user what is missing. Do not retry.
+- `PENDING_REQUIREMENTS` — the site has unmet prerequisites, such as missing
+  business location information. Identify the actual missing prerequisite from
+  available evidence; do not assume category or description is the cause.
+  Report what needs completing and do not repeatedly trigger new flows.
 - `FAIL` — the pipeline failed. Trigger a new flow to retry.
 - `CANCELED` — someone canceled the flow.
 
