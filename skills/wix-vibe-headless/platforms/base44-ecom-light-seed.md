@@ -67,6 +67,8 @@ urls are ready by the time you seed.
 
 ## STEP 3 — Wrap up
 
+### Preview
+
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
 ### Final text response
