@@ -1,0 +1,30 @@
+name: seo/manage-seo-tags-ambiguous-site-title
+description: Clarifies ambiguous site SEO titles before writing.
+triggerPrompt: >-
+  Change my site's SEO title to "Handmade Ceramics | Studio Shop".
+tags: [seo]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-site-s-seo-tags
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Require a concise clarification asking whether the user means the homepage,
+      another specific page, or a page-type title convention. Scope is missing.
+      Fail (score 0) for ANY mutating API call, a guessed target, or a claim
+      that the title was updated. A question with no write is the successful
+      outcome. Substituting og:title for the SEO title is incorrect.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 0-10 for a direct path from reading the recipe to a scope question.
+      Penalize unnecessary discovery/probing calls and any non-2xx error.
+      Any attempted write must score 0, even if rejected.
+      Identify each friction and its likely skill, MCP, or docs cause.
+      Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor

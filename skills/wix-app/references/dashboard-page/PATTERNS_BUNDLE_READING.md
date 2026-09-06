@@ -48,7 +48,20 @@ An empty body with a **"Produced by"** note means: call that hook or factory to 
 
 A stub saying **"cut here because it has its own bundle"** means the same thing for a shape you *do* write: it wasn't copied in twice, so look the name up and read its own file.
 
-Every bundle fits in a single read; the index's `bytes` field says how big before you open it. So a bundle is never partially shown — if something looks missing, it was cut on purpose and the stub names where to find it.
+Every bundle fits in a single read; the index's `bytes` field says how big before you open it. So a bundle is never partially shown — if something looks missing, it was cut on purpose. Both stubs above name where to find it.
+
+### The one that doesn't: a bare `import`
+
+A plain `import { X } from '<module>'` at the top of a bundle, with no note attached, is the third shape you will meet — and unlike the two above it does **not** tell you where to look. What to do depends on the path, not the name:
+
+**A normal entry point** — `react`, `react-hook-form`, `history`, `@wix/design-system`. Resolve it the ordinary way. For `@wix/design-system` names use the `wix-design-system` skill; don't read WDS files directly.
+
+**A deep internal path** — `@wix/design-system/dist/types/DropdownLayout`, `@wix/bex-utils/@wix/bi-logger-os-data/v2/types`. This is an upstream defect: the bundle recorded where the type is *declared* instead of where it is exported. Two things follow, and the second is the one that saves you time:
+
+- Never import that path in your own code, and don't go read the file it points at. It is not a public entry point, and the name is often not re-exported from the package root either — `DropdownLayoutOption` is not exported from `@wix/design-system`, so there is no shorter import to substitute.
+- You usually don't need the declaration at all. Where the type is a **prop you fill in** — WDS option shapes like `SingleSelectFilter`'s and `AutoCompleteFilter`'s `items` — look the *component* up in the `wix-design-system` skill and use the shape its docs show. Where it is a **pass-through you never construct** — the BI logger params behind optional fields like `biAdditionalInfo` — pass what the patterns doc shows, or omit it; it is optional.
+
+If a name you genuinely need stays unresolved after that, stop and say so, and name the bundle and the exact import path that dead-ended. Do not guess a shape and do not go spelunking in `node_modules` — a wrong guess compiles here and breaks at runtime, which is worse than the missing type.
 
 A handful of names carry `"status": "unreachable"` with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
 
