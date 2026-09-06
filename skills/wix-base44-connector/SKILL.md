@@ -132,12 +132,6 @@ await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
-
-// { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
-// focused corpus — default REST already includes Headless guides alongside methods and recipes.
-// Search WIX_HEADLESS alone for headless/external client code (visitor auth,
-// JS SDK, quick-starts). It returns article-style hits (method gists thin out) — read the saved path.
-await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
 
 Products and their capabilities — the common ones, partial lists:
