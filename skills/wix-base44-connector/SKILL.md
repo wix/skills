@@ -311,9 +311,6 @@ Include the actual preview and published destinations when supporting both envir
 If the destinations become known later, update the existing OAuth app, preserving its current
 entries. See [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains).
 
-[Create OAuth App](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app)
-has no scopes field in its request; create it using the admin connector token as above.
-
 For visitor flows that send people to Wix-hosted pages and back to your app, read
 [Redirect to Wix-Hosted Pages Using the REST API](https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api)
 before implementing the flow. It covers redirect sessions, return URLs, and allowed redirect
