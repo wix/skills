@@ -50,12 +50,11 @@ Run TypeScript compiler to check for type errors.
 npx tsc --noEmit -p .
 ```
 
-Check the whole project, not just the files you generated — a type error in generated
-code usually surfaces in the file that consumes it. `-p .` is what holds that line:
-adding a file path to it is an error, whereas adding one to a bare `npx tsc --noEmit`
-silently discards `tsconfig.json` (`strict`, `paths`, `jsx`) and checks against
-compiler defaults instead. Run it from the app root: there `-p .` fails outright if no
-`tsconfig.json` is present, where bare `tsc` would walk up and check the parent project.
+Run it from the app root, and check the whole project rather than just the files you
+generated — a type error in generated code usually surfaces in the file that consumes
+it. `-p .` is what holds that line: adding a file path to it is an error, whereas adding
+one to a bare `npx tsc --noEmit` silently discards `tsconfig.json` (`strict`, `paths`,
+`jsx`) and checks against compiler defaults instead.
 
 **Success criteria:**
 - Exit code 0
