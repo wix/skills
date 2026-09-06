@@ -38,6 +38,20 @@ Match the user's request to the level that owns the change:
 | "All my product/blog/event pages should be titled like X" — a convention for every item of a page type | Pattern | **SEO Patterns** |
 | "Change the title of this page/product/post" — one specific item | Item | **Item SEO Tags** |
 
+**Site SEO Tags accepts meta tags only** (including site-level social image
+and robots settings). Never send `title`, `link`, or `script` tags to
+`PATCH /site-seo-tags`. Use Item SEO Tags for a specific page's title, or
+SEO Patterns for a page-type title convention. See the
+[Site SEO Tags object](https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/site-seo-tags-object).
+
+If the user says "change my site's SEO title" without identifying a page or
+page type, ask whether they mean the homepage, another specific page, or a
+page-type title convention. Do not write until scope is clear. For an explicit
+homepage request, discover its actual ID; never assume an ID such as `home`.
+Use Item SEO Tags with `STATIC_PAGE`, read its current tags, and merge the title
+into the complete set. Follow the static-page publication rules below.
+Do not substitute `og:title` for the requested SEO title.
+
 Work at the level that matches the change. Writing the same title onto many
 items is the same outcome as one pattern and much harder to undo. If the user's
 words fit more than one level, ask one short question before writing. An
@@ -255,8 +269,9 @@ issue another Get — the write response is the confirmation.
 - **Calling List Item SEO Tags expecting product names.** List returns IDs
   and tags, not names. Use Search Products to find the ID by name first.
 - **Retrying a 400 with a different request shape without checking why.** A 400
-  means the shape was wrong. Compare against the shapes in this recipe, fix the
-  mismatch, send once. Three retries with guessed shapes is three wasted calls.
+  can mean the target level is wrong, not just the shape. Read the validation
+  message and check the level rules first. Compare against the shapes in this
+  recipe, fix the mismatch, send once. Three retries with guessed shapes is three wasted calls.
 
 Tags can currently be written only for the site's primary language: leave
 `language` unset on every write. There is no revision checking — the last write
@@ -298,12 +313,18 @@ success.
 - **`UNSUPPORTED_ITEM_TYPE`:** the error message lists the item types the API
   supports; use it to redirect the request rather than retrying blindly.
 - **`ITEM_NOT_FOUND`:** re-discover the item ID; do not guess a new one.
+- **Unsupported site-level tag / `FIELD_NOT_ALLOWED`:** a rejected `title`,
+  `link`, or `script` is a wrong-level error, not a nesting or field-mask error.
+  Do not retry it at site level or silently drop the requested tag. Clarify the
+  target if needed, then use the appropriate item or pattern API. Get that
+  target's current tags before merging and writing; never reuse the site's
+  tags as the new target's complete set. A rejected write saved no changes.
 - **Invalid tags:** tags are validated before anything is saved, so nothing
   changed; fix the tag and resend the same complete set.
 - **`400` on a request you built from this recipe:** compare the request you
   sent against the shapes in this recipe's "REST request and response shapes"
-  section. Fix the mismatch — a wrong nesting level, a missing wrapper key, or
-  `fieldMask` sent as an array instead of a string — and send again. Never
+  section and the wrong-level recovery rule above. Fix the mismatch — a wrong
+  nesting level, a missing wrapper key, or `fieldMask` sent as an array instead of a string — and send again. Never
   resend the same shape, and never walk through variations hoping one is
   accepted.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
