@@ -431,22 +431,57 @@ async function attachProductImages(ctx, items) {
   });
 }
 
+// Site-wide payment currency; product amounts are not converted when this changes.
+// https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties.md
+async function configureCurrency(ctx, requested) {
+  const result = { requested: requested ?? null, actual: null, status: "unchanged", warnings: [] };
+  if (requested !== undefined) {
+    try {
+      if (typeof requested !== "string" || !/^[A-Z]{3}$/.test(requested))
+        throw new Error("currency must be a three-letter uppercase ISO currency code");
+      await req(ctx, "/site-properties/v4/properties", {
+        method: "PATCH",
+        body: { properties: { paymentCurrency: requested }, fields: { paths: ["paymentCurrency"] } },
+      });
+      result.status = "updated";
+    } catch (error) {
+      result.status = "failed";
+      result.warnings.push(`Currency update failed; seeding continued: ${error.message}`);
+    }
+  }
+  try {
+    const snapshot = await req(ctx, "/site-properties/v4/properties", { method: "GET" });
+    result.actual = snapshot.properties?.paymentCurrency ?? null;
+    if (!result.actual) throw new Error("Site Properties returned no paymentCurrency");
+    if (requested !== undefined && result.actual !== requested) {
+      result.status = "failed";
+      result.warnings.push(`Requested currency ${requested}; site currency is ${result.actual}.`);
+    }
+  } catch (error) {
+    result.status = "failed";
+    result.warnings.push(`Currency verification failed; seeding continued: ${error.message}`);
+  }
+  return result;
+}
+
 /**
  * ONE-CALL seed: install → create products → categories → attach images, in the correct order,
  * keeping the created ids in memory (no hand-threading of product ids across exec calls). This is
  * the DEFAULT path — call it once instead of the individual functions.
  *
  * @param plan {{
+ *   currency?: string, // requested site payment currency; omitted preserves the current setting
  *   products: [{ name, description, price, compareAtPrice?, quantity?, inStock?, options?, imageUrl?, altText?,
  *                digitalFileUrl?, digitalFileName? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
- * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
+ * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number, currency: {requested,actual,status,warnings} }
  */
-async function setupStore(ctx, { products = [], categories = {} } = {}) {
+async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
   validateProducts(products);
   await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
 
+  const currencyResult = await configureCurrency(ctx, currency);
   const created = await bulkCreateProducts(ctx, products);
   const withNames = created.map((p, i) => ({ ...p, name: products[i]?.name }));
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
@@ -467,7 +502,7 @@ async function setupStore(ctx, { products = [], categories = {} } = {}) {
     .filter((it) => it.url);
   if (imageItems.length) await attachProductImages(ctx, imageItems);
 
-  return { products: withNames, categories: cats, imagesAttached: imageItems.length };
+  return { products: withNames, categories: cats, imagesAttached: imageItems.length, currency: currencyResult };
 }
 
 module.exports = {
