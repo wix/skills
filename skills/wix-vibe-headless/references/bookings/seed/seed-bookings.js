@@ -32,7 +32,7 @@
 //   // await seed.attachServiceImage(ctx, { serviceId: s.id, revision: s.revision, image: { id: file.id, url: file.url, width: 1024, height: 1024 } });
 //
 // If any call fails with a shape the caller didn't expect, or you need an operation this module
-// doesn't cover, fall back to the wix-docs skill (search + read the live Wix API reference) —
+// doesn't cover, fall back to the documentation skill available in your environment (search + read the live Wix API reference) —
 // never guess. Source recipe (authoritative): wix-headless/references/inline-recipes/setup-bookings.md.
 
 const API = "https://www.wixapis.com";

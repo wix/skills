@@ -6,21 +6,43 @@
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
 //   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js");
-//   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+//   const ctx = { token: accessToken }; // Installation reads the site ID from the deployed Wix config.
 //   await seed.installStoresApp(ctx);
 //   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
 //   const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);
 //   await seed.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
 //   await seed.attachProductImages(ctx, products.map((p,i) => ({ id:p.id, url:imageUrls[i], altText:p.slug })));
 //
-// If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
+// If any call fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-online-store.md.
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+const WIX_CONFIG_PATH = "/app/src/rest/wix-config.js";
+let siteId;
 
-async function req(ctx, path, { method = "POST", body } = {}) {
+function getSiteId() {
+  if (siteId) return siteId;
+  let source;
+  try {
+    source = require("fs").readFileSync(WIX_CONFIG_PATH, "utf8");
+  } catch {
+    throw new Error(`Cannot read ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  // Base44/deploy writes a named export containing a JSON string literal. Do not execute config.
+  const match = source.match(/^export const WIX_METASITE_ID\s*=\s*("(?:[^"\\]|\\.)*")\s*;/m);
+  let value;
+  try { value = match && JSON.parse(match[1]); } catch { /* invalid config */ }
+  if (typeof value !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error(`Missing or invalid WIX_METASITE_ID in ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  siteId = value;
+  return siteId;
+}
+
+
+async function req(ctx, path, { method = "POST", body, headers = {} } = {}) {
   // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
   // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
   // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
@@ -30,7 +52,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
       method,
       headers: {
         Authorization: `Bearer ${ctx.token}`,
-        "wix-site-id": ctx.siteId,
+        ...headers,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -69,7 +91,7 @@ async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(`${API}/stores/v3/products/query`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${ctx.token}`, "wix-site-id": ctx.siteId, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query: { paging: { limit: 1 } } }),
     });
     if (res.ok) return;
@@ -148,6 +170,35 @@ function buildOptions(options = []) {
   });
 }
 
+// Validate the whole batch before installation, uploads, or product creation.
+function validateProductOptions(products) {
+  const seen = new Map();
+  for (const product of products) {
+    for (const option of product.options ?? []) {
+      const choiceNames = new Set();
+      for (const choice of option.choices ?? []) {
+        const name = typeof choice === "string" ? choice : choice.name;
+        const normalized = name.trim().toLowerCase();
+        if (choiceNames.has(normalized)) {
+          throw new Error(`Duplicate choice "${name}" in option "${option.name}" on product "${product.name}". ` +
+            `Each choice name must be unique within an option. No products were created by this call.`);
+        }
+        choiceNames.add(normalized);
+        if (option.type !== "color") continue;
+        const key = JSON.stringify([option.name.trim().toLowerCase(), choice.name.trim().toLowerCase()]);
+        const code = choice.colorCode?.trim().toLowerCase();
+        const previous = seen.get(key);
+        if (previous && previous.code !== code) {
+          throw new Error(`Conflicting color "${choice.name}" in option "${option.name}": ` +
+            `"${previous.product}" uses ${previous.code}, but "${product.name}" uses ${code}. ` +
+            `Use one color code for this name across the batch, or distinct names for different shades. No products were created by this call.`);
+        }
+        seen.set(key, { code, product: product.name });
+      }
+    }
+  }
+}
+
 // full Cartesian product of variants, each priced/stocked from the product; visible:true baked in
 function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
   const base = {
@@ -201,9 +252,10 @@ const digitalFileName = (p) =>
 // ---- exported operations ----
 
 async function installStoresApp(ctx) {
+  const siteId = getSiteId(); // Fail before the install-error catch if config is missing.
   try {
-    await req(ctx, "/apps-installer-service/v1/app-instance/install", { body: {
-      tenant: { tenantType: "SITE", id: ctx.siteId },
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", { headers: { "wix-site-id": siteId }, body: {
+      tenant: { tenantType: "SITE", id: siteId },
       appInstance: { appDefId: STORES_APP_ID, enabled: true },
     } });
   } catch {
@@ -233,6 +285,7 @@ async function listProducts(ctx) {
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
+  validateProductOptions(products);
   const fileIds = await Promise.all(products.map((p) =>
     p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
   const body = {
@@ -251,13 +304,39 @@ async function bulkCreateProducts(ctx, products) {
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
   // NB: results nest under productResults.results[].item — NOT a top-level `results`.
-  const created = (r.productResults?.results ?? []).map((x, i) => ({
-    id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
-    variantId: x.item?.variantsInfo?.variants?.[0]?.id,
-    hasOptions: (products[i]?.options?.length ?? 0) > 0,
-    isDigital: !!fileIds[i],
-    quantity: products[i]?.quantity ?? 0,
-  }));
+  const results = r.productResults?.results ?? [];
+  const created = [];
+  const failures = [];
+  const seen = new Set();
+  for (const [position, result] of results.entries()) {
+    const index = result.itemMetadata?.originalIndex ?? position;
+    seen.add(index);
+    if (result.itemMetadata?.success === false || !result.item?.id) {
+      failures.push({ index, name: products[index]?.name, ...result.itemMetadata?.error,
+        message: result.itemMetadata?.error?.description ?? "Create result has no product ID" });
+      continue;
+    }
+    created.push({
+      id: result.item.id, slug: result.item.slug, revision: result.item.revision,
+      variantId: result.item.variantsInfo?.variants?.[0]?.id,
+      hasOptions: (products[index]?.options?.length ?? 0) > 0,
+      isDigital: !!fileIds[index], quantity: products[index]?.quantity ?? 0,
+      index, name: products[index]?.name,
+    });
+  }
+  products.forEach((product, index) => {
+    if (!seen.has(index)) failures.push({ index, name: product.name, message: "Missing bulk-create result; creation status unknown" });
+  });
+  if (failures.length) {
+    const successes = created.map(({ id, name, index }) => ({ id, name, index }));
+    const error = new Error(`Product creation did not fully succeed. ` +
+      `Created: ${JSON.stringify(successes)}. Failures: ${JSON.stringify(failures)}. ` +
+      `Stopped before stock, categories, or images. Do not rerun the full seed: existing products would be duplicated.`);
+    error.createdProducts = successes;
+    error.failures = failures;
+    throw error;
+  }
+  created.sort((a, b) => a.index - b.index);
   await stockOptionlessProducts(ctx, created);
   return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
 }
@@ -317,6 +396,7 @@ async function addProductsToCategories(ctx, mapping) {
 // (propagation) — that's normal, not a failure, so we don't block on it.
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
+  if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
   const ids = items.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
@@ -342,6 +422,7 @@ async function attachProductImages(ctx, items) {
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
+  validateProductOptions(products);
   await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
 
   const created = await bulkCreateProducts(ctx, products);

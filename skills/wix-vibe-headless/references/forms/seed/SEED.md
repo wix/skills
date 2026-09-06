@@ -25,7 +25,7 @@ The six steps, each with a section below:
 
 Wix Forms is a **CRM** API, not Business Solutions. Read the page before writing a call you don't
 find here — never guess a shape. For anything these pages don't settle — a response shape you didn't
-expect, or an operation this doc doesn't cover — use the **`wix-docs`** skill to search + read the
+expect, or an operation this doc doesn't cover — use the documentation skill available in your environment to search + read the
 live Wix API reference.
 
 | step | title | page | what it settles |

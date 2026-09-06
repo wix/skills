@@ -8,11 +8,14 @@ only), safe in the frontend; use it directly for the Wix client setup.
 
 > **The Wix skills installed below are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
+**Banner enabled for this entry flow:** mount `<WixManageBanner/>` once in the Layout, above
+the header in the fixed top region, per the vertical instructions. It is preview-only.
+
 Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
-Install three skills under `.agents/skills/`: **`wix-vibe-headless`** (the client build + seed guide — your main source of truth), **`wix-manage`** (REST recipes to manage/configure the site), and **`wix-base44-connector`** (site context + API-doc discovery, the fallback for anything the others don't cover).
+Install three skills under `.agents/skills/`: **`wix-vibe-headless`** (the client build + seed guide — your main source of truth), **`wix-manage`** (REST recipes to manage/configure the site), and **`wix-base44-connector`** (site context + API-doc discovery).
 
 Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
@@ -96,7 +99,7 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 Seed by calling your vertical's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and follow it (the loader
 snippet, admin connector token, entity images with the final `media.base44.com` url, and every field
-shape are there). Gaps or an unexpected shape → the **`wix-base44-connector`** skill's doc discovery.
+shape are there). Gaps or an unexpected shape → the documentation skill available in your environment.
 Seeding is **admin-only** — not part of the client, which is built solely per the `wix-vibe-headless` skill.
 
 - **Additive only:** never delete or overwrite the user's content, even apparent sample data; ask first if a cleanup truly seems needed.
@@ -104,15 +107,15 @@ Seeding is **admin-only** — not part of the client, which is built solely per 
 
 ## STEP 5 — Wrap up
 
-1. **Mount `<WixManageBanner/>`** (required) in your Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS — it links the app to its Wix back office, self-gates to the preview, and never shows on the published site.
-2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (your metasite id) to complete setup in Wix.
+**Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (your metasite id) to complete setup in Wix.
 
 **Don't chase images.** A `/__generating__/…` placeholder is swapped for the final url automatically at turn end — do **not** edit, re-seed, or debug image urls.
 
 ## Later admin requests
 
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
-`wix-base44-connector` doc discovery — all over the connector.
+consult official Wix API documentation using the documentation skill available in your environment.
+Keep admin calls on the connected Wix connector.
 
 **A change to what the business data COLLECTS is one of these, however UI it sounds** — a new form
 field, product option or service setting. Change it on Wix first per the vertical's `seed/SEED.md`,

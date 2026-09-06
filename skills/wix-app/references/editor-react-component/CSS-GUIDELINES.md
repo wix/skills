@@ -1,10 +1,12 @@
 # CSS Guidelines
 
 Use these rules for the scaffolded `<component-name>.module.css` file and any
-colocated CSS Modules owned by internal sub-components. Keep existing visual
-decisions outside the request unchanged. These rules keep the component
+colocated CSS Modules owned by internal sub-components. These rules keep the component
 editable by zero config, responsive to its Wix-owned container, and safe in
 both LTR and RTL layouts.
+
+**Visual intent.** When the request specifies how the component should look —
+mood, palette, layout style, or a reference — follow that direction. Default to a modern, refined look — intentional layout, pleasing proportions, polished and deliberate styling.
 
 ## Contents
 
@@ -210,20 +212,30 @@ and do not expose a visual prop solely for that purpose.
 
 ## Default Visual Quality
 
-When creating a component and the request has no visual direction, use a
-restrained accessible default. When editing an existing component, preserve its
-visual language unless the request changes it.
+Create a clear hierarchy with at least two techniques that fit the component:
+a defined surface, border or soft shadow, type scale or weight, spacing, an
+accent, or visible interaction states. Use these neutral defaults unless the
+request or existing design provides better values:
 
-- body text at least 16px and labels at least 14px, with an explicit `font-family`
-- WCAG AA contrast (4.5:1 body text, 3:1 large text and UI controls)
-- touch targets at least 44 by 44px
-- clear hierarchy and visible focus states
-- generous but consistent spacing
-- transparent root backgrounds unless the design requires a surface
+- 16px or larger body text, 14px or larger labels, and 600–700 weight for titles
+- 8–16px spacing inside controls and 16–32px spacing inside containers
+- 8–12px corner radii for cards and controls; `50%` for circular media
+- a subtle border or soft shadow when a card, panel, or control needs separation
+- touch targets at least 44 by 44px and visible keyboard focus states
 
-Avoid prescribing a brand palette in a generic component. Only when the prompt
-explicitly requests branded or themed output, use its named brand tokens rather
-than hardcoded generic color choices.
+### Foreground and Background Ownership
+
+If the component is a self-contained block (card, panel, banner, accordion item), give the root a background. If it is an inline control meant to blend in (link, ghost button, icon button), control may leave the root transparent instead.
+
+- On a transparent root, don't hardcode text or icon colors; inherit them from the parent.
+- Set the background and main text/icon color together on the same element. Any secondary text (captions, hints, icons) must still be readable against that same background.
+- If an interactive state changes the background, set the foreground color in that state too. Don't assume a color inherited from a parent or from a previous state will still look right on the new background.
+- In every default and interactive state, meet WCAG AA contrast: 4.5:1 for body text and 3:1 for large text and UI controls.
+
+A neutral owned surface may use a light background with dark primary and
+secondary foregrounds, plus one accessible accent. The exact colors are not a
+contract; the contrast relationship is.
+
 
 ## Checklist
 
@@ -239,3 +251,6 @@ than hardcoded generic color choices.
 - [ ] Every part that sets `font-size` also sets `font-family`, on the part that
       should own the typography control.
 - [ ] Interactive elements expose pointer events and accessible design states.
+- [ ] Visual containers have deliberate hierarchy rather than bare scaffolding.
+- [ ] Every explicit foreground has a known contrasting background; transparent
+      components inherit foregrounds from their host.

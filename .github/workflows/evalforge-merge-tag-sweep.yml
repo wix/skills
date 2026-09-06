@@ -62,6 +62,7 @@ jobs:
           evalforge-url: ${{ vars.EVALFORGE_URL }}
           evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
           evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-prod-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROD_MCP_ID }}
           evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
           changed-files: ${{ steps.diff.outputs.files }}

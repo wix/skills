@@ -55,26 +55,67 @@ import { wixApiRequest } from "./wix-client.js";
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories
  */
 
+// Search Products supports server-side sort/filter before cursor paging:
+// https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md
+export const CATALOG_SORTS = {
+  featured: { label: "Default order" }, // legacy key; no promise of merchant-curated ranking
+  priceAsc: { label: "Price: low to high" },
+  priceHigh: { label: "Price: high to low" },
+  name: { label: "Name: A–Z" },
+  newest: { label: "Newest" },
+};
+const SORT_FIELDS = {
+  priceAsc: [{ fieldName: "actualPriceRange.minValue.amount", order: "ASC" }, { fieldName: "name", order: "ASC" }],
+  priceHigh: [{ fieldName: "actualPriceRange.minValue.amount", order: "DESC" }, { fieldName: "name", order: "ASC" }],
+  name: [{ fieldName: "name", order: "ASC" }],
+  newest: [{ fieldName: "createdDate", order: "DESC" }, { fieldName: "name", order: "ASC" }],
+};
+
+function priceBound(value, name) {
+  if (value == null || value === "") return undefined;
+  if (!["number", "string"].includes(typeof value) || !String(value).trim() || !Number.isFinite(Number(value)) || Number(value) < 0) {
+    throw new Error(`${name} must be a non-negative number.`);
+  }
+  return Number(value);
+}
+
 /**
- * Query visible products (one page). Pass nextCursor back as cursor to load the next page.
- * @param {{ limit?: number, cursor?: string }} [options]
+ * Search visible catalog products, sorted/filtered across the whole catalog.
+ * Price bounds and ordering use the product's minimum actual variant price in site currency.
+ * A cursor continues the original query; start without one when any selection changes.
+ * @param {{ limit?: number, cursor?: string, categoryId?: string, sort?: string,
+ *   minPrice?: number|string, maxPrice?: number|string, inStockOnly?: boolean, search?: string }} [options]
  * @returns {Promise<{ products: object[], nextCursor: string|null }>}
  */
-export async function queryProducts({ limit = 100, cursor } = {}) {
-  const res = await wixApiRequest("/stores/v3/products/query", {
+export async function searchProducts({ limit = 100, cursor, categoryId, sort = "featured", minPrice, maxPrice, inStockOnly = false, search = "" } = {}) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("limit must be between 1 and 100.");
+  let query = { cursorPaging: { limit, ...(cursor ? { cursor } : {}) } };
+  if (!cursor) {
+    if (!Object.hasOwn(CATALOG_SORTS, sort)) throw new Error("Unsupported catalog sort.");
+    const min = priceBound(minPrice, "minPrice"), max = priceBound(maxPrice, "maxPrice");
+    if (min !== undefined && max !== undefined && min > max) throw new Error("minPrice must not exceed maxPrice.");
+    if (typeof search !== "string" || search.trim().length > 100) throw new Error("Search must be at most 100 characters.");
+    const conditions = [{ visible: true }];
+    if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
+    // Search rejects two operators in the same field object. Join separate bounds with $and.
+    if (min !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $gte: String(min) } });
+    if (max !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
+    if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
+    query = { ...query, filter: { $and: conditions },
+      ...(SORT_FIELDS[sort] ? { sort: SORT_FIELDS[sort] } : {}),
+      ...(search.trim() ? { search: { expression: search.trim(), fields: ["name"] } } : {}),
+    };
+  }
+  const res = await wixApiRequest("/stores/v3/products/search", {
     method: "POST",
-    body: {
-      fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO"],
-      query: {
-        ...(cursor ? {} : { filter: { visible: true } }),
-        cursorPaging: cursor ? { limit, cursor } : { limit },
-      },
-    },
+    body: { fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO"], search: query },
   });
-  return {
-    products: res?.products ?? [],
-    nextCursor: res?.pagingMetadata?.cursors?.next ?? null,
-  };
+  return { products: res?.products ?? [], nextCursor: res?.pagingMetadata?.cursors?.next ?? null };
+}
+
+/** Visible products; accepts the same sort/filter options as searchProducts. */
+export function queryProducts(options = {}) {
+  return searchProducts(options);
 }
 
 /**
@@ -102,34 +143,9 @@ export async function getProductBySlug(slug) {
   return res?.product ?? null;
 }
 
-/**
- * Query visible products belonging to a category (one page).
- * @param {string} categoryId  Category GUID from queryCategories / getCategoryBySlug.
- * @param {{ limit?: number, cursor?: string }} [options]
- * @returns {Promise<{ products: object[], nextCursor: string|null }>}
- */
-export async function queryProductsByCategory(categoryId, { limit = 100, cursor } = {}) {
-  const res = await wixApiRequest("/stores/v3/products/search", {
-    method: "POST",
-    body: {
-      fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO"],
-      search: {
-        ...(cursor
-          ? { cursorPaging: { limit, cursor } }
-          : {
-              cursorPaging: { limit },
-              filter: {
-                visible: true,
-                "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] },
-              },
-            }),
-      },
-    },
-  });
-  return {
-    products: res?.products ?? [],
-    nextCursor: res?.pagingMetadata?.cursors?.next ?? null,
-  };
+/** Category products; accepts the same sort/filter options as searchProducts. */
+export function queryProductsByCategory(categoryId, options = {}) {
+  return searchProducts({ ...options, categoryId });
 }
 
 /**

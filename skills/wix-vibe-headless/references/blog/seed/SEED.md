@@ -5,7 +5,7 @@ a build-time module (run via `exec_tool`, not shipped in the app) that abstracts
 seed operation. `require` it and call the functions with plain data.
 
 > **NOT yet live-verified — transcribed from `setup-blog.md`.** Endpoints/fields mirror the recipe
-> exactly; if a call returns an unexpected shape, use the **`wix-docs`** skill (never guess).
+> exactly; if a call returns an unexpected shape, use the documentation skill available in your environment (never guess).
 
 **DEFAULT — one call.** `setupBlog(ctx, plan)` runs the whole flow (memberId → categories/tags →
 posts → covers), keeping every id in memory. Pass category/tag **names** and it resolves them to
@@ -88,7 +88,7 @@ first** (`installBlogApp`, idempotent), so seeding works even if the site doesn'
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix Blog API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix Blog API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-blog.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required
