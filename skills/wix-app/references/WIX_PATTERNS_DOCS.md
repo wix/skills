@@ -41,7 +41,7 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. Prefer **1.460.0** or newer: from there the docs stop repeating props the bundle already describes, which is what the lookup below assumes. A missing *file* is not the same as a name not being covered (see below): the mechanism itself isn't available yet.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. Prefer **1.462.0** or newer — the lookups below assume it: 1.460.0 stopped the docs repeating props the bundle describes, and 1.462.0 added `OffsetQuery` to the index and ended unreadable `@wix/bex-core` imports. A missing *file* is not the same as a name not being covered (see below): the mechanism itself isn't available yet.
 
 **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of an arbitrary path, and that includes the sanctioned directories: never browse `dist/dts-bundle/` or `dist/docs/` looking around. Every lookup below names the exact file to `Read` — go straight to it.
 
@@ -102,7 +102,7 @@ function App() {
 }
 
 // MyCollectionPage.tsx
-import { Table, useTableCollection } from '@wix/patterns';
+import { Table, useTableCollection, OffsetQuery } from '@wix/patterns';
 import { CollectionPage } from '@wix/patterns/page';
 
 function MyCollectionPage() {
@@ -111,7 +111,8 @@ function MyCollectionPage() {
     queryName: 'my-items',
     itemKey: (item) => item.id,
     itemName: (item) => item.name,
-    fetchData: async () => ({ items: [], total: 0 }),
+    // annotate the param: it carries limit/offset/search/filters
+    fetchData: async (query: OffsetQuery) => ({ items: [], total: 0 }),
     filters: {},
   });
   return (
@@ -150,24 +151,20 @@ The mechanics of the file an index names — types the docs don't cover, which o
 
 ## The Collection → Entity Flow
 
-A collection page and its item form are **two patterns pages**, not a page plus a modal. Getting the table right and then hand-building the "add item" form as a dashboard modal is the most common way this goes wrong.
+A collection page and its item form are **two patterns pages**, not a page plus a modal — hand-building the "add item" form as a dashboard modal is the most common way this goes wrong. Reserve modals for dialogs that neither write nor display a listed record: a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them** — it writes the record, so it is an `EntityPage` even with nothing to edit yet, at any size or field count. A page that lists no records is outside this rule.
 
 | Step | What owns it |
 | --- | --- |
 | Navigate from a row / primary action to the item | `usePatternsNavigate()` → `navigateToEntityPage({ path, entity })` |
 | Register the route | `PatternsReactRoute` inside `PatternsReactRouter` |
 | Fetch, save, validation, dirty state, skeletons, errors | `useEntityPage({ fetch, onSave })` |
-| Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` |
+| Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` — `useController`, never `register` |
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
 | The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
 
-Prefer `navigateToEntityPage` over a plain route change: the entity header (title, subtitle, breadcrumbs) renders immediately, without waiting for the fetch.
+Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves.
 
-Read `EntityPage.md`, `useEntityPage.md`, and `usePatternsNavigate.md` before implementing — and note `useCreateCollection` is **not** about creating items; it returns a function that initializes collection state.
-
-Three things about the `useEntityPage` call are worth getting right first time — both generics, what `onSave` receives, which params exist: [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
-
-Reserve dashboard modals for dialogs that neither write nor display a listed record — a delete or discard confirmation, an unsaved-changes prompt. **A create / "add new" form is not one of them**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. Size and field count are not exceptions — a one-field create form is still an `EntityPage`. A page that lists no records is outside this rule.
+Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself — both generics, what `onSave` receives, which params exist. Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
 
 ## When Patterns Has No Equivalent
 
