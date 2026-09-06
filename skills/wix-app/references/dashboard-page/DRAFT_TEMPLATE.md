@@ -2,7 +2,7 @@
 
 **Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file for [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md), [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md), [TABLE_STATE.md](TABLE_STATE.md), a component doc, or an MCP lookup when the request needs something no case shows.
 
-Every snippet below is copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts` this session read, not from memory — confirm props against your own installed version before deviating.
+Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts`, not from memory — confirm props against your own installed version before deviating.
 
 ## Which case matches the request?
 
@@ -64,13 +64,13 @@ Case B/D's entry file differs — it needs `location` supplied manually for `Pat
 
 ## 2. Collection page — Case A, B, D
 
-This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: `SummaryBar`, a working filter, and a drill-in. The two drill-in tiers are independent — Case A only gets the first, having no EntityPage route to escalate to.
+This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: `SummaryBar`, a working filter, and a drill-in. Case A only gets the first drill-in tier, having no EntityPage route to escalate to.
 
 ```tsx
 // {Feature}CollectionPage.tsx — Case A, B, D
 import { useState, type FC } from 'react';
 import {
-  CollectionEmptyState, CollectionNoResultsState, CollectionSearch, CollectionToolbarFilters,
+  CollectionEmptyState, CollectionErrorState, CollectionNoResultsState, CollectionSearch, CollectionToolbarFilters,
   MultiSelectCheckboxFilter, SummaryBar, Table, stringsArrayFilter,
   useStaticListFilterCollection, useTableCollection, type SummaryData,
 } from '@wix/patterns';
@@ -81,7 +81,7 @@ import { usePatternsNavigate } from '@wix/patterns/router';
 import { fetch{Feature}Page, type {Entity}Row } from './{feature}-api';
 
 const STATUS_LABELS: Record<string, string> = { ACTIVE: 'Active', ARCHIVED: 'Archived' };
-// Filter factories are module-level: one filter instance per page, not one per render.
+// Filter factories are module-level: one instance per page, not per render.
 const statusFilter = stringsArrayFilter<'ACTIVE' | 'ARCHIVED'>({
   name: 'Status',
   itemKey: (item) => item,
@@ -94,27 +94,25 @@ export const {Feature}CollectionPage: FC = () => {
 
   const state = useTableCollection<{Entity}Row, { status: typeof statusFilter }>({
     queryName: '{feature}',
-    paginationMode: 'cursor', // 'offset' if your API pages by offset, not a cursor
+    paginationMode: 'cursor', // 'offset' if your API pages by offset
     itemKey: (item) => item.id,
     itemName: (item) => item.name,
     filters: { status: statusFilter },
-    // Every declared filter AND the search box are read here — a filter that never
+    // Every declared filter AND the search box are read here — one that never
     // reaches the query renders fine and narrows nothing.
     fetchData: async (query) =>
       fetch{Feature}Page({
         limit: query.limit,
-        cursor: query.cursor, // cursor mode returns `cursor` as a required string, '' when done
+        cursor: query.cursor, // cursor mode: `cursor` is a required string, '' when done
         search: query.search,
         filters: { status: query.filters.status },
       }),
     fetchErrorMessage: ({ err }) => (err instanceof Error ? err.message : 'Failed to load {feature}'),
   });
 
-  // A fixed option list still needs a filter collection — the component takes both.
   const statusOptions = useStaticListFilterCollection(statusFilter, ['ACTIVE', 'ARCHIVED']);
 
-  // `state.keyedItems` is typed; `state.collection` is a stub whose members are `unknown`
-  // and will not compile — see [TABLE_STATE.md](TABLE_STATE.md).
+  // `state.keyedItems` is typed; `state.collection` is a stub — see TABLE_STATE.md.
   const rows = state.keyedItems.map((keyed) => keyed.item);
   const summaryData: SummaryData = [{ title: 'Total', value: String(rows.length) }];
 
@@ -140,22 +138,29 @@ export const {Feature}CollectionPage: FC = () => {
                 <MultiSelectCheckboxFilter filter={statusFilter} collection={statusOptions} />
               </CollectionToolbarFilters>
             }
-            // Two different messages; shipping only the first makes a working filter look
-            // broken, and the default copy is wrong on a read-only page.
+            // Three distinct messages. Without errorState a failed query looks
+            // exactly like a slow one: skeletons, forever.
             emptyState={<CollectionEmptyState title="No {feature} yet" />}
             noResultsState={<CollectionNoResultsState />}
+            // errorState is a RENDER FUNCTION: (err, { retry }) => ReactElement.
+            errorState={(err, { retry }) => (
+              <CollectionErrorState
+                title="Couldn't load {feature}"
+                subtitle={String(err)}
+                action={{ text: 'Retry', onClick: retry }}
+              />
+            )}
             onRowClick={(item) => setQuickViewItem(item)}
             columns={[
-              // One column per field the prompt names; verify each source field against
-              // COLLECTION_TOOLKIT.md's "A column must show what its header promises."
+              // One column per field the prompt names; verify each source field —
+              // COLLECTION_TOOLKIT.md, "A column must show what its header promises."
               { id: 'name', title: 'Name', render: (item) => item.name },
             ]}
           />
         </CollectionPage.Content>
       </CollectionPage>
 
-      {/* SidePanel has no built-in open state or portal — position it yourself. See
-          wix-design-system's SidePanel "Quick view" example. */}
+      {/* SidePanel has no built-in open state or portal — position it yourself. */}
       {quickViewItem ? (
         <Box style={{ position: 'fixed', top: 0, right: 0, height: '100%', zIndex: 1000 }}>
           <SidePanel onCloseButtonClick={() => setQuickViewItem(null)}>

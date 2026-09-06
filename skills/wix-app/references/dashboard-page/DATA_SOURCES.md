@@ -82,3 +82,55 @@ Mongo-shaped `Record<string, any>` — `{ paymentStatus: { $in: [...] } }`,
 declaration, not from memory: order payment status is `FULLY_REFUNDED` / `PARTIALLY_REFUNDED` /
 `PAID` / `NOT_PAID` / `PENDING` / `PARTIALLY_PAID` / `PENDING_MERCHANT` / `CANCELED` / `DECLINED` /
 `UNSPECIFIED`.
+
+## The SDK is not the REST API
+
+Docs search returns REST pages, and a dashboard page calls the **SDK**. The two disagree in
+four ways, and each one costs a compile round if you model the call on the REST example. All
+four were hit in a single measured run against `@wix/bookings`.
+
+**1. Namespace names differ.** REST paths say `services/v2`, so `servicesV2` looks right; the SDK
+exports `services`. Confirm against the barrel before you import:
+
+```bash
+grep -oE "as [a-zA-Z_]+" node_modules/@wix/<pkg>/build/es/index.d.mts | sed 's/as //' | sort -u
+```
+
+**2. Entity ids are `_id`, not `id`.** REST responses show `"id"`, the SDK type declares `_id`.
+Same for `_createdDate` / `_updatedDate`. This compiles as an error, but only after you have
+written the mapper around the wrong name.
+
+**3. Don't derive types from `ReturnType`.** Most SDK functions are overloaded — a direct call
+and an `httpClient` form — so `Awaited<ReturnType<typeof ns.method>>['items'][number]` resolves
+against the wrong overload and fails. Import the entity type the package exports instead:
+
+```ts
+type Record = extendedBookings.ExtendedBooking;   // not ReturnType<typeof …>
+```
+
+**4. Paging metadata carries no `hasNext`.** `PagingMetadataV2` is `count`, `offset`, `total`,
+`tooManyToCount`, `cursors` — nothing else. For cursor mode, derive it:
+
+```ts
+cursor: response.pagingMetadata?.cursors?.next ?? '',
+hasNext: Boolean(response.pagingMetadata?.cursors?.next),
+```
+
+## Two things to settle before you write the page
+
+**Is the package even installed?** A vertical's SDK is not a default dependency. `@wix/bookings`,
+`@wix/ecom` and the rest have to be present before the import resolves:
+
+```bash
+node -e "const p=require('./package.json');console.log(!!({...p.dependencies,...p.devDependencies})['@wix/<pkg>'])"
+npm install @wix/<pkg>     # if false
+```
+
+**Does the app hold the scope?** This is the one that produces a page which builds, mounts, renders
+its shell, and shows nothing — the hardest failure to read, because an empty table looks like empty
+data. Reads of a vertical's data need that vertical's permission scope, granted in **Dev Center →
+Permissions**; it cannot be declared in the repo, and the app's install consent screen names what it
+actually has. Assume it is missing on a fresh app, and report it under
+[Manual Steps Required](../../SKILL.md#-manual-steps-required) with the specific scope — for Bookings
+reads, `SCOPE.DC-BOOKINGS.READ-BOOKINGS-SENSITIVE`. Wiring `errorState` on the table (the draft
+template does) is what turns this from silent skeletons into a message you can read.

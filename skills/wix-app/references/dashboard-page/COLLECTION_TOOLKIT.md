@@ -77,7 +77,9 @@ A dialog that creates, updates or displays one listed record is **not** a dashbo
 | Collection is genuinely empty | `CollectionEmptyState` |
 | Filters or search matched nothing | `CollectionNoResultsState` |
 | Feature needs a paid plan | `CollectionPremiumEmptyState` |
-| Load failed | the collection state's error handling — give the user a way to retry |
+| Load failed | `CollectionErrorState`, passed to the table's `errorState` |
+
+**`errorState` is a render function, not a node** — `(err, { retry }) => ReactElement`, so `errorState={<CollectionErrorState />}` does not type-check. Wire it on every collection: a table with no `errorState` renders a failed query and a slow one identically, as skeleton rows that never resolve, and that is indistinguishable from an empty result.
 
 Empty and no-results are different messages: one means "add your first record", the other means "loosen the filters". Shipping only the first makes a working filter look broken.
 

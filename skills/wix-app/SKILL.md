@@ -33,6 +33,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only, for whatever the template case didn't already show):** Printed the doc for every patterns component, hook, and state type the template doesn't already cover — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX beyond what the template already gave you. For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) rather than the bundle — `CollectionState` is published as a stub, so `state.collection.…` type-checks as `unknown` and fails later instead of at the access.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] **Dashboard page over Wix data:** located the method and verified every mapped field against the installed SDK's own declaration first — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md). A field marked `@deprecated` still compiles and renders something plausible and wrong.
+  - [ ] **Vertical SDK prerequisites:** confirmed the `@wix/<vertical>` package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required).
+  - [ ] **Modelled the call on the SDK, not the REST page:** namespace name, `_id` vs `id`, no `ReturnType` on overloaded methods, no `hasNext` on `PagingMetadataV2` — see [The SDK is not the REST API](references/dashboard-page/DATA_SOURCES.md#the-sdk-is-not-the-rest-api).
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
@@ -458,6 +460,7 @@ Before moving to Step 5, re-open every page file you just wrote and check the ac
 - [ ] `SummaryBar` (or an equivalent aggregate) literally appears in the file — unless the prompt is explicitly about a single record or is a report/export-only view.
 - [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
 - [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
+- [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
 
 If a box fails and no exception applies, add the missing piece now. Do not let "it compiles" stand in for "it satisfies the checklist" — Step 5 checks the former, this step checks the latter, and they are independent.
 
