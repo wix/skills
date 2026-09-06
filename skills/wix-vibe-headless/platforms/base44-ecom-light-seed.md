@@ -26,8 +26,6 @@ guides below for their contracts and usage. Continue with STEP 1.
 
 Follow STEPs 1–3 below exactly (run STEP 2 in parallel with STEP 1).
 
-Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
-
 ## STEP 1 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
