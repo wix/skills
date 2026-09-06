@@ -128,13 +128,21 @@ The response returns `resourceType.id` — save it for resource creation and the
 
 ### 3. Create Individual Resources
 
-For each resource type, create the individual resource instances using `createResource` API (`POST https://www.wixapis.com/bookings/v2/resources`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/create-resource)):
+Create the resource instances of each type. For more than one (the usual case — e.g. Room A and Room B), use `bulkCreateResources` (`POST https://www.wixapis.com/bookings/v2/bulk/resources/create`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/bulk-create-resources)); for a single one, `createResource` (`POST https://www.wixapis.com/bookings/v2/resources`) takes `{ "resource": { "name": ..., "typeId": ... } }`.
 
 ```json
-{ "resource": { "name": "Room A", "typeId": "<RESOURCE_TYPE_ID>" } }
+{
+  "resources": [
+    { "name": "Room A", "typeId": "<RESOURCE_TYPE_ID>" },
+    { "name": "Room B", "typeId": "<RESOURCE_TYPE_ID>" }
+  ],
+  "returnEntity": true
+}
 ```
 
-**⚠️ Payload shape**: the type reference is the flat `typeId` field. Sending a nested object (`"type": {"id": ...}`) fails with 400 `Unexpected value for StringValue`. A resource without `typeId` is created but is not bookable.
+Read each created resource's ID from `results[i].item.id` (with `returnEntity: true`) or `results[i].itemMetadata.id` (without it). **The resource is directly under `item` — there is no `item.resource.id`** (reading it throws `Cannot read properties of undefined`). Match items to your request by `itemMetadata.originalIndex`, and check `bulkActionMetadata.totalFailures` before proceeding.
+
+**⚠️ Payload shape**: the type reference is the flat `typeId` field (same on single and bulk). Sending a nested object (`"type": {"id": ...}`) fails with 400 `Unexpected value for StringValue`. A resource without `typeId` is created but is not bookable.
 
 If you omit `locationOptions`, the resource defaults to `availableInAllLocations: true` — the simplest and usually correct configuration; specific location setup is complex and often unnecessary.
 
@@ -215,8 +223,11 @@ The docs don't explain how multi-resource allocation actually works during booki
 **400 "primary_resource_type is required for appointment services without staff members":**
 - An `APPOINTMENT` service bound to a resource (no `staffMemberIds`) needs `primaryResourceType` set to the driving resource-type GUID. Either add it, or model the service as a `CLASS`/`COURSE` if a group service fits.
 
-**404 on bulk service creation:**
-- The path is `POST /bookings/v2/bulk/services/create`. `/bookings/v2/services/bulk/create` does not exist.
+**404 on bulk creation:**
+- The path segments are `bulk/<entity>/create`: `POST /bookings/v2/bulk/services/create`, `POST /bookings/v2/bulk/resources/create`. `/bookings/v2/services/bulk/create` (and the resources equivalent) do not exist.
+
+**`Cannot read properties of undefined` after a bulk create (resources or services):**
+- Every bulk response nests the entity directly under `results[i].item` — use `item.id`, never `item.resource.id` or `item.service.id`. Without `returnEntity: true` there is no `item` at all, only `itemMetadata.id`.
 
 **"Resource type name already exists" Error (409):**
 - Resource type names must be unique across the site
