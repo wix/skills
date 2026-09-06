@@ -146,18 +146,26 @@ If you omit `locationOptions`, the resource defaults to `availableInAllLocations
 
 ### 4. Create Multi-Resource Service (Optional Connection)
 
-Create the service that optionally connects to multiple resource types using `bulkCreateServices` API (`POST https://www.wixapis.com/bookings/v2/bulk/services/create`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)). Full working example (a class that needs one room per booking):
+Create the service that optionally connects to multiple resource types using `bulkCreateServices` API (`POST https://www.wixapis.com/bookings/v2/bulk/services/create`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)). Note the endpoint path is `/bulk/services/create` (not `/services/bulk/create`, which 404s).
+
+**Pick the service type, and mind the resource-specific required fields:**
+
+- A **1-on-1, time-slot** service (e.g. a massage, a room rental by the hour) is an `APPOINTMENT`. When such a service is driven by a **resource instead of a staff member**, `primaryResourceType` (a flat resource-type GUID) is **required** — omitting it fails with 400 `primary_resource_type is required for appointment services without staff members`. APPOINTMENT also needs `schedule.availabilityConstraints.sessionDurations`.
+- A **group** service (fixed capacity per session) is a `CLASS` (drop-in) or `COURSE` (whole series); these use `defaultCapacity` and do not require `primaryResourceType`.
+
+Appointment example (one room per booking, no staff):
 
 ```json
 {
   "services": [{
     "name": "Massage",
-    "type": "CLASS",
+    "type": "APPOINTMENT",
     "onlineBooking": { "enabled": true },
-    "defaultCapacity": 1,
     "serviceResources": [
       { "resourceType": { "id": "<ROOM_TYPE_ID>" } }
     ],
+    "primaryResourceType": "<ROOM_TYPE_ID>",
+    "schedule": { "availabilityConstraints": { "sessionDurations": [60] } },
     "payment": {
       "rateType": "FIXED",
       "options": { "online": true, "inPerson": false },
@@ -167,6 +175,8 @@ Create the service that optionally connects to multiple resource types using `bu
   "returnEntity": true
 }
 ```
+
+For a group service, use `"type": "CLASS"` with `"defaultCapacity": <n>` instead of `primaryResourceType`/`sessionDurations`. Both types take `payment.options` (at least one of `online`/`inPerson` true) — required even for the resource-bound case.
 
 Save the service ID from the response: `results[0].item.id` (with `returnEntity: true`), or `results[0].itemMetadata.id` (without it). **There is no `results[0].item.service.id`** — reading that path throws `Cannot read properties of undefined`.
 
@@ -199,8 +209,14 @@ The docs don't explain how multi-resource allocation actually works during booki
 - Check that `typeId` exactly matches the resource type `id`
 - Ensure you're not using resource type `name` when `id` is required
 
-**400 "Unexpected value for StringValue" on createResource:**
-- The type reference was sent as a nested object — use the flat `"typeId": "<guid>"` field, not `"type": {"id": ...}`
+**400 "Unexpected value for StringValue" on createResource or on service `primaryResourceType`:**
+- A resource-type reference was sent as a nested object where a flat GUID string is expected. `createResource` uses `"typeId": "<guid>"`; the service field is `"primaryResourceType": "<guid>"` (both flat, not `{"id": ...}`). Note this differs from `serviceResources[].resourceType.id`, which *is* nested.
+
+**400 "primary_resource_type is required for appointment services without staff members":**
+- An `APPOINTMENT` service bound to a resource (no `staffMemberIds`) needs `primaryResourceType` set to the driving resource-type GUID. Either add it, or model the service as a `CLASS`/`COURSE` if a group service fits.
+
+**404 on bulk service creation:**
+- The path is `POST /bookings/v2/bulk/services/create`. `/bookings/v2/services/bulk/create` does not exist.
 
 **"Resource type name already exists" Error (409):**
 - Resource type names must be unique across the site
