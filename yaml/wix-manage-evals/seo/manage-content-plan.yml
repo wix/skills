@@ -1,11 +1,12 @@
 name: seo/manage-content-plan
 description: >-
-  Verifies that the agent knows the content plan flow parks at KEYWORD_RESEARCH
-  and must be released with Create Content Plan — the key behavior this recipe teaches.
+  Verifies the agent knows the cross-service orchestration: a Content Plan Flow
+  stuck at KEYWORD_RESEARCH needs Create Content Plan (on the Blog Post Candidate
+  service) to release it — the key detail the recipe teaches.
 triggerPrompt: >-
-  I triggered an SEO content plan generation on my Wix site earlier. The flow status
-  shows KEYWORD_RESEARCH. What does that mean and what should I do next to get the
-  blog post topics?
+  My SEO content plan flow has been stuck at KEYWORD_RESEARCH for 10 minutes.
+  I've been polling GetContentPlanFlow and the status never changes.
+  What's wrong and how do I get it to finish?
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
@@ -15,43 +16,46 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user said their content plan flow is at KEYWORD_RESEARCH and asked
-      what to do next.
+      The user says their content plan flow is stuck at KEYWORD_RESEARCH
+      for 10 minutes and polling doesn't change the status.
 
-      The correct answer: the flow parks at KEYWORD_RESEARCH and the user must
-      call Create Content Plan (POST /create-content-plan) to release it.
-      Without that call, the flow stays parked forever.
+      The correct answer: KEYWORD_RESEARCH is not a stall. The flow
+      intentionally parks there. The user must call Create Content Plan
+      (POST /create-content-plan with the flow ID) to release it. This
+      is a method on the Blog Post Candidate service, not the Content
+      Plan Flow service — the user won't find it by looking at the
+      service they've been polling.
 
-      Pass if the agent:
-      - explained that KEYWORD_RESEARCH is a parking state (not a failure),
-      - told the user to call Create Content Plan to advance the flow,
-      - mentioned the endpoint or described the action clearly enough to act on.
+      Score 7+ if the agent:
+      - said KEYWORD_RESEARCH is an intentional pause, not a bug or stall,
+      - told the user to call Create Content Plan to release the flow,
+      - provided enough detail to act (the endpoint or a clear description).
 
-      Score 7+ if the agent correctly identified the parking behavior and the
-      release action. Score 9+ if it also mentioned that after releasing, the
-      flow continues to CONTENT_PLAN then SUCCESS, and candidates become
-      readable at SUCCESS.
+      Score 9+ if it also mentioned the endpoint path or that it's on
+      a different service than the one being polled.
 
-      Fail if the agent:
-      - said KEYWORD_RESEARCH means the generation is still running (it's parked),
-      - told the user to just keep polling,
-      - did not mention Create Content Plan or the release step.
+      Fail (score below 5) if the agent:
+      - said to keep polling or wait longer,
+      - suggested the flow has failed or should be retried,
+      - did not mention Create Content Plan at all.
   - type: llm_judge
     minScore: 5
     maxTokens: 2048
     prompt: |
-      Rate the agent's efficiency. Score 0-10.
+      Rate the agent's efficiency answering a question about a stuck
+      content plan flow. Score 0-10.
 
       HEAVY penalties (each costs 2-3 points):
-      - told the user to keep waiting or polling without mentioning the release step
-      - gave wrong information about what KEYWORD_RESEARCH means
-      - searched docs extensively without answering the question
+      - told the user to keep waiting or retry
+      - gave wrong information about KEYWORD_RESEARCH
+      - searched extensively without answering
 
       LIGHT penalties (each costs at most 1 point):
       - documentation lookup before answering
-      - mentioned steps beyond what was asked
+      - mentioned extra steps beyond what was asked
 
-      A direct answer naming the parking behavior and Create Content Plan scores 8+.
+      A direct answer naming the parking behavior and Create Content Plan
+      endpoint scores 8+.
       Return ONLY {"score":<0-10>,"reason":"<terse explanation>"}.
 siteSetup:
   mode: template
