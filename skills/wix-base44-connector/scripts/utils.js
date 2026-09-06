@@ -210,8 +210,11 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
     method,
     endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
     docsUrl,
-    gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
-      .trim().replace(/\s+/g, " ").slice(0, 220),
+    gist: (() => {
+      const description = ((b.match(/## Method Description:\s*\n([\s\S]*?)(?=\n## |$)/) || [])[1] || "")
+        .trim().replace(/\s+/g, " ");
+      return description.length > 160 ? description.slice(0, 159).trimEnd() + "…" : description;
+    })(),
     ...(examples.length && { examples }),
   }; }).filter(h => h.docsUrl);
   let guideCursor = guideOffset;
