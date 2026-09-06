@@ -4,8 +4,8 @@ description: >-
   and handles the result correctly — including calling Create Content Plan to release the flow
   when it parks at KEYWORD_RESEARCH, or recognizing PENDING_REQUIREMENTS as a terminal state.
 triggerPrompt: >-
-  I want to generate an SEO content plan for my Wix site. Trigger the content plan generation,
-  then check its status and tell me what happened.
+  Trigger an SEO content plan generation for my Wix site and check the flow status once.
+  Tell me the current status — don't wait for the full generation to complete.
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
