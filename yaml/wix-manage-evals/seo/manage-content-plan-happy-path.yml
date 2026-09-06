@@ -1,0 +1,80 @@
+name: seo/manage-content-plan-happy-path
+description: >-
+  Verifies the full content plan generation loop: trigger, poll to KEYWORD_RESEARCH,
+  release with Create Content Plan, poll to SUCCESS, and read the blog post candidates.
+  The site has business data so the flow should complete.
+triggerPrompt: >-
+  Generate an SEO content plan for my Wix site. I want to see the blog post topics
+  it comes up with. Trigger the generation, wait for it to finish, and show me the results.
+tags: [seo, content-plan]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
+  - type: llm_judge
+    minScore: 5
+    maxTokens: 2048
+    prompt: |
+      The user asked to generate an SEO content plan and see the blog topics.
+
+      The site has a store with products, so it should have enough business data for
+      the generation to proceed past PENDING_REQUIREMENTS.
+
+      The recipe's key behavior: the flow parks at KEYWORD_RESEARCH and the agent
+      must call Create Content Plan (POST /create-content-plan) to release it.
+
+      Pass if the agent:
+      - triggered the flow (POST to /content-plan-flows/trigger),
+      - polled the flow status (GET to /content-plan-flows/{id}),
+      - called Create Content Plan to release the flow past KEYWORD_RESEARCH
+        (POST to /create-content-plan with a contentPlanFlowId),
+      - polled again until SUCCESS or reported the result,
+      - read the blog post candidates (GET to /blog-post-candidates) OR
+        reported the flow completed.
+
+      If the flow reached PENDING_REQUIREMENTS instead of KEYWORD_RESEARCH:
+      - Score 7 if the agent correctly identified the missing business data and
+        told the user. This is a valid outcome even though it means step 3 was
+        not reached — the agent handled the terminal state correctly.
+
+      Fail if the agent:
+      - polled at KEYWORD_RESEARCH without calling Create Content Plan,
+      - never triggered the flow,
+      - asked for a site ID.
+
+      Score 5+ if it triggered and polled. Score 7+ if it released the flow
+      or handled PENDING_REQUIREMENTS. Score 9+ if it completed the full loop
+      and showed candidates.
+  - type: llm_judge
+    minScore: 5
+    maxTokens: 2048
+    prompt: |
+      Rate the agent's execution of the content plan generation flow.
+      Examine the tool-call trace. Score 0-10.
+
+      HEAVY penalties (each costs 2-3 points):
+      - polled at KEYWORD_RESEARCH without calling Create Content Plan
+      - never called any API
+      - claimed success without reading candidates after SUCCESS
+
+      LIGHT penalties (each costs at most 1 point):
+      - documentation lookup before the first call
+      - extra polls beyond the minimum needed
+      - recovered a non-2xx error
+
+      For each friction, name the likely cause: skill, MCP, or docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + cause, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: set business description so content plan can proceed
+        method: patch
+        url: https://www.wixapis.com/site-properties/v4/properties
+        body:
+          properties:
+            categories:
+              primary: "Online Store"
+            description: "A store selling handmade ceramic products and home goods."
+          fieldMask: "categories,description"

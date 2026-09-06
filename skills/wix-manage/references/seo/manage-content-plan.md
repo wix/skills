@@ -30,7 +30,7 @@ Returns `{ "contentPlanFlowId": "..." }`. Hold this ID.
 GET /content-plan-flows/{contentPlanFlowId}
 ```
 
-Status walks: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`. Poll every
+Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`. Poll every
 few seconds. This takes 1–5 minutes.
 
 **Stop polling and act on these terminal states:**
