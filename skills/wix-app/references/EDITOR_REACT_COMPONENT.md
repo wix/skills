@@ -63,7 +63,7 @@ roles intact.
 
    ```bash
    npx wix build && npx wix generate manifest
-   npx tsc --noEmit -p .
+   npx tsc --noEmit
    ```
 
    Run relevant tests and lint when available. Inspect the regenerated manifest;
