@@ -1,6 +1,6 @@
 ---
 name: "Manage a Wix Site's SEO Tags"
-description: Read and update the SEO tags of a Wix site at the right level — site-wide tags, page-type patterns, or one item's tags. Discover item IDs and pattern variables instead of inventing them, read before every full-replace write, and report resolved tags with the source each one came from.
+description: Read and update SEO titles and tags at the right level. For "change my site's SEO title", clarify homepage, specific page, or page-type pattern before discovery or writes; site-level tags accept meta tags only, never titles. Discover item IDs and pattern variables, read before every full-replace write, and report resolved tags with their sources.
 ---
 
 # Manage a Wix Site's SEO Tags
@@ -46,7 +46,8 @@ SEO Patterns for a page-type title convention. See the
 
 If the user says "change my site's SEO title" without identifying a page or
 page type, ask whether they mean the homepage, another specific page, or a
-page-type title convention. Do not write until scope is clear. For an explicit
+page-type title convention. Ask immediately after reading this recipe; do not make discovery or schema
+queries until scope is clear. For an explicit
 homepage request, discover its actual ID; never assume an ID such as `home`.
 Use Item SEO Tags with `STATIC_PAGE`, read its current tags, and merge the title
 into the complete set. Follow the static-page publication rules below.
@@ -98,7 +99,38 @@ No request body. Returns `itemSeoTags` with `tags`, `resolvedTags`,
 
 ### List Item SEO Tags — `GET /item-seo-tags/{itemType}?paging.limit=100`
 
-No request body. Returns `itemSeoTagsList[]` and `pagingMetadata` with cursors.
+No request body. Returns `itemSeoTags[]` and `pagingMetadata` with cursors.
+`itemSeoTagsList` is not a response field. Each array entry is an Item SEO Tags
+object directly, not a wrapper: read `entry.itemId`, `entry.tags`, and
+`entry.resolvedTags`, not `entry.itemSeoTags`. Use `itemId` as the path ID;
+`id` is a composite identifier and `hostPageId` is not the item identifier.
+
+For static-page discovery, call this with `STATIC_PAGE`. Example response:
+
+```json
+{
+  "itemSeoTags": [
+    {
+      "itemType": "STATIC_PAGE",
+      "itemId": "<page-id>",
+      "tags": [],
+      "resolvedTags": [
+        { "tag": { "type": "title", "children": "Home | Studio Shop" },
+          "source": "TAG_SOURCE_DEFAULT_PATTERN" }
+      ]
+    }
+  ],
+  "pagingMetadata": { "hasNext": false }
+}
+```
+
+Inspect the returned page identities and resolved tags to identify the requested
+page, then Get that exact `itemId` before writing. If the response does not
+unambiguously identify it, ask the user to identify the page. Do not interpret
+a missing response field as an empty page list, assume the first entry is the
+homepage, or create/update a pattern as a fallback for a missing page. A
+single-page request never authorizes changing all pages of its type.
+See [List Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/list-item-seo-tags).
 
 ### Set Site SEO Tags — `PATCH /site-seo-tags`
 
