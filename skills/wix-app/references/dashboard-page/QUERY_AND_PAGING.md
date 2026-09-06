@@ -3,20 +3,39 @@
 > Split out of [DATA_SOURCES.md](DATA_SOURCES.md) to stay inside the 10k-char reference fetch
 > limit. That file is about finding the method and its fields; this one is about calling it.
 
-## Confirm a filter field path before you ship it
+Filters are written in **WQL**, which is shared across the platform — the rules below come from
+[About the Wix API Query Language][wql], not from one endpoint's behaviour, so they hold for
+`@wix/ecom`, `@wix/stores`, `@wix/bookings` and the rest alike.
 
-A filter path is cheap to verify and expensive to guess, and the endpoint's own prose is not
-authoritative about it. Query Extended Bookings describes itself as "filter by `scheduleId` of the
-relevant service"; a bare `scheduleId` is rejected outright:
+## The filterable fields are a closed list, published per endpoint
+
+> "This endpoint declares which fields it can filter and sort by, and with which operators; that
+> list is closed and covers this endpoint only. Anything else errors or silently returns the wrong
+> rows." — [WQL][wql]
+
+So a field path is never inferable from the entity shape, and the endpoint's own prose is not
+authoritative either. **Most query endpoints publish a "Supported Filters and Sorting" page**, and
+the SDK typedoc for the query's `filter` field links to it — Contacts, Orders, Products V3,
+Pipelines and Bookings all do. Find the link before you guess:
+
+```bash
+grep -rho "https://[^)]*supported-filters[^)]*" node_modules/@wix/<pkg>/build/es/*.d.mts | sort -u
+```
+
+Two traps the list resolves, both of which look like a working filter:
+
+**Nested paths.** A field that reads as top-level on the entity is often only filterable at its full
+path. Query Extended Bookings describes itself as filtering "by `scheduleId` of the relevant
+service", and a bare `scheduleId` is rejected outright — the accepted paths are nested under
+`bookedEntity`. The error names the offending path exactly, so one call settles it:
 
 ```json
 { "code": "INVALID_FILTER", "data": { "unknownField": { "fieldPath": "scheduleId" } } }
 ```
 
-The accepted paths are nested per `bookedEntity` branch — which the same page's worked example
-hints at with `bookedEntity.item.slot.sessionId`. **Trust the example over the sentence.** And
-because `bookedEntity` is a oneof, a filter that covers every row is an `$or` over both branches,
-exactly as the row mapper handles both:
+**Oneof branches.** When the entity has a oneof, one path covers only one branch, and a filter over
+just that branch silently drops every row of the other kind — exactly as the row mapper has to
+handle both. Cover them with `$or`, and check each branch separately before wiring it into a page:
 
 ```ts
 $or: [
@@ -25,21 +44,20 @@ $or: [
 ]
 ```
 
-Send the query once with the path you intend to use and read the response: the error names the
-offending `fieldPath` exactly, so one call settles it. One branch returning rows is not the filter
-working — check each branch separately before wiring it into a page, or the filter silently drops
-every row of the other kind.
-
 ## One operator per field
 
-WQL allows a field **one** operator. A date range written the obvious way is rejected:
+> "The filter is written in WQL, where each field takes a single operator, so conditions are
+> combined with the logical operators instead: `$and` and `$or` take an array of expressions,
+> `$not` takes one, and they can nest. They are WQL syntax, not field capabilities." — [WQL][wql]
+
+A date range written the obvious way therefore fails, and the error quotes the whole object back as
+the offending "operator", which reads like a parser bug and is actually the rule:
 
 ```ts
 { startDate: { $gte: from, $lte: to } }   // INVALID_FILTER — unknownOperator
 ```
 
-The error quotes the whole object back as the offending "operator", which reads like a parser bug
-and is actually the rule. Ranges are two clauses, combined with `$and`; `$or` nests inside it:
+Ranges are two clauses under `$and`; `$or` nests inside it:
 
 ```ts
 { $and: [
@@ -53,14 +71,20 @@ and is actually the rule. Ranges are two clauses, combined with `$and`; `$or` ne
 Build the filter as a list of clauses and wrap it at the end — return the bare clause when there is
 only one, `{}` when there are none — rather than mutating one object and hoping the operators do not
 collide. A page with several filters hits this the moment two of them apply at once, which is
-usually after the single-filter case has already been called working.
+usually after the single-filter case has already been called working. The full operator set —
+including `$not`, `$nin`, `$exists`, `$isEmpty`, `$hasAll`, `$hasSome` — is in the [WQL article][wql].
 
-## Cursor paging has two traps, and both look like a hung table
+## A follow-up cursor page carries the cursor alone
 
-**A follow-up page carries the cursor alone.** The cursor already encodes the filter and sort of the
-query that produced it, so re-sending them is rejected — Bookings answers `"Invalid cursor. Sort or
-filter can not be specified together with cursor"`. Build the first request and the follow-ups
-differently:
+The cursor already encodes the filter and sort of the query that produced it, so re-sending them is
+rejected. This is not one API's quirk: it is stated on the `cursorPaging.cursor` field of every
+generated Wix SDK that offers cursor paging — 46 of the 179 `auto_sdk_*` packages in one install —
+in a standard sentence you can read before making a request:
+
+> "Cursor token pointing to a page of results. Not used in the first request. Following requests use
+> the cursor token and not `filter` or `sort`."
+
+Build the first request and the follow-ups differently:
 
 ```ts
 const response = await ns.query(
@@ -70,17 +94,18 @@ const response = await ns.query(
 );
 ```
 
-**Return no cursor on the last page.** `CursorQueryResult` requires the key to be *present* but
-allows `undefined` as its value, so `cursor: ''` is falsy and still a cursor. The collection reads a
-present cursor as "there is more", requests the next page forever, and appends the same rows each
-pass — a table that grows without end while the API is perfectly happy. Use
-`response.pagingMetadata?.cursors?.next || undefined`.
+Sending them together answers `"Invalid cursor. Sort or filter can not be specified together with
+cursor"` — and because the collection retries, that renders as a spinner under the last row, which
+reads as "still loading". What you return on the **last** page is the collection's own contract, and
+has its own trap: [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
 
 Cursor mode also takes a separate `fetchTotal`, since a cursor-paged response carries no total.
 Build its filter exactly as the page's, or the count disagrees with the rows it counts.
 
-**Both failures render as a spinner under the last row**, which reads as "still loading" and is
-actually a retry loop or an endless page walk. When a table will not settle, instrument the page
-itself — an extension runs in a cross-origin iframe whose console you cannot read, but its own
-`SummaryBar` will happily display `state.collection.status.status`, a fetch counter and the last
-rejection message. That is what turns "it spins" into a named error in one reload.
+## When a table will not settle
+
+An extension runs in a cross-origin iframe whose console you cannot read, but its own `SummaryBar`
+will happily display `state.collection.status.status`, a fetch counter and the last rejection
+message. That is what turns "it spins" into a named error in one reload.
+
+[wql]: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/data-retrieval/about-the-wix-api-query-language
