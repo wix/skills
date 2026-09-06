@@ -1,6 +1,6 @@
 ---
 name: "Manage a Wix Site's SEO Tags"
-description: Read and update the SEO tags of a Wix site at the right level — site-wide tags, page-type patterns, or one item's tags. Discover item IDs and pattern variables instead of inventing them, read before every full-replace write, and report resolved tags with the source each one came from.
+description: Read and update SEO titles and tags at the right level. For "change my site's SEO title", clarify homepage, specific page, or page-type pattern before discovery or writes; site-level tags accept meta tags only, never titles. Discover item IDs and pattern variables, read before every full-replace write, and report resolved tags with their sources.
 ---
 
 # Manage a Wix Site's SEO Tags
@@ -37,6 +37,21 @@ Match the user's request to the level that owns the change:
 | "Change my site's default social image", site verification tags, site-wide indexing | Site | **Site SEO Tags** |
 | "All my product/blog/event pages should be titled like X" — a convention for every item of a page type | Pattern | **SEO Patterns** |
 | "Change the title of this page/product/post" — one specific item | Item | **Item SEO Tags** |
+
+**Site SEO Tags accepts meta tags only** (including site-level social image
+and robots settings). Never send `title`, `link`, or `script` tags to
+`PATCH /site-seo-tags`. Use Item SEO Tags for a specific page's title, or
+SEO Patterns for a page-type title convention. See the
+[Site SEO Tags object](https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1/site-seo-tags-object).
+
+If the user says "change my site's SEO title" without identifying a page or
+page type, ask whether they mean the homepage, another specific page, or a
+page-type title convention. Ask immediately after reading this recipe; do not make discovery or schema
+queries until scope is clear. For an explicit
+homepage request, discover its actual ID; never assume an ID such as `home`.
+Use Item SEO Tags with `STATIC_PAGE`, read its current tags, and merge the title
+into the complete set. Follow the static-page publication rules below.
+Do not substitute `og:title` for the requested SEO title.
 
 Work at the level that matches the change. Writing the same title onto many
 items is the same outcome as one pattern and much harder to undo. If the user's
@@ -84,7 +99,38 @@ No request body. Returns `itemSeoTags` with `tags`, `resolvedTags`,
 
 ### List Item SEO Tags — `GET /item-seo-tags/{itemType}?paging.limit=100`
 
-No request body. Returns `itemSeoTagsList[]` and `pagingMetadata` with cursors.
+No request body. Returns `itemSeoTags[]` and `pagingMetadata` with cursors.
+`itemSeoTagsList` is not a response field. Each array entry is an Item SEO Tags
+object directly, not a wrapper: read `entry.itemId`, `entry.tags`, and
+`entry.resolvedTags`, not `entry.itemSeoTags`. Use `itemId` as the path ID;
+`id` is a composite identifier and `hostPageId` is not the item identifier.
+
+For static-page discovery, call this with `STATIC_PAGE`. Example response:
+
+```json
+{
+  "itemSeoTags": [
+    {
+      "itemType": "STATIC_PAGE",
+      "itemId": "<page-id>",
+      "tags": [],
+      "resolvedTags": [
+        { "tag": { "type": "title", "children": "Home | Studio Shop" },
+          "source": "TAG_SOURCE_DEFAULT_PATTERN" }
+      ]
+    }
+  ],
+  "pagingMetadata": { "hasNext": false }
+}
+```
+
+Inspect the returned page identities and resolved tags to identify the requested
+page, then Get that exact `itemId` before writing. If the response does not
+unambiguously identify it, ask the user to identify the page. Do not interpret
+a missing response field as an empty page list, assume the first entry is the
+homepage, or create/update a pattern as a fallback for a missing page. A
+single-page request never authorizes changing all pages of its type.
+See [List Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/list-item-seo-tags).
 
 ### Set Site SEO Tags — `PATCH /site-seo-tags`
 
@@ -255,8 +301,9 @@ issue another Get — the write response is the confirmation.
 - **Calling List Item SEO Tags expecting product names.** List returns IDs
   and tags, not names. Use Search Products to find the ID by name first.
 - **Retrying a 400 with a different request shape without checking why.** A 400
-  means the shape was wrong. Compare against the shapes in this recipe, fix the
-  mismatch, send once. Three retries with guessed shapes is three wasted calls.
+  can mean the target level is wrong, not just the shape. Read the validation
+  message and check the level rules first. Compare against the shapes in this
+  recipe, fix the mismatch, send once. Three retries with guessed shapes is three wasted calls.
 
 Tags can currently be written only for the site's primary language: leave
 `language` unset on every write. There is no revision checking — the last write
@@ -298,12 +345,18 @@ success.
 - **`UNSUPPORTED_ITEM_TYPE`:** the error message lists the item types the API
   supports; use it to redirect the request rather than retrying blindly.
 - **`ITEM_NOT_FOUND`:** re-discover the item ID; do not guess a new one.
+- **Unsupported site-level tag / `FIELD_NOT_ALLOWED`:** a rejected `title`,
+  `link`, or `script` is a wrong-level error, not a nesting or field-mask error.
+  Do not retry it at site level or silently drop the requested tag. Clarify the
+  target if needed, then use the appropriate item or pattern API. Get that
+  target's current tags before merging and writing; never reuse the site's
+  tags as the new target's complete set. A rejected write saved no changes.
 - **Invalid tags:** tags are validated before anything is saved, so nothing
   changed; fix the tag and resend the same complete set.
 - **`400` on a request you built from this recipe:** compare the request you
   sent against the shapes in this recipe's "REST request and response shapes"
-  section. Fix the mismatch — a wrong nesting level, a missing wrapper key, or
-  `fieldMask` sent as an array instead of a string — and send again. Never
+  section and the wrong-level recovery rule above. Fix the mismatch — a wrong
+  nesting level, a missing wrapper key, or `fieldMask` sent as an array instead of a string — and send again. Never
   resend the same shape, and never walk through variations hoping one is
   accepted.
 - **Setting tags for `EVENTS_PAGE` items:** not supported yet, although reading
