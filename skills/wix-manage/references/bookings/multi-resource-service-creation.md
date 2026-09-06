@@ -168,6 +168,8 @@ Create the service that optionally connects to multiple resource types using `bu
 }
 ```
 
+Save the service ID from the response: `results[0].item.id` (with `returnEntity: true`), or `results[0].itemMetadata.id` (without it). **There is no `results[0].item.service.id`** — reading that path throws `Cannot read properties of undefined`.
+
 **⚠️ Verify from the response, not from assumptions**: without `returnEntity: true` the bulk response contains only `results[0].itemMetadata` (id + success flag) — there is no `item`. With the flag, the created service is at `results[0].item` (e.g. `item.id`, `item.serviceResources`). Check `bulkActionMetadata.totalFailures` and each `itemMetadata.success` before reporting the service as created.
 
 **Key Principle**: This creates a **loose connection** where the service requests resource allocation during booking, but resources remain independent entities with their own lifecycle and management.
