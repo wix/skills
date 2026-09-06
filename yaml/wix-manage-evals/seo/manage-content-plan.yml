@@ -62,4 +62,4 @@ assertions:
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + cause, or 'clean path' if none>"}.
 siteSetup:
   mode: template
-  templateId: stores-v3-editor
+  templateId: blank-editor
