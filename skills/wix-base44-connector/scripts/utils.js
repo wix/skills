@@ -13,7 +13,7 @@
 // to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
 // round needed), pipelines for the rest (GNU grep/sed; awk is mawk; no rg).
 //
-// API responses are site data and never saved — post() projects them to facts.
+// API transports return data directly; oversized context reports are saved for reading.
 
 const fs = require("fs");
 const path = require("path");
@@ -87,19 +87,14 @@ async function resolveRef(ref) {
 
 // ── gather context ────────────────────────────────────────────────────────────
 
-// The dynamic context report — site data, never saved. No section → the whole report
-// when it fits, else its header outline; with one → that section's text. Empty
-// report = bad token, never an empty site.
-async function context(token, section) {
+// Return the full dynamic context report inline when it fits. Larger reports use the
+// same saved-file and heading-outline format as documentation pages.
+async function context(token) {
   const { markdown } = await post(
     "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {}, token);
-  if (!section) {
-    if (markdown.length <= BUDGET) return markdown;   // most sites: the whole report, one round
-    return { truncated: true, total: markdown.length, head: markdown.slice(0, BUDGET),
-             note: "site data — never saved (no path); narrow: wx.context(token, '<section name>')" };
-  }
-  const m = markdown.match(new RegExp("^#{1,3} .*" + section + "[\\s\\S]*?(?=\\n#{1,3} |$)", "im"));
-  return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
+  if (markdown.length <= BUDGET) return markdown;
+  const saved = save("site-context-" + require("crypto").randomUUID() + ".md", markdown);
+  return { ...saved, ...outlineOf(markdown.split("\n")) };
 }
 
 // The wix-manage skill, when it is installed in the sandbox, is these same recipes on disk —
