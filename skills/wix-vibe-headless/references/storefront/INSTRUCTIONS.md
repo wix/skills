@@ -329,12 +329,13 @@ Line `quantityInfo.confirmedQuantity` is the current quantity; `availableQuantit
 when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, or
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
-## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## Routes and provider
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
-`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
-replace it.
+When adding storefront routes and providers to `src/App.jsx`, preserve the existing platform
+authentication setup, including `AuthProvider`, `useAuth`, and their `@/lib/AuthContext` imports.
+Do not remove or replace that authentication logic.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page

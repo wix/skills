@@ -32,11 +32,7 @@ Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/s
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
-**Base44 setup has already deployed the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** Don't read or inspect the shipped files' source to confirm structure, and don't rebuild the shipped client. After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
-
-**`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
-rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
+**Base44 setup has already deployed the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** Don't read or inspect the shipped files' source to confirm structure, and don't rebuild the shipped client. After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly. Only read a shipped file if you can name a specific interface detail missing from the guide or need to diagnose an observed runtime error. Limit the read to the file relevant to that issue.
 
 ## STEP 2 — Seed the storefront
 
