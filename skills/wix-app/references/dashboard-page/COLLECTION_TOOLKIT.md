@@ -34,9 +34,23 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | A fixed in-memory option list for a filter | `useStaticListFilterCollection` |
 | Sorting | `Sortable Columns`, `MultiLevelSorting` |
 
-**Read the index once, then go straight to files.** `dist/dts-bundle/index.json` answers every name in this table in a single read — resolve it once per session and keep it, rather than re-reading it per lookup. Each entry names the exact file to open next.
+**A factory or hook's doc is often empty where its signature should be** — `docs idNameArrayFilter` prints an `## API` heading with nothing under it, because the props table only exists for components. Ask `types idNameArrayFilter` instead and you get the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That applies to every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing the name and being able to call it.
 
-**A factory or hook's doc is often empty where its signature should be** — the props table is generated for components, so `idNameArrayFilter`'s doc shows an `## API` heading with nothing under it. Its bundle has the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That holds for every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing a name and being able to call it — so for these, read the bundle the index names, not the doc.
+**The search box renders whether or not you wire one.** `search` defaults to ON, so a page that
+never mentions it still ships a search input that reaches no query and silently does nothing. Wire
+it (`search={<CollectionSearch />}`) *and* read `query.search` inside `fetchData`.
+
+**When the API has no free-text filter, resolve the term into one it does have** — deleting the box
+is the wrong fix, since the user asked for search. Bookings' Query Extended Bookings takes `id`,
+`status`, dates and `scheduleId`, so a term is matched against service names and reaches the query
+as `scheduleId: { $in: [...] }`, covering appointments and courses alike. Return `$in: []` for no
+match, so "nothing found" means no rows rather than every row.
+
+**Filter labels come from the component, not the factory.** `stringsArrayFilter({ name })` does not
+name anything on screen. `FilterProps` carries two label slots and a filter usually needs both:
+`toolbarItemProps={{ label }}` for the inline toolbar chip and `accordionItemProps={{ label, title }}`
+for the side panel. `DateRangeFilter` and `RadioGroupFilter` are *always* rendered in the side panel
+and never inline, so for those the accordion label is the only one that shows.
 
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 

@@ -76,15 +76,19 @@ export const {Feature}CollectionPage: FC = () => {
                 onRetry={() => state.retryErrorState()}
               />
             }
-            // `search` defaults to ON. Wire it AND read query.search, or a dead box
-            // ships. If the API cannot text-search, set search={false}.
+            // `search` defaults to ON, so omitting it ships a box that reaches no
+            // query. Wire it AND read query.search below. If the API has no
+            // free-text filter, resolve the term to one it does support.
             search={<CollectionSearch placeholder="Search {feature}" />}
             filters={
               <CollectionToolbarFilters>
-                {/* the label comes from toolbarItemProps, NOT the factory's `name` */}
+                {/* Labels come from these props, NOT the factory's `name`, and both
+                    are needed: toolbarItemProps names the inline chip,
+                    accordionItemProps names it in the side panel. */}
                 <MultiSelectCheckboxFilter
                   filter={statusFilter} collection={statusOptions}
                   toolbarItemProps={{ label: 'Status' }}
+                  accordionItemProps={{ label: 'Status', title: 'Status' }}
                 />
               </CollectionToolbarFilters>
             }
