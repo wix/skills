@@ -62,8 +62,7 @@ storefront seed module's image-attach step.
 
 **Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
 from the **completed** `generate_image` result and pass it straight into your single `setupStore`
-call (images included). A still-generating `/__generating__/<id>.png` placeholder is not a real url
-— Wix can't fetch it. `generate_image` runs in the background while you build the client, so the
+call (images included). `generate_image` runs in the background while you build the client, so the
 urls are ready by the time you seed.
 
 ## STEP 3 — Wrap up
