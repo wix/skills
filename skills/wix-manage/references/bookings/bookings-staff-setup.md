@@ -201,7 +201,8 @@ Use the Events API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create
 
 - `scheduleId` is the staff member's **events schedule ID** (`resource.eventsSchedule.id`).
 - `externalScheduleId`, `adjustedStart`/`adjustedEnd`, and `appId` are derived by the server — you do not need to send them (`externalScheduleId` comes back set to the staff member's resource ID).
-- `recurrenceRule.days` accepts exactly one uppercase day name; create a separate event for each working day.
+- `recurrenceRule.frequency` must be `WEEKLY` (the only supported value); `interval` is 1–4.
+- `recurrenceRule.days` takes exactly one **full uppercase** day name from `MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY` — abbreviations like `MON` fail validation. One day per event, so create a separate event for each working day.
 - `start`/`end` must be today or in the future for recurring events.
 
 ### 6. Verify Setup
