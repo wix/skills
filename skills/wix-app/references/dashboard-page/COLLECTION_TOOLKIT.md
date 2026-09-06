@@ -42,15 +42,12 @@ it (`search={<CollectionSearch />}`) *and* read `query.search` inside `fetchData
 
 **When the API has no free-text filter, resolve the term into one it does have** — deleting the box
 is the wrong fix, since the user asked for search. Bookings' Query Extended Bookings takes `id`,
-`status`, dates and `scheduleId`, so a term is matched against service names and reaches the query
-as `scheduleId: { $in: [...] }`, covering appointments and courses alike. Return `$in: []` for no
-match, so "nothing found" means no rows rather than every row.
+`status`, dates and a schedule id, so a term is matched against service names and reaches the query
+as a schedule-id filter. Return `$in: []` for no match, so "nothing found" means no rows rather than
+every row.
 
-**Filter labels come from the component, not the factory.** `stringsArrayFilter({ name })` does not
-name anything on screen. `FilterProps` carries two label slots and a filter usually needs both:
-`toolbarItemProps={{ label }}` for the inline toolbar chip and `accordionItemProps={{ label, title }}`
-for the side panel. `DateRangeFilter` and `RadioGroupFilter` are *always* rendered in the side panel
-and never inline, so for those the accordion label is the only one that shows.
+**Confirm the filter's field path before wiring it.** A path that reads correctly in the endpoint's
+prose can still be rejected — see [DATA_SOURCES.md](DATA_SOURCES.md#confirm-a-filter-field-path-before-you-ship-it).
 
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 

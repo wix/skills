@@ -134,3 +134,30 @@ actually has. Assume it is missing on a fresh app, and report it under
 [Manual Steps Required](../../SKILL.md#-manual-steps-required) with the specific scope — for Bookings
 reads, `SCOPE.DC-BOOKINGS.READ-BOOKINGS-SENSITIVE`. Wiring `errorState` on the table (the draft
 template does) is what turns this from silent skeletons into a message you can read.
+
+## Confirm a filter field path before you ship it
+
+A filter path is cheap to verify and expensive to guess, and the endpoint's own prose is not
+authoritative about it. Query Extended Bookings describes itself as "filter by `scheduleId` of the
+relevant service"; a bare `scheduleId` is rejected outright:
+
+```json
+{ "code": "INVALID_FILTER", "data": { "unknownField": { "fieldPath": "scheduleId" } } }
+```
+
+The accepted paths are nested per `bookedEntity` branch — which the same page's worked example
+hints at with `bookedEntity.item.slot.sessionId`. **Trust the example over the sentence.** And
+because `bookedEntity` is a oneof, a filter that covers every row is an `$or` over both branches,
+exactly as the row mapper handles both:
+
+```ts
+$or: [
+  { 'bookedEntity.item.slot.scheduleId':     { $in: scheduleIds } },
+  { 'bookedEntity.item.schedule.scheduleId': { $in: scheduleIds } },
+]
+```
+
+Send the query once with the path you intend to use and read the response: the error names the
+offending `fieldPath` exactly, so one call settles it. One branch returning rows is not the filter
+working — check each branch separately before wiring it into a page, or the filter silently drops
+every row of the other kind.
