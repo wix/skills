@@ -28,8 +28,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
+  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
-  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** Printed the doc for every patterns component, hook, and state type you are about to write — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX.
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only, for whatever the template case didn't already show):** Printed the doc for every patterns component, hook, and state type the template doesn't already cover — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX beyond what the template already gave you.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
@@ -104,7 +105,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ## Component Selection Order
 
-Dashboard pages at Wix are built from two libraries. For **every** UI element, resolve in this order and stop at the first hit. Never skip a step, and never decide a component is missing from memory — check.
+**For the page shell, provider nesting, and routing — the part every dashboard page needs — start from [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md), not this section.** It has four verified cases (collection only, collection+entity, settings only, all three); pick the one the request matches and adapt it. What follows here is for individual UI elements the matching case's files don't already show — a filter type, a column renderer, a component the request needs that isn't in the skeleton.
+
+Dashboard pages at Wix are built from two libraries. For **every** UI element not already covered by the template, resolve in this order and stop at the first hit. Never skip a step, and never decide a component is missing from memory — check.
 
 ### 1. `@wix/patterns` — page structure and data collections
 
