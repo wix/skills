@@ -32,7 +32,10 @@ Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/s
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
-**Base44 setup has already deployed the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** Don't read or inspect the shipped files' source to confirm structure, and don't rebuild the shipped client. After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly. Only read or change shipped files to diagnose or fix an error you encounter; limit this to the files involved.
+Build the client using the component outlines, interfaces, and theme guidance in `INSTRUCTIONS.md`.
+The shipped files are already deployed and configured; you do not need to read their source or
+rebuild them. If you encounter an error after building the client, read or change whatever you
+need to diagnose and fix it.
 
 ## STEP 2 — Seed the storefront
 

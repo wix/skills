@@ -30,8 +30,8 @@ Successful deployment verified these files are in place; use this map without ne
 | `rest/wix-store-catalog.js` | Product and category queries |
 | `rest/wix-store-cart.js` | Cart mutations and hosted checkout |
 
-**DO NOT READ SHIPPED SOURCE** except to resolve a specifically identified field/interface missing
-below or an observed runtime error; read only the relevant file.
+Build using the interfaces below without reading the shipped source. If you encounter an error
+after building the client, read or change whatever you need to diagnose and fix it.
 If deployment failed or files are missing, re-run the install/deploy step.
 
 ## Theme
