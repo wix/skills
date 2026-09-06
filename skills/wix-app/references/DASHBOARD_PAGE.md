@@ -116,6 +116,12 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Output:** A `@wix/patterns` `SettingsPage` with WDS form fields (popup headline, coupon code, minimum cart value, enable toggle). `embeddedScripts.getEmbeddedScript()` loads the parameters on mount, `embeddedScripts.embedScript()` saves them back — both sides string-converted, per [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md).
 
+### Multi-Page Admin Area
+
+**Request:** "Create an admin page to manage fees, with an app settings section"
+
+**Output:** One dashboard-page extension, not several — a table (`CollectionPage`) at the base route, an `EntityPage` at `/:id` and `/new` for create/edit, and a `SettingsPage` at `/settings`, all reached through one `PatternsReactRouter`. Start from [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) rather than composing the router wiring from scratch — it's a smoke-tested skeleton (`tsc` clean), and the router's `location` plumbing is a runtime-only failure if skipped, so getting it from a verified starting point matters more here than in a single-page extension.
+
 
 ## API Spec Support
 
