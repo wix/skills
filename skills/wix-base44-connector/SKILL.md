@@ -18,7 +18,7 @@ does not inherit an earlier turn's context, so re-read it before building on or 
 **A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) and follow
 the one that fits. A recipe states outright what an API does not support, which fields a bulk call
 actually writes, and the order two calls have to go in — from the schemas alone those get re-derived
-several errors at a time. A REST search ranks the matching recipes too (`recipes` in its return), so
+several errors at a time. A REST search ranks the matching recipes too (recipe entries in `hits`), so
 they also surface from a search that began at the methods.
 
 ## What are you building?
@@ -68,12 +68,15 @@ const wx = (() => { const m = { exports: {} };
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token)` — the site's full dynamic context report; inline when small, otherwise a saved Markdown file with a heading outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A REST search also ranks the **management recipes**, returned as their own `recipes` list ahead of the methods — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A default REST search also searches **WIX_HEADLESS** for integration articles (included in `hits`) and ranks the **management recipes**, returned as recipe entries in the same `hits` list as methods and articles — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 - `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
+
+Search results interleave two recipes, two results from the selected corpus, and two Headless
+articles, repeating in that order while preserving each search's ranking.
 
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
 A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
@@ -111,7 +114,7 @@ await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.
 ```
 
 A recipe carries prerequisites, order, and gotchas that no method page has. A REST search ranks
-these same recipes as its own `recipes` list, so they surface either way.
+these same recipes in its `hits` list, so they surface either way.
 
 ### Find a method — search and browse
 
@@ -129,11 +132,6 @@ await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
-
-// { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
-// other corpus — search WIX_HEADLESS for headless/external client code (visitor auth,
-// JS SDK, quick-starts). It returns article-style hits (method gists thin out) — read the saved path.
-await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
 
 Products and their capabilities — the common ones, partial lists:
@@ -253,7 +251,7 @@ return (await res.json()).contacts;
 - One file per business area, not per call — each file is its own deploy, and deploys cost time.
 - Call every function you deploy and fix what breaks. Deploying is not testing.
 
-### A visitor client — src/lib/wixClient.js
+### Visitor authentication and Wix-hosted flows
 
 The "site for visitors" shape (What are you building?), in code — one file pages import. Neither
 `clientId` (from the context report) nor the minted token is a secret; together they are "an
@@ -273,7 +271,7 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-Token contract: `…/headless/authentication/retrieve-tokens`. Prove the lane in one exec before
+Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md). Prove the lane in one exec before
 writing pages — mint a visitor, make one public read with it:
 
 ```js
@@ -285,10 +283,54 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time) —
-the returned `id` IS the `clientId`:
+No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time):
 
 ```js
-const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
-  { oAuthApp: { name: "My App" } }, accessToken);   // oAuthApp.id is the visitor clientId
+// Use your app's actual destinations, including preview when supported.
+const appOrigins = ["https://my-app.example.com", "https://my-preview.example.com"];
+const loginCallbacks = appOrigins.map(origin => new URL("/login-callback", origin).href);
+const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
+
+// OAuth redirect configuration: exact login URLs versus domains for other returns.
+// https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains.md
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
+  oAuthApp: {
+    name: "My App",
+    // Login callbacks: the authorization request's redirect URI must match exactly.
+    allowedRedirectUris: loginCallbacks,
+    // Returns from Wix-hosted flows: hostnames only, allowing URLs under each domain.
+    allowedRedirectDomains: returnDomains,
+  },
+}, accessToken);
+const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend client above.
+
+// If destinations change later, update this OAuth app rather than creating another.
+// Read its existing lists and merge new entries before updating, preserving old entries.
+// https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app.md
+
+```
+
+Frontend redirect example, using the visitor client above after obtaining a visitor token:
+
+```js
+import { wix } from "@/lib/wixClient";
+
+// Flow prerequisites and supported intents:
+// https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
+export async function redirectToWix(intent, returnPath = "/") {
+  // Pass the intent required by the selected flow's schema.
+  const response = await wix("/headless/v1/redirect-session", {
+    method: "POST",
+    body: JSON.stringify({
+      ...intent,
+      callbacks: {
+        postFlowUrl: new URL(returnPath, window.location.origin).href,
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+  const { redirectSession } = await response.json();
+  window.location.assign(redirectSession.fullUrl);
+}
 ```
