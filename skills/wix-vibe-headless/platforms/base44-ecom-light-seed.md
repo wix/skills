@@ -79,16 +79,6 @@ urls are ready by the time you seed.
 
 ## Later admin requests
 
-When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
-
-```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const res = await fetch("https://www.wixapis.com/<api-path>", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ /* request body */ }),
-});
-return await res.json();
-```
-
-`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via the documentation skill available in your environment.
+For all follow-up Wix admin requests, read and follow the already-installed
+`wix-base44-connector` skill at `.agents/skills/wix-base44-connector/SKILL.md`.
+Route all Wix site management and configuration changes through that skill.
