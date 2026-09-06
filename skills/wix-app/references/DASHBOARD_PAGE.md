@@ -88,37 +88,15 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Examples
 
-Every example below starts from a case in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — copy that case's files first, then adapt names, fields, and API calls to what's below. The prose here is what differs per request (domain, SDK, extra components); the wiring itself lives only in the template, not duplicated here, so the two can't drift apart.
+Each starts from a case in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — copy that case's files, then adapt. Only what differs per request is listed below; the wiring lives solely in the template.
 
-### Data Management Table — Case B (Collection + Entity)
-
-**Request:** "Create a dashboard page to manage blog posts"
-
-**Adapt:** Columns for the blog-post fields the prompt names. Row actions (edit, delete) from the collection's own APIs — not a hand-built WDS action bar. `fetch{Entity}`/`save{Entity}` in `{feature}-api.ts` call `@wix/blog`.
-
-### Settings Form — Case C (Settings only)
-
-**Request:** "Build a settings page for notification preferences"
-
-**Adapt:** Form fields (`FormField`, `Input`, `ToggleSwitch` from WDS) for each preference. No collection, no table hook, no router — this is the simplest case.
-
-### Order Management — Case B (Collection + Entity)
-
-**Request:** "Create an admin panel for customer orders"
-
-**Adapt:** Status `Badge` as WDS leaf UI inside a cell. Data source is `@wix/ecom` — orders are never a CMS collection, see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms). A Dashboard Modal appears only for the delete confirmation — never for viewing or editing an order itself (see [Entity create and edit](../SKILL.md#entity-create-and-edit)).
-
-### Embedded Script Configuration — Case C (Settings only)
-
-**Request:** "Create a settings page for the coupon popup embedded script"
-
-**Adapt:** Form fields for popup headline, coupon code, minimum cart value, enable toggle. Swap the template's `fetch`/`onSave` for `embeddedScripts.getEmbeddedScript()` / `embeddedScripts.embedScript()` — both sides string-converted, per [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md). Use the `withProviders` wrapper when dynamic parameters are present, in place of the template's plain provider.
-
-### Multi-Page Admin Area — Case D (Collection + Entity + Settings)
-
-**Request:** "Create an admin page to manage fees, with an app settings section"
-
-**Adapt:** One dashboard-page extension, not several — fee fields and API calls swapped into all four route components. This is the case where starting from the template matters most: the router's `location` plumbing is a runtime-only failure if skipped (passes `tsc` and `wix build` silently), and it's the shape most likely to get built as three separate extensions if composed from scratch instead of copied from Case D.
+| Request | Case | Adapt |
+| --- | --- | --- |
+| "Dashboard page to manage blog posts" | B | Columns for the post fields named; edit/delete from the collection's own APIs; `{feature}-api.ts` calls `@wix/blog` |
+| "Settings page for notification preferences" | C | Form fields (`FormField`, `Input`, `ToggleSwitch`) per preference — no collection, no router |
+| "Admin panel for customer orders" | B | Status `Badge` in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); Dashboard Modal only for delete confirmation, never for view/edit (see [Entity create and edit](../SKILL.md#entity-create-and-edit)) |
+| "Settings page for the coupon popup embedded script" | C | Fields for headline, coupon code, min cart value, enable toggle; swap `fetch`/`onSave` for `embeddedScripts.getEmbeddedScript()`/`embedScript()`, string-converted both ways (see [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md)); use `withProviders` in place of the template's plain provider |
+| "Admin page to manage fees, with an app settings section" | D | One extension, not several — fee fields/calls into all four route components. Skipping the router's `location` plumbing here passes `tsc`/`wix build` silently and fails only in a browser |
 
 
 ## API Spec Support

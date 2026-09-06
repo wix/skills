@@ -120,7 +120,7 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Collection state — paging, sorting, selection, loading | `useTableCollection()` and its sibling hooks (one per collection type) |
 | Filters, search, sorting, view presets/tabs | the collection's filter and view APIs |
 | Row actions, bulk actions, drag-and-drop | the collection's feature APIs |
-| Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` — worked skeleton (collection + entity + settings, one router): [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
+| Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` — worked skeleton (Cases B/D): [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
 | **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
@@ -221,7 +221,8 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
 | Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
-| Draft template — Collection + Entity + Settings in one router-wired extension | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
+| Draft template — start here for any dashboard page (Cases A/B/C/D) | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
+| Draft template — router wiring for Cases B/D (Collection+Entity, or all three) | [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
 | Reading a patterns bundle or doc file the index names | [PATTERNS_BUNDLE_READING.md](references/dashboard-page/PATTERNS_BUNDLE_READING.md) |
 
 ---
