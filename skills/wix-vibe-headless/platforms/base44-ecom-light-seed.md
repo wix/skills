@@ -11,8 +11,16 @@ or configuration changes are needed.
 **Banner disabled for this entry flow:** do not add `<WixManageBanner/>`; skip the shared
 storefront instructions' optional banner integration.
 
-Base44 setup has already installed the Wix skills, deployed the storefront files, and added the
-AGENTS.md note. Proceed with the build and seed steps below.
+## STEP 0 — Setup already completed by Base44
+
+These skills are already installed under `.agents/skills/`:
+- **`wix-vibe-headless`** — storefront build instructions, hook/component contracts, and seeding modules.
+- **`wix-manage`** — REST recipes for managing and configuring the Wix site.
+- **`wix-base44-connector`** — Wix connector usage, API contracts, and documentation discovery.
+
+Base44 has also deployed the storefront hooks, cart components/context, image helpers, and REST
+scaffolds into `src/`, configured the Wix connector/client, and added the Wix note to `AGENTS.md`.
+No installation, deployment, or AGENTS.md update is needed. Continue with STEP 1.
 
 Follow STEPs 1–3 below exactly (run STEP 2 in parallel with STEP 1).
 
