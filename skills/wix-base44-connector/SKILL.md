@@ -253,7 +253,7 @@ return (await res.json()).contacts;
 - One file per business area, not per call — each file is its own deploy, and deploys cost time.
 - Call every function you deploy and fix what breaks. Deploying is not testing.
 
-### A visitor client — src/lib/wixClient.js
+### Visitor authentication and Wix-hosted flows
 
 The "site for visitors" shape (What are you building?), in code — one file pages import. Neither
 `clientId` (from the context report) nor the minted token is a secret; together they are "an
