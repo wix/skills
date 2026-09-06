@@ -66,7 +66,7 @@ const wx = (() => { const m = { exports: {} };
 
 - `wx.post/get/patch/put/del(url, [body], token?)` — JSON transports, one per verb (`get`/`del` take no body): Bearer from `token`, non-2xx **throws** the API's own error
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
-- `wx.context(token, section?)` — the site's dynamic context report; no section → its outline
+- `wx.context(token)` — the site's full dynamic context report; inline when small, otherwise a saved Markdown file with a heading outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
 - `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A REST search also ranks the **management recipes**, returned as their own `recipes` list ahead of the methods — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
@@ -86,12 +86,15 @@ two moves: find with `wx.bash("grep -n 'term' <path> | head -40")` (or across ev
 
 ```js
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-return await wx.context(accessToken, "Apps");   // no section arg → the report's outline
+return await wx.context(accessToken);
 ```
 
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
 An empty report = bad token, never an empty site.
+
+Reports over 4,000 characters are saved in full to a temporary Markdown file. The result includes
+its path, byte and line counts, and a heading outline. Read that file to inspect the site context.
 
 ## Learn Wix — find the APIs, learn their contracts
 
