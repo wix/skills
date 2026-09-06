@@ -50,24 +50,12 @@ Run TypeScript compiler to check for type errors.
 npx tsc --noEmit -p .
 ```
 
-**This is the only form to use, and there is no targeted variant.** Passing filenames or globs makes
-TypeScript ignore `tsconfig.json` altogether — no `strict`, no `noImplicitAny`, no `jsx`, no `paths`,
-no `lib`, no `skipLibCheck` — so the run checks the code against *no* configuration: it misses the
-errors that matter and floods the output with errors that do not. Measured on a real app, on a file
-with one untyped parameter:
-
-- `npx tsc --noEmit -p .` → `TS7006: Parameter 'x' implicitly has an 'any' type`
-- `npx tsc --noEmit <that file>` → no `TS7006` at all, and instead dozens of
-  `Cannot find name 'Set'` from `node_modules/@types`
-
-And the config cannot be handed back on the side: `tsc -p tsconfig.json <file>` fails outright with
-`TS5042: Option 'project' cannot be mixed with source files on a command line`.
-
-**Checking only what you generated does not work even when the config is right.** A type error caused
-by generated code usually surfaces where that code is *consumed* — the page compiles and `App.tsx`
-does not. Measured: a scoped check over the generated directory reported nothing, while the project
-check reported `TS2322` in the consuming file. Scoping is only sound if you already know the error is
-confined to those files, which is what the check exists to find out.
+Check the whole project, not just the files you generated — a type error in generated
+code usually surfaces in the file that consumes it. `-p .` is what holds that line:
+adding a file path to it is an error, whereas adding one to a bare `npx tsc --noEmit`
+silently discards `tsconfig.json` (`strict`, `paths`, `jsx`) and checks against
+compiler defaults instead. Run it from the app root: there `-p .` fails outright if no
+`tsconfig.json` is present, where bare `tsc` would walk up and check the parent project.
 
 **Success criteria:**
 - Exit code 0
