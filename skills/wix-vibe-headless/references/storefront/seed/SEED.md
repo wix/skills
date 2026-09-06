@@ -46,6 +46,20 @@ const result = await seed.setupStore(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
+## Stock
+
+```js
+{ name: "Limited Print", price: 25, quantity: 12 } // count stock: integer 0–99999
+{ name: "Made-to-order Print", price: 25, inStock: true } // available without a quantity counter
+{ name: "Unavailable Print", price: 25, inStock: false } // unavailable without a quantity counter
+```
+
+Supply `quantity` **or** `inStock`, never both. Use `inStock: true` for unlimited stock, not a
+large invented quantity. All expanded variants inherit the same setting. Omitting both defaults
+to quantity 0 for physical products and in-stock for downloads. Stock mode doesn't change the
+product type or remove the downloadable-file requirement.
+[Wix inventory tracking](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/inventory-item-object).
+
 ## How many, and exercising the UI
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the shape,
@@ -70,7 +84,7 @@ options: [
 - Choice names must be unique within each product option, for both text and color choices.
   Reusing a choice name across different products is fine; color choices must follow the consistency rule above.
 - Variants are expanded for you: the full cross-product of the options, each carrying the product's
-  `price`, `compareAtPrice` and `quantity`. Two options with 2 and 3 choices means 6 variants — keep
+  `price`, `compareAtPrice` and stock setting (`quantity` or `inStock`). Two options with 2 and 3 choices means 6 variants — keep
   option counts small.
 - `compareAtPrice` (> `price`) is the "was" price: strikethrough on the PDP and a `−N%` badge on the
   tile, computed from the two amounts. It works with or without options.

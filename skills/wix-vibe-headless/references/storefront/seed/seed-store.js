@@ -171,9 +171,20 @@ function buildOptions(options = []) {
 }
 
 // Validate the whole batch before installation, uploads, or product creation.
-function validateProductOptions(products) {
+function validateProducts(products) {
   const seen = new Map();
   for (const product of products) {
+    if (product.inStock !== undefined && typeof product.inStock !== "boolean") {
+      throw new Error(`Product "${product.name}": inStock must be a boolean. No products were created by this call.`);
+    }
+    if (product.inStock !== undefined && product.quantity !== undefined) {
+      throw new Error(`Product "${product.name}": supply either inStock or quantity, not both. No products were created by this call.`);
+    }
+    if (!product.digitalFileUrl && product.quantity !== undefined &&
+        (!Number.isInteger(product.quantity) || product.quantity < 0 || product.quantity > 99999)) {
+      throw new Error(`Product "${product.name}": quantity must be an integer from 0 to 99999. ` +
+        `For unlimited stock, use inStock: true without quantity. No products were created by this call.`);
+    }
     for (const option of product.options ?? []) {
       const choiceNames = new Set();
       for (const choice of option.choices ?? []) {
@@ -199,8 +210,17 @@ function validateProductOptions(products) {
   }
 }
 
+// Choose one inventory tracking mode; downloads retain their default available stock.
+function inventoryFor(product) {
+  if (product.inStock !== undefined) return { inStock: product.inStock };
+  if (product.digitalFileUrl) return { inStock: true };
+  return { quantity: product.quantity ?? 0 };
+}
+
 // full Cartesian product of variants, each priced/stocked from the product; visible:true baked in
-function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
+function expandVariants(options = [], product, digitalFileId) {
+  const { price, compareAtPrice } = product;
+  const inventoryItem = inventoryFor(product);
   const base = {
     price: {
       actualPrice: { amount: String(price) },
@@ -208,8 +228,9 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }, digit
     },
     visible: true,
     ...(digitalFileId
-      ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
-      : { physicalProperties: {}, inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
+      ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem }
+      : { physicalProperties: {}, inventoryItem: { ...inventoryItem,
+          ...(inventoryItem.quantity !== undefined ? { preorderInfo: { enabled: false } } : {}) } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -272,7 +293,7 @@ async function listProducts(ctx) {
 
 /**
  * Bulk-create products.
- * @param products [{ name, description, price, compareAtPrice?, quantity,
+ * @param products [{ name, description, price, compareAtPrice?, quantity?, inStock?,
  *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }],
  *   digitalFileUrl?, digitalFileName? }]
  *   digitalFileUrl: makes the product a DIGITAL download — the file is uploaded and the variant
@@ -281,11 +302,12 @@ async function listProducts(ctx) {
  *   Wix rich text here, so the storefront renders paragraphs and bold rather than tag text.
  *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
  *   Display-only attributes go in name/category/description, NOT options. Default: no options.
- *   visible/physicalProperties/variant-expansion handled here. `quantity` is the stock created.
+ *   visible/physicalProperties/variant-expansion handled here. `quantity` tracks 0–99999 units (default 0); `inStock` selects availability without a count.
+ *   Supply only one. Each variant inherits that stock mode. Downloads default to inStock:true.
  * @returns [{ id, slug, revision }]
  */
 async function bulkCreateProducts(ctx, products) {
-  validateProductOptions(products);
+  validateProducts(products);
   const fileIds = await Promise.all(products.map((p) =>
     p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
   const body = {
@@ -320,7 +342,7 @@ async function bulkCreateProducts(ctx, products) {
       id: result.item.id, slug: result.item.slug, revision: result.item.revision,
       variantId: result.item.variantsInfo?.variants?.[0]?.id,
       hasOptions: (products[index]?.options?.length ?? 0) > 0,
-      isDigital: !!fileIds[index], quantity: products[index]?.quantity ?? 0,
+      isDigital: !!fileIds[index], inventory: inventoryFor(products[index]),
       index, name: products[index]?.name,
     });
   }
@@ -357,7 +379,7 @@ async function stockOptionlessProducts(ctx, created) {
   }
   const inventoryItems = need
     .filter((p) => p.variantId)
-    .map((p) => ({ productId: p.id, variantId: p.variantId, quantity: p.quantity }));
+    .map((p) => ({ productId: p.id, variantId: p.variantId, ...p.inventory }));
   if (inventoryItems.length) {
     await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
   }
@@ -415,14 +437,14 @@ async function attachProductImages(ctx, items) {
  * the DEFAULT path — call it once instead of the individual functions.
  *
  * @param plan {{
- *   products: [{ name, description, price, compareAtPrice?, quantity, options?, imageUrl?, altText?,
+ *   products: [{ name, description, price, compareAtPrice?, quantity?, inStock?, options?, imageUrl?, altText?,
  *                digitalFileUrl?, digitalFileName? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number }
  */
 async function setupStore(ctx, { products = [], categories = {} } = {}) {
-  validateProductOptions(products);
+  validateProducts(products);
   await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
 
   const created = await bulkCreateProducts(ctx, products);
