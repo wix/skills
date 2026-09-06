@@ -35,6 +35,67 @@ The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `s
 
 **Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
 
+### The `withDashboard` bootstrap — required for any routed page
+
+If the page routes — anything using `PatternsReactRouter`, which is every `CollectionPage` + `EntityPage` pair — the routing component **must** be wrapped in `withDashboard`, and in a Wix CLI app you must supply its `location` yourself.
+
+`PatternsReactRouter` reads the current location through bex-core's dashboard context, which only `withDashboard` renders, from its `location` prop. Under the Yoshi BM flow the host passes that prop; **in a CLI app nothing passes props to a dashboard page component**, so the page reads it from the dashboard SDK. Omit either half and the router throws at render time:
+
+> It appears that `PatternsReactRouter` is being used incorrectly. Please refer to the documentation to ensure proper implementation.
+
+Nothing catches this before runtime — `tsc` and `wix build` both pass, because neither renders the page.
+
+The scaffolded `page.tsx` does the subscribing; the routing component is a separate file it renders:
+
+```tsx
+// page.tsx — the scaffolded entry point
+import { useEffect, useState, type FC } from 'react';
+import { dashboard, type PageLocation } from '@wix/dashboard';
+import { WixDesignSystemProvider } from '@wix/design-system';
+import '@wix/design-system/styles.global.css';
+import { App } from './App';
+
+const DashboardPage: FC = () => {
+  const [location, setLocation] = useState<PageLocation>();
+
+  useEffect(() => {
+    const subscription = dashboard.observeState((_pageParams, environmentState) => {
+      setLocation(environmentState.pageLocation);
+    });
+    return () => subscription.disconnect();
+  }, []);
+
+  return (
+    <WixDesignSystemProvider>
+      {location ? <App location={location} /> : null}
+    </WixDesignSystemProvider>
+  );
+};
+
+export default DashboardPage;
+```
+
+```tsx
+// App.tsx — the routed component
+import { withDashboard } from '@wix/patterns';
+import { WixPatternsProvider } from '@wix/patterns/provider';
+import { PatternsReactRouter, PatternsReactRoute } from '@wix/patterns/router';
+
+export const App = withDashboard(() => (
+  <WixPatternsProvider>
+    <PatternsReactRouter>
+      <PatternsReactRoute type="collection" path="/" element={<MyCollectionPage />} />
+      <PatternsReactRoute type="createEntity" path="/new" element={<MyEntityPage />} />
+      <PatternsReactRoute type="editEntity" path="/:id" element={<MyEntityPage />} />
+    </PatternsReactRouter>
+  </WixPatternsProvider>
+));
+```
+
+`withDashboard` is a `@wix/patterns` export re-exported from `@wix/bex-core`. It is documented in `dist/docs/WixPatternsProvider.md` and `dist/docs/PatternsReactRouter.md`; look it up by those doc names, not by its own.
+
+**Keep the wrapper even before you add a router.** Adding one later otherwise breaks the page in a way neither type checking nor bundling reports.
+
 ## Capabilities
 
 A dashboard page runs as the **Wix user** — see [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) before deciding where an SDK call runs.
@@ -66,7 +127,9 @@ Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** u
 
 > **🛑 The test — does the dialog create, update, or display one record this page lists?** If yes, it is an `EntityPage`, not a modal — whether those records come from a CMS collection or an existing Wix app's SDK. **A create / "add new" form is included**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading, and it is the single most common way the patterns-first rule gets dropped after the table is already correct.
 >
-> The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not hand-roll page location state to fake a second view (`useState<PageLocation>`, a `location` cast on `withDashboard`); that is the router's job, and needing the cast is the signal you skipped it.
+> The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not branch on the page location yourself to fake a second view. Switching on `location.pathname`, or casting it, to decide which of two screens to render is the router's job, and reaching for that is the signal you skipped it.
+>
+> This is **not** a ban on `useState<PageLocation>`. Reading the location once in `page.tsx` and handing it to `withDashboard` is the [required bootstrap](#the-withdashboard-bootstrap--required-for-any-routed-page) — the router cannot work without it. The anti-pattern is using that state *instead of* routes, not feeding it to the router.
 >
 > **If this page lists nothing** — a settings page, an embedded-script config page — the rule does not apply and a dashboard modal is a normal choice. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
 >

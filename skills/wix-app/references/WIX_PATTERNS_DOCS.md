@@ -137,6 +137,10 @@ For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReact
 
 Not every real `@wix/patterns` export is in this index — only the names these guides actually reference. If a name you need genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
 
+**The one exception — a name the docs themselves require.** If a doc file you just read tells you to use an export, that export is not optional, and neither index resolves it, you are not guessing: the indexes have a gap. Read its declaration in `<pkgRoot>/dist/types/index.d.ts` to find where it is re-exported from, use it, and **say in your summary that the name was missing from both indexes** so the gap gets fixed. Do not silently stop — a page that omits a required export can typecheck, build and still throw at render time, which is a worse outcome than the lookup you skipped.
+
+This exception is narrow on purpose. It does not license browsing `node_modules` for a name you merely suspect exists, or for props — those come from the bundle, and a name absent from the docs *and* the bundle *and* the prose you just read is a name you should not be using.
+
 ### Reading doc files
 
 `Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for the cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above: it's produced for every documented component, not just the curated ones.
