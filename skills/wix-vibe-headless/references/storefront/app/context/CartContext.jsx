@@ -40,6 +40,7 @@ export function CartProvider({ children }) {
       return await fn();
     } catch (e) {
       setError(e?.message || "Something went wrong. Please try again.");
+      setIsOpen(true); // Surface refusals even when adding from a card or PDP with the drawer closed.
       if (reread) await refreshCart().catch(() => {});
       return null;
     } finally {
