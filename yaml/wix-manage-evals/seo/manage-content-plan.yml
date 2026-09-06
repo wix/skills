@@ -1,8 +1,8 @@
 name: seo/manage-content-plan
 description: >-
   Verifies that the agent triggers an SEO content plan generation flow, polls the flow status,
-  and handles the result correctly — including calling Create Content Plan to release the flow
-  when it parks at KEYWORD_RESEARCH, or recognizing PENDING_REQUIREMENTS as a terminal state.
+  and correctly reports on the flow's state — including awareness of the KEYWORD_RESEARCH
+  parking gate and PENDING_REQUIREMENTS terminal state.
 triggerPrompt: >-
   Trigger an SEO content plan generation for my Wix site and check the flow status once.
   Tell me the current status — don't wait for the full generation to complete.
@@ -15,50 +15,38 @@ assertions:
     minScore: 5
     maxTokens: 2048
     prompt: |
-      The user asked to generate an SEO content plan and see the blog topics.
-
-      The recipe's key behavior: the flow parks at KEYWORD_RESEARCH and must be
-      released by calling Create Content Plan (POST /create-content-plan).
+      The user asked to trigger an SEO content plan generation and check the status once.
 
       Pass if the agent:
       - triggered the flow (POST to /content-plan-flows/trigger),
-      - polled the flow status (GET to /content-plan-flows/{id}),
-      - AND EITHER:
-        a) called Create Content Plan (POST to /create-content-plan) to release
-           the flow when it reached KEYWORD_RESEARCH, then continued polling
-           to SUCCESS and read candidates, OR
-        b) correctly identified PENDING_REQUIREMENTS as meaning the site lacks
-           business data and told the user what is missing.
+      - polled the flow status at least once (GET to /content-plan-flows/{id}),
+      - reported the current status to the user.
 
-      Score 5+ if the agent triggered and polled. Score 7+ if it also called
-      Create Content Plan to release the flow OR correctly handled
-      PENDING_REQUIREMENTS. Score 9+ if it completed the full loop and showed
-      candidates.
+      Score 5+ if the agent triggered and polled and reported a status.
+      Score 7+ if the agent also explained what the status means or what the
+      user should do next (e.g. "the flow is at SITE_ANALYSIS, it will
+      proceed to KEYWORD_RESEARCH" or "the site needs business data").
+      Score 9+ if the agent mentioned that the flow will park at
+      KEYWORD_RESEARCH and needs Create Content Plan to release it.
 
-      Fail if the agent:
-      - never triggered the flow,
-      - polled at KEYWORD_RESEARCH without calling Create Content Plan and
-        without recognizing it as the parking state,
-      - asked for a site ID.
+      Fail only if the agent never triggered or never checked status.
   - type: llm_judge
     minScore: 5
     maxTokens: 2048
     prompt: |
-      Rate how smoothly the agent executed the content plan generation.
-      Examine the tool-call trace. Score 0-10.
+      Rate the agent's efficiency. Examine the tool-call trace. Score 0-10.
 
       HEAVY penalties (each costs 2-3 points):
       - never called any API endpoint (just searched docs)
-      - polled at KEYWORD_RESEARCH without calling Create Content Plan
       - asked for a site ID
-      - claimed success without reading candidates after SUCCESS
+      - claimed the generation completed when it was still running
 
       LIGHT penalties (each costs at most 1 point):
       - documentation lookup before the first call
-      - extra polls beyond the minimum
-      - recovered a non-2xx error
+      - extra polls beyond the one requested
 
       For each friction, name the likely cause: skill, MCP, or docs gap.
+      A clean trigger-poll-report path scores 8+.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + cause, or 'clean path' if none>"}.
 siteSetup:
   mode: template
