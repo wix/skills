@@ -311,13 +311,28 @@ const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend 
 // Read its existing lists and merge new entries before updating, preserving old entries.
 // https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app
 
-// In the frontend, choose destinations for the environment the visitor is using:
-// const loginCallback = new URL("/login-callback", window.location.origin).href;
-// const returnUrl = new URL("/", window.location.origin).href;
-// Implement the login callback route and use loginCallback in the authorization request.
-// For Wix-hosted flows, pass returnUrl as callbacks.postFlowUrl in the redirect session.
-// The allowed lists above permit these destinations; each request chooses its destination.
-// Navigate to the returned redirectSession.fullUrl, then handle the return in your app.
-// Read the complete flow and its prerequisites before implementing:
+```
+
+Frontend redirect example, using the visitor client above after obtaining a visitor token:
+
+```js
+import { wix } from "@/lib/wixClient";
+
+// Flow prerequisites and supported intents:
 // https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api
+export async function redirectToWix(intent, returnPath = "/") {
+  // Pass the intent required by the selected flow's schema.
+  const response = await wix("/headless/v1/redirect-session", {
+    method: "POST",
+    body: JSON.stringify({
+      ...intent,
+      callbacks: {
+        postFlowUrl: new URL(returnPath, window.location.origin).href,
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+  const { redirectSession } = await response.json();
+  window.location.assign(redirectSession.fullUrl);
+}
 ```
