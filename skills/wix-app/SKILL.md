@@ -37,6 +37,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
   - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+- [ ] **Step 4c (dashboard page UI only):** Re-opened and read the page file(s) just written — not recalled intent — and confirmed against the actual code: `SummaryBar` present (or prompt is explicitly single-record/report/export-only), a drill-in (`SidePanel` or `navigateToEntityPage`/`EntityPage`) present for every row (or prompt is explicitly report/export-only), and every declared filter name also appears inside `fetchData`. See [UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit).
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -438,6 +439,18 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 - ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
+### Step 4c: UX Completeness Self-Audit
+
+**Dashboard page UI only.** `tsc`, `wix build`, and `wix preview` all check that the code compiles and runs — none of them check that it's the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. A page with a bare, un-summarized, un-openable table compiles cleanly and still fails the requirement — that gap is exactly how a generated dashboard passes every technical check and still disappoints. Measured runs confirm it: a page can compile clean and still ship with none of the three items below, because the earlier checklist entries were a stated intention rather than something re-checked against the code that actually landed.
+
+Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
+
+- [ ] `SummaryBar` (or an equivalent aggregate) literally appears in the file — unless the prompt is explicitly about a single record or is a report/export-only view.
+- [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
+- [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
+
+If a box fails and no exception applies, add the missing piece now. Do not let "it compiles" stand in for "it satisfies the checklist" — Step 5 checks the former, this step checks the latter, and they are independent.
+
 ### Step 5: Run Validation
 
 After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
@@ -503,7 +516,7 @@ The following actions need to be done manually by you:
 
 ## Validation
 
-Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide.
+Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide. Dashboard page UI: run [Step 4c's UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit) first — the checks below verify the code runs, not that it's the dashboard the prompt asked for.
 
 1. **Package Installation** — Detect package manager, run install
 2. **TypeScript Compilation** — `npx tsc --noEmit -p .`

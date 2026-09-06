@@ -40,6 +40,10 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 
+**A column must show what its header promises.** When mapping an API item to a row, treat a generic-sounding field (`.title`, `.name`, `.label`, `.summary`) as unverified until you've read its type declaration — `dist/dts-bundle/index.json` for a patterns type, the SDK's own bundled `.d.ts` for a Wix SDK response. An `Extended*`/`*WithDetails` response shape usually exists specifically to attach the real related entity (the service, the product, the contact) alongside the base record; a generic summary field on the base item is not a substitute for it, and the mistake reads as correct until someone opens a record where the two disagree. Do this for every column, not just the ones that look uncertain — the wrong-but-plausible field is the one nobody double-checks.
+
+**Row-mapping must cover every shape the API returns, not just the one your test data happens to have.** A Wix SDK response often carries a union/oneof field for entities that can take more than one form — Bookings' `bookedEntity` is `slot` for an individual appointment and `schedule` for a class or course, for instance. A mapper that only reads one variant renders blank cells for every row using the other, and it will pass `tsc` and look correct against whatever sample data was on hand. Find the oneof in the type declaration before writing the mapper, and handle each branch.
+
 ## Investigate — opening one record
 
 | Surface | Use when | Built from |
