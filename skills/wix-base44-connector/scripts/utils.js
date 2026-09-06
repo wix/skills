@@ -230,8 +230,16 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
   // page sits in the REST corpus, so the same page can rank two or three times
   const seen = new Set();
   const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
-  const uniq = [...hits, ...guideHits].filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const out = { ...saved, hits: [...recipeRows, ...uniq] };
+  const restRows = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const headlessRows = guideHits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const uniq = [...restRows, ...headlessRows];
+  const ordered = [];
+  // Two from each search in turn, retaining the service's order within each source.
+  const groups = [recipeRows, restRows, headlessRows];
+  for (let i = 0; i < Math.max(...groups.map(rows => rows.length)); i += 2) {
+    for (const rows of groups) ordered.push(...rows.slice(i, i + 2));
+  }
+  const out = { ...saved, hits: ordered };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
   for (const shed of [() => recipeRows.forEach(r => delete r.calls),

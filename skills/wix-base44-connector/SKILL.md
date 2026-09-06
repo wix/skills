@@ -75,6 +75,9 @@ const wx = (() => { const m = { exports: {} };
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 - `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
+Search results interleave two recipes, two results from the selected corpus, and two Headless
+articles, repeating in that order while preserving each search's ranking.
+
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
 A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
 `{ path, bytes, lines, outline }` — the outline is your map into the file. Work a saved file in
