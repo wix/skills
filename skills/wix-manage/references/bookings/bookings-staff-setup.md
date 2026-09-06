@@ -155,11 +155,10 @@ Create staff members using the Staff API (`POST https://www.wixapis.com/bookings
 
 **⚠️ INHERITANCE MOMENT**: The moment this API call completes, the staff member inherits the current business hours. There's no "undo" for this inheritance.
 
-**Save Critical IDs from Response**:
-- `staffMember.id` for updates and schedule assignment
-- `staffMember.resourceId` for services and event resources
-- `staffMember.resource.eventsSchedule.id` for working hours events
-- `staffMember.resource.usesDefaultWorkingHours` (should be `true` initially)
+**Save Critical IDs**:
+- `staffMember.id` (in the create response) for updates and schedule assignment
+- `staffMember.resourceId` (in the create response) for services and event resources
+- `staffMember.resource.eventsSchedule.id` for working hours events — **NOT in the create response**. The create response contains only id/name/resourceId; fetch the staff member again with `?fields=RESOURCE_DETAILS` to get `resource.eventsSchedule.id` (and `resource.usesDefaultWorkingHours`, initially `true`). Reading `resource.eventsSchedule.id` off the create response yields `undefined` and downstream `scheduleId must not be empty` errors.
 
 ### 5. Set Up Custom Working Hours (Two-Step Process)
 
@@ -167,9 +166,17 @@ Create staff members using the Staff API (`POST https://www.wixapis.com/bookings
 
 **Step 5A: Assign Custom Working Hours Schedule**
 
-Get staff member details (`GET https://www.wixapis.com/bookings/v1/staff-members/<STAFF_MEMBER_ID>?fields=RESOURCE_DETAILS`) to extract the events schedule ID. Call `assignWorkingHoursSchedule` (`POST https://www.wixapis.com/bookings/v1/staff-members/<STAFF_MEMBER_ID>/assign-working-hours-schedule`) using the staff member ID and their events schedule ID. This detaches the staff member from business default hours.
+Get staff member details (`GET https://www.wixapis.com/bookings/v1/staff-members/<STAFF_MEMBER_ID>?fields=RESOURCE_DETAILS`) to extract the events schedule ID. Then call `assignWorkingHoursSchedule` (`POST https://www.wixapis.com/bookings/v1/staff-members/<STAFF_MEMBER_ID>/assign-working-hours-schedule`):
+
+```json
+{ "scheduleId": "<EVENTS_SCHEDULE_ID>" }
+```
+
+The request field is `scheduleId` (other names, e.g. `eventsScheduleId`, fail with 400 `scheduleId must not be empty`). This detaches the staff member from business default hours.
 
 Verify the response shows `"usesDefaultWorkingHours": false`.
+
+> **On failure, resume — don't restart.** If this call (or a later step) fails, the staff member from Step 4 already exists. Fix the failing call and continue with the same staff member ID; re-running the whole flow creates a duplicate staff member.
 
 **Step 5B: Create WORKING_HOURS Events**
 
