@@ -6,29 +6,55 @@ initial prompt, and the Wix connector is already configured.
 The shipped client is already configured. Use its documented hooks and components; no ID lookup
 or configuration changes are needed.
 
-> **The installed Wix skills are the complete build and seed path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **The Wix skills installed below are the complete build and seed path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
 **Banner disabled for this entry flow:** do not add `<WixManageBanner/>`; skip the shared
 storefront instructions' optional banner integration.
 
-Base44 setup has already installed the Wix skills, deployed the storefront files, and added the
-AGENTS.md note. Proceed with the build and seed steps below.
+Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
 
-Follow STEPs 1–3 below exactly (run STEP 2 in parallel with STEP 1).
+## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
+
+Install three skills — they land under `.agents/skills/`:
+- **`wix-vibe-headless`** — the storefront build + seed guide (STEPs 2–3): your main source of truth.
+- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
+  catalogs, business setup).
+- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, API
+  contracts, and Wix API documentation discovery.
+
+Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
+
+```js
+const { execSync } = require('child_process');
+const { existsSync, readdirSync } = require('fs');
+const results = {};
+for (const skill of ['wix-vibe-headless', 'wix-manage', 'wix-base44-connector']) {
+  if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
+  try {
+    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
+      { cwd: '/app', timeout: 60000, shell: '/bin/bash' }).toString().replace(/\x1b\[[0-9;]*m/g, '');
+    results[skill] = /installed 1 skill|found 1 skill/i.test(out) ? 'success'
+      : out.includes('No valid skills') ? 'not_found' : 'unknown';
+  } catch (e) { results[skill] = 'error: ' + e.message; }
+}
+const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs storefront`, { cwd: '/app' }).toString();
+const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
+return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
+```
 
 Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
 
-## STEP 1 — Build the client
+## STEP 2 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
-**Base44 setup has already deployed the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly; don't rebuild the shipped client or inspect its source to confirm structure. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
+**Successful STEP 1 verifies installation of the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly; don't rebuild the shipped client or inspect its source to confirm structure. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
 rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
 
-## STEP 2 — Seed the storefront
+## STEP 3 — Seed the storefront
 
 **Never delete or clean up anything on the user's site — seeding is additive only.** It's a live
 user-owned business, so never delete or overwrite existing content, even apparent sample data. If a
@@ -61,7 +87,7 @@ call (images included). A still-generating `/__generating__/<id>.png` placeholde
 — Wix can't fetch it. `generate_image` runs in the background while you build the client, so the
 urls are ready by the time you seed.
 
-## STEP 3 — Wrap up
+## STEP 4 — Wrap up
 
 **Never paste a Wix dashboard link or path.**
 
