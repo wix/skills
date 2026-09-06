@@ -4,7 +4,9 @@ Applies to all generated code across every Wix CLI app extension type. Each per-
 
 ## TypeScript Quality Guidelines
 
-- Generated code MUST compile with zero TypeScript errors under strict settings: `strict`, `noImplicitAny`, `strictNullChecks`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`.
+- Generated code MUST compile with zero TypeScript errors **under the project's own `tsconfig.json`** — run `npx tsc --noEmit -p .`. That file, and the base it `extends`, are the bar. Read them before writing code; do not assume a flag is on.
+- **Expect `strictNullChecks` to be off.** The Wix CLI app template sets `strictNullChecks: false` and `exactOptionalPropertyTypes: false` explicitly, on top of a base that sets only `strict: true`. So of the flags this file used to demand, `strict` and `noImplicitAny` are on, two are deliberately disabled, and `noUncheckedIndexedAccess` is never set. Writing code that only type-checks under flags the project disables — or citing those flags to justify a line — makes the reasoning wrong even when the code is right.
+- Because the compiler is *not* checking null and undefined for you, handling them is a discipline rather than something you will be told about. That makes the next three rules more important here, not less.
 - Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`).
 - Treat optional values, refs, and array indexing results as possibly undefined and handle them explicitly.
 - Use exhaustive checks for unions (e.g., `switch` with a `never` check) and return total values (no implicit `undefined`).
