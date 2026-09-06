@@ -285,31 +285,39 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time) —
-the returned `id` IS the `clientId`:
+No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time):
 
 ```js
-const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
-  { oAuthApp: {
+// Use your app's actual destinations, including preview when supported.
+const appOrigins = ["https://my-app.example.com", "https://my-preview.example.com"];
+const loginCallbacks = appOrigins.map(origin => new URL("/login-callback", origin).href);
+const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
+
+// OAuth redirect configuration: exact login URLs versus domains for other returns.
+// https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
+  oAuthApp: {
     name: "My App",
-    // Exact login callback URLs, including the path; must match the authorization request.
-    allowedRedirectUris: ["https://my-app.example.com/login-callback"],
-    // Hostnames without scheme or path; allow returns from non-authentication Wix-hosted
-    // flows such as checkout to any URL under these domains.
-    allowedRedirectDomains: ["my-app.example.com"],
-  } }, accessToken);   // oAuthApp.id is the visitor clientId
+    // Login callbacks: the authorization request's redirect URI must match exactly.
+    allowedRedirectUris: loginCallbacks,
+    // Returns from Wix-hosted flows: hostnames only, allowing URLs under each domain.
+    allowedRedirectDomains: returnDomains,
+  },
+}, accessToken);
+const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend client above.
+
+// If destinations change later, update this OAuth app rather than creating another.
+// Read its existing lists and merge new entries before updating, preserving old entries.
+// https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app
+
+// In the frontend, choose destinations for the environment the visitor is using:
+// const loginCallback = new URL("/login-callback", window.location.origin).href;
+// const returnUrl = new URL("/", window.location.origin).href;
+// Implement the login callback route and use loginCallback in the authorization request.
+// For Wix-hosted flows, pass returnUrl as callbacks.postFlowUrl in the redirect session.
+// The allowed lists above permit these destinations; each request chooses its destination.
+// Navigate to the returned redirectSession.fullUrl, then handle the return in your app.
+// Read the complete flow and its prerequisites before implementing:
+// https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api
 ```
-
-
-Replace the example addresses with your app's actual destinations.
-
-These lists allow destinations; they do not choose the return URL. Supply the login callback in
-its authorization request and the return URL in the redirect session's `callbacks.postFlowUrl`.
-Include the actual preview and published destinations when supporting both environments.
-If the destinations become known later, update the existing OAuth app, preserving its current
-entries. See [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains).
-
-For visitor flows that send people to Wix-hosted pages and back to your app, read
-[Redirect to Wix-Hosted Pages Using the REST API](https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api)
-before implementing the flow. It covers redirect sessions, return URLs, and allowed redirect
-domains, and links to the OAuth app setup prerequisites.
