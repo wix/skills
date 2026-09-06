@@ -41,7 +41,7 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. A missing *file* is not the same as a name not being covered (see below): the mechanism itself isn't available yet.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index; it ships from **1.458.0** onward, so upgrade to at least that and re-run the check. Prefer **1.460.0** or newer: from there the docs stop repeating props the bundle already describes, which is what the lookup below assumes. A missing *file* is not the same as a name not being covered (see below): the mechanism itself isn't available yet.
 
 **Never inspect `node_modules` by hand** — no `ls`, no `find`, no `cat` of an arbitrary path, and that includes the sanctioned directories: never browse `dist/dts-bundle/` or `dist/docs/` looking around. Every lookup below names the exact file to `Read` — go straight to it.
 
@@ -141,6 +141,8 @@ Not every real `@wix/patterns` export is in this index — only the names these 
 `Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for the cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above: it's produced for every documented component, not just the curated ones.
 
 **Always check the import statement inside the doc** — not everything comes from `@wix/patterns` (some use subpaths like `@wix/patterns/provider`).
+
+A doc whose index entry has a `bundle` field does **not** list its props: its `### Props` points at that bundle instead, so the props come from there. One without that field still carries its own table. Either way the doc owns the prose, the variations, the BI events and the import line.
 
 ### Reading the file the index names
 
