@@ -292,18 +292,16 @@ the returned `id` IS the `clientId`:
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps",
   { oAuthApp: {
     name: "My App",
+    // Exact login callback URLs, including the path; must match the authorization request.
     allowedRedirectUris: ["https://my-app.example.com/login-callback"],
+    // Hostnames without scheme or path; allow returns from non-authentication Wix-hosted
+    // flows such as checkout to any URL under these domains.
     allowedRedirectDomains: ["my-app.example.com"],
   } }, accessToken);   // oAuthApp.id is the visitor clientId
 ```
 
 
-Replace the example addresses with your app's actual destinations:
-
-- `allowedRedirectUris` contains exact login callback URLs, including the path. The
-  authorization request's redirect URI must match an entry exactly.
-- `allowedRedirectDomains` contains hostnames, without a scheme or path, for returns from
-  non-authentication Wix-hosted flows such as checkout. It allows return URLs under those domains.
+Replace the example addresses with your app's actual destinations.
 
 These lists allow destinations; they do not choose the return URL. Supply the login callback in
 its authorization request and the return URL in the redirect session's `callbacks.postFlowUrl`.
