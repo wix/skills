@@ -135,54 +135,8 @@ actually has. Assume it is missing on a fresh app, and report it under
 reads, `SCOPE.DC-BOOKINGS.READ-BOOKINGS-SENSITIVE`. Wiring `errorState` on the table (the draft
 template does) is what turns this from silent skeletons into a message you can read.
 
-## Confirm a filter field path before you ship it
+## Querying and paging
 
-A filter path is cheap to verify and expensive to guess, and the endpoint's own prose is not
-authoritative about it. Query Extended Bookings describes itself as "filter by `scheduleId` of the
-relevant service"; a bare `scheduleId` is rejected outright:
-
-```json
-{ "code": "INVALID_FILTER", "data": { "unknownField": { "fieldPath": "scheduleId" } } }
-```
-
-The accepted paths are nested per `bookedEntity` branch — which the same page's worked example
-hints at with `bookedEntity.item.slot.sessionId`. **Trust the example over the sentence.** And
-because `bookedEntity` is a oneof, a filter that covers every row is an `$or` over both branches,
-exactly as the row mapper handles both:
-
-```ts
-$or: [
-  { 'bookedEntity.item.slot.scheduleId':     { $in: scheduleIds } },
-  { 'bookedEntity.item.schedule.scheduleId': { $in: scheduleIds } },
-]
-```
-
-Send the query once with the path you intend to use and read the response: the error names the
-offending `fieldPath` exactly, so one call settles it. One branch returning rows is not the filter
-working — check each branch separately before wiring it into a page, or the filter silently drops
-every row of the other kind.
-
-## One operator per field
-
-WQL allows a field **one** operator. A date range written the obvious way is rejected:
-
-```ts
-{ startDate: { $gte: from, $lte: to } }   // INVALID_FILTER — unknownOperator
-```
-
-The error quotes the whole object back as the offending "operator", which reads like a parser bug
-and is actually the rule. Ranges are two clauses, combined with `$and`; `$or` nests inside it:
-
-```ts
-{ $and: [
-  { status: { $in: statuses } },
-  { startDate: { $gte: from } },
-  { startDate: { $lte: to } },
-  { $or: [ /* the oneof branches */ ] },
-] }
-```
-
-Build the filter as a list of clauses and wrap it at the end — return the bare clause when there is
-only one, `{}` when there are none — rather than mutating one object and hoping the operators do not
-collide. A page with several filters hits this the moment two of them apply at once, which is
-usually after the single-filter case has already been called working.
+Filter field paths, WQL's one-operator-per-field rule, and the two cursor-paging traps are in
+[QUERY_AND_PAGING.md](QUERY_AND_PAGING.md). Read it before writing `fetchData` — every rule there
+was a shipped bug first.
