@@ -117,8 +117,8 @@ export default function ProductCard({ product }) {
 For quick-add, call `addToCart(product.id)` only when `isQuickAddable` and no mandatory
 modifier needs input (`product.modifiers` entries have a `mandatory` boolean). Otherwise link to `/product/${product.slug}` for selection, including
 pre-orders. Listing results have no full variants; the PDP hook loads and resolves them.
-Use cart-context `loading` to disable repeated adds and display `error` on failure (see **Cart**);
-failure does not open the drawer.
+Use cart-context `loading` to disable repeated adds. Failures open the shipped drawer with
+`error`; you can also display it beside the card/PDP controls (see **Cart**).
 
 ### Catalog hook reference
 `useShop` and `SORTS` are named exports from `@/hooks/useShop`; the Shop skeleton above uses them.
@@ -207,6 +207,7 @@ export default function ProductDetail() {
   // quantity, setQuantity(n): number (may be "" mid-edit)
   // inStock, canAdd, adding: booleans
   // submit: async () => adds product + resolved variant + quantity + modifiers
+  // resolves undefined on success, null on failure (not a cart object or a boolean)
   // Replace these placeholders with your error, not-found, and loading UI.
   if (d.error) return null; // show d.error and offer d.retry()
   if (d.notFound) return null;
@@ -222,7 +223,22 @@ export default function ProductDetail() {
 - Render the option/modifier controls below; show a selection hint when `options.length && !variant`.
 - Keep quantity at least 1. Disable adding when `!canAdd || adding`; call `submit()` only with a loaded product and `canAdd`. `submit()` coerces quantity to at least 1 but does not itself enforce `canAdd`.
 - `canAdd` checks variant resolution, variant stock, and mandatory modifier values. `inStock` defaults to true without a resolved variant; use `canAdd` for the full gate.
-- `submit()` resets `adding` after completion and resolves without a cart result. Add failures live in `useCart().error`, not the PDP load `error`; show them even when the drawer is closed.
+- `submit()` resets `adding` after completion and preserves the cart result: `undefined` on success, `null` on failure. Add failures live in `useCart().error`, not the PDP load `error`; the shipped drawer opens to display them.
+
+For an optional **Buy Now** button, check the add result before checkout:
+```jsx
+// Inside ProductDetail, with the other hooks above any conditional returns:
+const { checkout, loading: cartLoading } = useCart(); // named import from @/context/CartContext
+async function buyNow() {
+  if (!d.product || !d.canAdd || d.adding || cartLoading) return;
+  const result = await d.submit();
+  if (result === null) return; // add failed; preserve its error and do not check out the old cart
+  await checkout();
+}
+// <button disabled={!d.canAdd || d.adding || cartLoading} onClick={buyNow}>Buy now</button>
+```
+For direct `addToCart(...)` calls, use the same `result === null` check before checkout.
+A resolved promise alone does not mean success; a truthiness check also rejects successful `undefined`.
 
 ### Variant and modifier controls
 The product-detail example above provides both groups:
@@ -273,8 +289,8 @@ const { addToCart, isOpen, setIsOpen, loading, error, clearError } = useCart();
 The context's add/remove/update/checkout methods return promises resolving to `undefined` on
 success or `null` on failure, storing the failure in `error`. They clear the previous error and
 set `loading` during the operation. Successful add updates the server-cart snapshot and opens the
-drawer; failed add does not open it. The drawer displays errors only while open, so your card/PDP
-must surface `error` too. These context methods do not return the updated cart or checkout URL.
+drawer; mutation failures also open it to display the error. Your card/PDP can additionally
+surface `error` inline. These context methods do not return the updated cart or checkout URL.
 The lower-level REST helpers can reject; don't apply their rejection contract to `useCart()`.
 
 #### Custom cart UI — optional
