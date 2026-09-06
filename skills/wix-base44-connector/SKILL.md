@@ -75,8 +75,9 @@ const wx = (() => { const m = { exports: {} };
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
 - `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
-Search results interleave two recipes, two results from the selected corpus, and two Headless
-articles, repeating in that order while preserving each search's ranking.
+Search makes one combined request across REST, management recipes, and Headless by default.
+The service ranks them together and interleaves methods and articles; the helper preserves that
+order. `max` limits the combined result count (default 15).
 
 Every helper answers inline when the result fits (≤ 4,000 chars — exec results clip at ~5,000).
 A bigger result is saved under `.agents/skills/wix-base44-connector/tmp/` and comes back as
