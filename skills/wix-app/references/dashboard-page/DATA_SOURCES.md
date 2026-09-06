@@ -161,3 +161,28 @@ Send the query once with the path you intend to use and read the response: the e
 offending `fieldPath` exactly, so one call settles it. One branch returning rows is not the filter
 working — check each branch separately before wiring it into a page, or the filter silently drops
 every row of the other kind.
+
+## One operator per field
+
+WQL allows a field **one** operator. A date range written the obvious way is rejected:
+
+```ts
+{ startDate: { $gte: from, $lte: to } }   // INVALID_FILTER — unknownOperator
+```
+
+The error quotes the whole object back as the offending "operator", which reads like a parser bug
+and is actually the rule. Ranges are two clauses, combined with `$and`; `$or` nests inside it:
+
+```ts
+{ $and: [
+  { status: { $in: statuses } },
+  { startDate: { $gte: from } },
+  { startDate: { $lte: to } },
+  { $or: [ /* the oneof branches */ ] },
+] }
+```
+
+Build the filter as a list of clauses and wrap it at the end — return the bare clause when there is
+only one, `{}` when there are none — rather than mutating one object and hoping the operators do not
+collide. A page with several filters hits this the moment two of them apply at once, which is
+usually after the single-filter case has already been called working.
