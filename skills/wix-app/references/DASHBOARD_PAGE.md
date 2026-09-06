@@ -12,7 +12,7 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
 
-1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up directly in `dist/dts-bundle/index.json` and `dist/docs/index.json` (start with the inventory). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. For the shell/provider/router themselves, start from [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) rather than composing them from the docs — look an individual name up directly in `dist/dts-bundle/index.json` and `dist/docs/index.json` only for what the matching case doesn't already show. See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the `wix-design-system` skill.
 3. **Custom React last** — only when neither library has it.
 
@@ -33,7 +33,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
+**Before writing that UI:** pick the matching case in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) and copy its files in over the generated stub — don't compose the shell from scratch. Then resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites), for whatever the template case doesn't already cover. Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
 
 ## Capabilities
 
@@ -86,37 +86,37 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Examples
 
-Each output below names the library that owns each part. Confirm every patterns component and prop by reading its doc from `dist/docs/index.json` before use — these examples name the shape, not a verified API.
+Every example below starts from a case in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — copy that case's files first, then adapt names, fields, and API calls to what's below. The prose here is what differs per request (domain, SDK, extra components); the wiring itself lives only in the template, not duplicated here, so the two can't drift apart.
 
-### Data Management Table
+### Data Management Table — Case B (Collection + Entity)
 
 **Request:** "Create a dashboard page to manage blog posts"
 
-**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. The provider lives in a parent component, in a separate file from the hook call.
+**Adapt:** Columns for the blog-post fields the prompt names. Row actions (edit, delete) from the collection's own APIs — not a hand-built WDS action bar. `fetch{Entity}`/`save{Entity}` in `{feature}-api.ts` call `@wix/blog`.
 
-### Settings Form
+### Settings Form — Case C (Settings only)
 
 **Request:** "Build a settings page for notification preferences"
 
-**Output:** A `@wix/patterns` `SettingsPage` shell. WDS form fields inside it (`FormField`, `Input`, `ToggleSwitch`), save button with `dashboard.showToast()` confirmation, and `dashboard.onBeforeUnload()` for the unsaved-changes warning. No collection here, so no table hook.
+**Adapt:** Form fields (`FormField`, `Input`, `ToggleSwitch` from WDS) for each preference. No collection, no table hook, no router — this is the simplest case.
 
-### Order Management
+### Order Management — Case B (Collection + Entity)
 
 **Request:** "Create an admin panel for customer orders"
 
-**Output:** A `@wix/patterns` `CollectionPage` + `Table`, with filters, sorting, and row actions from the collection APIs — **not** a hand-built WDS filter bar. Status badges are WDS leaf UI inside a cell. Viewing or editing an order opens an `EntityPage` via `usePatternsNavigate().navigateToEntityPage` — not a modal (see [Entity create and edit](../SKILL.md#entity-create-and-edit)). A Dashboard Modal appears only for the delete confirmation.
+**Adapt:** Status `Badge` as WDS leaf UI inside a cell. Data source is `@wix/ecom` — orders are never a CMS collection, see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms). A Dashboard Modal appears only for the delete confirmation — never for viewing or editing an order itself (see [Entity create and edit](../SKILL.md#entity-create-and-edit)).
 
-### Embedded Script Configuration
+### Embedded Script Configuration — Case C (Settings only)
 
 **Request:** "Create a settings page for the coupon popup embedded script"
 
-**Output:** A `@wix/patterns` `SettingsPage` shell with WDS form fields for popup headline, coupon code, minimum cart value, and enable toggle. `embeddedScripts.getEmbeddedScript()` loads the parameters on mount and `embeddedScripts.embedScript()` saves them back — both sides string-converted, per [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md).
+**Adapt:** Form fields for popup headline, coupon code, minimum cart value, enable toggle. Swap the template's `fetch`/`onSave` for `embeddedScripts.getEmbeddedScript()` / `embeddedScripts.embedScript()` — both sides string-converted, per [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md). Use the `withProviders` wrapper when dynamic parameters are present, in place of the template's plain provider.
 
-### Multi-Page Admin Area
+### Multi-Page Admin Area — Case D (Collection + Entity + Settings)
 
 **Request:** "Create an admin page to manage fees, with an app settings section"
 
-**Output:** One dashboard-page extension, not several — a table (`CollectionPage`) at the base route, an `EntityPage` at `/:id` and `/new` for create/edit, and a `SettingsPage` at `/settings`, all reached through one `PatternsReactRouter`. Start from [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) rather than composing the router wiring from scratch — it's a smoke-tested skeleton (`tsc` clean), and the router's `location` plumbing is a runtime-only failure if skipped, so getting it from a verified starting point matters more here than in a single-page extension.
+**Adapt:** One dashboard-page extension, not several — fee fields and API calls swapped into all four route components. This is the case where starting from the template matters most: the router's `location` plumbing is a runtime-only failure if skipped (passes `tsc` and `wix build` silently), and it's the shape most likely to get built as three separate extensions if composed from scratch instead of copied from Case D.
 
 
 ## API Spec Support
