@@ -41,9 +41,13 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.465.0**+ — the lookups below assume it (`OffsetQuery`, `useEntityPage`'s create route, `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router paths). A missing *file* isn't the same as a name not being covered (see below).
+**If the file is missing, stop and upgrade** — the index ships from **1.458.0** onward, so an older install has no lookup mechanism at all. Different from a *name* missing from an index that exists (below).
 
-**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
+**Never browse `node_modules`** — no `ls`, no `find`, no `cat` of an arbitrary path, `dist/dts-bundle/` and `dist/docs/` included. Every lookup below names an exact file to `Read`; go straight to it.
+
+### The index is not the list of what exists
+
+`dist/dts-bundle/` is docs; `tsc` resolves `dist/types/index.d.ts`, the path `package.json` names. The index is a curated subset of it, so a name absent from it may still be exported and usable (`CollectionErrorState` is), and a type it shows as an `[key: string]: unknown` stub is abridged, not what you compile against. `Read` `dist/types/index.d.ts` before deciding a component this skill names is unavailable: [why](dashboard-page/PATTERNS_BUNDLE_READING.md#what-the-bundle-leaves-out).
 
 ## Library Architecture
 
@@ -68,7 +72,7 @@ Each collection type follows the same Component + State + Hook pattern:
 | `TableFolders` | `TableFoldersState` | `useTableFolders()` |
 | `GridFolders` | `GridFoldersState` | `useGridFolders()` |
 
-Common types only; `dist/dts-bundle/index.json` has the authoritative set. Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
+Common types only; `dist/dts-bundle/index.json` lists the rest. Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
 
 ### Choosing the Right Provider
 
@@ -166,7 +170,7 @@ Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before imp
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then:
+A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json`, **searched by keyword within what you've read**, and confirmed it is absent from `dist/types/index.d.ts` too. Then, and only then:
 
 1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.

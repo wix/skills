@@ -2,7 +2,7 @@
 
 [UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md) says what a dashboard must do for the person using it. This file says which component does it, so the stage list resolves to real names instead of a hand-rolled approximation.
 
-Everything below is a real name in the installed `@wix/patterns`. Confirm the props before writing JSX by reading its doc from `dist/docs/index.json` — and if a name is missing from `dist/dts-bundle/index.json`, the installed version is older than this file; work from that inventory, not from memory.
+Everything below is a real name in the installed `@wix/patterns`. Confirm the props before writing JSX by reading its doc from `dist/docs/index.json`. **A name missing from `dist/dts-bundle/index.json` is not a name that doesn't exist** — that index is a curated subset of the package's real exports, so check `dist/types/index.d.ts` before you conclude a component listed here is unavailable and reach for a substitute. `CollectionErrorState` is exactly this case: exported, usable, absent from the index.
 
 > **The two requirements below are not suggestions.** A page that renders a filtered table and nothing else is the single most common failure of a generated dashboard: it answers "what are all the records" and nothing about how many, which one needs attention, or why something happened. Measured runs produce exactly that page unless the requirement is stated.
 >

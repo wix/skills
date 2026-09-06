@@ -6,19 +6,25 @@
 
 ## Why guessing here always fails
 
-`useTableCollection()` returns a `TableState`. Inside the bundle, its companion `CollectionState` is
-published as a deliberate stub:
+`useTableCollection()` returns a `TableState`. Its members are real and typed — the reason to read
+this file rather than infer them is that the names are unobvious and several plausible ones don't
+exist at all (see [Three that bite in practice](#three-that-bite-in-practice)).
+
+**One thing not to conclude from the docs bundle.** `dist/dts-bundle/` publishes `CollectionState`
+as a stub:
 
 ```ts
-declare class CollectionState<T = any, F = any> {
-    [key: string]: unknown;
-}
+declare class CollectionState<T = any, F = any> { [key: string]: unknown }
 ```
 
-That index signature means **every property you read off `state.collection` is `unknown`** — it
-type-checks as a member access and then fails the moment you use the value. `state.collection.result.total`
-is not a compile error at the access, it is `unknown` arriving where a `string` was wanted. Reach for a
-typed member on `TableState` itself instead.
+That is a documentation abridgement, not the declaration your code compiles against. `tsc` resolves
+`dist/types/index.d.ts`, which re-exports the **fully typed** `CollectionState` from
+`@wix/bex-core` — no index signature. So `state.collection.…` is properly typed, a wrong member is a
+compile error at the access, and reading `state.collection.status.status` to debug a stuck table is
+sound. See [the bundle is a documentation projection](PATTERNS_BUNDLE_READING.md#what-the-bundle-leaves-out).
+
+Prefer a typed member on `TableState` itself anyway — it is the object the hook hands you, and the
+table's own view of the collection.
 
 ## The members you actually need
 
