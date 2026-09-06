@@ -81,5 +81,6 @@ urls are ready by the time you seed.
 
 For follow-up Wix requests or features not covered by the shipped storefront, read and follow the
 already-installed `wix-base44-connector` skill at `.agents/skills/wix-base44-connector/SKILL.md`.
-Use its documentation discovery to look up the Wix APIs needed before implementing the change —
-including frontend or backend code, site management, and configuration.
+It covers building on the connected Wix site: gathering site context, discovering APIs and their
+contracts, choosing visitor or admin authentication, and writing frontend and backend code, as
+well as management and configuration. Use it to research and implement these changes.
