@@ -20,7 +20,9 @@ These skills are already installed under `.agents/skills/`:
 
 Base44 has also deployed the storefront hooks, cart components/context, image helpers, and REST
 scaffolds into `src/`, configured the Wix connector/client, and added the Wix note to `AGENTS.md`.
-No installation, deployment, or AGENTS.md update is needed. Continue with STEP 1.
+No installation, deployment, or AGENTS.md update is needed.
+The deployed implementation and configuration files do not need to be read; use the build and seed
+guides below for their contracts and usage. Continue with STEP 1.
 
 Follow STEPs 1–3 below exactly (run STEP 2 in parallel with STEP 1).
 
