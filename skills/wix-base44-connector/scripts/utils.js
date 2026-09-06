@@ -230,9 +230,8 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
   // page sits in the REST corpus, so the same page can rank two or three times
   const seen = new Set();
   const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
-  const guides = guideHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
-  const uniq = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), ...(guides.length && { guides }), hits: uniq };
+  const uniq = [...hits, ...guideHits].filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
   for (const shed of [() => recipeRows.forEach(r => delete r.calls),
@@ -245,7 +244,7 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
   }
   // Keep a usable index for every corpus even when URL lengths exhaust the budget.
   while (JSON.stringify(out).length > BUDGET) {
-    const rows = [uniq, recipeRows, guides].filter(r => r.length > 1)
+    const rows = [uniq, recipeRows].filter(r => r.length > 1)
       .sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
     if (!rows) break;
     rows.pop();
