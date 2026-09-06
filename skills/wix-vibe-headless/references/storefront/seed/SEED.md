@@ -27,6 +27,7 @@ const ctx = { token: accessToken };
 // result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
+  currency: "EUR", // Use the user's requested currency; omit when none was specified.
   products: [
     // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -40,8 +41,19 @@ const result = await seed.setupStore(ctx, {
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
-// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached }
+// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   currency: { requested, actual, status, warnings } }
 ```
+
+The optional `currency` sets the site's payment currency before product creation. Product prices
+are numbers in that currency; changing currency does not convert existing amounts. When omitted,
+the current site currency is preserved.
+Currency update or verification failures do not stop seeding: inspect `result.currency.status`
+and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
+unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
+If you change currency after seeding, verify existing product prices against the cart: existing
+products may still report the previous currency even when new products and carts use the new one.
+
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
