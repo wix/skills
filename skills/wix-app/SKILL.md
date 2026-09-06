@@ -226,6 +226,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
 | Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
 | Draft template — start here for any dashboard page (Cases A/B/C/D) | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
+| Draft template — collection page for Cases A/B/D | [DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md) |
 | Draft template — router wiring for Cases B/D (Collection+Entity, or all three) | [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
 | Draft template — settings page for Cases C/D | [DRAFT_TEMPLATE_SETTINGS.md](references/dashboard-page/DRAFT_TEMPLATE_SETTINGS.md) |
 | The state object `useTableCollection()` returns | [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) |

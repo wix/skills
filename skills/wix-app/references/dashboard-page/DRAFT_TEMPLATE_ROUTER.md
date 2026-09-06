@@ -67,7 +67,7 @@ export const {Feature}App = withDashboard(() => (
 
 `PatternsReactRoute`'s `type` is one of exactly `"collection" | "createEntity" | "editEntity" | "other"` — no dedicated settings value, so a settings route is `"other"`. Case B: delete the `/settings` route and the import above it — nothing else changes.
 
-`{Feature}CollectionPage` here is the same component shown in [DRAFT_TEMPLATE.md's Section 2](DRAFT_TEMPLATE.md#2-collection-page--case-a-b-d) — include the `usePatternsNavigate`/"Open full record" parts marked Case B/D there. `{Feature}SettingsPage` (Case D) is [DRAFT_TEMPLATE.md's Section 3](DRAFT_TEMPLATE.md#3-settings-page--case-c-d), unchanged.
+`{Feature}CollectionPage` here is the same component shown in [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) — include the `usePatternsNavigate`/"Open full record" parts marked Case B/D there. `{Feature}SettingsPage` (Case D) is [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md), unchanged.
 
 ## 3. Entity page — one component for both `/new` and `/:id`
 

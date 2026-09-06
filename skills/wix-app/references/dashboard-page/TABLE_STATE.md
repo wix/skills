@@ -48,6 +48,25 @@ an empty collection — which reads as a hung network rather than an empty resul
 **`collection.isLoading` and `collection.refresh()` are not members.** They look plausible, they
 compile against the index signature, and neither exists at runtime.
 
+## Reading state outside the table: it is MobX
+
+`@wix/patterns` depends on `mobx` and `mobx-react-lite`, so the state object is observable and a
+plain React component does not track it. Anything you derive from `state` in your own component —
+a `SummaryBar` count, a badge total, a header figure — is computed once on first render, when the
+collection is still empty, and never recomputed. The table itself updates because it observes
+internally; your derived numbers sit at zero next to a table full of rows, which reads as a bug in
+the query rather than in the wiring.
+
+`useSelector` from `@wix/patterns` subscribes:
+
+```tsx
+const loadedCount = useSelector(() => state.keyedItems.length);
+const rows = useMemo(() => state.keyedItems.map((k) => k.item), [loadedCount]);
+```
+
+**Select a primitive.** Returning a fresh array or object from the selector gives it a new identity
+on every evaluation. Select a length, a total or an id, then derive the rest once it fires.
+
 ## Query and result shapes
 
 `fetchData(query)` receives a `ComputedQuery<F>`: `limit`, `offset`, `page`, `search`, `rawSearch`,

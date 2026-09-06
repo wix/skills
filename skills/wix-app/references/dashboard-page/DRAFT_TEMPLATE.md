@@ -15,7 +15,7 @@ Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts
 
 Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings or entity page unless the request needs one. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B.
 
-**Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). Section 2's collection page and the settings file are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
+**Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). The collection and settings files are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
 
 ## File layout
 
@@ -24,7 +24,7 @@ src/extensions/dashboard/pages/{feature}/
   {feature}.extension.ts        # single wix generate scaffold — always exactly one route registered here
   {feature}.tsx                 # entry — Case A/C: see Section 1 below. Case B/D: see DRAFT_TEMPLATE_ROUTER.md
   {Feature}App.tsx              # Case B/D only — see DRAFT_TEMPLATE_ROUTER.md
-  {Feature}CollectionPage.tsx   # Case A, B, D — Section 2 below
+  {Feature}CollectionPage.tsx   # Case A, B, D — see DRAFT_TEMPLATE_COLLECTION.md
   {Feature}EntityPage.tsx       # Case B, D only — see DRAFT_TEMPLATE_ROUTER.md
   {Feature}SettingsPage.tsx     # Case C, D only — see DRAFT_TEMPLATE_SETTINGS.md
   {feature}-api.ts              # fetch/save calls — keep these out of the components
@@ -64,119 +64,9 @@ Case B/D's entry file differs — it needs `location` supplied manually for `Pat
 
 ## 2. Collection page — Case A, B, D
 
-This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: `SummaryBar`, a working filter, and a drill-in. Case A only gets the first drill-in tier, having no EntityPage route to escalate to.
-
-```tsx
-// {Feature}CollectionPage.tsx — Case A, B, D
-import { useState, type FC } from 'react';
-import {
-  CollectionEmptyState, CollectionErrorState, CollectionNoResultsState, CollectionSearch, CollectionToolbarFilters,
-  MultiSelectCheckboxFilter, SummaryBar, Table, stringsArrayFilter,
-  useStaticListFilterCollection, useTableCollection, type SummaryData,
-} from '@wix/patterns';
-import { CollectionPage } from '@wix/patterns/page';
-import { Box, SidePanel, Text } from '@wix/design-system'; // + Button for Case B/D
-// Case B/D only — Case A has no EntityPage route to navigate to, so no import, no button:
-import { usePatternsNavigate } from '@wix/patterns/router';
-import { fetch{Feature}Page, type {Entity}Row } from './{feature}-api';
-
-const STATUS_LABELS: Record<string, string> = { ACTIVE: 'Active', ARCHIVED: 'Archived' };
-// Filter factories are module-level: one instance per page, not per render.
-const statusFilter = stringsArrayFilter<'ACTIVE' | 'ARCHIVED'>({
-  name: 'Status',
-  itemKey: (item) => item,
-  itemName: (item) => STATUS_LABELS[item] ?? item,
-});
-
-export const {Feature}CollectionPage: FC = () => {
-  const [quickViewItem, setQuickViewItem] = useState<{Entity}Row | null>(null);
-  const { navigateToEntityPage } = usePatternsNavigate(); // Case B/D only
-
-  const state = useTableCollection<{Entity}Row, { status: typeof statusFilter }>({
-    queryName: '{feature}',
-    paginationMode: 'cursor', // 'offset' if your API pages by offset
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    filters: { status: statusFilter },
-    // Every declared filter AND the search box are read here — one that never
-    // reaches the query renders fine and narrows nothing.
-    fetchData: async (query) =>
-      fetch{Feature}Page({
-        limit: query.limit,
-        cursor: query.cursor, // cursor mode: `cursor` is a required string, '' when done
-        search: query.search,
-        filters: { status: query.filters.status },
-      }),
-    fetchErrorMessage: ({ err }) => (err instanceof Error ? err.message : 'Failed to load {feature}'),
-  });
-
-  const statusOptions = useStaticListFilterCollection(statusFilter, ['ACTIVE', 'ARCHIVED']);
-
-  // `state.keyedItems` is typed; `state.collection` is a stub — see TABLE_STATE.md.
-  const rows = state.keyedItems.map((keyed) => keyed.item);
-  const summaryData: SummaryData = [{ title: 'Total', value: String(rows.length) }];
-
-  return (
-    <>
-      <CollectionPage>
-        <CollectionPage.Header title={{ text: '{Page Title}' }} />
-        <CollectionPage.Content>
-          <Table
-            state={state}
-            summaryBar={
-              <SummaryBar
-                data={summaryData}
-                // NOT `showLoadingState`: it stays true at zero rows and the bar
-                // sticks on skeleton pills forever.
-                status={state.showErrorState ? 'error' : 'success'}
-                onRetry={() => state.retryErrorState()}
-              />
-            }
-            search={<CollectionSearch placeholder="Search {feature}" />}
-            filters={
-              <CollectionToolbarFilters>
-                <MultiSelectCheckboxFilter filter={statusFilter} collection={statusOptions} />
-              </CollectionToolbarFilters>
-            }
-            // Three distinct messages. Without errorState a failed query looks
-            // exactly like a slow one: skeletons, forever.
-            emptyState={<CollectionEmptyState title="No {feature} yet" />}
-            noResultsState={<CollectionNoResultsState />}
-            // errorState is a RENDER FUNCTION: (err, { retry }) => ReactElement.
-            errorState={(err, { retry }) => (
-              <CollectionErrorState
-                title="Couldn't load {feature}"
-                subtitle={String(err)}
-                action={{ text: 'Retry', onClick: retry }}
-              />
-            )}
-            onRowClick={(item) => setQuickViewItem(item)}
-            columns={[
-              // One column per field the prompt names; verify each source field —
-              // COLLECTION_TOOLKIT.md, "A column must show what its header promises."
-              { id: 'name', title: 'Name', render: (item) => item.name },
-            ]}
-          />
-        </CollectionPage.Content>
-      </CollectionPage>
-
-      {/* SidePanel has no built-in open state or portal — position it yourself. */}
-      {quickViewItem ? (
-        <Box style={{ position: 'fixed', top: 0, right: 0, height: '100%', zIndex: 1000 }}>
-          <SidePanel onCloseButtonClick={() => setQuickViewItem(null)}>
-            <SidePanel.Header title={quickViewItem.name} showDivider />
-            <SidePanel.Content>
-              <Text>{/* read-only glance fields — not the full form */}</Text>
-            </SidePanel.Content>
-            {/* Case B/D only — Case A ends here. Footer button:
-                navigateToEntityPage({ path: `/${quickViewItem.id}`, entity: quickViewItem }) */}
-          </SidePanel>
-        </Box>
-      ) : null}
-    </>
-  );
-};
-```
+In [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) — `useTableCollection`, a working
+filter, `SummaryBar` wired through `useSelector`, the four placeholder states, and the SidePanel
+drill-in. Shared by Cases A, B and D.
 
 ## 3. Settings page — Case C, D
 
