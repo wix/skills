@@ -148,20 +148,23 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 // Semantic search — ranks, never says "no match". The reduced hits come back inline AND the full
 // raw content is saved for grep/window follow-ups. { type } picks the corpus, one per request:
 // REST (default) · SKILLS · WIX_HEADLESS · SDK · VELO · CLI · WDS · BUILD_APPS · OVERVIEW ·
-// BUSINESS_SOLUTIONS. A REST search also runs SKILLS — the management recipes rank as their own
+// BUSINESS_SOLUTIONS. A REST search also runs SKILLS and WIX_HEADLESS — the management recipes rank as their own
 // hits, ahead of the methods, and land in the saved file whole. Each method hit lists the worked
 // requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
-async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST" } = {}) {
+async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST", headless = type === "REST" } = {}) {
   const ask = (document_type, maximum_results) =>
     post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
       // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
       // code example after the first 30 lines and the rest after 5, and every recipe at 20 —
       // the saved file would carry stubs instead of the requests and flows the hits point at
       { search_term: term, document_type, maximum_results, lines_in_each_result: lines });
-  const [main, skills] = await Promise.all([ask(type, max),
-    recipes ? ask("SKILLS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
+  const [main, skills, headlessDocs] = await Promise.all([ask(type, max),
+    recipes ? ask("SKILLS", 3).catch(() => null) : null,
+    headless ? ask("WIX_HEADLESS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
   const recipeText = skills?.content ? skills.content.trimEnd() + "\n" : "";
-  const content = recipeText + main.content;
+  const guideText = headlessDocs?.content || "";
+  const guideOffset = recipeText.length + main.content.length + 1;
+  const content = recipeText + main.content + "\n" + guideText;
   const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
   for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
   const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
@@ -211,23 +214,42 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
       .trim().replace(/\s+/g, " ").slice(0, 220),
     ...(examples.length && { examples }),
   }; }).filter(h => h.docsUrl);
+  let guideCursor = guideOffset;
+  const guideHits = guideText.split(/\n---\n+(?=#### )/).map(b => {
+    const start = content.indexOf(b, guideCursor); guideCursor = start + b.length;
+    return {
+      article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1],
+      docsUrl: (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
+      line: start < 0 ? 1 : lineAt(start),
+    };
+  }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
-  if (!hits.length && !recipeHits.length) return clip({ ...saved, head: content.slice(0, 1200),
+  if (!hits.length && !recipeHits.length && !guideHits.length) return clip({ ...saved, head: content.slice(0, 1200),
     note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
   // one URL, one row: a long article is indexed in chunks that rank separately, and a stray skills
   // page sits in the REST corpus, so the same page can rank two or three times
   const seen = new Set();
   const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
+  const guides = guideHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
   const uniq = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
+  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), ...(guides.length && { guides }), hits: uniq };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
   for (const shed of [() => recipeRows.forEach(r => delete r.calls),
                       () => recipeRows.forEach(r => delete r.steps),
                       () => uniq.forEach(h => { if (h.examples) h.examples = h.examples.slice(0, 3); }),
-                      () => uniq.forEach(h => delete h.examples)]) {
+                      () => uniq.forEach(h => delete h.examples),
+                      () => uniq.forEach(h => delete h.gist)]) {
     if (JSON.stringify(out).length <= BUDGET) break;
     shed();
+  }
+  // Keep a usable index for every corpus even when URL lengths exhaust the budget.
+  while (JSON.stringify(out).length > BUDGET) {
+    const rows = [uniq, recipeRows, guides].filter(r => r.length > 1)
+      .sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
+    if (!rows) break;
+    rows.pop();
+    out.note = "Additional results are in the saved file.";
   }
   return clip(out);
 }

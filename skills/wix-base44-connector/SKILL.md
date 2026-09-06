@@ -68,7 +68,7 @@ const wx = (() => { const m = { exports: {} };
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token)` — the site's full dynamic context report; inline when small, otherwise a saved Markdown file with a heading outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A REST search also ranks the **management recipes**, returned as their own `recipes` list ahead of the methods — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
+- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A default REST search also searches **WIX_HEADLESS** for integration guides (`guides`) and ranks the **management recipes**, returned as their own `recipes` list ahead of the methods — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
@@ -131,7 +131,8 @@ await wx.search("pause a pricing plan subscription and resume it");
 // → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
 
 // { type } picks the portal (default "REST" — the HTTP APIs this skill calls). Same query,
-// other corpus — search WIX_HEADLESS for headless/external client code (visitor auth,
+// focused corpus — default REST already includes Headless guides alongside methods and recipes.
+// Search WIX_HEADLESS alone for headless/external client code (visitor auth,
 // JS SDK, quick-starts). It returns article-style hits (method gists thin out) — read the saved path.
 await wx.search("mint a visitor token and read the current cart", { type: "WIX_HEADLESS" });
 ```
