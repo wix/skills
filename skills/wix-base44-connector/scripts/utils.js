@@ -151,28 +151,19 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 // BUSINESS_SOLUTIONS. A REST search also runs SKILLS and WIX_HEADLESS — the management recipes appear as recipe hits
 // alongside methods and articles, and land in the saved file whole. Each method hit lists the worked
 // requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
-async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST", headless = type === "REST" } = {}) {
-  const ask = (document_type, maximum_results) =>
-    post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
-      // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
-      // code example after the first 30 lines and the rest after 5, and every recipe at 20 —
-      // the saved file would carry stubs instead of the requests and flows the hits point at
-      { search_term: term, document_type, maximum_results, lines_in_each_result: lines });
-  const [main, skills, headlessDocs] = await Promise.all([ask(type, max),
-    recipes ? ask("SKILLS", 3).catch(() => null) : null,
-    headless ? ask("WIX_HEADLESS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
-  const recipeText = skills?.content ? skills.content.trimEnd() + "\n" : "";
-  const guideText = headlessDocs?.content || "";
-  const guideOffset = recipeText.length + main.content.length + 1;
-  const content = recipeText + main.content + "\n" + guideText;
+async function search(term, { type = "REST", max = 15, lines = 0, recipes = type === "REST", headless = type === "REST" } = {}) {
+  const document_types = [...new Set([type, ...(recipes ? ["SKILLS"] : []), ...(headless ? ["WIX_HEADLESS"] : [])])];
+  // Keep full documentation in the saved file; compact only the inline index.
+  const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+    { search_term: term, document_types, maximum_results: max, lines_in_each_result: lines });
   const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
   for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
   const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
   // recipes are articles — no "# Method:" header, no code-example delimiters, and no fixed body
   // shape. Two things every one of them has: headings, and the endpoints it calls. Those are the
   // outline — enough to tell whether this is the recipe for the task without reading 400 lines.
-  const recipeHits = !recipeText ? [] : recipeText.split(/\n---\n+(?=#### )/).map(b => {
-    const at = content.indexOf(b), rows = b.split("\n");
+  const parseRecipe = (b, at) => {
+    const rows = b.split("\n");
     const steps = [], calls = [];
     let verb = null;
     for (const t of rows) {
@@ -194,7 +185,7 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
              line: at < 0 ? 1 : lineAt(at), lines: rows.length,
              ...(steps.length && { steps: steps.slice(0, 6) }),
              ...(calls.length && { calls: calls.slice(0, 4) }) };
-  }).filter(h => h.docsUrl && h.recipe);
+  };
   const articleOutline = (block, start) => {
     const outline = [];
     let fenced = false, offset = 0;
@@ -209,13 +200,14 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
     }
     return outline;
   };
-  let cursor = recipeText.length;
-  const hits = main.content.split(/\n---\n+(?=#### )/).map(b => {
+  let cursor = 0;
+  const hits = content.split(/\n---\n+(?=#### )/).map(b => {
     const start = content.indexOf(b, cursor); cursor = start + b.length;
     const examples = [...b.matchAll(/--- Code Example: (.+?) ---/g)]
       .map(m => ({ title: m[1].trim(), line: lineAt(start + m.index) }));
     const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
     const method = (b.match(/^# Method: (.+)$/m) || [])[1];
+    if (!method && docsUrl && new URL(docsUrl).pathname.includes("/skills/")) return parseRecipe(b, start);
     // the REST corpus mixes guides in with the methods — an article has no method header, so
     // name it from its own title rather than returning a row of nulls
     if (!method) return { article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1], docsUrl,
@@ -232,32 +224,14 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
     })(),
     ...(examples.length && { examples }),
   }; }).filter(h => h.docsUrl);
-  let guideCursor = guideOffset;
-  const guideHits = guideText.split(/\n---\n+(?=#### )/).map(b => {
-    const start = content.indexOf(b, guideCursor); guideCursor = start + b.length;
-    return {
-      article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1],
-      docsUrl: (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1],
-      line: start < 0 ? 1 : lineAt(start),
-      outline: articleOutline(b, start),
-    };
-  }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
-  if (!hits.length && !recipeHits.length && !guideHits.length) return clip({ ...saved, head: content.slice(0, 1200),
-    note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
-  // one URL, one row: a long article is indexed in chunks that rank separately, and a stray skills
-  // page sits in the REST corpus, so the same page can rank two or three times
+  if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
+    note: `no result blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
+  // Keep the service's combined ranking/interleave; retain the first occurrence of each URL.
   const seen = new Set();
-  const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
-  const restRows = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const headlessRows = guideHits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const uniq = [...restRows, ...headlessRows];
-  const ordered = [];
-  // Two from each search in turn, retaining the service's order within each source.
-  const groups = [recipeRows, restRows, headlessRows];
-  for (let i = 0; i < Math.max(...groups.map(rows => rows.length)); i += 2) {
-    for (const rows of groups) ordered.push(...rows.slice(i, i + 2));
-  }
+  const ordered = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const recipeRows = ordered.filter(h => h.recipe);
+  const uniq = ordered.filter(h => !h.recipe);
   const out = { ...saved, hits: ordered };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
