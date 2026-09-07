@@ -33,10 +33,15 @@ The CLI manages a shared aggregator file (`data-collections.extension.ts`) that 
 
 ## Collection File Shape
 
-The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per the [Context-Based Permission Rules](#context-based-permission-rules) before shipping.
+The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per [Permissions](#permissions) before shipping.
+
+**Import `DataCollection` from the package this project actually uses.** A standalone
+`@wix/custom-extensions` project — what `wix generate` scaffolds today — emits
+`from '@wix/custom-extensions'`; only an Astro project uses `'@wix/astro/builders'`. The scaffolded
+file already has the right one: keep the import the CLI wrote and replace the body around it.
 
 ```typescript
-import type { DataCollection } from '@wix/astro/builders';
+import type { DataCollection } from '@wix/custom-extensions'; // or '@wix/astro/builders' in an Astro project
 
 export const collectionIdSuffix = '<CollectionName>';
 
@@ -143,6 +148,16 @@ For structured objects with a defined schema, list the nested fields inside `obj
 - **Uniqueness:** Declare a unique index in the collection's `indexes` array (see [Indexes](#indexes)). Uniqueness is an index-level concern, not a field-level one.
 
 ## Indexes
+
+An index is `{ fields: [{ path, order? }], unique? }` — and **nothing else**. There is no `name`:
+
+```ts
+indexes: [{ fields: [{ path: 'date', order: 'DESC' }], unique: false }]
+```
+
+`order` is `'ASC' | 'DESC'`. Read `DevCenterDataCollectionIndex` in the builders package if in doubt;
+a stray key is a compile error on the `satisfies DataCollection` literal.
+
 
 The `indexes` array on the collection accepts entries shaped like:
 
@@ -258,6 +273,26 @@ Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only
 - The `referencedCollectionId` MUST be the `idSuffix` of another collection in the same plan
 - **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
 - Use Wix SDK APIs to access Wix business entities instead
+
+## The extension does not create the collection
+
+Scaffolding the extension, compiling, and even releasing all leave the site's CMS unchanged.
+A collection appears only when the app is **installed or updated on the site** with a version that
+contains the extension — and any change under `data-collections/` needs a **major** version:
+
+```bash
+npx wix release --version-type major -c "<what changed>"
+```
+
+Releasing is only half of it. **Report both remaining browser steps under
+[Manual Steps Required](../SKILL.md#-manual-steps-required)** — they are the difference between a
+page that works and one that shows an empty table:
+
+1. Update the app on the site to the new version.
+2. Wait up to 5 minutes for propagation.
+
+A dev server running a version override does not create collections either, so "I ran `wix dev` and
+the collection isn't in the CMS" is this step, not a bug.
 
 ## App Version Updates
 

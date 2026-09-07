@@ -5,7 +5,7 @@
 
 ## The collection page
 
-This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: `SummaryBar`, a working filter, and a drill-in. Case A only gets the first drill-in tier, having no EntityPage route to escalate to.
+This is the file [Step 4c's UX Completeness Self-Audit](../../SKILL.md#step-4c-ux-completeness-self-audit) is about: a working filter, a drill-in, and — where the page earns one — a `SummaryBar`. **Delete the `summaryBar` prop when the page doesn't need an aggregate**; it is in the skeleton because wiring it correctly is fiddly, not because every page should carry one. Case A only gets the first drill-in tier, having no EntityPage route to escalate to.
 
 ```tsx
 // {Feature}CollectionPage.tsx — Case A, B, D

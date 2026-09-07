@@ -4,10 +4,10 @@
 
 Everything below is a real name in the installed `@wix/patterns`. Confirm the props before writing JSX by reading its doc from `dist/docs/index.json`. **A name missing from `dist/dts-bundle/index.json` is not a name that doesn't exist** — that index is a curated subset of the package's real exports, so check `dist/types/index.d.ts` before you conclude a component listed here is unavailable and reach for a substitute. `CollectionErrorState` is exactly this case: exported, usable, absent from the index.
 
-> **The two requirements below are not suggestions.** A page that renders a filtered table and nothing else is the single most common failure of a generated dashboard: it answers "what are all the records" and nothing about how many, which one needs attention, or why something happened. Measured runs produce exactly that page unless the requirement is stated.
+> **A page that renders a filtered table and nothing else is the most common failure of a generated dashboard** — it answers "what are all the records" and nothing about which one needs attention or why. Measured runs produce exactly that page unless the requirement is stated. So:
 >
-> 1. **A dashboard that reports on records shows aggregate numbers**, not only rows.
-> 2. **A dashboard whose rows represent real business records lets the user open one**, unless the prompt is explicitly a report or an export.
+> 1. **A dashboard whose rows are real business records lets the user open one** — required, unless the prompt is explicitly a report or an export.
+> 2. **A dashboard that reports on records usually shows aggregate numbers too** — a judgment call, not a rule. Add a `SummaryBar` when the page answers a "how many / how much" question its rows don't answer at a glance; leave it out of a short CRUD list or a rota, where the rows are the answer and a row of totals is just clutter. Be able to say which call you made.
 
 ## Understand — the aggregate
 
@@ -16,7 +16,7 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | Totals, counts, status breakdown above the table | `SummaryBar` |
 | Which subset the numbers describe | wire each metric to the collection's filter state so the count follows the filters |
 
-`SummaryBar` sits inside the page shell, above the collection. Compute the values from the same query the table uses, or a count query alongside it — a metric that disagrees with the visible rows is worse than no metric.
+`SummaryBar` sits inside the page shell, above the collection. Compute the values from the same query the table uses, or a count query alongside it — a metric that disagrees with the visible rows is worse than no metric, and so is a metric nobody asked for: three tiles that restate what the table already shows cost a reader more than they give.
 
 ## Focus — narrowing
 

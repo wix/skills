@@ -90,6 +90,15 @@ The example above is edit-only. "Add new" is an `EntityPage` too, and it is not 
 
 **If that file has no `Create route` heading, the installed `@wix/patterns` predates 1.464.0.** Upgrade and re-read rather than working around it: on those versions `navigateToEntityPage` types `entity` as required, so omitting it does not compile, and passing the placeholder that satisfies it is the failure the bullet above describes.
 
+## The card and the fields inside it
+
+`EntityPage.Card` extends WDS `CardProps` — **there is no `title` prop**. Give the card its heading
+with WDS content inside it, or use the section structure the page already provides.
+
+WDS field components are looked up, not recalled — a measured run lost two compile rounds to
+`NumberInput`, whose `onChange` is `(value: number | null, stringValue: string)` and which has no
+`width` prop. Invoke the `wix-design-system` skill for each field type before binding it.
+
 ## Around the call
 
 | Step | What owns it |

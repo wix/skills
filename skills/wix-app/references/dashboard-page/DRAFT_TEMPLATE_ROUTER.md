@@ -69,6 +69,35 @@ export const {Feature}App = withDashboard(() => (
 
 `{Feature}CollectionPage` here is the same component shown in [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) — include the `usePatternsNavigate`/"Open full record" parts marked Case B/D there. `{Feature}SettingsPage` (Case D) is [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md), unchanged.
 
+## 2b. The collection side of the handoff
+
+The router file above registers `/new`; something has to navigate there. All three of these live on
+the collection page, and `usePatternsNavigate` comes from **`@wix/patterns/router`** — not the root
+export, which is where it is easy to reach for it:
+
+```tsx
+import { PrimaryPageButton } from '@wix/patterns';
+import { usePatternsNavigate } from '@wix/patterns/router';
+
+const { navigateToEntityPage } = usePatternsNavigate<{Entity}>();
+const openNew = () => navigateToEntityPage({ path: '/new', entity: {} as {Entity} });
+
+// CollectionPage.Header — primaryAction takes an ELEMENT, not a { text, onClick } config:
+<CollectionPage.Header
+  title={{ text: '{Page Title}' }}
+  primaryAction={<PrimaryPageButton text="Add {entity}" onClick={openNew} />}
+/>
+
+// the empty state should offer the same action, and this one IS a config object:
+<CollectionEmptyState title="No {feature} yet" addNewCta={{ text: 'Add {entity}', onClick: openNew }} />
+
+// and a row opens the edit route:
+onRowClick={(item) => navigateToEntityPage({ path: `/${item.id}`, entity: item })}
+```
+
+The two shapes differ on purpose — `primaryAction` is an element, `addNewCta` is `{ text, onClick }`.
+Guessing either costs a compile round.
+
 ## 3. Entity page — one component for both `/new` and `/:id`
 
 Full call details (both generics, what `onSave` receives, the `UseEntityPageParams` pick list) are in [ENTITY_PAGE_TOOLKIT.md](ENTITY_PAGE_TOOLKIT.md) — read it before filling in fields. The part specific to this router-based shape:
