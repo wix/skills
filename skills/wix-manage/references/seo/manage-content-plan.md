@@ -13,6 +13,12 @@ All paths are relative to `https://www.wixapis.com/promote/seo/v1`.
 The API selects the site from the caller's authorization context.
 Writing requires the **Manage SEO Settings** permission.
 
+Keep every call scoped to the site the user selected. If site context cannot
+be resolved, report the lookup failure and request clarification; do not
+substitute another available site or change its business information. Missing
+context is not proof that the selected site does not exist. Likewise, unmet
+prerequisites do not authorize switching sites or inventing business data.
+
 ## Troubleshooting an existing flow
 
 `KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain

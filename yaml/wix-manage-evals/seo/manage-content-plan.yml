@@ -38,12 +38,20 @@ assertions:
       - said to keep polling or wait longer,
       - suggested the flow has failed or should be retried,
       - did not mention Create Content Plan at all.
+      Score 0 for an incorrect public URL. The release endpoint is
+      POST https://www.wixapis.com/promote/seo/v1/create-content-plan
+      with {"contentPlanFlowId":"<existing flow ID>"}; status is
+      GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}.
   - type: llm_judge
     minScore: 5
     maxTokens: 2048
     prompt: |
       Rate the agent's efficiency answering a question about a stuck
       content plan flow. Score 0-10.
+      Score 0 for any guessed endpoint/404, cancel/retrigger, site substitution,
+      or mutation without a known existing flow ID. No flow ID is supplied in
+      this scenario: explain the release request and ask for the existing ID
+      if execution is needed. Do not probe a collection endpoint to find it.
 
       HEAVY penalties (each costs 2-3 points):
       - told the user to keep waiting or retry
