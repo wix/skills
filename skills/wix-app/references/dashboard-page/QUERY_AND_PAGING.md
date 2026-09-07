@@ -26,8 +26,23 @@ grep -rho "https://[^)]*supported-filters[^)]*" node_modules/@wix/<pkg>/build/es
 more than the endpoint's prose implies — Query Extended Bookings' prose mentions filtering courses
 "by `scheduleId`", while its table also declares `serviceId` and the staff `resource.id` on both
 `bookedEntity` branches, and `contactDetails.contactId` / `.email`. Those are the difference between
-a page with two working filters and one with five. Many pages also carry a *Filter Performance*
-note naming the fields to include in every request — send them.
+a page with two working filters and one with five.
+
+**Honour the *Filter Performance* note.** Many pages carry one, naming fields to include in every
+request — Query Extended Bookings "strongly recommends" `startDate` in all of them. Don't satisfy it
+by hiding a clause in `fetchData`: a filter the user cannot see or clear makes rows go missing for no
+visible reason. Seed the visible filter instead, so the default is applied, labelled and adjustable:
+
+```ts
+const dateFilter = dateRangeFilter({
+  name: 'Date',
+  initialValue: { from: startOfDay(subDays(new Date(), 30)), to: null },
+});
+```
+
+`initialValue` is on every filter factory (`FilterStateBaseParams`), so the same trick seeds a status
+or category default. Pick a window that matches the page's job — a booking review wants recent and
+upcoming, an audit log wants the last 24 hours.
 
 Two traps the list resolves, both of which look like a working filter:
 

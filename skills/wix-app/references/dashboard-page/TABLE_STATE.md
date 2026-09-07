@@ -31,7 +31,8 @@ table's own view of the collection.
 | You want | Use | Notes |
 | --- | --- | --- |
 | The loaded rows | `state.keyedItems` | `KeyedItem<T>[]` — `.map((k) => k.item)` for the items |
-| Row count for a metric | `state.keyedItems.length` | Derived from the same rows the table renders |
+| Rows paged in so far | `state.keyedItems.length` | What the table currently renders — **not** the result size |
+| Rows matching the filters | `state.collection.total` | Getter; in cursor mode it is what `fetchTotal` returned |
 | Is the query failing | `state.showErrorState` | Boolean; pairs with `state.errorStatus` |
 | Retry after a failure | `state.retryErrorState()` | Method, not a property |
 | Nothing matched / nothing exists | `state.showEmptyState`, `state.hasAvailableItems` | Drives which placeholder to show |

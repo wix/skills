@@ -49,6 +49,9 @@ export const {Feature}CollectionPage: FC = () => {
         search: query.search,
         filters: { status: query.filters.status },
       }),
+    // Cursor mode: this is what fills `collection.total`, and its filter must match
+    // fetchData's or the headline number disagrees with the rows under it.
+    fetchTotal: async (query) => count{Feature}({ search: query.search, filters: query.filters }),
     fetchErrorMessage: ({ err }) => (err instanceof Error ? err.message : 'Failed to load {feature}'),
   });
 
@@ -58,8 +61,12 @@ export const {Feature}CollectionPage: FC = () => {
   // when the collection resolves and every metric below stays 0 — see TABLE_STATE.md.
   // Select a PRIMITIVE: a fresh array changes identity on every evaluation.
   const loadedCount = useSelector(() => state.keyedItems.length);
+  // `keyedItems` is what has been PAGED IN; `collection.total` is what MATCHES the
+  // filters (cursor mode fills it from fetchTotal). A headline metric counted from
+  // rows says "50" next to a filter matching 4,000 — label it or use the total.
+  const matchingTotal = useSelector(() => state.collection.total);
   const rows = useMemo(() => state.keyedItems.map((k) => k.item), [loadedCount]);
-  const summaryData: SummaryData = [{ title: 'Total', value: String(rows.length) }];
+  const summaryData: SummaryData = [{ title: 'Total', value: String(matchingTotal) }];
 
   return (
     <>

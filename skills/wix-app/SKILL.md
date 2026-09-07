@@ -459,7 +459,7 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 
 Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
 
-- [ ] `SummaryBar` (or an equivalent aggregate) literally appears in the file — unless the prompt is explicitly about a single record or is a report/export-only view.
+- [ ] `SummaryBar` (or an equivalent aggregate) literally appears in the file — unless the prompt is explicitly about a single record or is a report/export-only view. Its headline number counts what **matches the filters** (`state.collection.total`, fed by `fetchTotal`), not what has been paged in; any metric derived from `keyedItems` is labelled as such.
 - [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
 - [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
 - [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
