@@ -5,6 +5,43 @@ description: Trigger an AI content plan for a Wix site, poll to completion, and 
 
 # Generate and Read a Wix Site's Content Plan
 
+## Choose the request path before calling an API
+
+For a request to **generate a new plan**, follow the generation sequence below.
+For a request about an **existing flow**, use this branch instead; do not start
+the generation sequence or make a discovery call to look for the flow.
+
+`KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain
+that Create Content Plan (step 3) releases the existing flow; do not cancel it
+or trigger a replacement just because it is parked.
+First check whether the conversation or a prior response contains the actual
+`contentPlanFlowId`:
+
+- **Missing ID:** Explain the intentional pause and ask for the existing flow
+  ID. End the turn without making a status or release call. You can name the
+  release endpoint, `POST https://www.wixapis.com/promote/seo/v1/create-content-plan`,
+  but do not execute an example request. Placeholder text such as
+  `<YOUR_FLOW_ID>` is never an API argument.
+- **Known ID:** Use that actual flow UUID in the step 3 request's
+  `contentPlanFlowId` field to release the existing flow when requested.
+
+For example, when the user reports a flow parked at `KEYWORD_RESEARCH` but
+provides only a site ID, the next action is a reply, not an API call:
+
+> That status is an intentional pause. Create Content Plan releases the
+> existing flow. Please send the content plan flow ID from your trigger or
+> status response so I can use it in the release request.
+
+The user's reported status is enough to explain the pause; checking it first
+requires the very flow ID that is missing. A site ID is not a flow ID, even
+though both have UUID format.
+Do not guess a collection endpoint to discover the active flow.
+
+The complete status URL is
+`https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
+Use this exact public base path and substitute the known ID. Do not call
+`GET /content-plan-flows` without an ID or construct a URL from a service name.
+
 Trigger, poll, release, poll, read. That is the full loop. The API is
 asynchronous — generation takes minutes — and the flow **parks at
 `KEYWORD_RESEARCH` until you explicitly release it**.
@@ -28,30 +65,6 @@ context is not proof that the selected site does not exist or belongs to a
 different account. Say that its context could not be retrieved; do not claim
 that the user's site ID is invalid or offer replacement sites. Likewise, unmet
 prerequisites do not authorize switching sites or inventing business data.
-
-## Troubleshooting an existing flow
-
-`KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain
-that Create Content Plan (step 3) releases the existing flow; do not cancel it
-or trigger a replacement just because it is parked.
-First check whether the conversation or a prior response contains the actual
-`contentPlanFlowId`:
-
-- **Missing ID:** Explain the intentional pause and ask for the existing flow
-  ID. End the turn without making a status or release call. You can name the
-  release endpoint, `POST https://www.wixapis.com/promote/seo/v1/create-content-plan`,
-  but do not execute an example request. Placeholder text such as
-  `<YOUR_FLOW_ID>` is never an API argument.
-- **Known ID:** Use that actual flow UUID in the step 3 request's
-  `contentPlanFlowId` field to release the existing flow when requested.
-
-A site ID is not a flow ID, even though both have UUID format.
-Do not guess a collection endpoint to discover the active flow.
-
-The complete status URL is
-`https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
-Use this exact public base path and substitute the known ID. Do not call
-`GET /content-plan-flows` without an ID or construct a URL from a service name.
 
 ## Polling without losing progress
 
@@ -179,6 +192,12 @@ link; do not merely say that each brief contains a URL. Avoid repeating SEO
 titles and descriptions unless requested. If the answer must be shortened,
 label the displayed subset and total explicitly instead of claiming to show all
 topics. These are AI-generated suggestions; do not promise rankings or traffic.
+Assess the returned topics before recommending them: if they are repetitive,
+mostly restate the site name, or lack a clear connection to the site's business,
+say so plainly. Successful generation does not establish editorial quality.
+Still show the actual results; do not silently replace weak titles with invented
+ones or call them optimized without evidence. Explain what business context
+would help assess or refine them, without modifying the site's settings.
 
 ## Editing keywords (optional)
 
