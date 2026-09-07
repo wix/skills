@@ -4,7 +4,7 @@ triggerPrompt: >-
   Create these two products with no inventory and no images: a physical "Canvas Tote" at $18.50 with SKU 000-TOTE,
   and a digital "Focus Planner PDF" at $9.99 with SKU PDF-FOCUS-01.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 275000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

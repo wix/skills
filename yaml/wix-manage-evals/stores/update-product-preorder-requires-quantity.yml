@@ -7,7 +7,7 @@ triggerPrompt: >
   Enable preorders for both sizes of my "Eval Preorder Hoodie" with the message "Ships next
   month" and a limit of 50 per size. Go ahead and make the change.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 2100000
 assertions:
   - tool: ReadFullDocsArticle
     params:

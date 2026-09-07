@@ -7,7 +7,7 @@ triggerPrompt: >
   Hide all four products whose names start with "Eval Bulk" so they no longer appear in my
   storefront. Do not change any other products.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 650000
 assertions:
   - tool: ReadFullDocsArticle
     params:

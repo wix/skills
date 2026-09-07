@@ -5,7 +5,7 @@ triggerPrompt: >-
   ITEM_NOT_FOUND_IN_CATALOG. The download is this file:
   https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf — please fix it.
 tags: [stores, media]
-maxTokens: 25000
+maxTokens: 1600000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

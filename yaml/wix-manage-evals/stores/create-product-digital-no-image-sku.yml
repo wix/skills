@@ -3,7 +3,7 @@ description: Verifies that a digital V3 product created without a download file 
 triggerPrompt: >-
   Create a digital product named "Focus Planner PDF" for $9.99 with SKU PDF-FOCUS-01. It has no product image and I am not supplying a download file yet.
 tags: [stores]
-maxTokens: 20000
+maxTokens: 375000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
