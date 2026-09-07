@@ -274,6 +274,17 @@ Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only
 - **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
 - Use Wix SDK APIs to access Wix business entities instead
 
+## The site must have CMS, or nothing is created at all
+
+**The installing site needs the CMS (Content Manager) app.** Per the extension's own docs:
+"Without it, collections added by the extension won't appear after installation." Nothing warns
+you — the release succeeds, the update succeeds, and the collection silently never exists. Bundle
+CMS as an [app dependency](https://dev.wix.com/docs/build-apps/launch-your-app/market-listing/add-app-dependencies)
+so installing your app brings it, and list "add CMS to the site" under
+[Manual Steps Required](../SKILL.md#-manual-steps-required) for any site that may not have it.
+
+This is the first thing to check when a collection is missing after a correct release and update.
+
 ## The extension does not create the collection
 
 Scaffolding the extension, compiling, and even releasing all leave the site's CMS unchanged.
