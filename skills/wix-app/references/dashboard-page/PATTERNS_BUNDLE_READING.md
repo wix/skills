@@ -63,7 +63,7 @@ A plain `import { X } from '<module>'` at the top of a bundle, with no note atta
 
 If a name you genuinely need stays unresolved after that, stop and say so, and name the bundle and the exact import path that dead-ended. Do not guess a shape and do not go spelunking in `node_modules` — a wrong guess compiles here and breaks at runtime, which is worse than the missing type.
 
-A handful of names carry `"status": "unreachable"` with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
+A handful of names carry `"status": "unreachable"` — plus `"unexported": true` from **1.465.0** — with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
 
 `status` also carries `"deprecated"`, and there the `statusMessage` names the replacement — `PrimaryPageButton` says *"Use `PrimaryActions` component instead."* Check it before you commit to a name — nothing else in the lookup path will stop you, since a deprecated component still compiles and still renders. If the index calls a name deprecated, use what its message names instead.
 

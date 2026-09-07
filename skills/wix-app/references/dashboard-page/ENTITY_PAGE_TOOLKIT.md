@@ -43,6 +43,12 @@ collection route it points back to is registered at `path="/"`, not
 `path="/shifts"`, so `parentPath` must match that: `'/'`. See [Create
 route](#create-route) below for the full route registration.
 
+From **1.465.0** the library's own docs state this rule — `PatternsReactRouter.md`,
+`usePatternsNavigate.md` and `useEntityPage.md`'s **Create route**. On an older
+install they don't, and their examples *demonstrate* the mistake
+(`navigateToEntityPage({ path: '/shifts/new' })`, `navigateToCollectionPage({ path:
+'/entities' })`); prefer this rule over what those examples show.
+
 `EntityPage` and `useEntityPage` are **root** exports. `@wix/patterns/page` holds `CollectionPage` and `WidgetsFormProvider` only, so importing the entity page from there is `TS2305: has no exported member` — the collection page and the entity page do not live in the same place. `Read <pkgRoot>/dist/dts-bundle/exports/page.d.ts` to see what that subpath actually gives you.
 
 ## Name both generics

@@ -41,9 +41,9 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.464.0**+ — the lookups below assume it: 1.462.0 added `OffsetQuery` and fixed unreadable `@wix/bex-core` imports, and 1.464.0 documented `useEntityPage`'s create route. A missing *file* isn't the same as a name not being covered (see below) — the mechanism itself isn't available yet.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.465.0**+ — the lookups below assume it (`OffsetQuery`, `useEntityPage`'s create route, `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router paths). A missing *file* isn't the same as a name not being covered (see below).
 
-**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, including the sanctioned directories: never browse `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
+**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
 
 ## Library Architecture
 
@@ -75,18 +75,17 @@ Common types only; `dist/dts-bundle/index.json` has the authoritative set. Creat
 | Provider | When to Use |
 | --- | --- |
 | `WixPatternsProvider` | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza). |
-| `WixPatternsBMProvider` | Optional alternative for Yoshi BM Flow over Business Manager. |
-| `WixPatternsGizaProvider` | Optional alternative for Yoshi BM Flow over Giza. |
+| `WixPatternsBMProvider` / `WixPatternsGizaProvider` | Optional alternatives for Yoshi BM Flow (Business Manager / Giza). |
 | `WixPatternsEssentialsProvider` | Yoshi Fullstack. |
 | `WixPatternsBaseProvider` | App does **not** run under Giza/WixEssentials and you inject services (i18n, sentry) yourself. |
 
-**Confirm the import path in the provider's own bundle** — not all share a subpath (`WixPatternsEssentialsProvider`, `WixPatternsBaseProvider` are under `@wix/patterns/essentials`); the project's `package.json` identifies the flow.
+**Confirm the import path in the provider's own bundle** — not all share a subpath (`WixPatternsEssentialsProvider`, `WixPatternsBaseProvider` live under `@wix/patterns/essentials`).
 
 ### Keep Provider and Page Separate
 
-The provider **must** live in a parent component of the page content: hooks like `useTableCollection` need its context to already exist above them in the React tree.
+The provider **must** be a parent of the page content: hooks like `useTableCollection` need its context above them in the tree.
 
-**Wrong:** calling `useTableCollection` in the same component that renders `WixPatternsProvider` — the hook runs before the provider exists, so it throws at runtime even though the JSX nesting looks right.
+**Wrong:** calling `useTableCollection` in the component that renders `WixPatternsProvider` — the hook runs before the provider exists, so it throws at runtime even though the JSX looks right.
 
 **Correct — provider in root, page in a separate file:**
 ```tsx
@@ -124,7 +123,7 @@ function MyCollectionPage() {
 
 Keep the provider (and router, if any) in the app's root component and each page in its own file.
 
-For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router. Read `PatternsReactRouter.md` and `withDashboard.md` for setup — the router reads page location from the dashboard context `withDashboard` renders, so it needs that wrapper above it with a `location` prop, and throws at render time without them. (No `withDashboard` entry in `dist/docs/index.json`? The installed version predates that doc — use `PatternsReactRouter.md`'s **Requirements** section instead.)
+For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router. Read `PatternsReactRouter.md` and `withDashboard.md` for setup — the router reads page location from the dashboard context `withDashboard` renders, so it needs that wrapper above it with a `location` prop, and throws at render time without them. (it ships from **1.465.0**; no entry in `dist/docs/index.json` means an older install — use `PatternsReactRouter.md`'s **Requirements**.)
 
 ## How to Look Things Up
 
@@ -132,25 +131,25 @@ For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReact
 
 ### Finding the right name
 
-`Read <pkgRoot>/dist/dts-bundle/index.json` — one entry per name, grouped implicitly by its `category` field. Lookup is **exact-match only**: no fuzzy matching, no typo suggestions. If the exact key isn't there, scan the index you already hold for something close before concluding the name isn't covered.
+`Read <pkgRoot>/dist/dts-bundle/index.json` — one entry per name, grouped implicitly by its `category` field. Lookup is **exact-match only** — no fuzzy matching. If the exact key isn't there, scan the index you already hold for something close before concluding the name isn't covered.
 
-Not every real `@wix/patterns` export is in this index — only names these guides actually reference. If a needed name genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
+Not every real export is in this index — only names these guides reference. If a needed name genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
 
 ### Reading doc files
 
-`Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above: produced for every documented component, not just the curated ones.
+`Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above — every documented component, not just the curated ones.
 
 **Always check the import statement inside the doc** — not everything comes from `@wix/patterns` (some use subpaths, e.g. `@wix/patterns/provider`).
 
-A doc whose index entry has a `bundle` field does **not** list its props: its `### Props` points at that bundle instead. One without that field still carries its own table. Either way the doc owns the prose, variations, BI events, and import line.
+A doc whose index entry has a `bundle` field does **not** list its props — its `### Props` points at that bundle. One without it carries its own table. Either way the doc owns prose, variations, BI events, and the import line.
 
 ### Reading the file the index names
 
-The mechanics of the file an index names — types docs don't cover, one-line stubs that are answers rather than truncation, subpath entry points, cross-references, split compound-component docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
+The mechanics of the file an index names — types docs don't cover, one-line stubs that are answers rather than truncation, subpath entry points, cross-references, split compound docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
 
 ## The Collection → Entity Flow
 
-A collection page and its item form are **two patterns pages**, not a page plus a modal — hand-building the "add item" form as a dashboard modal is the most common way this goes wrong. Reserve modals for dialogs that neither write nor display a listed record (a delete or discard confirmation, an unsaved-changes prompt). **A create / "add new" form is not one of them** — it writes the record, so it's an `EntityPage` regardless of size or field count. A page that lists no records is outside this rule.
+A collection page and its item form are **two patterns pages**, not a page plus a modal. Reserve modals for dialogs that neither write nor display a listed record (a delete or discard confirmation, an unsaved-changes prompt); **a create / "add new" form is not one of them** — it writes the record, so it's an `EntityPage` regardless of size. A page that lists nothing is outside this rule — full test in [SKILL.md](../SKILL.md#entity-create-and-edit).
 
 | Step | What owns it |
 | --- | --- |
@@ -161,15 +160,13 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
 | The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
 
-Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves.
+Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves. **Every `path` above is page-relative**: the router roots at `path="/"` even on a page scaffolded `route: "shifts"`, so never repeat that name in a `path`, `parentPath`, or `navigateToEntityPage` call — it fails silently. See [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
-**Every `path` in that table is relative to this router's own mount point — the dashboard page's own root, not its `route` value from the scaffold.** A page scaffolded with `route: "shifts"` still roots its `PatternsReactRouter` at `path="/"`; reusing `"shifts"` as a path segment (`path="/shifts"`, `parentPath: '/shifts'`, `navigateToEntityPage({ path: '/shifts/new' })`) is the single most common way this table gets implemented wrong, and it fails silently — the collection route just never matches the page's actual initial location. See [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
-
-Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself — generics, `onSave`, params. Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
+Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself (generics, `onSave`, params). Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then, and only then:
+A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then:
 
 1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
 2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
