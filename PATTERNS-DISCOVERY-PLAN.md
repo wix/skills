@@ -277,9 +277,15 @@ else here — take it or drop it without affecting the rest.
 
 ## Phase B — release
 
-Version bump and publish through cairo's normal process. `master` is now at **`1.462.0`**
-(`1f9cb2f9ef`, released while this plan was being written), so the guides land in **≥ 1.463.0**. Note
-the exact published version at the time: Phase C's floor text needs it.
+Version bump and publish through cairo's normal process. Note the exact published version at the
+time: Phase C's floor text needs it.
+
+**`1.463.0` is not that release.** It was cut on 2026-09-07 from `4a9c0c6ed0` — docs fixes only, and
+Phase A's mechanism (cairo 2) was never written. Verified against the published tarball: no
+`category` under `Guides/Discovery` in `dist/docs/index.json` (its `Guides*` entries are
+`InMemoryBackend`, `Working with Cache`, `Next.js`, `Component Tests`, `Sled Tests`), and no entry
+anywhere carries `relatedComponents`. So C4's key probe would correctly reject it, and Phase C stays
+blocked.
 
 ---
 
