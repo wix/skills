@@ -78,7 +78,7 @@ urls are ready by the time you seed.
 
 ### Preview
 
-Preview briefly. Images that are still generating may show `/__generating__/…` placeholders;
+Images that are still generating may show `/__generating__/…` placeholders;
 the platform replaces these automatically at turn end, with a stock fallback if generation
 fails. You can finish without waiting for those images or replacing their placeholder URLs.
 
