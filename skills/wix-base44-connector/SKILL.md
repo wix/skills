@@ -284,8 +284,10 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 ```
 
 **Create redirect sessions with a visitor token minted for the headless OAuth app.**
-Set up the OAuth app even for an unpublished preview; anonymous visitors do not need to log in.
-Use an existing headless OAuth app's `clientId`, or create one with the admin connector token below.
+Use the OAuth app's `clientId` from `wx.context()`. If the report doesn't include an OAuth app
+and you need redirect sessions, create one with the admin connector token as shown below,
+then mint a visitor token from its `clientId`. This setup is required even for an unpublished
+preview; anonymous visitors do not need to log in.
 
 ```js
 // Use your app's actual destinations, including preview when supported.
