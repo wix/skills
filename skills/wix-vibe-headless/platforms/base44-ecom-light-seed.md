@@ -88,6 +88,8 @@ fails. You can finish without waiting for those images or replacing their placeh
 
 **Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
 
-## Follow-up changes
+## Additional Wix functionality
 
-For follow-up Wix requests, use the connector skill described in STEP 1.
+For any Wix functionality or changes not covered by the shipped code or seeding, during the
+initial build or later, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to discover APIs and implement the integration.
