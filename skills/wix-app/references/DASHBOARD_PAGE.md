@@ -1,6 +1,6 @@
 # Wix Dashboard Page Builder
 
-Dashboard pages appear in the site owner's Wix dashboard, where administrators manage data, configure settings, and perform admin tasks.
+Dashboard pages appear in the site owner's Wix dashboard, where admins manage data, configure settings, and perform admin tasks.
 
 ## Plan the Workflow Before the Components
 
@@ -33,7 +33,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell, so if you keep the path in a variable, set it again in every call.
+**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell — re-set the path variable in every call.
 
 ## Capabilities
 
@@ -62,11 +62,13 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** use a dashboard modal extension — never a React modal, never the WDS `Modal` component. Reserve it for dialogs that neither write nor display a record this app lists (delete/discard confirmations, unsaved-changes prompts, informational notices), plus any dialog on a page that lists nothing (settings, config). They open via `dashboard.openModal()`, which integrates them with the dashboard lifecycle, state management, and navigation — implementation guide: [Dashboard Modal reference](DASHBOARD_MODAL.md).
+Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** use a dashboard modal extension — never a React modal or the WDS `Modal` component. Reserve it for dialogs that neither write nor display a listed record (delete/discard confirmations, unsaved-changes prompts, notices), plus any dialog on a page that lists nothing (settings, config). They open via `dashboard.openModal()`, integrating with dashboard lifecycle, state, and navigation — see [Dashboard Modal reference](DASHBOARD_MODAL.md).
 
 > **🛑 The test — does the dialog create, update, or display one record this page lists?** If yes, it is an `EntityPage`, not a modal — whether those records come from a CMS collection or an existing Wix app's SDK. **A create / "add new" form is included**: it writes the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading, and it is the single most common way the patterns-first rule gets dropped after the table is already correct.
 >
-> The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not hand-roll page location state to fake a second view (`useState<PageLocation>`, a `location` cast on `withDashboard`); that is the router's job, and needing the cast is the signal you skipped it.
+> The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not hand-roll page location state to fake a second view (`useState<PageLocation>` as a stand-in for a route); that is the router's job, and needing it is the signal you skipped one.
+>
+> That's not a rule against `withDashboard`: the router **requires** it above itself and a `location` prop, which the page gets from `dashboard.observeState` (a Wix CLI app passes no props to dashboard pages). Skip it and `PatternsReactRouter` throws at open, though typecheck, bundling, and `wix preview` all pass. Read `<pkgRoot>/dist/docs/withDashboard.md`, or `PatternsReactRouter.md`'s **Requirements** section if that entry is missing from `dist/docs/index.json`.
 >
 > **If this page lists nothing** — a settings page, an embedded-script config page — the rule does not apply and a dashboard modal is a normal choice. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
 >
@@ -92,7 +94,7 @@ Each output below names the library that owns each part. Confirm every patterns 
 
 **Request:** "Create a dashboard page to manage blog posts"
 
-**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with the search, add/edit/delete row actions, and empty state supplied by the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and the fields inside the entity page's cards. The provider lives in a parent component, in a separate file from the hook call.
+**Output:** A `@wix/patterns` `CollectionPage` shell wrapping a `Table` driven by a collection state hook (`useTableCollection`), with search, row actions, and empty state from the collection's own APIs. Add and edit navigate to an `EntityPage` (`navigateToEntityPage` + `useEntityPage`). WDS only for the leaf UI inside cells and entity page cards. The provider lives in a parent component, in a separate file from the hook call.
 
 ### Settings Form
 
@@ -122,4 +124,4 @@ When an API specification is provided, you can call those endpoints — see [API
 
 Content layout inside the page shell — the 6px base unit, the 12-column grid, spacing tokens, form/display/marketing/wizard layouts: see [WDS Layout Reference](dashboard-page/WDS_LAYOUT.md).
 
-Remember the split: `@wix/patterns` owns the page shell and anything collection-shaped; that reference covers only the content you place inside it.
+Remember the split: `@wix/patterns` owns the shell and anything collection-shaped; that reference covers only content placed inside.
