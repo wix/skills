@@ -53,6 +53,11 @@ siteSetup:
             physicalLocations: []
             serviceLocations: []
             online: true
+      # Keyword research requires a primaryBaseUrl; template copies are drafts.
+      - label: publish disposable content plan fixture
+        method: post
+        url: https://www.wixapis.com/site-publisher/v1/site/publish
+        body: {}
       - label: set business context for content plan generation
         method: patch
         url: https://www.wixapis.com/site-properties/v4/properties
