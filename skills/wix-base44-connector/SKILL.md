@@ -68,7 +68,7 @@ const wx = require(require("path").resolve(P));
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token)` — the site's full dynamic context report; inline when small, otherwise a saved Markdown file with a heading outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. By default it searches REST docs, Headless articles, and management recipes together in one `hits` list. Recipe entries include their steps, the endpoints they call, and `file` when the wix-manage skill is on disk
+- `wx.search(term, { type, max, lines })` — ranked REST docs, Headless articles, and management recipes in one `hits` list; see the response type under Search and browse. Only method hits carry an endpoint.
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
@@ -117,11 +117,37 @@ await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.
 A recipe carries prerequisites, order, and gotchas that no method page has. `wx.search` ranks
 these same recipes in its `hits` list, so they surface either way.
 
-### Find a method — search and browse
+### Search and browse
+
+`wx.search` returns an object, not an array. Its ranked `hits` mix methods, articles,
+and recipes; identify each by its title field. Articles and recipes can explain the
+integration flow even though they have no method endpoint.
+
+```ts
+type Section = { title: string; line: number }; // 1-based line in the saved file
+type SearchHit = { docsUrl: string } & (
+  | { method: string; endpoint: string | null; gist?: string; examples?: Section[] }
+  | { article: string | null; line: number; outline?: Section[] }
+  | { recipe: string | null; line: number; lines: number;
+      file?: string; steps?: string[]; calls?: string[] }
+);
+type SavedSearch = { path: string; bytes: number; lines: number };
+type SearchResult =
+  | (SavedSearch & { hits: SearchHit[]; note?: string })
+  | (SavedSearch & { head: string; note: string }) // no result blocks parsed
+  | { truncated: true; total: number; head: string }; // final size-limit fallback
+```
+
+`path` holds the full returned Markdown. Optional details and then excess hits may be
+removed to fit the inline budget; missing details do not mean the source lacks them.
+A null title or endpoint means it was absent from the parsed source. Use `docsUrl`
+to read the page, or the saved file's line numbers to read articles and examples.
+
 
 ```js
 // name the method? search finds it in one call:
-await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB url", docsUrl, gist }]; call wx.<verb>(url, body, token); spec(docsUrl) for the full schema
+const result = await wx.search("stores v3 update product"); // SearchResult above
+// Keep all hit kinds; only a method hit has an endpoint to call and a schema for wx.spec.
 // exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
@@ -132,7 +158,7 @@ await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 
 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
-// → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
+// Same SearchResult: methods, articles, and recipes remain in ranked order.
 ```
 
 Products and their capabilities — the common ones, partial lists:
