@@ -30,12 +30,8 @@ the connector's, server-side only.
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
 base44/functions/… ──(admin token)───► wixapis.com   work that needs the owner's identity
-exec_tool          ──(caller's token)─► wixapis.com  use the identity required by the API
+exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
 ```
-
-**Create Redirect Session requires a visitor token minted for the site's headless OAuth app.**
-Use that token even when testing in `exec_tool` or calling from a backend function;
-the admin connector token cannot replace it.
 
 **A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the business solutions.
 Your app is the site's frontend — whether the site is headless (no pages of its own) or your
@@ -287,9 +283,9 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-Use an existing headless OAuth app's `clientId`, or create an OAuth app with the admin connector
-token as shown below. This setup is required for redirect sessions even in an unpublished preview.
-Mint an anonymous visitor token from that `clientId`; the visitor does not need to log in.
+**Create redirect sessions with a visitor token minted for the headless OAuth app.**
+Set up the OAuth app even for an unpublished preview; anonymous visitors do not need to log in.
+Use an existing headless OAuth app's `clientId`, or create one with the admin connector token below.
 
 ```js
 // Use your app's actual destinations, including preview when supported.
