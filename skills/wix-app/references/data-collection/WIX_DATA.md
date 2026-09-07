@@ -192,6 +192,125 @@ interface WixDataBulkError extends Error {
 }
 ```
 
+## Aggregation
+
+**Never compute a headline number by fetching rows and reducing them client-side.**
+`items.query().limit()` caps at 1000, so a `.reduce()` over the result silently reports the
+total for the first 1000 records and gives no warning that it is wrong. A `SummaryBar` fed
+that way is a metric that lies as soon as the collection grows — which is worse than
+showing no metric. Use `items.aggregate`; the server does the arithmetic over every
+matching row.
+
+### The chainable form — what a `SummaryBar` needs
+
+```ts
+import { items } from '@wix/data';
+
+const totals = await items
+  .aggregate('employee-shifts')
+  .filter(items.filter().eq('status', 'approved'))   // same predicate as the table
+  .sum('hours', 'totalHours')
+  .count('shiftCount')
+  .run();
+
+// `.run()` returns WixDataResult<Record<string, any>> — one row per group,
+// and a single row when there is no `.group()`.
+const row = totals.items[0] as { totalHours?: number; shiftCount?: number } | undefined;
+
+const summary = [
+  { title: 'Total hours', value: String(row?.totalHours ?? 0) },
+  { title: 'Shifts', value: String(row?.shiftCount ?? 0) },
+];
+```
+
+**Wire the aggregate to the same filters as the table.** A metric that disagrees with the
+visible rows is the defect this section exists to prevent — pass the collection's current
+filter state into `.filter()` and re-run the aggregate when it changes, exactly as
+`fetchData` does.
+
+### Grouping — a breakdown per value
+
+```ts
+const perEmployee = await items
+  .aggregate('employee-shifts')
+  .group('employeeName')
+  .sum('hours', 'totalHours')
+  .descending('totalHours')
+  .limit(5)
+  .run();
+
+const top = perEmployee.items as { employeeName: string; totalHours: number }[];
+```
+
+### `WixDataAggregate` — the chainable surface
+
+```ts
+interface WixDataAggregate {
+  // --- Grouping ---
+  group(...fields: string[]): WixDataAggregate;   // omit entirely for a whole-collection total
+
+  // --- Accumulators. `projectedField` names the output key; default is derived from the field ---
+  sum(field: string, projectedField?: string): WixDataAggregate;
+  avg(field: string, projectedField?: string): WixDataAggregate;
+  min(field: string, projectedField?: string): WixDataAggregate;
+  max(field: string, projectedField?: string): WixDataAggregate;
+  count(projectedField?: string): WixDataAggregate;
+
+  // --- Narrowing. `filter` runs before grouping, `having` after ---
+  filter(filter: WixDataFilter): WixDataAggregate;
+  having(filter: WixDataFilter): WixDataAggregate;
+
+  // --- Sorting and paging over the groups ---
+  ascending(...fields: string[]): WixDataAggregate;
+  descending(...fields: string[]): WixDataAggregate;
+  limit(limit: number): WixDataAggregate;
+  skip(skip: number): WixDataAggregate;
+
+  // --- Execute ---
+  run(options?: WixDataAggregateOptions): Promise<WixDataResult<Record<string, any>>>;
+}
+```
+
+`.run()` has no type parameter, so read its rows the same way you read a chainable
+`.find()`: cast once, at the boundary.
+
+### The object form, when you want the return type declared
+
+`items.aggregate` also takes a REST-shaped pipeline and is generic in the result:
+
+```ts
+interface ShiftTotals {
+  totalHours: number;
+}
+
+const res = await items.aggregate<ShiftTotals>('employee-shifts', {
+  stages: [
+    {
+      group: {
+        groupIds: [],                                     // [] = one group, the whole collection
+        accumulators: [
+          { resultFieldName: 'totalHours', sum: { expression: { fieldPath: 'hours' } } },
+        ],
+      },
+    },
+  ],
+});
+
+res.results[0];   // ShiftTotals | undefined  — note `results`, not `items`
+```
+
+Two things to know before reaching for it:
+
+- **`Result` is an assertion, not a check.** TypeScript does not verify that the pipeline
+  produces the shape you named, so a mismatch between `accumulators` and `Result` compiles
+  clean and fails at runtime. The chainable form's cast is no less safe.
+- **There is no `count` accumulator.** The object form offers only `avg`, `min`, `max`,
+  `sum`, `first`, `last` and `push`; to count, sum a constant
+  (`sum: { expression: { numeric: 1 } }`). The chainable `.count()` has no equivalent.
+
+Prefer the chainable form. Reach for the object form only when you need a pipeline stage the
+builder does not expose (`projection`, `unwindArray`, `objectToArray`, `cursorPaging`).
+
 ## Usage Examples
 
 ```typescript
@@ -258,7 +377,7 @@ const bulkResult = await items.bulkInsert("MyCollection", [
 
 | Operation | Required Scope |
 | --- | --- |
-| `get`, `query`, `count`, `distinct` | `SCOPE.DC-DATA.READ` |
+| `get`, `query`, `aggregate`, `count`, `distinct` | `SCOPE.DC-DATA.READ` |
 | `insert`, `update`, `save`, `remove`, `bulkInsert`, `bulkUpdate`, `bulkRemove` | `SCOPE.DC-DATA.WRITE` |
 
 ### Elevating permissions (backend only)

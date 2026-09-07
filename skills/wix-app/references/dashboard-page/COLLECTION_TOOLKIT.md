@@ -16,7 +16,9 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | Totals, counts, status breakdown above the table | `SummaryBar` |
 | Which subset the numbers describe | wire each metric to the collection's filter state so the count follows the filters |
 
-`SummaryBar` sits inside the page shell, above the collection. Compute the values from the same query the table uses, or a count query alongside it — a metric that disagrees with the visible rows is worse than no metric.
+`SummaryBar` sits inside the page shell, above the collection. Compute the values with `items.aggregate` — **not** by fetching rows and reducing them in the component. `items.query().limit()` caps at 1000, so a client-side `.reduce()` silently reports the total for the first 1000 records and never says it is wrong; a headline number that lies as the collection grows is worse than no metric. The recipe, with the `SummaryBar` case as its worked example: [WIX_DATA.md § Aggregation](../data-collection/WIX_DATA.md#aggregation).
+
+Pass the collection's current filter state into the aggregate's `.filter()` and re-run it when the filters change, so the numbers describe the rows on screen. A metric that disagrees with the visible rows is the other half of this failure.
 
 ## Focus — narrowing
 
