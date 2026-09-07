@@ -37,6 +37,14 @@ Use this exact public base path and substitute the known ID. Do not call
 
 ## Polling without losing progress
 
+Treat each numbered step below as a separate API execution, not sections of
+one script. Even a loop capped at 60 polls can outlive the execution timeout
+and lose the returned flow ID. A polling script must issue one GET and return
+`{ contentPlanFlowId, status }` immediately; decide the next action after that
+response. Never embed the trigger, polling loops, release, and candidate read
+in a single execution. Trigger and release are mutations: if the client asks
+whether an execution changes data, identify them as writes, not read-only.
+
 Generation waits on an external process. Do not put the entire generation in
 one long-running function, an unbounded `while` loop, or a busy-wait. Trigger
 once and return the flow ID immediately. Use separate, bounded status checks
