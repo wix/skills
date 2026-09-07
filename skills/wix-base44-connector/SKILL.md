@@ -30,8 +30,12 @@ the connector's, server-side only.
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
 base44/functions/… ──(admin token)───► wixapis.com   work that needs the owner's identity
-exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
+exec_tool          ──(caller's token)─► wixapis.com  use the identity required by the API
 ```
+
+**Create Redirect Session requires a visitor token minted for the site's headless OAuth app.**
+Use that token even when testing in `exec_tool` or calling from a backend function;
+the admin connector token cannot replace it.
 
 **A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the business solutions.
 Your app is the site's frontend — whether the site is headless (no pages of its own) or your
@@ -283,7 +287,9 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time):
+Use an existing headless OAuth app's `clientId`, or create an OAuth app with the admin connector
+token as shown below. This setup is required for redirect sessions even in an unpublished preview.
+Mint an anonymous visitor token from that `clientId`; the visitor does not need to log in.
 
 ```js
 // Use your app's actual destinations, including preview when supported.
@@ -293,7 +299,7 @@ const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
 
 // OAuth redirect configuration: exact login URLs versus domains for other returns.
 // https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains.md
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { accessToken: adminToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
   oAuthApp: {
     name: "My App",
@@ -302,7 +308,7 @@ const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-a
     // Returns from Wix-hosted flows: hostnames only, allowing URLs under each domain.
     allowedRedirectDomains: returnDomains,
   },
-}, accessToken);
+}, adminToken);
 const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend client above.
 
 // If destinations change later, update this OAuth app rather than creating another.
@@ -319,6 +325,7 @@ import { wix } from "@/lib/wixClient";
 // Flow prerequisites and supported intents:
 // https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
 export async function redirectToWix(intent, returnPath = "/") {
+  // wix sends the minted visitor token, never the admin connector token.
   // Pass the intent required by the selected flow's schema.
   const response = await wix("/headless/v1/redirect-session", {
     method: "POST",
