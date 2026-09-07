@@ -28,7 +28,9 @@ management tools, or do both.
 
 **A site for visitors** — use a visitor token for public reads and actions on behalf of the
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
-visitor client (Write the code, below). Anyone can mint an anonymous visitor token from the
+visitor client (Write the code, below). Redirect sessions for Wix-hosted flows also require a
+visitor token minted for the headless OAuth app; see Visitor authentication and Wix-hosted flows below.
+Anyone can mint an anonymous visitor token from the
 OAuth app's public `clientId`; no visitor login is required. APIs for the "current visitor"
 use that token to identify whose data and state to access. This applies both to a standalone
 headless frontend and to a frontend extending an existing Wix site.
