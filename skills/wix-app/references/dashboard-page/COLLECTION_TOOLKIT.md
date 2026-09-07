@@ -4,19 +4,25 @@
 
 Everything below is a real name in the installed `@wix/patterns`. Confirm the props before writing JSX by reading its doc from `dist/docs/index.json` — and if a name is missing from `dist/dts-bundle/index.json`, the installed version is older than this file; work from that inventory, not from memory.
 
-> **The two requirements below are not suggestions.** A page that renders a filtered table and nothing else is the single most common failure of a generated dashboard: it answers "what are all the records" and nothing about how many, which one needs attention, or why something happened. Measured runs produce exactly that page unless the requirement is stated.
+> **The requirement below is not a suggestion.** A page that renders a filtered table and nothing else is the single most common failure of a generated dashboard: it answers "what are all the records" and nothing about which one needs attention, or why something happened. Measured runs produce exactly that page unless the requirement is stated.
 >
-> 1. **A dashboard that reports on records shows aggregate numbers**, not only rows.
-> 2. **A dashboard whose rows represent real business records lets the user open one**, unless the prompt is explicitly a report or an export.
+> **A dashboard whose rows represent real business records lets the user open one**, unless the prompt is explicitly a report or an export.
 
 ## Understand — the aggregate
 
+Numbers above the table are the other half of "understand what matters", and worth adding — but they are **not** a requirement, because a headline number that is wrong is worse than one that is missing. Add the ones you can compute correctly, and leave out the rest.
+
 | Need | Component |
 | --- | --- |
-| Totals, counts, status breakdown above the table | `SummaryBar` |
+| Counts and status breakdown above the table | `SummaryBar` |
 | Which subset the numbers describe | wire each metric to the collection's filter state so the count follows the filters |
 
-`SummaryBar` sits inside the page shell, above the collection. Compute the values from the same query the table uses, or a count query alongside it — a metric that disagrees with the visible rows is worse than no metric.
+`SummaryBar` sits inside the page shell, above the collection. **Only show a number the server computed over the whole set.**
+
+- **A count is safe.** Pass `{ returnTotalCount: true }` to the same `.find()` the table runs and read `totalCount` off the result — the server counts every matching row, so it stays right past the first page. Types: [WIX_DATA.md](../data-collection/WIX_DATA.md) (`WixDataQueryOptions`, `WixDataResult`). Run the query again with a narrower filter for a per-status count.
+- **A sum or an average over fetched rows is not.** `items.query()` returns at most 1000 rows, so `.reduce()`-ing the result reports the total for the first 1000 records and never says it is wrong. Don't ship that number — omit the metric, or replace it with a count that answers the same question.
+- If the prompt explicitly asks for a total the query cannot compute, say so in the manual action items rather than shipping a capped figure.
+- Wire whatever you do show to the collection's filter state, so the numbers describe the rows on screen. A metric that disagrees with the visible rows is worse than no metric.
 
 ## Focus — narrowing
 
@@ -49,7 +55,7 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | **Expanded row** | A couple of extra fields, no separate workspace needed. | The collection's own row expansion |
 | **Picker / bulk confirm** | Choosing records, or confirming an action on many. | `PickerModal` + `usePickerModal`, `bulkActionModal` |
 
-A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md). A row the user cannot open is the second most common failure after the missing aggregate.
+A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md). A row the user cannot open is the failure the requirement at the top of this file exists to prevent.
 
 **Form state on an entity page** comes from `@wix/patterns/form` — `useForm` for the form, `useController` for a single field. That subpath re-exports `@wix/bex-core/form`, which wraps `react-hook-form`, so its API is react-hook-form's and only a handful of its names appear in the patterns docs: `FieldValues`, `ControllerProps` and most of the rest are documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` to see what the subpath actually gives you.
 
