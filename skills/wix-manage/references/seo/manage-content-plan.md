@@ -86,13 +86,19 @@ POST /content-plan-flows/trigger
 {}
 ```
 
-Returns `{ "contentPlanFlowId": "..." }`. Hold this ID.
+Returns `{ "contentPlanFlowId": "..." }`. Return this response and end this
+execution here. Save the ID in the conversation before making any status
+request. Do not append step 2 to the trigger script.
 
 ### 2. Poll until KEYWORD_RESEARCH
 
 ```
 GET /content-plan-flows/{contentPlanFlowId}
 ```
+
+Execute this GET once and return its response. This execution contains no
+`for`/`while` loop and no timer. Repeat it as a separate call when another
+status check is needed. Keep the response compact: flow ID and status suffice.
 
 The response is `{ "contentPlanFlow": { "id": "...", "status": "..." } }`.
 Read `contentPlanFlow.status`, not a top-level `status`. A missing status is a
@@ -130,7 +136,9 @@ response. If `false`, read `message`.
 
 ### 4. Poll until SUCCESS
 
-Same GET as step 2. Status walks `CONTENT_PLAN` → `SUCCESS`.
+Same single-GET execution as step 2, returning after each check. Status walks
+`CONTENT_PLAN` → `SUCCESS`. Read candidates in a subsequent execution after
+observing `SUCCESS`.
 
 ### 5. Read the briefs
 
