@@ -272,7 +272,7 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-You can test visitor APIs, including redirect sessions, directly in `exec_tool`. Mint a visitor
+If you need to test a visitor API, including redirect sessions, you can do so in `exec_tool`. Mint a visitor
 token and pass it to the API call so the test uses the same identity as the visitor frontend.
 Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md).
 For example, test a public read:
