@@ -13,13 +13,10 @@ before choosing the directory, handler type, or frontend URL.
 - Existing `@wix/astro` apps retain Astro routing. Do not add
   `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
   imports, or introduce `WIX_SERVER_BASE_PATH` to apply the Studio 2 recipe.
-- Wix CLI **headless sites** using Astro retain native Astro endpoints and their
-  existing site authentication, browser fetch, and deployment flow. Follow the
-  [wix-headless skill](../../wix-headless/SKILL.md) for that host. The app-extension
-  client and app-identity guidance below does not replace the headless contract.
-  Native Astro route creation does not require the app generator, the standalone
-  package minimum, or a CLI upgrade. Non-Astro headless sites keep their own
-  framework's routing.
+- **Headless sites:** follow the [wix-headless skill](../../wix-headless/SKILL.md).
+  Preserve framework routing, site authentication, browser fetch, and deployment.
+  Native Astro endpoints need no app generator, standalone package minimum, or CLI
+  upgrade; the app-extension client and identity rules below do not apply.
 
 ## Generate for the Project Type
 
@@ -49,25 +46,12 @@ changed dependencies before validating. If the installed app CLI does not recogn
 update to a CLI version that supports it. Do not install Astro into a standalone
 project merely to satisfy an outdated `APIRoute` import.
 
-## Use Cases
-
-Use HTTP endpoints when you need to:
-
-- Build REST APIs with multiple HTTP methods
-- Integrate with external APIs or services
-- Handle complex form submissions or file uploads
-- Serve dynamic content (images, RSS feeds, personalized data)
-- Access runtime data or server-side databases
-
 ## File Structure and Naming
 
-### Basic and Nested Endpoints
-
-The path relative to the runtime's endpoint directory determines the route:
+Nested paths are relative to the runtime's endpoint directory:
 
 | Standalone file | Route | Astro equivalent |
 | --- | --- | --- |
-| `src/endpoints/hello.ts` | `/hello` | `src/pages/api/hello.ts` → `/api/hello` |
 | `src/endpoints/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
 | `src/endpoints/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
 
@@ -99,10 +83,9 @@ export const GET: APIRoute = async ({ params }) => {
   const { id } = params; // From users/[id].ts in the endpoint directory
 
   if (!id) {
-    return new Response(JSON.stringify({ error: "ID required" }), {
+    return Response.json({ error: "ID required" }, {
       status: 400,
       statusText: "Bad Request",
-      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -136,22 +119,20 @@ export const POST: APIRoute = async ({ request }) => {
     const { title, content } = body;
 
     if (!title || !content) {
-      return new Response(
-        JSON.stringify({ error: "Title and content required" }),
+      return Response.json(
+        { error: "Title and content required" },
         {
           status: 400,
           statusText: "Bad Request",
-          headers: { "Content-Type": "application/json" },
         }
       );
     }
 
     return Response.json({ title, content });
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+    return Response.json({ error: "Invalid JSON" }, {
       status: 400,
       statusText: "Bad Request",
-      headers: { "Content-Type": "application/json" },
     });
   }
 };
@@ -166,45 +147,19 @@ const contentType = request.headers.get("Content-Type");
 
 ## Response Patterns
 
-Always return a `Response` object with proper status codes and headers:
+Return a `Response` from every handler path. `Response.json(body, { status })`
+serializes JSON and sets `Content-Type: application/json` automatically.
 
-```typescript
-// 200 OK
-return new Response(JSON.stringify({ data: result }), {
-  status: 200,
-  headers: { "Content-Type": "application/json" },
-});
+| Status | Use |
+| --- | --- |
+| 200 | Successful read or update (default) |
+| 201 | Resource created |
+| 204 | Success without a body: `new Response(null, { status: 204 })` |
+| 400 | Invalid request |
+| 404 | Resource not found |
+| 500 | Unexpected server failure; return a generic error |
 
-// 201 Created
-return new Response(JSON.stringify({ id: newId, ...data }), {
-  status: 201,
-  headers: { "Content-Type": "application/json" },
-});
-
-// 204 No Content (for DELETE)
-return new Response(null, { status: 204 });
-
-// 400 Bad Request
-return new Response(JSON.stringify({ error: "Invalid input" }), {
-  status: 400,
-  statusText: "Bad Request",
-  headers: { "Content-Type": "application/json" },
-});
-
-// 404 Not Found
-return new Response(JSON.stringify({ error: "Not found" }), {
-  status: 404,
-  statusText: "Not Found",
-  headers: { "Content-Type": "application/json" },
-});
-
-// 500 Internal Server Error
-return new Response(JSON.stringify({ error: "Internal server error" }), {
-  status: 500,
-  statusText: "Internal Server Error",
-  headers: { "Content-Type": "application/json" },
-});
-```
+For example: `Response.json({ error: "Not found" }, { status: 404 })`.
 
 ## Frontend Integration
 
@@ -260,7 +215,8 @@ JSON body, and `Content-Type: application/json`, provided the route exports POST
 
 ## Identity and Authorization
 
-Endpoints run as the **app**, so this is one of the few places `auth.elevate` is valid — it works only in backend code, never in a site, editor, or dashboard extension. It wraps the SDK method rather than being called around it, so inside a request handler you invoke the wrapper:
+`auth.elevate` works only in backend code. Wrap the SDK method, then invoke
+that wrapper inside the request handler:
 
 ```typescript
 import { auth } from "@wix/essentials";
@@ -270,11 +226,20 @@ const elevatedArchive = auth.elevate(locations.archiveLocation);
 const archived = await elevatedArchive(locationId); // locationId read from the request
 ```
 
-**Only create an endpoint for calls that need it.** Settle that with [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) *before* adding an endpoint — an endpoint wrapping a call the extension could have made itself is a correctness or privacy bug, not extra indirection, because elevating inside it re-targets a session-resolved call away from the visitor or hands back what the platform deliberately withheld.
+Before routing SDK calls through an endpoint, apply the
+[Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
+Keep visitor/session-resolved and caller-filtered calls in the frontend: elevation
+can change whose data is accessed or expose data the platform withheld.
 
-**Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself** — otherwise every caller who can reach it gets the elevated operation, and only `httpClient.fetchWithAuth()` (see [Frontend Integration](#frontend-integration)) sends the caller's identity for the handler to check; a bare `fetch` sends nothing and leaves the endpoint open.
+**Elevation bypasses Wix's permission check.** The endpoint must authorize the
+caller before invoking an elevated method. Use `httpClient.fetchWithAuth()` to
+send caller identity; a bare `fetch` does not supply that identity. Authentication
+alone does not grant permission to perform the operation.
 
-What you can establish depends on the host: a dashboard caller is a Wix user, whose roles already limit them. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
+Dashboard callers are Wix users. For site/editor callers, `members.getMyMember()`
+identifies a logged-in member but does not prove site ownership. Owner-only
+operations belong in a dashboard extension; do not expose them to site visitors
+on the assumption that member authentication proves ownership.
 
 ## Validate, Deploy, and Delete
 
@@ -283,10 +248,8 @@ What you can establish depends on the host: a dashboard caller is a Wix user, wh
    on the running dev/preview server and check the HTTP status and response
    body. In Studio 2 include the server base path. Also exercise the component's
    request when a frontend caller was requested.
-3. Confirm the URL construction works both with a dev prefix and with no prefix
-   for the released app. A successful build or installing a missing type package
-   does not prove that a file was discovered as a route. Report any runtime check
-   that could not be performed rather than claiming the endpoint works.
+3. Check URLs with a dev prefix and without one for release. A passing build
+   does not prove route discovery. Report any runtime check that could not run.
 4. Follow the host's deployment flow. Studio 2 manages its companion app's
    deployment; for a standalone CLI workflow use the normal build/preview/release
    commands when deployment is requested.
@@ -294,8 +257,4 @@ What you can establish depends on the host: a dashboard caller is a Wix user, wh
 To delete an endpoint, remove its file from the appropriate directory and apply
 that change through the same deployment flow. No `.use()` cleanup is needed.
 
-## Backend-API-specific Conventions
-
-- Preserve the generated handler type import for the project's runtime.
-- Return `Response` objects with appropriate HTTP status codes and JSON headers.
-- Validate input parameters and request bodies.
+Validate input parameters and request bodies before performing operations.
