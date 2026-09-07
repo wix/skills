@@ -280,12 +280,13 @@ else here — take it or drop it without affecting the rest.
 Version bump and publish through cairo's normal process. Note the exact published version at the
 time: Phase C's floor text needs it.
 
-**`1.463.0` is not that release.** It was cut on 2026-09-07 from `4a9c0c6ed0` — docs fixes only, and
-Phase A's mechanism (cairo 2) was never written. Verified against the published tarball: no
-`category` under `Guides/Discovery` in `dist/docs/index.json` (its `Guides*` entries are
-`InMemoryBackend`, `Working with Cache`, `Next.js`, `Component Tests`, `Sled Tests`), and no entry
-anywhere carries `relatedComponents`. So C4's key probe would correctly reject it, and Phase C stays
-blocked.
+**Nothing published so far is that release** — Phase A's mechanism (cairo 2) has not been written, so
+no release can carry the guides. Checked against the published tarballs of both versions cut on
+2026-09-07: `1.463.0` (docs fixes, from `4a9c0c6ed0`) and `1.464.0` (cairo#5852 alone — the
+`navigateToEntityPage` create-route fix, unrelated to this plan). In each, `dist/docs/index.json` has
+no `category` under `Guides/Discovery` — its `Guides*` entries are `InMemoryBackend`,
+`Working with Cache`, `Next.js`, `Component Tests`, `Sled Tests` — and not one of its 167 entries
+carries `relatedComponents`. C4's key probe would correctly reject both, and Phase C stays blocked.
 
 ---
 
