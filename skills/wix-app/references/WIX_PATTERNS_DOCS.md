@@ -145,7 +145,7 @@ A doc whose index entry has a `bundle` field does **not** list its props — its
 
 ### Reading the file the index names
 
-The mechanics of the file an index names — types docs don't cover, one-line stubs that are answers rather than truncation, subpath entry points, cross-references, split compound docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
+The mechanics of the file an index names — batching the reads, types docs don't cover, one-line stubs that are answers rather than truncation, subpath entry points, cross-references, split compound docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
 
 ## The Collection → Entity Flow
 
