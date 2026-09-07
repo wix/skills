@@ -1,6 +1,11 @@
 # Wix Data SDK Reference
 
-Complete reference for working with Wix Data collections.
+Reference for the Wix Data methods a dashboard app needs. `items` exposes roughly 34
+methods; the ones below are the ones you will use. **A method's absence from this file
+is not evidence it does not exist** — notably `aggregate`, `count`, `distinct`, `search`,
+`patch`, `bulkPatch`, `truncate`, the reference APIs and the `onDataItem*` events are all
+real. For one of those, `Read` the single file that declares the whole `items` surface:
+`@wix/wix-data-items-sdk/build/es/src/data-v2-data-item-items.public.d.ts`.
 
 ## Installation
 
@@ -22,18 +27,71 @@ It must be installed before TypeScript compilation will succeed.
 
 ## SDK Methods & Interfaces
 
+**Every row below is generic.** The `Item` type parameter is what makes a result narrow to
+your own interface instead of collapsing to `WixDataItem`, whose `[key: string]: any` index
+signature means a wrong field name is silently `any` rather than a compile error. Pass it.
+A plain `interface` satisfies the `Record<string, any>` constraint — no index signature needed
+on your own type.
+
 | Method Call | Import | TypeScript Signature | Description |
 | --- | --- | --- | --- |
-| `items.get()` | `import { items } from '@wix/data'` | `(collectionId: string, itemId: string, options?: WixDataGetOptions) => Promise<WixDataItem \| null>` | Get a single item by ID |
-| `items.query()` | `import { items } from '@wix/data'` | `(collectionId: string) => WixDataQuery` | Build a chainable query (call `.find()` to execute) |
-| `items.insert()` | `import { items } from '@wix/data'` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataInsertOptions) => Promise<WixDataItem>` | Add a new item to a collection |
-| `items.update()` | `import { items } from '@wix/data'` | `(collectionId: string, item: WixDataItem, options?: WixDataUpdateOptions) => Promise<WixDataItem>` | Replace an existing item (item MUST include `_id`) |
-| `items.save()` | `import { items } from '@wix/data'` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataSaveOptions) => Promise<WixDataItem>` | Insert or update (upsert) based on `_id` |
-| `items.remove()` | `import { items } from '@wix/data'` | `(collectionId: string, itemId: string, options?: WixDataRemoveOptions) => Promise<WixDataItem \| null>` | Remove an item by ID |
-| `items.bulkInsert()` | `import { items } from '@wix/data'` | `(collectionId: string, items: Partial<WixDataItem>[], options?: WixDataOptions) => Promise<WixDataBulkResult>` | Insert multiple items (max 1000) |
-| `items.bulkUpdate()` | `import { items } from '@wix/data'` | `(collectionId: string, items: WixDataItem[], options?: WixDataBulkUpdateOptions) => Promise<WixDataBulkResult>` | Update multiple items (max 1000) |
-| `items.bulkRemove()` | `import { items } from '@wix/data'` | `(collectionId: string, itemIds: string[], options?: WixDataBulkRemoveOptions) => Promise<WixDataBulkResult>` | Remove multiple items (max 1000) |
+| `items.get()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any> = WixDataItem>(collectionId: string, itemId: string, options?: WixDataGetOptions) => Promise<(Item & WixDataItem) \| null>` | Get a single item by ID |
+| `items.query()` — chainable | `import { items } from '@wix/data'` | `(collectionId: string) => WixDataQuery` | Build a chainable query (call `.find()` to execute). **Not generic** — see below |
+| `items.query()` — object form | `import { items } from '@wix/data'` | `<Item extends Record<string, any> = WixDataItem>(collectionId: string, queryRequest: WixDataQueryRequest, options?: WixDataQueryOptions) => Promise<WixDataQueryResponse<Item & WixDataItem>>` | **The only typed list path.** Returns `{ items, pagingMetadata }` |
+| `items.insert()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any>>(collectionId: string, item: Item, options?: WixDataInsertOptions) => Promise<Item & WixDataItem>` | Add a new item to a collection |
+| `items.update()` | `import { items } from '@wix/data'` | `<Item extends WithId>(collectionId: string, item: Item, options?: WixDataUpdateOptions) => Promise<Item & WixDataItem>` | Replace an existing item (item MUST include `_id`) |
+| `items.save()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any>>(collectionId: string, item: Item, options?: WixDataSaveOptions) => Promise<Item & WixDataItem>` | Insert or update (upsert) based on `_id` |
+| `items.remove()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any> = WixDataItem>(collectionId: string, itemId: string, options?: WixDataRemoveOptions) => Promise<(Item & WixDataItem) \| null>` | Remove an item by ID |
+| `items.bulkInsert()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any>>(collectionId: string, items: Item[], options?: WixDataBulkInsertOptions) => Promise<WixDataBulkResult>` | Insert multiple items (max 1000) |
+| `items.bulkUpdate()` | `import { items } from '@wix/data'` | `<Item extends WithId>(collectionId: string, items: Item[], options?: WixDataBulkUpdateOptions) => Promise<WixDataBulkResult>` | Update multiple items (max 1000) |
+| `items.bulkSave()` | `import { items } from '@wix/data'` | `<Item extends Record<string, any>>(collectionId: string, items: Item[], options?: WixDataBulkSaveOptions) => Promise<WixDataBulkResult>` | Upsert multiple items (max 1000) |
+| `items.bulkRemove()` | `import { items } from '@wix/data'` | `(collectionId: string, itemIds: string[], options?: WixDataBulkRemoveOptions) => Promise<WixDataBulkResult>` | Remove multiple items (max 1000). Not generic — takes IDs |
 | `items.filter()` | `import { items } from '@wix/data'` | `() => WixDataFilter` | Create a standalone filter (for use with `.or()`, `.and()`, `.not()`) |
+
+`search`, `patch` and `bulkPatch` follow the same two-form shape as `query`: a chainable
+builder from the one-argument call, and a generic `<Item>` promise from the object form.
+
+### Typing a list: which `query` to call
+
+```ts
+interface Shift {
+  employeeName: string;
+  date: Date;
+  hours: number;
+  status: string;
+}
+
+// ✅ Object form — typed end to end, no cast.
+const res = await items.query<Shift>('employee-shifts', {
+  filter: { status: 'approved' },
+  sort: [{ fieldName: 'date', order: 'DESC' }],
+  paging: { limit: 50, offset: 0 },
+});
+res.items;                   // (Shift & WixDataItem)[]
+res.pagingMetadata.total;    // number | undefined
+```
+
+**The chainable branch is untyped by design.** `WixDataQuery.find()` returns
+`Promise<WixDataResult>` with no type parameter anywhere on the builder, so there is no
+generic to pass and no way to make it narrow. Reach for it when you need the fluent filter
+operators (`.contains()`, `.hasSome()`, `.between()`, `.or()`), and cast once at the
+boundary — that cast is correct, not a workaround:
+
+```ts
+const result = await items
+  .query('employee-shifts')
+  .eq('status', 'approved')
+  .descending('date')
+  .limit(50)
+  .find({ returnTotalCount: true });
+
+const rows = result.items as (Shift & WixDataItem)[];   // the one sanctioned cast
+const total = result.totalCount;                        // undefined unless returnTotalCount
+const more = result.hasNext();                          // a method, not a property
+```
+
+Do not cast in the object form — there is nothing to cast, and a cast there hides a real
+mismatch.
 
 ## ⚠️ Common Wrong Method Names (DO NOT USE)
 
@@ -61,6 +119,14 @@ interface WixDataItem {
   [key: string]: any;    // custom fields from your collection schema
 }
 ```
+
+**`WixDataItem` is not importable from `@wix/data`'s root** — it lives on the `items`
+namespace. Reference it as `items.WixDataItem`, e.g.
+`type ShiftRecord = Shift & items.WixDataItem;`.
+
+That `[key: string]: any` is why the `Item` generic matters: on a bare `WixDataItem`, a
+misspelled field resolves to `any` with no error and no signal. Intersecting your own
+`interface` in — which every generic method above does for you — restores the check.
 
 ### WixDataResult (returned by `query().find()`)
 
@@ -197,52 +263,72 @@ interface WixDataBulkError extends Error {
 ```typescript
 import { items } from "@wix/data";
 
-// --- Get by ID ---
-const item = await items.get("MyCollection", "item-id-123");
-// Returns WixDataItem | null
+interface Shift {
+  employeeName: string;
+  date: Date;
+  hours: number;
+  status: string;
+}
 
-// --- Query with filters ---
-const result = await items.query("MyCollection")
+// --- Get by ID ---
+const shift = await items.get<Shift>("employee-shifts", "item-id-123");
+// shift: (Shift & WixDataItem) | null  — shift.hours is number, not any
+
+// --- Typed list (object form) ---
+const page = await items.query<Shift>("employee-shifts", {
+  filter: { status: "active" },
+  sort: [{ fieldName: "date", order: "DESC" }],
+  paging: { limit: 20, offset: 0 },
+});
+// page.items: (Shift & WixDataItem)[]; page.pagingMetadata.total: number | undefined
+
+// --- Chainable query, for the fluent filter operators ---
+const result = await items.query("employee-shifts")
   .eq("status", "active")
-  .gt("price", 10)
-  .ascending("name")
+  .gt("hours", 4)
+  .ascending("employeeName")
   .limit(20)
   .find();
-// result.items: WixDataItem[]
+const rows = result.items as (Shift & WixDataItem)[];   // no generic exists here — cast once
 
 // --- Compound query with or/and ---
 const filter1 = items.filter().eq("status", "pending");
 const filter2 = items.filter().eq("status", "active");
-const result = await items.query("MyCollection")
+const pending = await items.query("employee-shifts")
   .or(filter1)
   .or(filter2)
   .find();
 
-// --- Insert ---
-const created = await items.insert("MyCollection", {
-  title: "New Item",
-  price: 29.99,
+// --- Insert (Item is inferred from the argument; annotate to enforce the schema) ---
+const created = await items.insert<Shift>("employee-shifts", {
+  employeeName: "Ada",
+  date: new Date(),
+  hours: 8,
+  status: "active",
 });
+// created: Shift & WixDataItem  — created._id is string
 
 // --- Update (MUST include _id) ---
-await items.update("MyCollection", {
+await items.update<Shift & { _id: string }>("employee-shifts", {
   _id: "item-id-123",
-  title: "Updated Title",
-  price: 39.99,
+  employeeName: "Ada",
+  date: new Date(),
+  hours: 9,
+  status: "active",
 });
 
 // ❌ WRONG — three args
-await items.update("MyCollection", "item-id", { title: "x" });
+await items.update("employee-shifts", "item-id", { hours: 9 });
 // ✅ CORRECT — _id inside data object
-await items.update("MyCollection", { _id: "item-id", title: "x" });
+await items.update("employee-shifts", { _id: "item-id", hours: 9 });
 
 // --- Remove ---
-await items.remove("MyCollection", "item-id-123");
+await items.remove<Shift>("employee-shifts", "item-id-123");
 
 // --- Bulk Insert ---
-const bulkResult = await items.bulkInsert("MyCollection", [
-  { title: "Item 1" },
-  { title: "Item 2" },
+const bulkResult = await items.bulkInsert<Shift>("employee-shifts", [
+  { employeeName: "Ada", date: new Date(), hours: 8, status: "active" },
+  { employeeName: "Grace", date: new Date(), hours: 6, status: "active" },
 ]);
 // bulkResult.inserted: 2, bulkResult.insertedItemIds: [...]
 ```
