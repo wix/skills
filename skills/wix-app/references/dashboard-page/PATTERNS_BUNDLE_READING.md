@@ -65,6 +65,8 @@ If a name you genuinely need stays unresolved after that, stop and say so, and n
 
 A handful of names carry `"status": "unreachable"` with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
 
+`status` also carries `"deprecated"`, and there the `statusMessage` names the replacement — `PrimaryPageButton` says *"Use `PrimaryActions` component instead."* Check it before you commit to a name — nothing else in the lookup path will stop you, since a deprecated component still compiles and still renders. If the index calls a name deprecated, use what its message names instead.
+
 ## Subpath entry points
 
 `@wix/patterns` is 31 entry points, not one namespace, and `/form` re-exports `@wix/bex-core/form`. To see what's importable from a specific one: `Read <pkgRoot>/dist/dts-bundle/exports/<subpath>.d.ts` directly (`.` is `exports/index.d.ts`; a nested one like `./testkit/backend` is `exports/testkit/backend.d.ts`). This only lists the curated names covered above — a file with nothing in it (a one-line comment) means no curated name lives on that subpath yet, not that the subpath doesn't exist.

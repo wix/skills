@@ -54,9 +54,22 @@ Reaching for a `values`-shaped key on the `onSave` argument is the usual first g
 
 ## The params are a `Pick`
 
-`UseEntityPageParams` picks a fixed set off `EntityPageStateParams` — `fetch`, `onSave`, `saveSuccessToast`, `saveErrorToast`, `deleteAction`, `transformEntityToCollectionItem`, `isNewEntity`, `form`, `parentPageId`, `parentPath`, `parentReferrer`, `schemaSource`. Anything outside that list is an excess-property error on the object literal. `container` is the common guess and is not one of them: the hook calls `useWixPatternsContainer()` itself.
+`UseEntityPageParams` picks a fixed set off `EntityPageStateParams` — `fetch`, `onSave`, `saveSuccessToast`, `saveErrorToast`, `deleteAction`, `transformEntityToCollectionItem`, `isNewEntity` (create vs edit — [Create route](#create-route)), `form`, `parentPageId`, `parentPath`, `parentReferrer`, `schemaSource`. Anything outside that list is an excess-property error on the object literal. `container` is the common guess and is not one of them: the hook calls `useWixPatternsContainer()` itself.
 
-Confirm the shape rather than guessing — the hook's doc has an empty API section, because props tables only exist for components. `Read <pkgRoot>/dist/dts-bundle/index.json`, then `Read` the bundled `.d.ts` for each of `useEntityPage`, `UseEntityPageParams`, and `OnSaveParams` at exactly the `file` path the index gives.
+Confirm the shape rather than guessing — the hook's doc ends by pointing at the bundle rather than tabulating props, because props tables only exist for components. `Read <pkgRoot>/dist/dts-bundle/index.json`, then `Read` the bundled `.d.ts` for each of `useEntityPage`, `UseEntityPageParams`, and `OnSaveParams` at exactly the `file` path the index gives.
+
+## Create route
+
+The example above is edit-only. "Add new" is an `EntityPage` too, and it is not the same call with the id left out. Four things differ, and three of them fail silently if you guess:
+
+- The route is its own `PatternsReactRoute type="createEntity"`. One component can serve both entity routes; the route is what tells them apart.
+- `navigateToEntityPage({ path })` — omit `entity`. It exists so the header can render a title before the fetch resolves, and a create route has no record to give it. A placeholder is worse than nothing: until `fetch` resolves it *is* `state.entity`.
+- `fetch` is required on the create route too, and `{ entity: undefined }` is the create case built into its return type — not a loading state, and there is no `fetch`-less variant.
+- `isNewEntity` is the only param that tells the page which route it is on. Omitted, a create page that seeds defaults through `fetch` is announced to the collection as an *update*: the collection changes a row it does not have, the new record never appears in the list, and the only trace is a `Fetched page info for updated entity not found` console error.
+
+`Read <pkgRoot>/dist/docs/useEntityPage.md` before writing one — its **Create route** section carries the worked component that serves both routes off one `useParams` answer, and the `boolean | (() => boolean)` getter form for `isNewEntity`.
+
+**If that file has no `Create route` heading, the installed `@wix/patterns` predates 1.464.0.** Upgrade and re-read rather than working around it: on those versions `navigateToEntityPage` types `entity` as required, so omitting it does not compile, and passing the placeholder that satisfies it is the failure the bullet above describes.
 
 ## Around the call
 

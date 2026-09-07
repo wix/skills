@@ -41,7 +41,7 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.462.0**+ — the lookups below assume it: 1.460.0 stopped docs repeating bundle props, and 1.462.0 added `OffsetQuery` and fixed unreadable `@wix/bex-core` imports. A missing *file* isn't the same as a name not being covered (see below) — the mechanism itself isn't available yet.
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.464.0**+ — the lookups below assume it: 1.462.0 added `OffsetQuery` and fixed unreadable `@wix/bex-core` imports, and 1.464.0 documented `useEntityPage`'s create route. A missing *file* isn't the same as a name not being covered (see below) — the mechanism itself isn't available yet.
 
 **Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, including the sanctioned directories: never browse `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
 

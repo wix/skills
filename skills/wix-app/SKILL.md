@@ -163,7 +163,7 @@ This is the most common place the selection order gets dropped: the collection g
 
 The documented flow:
 
-1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
+1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.) On the **create** route there is no record to pass: omit `entity` and see [ENTITY_PAGE_TOOLKIT.md § Create route](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md#create-route), which is what the whole "add new" flow turns on.
 2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
 3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
