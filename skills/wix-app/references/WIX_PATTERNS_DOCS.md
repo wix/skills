@@ -35,13 +35,32 @@ try {
 
 A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when installed — run the whole snippet, not a shortened version.
 
-Then confirm the installed version actually ships the bundle index:
+Then confirm the install is new enough, in two checks.
+
+**The file check.** The type bundles ship from **1.458.0**:
 
 ```bash
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.465.0**+ — the lookups below assume it (`OffsetQuery`, `useEntityPage`'s create route, `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router paths). A missing *file* isn't the same as a name not being covered (see below).
+**The guide check — this is the one that matters.** The chain below reads the library's own
+guides, and they arrive as *entries inside* `dist/docs/index.json`, not as a new directory, so
+their absence cannot be seen by looking for a file. After step 1 reads that index, look for a
+**`Collection Toolkit`** key in what you already hold.
+
+**If either check fails, stop and upgrade `@wix/patterns` — do not work around it.** On an
+install without the guides, the answer to "which component serves this need" is in neither
+place: it used to live in this skill and now lives in the package, so proceeding means
+guessing component names, which is exactly the failure this chain exists to prevent. Do not
+look elsewhere in `node_modules` for a substitute.
+
+The guides ship from **1.466.0**; the key probe, not that number, is what decides — a later
+first release only moves the number, while the probe stays correct. The rest of the chain also
+assumes **1.465.0**+ (`OffsetQuery`, `useEntityPage`'s create route and typing rule,
+`withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router
+paths).
+
+A missing *file* is not the same as a name not being covered — see below.
 
 **Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
 
