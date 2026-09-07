@@ -1,6 +1,6 @@
 # Storefront — seeding
 
-Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
+Seed a Wix Stores catalog by **calling `seed-store.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 Pass only the connector token and catalog data. The module handles site configuration internally;
@@ -13,11 +13,7 @@ the `pricing-plans` vertical, not here.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
 const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept

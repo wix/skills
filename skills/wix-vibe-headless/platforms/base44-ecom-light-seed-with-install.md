@@ -61,8 +61,8 @@ user-owned business, so never delete or overwrite existing content, even apparen
 cleanup truly seems needed, ask the user first.
 
 Seed by calling the storefront's ready-made seed module — read
-`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.js` via
-its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
+`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.cjs` with
+`require()` as shown there (build-time exec_tool); call its functions with your data. Gaps or an unexpected
 shape → the documentation skill available in your environment.
 
 **Auth for these admin calls is the already-configured Wix headless connector — nothing else.** Get its

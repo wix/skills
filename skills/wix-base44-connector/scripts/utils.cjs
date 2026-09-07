@@ -3,11 +3,10 @@
 // back as { path, bytes, lines, outline } with the read tools pre-pointed at it.
 //
 // Load per exec (execs share no state) — from disk, network only as first-touch fallback:
-//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.cjs";
 //   if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
-//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
-//   const wx = (() => { const m = { exports: {} };
-//     new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
+//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.cjs")).text()); }
+//   const wx = require(require("path").resolve(P));
 //
 // Read a saved file the way you already know how: wx.bash("grep -n 'term' <path> | head -40")
 // to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
