@@ -24,7 +24,9 @@ the site.
 Keep every call scoped to the site the user selected. If site context cannot
 be resolved, report the lookup failure and request clarification; do not
 substitute another available site or change its business information. Missing
-context is not proof that the selected site does not exist. Likewise, unmet
+context is not proof that the selected site does not exist or belongs to a
+different account. Say that its context could not be retrieved; do not claim
+that the user's site ID is invalid or offer replacement sites. Likewise, unmet
 prerequisites do not authorize switching sites or inventing business data.
 
 ## Troubleshooting an existing flow
@@ -32,19 +34,18 @@ prerequisites do not authorize switching sites or inventing business data.
 `KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain
 that Create Content Plan (step 3) releases the existing flow; do not cancel it
 or trigger a replacement just because it is parked.
-Include this actionable request in the explanation, substituting the existing
-flow ID when known:
+First check whether the conversation or a prior response contains the actual
+`contentPlanFlowId`:
 
-```http
-POST https://www.wixapis.com/promote/seo/v1/create-content-plan
-Content-Type: application/json
+- **Missing ID:** Explain the intentional pause and ask for the existing flow
+  ID. End the turn without making a status or release call. You can name the
+  release endpoint, `POST https://www.wixapis.com/promote/seo/v1/create-content-plan`,
+  but do not execute an example request. Placeholder text such as
+  `<YOUR_FLOW_ID>` is never an API argument.
+- **Known ID:** Use that actual flow UUID in the step 3 request's
+  `contentPlanFlowId` field to release the existing flow when requested.
 
-{"contentPlanFlowId":"<existing flow ID>"}
-```
-
-Use the existing `contentPlanFlowId` from the conversation or a prior response.
-If it is unavailable, explain the release request and ask for that flow ID
-before attempting a status check or release. A site ID is not a flow ID.
+A site ID is not a flow ID, even though both have UUID format.
 Do not guess a collection endpoint to discover the active flow.
 
 The complete status URL is
