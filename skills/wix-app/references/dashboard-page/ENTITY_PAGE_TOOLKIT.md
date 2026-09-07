@@ -60,67 +60,14 @@ Confirm the shape rather than guessing — the hook's doc has an empty API secti
 
 ## Create route
 
-The example above is edit-only. "Add new" is an `EntityPage` too, and it is not the same call with the id left out — four pieces differ, each one covering a distinct failure.
+The example above is edit-only. "Add new" is an `EntityPage` too, and it is not the same call with the id left out. Four things differ, and three of them fail silently if you guess:
 
-**Register it as its own route, typed `createEntity`.** One component can serve both entity routes; the route is what tells them apart.
+- The route is its own `PatternsReactRoute type="createEntity"`. One component can serve both entity routes.
+- `navigateToEntityPage({ path, entity })` types `entity` as required, with no create-shaped overload — so pass an empty value of the entity type, with empty fields: it *is* `state.entity` until `fetch` resolves.
+- `fetch` is required on the create route too, and `{ entity: undefined }` is the create case built into its return type — not a loading state, and there is no `fetch`-less variant.
+- `isNewEntity` is the only param that tells the page which route it is on. Omitted, a create page that seeds defaults through `fetch` is announced to the collection as an *update*: the collection changes a row it does not have, the new record never appears in the list, and the only trace is a console error.
 
-```tsx
-<PatternsReactRoute type="collection"   path="/shifts"          element={<ShiftsCollectionPage />} />
-<PatternsReactRoute type="createEntity" path="/shifts/new"      element={<ShiftEntityPage />} />
-<PatternsReactRoute type="editEntity"   path="/shifts/:shiftId" element={<ShiftEntityPage />} />
-```
-
-`RouteType` is `'collection' | 'createEntity' | 'editEntity' | 'other'` — `Read <pkgRoot>/dist/dts-bundle/components/PatternsReactRoute.d.ts`.
-
-**Navigating there still needs an `entity`, and you have no record yet.** `navigateToEntityPage({ path, entity })` types `entity` as a required `T` (`dist/dts-bundle/hooks/usePatternsNavigate.d.ts`), with no create-shaped overload. Pass an empty value of the entity type:
-
-```tsx
-const BLANK_SHIFT: Shift = { id: '', name: '' };
-
-<PrimaryActions
-  label="Add Shift"
-  prefixIcon={<Add />}
-  onClick={() => navigateToEntityPage({ path: '/shifts/new', entity: BLANK_SHIFT })}
-/>
-```
-
-The argument goes into router state and the entity page header reads it, which is why the title and subtitle render immediately instead of waiting on the fetch — the same reason to prefer `navigateToEntityPage` over a plain route change on the edit path. Keep the placeholder's fields empty: it *is* `state.entity` until `fetch` resolves.
-
-**`fetch` is required, and `{ entity: undefined }` is the create answer.** Its type is `() => Promise<{ entity: T | undefined }>`; the `undefined` is that case, not a loading state. There is nothing to load, so resolve straight away rather than reaching for a `fetch`-less variant that does not exist.
-
-**Set `isNewEntity`.** It is the only param that tells the page which route it is on. Omitted, the page infers from data — an entity is loaded, so this must be an edit — and a create page that seeds local defaults through `fetch` is then announced to the collection as an *update*. The collection changes a row it does not have instead of adding one: the new record never appears in the list, and the only trace is a console error about page info for the updated entity not being found. Its docstring says as much (`dist/dts-bundle/types/UseEntityPageParams.d.ts`): the flag "decides how a save is announced to the parent page — created vs updated — so a new item seeded with local defaults is still announced as created."
-
-Together, on the component that serves both routes:
-
-```tsx
-const { shiftId } = useParams<{ shiftId?: string }>();
-const isNewEntity = !shiftId;
-
-const state = useEntityPage<Shift, ShiftFormFields>({
-  isNewEntity,
-  fetch: () =>
-    shiftId
-      ? api.getShift(shiftId).then((entity) => ({ entity }))
-      : Promise.resolve({ entity: undefined }),
-  onSave: async ({ widgetsFormData }) => {
-    const values = { ...form.getValues(), ...widgetsFormData };
-    const updatedEntity = shiftId
-      ? await api.updateShift(shiftId, values)
-      : await api.createShift(values);
-    return { updatedEntity };
-  },
-  saveSuccessToast: isNewEntity ? 'Shift added' : 'Shift updated',
-  ...(isNewEntity ? {} : { deleteAction: { onDelete: (shift: Shift) => api.deleteShift(shift.id!) } }),
-  form,
-  parentPath: '/shifts',
-});
-```
-
-`onSave` returns `{ updatedEntity }` on both branches — the key does not change name for an insert. Spread `deleteAction` in only on the edit route; a record that does not exist yet has no delete. The header title is the same conditional: `isNewEntity ? 'Add Shift' : entity?.name`.
-
-`useEntityPage` reads its params once, in a `useState` initializer, so a boolean `isNewEntity` is fixed at mount. That is what you want when each route mounts its own page. Pass the getter form — `isNewEntity?: boolean | (() => boolean)` — reading a live source when a single mounted page survives the route change instead.
-
-> Written against the installed `@wix/patterns`. `BLANK_SHIFT` exists only to satisfy the required `entity`; if a later version makes that param optional, drop it and pass `path` alone. Re-read `usePatternsNavigate.d.ts` before assuming either way.
+`Read <pkgRoot>/dist/docs/useEntityPage.md` before writing a create route — its **Create route** section carries the worked two-route component, the reason `entity` is required at all, and the `boolean | (() => boolean)` getter form. Written against the installed version, so it is also what tells you whether `entity` is still required.
 
 ## Around the call
 
