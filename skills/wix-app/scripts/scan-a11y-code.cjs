@@ -3,9 +3,9 @@
 
 // oxlint-disable no-console no-shadow preserve-caught-error
 
-const fs = require('fs');
-const path = require('path');
-const { createRequire } = require('module');
+const fs = require('node:fs');
+const path = require('node:path');
+const { createRequire } = require('node:module');
 
 const ROOT = process.cwd();
 const LOCAL_REQUIRE = createRequire(__filename);

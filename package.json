@@ -12,6 +12,7 @@
     "url": "https://github.com/wix/skills/issues"
   },
   "scripts": {
+    "lint:skill-scripts": "npx --yes oxlint@1.79.0 -A all -D unicorn/prefer-node-protocol --format json skills/wix-app/scripts skills/wix-design-system/scripts",
     "version": "node .github/scripts/sync-plugin-versions.mjs && git add .claude-plugin/plugin.json .codex-plugin/plugin.json .cursor-plugin/plugin.json plugin.json gemini-extension.json"
   },
   "files": [

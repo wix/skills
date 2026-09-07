@@ -3,8 +3,8 @@
 
 // oxlint-disable no-console preserve-caught-error
 
-const path = require('path');
-const { createRequire } = require('module');
+const path = require('node:path');
+const { createRequire } = require('node:module');
 
 const ROOT = process.cwd();
 const LOCAL_REQUIRE = createRequire(__filename);
