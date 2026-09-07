@@ -55,11 +55,10 @@ reload each round; the module lives on disk next to this file, network only as f
 fallback):
 
 ```js
-const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.cjs";
 if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
-  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
-const wx = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
+  fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.cjs")).text()); }
+const wx = require(require("path").resolve(P));
 ```
 
 `wx` exports these helpers:

@@ -6,7 +6,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44 (generic: use $TOKEN)
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/restaurants/seed/seed-restaurants.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/restaurants/seed/seed-restaurants.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   // --- MENU (always; the seedable core) ---

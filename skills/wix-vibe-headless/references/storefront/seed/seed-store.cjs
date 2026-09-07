@@ -5,7 +5,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
 //   const ctx = { token: accessToken }; // Installation reads the site ID from the deployed Wix config.
 //   await seed.installStoresApp(ctx);
 //   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
