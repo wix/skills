@@ -30,6 +30,14 @@ Follow STEPs 1–3 below exactly (run STEP 2 in parallel with STEP 1).
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
+The shipped storefront provides catalog, cart, and checkout. Identify the additional workflows
+in the user's request and implement them alongside the storefront. If a workflow needs an
+external service or missing information, continue the work you can complete and identify the
+remaining dependency.
+
+For Wix features beyond the shipped storefront, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to discover APIs and implement the integration.
+
 Build the client using the component outlines, interfaces, and theme guidance in `INSTRUCTIONS.md`.
 The shipped files are already deployed and configured; you do not need to read their source or
 rebuild them. If you encounter an error after building the client, read or change whatever you
@@ -70,18 +78,17 @@ urls are ready by the time you seed.
 
 ### Preview
 
+Test the user's main workflow in the preview, including functionality beyond browsing and
+adding products to the cart. Report checks that could not be completed.
+
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
 ### Final text response
 
 **Never paste a Wix dashboard link or path.**
 
-**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
+**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
 
-## Follow-up changes and additional Wix features
+## Follow-up changes
 
-For follow-up Wix requests or features not covered by the shipped storefront, read and follow the
-already-installed `wix-base44-connector` skill at `.agents/skills/wix-base44-connector/SKILL.md`.
-It covers building on the connected Wix site: gathering site context, discovering APIs and their
-contracts, choosing visitor or admin authentication, and writing frontend and backend code, as
-well as management and configuration. Use it to research and implement these changes.
+For follow-up Wix requests, use the connector skill described in STEP 1.

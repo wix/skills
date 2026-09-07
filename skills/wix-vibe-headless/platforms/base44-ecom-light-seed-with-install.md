@@ -48,6 +48,14 @@ Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/s
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
+The shipped storefront provides catalog, cart, and checkout. Identify the additional workflows
+in the user's request and implement them alongside the storefront. If a workflow needs an
+external service or missing information, continue the work you can complete and identify the
+remaining dependency.
+
+For Wix features beyond the shipped storefront, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to discover APIs and implement the integration.
+
 **Successful STEP 1 verifies installation of the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly; don't rebuild the shipped client or inspect its source to confirm structure. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
@@ -89,24 +97,19 @@ urls are ready by the time you seed.
 
 ## STEP 4 — Wrap up
 
-**Never paste a Wix dashboard link or path.**
+### Preview
 
-**Hand off with one call, before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
+Test the user's main workflow in the preview, including functionality beyond browsing and
+adding products to the cart. Report checks that could not be completed.
 
 **Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
 
-## Later admin requests
+### Final text response
 
-When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
+**Never paste a Wix dashboard link or path.**
 
-```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const res = await fetch("https://www.wixapis.com/<api-path>", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ /* request body */ }),
-});
-return await res.json();
-```
+**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
 
-`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via the documentation skill available in your environment.
+## Follow-up changes
+
+For follow-up Wix requests, use the connector skill described in STEP 2.
