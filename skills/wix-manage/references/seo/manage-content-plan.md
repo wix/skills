@@ -13,6 +13,14 @@ All paths are relative to `https://www.wixapis.com/promote/seo/v1`.
 The API selects the site from the caller's authorization context.
 Writing requires the **Manage SEO Settings** permission.
 
+For a generation request, the only writes in this workflow are Trigger and
+Create Content Plan. Do not update the site's business profile, name,
+description, categories, or publication state to try to accelerate generation.
+Those are separate tasks requiring the user's actual data and authorization.
+`CREATED` can persist while work is queued; it does not justify setup changes
+or extra discovery calls. Continue checking the same flow without modifying
+the site.
+
 Keep every call scoped to the site the user selected. If site context cannot
 be resolved, report the lookup failure and request clarification; do not
 substitute another available site or change its business information. Missing
@@ -24,6 +32,15 @@ prerequisites do not authorize switching sites or inventing business data.
 `KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain
 that Create Content Plan (step 3) releases the existing flow; do not cancel it
 or trigger a replacement just because it is parked.
+Include this actionable request in the explanation, substituting the existing
+flow ID when known:
+
+```http
+POST https://www.wixapis.com/promote/seo/v1/create-content-plan
+Content-Type: application/json
+
+{"contentPlanFlowId":"<existing flow ID>"}
+```
 
 Use the existing `contentPlanFlowId` from the conversation or a prior response.
 If it is unavailable, explain the release request and ask for that flow ID
@@ -175,9 +192,10 @@ The published reference documents each method. This recipe adds:
    recipe says: the flow stops there until you call Create Content Plan.
    Without that call, polling runs forever.
 
-2. **PENDING_REQUIREMENTS handling.** A blank site or one without business
-   data reaches this state. The correct action is to tell the user, not to
-   retry or wait.
+2. **PENDING_REQUIREMENTS handling.** This explicit status signals unmet
+   prerequisites. Report it and identify the missing requirement only from
+   evidence; do not infer it from a queued `CREATED` status or fill in business
+   information on the user's behalf.
 
 3. **Copy-on-write on keyword edits.** The `keywordResearchId` can change
    on the first write. Use the one from the response.
