@@ -1,10 +1,71 @@
 ---
-name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
+name: "Update Product (Catalog V3)"
+description: Updates existing Catalog V3 products and variants. Covers product-level fields such as name, description, visibility, and media; option and variant changes such as price and SKU; full-array replacement rules; exact variant selection; revision handling; and routing inventory or pre-order changes to the Inventory API.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
-Use this recipe to update an existing Catalog V3 product: storefront visibility, description, media, options, variants, prices, or stock-related inventory records.
+Use this recipe for any update to an existing Catalog V3 product. It is the single entry point for product-level changes such as name, description, visibility, and media, and for option or variant changes such as choices, price, SKU, barcode, or variant visibility.
+
+Do not use this recipe on a Catalog V1 site. Quantity, inventory tracking, and pre-order settings are inventory operations; route those requests to the Catalog V3 Inventory API instead of placing inventory state in an Update Product request.
+
+## Choose the Update Path
+
+| User request | Write path | State that must be preserved |
+|---|---|---|
+| Rename, hide/show, change description, brand, ribbon, or another top-level product field | Get Product for the current revision, then Update Product with only the requested top-level field | Only `product.id` and `product.revision`; omitted top-level fields remain unchanged |
+| Change a variant price, SKU, barcode, visibility, physical properties, or option choice | Get Product, copy the complete `options` and `variantsInfo.variants`, change only the requested value, then Update Product | Every option, every variant, every existing variant ID, and all unchanged fields in each variant |
+| Add or remove options or choices | Get Product, rebuild the complete aligned options and variants arrays, then Update Product | All surviving options and variants; every variant must have choices matching the final option set |
+| Make product-specific changes to 2-100 known products | Read the current revision and required state for every target, then send one Bulk Update Products request | The same per-product rules as above; each entry has its own `product` wrapper, ID, and revision |
+| Apply the same top-level change to every product matching a filter | Use Bulk Update Products By Filter | This endpoint cannot update `slug`, `options`, `modifiers`, or `variantsInfo`; use Bulk Update Products when any of those fields changes |
+| Apply the same price or cost adjustment to matching variants | Use Bulk Adjust Product Variants By Filter for a percentage or amount change; use Bulk Update Product Variants By Filter for explicit values | These are variant-specific bulk operations; do not loop over Update Product |
+| Change quantity, inventory tracking, or preorder settings | Query Inventory Items, then use Bulk Update Inventory Items | Do not send inventory records through Update Product; each inventory item is one variant-location combination |
+
+## Bulk Updates: Never Write Products One at a Time
+
+When a request affects multiple products, choose a bulk endpoint before making any write. Do not issue sequential Update Product PATCH calls when a Catalog V3 bulk operation can express the request.
+
+- Use [Bulk Update Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products) for a known list of up to 100 products, including products with options or product-specific values. It accepts at most 100 products per request, 100 total options, 100 total modifiers, 100 total info sections, and 1000 total variants. Split larger jobs into the fewest batches that satisfy every limit.
+- Use [Bulk Update Products By Filter](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products-by-filter) when the same top-level patch applies to every matched product. It cannot update `slug`, `options`, `modifiers`, or `variantsInfo`.
+- Use [Bulk Update Product Variants By Filter](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-product-variants-by-filter) to set explicit `visible`, `price`, `revenueDetails.cost`, or `physicalProperties` values on matching variants.
+- Use [Bulk Adjust Product Variants By Filter](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-adjust-product-variants-by-filter) for relative price or cost changes such as “increase all prices by 10%.”
+- Use the dedicated bulk tag operations for assigning or removing tags. Do not rebuild whole products just to change tags.
+
+For Bulk Update Products, first obtain each target's current revision. A Query Products response is sufficient for a top-level-only patch because it contains product IDs and revisions. If an entry changes options or variants, Get Product for that entry so the complete arrays can be preserved. Then put all entries in one request:
+
+```bash
+curl -X POST "https://www.wixapis.com/stores/v3/bulk/products/update" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "products": [
+      {
+        "product": {
+          "id": "{firstProductId}",
+          "revision": "{firstCurrentRevision}",
+          "visible": false
+        }
+      },
+      {
+        "product": {
+          "id": "{secondProductId}",
+          "revision": "{secondCurrentRevision}",
+          "plainDescription": "<p>Updated description.</p>"
+        }
+      }
+    ]
+  }'
+```
+
+Do not add a field mask to this request. Inspect `bulkActionMetadata.totalSuccesses` and `totalFailures`, then match `results[].itemMetadata.originalIndex` to the submitted entry and check `results[].itemMetadata.success`. Retry only failed entries after re-reading their current revisions and required state; do not replay successful entries.
+
+## Canonical Update Flow
+
+1. Resolve the product ID. When the user supplies a name, Search Products and keep only an exact `product.name` match. If more than one exact match remains, ask the user which product to change.
+2. Get Product immediately before the write. This is the source of the current revision and, for variant-level work, the complete options and variants.
+3. Classify the requested fields using the table above. Build either a minimal top-level patch or a complete options-and-variants replacement. Never build a variant update from a Search Products or Query Products response.
+4. Apply only the user's requested change to the retrieved state. Preserve every other option, variant, ID, and variant field.
+5. For one product, send one Update Product PATCH. For multiple products, send the fewest Bulk Update Products requests allowed by the API limits—up to 100 products per request. If an entry fails only because its revision is stale, re-read and retry only that failed product once.
+6. Confirm the requested fields and preserved state from the returned `product`. For a variant update, confirm the target variant and that the other variants and their IDs remain present.
 
 ## Before Any Product Update
 
@@ -24,17 +85,28 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   -H "Authorization: <AUTH>" \
   -d '{
     "search": {
-      "expression": "Product name"
+      "search": {
+        "expression": "Product name",
+        "fields": ["name"],
+        "fuzzy": false
+      }
     }
   }'
 ```
 
-For product-name lookup, prefer Search Products before retrieving the product by ID. Search only resolves the product ID; it does not replace the Get Product call.
+For product-name lookup, prefer Search Products before retrieving the product by ID. Search can return near-matches even with fuzzy matching disabled, so compare `products[].name` for exact equality. Search only resolves the product ID; it does not replace the Get Product call.
 
-### Get the current revision
+### Get the current product state
 
 ```bash
 curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Authorization: <AUTH>"
+```
+
+For a request that identifies a variant by an option choice name, request choice names in the same read:
+
+```bash
+curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}?fields=VARIANT_OPTION_CHOICE_NAMES" \
   -H "Authorization: <AUTH>"
 ```
 
@@ -273,6 +345,57 @@ curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
   }'
 ```
 
+### Update Quantity, Stock Status, or Preorder Settings
+
+Inventory changes belong to the [Catalog V3 Inventory Items API](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/introduction), not the Products API. An inventory item represents one product variant at one location, so resolve both before writing. If the user has not named the variants or locations to change, ask them to confirm that scope.
+
+1. Resolve the product ID and relevant variant IDs.
+2. [Query Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/query-inventory-items) by `productId` or `variantId`. Read each inventory item's `id`, current `revision`, `locationId`, tracking mode, and preorder state.
+3. Build one [Bulk Update Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-update-inventory-items) request for all selected variant-location combinations. It supports up to 1000 inventory items; do not update them one at a time.
+4. Check `bulkActionMetadata` and every `results[].itemMetadata.success`. Confirm the returned entities when `returnEntity` is true, and retry only failed entries after refreshing their revisions.
+
+This example enables preorder for two selected inventory items in one call:
+
+```bash
+curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/update" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "inventoryItems": [
+      {
+        "inventoryItem": {
+          "id": "{firstInventoryItemId}",
+          "revision": "{firstCurrentRevision}",
+          "preorderInfo": {
+            "enabled": true,
+            "message": "Ships in two weeks"
+          }
+        }
+      },
+      {
+        "inventoryItem": {
+          "id": "{secondInventoryItemId}",
+          "revision": "{secondCurrentRevision}",
+          "preorderInfo": {
+            "enabled": true,
+            "message": "Ships in two weeks"
+          }
+        }
+      }
+    ],
+    "reason": "MANUAL",
+    "returnEntity": true
+  }'
+```
+
+Preorder rules:
+
+- Preorder is configured per variant-location inventory item. It cannot be enabled for digital products or products with subscriptions.
+- A preorder limit is supported only for quantity-tracked inventory. `trackQuantity` is read-only; to switch to quantity tracking, send `quantity` with the user-confirmed current stock value. Do not invent that quantity.
+- Without quantity tracking, use `inStock` for status-based tracking and omit a preorder limit.
+- `preorderInfo.limit` is the number of additional units accepted after stock reaches zero. Existing on-hand quantity is not part of that limit.
+- To disable preorder, send `preorderInfo.enabled: false`. Preserve unrelated inventory state unless the user asked to change it.
+
 ### Update Media Only
 
 ```bash
@@ -297,9 +420,9 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-### Update Variant Price Only
+### Update an Existing Variant's Price or SKU
 
-Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it.
+Read the option, choice, and variant IDs from Get Product; Search Products and Query Products do not return the variants. Begin with the complete `options` and `variantsInfo.variants` from that response, then change only the requested fields. The example below changes the Large variant's price and SKU while carrying the Small variant forward unchanged. If the user requested only one of those changes, preserve the other field's retrieved value.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -309,21 +432,81 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
       "id": "{productId}",
       "revision": "{currentRevision}",
+      "options": [
+        {
+          "id": "{sizeOptionId}",
+          "name": "Size",
+          "key": "size",
+          "optionRenderType": "TEXT_CHOICES",
+          "choicesSettings": {
+            "choices": [
+              {
+                "choiceId": "{smallChoiceId}",
+                "choiceType": "CHOICE_TEXT",
+                "key": "small",
+                "name": "Small",
+                "visible": true
+              },
+              {
+                "choiceId": "{largeChoiceId}",
+                "choiceType": "CHOICE_TEXT",
+                "key": "large",
+                "name": "Large",
+                "visible": true
+              }
+            ]
+          }
+        }
+      ],
       "variantsInfo": {
         "variants": [
           {
-            "id": "{existingVariantId}",
+            "id": "{smallVariantId}",
+            "visible": true,
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Size",
+                  "choiceName": "Small",
+                  "renderType": "TEXT_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "12.00"
+              }
+            },
+            "physicalProperties": {},
+            "sku": "{existingSmallSku}"
+          },
+          {
+            "id": "{largeVariantId}",
+            "visible": true,
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Size",
+                  "choiceName": "Large",
+                  "renderType": "TEXT_CHOICES"
+                }
+              }
+            ],
             "price": {
               "actualPrice": {
                 "amount": "29.99"
               }
-            }
+            },
+            "physicalProperties": {},
+            "sku": "MUG-L-001"
           }
         ]
       }
     }
   }'
 ```
+
+Do not copy the literal placeholder values above over real data. Preserve the product's returned option definitions and complete variants, including fields such as `barcode` or physical properties when present. Omitting an untouched variant removes it; rebuilding a variant from only `id` plus `sku` or `price` drops its other fields and can fail validation.
 
 ## Important Notes
 

@@ -466,7 +466,7 @@ After Creating the product, verify that the options appear correctly in the stor
 
 > **Need to Update This Product Later?**
 >
-> See [Update Product with Options](update-product-with-options.md) for updating existing products.
+> See [Update Product (Catalog V3)](update-product-catalog-v3.md) for updating existing products.
 >
 > **Important:** All update operations (PATCH) require the current `product.revision` value. Always GET the product first to obtain the revision before updating.
 

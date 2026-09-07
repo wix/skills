@@ -405,11 +405,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Setup Online Store (Catalog V3)](references/stores/setup-online-store-catalog-v3.md)
 **Technical:** Initializes a Stores catalog with Catalog V3 Products API, bulk products endpoint, and Categories API. Covers product creation, option configuration, variant management, and category assignment.
 
-### [Update Product Pre-Order](references/stores/update-product-pre-order.md)
-**Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
-
-### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+### [Update Product (Catalog V3)](references/stores/update-product-catalog-v3.md)
+**Technical:** Single entry point for Catalog V3 product and inventory updates. Routes multi-product jobs to bulk operations instead of sequential PATCH calls, and covers minimal product patches, safe full-array option and variant updates, price and SKU changes, exact variant selection, revisions, quantity, stock status, and preorder settings.
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 **Technical:** Direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com (products list, edit product, categories, inventory, orders list, order details, abandoned checkouts, gift cards, shipping, tax), pairing each main Stores/eCommerce entity with its read API for "view it in your dashboard" links.

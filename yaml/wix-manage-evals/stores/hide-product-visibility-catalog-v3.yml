@@ -1,8 +1,8 @@
 name: stores/hide-product-visibility-catalog-v3
 description: >
   A store owner asks to hide an existing Catalog V3 product from the storefront and whether
-  that also hid its variant. Verifies the agent loads the Update Product with Options
-  (Catalog V3) recipe and hides the product with a product-level `visible: false` Update
+  that also hid its variant. Verifies the agent loads the Update Product (Catalog V3)
+  recipe and hides the product with a product-level `visible: false` Update
   Product PATCH — not a delete, not a variant-only change — and reports the product/variant
   visibility relationship correctly.
 triggerPrompt: >
@@ -13,7 +13,7 @@ tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-catalog-v3
   - type: llm_judge          # GATE — outcome correctness
     minScore: 7
     maxTokens: 2048
