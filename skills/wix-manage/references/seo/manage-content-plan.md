@@ -169,6 +169,16 @@ titles and available keywords/supporting page URLs. Do not invent briefs or
 claim completion from the release response.
 See [List Blog Post Candidates](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-blog-post-candidate-v1/list-blog-post-candidates).
 
+### Present the result
+
+Start with the flow ID, observed `SUCCESS` status, and returned candidate count.
+Use a compact table with one row per topic: suggested title, target keyword,
+main keyword, and supporting page URL. Include the actual returned URL as a
+link; do not merely say that each brief contains a URL. Avoid repeating SEO
+titles and descriptions unless requested. If the answer must be shortened,
+label the displayed subset and total explicitly instead of claiming to show all
+topics. These are AI-generated suggestions; do not promise rankings or traffic.
+
 ## Editing keywords (optional)
 
 After step 2, before or after step 3, read the keywords:
