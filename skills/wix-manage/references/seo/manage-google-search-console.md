@@ -9,7 +9,11 @@ The **GSC Connection API** links a Google account to the site. The **GSC Site
 Readiness API** acts through that account: verifies ownership, adds the Search
 Console property, submits the sitemap, requests indexing, reads search performance
 and URL inspection. Both select the site from the caller's authorization context
-and take no site ID. If the run already identifies a site, use it.
+and take no site ID. Use the site the environment already supplies; if no site is
+selected, list the user's sites once ([Query Sites](../sites/query-sites.md)) and
+auto-select the only one, or ask the user to choose by site name when several are
+available. Never invent a site ID or ask the user to type one, and never stop to
+ask which site before a read.
 
 Base URLs: Connection `https://www.wixapis.com/gsc/connection/v1`, Site Readiness
 `https://www.wixapis.com/gsc/v1`. Site Readiness reference pages print
