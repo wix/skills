@@ -13,6 +13,22 @@ All paths are relative to `https://www.wixapis.com/promote/seo/v1`.
 The API selects the site from the caller's authorization context.
 Writing requires the **Manage SEO Settings** permission.
 
+## Troubleshooting an existing flow
+
+`KEYWORD_RESEARCH` is an intentional pause, even after ten minutes. Explain
+that Create Content Plan (step 3) releases the existing flow; do not cancel it
+or trigger a replacement just because it is parked.
+
+Use the existing `contentPlanFlowId` from the conversation or a prior response.
+If it is unavailable, explain the release request and ask for that flow ID
+before attempting a status check or release. A site ID is not a flow ID.
+Do not guess a collection endpoint to discover the active flow.
+
+The complete status URL is
+`https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
+Use this exact public base path and substitute the known ID. Do not call
+`GET /content-plan-flows` without an ID or construct a URL from a service name.
+
 ## Polling without losing progress
 
 Generation waits on an external process. Do not put the entire generation in
@@ -53,7 +69,9 @@ response-shape problem: inspect the response instead of silently looping.
 `CREATED` alone does not identify a missing prerequisite. If the flow remains
 there without progressing, report the stalled flow ID and observed status; do
 not invent a missing business category or description.
-Always send the trigger's ID; omitting it selects a previous successful flow.
+Always send the trigger's ID when following this generation. The documented
+omitted-ID behavior selects a previous successful flow, not the active flow;
+it is not a way to discover the ID of a parked flow.
 See [Get Content Plan Flow](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-content-plan-flow-v1/get-content-plan-flow).
 
 Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`. Check every
@@ -89,9 +107,27 @@ Same GET as step 2. Status walks `CONTENT_PLAN` → `SUCCESS`.
 GET /content-plan-flows/{contentPlanFlowId}/blog-post-candidates
 ```
 
-Returns `{ "blogPostCandidates": [...] }` with blog post briefs. Read the
-returned candidate fields and report the titles and available keyword/page URL
-details. Do not invent briefs or claim completion from the release response.
+Returns `{ "blogPostCandidates": [...] }`. Each candidate's brief fields are
+nested under `briefData`, not at the candidate's top level. Map them directly:
+
+```js
+const topics = response.blogPostCandidates.map(candidate => ({
+  id: candidate.id,
+  title: candidate.briefData?.h1Title,
+  keyword: candidate.briefData?.keyword,
+  mainKeyword: candidate.briefData?.mainKeyword,
+  supportingPageUrl: candidate.briefData?.pageUrl
+}));
+```
+
+`pageUrl` identifies the existing site page the proposed post supports; it is
+not the URL of a newly published blog post. Generation creates briefs, not
+published posts. Do not read `candidate.title`, `candidate.keyword`, or
+`candidate.pageUrl`, or infer missing data from those nonexistent top-level
+fields. If a nested field is absent, report it as unavailable and inspect the
+raw candidate before making another request. Report the actual returned
+titles and available keywords/supporting page URLs. Do not invent briefs or
+claim completion from the release response.
 See [List Blog Post Candidates](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-blog-post-candidate-v1/list-blog-post-candidates).
 
 ## Editing keywords (optional)
