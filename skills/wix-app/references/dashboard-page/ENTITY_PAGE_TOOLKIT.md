@@ -26,9 +26,22 @@ const state = useEntityPage<Shift, ShiftFormFields>({
       .updateShift(shiftId, { ...form.getValues(), ...widgetsFormData })
       .then((updatedEntity) => ({ updatedEntity })),
   form,
-  parentPath: '/shifts',
+  parentPath: '/',
 });
 ```
+
+**`parentPath` is relative to the router's own mount point — the dashboard page's
+own root, not the page's `route` value.** A dashboard page scaffolded with
+`{"route": "shifts"}` is served at `/dashboard/shifts`, but `PatternsReactRouter`
+still sees its own location start fresh at `/` inside that page — so `parentPath`,
+every `PatternsReactRoute`'s `path`, and the `path` passed to
+`navigateToEntityPage()` / `navigateToCollectionPage()` must never repeat the
+page's own `route`/name. `parentPath: '/shifts'` on a page whose `route` is
+`"shifts"` is the single most common way this gets copied wrong — it looks like a
+reasonable guess (name the parent after the page) and compiles, but the
+collection route it points back to is registered at `path="/"`, not
+`path="/shifts"`, so `parentPath` must match that: `'/'`. See [Create
+route](#create-route) below for the full route registration.
 
 `EntityPage` and `useEntityPage` are **root** exports. `@wix/patterns/page` holds `CollectionPage` and `WidgetsFormProvider` only, so importing the entity page from there is `TS2305: has no exported member` — the collection page and the entity page do not live in the same place. `Read <pkgRoot>/dist/dts-bundle/exports/page.d.ts` to see what that subpath actually gives you.
 
@@ -80,6 +93,8 @@ The example above is edit-only. "Add new" is an `EntityPage` too, and it is not 
 | Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` — `useController`, never `register` |
 | Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
 | The fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
+
+Every `path` in that first row — the route's own `path`, `parentPath`, and the `path` argument to `navigateToEntityPage`/`navigateToCollectionPage` — is relative to the page's own root, never to its `route`/name. See the `parentPath` note under [The call](#the-call) above; it is the same rule everywhere a path appears in this table.
 
 `@wix/patterns/form` re-exports `@wix/bex-core/form`, which wraps `react-hook-form` — so `form.getValues()`, `form.reset()` and the rest are react-hook-form's API, documented there rather than in the patterns docs.
 

@@ -163,6 +163,8 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 
 Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves.
 
+**Every `path` in that table is relative to this router's own mount point — the dashboard page's own root, not its `route` value from the scaffold.** A page scaffolded with `route: "shifts"` still roots its `PatternsReactRouter` at `path="/"`; reusing `"shifts"` as a path segment (`path="/shifts"`, `parentPath: '/shifts'`, `navigateToEntityPage({ path: '/shifts/new' })`) is the single most common way this table gets implemented wrong, and it fails silently — the collection route just never matches the page's actual initial location. See [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+
 Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself — generics, `onSave`, params. Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
 
 ## When Patterns Has No Equivalent

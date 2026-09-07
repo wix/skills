@@ -33,6 +33,8 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
+**If this page later adds a `PatternsReactRouter`** (see [Component Selection Order → Entity create and edit](../SKILL.md#entity-create-and-edit)), do not reuse `<route>` as a path prefix inside it. `PatternsReactRouter` reads a location already scoped to this page — a page scaffolded with `route: "shifts"` still sees its own router start at `path="/"`, not `path="/shifts"`. Registering `<PatternsReactRoute path="/shifts" .../>` (or `parentPath: '/shifts'` on `useEntityPage`, or `navigateToEntityPage({ path: '/shifts/new' })`) looks like the natural name to give the route but means the collection route never matches the page's actual initial location. See [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the correct, page-relative paths.
+
 **Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell — re-set the path variable in every call.
 
 ## Capabilities
