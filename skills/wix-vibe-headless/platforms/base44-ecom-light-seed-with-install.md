@@ -16,11 +16,10 @@ Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
 Install three skills — they land under `.agents/skills/`:
-- **`wix-vibe-headless`** — the storefront build + seed guide (STEPs 2–3): your main source of truth.
-- **`wix-manage`** — REST recipes for managing and configuring the site (install apps, seed
-  catalogs, business setup).
-- **`wix-base44-connector`** — building on Wix from the Base44 sandbox: site context, API
-  contracts, and Wix API documentation discovery.
+- **`wix-vibe-headless`** — storefront build instructions, hook/component contracts, and seeding modules.
+- **`wix-manage`** — REST recipes for managing and configuring the Wix site.
+- **`wix-base44-connector`** — Wix connector usage, API contracts, and documentation discovery.
+
 
 Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
 
@@ -42,17 +41,22 @@ const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pi
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
 ```
 
-Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
-
 ## STEP 2 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
-**Successful STEP 1 verifies installation of the REST scaffolds in `src/rest/` and shipped storefront files in `src/`.** After reading `INSTRUCTIONS.md`, use its component outlines, interfaces, and theme guidance to build your presentation and wire it directly; don't rebuild the shipped client or inspect its source to confirm structure. Read only the relevant shipped file to resolve a specifically identified field/interface missing from the outlines or an observed runtime error.
+The shipped storefront provides catalog, cart, and checkout. Identify the additional workflows
+in the user's request and implement them alongside the storefront. If a workflow needs an
+external service or missing information, continue the work you can complete and identify the
+remaining dependency.
 
-**`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
-rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
+For code or actions not covered by this skill, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs.
+
+Build the client using the component outlines, interfaces, and theme guidance in `INSTRUCTIONS.md`.
+The shipped files are already deployed and configured; you do not need to read their source or
+rebuild them. If you encounter an error after building the client, read or change whatever you
+need to diagnose and fix it.
 
 ## STEP 3 — Seed the storefront
 
@@ -62,8 +66,10 @@ cleanup truly seems needed, ask the user first.
 
 Seed by calling the storefront's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.cjs` with
-`require()` as shown there (build-time exec_tool); call its functions with your data. Gaps or an unexpected
-shape → the documentation skill available in your environment.
+`require()` as shown there (build-time exec_tool); call its functions with your data.
+
+For code or actions not covered by this skill, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs.
 
 **Auth for these admin calls is the already-configured Wix headless connector — nothing else.** Get its
 access token and send it as a bearer token:
@@ -78,35 +84,29 @@ Inline via exec_tool, `base44` is already declared — use it directly; do **not
 inline it throws *"Identifier 'base44' has already been declared."*).
 
 **Product images.** Generate with **Base44's built-in image generation**, then attach via the
-storefront seed module's image-attach step — consult official Wix API documentation using the documentation skill
-available in your environment if the module doesn't cover it.
+storefront seed module's image-attach step.
 
 **Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
 from the **completed** `generate_image` result and pass it straight into your single `setupStore`
-call (images included). A still-generating `/__generating__/<id>.png` placeholder is not a real url
-— Wix can't fetch it. `generate_image` runs in the background while you build the client, so the
+call (images included). `generate_image` runs in the background while you build the client, so the
 urls are ready by the time you seed.
 
 ## STEP 4 — Wrap up
 
+### Preview
+
+Images that are still generating may show `/__generating__/…` placeholders;
+the platform replaces these automatically at turn end, with a stock fallback if generation
+fails. You can finish without waiting for those images or replacing their placeholder URLs.
+
+### Final text response
+
 **Never paste a Wix dashboard link or path.**
 
-**Hand off with one call, before you write anything** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. It comes back telling you what to say; add only that the catalog you seeded is mock data they can edit, replace or delete.
+**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
 
-**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
+## Additional Wix functionality
 
-## Later admin requests
-
-When the user asks for follow-up changes (next iterations), use the already-connected Wix headless connector — get an access token and call the Wix API directly:
-
-```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const res = await fetch("https://www.wixapis.com/<api-path>", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ /* request body */ }),
-});
-return await res.json();
-```
-
-`base44` is already declared inline in exec_tool — use it directly; do **not** import `@base44/sdk` or call `createClient()`. For what to call, check the storefront seed module (`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md`) or look up the endpoint via the documentation skill available in your environment.
+During the initial build or later, use the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs for writing code
+or performing actions not covered by this skill.
