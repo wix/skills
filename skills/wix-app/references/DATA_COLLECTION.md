@@ -274,6 +274,18 @@ Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only
 - **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
 - Use Wix SDK APIs to access Wix business entities instead
 
+## Item access and collection management are different scopes
+
+The data-collections extension gives your app read/write access to the **items** in its own
+collections — `items.query/insert/update` work with no extra scope. It does **not** grant the
+collection-*management* API: `collections.listDataCollections()` and friends answer 403 unless the
+app holds a Data Collections management scope.
+
+That asymmetry is worth knowing before you debug: a page whose table loads rows has proved its
+collection exists, because Wix Data errors on a missing collection rather than returning empty. If
+that same page cannot list collections, the app is missing a management scope — a separate fact
+about tooling, not evidence about the collection.
+
 ## The site must have CMS, or nothing is created at all
 
 **The installing site needs the CMS (Content Manager) app.** Per the extension's own docs:
