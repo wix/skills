@@ -1,8 +1,25 @@
 
 # Wix Backend API Builder
 
-Creates HTTP endpoints for Wix CLI applications. Generate the route with the CLI,
-then implement the requested HTTP methods in the generated file.
+Creates HTTP endpoints for Wix app projects. Determine the existing runtime
+before choosing the directory, handler type, or frontend URL.
+
+## Scope and Runtime Detection
+
+- The CLI selects standalone mode when the project's own `package.json` declares
+  `@wix/custom-extensions` in `dependencies` or `devDependencies`. A transitive
+  installation under `node_modules` is not enough. Do not infer standalone mode
+  from using `wix dev`, `wix build`, or the Wix CLI alone.
+- Existing `@wix/astro` apps retain Astro routing. Do not add
+  `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
+  imports, or introduce `WIX_SERVER_BASE_PATH` to apply the Studio 2 recipe.
+- Wix CLI **headless sites** using Astro retain native Astro endpoints and their
+  existing site authentication, browser fetch, and deployment flow. Follow the
+  [wix-headless skill](../../wix-headless/SKILL.md) for that host. The app-extension
+  client and app-identity guidance below does not replace the headless contract.
+  Native Astro route creation does not require the app generator, the standalone
+  package minimum, or a CLI upgrade. Non-Astro headless sites keep their own
+  framework's routing.
 
 ## Generate for the Project Type
 
@@ -14,7 +31,7 @@ Names use lowercase letters, digits, and hyphens; slash-separated names such as
 `payments/checkout` create nested routes. Do not include a leading slash or `.ts`.
 The generator creates GET/POST stubs; keep only the methods the task needs.
 
-Inspect the project's dependencies/configuration and preserve its runtime:
+For Wix app projects, the generator preserves the selected runtime:
 
 | Project | Generated file | Route before any server base path | `APIRoute` import |
 | --- | --- | --- | --- |
@@ -27,7 +44,7 @@ ID, builder, or `.use()` call and do not appear as registered extensions.
 
 The standalone generator requests `@wix/custom-extensions@^0.2.14`, the first
 release with default endpoint discovery and the `./types` export. Install any
-changed dependencies before validating. If the installed CLI does not recognize
+changed dependencies before validating. If the installed app CLI does not recognize
 `HTTP_ENDPOINT`, use `wix schema generate --type HTTP_ENDPOINT` to confirm and
 update to a CLI version that supports it. Do not install Astro into a standalone
 project merely to satisfy an outdated `APIRoute` import.
@@ -191,8 +208,8 @@ return new Response(JSON.stringify({ error: "Internal server error" }), {
 
 ## Frontend Integration
 
-Use `httpClient.fetchWithAuth()` from `@wix/essentials`. Build the URL from the
-extension module's origin, not the host page's origin.
+For app extensions, use `httpClient.fetchWithAuth()` from `@wix/essentials`.
+Build the URL from the extension module's origin, not the host page's origin.
 
 ### Standalone / Studio 2
 
@@ -223,11 +240,15 @@ With `--base=/studio-prefix/`, this calls `/studio-prefix/hello`; with `/`, an
 empty value, or a missing value, it calls `/hello`. The value is supplied by the
 runtime/bundler; do not add a production environment variable for it.
 
-### Astro
+### Astro App Extensions
 
-For a standard Astro app endpoint, use its `/api` route:
+For a standard Astro app endpoint, use its `/api` route without the standalone
+base-path variable. If the existing Astro configuration has its own base path,
+preserve that project's URL handling instead of applying the root-only example:
 
 ```typescript
+import { httpClient } from "@wix/essentials";
+
 const endpointUrl = new URL("/api/hello", import.meta.url).href;
 const res = await httpClient.fetchWithAuth(endpointUrl);
 ```
