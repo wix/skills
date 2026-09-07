@@ -78,10 +78,9 @@ urls are ready by the time you seed.
 
 ### Preview
 
-Test the user's main workflow in the preview, including functionality beyond browsing and
-adding products to the cart. Report checks that could not be completed.
-
-**Preview briefly, don't chase images.** Broken images are expected — `generate_image` returns a `/__generating__/…` placeholder that the platform swaps for the final url automatically at turn end (failures get a stock fallback). **Do NOT edit or debug image urls.** Leave them and finish.
+Preview briefly. Images that are still generating may show `/__generating__/…` placeholders;
+the platform replaces these automatically at turn end, with a stock fallback if generation
+fails. You can finish without waiting for those images or replacing their placeholder URLs.
 
 ### Final text response
 
