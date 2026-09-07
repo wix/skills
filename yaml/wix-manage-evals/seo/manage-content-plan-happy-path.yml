@@ -51,3 +51,14 @@ siteSetup:
               primary: "Online Store"
             description: "A store selling handmade ceramic products and home goods."
           fieldMask: "categories,description"
+      # Fixture provisioning only: general site properties do not populate the
+      # SEO location prerequisite. Keep this internal setup out of the public skill.
+      - label: seed online SEO business location
+        method: post
+        url: https://manage.wix.com/_api/seo-business-location-service/v1/upsert-business-location
+        body:
+          businessLocation:
+            id: "{{siteId}}"
+            physicalLocations: []
+            serviceLocations: []
+            online: true
