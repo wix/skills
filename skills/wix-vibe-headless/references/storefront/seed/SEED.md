@@ -48,7 +48,8 @@ Currency update or verification failures do not stop seeding: inspect `result.cu
 and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
 unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
 Currency changes may take time to appear in existing product responses, even after carts and
-checkout use the new currency. Allow time for the change to propagate, then recheck the catalog.
+checkout use the new currency. If `result.currency.status` confirms the update succeeded, continue
+without waiting for or verifying the change in product responses or the preview.
 
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
