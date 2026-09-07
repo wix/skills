@@ -63,11 +63,11 @@ Confirm the shape rather than guessing — the hook's doc has an empty API secti
 The example above is edit-only. "Add new" is an `EntityPage` too, and it is not the same call with the id left out. Four things differ, and three of them fail silently if you guess:
 
 - The route is its own `PatternsReactRoute type="createEntity"`. One component can serve both entity routes.
-- `navigateToEntityPage({ path, entity })` types `entity` as required, with no create-shaped overload — so pass an empty value of the entity type, with empty fields: it *is* `state.entity` until `fetch` resolves.
+- `navigateToEntityPage({ path })` — omit `entity`. It exists so the header can render a title before the fetch resolves, and a create route has no record to give it. Don't substitute a placeholder: it *is* `state.entity` until `fetch` resolves. (Older `@wix/patterns` types `entity` as required — if the installed one does, pass an empty value of the entity type, with empty fields.)
 - `fetch` is required on the create route too, and `{ entity: undefined }` is the create case built into its return type — not a loading state, and there is no `fetch`-less variant.
 - `isNewEntity` is the only param that tells the page which route it is on. Omitted, a create page that seeds defaults through `fetch` is announced to the collection as an *update*: the collection changes a row it does not have, the new record never appears in the list, and the only trace is a console error.
 
-`Read <pkgRoot>/dist/docs/useEntityPage.md` before writing a create route — its **Create route** section carries the worked two-route component, the reason `entity` is required at all, and the `boolean | (() => boolean)` getter form. Written against the installed version, so it is also what tells you whether `entity` is still required.
+`Read <pkgRoot>/dist/docs/useEntityPage.md` before writing a create route — its **Create route** section carries the worked two-route component, and the `boolean | (() => boolean)` getter form for `isNewEntity`. It ships with the installed package, so it is also what settles whether that version still requires `entity`.
 
 ## Around the call
 
