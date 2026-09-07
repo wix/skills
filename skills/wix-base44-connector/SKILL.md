@@ -272,13 +272,15 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md). Prove the lane in one exec before
-writing pages — mint a visitor, make one public read with it:
+If you need to test a visitor API, including redirect sessions, you can do so in `exec_tool`. Mint a visitor
+token and pass it to the API call so the test uses the same identity as the visitor frontend.
+Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md).
+For example, test a public read:
 
 ```js
-const { access_token } = await wx.post("https://www.wixapis.com/oauth2/token",
+const { access_token: visitorToken } = await wx.post("https://www.wixapis.com/oauth2/token",
   { clientId: WIX_CLIENT_ID, grantType: "anonymous" });   // clientId: from the context report
-return await wx.post("<a public read from Learn Wix>", { query: {} }, access_token);
+return await wx.post("<a public read from Learn Wix>", { query: {} }, visitorToken);
 // 200 ⇒ every visitor-facing page in the app is this same call, no server between
 // a lean default response isn't the whole shape — contracts often define a fields param
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
