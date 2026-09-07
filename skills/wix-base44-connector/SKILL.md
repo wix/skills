@@ -25,8 +25,8 @@ they also surface from a search that began at the methods.
 
 The app's audience picks the token, and the token picks the architecture: the **visitor token is
 public** — anyone can mint it from the site's `clientId` — and the **admin token is a secret**,
-the connector's, server-side only. **Never use the admin connector token for a headless site's
-visitor reads or actions.** Use it for ad hoc management calls in `exec_tool` or backend functions
+the connector's, server-side only. **Use visitor tokens for reads and actions on behalf of site
+visitors, never the admin connector token.** Use the admin token for ad hoc management calls in `exec_tool` or backend functions
 that implement the app's admin logic.
 
 ```
@@ -49,6 +49,8 @@ jobs — and for the app's non-Wix backend.
 
 **An admin tool for the owner** — dashboard, back office. Admin pages and agent act as the
 owner, using the secret admin token: `pages → base44/functions/… ──(admin token)──► wixapis.com`.
+A custom headless management site extending the Wix back office follows this admin flow:
+its frontend calls backend functions that use the admin connector token, not visitor tokens.
 
 ## The helpers
 
