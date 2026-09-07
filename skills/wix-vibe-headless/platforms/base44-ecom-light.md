@@ -50,8 +50,8 @@ in the user's request and implement them alongside the storefront. If a workflow
 external service or missing information, continue the work you can complete and identify the
 remaining dependency.
 
-For Wix features beyond the shipped storefront, read and follow the installed connector skill at
-`.agents/skills/wix-base44-connector/SKILL.md` to discover APIs and implement the integration.
+For code or actions not covered by this skill, read and follow the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs.
 
 Build the client using the component outlines, interfaces, and theme guidance in `INSTRUCTIONS.md`.
 The shipped files are already deployed and configured; you do not need to read their source or
@@ -76,6 +76,6 @@ fails. You can finish without waiting for those images or replacing their placeh
 
 ## Additional Wix functionality
 
-For any Wix functionality or changes not covered by the shipped code or seeding, during the
-initial build or later, read and follow the installed connector skill at
-`.agents/skills/wix-base44-connector/SKILL.md` to discover APIs and implement the integration.
+During the initial build or later, use the installed connector skill at
+`.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs for writing code
+or performing actions not covered by this skill.
