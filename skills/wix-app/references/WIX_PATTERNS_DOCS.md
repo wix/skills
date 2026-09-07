@@ -125,7 +125,7 @@ function MyCollectionPage() {
 
 Keep the provider (and router, if any) in the app's root component and each page in its own file.
 
-For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router; look the doc files up for setup.
+For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router. Read `PatternsReactRouter.md` and `withDashboard.md` for setup — the router reads the page location out of the dashboard context `withDashboard` renders, so it needs that wrapper above it and a `location` prop on it, and it throws at render time without them. (No `withDashboard` entry in `dist/docs/index.json` means the installed version predates that doc; its **Requirements** section is inside `PatternsReactRouter.md` there.)
 
 ## How to Look Things Up
 
