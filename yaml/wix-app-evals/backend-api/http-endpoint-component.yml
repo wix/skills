@@ -1,0 +1,25 @@
+name: backend-api/http-endpoint-component
+description: Generate a GET endpoint and an Editor React caller with the correct runtime directory, handler type, and URLs in prefixed dev and root production deployments.
+triggerPrompt: |-
+  Add an HTTP GET endpoint named hello that returns a message and timestamp, and an Editor React component with a button that calls it and displays the response. Handle loading and errors. Keep the project's existing runtime. The component must work both during development under a server base path and after release without that prefix. Verify that the endpoint responds, not just that the project builds.
+  APP_NAMESPACE: "@mirivo/my-app31ceim"
+  CODE_IDENTIFIER: "MirivoMyApp31ceim"
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [backend-api, extension-registration, editor-react-component]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BACKEND_API.md, references/EDITOR_REACT_COMPONENT.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    minScore: 7
+    prompt: |-
+      Inspect the starter project's runtime and the generated files. For standalone @wix/custom-extensions, require src/endpoints/hello.ts, APIRoute from @wix/custom-extensions/types, and a compatible dependency version (the default discovery and types export were introduced in 0.2.14). For @wix/astro, require src/pages/api/hello.ts and APIRoute from astro. The endpoint must export GET and return a JSON message and timestamp. It must not have an extension ID or .use() registration; existing registrations must remain intact.
+
+      The Editor React component must call the endpoint with httpClient.fetchWithAuth, display the actual response, and handle loading and failure. For standalone code, evaluate URL construction with WIX_SERVER_BASE_PATH values /studio-prefix/, /studio-prefix, /, empty string, and undefined: the first two must request /studio-prefix/hello, and the others /hello on the extension module's origin. No hardcoded dev prefix, extra /api segment, double slash in the path, or literal undefined. For Astro, the standard route is /api/hello. Score 0-10; an undiscovered endpoint or incorrect URL scores no higher than 3 even if the build passed.
+  - type: llm_judge
+    minScore: 7
+    prompt: |-
+      Evaluate the tool-call path. Require the Backend API reference before endpoint implementation and HTTP_ENDPOINT CLI generation, plus component scaffolding when it does not already exist. Penalize manually recreating an endpoint because the agent assumed the generator was unsupported, adding Astro to a standalone project to repair a type import, changing app() to register the endpoint, or repeatedly guessing the URL. Checking an unsupported installed CLI and updating it is valid. Require an actual HTTP request with status/body verification, or an explicit account of why runtime verification was unavailable; a build alone must not be described as proof the endpoint works. Score 0-10 and cite the concrete calls behind any deductions.

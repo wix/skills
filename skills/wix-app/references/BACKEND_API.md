@@ -1,15 +1,36 @@
 
 # Wix Backend API Builder
 
-Creates HTTP endpoints for Wix CLI applications — server-side routes that handle HTTP requests, process data, and return responses. HTTP endpoints are powered by Astro endpoints and are automatically discovered from the file system.
+Creates HTTP endpoints for Wix CLI applications. Generate the route with the CLI,
+then implement the requested HTTP methods in the generated file.
 
-**Key facts:**
+## Generate for the Project Type
 
-- Files live in `src/pages/api/` with `.ts` extension
-- Cannot be added via `npm run generate` — create files directly
-- Don't appear on the Extensions page in the app dashboard
-- No extension registration needed (auto-discovered)
-- Replace the legacy "HTTP functions" from the previous Wix CLI for Apps
+```bash
+npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'
+```
+
+Names use lowercase letters, digits, and hyphens; slash-separated names such as
+`payments/checkout` create nested routes. Do not include a leading slash or `.ts`.
+The generator creates GET/POST stubs; keep only the methods the task needs.
+
+Inspect the project's dependencies/configuration and preserve its runtime:
+
+| Project | Generated file | Route before any server base path | `APIRoute` import |
+| --- | --- | --- | --- |
+| Standalone `@wix/custom-extensions` (Studio 2) | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
+| `@wix/astro` | `src/pages/api/hello.ts` | `/api/hello` | `astro` |
+
+For standalone projects, assume the default `apiDir: "endpoints"`. Leave `app()`
+and existing `.use()` registrations unchanged. HTTP endpoints need no extension
+ID, builder, or `.use()` call and do not appear as registered extensions.
+
+The standalone generator requests `@wix/custom-extensions@^0.2.14`, the first
+release with default endpoint discovery and the `./types` export. Install any
+changed dependencies before validating. If the installed CLI does not recognize
+`HTTP_ENDPOINT`, use `wix schema generate --type HTTP_ENDPOINT` to confirm and
+update to a CLI version that supports it. Do not install Astro into a standalone
+project merely to satisfy an outdated `APIRoute` import.
 
 ## Use Cases
 
@@ -23,42 +44,34 @@ Use HTTP endpoints when you need to:
 
 ## File Structure and Naming
 
-### Basic Endpoint
+### Basic and Nested Endpoints
 
-File path determines the endpoint URL:
+The path relative to the runtime's endpoint directory determines the route:
 
-```
-src/pages/api/<your-endpoint-name>.ts
-```
-
-### Dynamic Routes
-
-Use square brackets for dynamic parameters:
-
-```
-src/pages/api/users/[id].ts → /api/users/:id
-src/pages/api/posts/[slug].ts → /api/posts/:slug
-src/pages/api/users/[userId]/posts/[postId].ts → /api/users/:userId/posts/:postId
-```
+| Standalone file | Route | Astro equivalent |
+| --- | --- | --- |
+| `src/endpoints/hello.ts` | `/hello` | `src/pages/api/hello.ts` → `/api/hello` |
+| `src/endpoints/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
+| `src/endpoints/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
 
 ## HTTP Methods
 
-Export named functions for each HTTP method. Type with `APIRoute` from `astro`. Each handler receives a `request` object and returns a `Response`:
+Export a named handler for each requested HTTP method. Preserve the generated
+`APIRoute` import for the project's runtime. For standalone projects:
 
 ```typescript
-import type { APIRoute } from "astro";
+import type { APIRoute } from "@wix/custom-extensions/types";
 
-export const GET: APIRoute = async ({ request }) => {
-  console.log("Log from GET."); // This message logs to your CLI.
-  return new Response("Response from GET."); // This response is visible in the browser console
-};
-
-export const POST: APIRoute = async ({ request }) => {
-  const data = await request.json();
-  console.log("Log POST with body: ", data); // This message logs to your CLI.
-  return new Response(JSON.stringify(data)); // This response is visible in the browser console.
+export const GET: APIRoute = async () => {
+  return Response.json({
+    message: "Hello from the backend!",
+    timestamp: new Date().toISOString(),
+  });
 };
 ```
+
+In an Astro project, use `import type { APIRoute } from "astro"` instead.
+The request/response examples below apply to both runtimes.
 
 ## Request Handling
 
@@ -66,7 +79,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 ```typescript
 export const GET: APIRoute = async ({ params }) => {
-  const { id } = params; // From /api/users/[id]
+  const { id } = params; // From users/[id].ts in the endpoint directory
 
   if (!id) {
     return new Response(JSON.stringify({ error: "ID required" }), {
@@ -178,28 +191,49 @@ return new Response(JSON.stringify({ error: "Internal server error" }), {
 
 ## Frontend Integration
 
-Call HTTP endpoints from frontend components using Wix's built-in HTTP client (`httpClient.fetchWithAuth()`):
+Use `httpClient.fetchWithAuth()` from `@wix/essentials`. Build the URL from the
+extension module's origin, not the host page's origin.
+
+### Standalone / Studio 2
+
+Studio 2 runs `wix dev` with `--base`, so the request must preserve
+`import.meta.env.WIX_SERVER_BASE_PATH`. The standalone runtime defaults this
+value to `/` without a configured base, including the normal production build.
+Keep this code for both dev and release: guard a missing/empty value and trim
+boundary slashes so root deployments do not produce `//hello` or `undefined`.
+Do not hardcode the sandbox prefix or add `/api` to a standalone route.
 
 ```typescript
 import { httpClient } from "@wix/essentials";
 
-// GET request
-const baseApiUrl = new URL(import.meta.url).origin;
-const res = await httpClient.fetchWithAuth(
-  `${baseApiUrl}/api/<your-endpoint-name>`,
-);
-const data = await res.text();
+const origin = new URL(import.meta.url).origin;
+const basePath = (import.meta.env.WIX_SERVER_BASE_PATH ?? "")
+  .replace(/^\/+|\/+$/g, "");
+const endpointUrl = `${origin}/${basePath ? `${basePath}/` : ""}hello`;
 
-// POST request
-const res = await httpClient.fetchWithAuth(
-  `${baseApiUrl}/api/<your-endpoint-name>`,
-  {
-    method: "POST",
-    body: JSON.stringify({ message: "Hello from frontend" }),
-  },
-);
+// Inside an event handler or runtime data-loading function:
+const res = await httpClient.fetchWithAuth(endpointUrl);
+if (!res.ok) {
+  throw new Error(`Request failed: ${res.status}`);
+}
 const data = await res.json();
 ```
+
+With `--base=/studio-prefix/`, this calls `/studio-prefix/hello`; with `/`, an
+empty value, or a missing value, it calls `/hello`. The value is supplied by the
+runtime/bundler; do not add a production environment variable for it.
+
+### Astro
+
+For a standard Astro app endpoint, use its `/api` route:
+
+```typescript
+const endpointUrl = new URL("/api/hello", import.meta.url).href;
+const res = await httpClient.fetchWithAuth(endpointUrl);
+```
+
+For either runtime, a POST uses the same endpoint URL with `method: "POST"`, a
+JSON body, and `Content-Type: application/json`, provided the route exports POST.
 
 ## Identity and Authorization
 
@@ -213,39 +247,32 @@ const elevatedArchive = auth.elevate(locations.archiveLocation);
 const archived = await elevatedArchive(locationId); // locationId read from the request
 ```
 
-**Only create an endpoint for calls that need it.** Settle that with [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) *before* adding a file under `src/pages/api/` — an endpoint wrapping a call the extension could have made itself is a correctness or privacy bug, not extra indirection, because elevating inside it re-targets a session-resolved call away from the visitor or hands back what the platform deliberately withheld.
+**Only create an endpoint for calls that need it.** Settle that with [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) *before* adding an endpoint — an endpoint wrapping a call the extension could have made itself is a correctness or privacy bug, not extra indirection, because elevating inside it re-targets a session-resolved call away from the visitor or hands back what the platform deliberately withheld.
 
 **Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself** — otherwise every caller who can reach it gets the elevated operation, and only `httpClient.fetchWithAuth()` (see [Frontend Integration](#frontend-integration)) sends the caller's identity for the handler to check; a bare `fetch` sends nothing and leaves the endpoint open.
 
 What you can establish depends on the host: a dashboard caller is a Wix user, whose roles already limit them. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
 
-## Build, Deploy, and Delete
+## Validate, Deploy, and Delete
 
-To take HTTP endpoints to production, build and release your project:
+1. Install changed dependencies, typecheck, and run `wix build`.
+2. Verify the generated endpoint is actually served: request its expected URL
+   on the running dev/preview server and check the HTTP status and response
+   body. In Studio 2 include the server base path. Also exercise the component's
+   request when a frontend caller was requested.
+3. Confirm the URL construction works both with a dev prefix and with no prefix
+   for the released app. A successful build or installing a missing type package
+   does not prove that a file was discovered as a route. Report any runtime check
+   that could not be performed rather than claiming the endpoint works.
+4. Follow the host's deployment flow. Studio 2 manages its companion app's
+   deployment; for a standalone CLI workflow use the normal build/preview/release
+   commands when deployment is requested.
 
-1. Build the project assets using the [`build`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/build) command.
-2. Optionally create preview URLs using the [`preview`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/preview) command to share with team members for testing.
-3. Release your project using the [`release`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/release) command.
-
-Once released, endpoints are accessible at production URLs and handle live traffic.
-
-To delete an HTTP endpoint, remove the file under `src/pages/api/` and release again.
-
-## Output Structure
-
-```
-src/pages/api/
-├── users.ts              # /api/users endpoint
-├── users/
-│   └── [id].ts           # /api/users/:id endpoint
-└── posts.ts              # /api/posts endpoint
-```
+To delete an endpoint, remove its file from the appropriate directory and apply
+that change through the same deployment flow. No `.use()` cleanup is needed.
 
 ## Backend-API-specific Conventions
 
-- Type all handlers with `APIRoute` from `astro`.
-- Always return `Response` objects with `JSON.stringify()` for JSON.
-- Use proper HTTP status codes (200, 201, 204, 400, 404, 500).
-- Include `Content-Type: application/json` header on JSON responses.
-- Include `statusText` in error responses.
+- Preserve the generated handler type import for the project's runtime.
+- Return `Response` objects with appropriate HTTP status codes and JSON headers.
 - Validate input parameters and request bodies.
