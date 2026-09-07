@@ -10,13 +10,9 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 ## UI Libraries — Read Before Writing Any JSX
 
-At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
+`@wix/patterns` first, `@wix/design-system` for the leaf UI inside its shell, custom React only when neither has it. Do not hand-write React for anything either library provides, and do not decide a component is missing without checking.
 
-1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up directly in `dist/dts-bundle/index.json` and `dist/docs/index.json` (start with the inventory). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
-2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the `wix-design-system` skill.
-3. **Custom React last** — only when neither library has it.
-
-Do not hand-write React for anything either library already provides, and do not decide a component is missing without checking. Full rule: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
+The order, what each library owns, and how to look a name up are stated once: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
 
 ## Scaffold
 
