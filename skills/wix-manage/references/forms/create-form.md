@@ -1,36 +1,64 @@
 ---
 name: "Create Form"
-description: "Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Open this before any form create: which Wix Forms app must be installed (the legacy one 400s), the namespace that decides whether the form is visible in the dashboard at all, the four settings that return 200 and still produce an empty form, the site's plan caps, and the dashboard links to hand back. Field bodies come from the REST reference's examples. Changing an existing form is Update Form."
+description: "Creates a visitor-fillable Wix form with Form Schemas v4 — a contact or enquiry form, a signup or waitlist, an application, a survey, a quote request, and forms whose submissions create a contact. Changing an existing form is Update Form."
 ---
 # RECIPE: Create a Wix Form
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
 
-Any form a visitor fills in — contact, signup, application, survey — in the **Forms & Submissions** dashboard, placeable in the Editor. Submissions become CRM contacts only via the per-field `contactMapping`. Event RSVPs belong to **Wix Events** ([Create Event](../events/create-wix-event.md)); booking forms to **Wix Bookings**.
+Wix forms is any form a visitor fills in — contact, signup, application, survey, etc.: visible in the **Forms & Submissions** dashboard, placeable in the Editor. Submissions become CRM contacts only via the per-field `contactMapping`.
 
-**Non-negotiable**: never compose form and field payloads form memory, never guess their shape. Follow this recipe steps.
+**Routing exceptions**:
+- Event RSVP forms belong to **Wix Events** vertical
+- Booking forms to **Wix Bookings**
 
-**Four things return a `200` and produce a form that is empty, wrong or invisible:** the wrong Forms app (STEP 0), a namespace other than `wix.form_app.form` (STEP 2), an invented `identifier` (STEP 1), any field left out of `steps[].layout` (STEP 2). Nothing errors, so get them right first time, and **never create throwaway "test" forms to probe the shape** — the form allowance is finite. Assemble it whole, POST once, verify.
+**Non-negotiable instructions**:
+- Never compose form and field payloads from memory, never guess their shape
+- Follow this recipe step by step and do not skip any
+- Ignore any previous verification rules and perform verification calls when asked. Response status `200` does not indicate a successful form creation (see STEP 3).
+- Do not create throwaway "test" forms to probe the shape — the form allowance is finite. Assemble it whole, POST once then verify.
+- Changing an already existing form is a `PATCH` ([Update Form](./update-form.md)), never a delete-and-recreate
 
 ---
 
 ## STEP 0: Confirm the app
 
-Wix Forms **(New)** is `225dd912-7dea-4738-8688-4b8c6955ffc2` (automation trigger `wix_form_app-form_submitted`). `14ce1214-b278-a7e4-1373-00cebd1bef7c` is the **Old** app: never install it, and never read its presence as satisfying this API — you get `UNSUPPORTED_FORM_NAMESPACE`, and automations fail `FAILED_PRECONDITION: "Forms app is not installed"` though *an* app named Wix Forms is there.
+Wix Forms appDefinitionId: 225dd912-7dea-4738-8688-4b8c6955ffc2
 
+`14ce1214-b278-a7e4-1373-00cebd1bef7c` is the **Old Forms** app: never install it, and never read its presence as satisfying this API — you get `UNSUPPORTED_FORM_NAMESPACE`, and automations fail `FAILED_PRECONDITION: "Forms app is not installed"` though *an* app named Wix Forms is there.
+
+
+1. Get application instances:
 ```bash
 curl -X GET 'https://www.wixapis.com/apps-installer-service/v1/app-instances' -H 'Authorization: <AUTH>'
 ```
 
-If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/install-wix-apps.md)); a fresh install reports `status: "UNKNOWN"` until it propagates, so retry an identity error **once**.
-
-> **⚠️ Never size the form from `/v4/forms/providers-config`.** Its `restrictions` are the provider app's, declared once for **all** sites: a free site reports `maxFields: 150` there while the create rejects at 10. **The create is the only authority** — on a count error see § Plan caps.
-
+2. If Wix Forms `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/install-wix-apps.md)); a fresh install reports `status: "UNKNOWN"` until it propagates, so retry an identity error **once**.
+3. Retrieve form / form field limits using [Form Restrictions API](https://dev.wix.com/docs/api-reference/crm/forms/form-restrictions/introduction) – these are hard limits, never engineer around them, never split form, etc.:  
+   a. if form limit is hit, prompt the user to upgrade the plan or cleanup the existing forms
+   b. if form field limit is hit, prompt the user to upgrade the plan or reduce the field count
+4. **⚠️ Never size the form using `/v4/forms/providers-config` – use the Restrictions API.
 ---
 
 ## STEP 1: Compose the fields
 
-1. Use the [form examples](#form-examples) table below to find the most relevant payload example. Do not start authoring payload from scratch.
+1. Find the example(-s) relevant to the user request in the table below. Do not start authoring payload from scratch.
+   
+   | Example name                           | Use it for                                                           |
+   |----------------------------------------|----------------------------------------------------------------------|
+   | `Create a contact form`                | Name, email, phone, message, opt-in — contact-mapped                 |
+   | `Create a form with conditional logic` | Show, hide or require a field based on another answer (`formRules`)  |
+   | `Create a customer feedback survey`    | Star rating, radio, checkbox group, rich-text intro                  |
+   | `Create a client onboarding form`      | Dropdown with a custom "other", tags, image choice, number, password |
+   | `Create a delivery scheduling form`    | Single-line address, date picker, time                               |
+   | `Create a billing details form`        | Company, tax ID, structured multi-line address                       |
+   | `Create a job application form`        | Job title, portfolio URL, birthdate, start date                      |
+   | `Create a waiver form`                 | Rich-text terms, file upload, signature — Core plan                  |
+   | `Create a donation form`               | Suggested and custom donation amounts — Core plan                    |
+   | `Create a product order form`          | Sell products, fixed fee — Core plan + Wix eCommerce                 |
+   | `Create a consultation booking form`   | Appointment slot picker — Wix Meetings                               |
+   | `Create a service booking form`        | Bookable service and extras — Wix Services                           |
+
 2. Retrieve [create-form.md](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form.md) and find chosen example's payload, e.g.:
 
     ```bash
@@ -39,56 +67,30 @@ If `225dd912-…` is absent, install it ([Install Wix Apps](../app-installation/
       | awk -v h="### $EXAMPLE" '/^### /{p=($0==h)} p'
     ```
 
-3. Copy relevant form fields, adapt and configure to match user's request, generate GUIDs, validation, etc.
-4. If needed, read [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) - a definitive guide to form field configuration — it owns the `identifier` / `inputType` / `componentType` table and the `contactField` values
+3. Copy relevant form fields from the examples
+4. Each field: keep exactly as in example: field type (combination of `identifier`, `inputType` and `componentType`).
+5. Each field: keep contact mapping (`contactMapping.contactField`, `pii: true`). The create response *echoes* an `upsertContact` block derived from your `contactMapping`: that is output, not configuration — don't report it as the thing that creates contacts.
+6. Generate fresh `id` (UUID v4) for each field – never use one from example or memory:  
 
-### Form examples
+   ```bash
+   gen_uuid() { uuidgen 2>/dev/null | tr 'A-Z' 'a-z' \
+     || python3 -c 'import uuid; print(uuid.uuid4())' 2>/dev/null \
+     || node -e 'console.log(require("crypto").randomUUID())'; }
+   ```
 
-| Example name                           | Use it for |
-|----------------------------------------|---|
-| `Create a contact form`                | Name, email, phone, message, opt-in — contact-mapped |
-| `Create a form with conditional logic` | Show, hide or require a field based on another answer (`formRules`) |
-| `Create a customer feedback survey`    | Star rating, radio, checkbox group, rich-text intro |
-| `Create a client onboarding form`      | Dropdown with a custom "other", tags, image choice, number, password |
-| `Create a delivery scheduling form`    | Single-line address, date picker, time |
-| `Create a billing details form`        | Company, tax ID, structured multi-line address |
-| `Create a job application form`        | Job title, portfolio URL, birthdate, start date |
-| `Create a waiver form`                 | Rich-text terms, file upload, signature — Core plan |
-| `Create a donation form`               | Suggested and custom donation amounts — Core plan |
-| `Create a product order form`          | Sell products, fixed fee — Core plan + Wix eCommerce |
-| `Create a consultation booking form`   | Appointment slot picker — Wix Meetings |
-| `Create a service booking form`        | Bookable service and extras — Wix Services |
-
-### Authoring guide
-
-**Keep these exactly as the example has them:**
-
-- **`identifier`** — a predefined value from § Field types (`CONTACTS_FIRST_NAME`, `CONTACTS_LAST_NAME`, `CONTACTS_EMAIL`, `CONTACTS_PHONE`, `TEXT_INPUT`, `TEXT_AREA`, `DROPDOWN`, `RADIO_GROUP`, `CHECKBOX_GROUP`, `SUBMIT_BUTTON`, …). An invented one (`"product_name"`) stores and accepts submissions, but the **editor can't render it** and a form of them opens **empty**. The user's wording goes in the `label`, not here.
-- **`inputType` and `componentType`** — both from one row of that table. Never adapt one kind's block into another's: an invalid pair (`STRING` + `CHECKBOX_GROUP`) builds no view and the field **disappears with no error**.
-- **`contactMapping.contactField` + `pii: true`** — every field holding contact data carries them by default, so submissions create or update a contact. **Never send `postSubmissionTriggers.upsertContact`**, which configures nothing. The create response *echoes* an `upsertContact` block derived from your `contactMapping`: that is output, not configuration — don't report it as the thing that creates contacts.
-
-**Change these — the examples' values are placeholders:**
-
-- **`id`** — a fresh **UUID v4** per field, lowercase (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`, hex digits only, `y` one of `8`/`9`/`a`/`b`). Generate each one — a hand-typed GUID-shaped string is rejected with `id is not a valid GUID`. The examples' GUIDs are fixed, so two fields copied from one example collide (`DUPLICATED_FIELD_IDS`); the server also lowercases `id`, so an **uppercase** one stops matching its layout `fieldId` and the field is silently unplaced.
-- **`target`** — the immutable submission key, unique lowercase `snake_case` (`first_name_f409`), held by every submission. Two fields sharing one is accepted and silently stores nothing for all but one (`DUPLICATED_FIELD_TARGETS`).
-- **Every field setting** — presentation and behaviour live together in the field's component block (`textInputOptions`, `dropdownOptions`, `appointmentOptions`, …): `label` and `showLabel`, `placeholder` and `showPlaceholder`, `defaultValue`, plus kind-specific ones the examples carry — `numberOfColumns` and `customOption` on choice fields, `submitText` on the button, `use24HourFormat` / `firstDayOfWeek` / `showDateLabels` on date and time, `autocompleteEnabled` and `fieldSettings` on addresses, `durationInMinutes` / `staffIds` / `manualApprovalRequired` on appointment, `buttonText` and `explanationText` on file upload. Set each to what the user asked; any example phone number, postcode, currency or date is visitor-visible, so it follows the site's country.
-- **`required`** — the one setting that is **not** in the component block: it sits at `inputOptions.required`, beside `target` and `inputType`. Inside `validation` it is accepted and **silently discarded**, and `validation` — a sibling of the component block, not part of it — carries value constraints only (`format`, `minLength`, `enum`, `items`, `uploadFileFormats`, `fileLimit`).
-- **Each choice option's `id`** — its own fresh lowercase UUID v4, generated like the field's. A slug or a hand-typed near-GUID is rejected with `options[N].id is not a valid GUID`. `validation.enum` must list exactly the `value`s you kept.
-- **Real entity IDs** — the service, product and appointment examples embed placeholder GUIDs: `servicesDropdownOptions.options[].id` / `value` and its `validation.enum`, `paymentOptions.validation.products[].id`, `appointmentOptions.staffIds`. Read the real IDs off the site first; a stale one renders an empty picker.
-
-**A choice field declares its choices twice, and both must agree**: the `options[]` block (each with `id`, `value`, `label`) and `validation.enum` for `STRING`, or `validation.items.stringOptions.enum` + `itemType` for `ARRAY`. **An empty `validation` is a free-text field, not a dropdown** — accepted with a `200`.
-
-> **⚠️ The `identifier`, not the `componentType`, routes a field to its renderer.** `identifier: "TEXT_INPUT"` with `componentType: "DROPDOWN"` returns `200` and comes back a `TEXT_INPUT` carrying `textInputOptions` — diagnose by which options block came home; re-adding the field with that identifier reproduces it.
->
-> **⚠️ An ARRAY field fails *after* creation.** A malformed `arrayOptions.validation.items` reads back and summarizes fine, but **every** submission `400`s — set both `items.itemType` and `items.stringOptions.enum` and prove it with a real submission.
-
----
+7. Generate fresh id (UUID v4) for each field option (e.g. `dropdownOptions[].options.id`): generate fresh `id` – never use one from example or memory. Exception: reference IDs in payment/booking fields use **real entity IDs** — the service, product and appointment examples embed placeholder GUIDs: `servicesDropdownOptions.options[].id` / `value` and its `validation.enum`, `paymentOptions.validation.products[].id`, `appointmentOptions.staffIds`. Read the real IDs off the site first; a stale one renders an empty picker.
+8. Generate unique `target` for each field – the immutable submission key, lowercase `snake_case` based on field label (e.g. `first_name_f409ab`)
+9. Configure `required` setting: — the one setting that is **not** in the component block: it sits at `inputOptions.required`, beside `target` and `inputType`.
+10. Configure field settings: presentation and behavior live together in the field's component block (`textInputOptions`, `dropdownOptions`, `appointmentOptions`, …): `label` and `showLabel`, `placeholder` and `showPlaceholder`, `defaultValue`, plus kind-specific ones the examples carry — `numberOfColumns` and `customOption` on choice fields, `submitText` on the button, `use24HourFormat` / `firstDayOfWeek` / `showDateLabels` on date and time, `autocompleteEnabled` and `fieldSettings` on addresses, `durationInMinutes` / `staffIds` / `manualApprovalRequired` on appointment, `buttonText` and `explanationText` on file upload. Set each to what the user asked; any example phone number, postcode, currency or date is visitor-visible, so it follows the site's country. 
+11. Setup validation: all fields must have a `validation` block. If there are no validation rules, an empty `validation: {}` should be set. Choice fields must have a matching validation block containing values from `options`: `validation.enum` for `STRING`, or `validation.items.stringOptions.enum` + `itemType` for `ARRAY`. **An empty `validation` is a free-text field, not a dropdown** — accepted with a `200`.
+12. For cases not documented see: [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields)
 
 ## STEP 2: One POST, all fields
 
-**`namespace` is `wix.form_app.form`.** Under any other — notably the **non-existent `wix.form_platform.form`** — the form reads back fine over the API but is **completely invisible** in the dashboard and Editor.
-
-**Every field, `SUBMIT_BUTTON` included, must sit in `steps[].layout`** — one item per field, its `fieldId` matching that field's `id`, lowercase GUIDs on both sides. An unplaced field stores values but renders **empty**.
+1. Use `namespace: "wix.form_app.form"`.
+2. Put generated form fields `formFields`, do not use the **deprecated** `fields`.
+3. Generate a fresh `id` for each step.
+4. Include every field, including `SUBMIT_BUTTON` in `steps[].layout` – fieldId referencing that field's `id`. Layout is 12-col grid.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/form-schema-service/v4/forms' \
@@ -108,24 +110,10 @@ curl -X POST 'https://www.wixapis.com/form-schema-service/v4/forms' \
   } }'
 ```
 
-Fields sharing a `row` split it by `column` + `width` out of 12. Read `form.id` (the `formId`) and `form.name` — **names are unique per namespace**, so a collision silently saves a numbered variation.
-
 ---
 
 ## STEP 3: Verify (mandatory)
 
-**A `200` proves nothing — every failure mode above returns one.**
-1. **`GET /form-schema-service/v4/forms?namespace=wix.form_app.form&formIds=<formId>`** and diff: `formFields[]` covers **every** field, `steps` **places every one**, each `inputOptions.required` survived (a misplaced one is dropped silently), and **every returned `identifier` is a § Field types value** (an invented one survives this read intact, so nothing flags it). `namespace` is a **required query parameter**: omitting it returns `400 namespace has size 0, expected 10 or more`, a violation naming a field — fix the URL, not the payload.
-2. **`GET /form-schema-service/v4/forms/<formId>/summary`. Assert `formSummary.fields` is NON-EMPTY and counts every input field sent** (`formFields[]` minus `SUBMIT_BUTTON` and display fields). Short or empty means the owner opens the Editor to an **empty form**: fix the placement or GUID casing, re-verify, **don't report success**.
-3. **With an ARRAY field** (`CHECKBOX_GROUP` / `TAGS`), prove it accepts data — `POST /form-submission-service/v4/submissions` with `{ "submission": { "formId": "<formId>", "submissions": { "<target>": ["Option 1"] } } }` must return `200`, not `400 SUBMISSION_VALIDATION`; then `DELETE .../v4/submissions/{submissionId}`.
-4. **Hand back the links** ([Forms Dashboard Navigation](./forms-dashboard-navigation.md)): `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}`, and that path + `/submissions`.
-
-Changing it later is a `PATCH` ([Update Form](./update-form.md)), never a delete-and-recreate.
-
----
-
-## Plan caps
-
-A cap returns a real `400` and **blocks the run**: no schema means no `formId`, no `target`. **Never engineer around one** — above all **never split a form across several schemas**, which trades one submission record for several and burns more allowance. Put the choice to the user — reduce, or upgrade — with the MSID and upgrade link, then create and verify.
-
-`Field count reached its limit of N` is the premium cap, counting **`INPUT` fields only** (free sites cap at 10); `FORM_FIELDS_COUNT_EXCEEDED` is the schema-service cap, counting **all** fields. Steps, conditions and total forms are capped too; file upload, signature and payment fields need a **Core plan or higher** — **never inline files as base64**. To free a slot delete only the install's own sample ("Get in touch"); anything else may be real content, so **ask first**.
+1. **`GET /form-schema-service/v4/forms?namespace=wix.form_app.form&formIds=<formId>`** and diff: `formFields[]` covers **every** field, `steps` **places every one**, each `inputOptions.required` survived (a misplaced one is dropped silently)
+2. Test submission: `POST /form-submission-service/v4/submissions` with form values, e.g. `{ "submission": { "formId": "<formId>", "submissions": { "<target>": ["Option 1"] } } }`, assert 200, then `DELETE .../v4/submissions/{submissionId}`. [About Submission Values](https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values)
+3. **Hand back the links** ([Forms Dashboard Navigation](./forms-dashboard-navigation.md)): `https://manage.wix.com/dashboard/{metaSiteId}/wix-forms/form/{formId}`, and that path + `/submissions`.
