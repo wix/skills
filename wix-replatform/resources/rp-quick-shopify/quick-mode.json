@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "quick-shopify",
+  "version": "1.0.0",
+  "platform": "shopify",
+  "minimumProbeConfidence": "high",
+  "requiredProbeStrategies": ["shopify.products"],
+  "publicAuth": "none",
+  "entities": [
+    { "id": "collection", "route": "/collections.json?limit=250&page=N", "target": "stores/category", "dependsOn": [] },
+    { "id": "product", "route": "/products.json?limit=250&page=N", "target": "stores/product", "dependsOn": [] },
+    { "id": "collection_product", "route": "/collections/{handle}/products.json?limit=250&page=N", "target": "stores/category-membership", "dependsOn": ["collection", "product"] }
+  ],
+  "requiredWixCapabilities": ["stores"],
+  "fieldMatrix": {
+    "product": ["id", "handle", "title", "body_html", "vendor", "product_type", "tags", "published_at", "images", "options", "variants.id", "variants.title", "variants.sku", "variants.price", "variants.compare_at_price", "variants.available", "variants.option1", "variants.option2", "variants.option3"],
+    "collection": ["id", "handle", "title", "body_html", "published_at"]
+  },
+  "excluded": ["customers", "members", "orders", "abandoned-checkouts", "discounts", "gift-cards", "subscriptions", "inventory-locations-and-quantities", "shipping", "taxes", "payments", "markets", "metafields", "metaobjects", "files", "themes", "navigation", "pages", "blogs", "reviews", "search-configuration", "apps", "private-content", "collection-ordering"]
+}

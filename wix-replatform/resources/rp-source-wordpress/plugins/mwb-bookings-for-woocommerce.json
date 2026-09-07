@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "plugin": "mwb-bookings-for-woocommerce",
+  "displayName": "WPS Bookings for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/mwb-bookings-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.bookable-services",
+    "commerce.bookings",
+    "commerce.bookable-service-add-ons"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "mwb-bookings-for-woocommerce/mwb-bookings-for-woocommerce"
+    ],
+    "routes": [
+      "/wps-bfw/v1/bookings",
+      "/wp/v2/mwb_booking_cost",
+      "/wp/v2/mwb_booking_service"
+    ],
+    "restNamespaces": [
+      "wps-bfw/v1"
+    ],
+    "restBases": [
+      "mwb_booking_cost",
+      "mwb_booking_service"
+    ],
+    "recordProperties": [
+      "wps_mbfw_booking_type",
+      "mwb_mbfw_booking_criteria",
+      "mwb_order_type",
+      "_wps_single_cal_date_time_from",
+      "_mwb_bfwp_date_time_from"
+    ],
+    "assetPathSlugs": [
+      "mwb-bookings-for-woocommerce"
+    ]
+  },
+  "excludeRoutes": [
+    {
+      "route": "/wps-bfw/v1/bookings",
+      "reason": "[VERIFIED LIVE 2026-08-16] The plugin's only REST route is a MY-ACCOUNT projection, not a collection: its callback is wc_get_orders(['customer' => get_current_user_id(), 'limit' => -1]) and its permission_callback is just is_user_logged_in(), so an authed admin gets the ADMIN'S OWN bookings and nobody else's ([DOCUMENTED] source 3.12.0, package/rest-api/class-mwb-bookings-for-woocommerce-rest-api.php, read 2026-08-16). It also returns display strings rather than data - total is HTML-decoded wc_price() output, booking is a pre-formatted 'from To to' string, plus image/calendar_url/view_order_url. Reading it during discovery would produce a confidently wrong record count. On the test site it returned 200 with [] to the admin app password and 401 rest_forbidden unauthenticated."
+    }
+  ],
+  "entities": [
+    {
+      "entity": "booking-service-product",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "wps_mbfw_booking_type",
+      "candidateTargetRefs": [
+        "bookings/service"
+      ],
+      "pitfalls": [
+        {
+          "code": "product-type-is-the-real-discriminator",
+          "severity": "warning",
+          "summary": "A bookable service is a WooCommerce product of type mwb_booking (class WC_Product_Mwb_Booking, get_type() returns 'mwb_booking' - [DOCUMENTED] source 3.12.0 includes/class-wc-product-mwb-booking.php). Two live-verified traps. (1) [VERIFIED LIVE 2026-08-16] mwb_booking is NOT in the /wc/v3/products `type` enum advertised by the REST index (the enum is simple, grouped, external, variable, woosb, pw-gift-card) - the enum comes from wc_get_product_types(), fed by the product_type_selector filter, which the plugin registers only in its admin hooks (the whole admin class is behind is_admin(), so a REST request never sees it). ?type=mwb_booking is therefore rejected; filter client-side on the payload's type field instead. (2) The woocommerce_product_class filter that makes get_type() return 'mwb_booking' is registered only when the plugin's own master switch is on (option mwb_mbfw_is_plugin_enable === 'yes'); with it off, a booking product resolves to WC_Product_Simple and reports type 'simple' while its meta keys stay put - which is exactly why this entity's channel probe is a meta key, not the type."
+        },
+        {
+          "code": "settings-are-unregistered-postmeta",
+          "severity": "warning",
+          "summary": "STORAGE MODEL: every booking setting is unregistered post meta. [DOCUMENTED] source 3.12.0 calls register_meta/register_post_meta ZERO times (grep 2026-08-16; the only show_in_rest occurrences are the two taxonomies and the admin-only wps_global_booking CPT). The keys are REST-visible only because WooCommerce surfaces non-internal post meta in /wc/v3/products meta_data[]. The save handler (admin/class-mwb-bookings-for-woocommerce-admin.php mbfw_save_custom_product_meta_boxes_data, lines ~1300-1390) writes the whole set on every save, so expect all of them: wps_mbfw_booking_type (dual_cal|single_cal), mwb_mbfw_booking_criteria (customer_selected_unit|fixed_unit), mwb_mbfw_booking_count, mwb_mbfw_booking_unit, mwb_mbfw_booking_unit_cost, mwb_mbfw_booking_base_cost, mwb_mbfw_is_booking_unit_cost_per_people, mwb_mbfw_is_booking_base_cost_per_people, mwb_mbfw_is_people_option, mwb_mbfw_minimum_people_per_booking, mwb_mbfw_maximum_people_per_booking, mwb_mbfw_max_bookings, mwb_mbfw_maximum_booking_per_unit, mwb_mbfw_minimum_no_days_booking, mwb_mbfw_enable_calendar, mwb_mbfw_enable_time_picker, mwb_mbfw_show_date_with_time, mwb_mbfw_booking_time_fromat (sic), mwb_mbfw_admin_confirmation, mwb_mbfw_cancellation_allowed, mwb_bfwp_order_statuses_to_cancel, mwb_mbfw_daily_calendar_start_time, mwb_mbfw_daily_calendar_end_time, mwb_mbfw_choose_holiday, wps_mbfw_set_availability, wps_mbfw_set_availability_upto, wps_mbfw_time_slots, wps_mbfw_night_slots_enabled, mwb_mbfw_is_add_extra_services, mwb_mbfw_booking_hide_or_diable_slot (sic). The venue lives in mwb_mbfw_booking_location. Note the plugin also mirrors its unit cost into WooCommerce's internal _price, which WooCommerce excludes from meta_data[] - read the price from the product's own price field. [NEEDS-VERIFICATION] none of these keys has been seen in a live payload: 205 products scanned on the reference store 2026-08-16 and not one is a booking product, so every key above rests on the published 3.12.0 source."
+        },
+        {
+          "code": "second-booking-product-flavour",
+          "severity": "warning",
+          "summary": "[DOCUMENTED source 3.12.0] There is a SECOND kind of bookable product that is not of type mwb_booking: the 'Global Booking' calendar-form flow marks an ordinary product with post meta _is_calendar_booking_product = 'yes' (public/class-mwb-bookings-for-woocommerce-public.php lines 1604-1625) and books it through a wps_global_booking form. A scan that keys only on type === 'mwb_booking' misses these. Their appointments are also stored differently - see the booking-appointment entity's dual-key-shape pitfall."
+        },
+        {
+          "code": "availability-rules-have-no-authored-target",
+          "severity": "info",
+          "summary": "The daily window, holiday list, per-day slot table and 'available up to' horizon (mwb_mbfw_daily_calendar_start_time/_end_time, mwb_mbfw_choose_holiday, wps_mbfw_time_slots, wps_mbfw_set_availability_upto) describe WHEN the service can be booked. bookings/service carries only session durations; the writable Wix homes are Schedules V3 and Schedule Time Frames V3 (bookings domain docs-survey, verdict gap, 2026-08-16). Until an entity exists, treat these keys as reported fidelity loss on the service row - never as a Wix limitation."
+        },
+        {
+          "code": "cancellation-rules-have-no-authored-target",
+          "severity": "info",
+          "summary": "mwb_mbfw_cancellation_allowed plus the allowed-status list mwb_bfwp_order_statuses_to_cancel, and the advance-notice floor mwb_mbfw_minimum_no_days_booking, are per-service booking policy. Wix's Booking Policies API is the matching surface (create/update cancellation and early/late booking windows) but no entity claims it yet (bookings docs-survey verdict gap, 2026-08-16). Only mwb_mbfw_admin_confirmation has a home today - it maps to service.onlineBooking.requireManualApproval."
+        }
+      ]
+    },
+    {
+      "entity": "booking-appointment",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/orders"
+      ],
+      "propertyPath": "_wps_single_cal_date_time_from",
+      "context": "view",
+      "requiresParent": "booking-service-product",
+      "candidateTargetRefs": [
+        "bookings/booking"
+      ],
+      "pitfalls": [
+        {
+          "code": "no-booking-record-exists",
+          "severity": "blocker",
+          "summary": "There is NO booking entity on the source. The plugin registers no booking post type and no booking order type - [VERIFIED LIVE 2026-08-16] the authed /wp/v2/types on the reference store lists no mwb_/wps_ booking type at all, and the only CPT the plugin does register (wps_global_booking, show_in_rest true) is declared inside the admin class, which is loaded only under is_admin(), so REST never sees it. A booked appointment is therefore an ORDER LINE ITEM: one Wix booking per line item whose product is a booking product, read from /wc/v3/orders line_items[].meta_data. Order-level meta mwb_order_type = 'booking' is written on every order containing one (common/class-mwb-bookings-for-woocommerce-common.php mwb_bfwp_set_order_as_mwb_booking) and is the cheap filter for finding them."
+        },
+        {
+          "code": "dual-key-shape-and-fallback-order",
+          "severity": "warning",
+          "summary": "[DOCUMENTED source 3.12.0, public/class-mwb-bookings-for-woocommerce-public.php lines ~1195-1210] The appointment window is written under one of three shapes and the plugin's own reader tries them in this order: (1) _wps_single_cal_booking_dates - a single-calendar date list; (2) _wps_single_cal_date_time_from + _wps_single_cal_date_time_to; (3) the legacy _mwb_bfwp_date_time_from + _mwb_bfwp_date_time_to. Alongside them: _wps_booking_slot (chosen time slot), _mwb_mbfw_people_number (participant count, default 1), _mwb_mbfw_service_and_count (map of mwb_booking_service term id -> quantity), _mwb_mbfw_booking_extra_costs (array of mwb_booking_cost term ids), _item_cancelled ('yes') and _cancel_reason. Global-calendar products (_is_calendar_booking_product) use neither shape - they write the human-readable order item meta 'Booking Date' and 'Form Data' (wc_add_order_item_meta, same file line ~1576). Read every shape; a reader that knows only the _wps_ keys silently drops the legacy and global-calendar bookings."
+        },
+        {
+          "code": "dates-are-site-local-strings",
+          "severity": "warning",
+          "summary": "The date/time values are formatted strings in the SITE's timezone with no offset attached - the plugin recovers the zone from WordPress's timezone_string / gmt_offset options at read time (wps_mbfw_get_timezone in the REST class, [DOCUMENTED] 3.12.0). Wix Bookings wants ISO-8601 YYYY-MM-DDThh:mm:ss plus an IANA timezone (400 INVALID_DATE_FORMAT / INVALID_TIME_ZONE otherwise), so the importer must fetch the source site timezone once and stamp it on every booking. Do not assume UTC."
+        },
+        {
+          "code": "line-item-meta-visibility",
+          "severity": "warning",
+          "summary": "The booking keys are underscore-prefixed and the plugin adds most of them to woocommerce_hidden_order_itemmeta (admin/class-mwb-bookings-for-woocommerce-admin.php mbfw_hide_order_item_meta_data), which hides them in wp-admin but does NOT hide them from REST. [VERIFIED LIVE 2026-08-16] /wc/v3/orders does return underscore-prefixed non-internal line-item meta (100 orders sampled on the test site returned _reduced_stock among the line-item keys), so the read is expected to work. [NEEDS-VERIFICATION] no booking order exists on the test site - all 100 sampled orders carry only seeding and push-notification meta and no mwb_/wps_ key - so the shape has not been confirmed against a real record. Note /wc/v3/orders also supports include_meta / order_item_display_meta query args if a future run needs to trim the payload."
+        },
+        {
+          "code": "status-lives-on-the-order-not-the-booking",
+          "severity": "warning",
+          "summary": "A booking has no status of its own: it inherits the WooCommerce order status (the plugin's own listing filters on wc-processing / wc-on-hold / wc-pending / wc-completed and marks per-item cancellation with _item_cancelled). Mapping to Wix is NOT a straight status copy - bookings/booking documents that Create Booking discards any paymentStatus you send and that Confirm Booking, the only way to set one, refuses a booking that is already CONFIRMED. So a PAID source order must be created as CREATED and then confirmed (pitfalls payment-status-is-ignored-at-create and created-is-invisible-confirmed-needs-permission), an unpaid/pending order maps to PENDING, and a cancelled order or an _item_cancelled line item CANNOT be recreated in its terminal state at all - the post-create Cancel Booking call is the notification-firing path we are avoiding. Land cancelled appointments as CMS history."
+        },
+        {
+          "code": "past-appointments-unproven-on-the-target",
+          "severity": "blocker",
+          "summary": "Most of a real store's booking history is in the past, and the Wix side is NOT documented as accepting it - see bookings/booking pitfall past-dated-bookings-unverified (403 BOOKING_POLICY_VIOLATION and 428 SLOT_NOT_AVAILABLE are both live gates, skipAvailabilityValidation covers only availability and itself demands a resource). Plan historical appointments as CMS archive rows until a live probe proves the native path, and never report this as 'Wix cannot do bookings'."
+        },
+        {
+          "code": "sms-reminder-fires-on-future-bookings",
+          "severity": "blocker",
+          "summary": "Carried from the target: Wix's Create Booking sends an SMS 24 hours before the session unless sendSmsReminder:false is set on every call (the parameter's documented default is TRUE). A booking import of FUTURE appointments that omits the flag texts real customers. The generated importer must set it explicitly, and the run must hold the site-wide notification mute."
+        }
+      ]
+    },
+    {
+      "entity": "booking-additional-service",
+      "channel": "core-cpt",
+      "route": "/wp/v2/mwb_booking_service",
+      "candidateTargetRefs": [
+        "bookings/service-add-on"
+      ],
+      "pitfalls": [
+        {
+          "code": "term-meta-prices-are-invisible-to-rest",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] the taxonomy is registered with show_in_rest:true and is served at /wp/v2/mwb_booking_service (authed and unauthenticated; X-WP-Total 0 on the test site - the taxonomy exists, no terms have been created). What comes back is only name/slug/description/count: the plugin stores every pricing rule as TERM META and calls register_meta nowhere ([DOCUMENTED] 0 occurrences in source 3.12.0), and term meta without show_in_rest is not exposed. The unreachable keys are mwb_mbfw_service_cost, mwb_mbfw_is_service_cost_multiply_people, mwb_mbfw_is_service_cost_multiply_duration, mwb_mbfw_is_service_optional, mwb_mbfw_is_service_hidden, mwb_mbfw_is_service_has_quantity, mwb_mbfw_service_minimum_quantity, mwb_mbfw_service_maximum_quantity (admin/partials/mwb-bookings-for-woocommerce-taxonomy-inline.php). Treat the price as Blocked - recoverable (user-supplied export or a source-side bridge), never as a Wix gap: bookings/service-add-on has a working write path and is waiting for the value."
+        },
+        {
+          "code": "attached-to-products-not-services",
+          "severity": "info",
+          "summary": "The taxonomy is registered on the `product` object type, so the association between a booking product and its additional services is the ordinary product term list. On the Wix side that association is a two-step on a different API (Create Add On Group on Services V2, then Set Add Ons For Group), and it is capped at 3 groups per service and 7 add-ons per group - see bookings/service-add-on pitfalls add-on-is-invisible-until-grouped and group-limits-cap-the-catalog. A source product carrying more than 21 optional extras cannot be recreated in full. Also note the plugin auto-includes every NON-optional term of the product at checkout (_mwb_mbfw_service_and_count is built from the terms whose mwb_mbfw_is_service_optional is not 'yes'), so optionality matters and is itself one of the unreadable term-meta keys."
+        }
+      ]
+    },
+    {
+      "entity": "booking-additional-cost",
+      "channel": "core-cpt",
+      "route": "/wp/v2/mwb_booking_cost",
+      "candidateTargetRefs": [
+        "bookings/service-add-on"
+      ],
+      "pitfalls": [
+        {
+          "code": "same-term-meta-blindness",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] served at /wp/v2/mwb_booking_cost (labelled 'Additional Costs', registered on `product`, X-WP-Total 0 on the test site). Same storage model as booking-additional-service: names are readable, prices are not. Unreachable term meta: mwb_mbfw_booking_cost, mwb_mbfw_is_booking_cost_multiply_people, mwb_mbfw_is_booking_cost_multiply_duration, mwb_bfwp_booking_people_unit_cost, mwb_bfwp_booking_people_base_cost, mwb_mbfw_minimum_people_per_booking, mwb_bfwp_booking_people_maximum_quantity. Both taxonomies collapse onto the single Wix Add On object (bookings/service-add-on), which carries name + price plus a REQUIRED one-of durationInMinutes | maxQuantity - so the multiply-by-people and multiply-by-duration modifiers still have no Wix field and stay reported fidelity loss even once the prices are recovered, and each source extra must be forced into either the duration or the quantity kind at import time."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "[VERIFIED LIVE 2026-08-16] plugin file id is mwb-bookings-for-woocommerce/mwb-bookings-for-woocommerce, taken verbatim from the authed /wp/v2/plugins list on the reference store (name 'WPS Bookings for WooCommerce', version 3.12.0, status active, textdomain mwb-bookings-for-woocommerce, author WP Swings). The plugin is the former MakeWebBetter 'Bookings for WooCommerce'; the mwb_ prefix and the directory name are the fossil, while newer code and the REST namespace use wps_/wps-bfw. Expect BOTH prefixes on the same install - never normalise one into the other.",
+    "[VERIFIED LIVE 2026-08-16] the REST index advertises namespace wps-bfw/v1 with exactly one route (/wps-bfw/v1/bookings, GET, no args) plus the two taxonomy route pairs /wp/v2/mwb_booking_cost and /wp/v2/mwb_booking_service. All of them are present in the UNAUTHENTICATED index too, so this plugin is fully detectable with no credentials - namespace, routes and rest_bases all carry the plugin-specific mwb_/wps- prefix and none of them is a shared platform namespace. Do not confuse the site's separate dinekit/v1 namespace, which also serves /dinekit/v1/bookings/* (restaurant table reservations, a different plugin).",
+    "STORAGE MODEL, in one line: service definitions = unregistered post meta on a mwb_booking product (REST-visible via /wc/v3/products meta_data[]); appointments = unregistered order-ITEM meta on /wc/v3/orders line_items[], flagged by order meta mwb_order_type='booking'; add-ons = two REST-exposed product taxonomies whose prices sit in REST-invisible term meta; the plugin's own route is a per-user my-account projection. No custom database tables ([DOCUMENTED] no dbDelta/CREATE TABLE in source 3.12.0), so nothing here is db-only.",
+    "[DOCUMENTED source 3.12.0] The entire plugin is behind one option, mwb_mbfw_is_plugin_enable. When it is not 'yes' the product-type class filter, the two taxonomies and every checkout hook are all unregistered, while the stored meta stays in the database. Corollary used as evidence here: the two taxonomies ARE visible on the test site, which proves the switch is on there. On a source site where it is off, expect booking products to report type 'simple', the taxonomy routes to be absent from the REST index, and the plugin to be detectable only by its plugin file id or asset path - a live plugin list matters more than usual for this one.",
+    "[VERIFIED LIVE 2026-08-16] the test site has no booking data of any kind: 205 products across /wc/v3/products (types simple/grouped/external/variable/pw-gift-card only, no mwb_booking, no mwb_/wps_ meta key on any of them), 100 orders with no mwb_order_type and no booking line-item meta, 0 terms in both taxonomies, and /wps-bfw/v1/bookings returns []. Every payload-shape claim in this profile therefore rests on the published 3.12.0 source read from downloads.wordpress.org on 2026-08-16, not on an observed record. Re-verify against a store with real bookings before promoting any field list to a contract.",
+    "[DOCUMENTED source 3.12.0] Two adjacent surfaces that look like migration targets and are not: the wps_global_booking CPT (a booking-form/calendar definition, admin-only so invisible to REST) and the iCal export at /wps_global_calendar/{id}.ics and /export/ical/{id} (a rewrite-rule endpoint that emits only the BLOCKED dates from the _non_available_days meta of a global-calendar post - availability, not bookings). Neither carries appointment records.",
+    "A Pro edition exists (bookings-for-woocommerce-pro), and the free plugin branches on it - e.g. it skips force-assigning the 'booking' product_cat term when Pro is active with its category setting enabled. [NEEDS-VERIFICATION] the Pro edition's own meta keys and any extra REST surface have not been examined; a source site running Pro may carry keys this profile does not list."
+  ]
+}

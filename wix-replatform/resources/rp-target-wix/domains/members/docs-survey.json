@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/crm/members-contacts/members"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/crm/members-contacts/members/activity/activity-counters",
+      "title": "Activity Counters",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/activity/activity-counters",
+      "group": "Activity",
+      "verdict": "not-relevant",
+      "reason": "Member activity counters; WordPress has no equivalent member metric to carry.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/activity/badge-assignments",
+      "title": "Badge Assignments",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/activity/badge-assignments",
+      "group": "Activity",
+      "verdict": "claimed",
+      "refs": [
+        "members/badge"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/activity/badges-v4",
+      "title": "Badges V4",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/activity/badges-v4",
+      "group": "Activity",
+      "verdict": "claimed",
+      "refs": [
+        "members/badge"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/activity/member-reports",
+      "title": "Member Reports",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/activity/member-reports",
+      "group": "Activity",
+      "verdict": "not-relevant",
+      "reason": "Reporting/export utility, not a write surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/activity/members-followers",
+      "title": "Members Followers",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/activity/members-followers",
+      "group": "Activity",
+      "verdict": "not-relevant",
+      "reason": "Member follower graph; WordPress has no equivalent social graph.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/custom-fields",
+      "title": "Custom Fields",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/custom-fields",
+      "group": "Member Management",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "members/custom-field"
+      ]
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/member-authentication",
+      "title": "Member Authentication",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/member-authentication",
+      "group": "Member Management",
+      "verdict": "not-importable",
+      "reason": "Credentials are never migrated (no password import path and none wanted); member activation is the post-import forgot-password flow.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/members",
+      "title": "Members",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members",
+      "group": "Member Management",
+      "verdict": "claimed",
+      "refs": [
+        "members/member"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/members-about-v2",
+      "title": "Members About V2",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members-about-v2",
+      "group": "Member Management",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "members/member-about"
+      ]
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/privacy",
+      "title": "Privacy",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/privacy",
+      "group": "Member Management",
+      "verdict": "not-relevant",
+      "reason": "Member profile-privacy settings; runtime member choice, no source equivalent.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/members/member-management/user-member",
+      "title": "User Member",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/user-member",
+      "group": "Member Management",
+      "verdict": "not-relevant",
+      "reason": "Current-session member API (runtime), not a data target.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

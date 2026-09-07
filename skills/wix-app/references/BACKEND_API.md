@@ -201,6 +201,24 @@ const res = await httpClient.fetchWithAuth(
 const data = await res.json();
 ```
 
+## Identity and Authorization
+
+Endpoints run as the **app**, so this is one of the few places `auth.elevate` is valid — it works only in backend code, never in a site, editor, or dashboard extension. It wraps the SDK method rather than being called around it, so inside a request handler you invoke the wrapper:
+
+```typescript
+import { auth } from "@wix/essentials";
+import { locations } from "@wix/business-tools";
+
+const elevatedArchive = auth.elevate(locations.archiveLocation);
+const archived = await elevatedArchive(locationId); // locationId read from the request
+```
+
+**Only create an endpoint for calls that need it.** Settle that with [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) *before* adding a file under `src/pages/api/` — an endpoint wrapping a call the extension could have made itself is a correctness or privacy bug, not extra indirection, because elevating inside it re-targets a session-resolved call away from the visitor or hands back what the platform deliberately withheld.
+
+**Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself** — otherwise every caller who can reach it gets the elevated operation, and only `httpClient.fetchWithAuth()` (see [Frontend Integration](#frontend-integration)) sends the caller's identity for the handler to check; a bare `fetch` sends nothing and leaves the endpoint open.
+
+What you can establish depends on the host: a dashboard caller is a Wix user, whose roles already limit them. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
+
 ## Build, Deploy, and Delete
 
 To take HTTP endpoints to production, build and release your project:

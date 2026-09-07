@@ -23,22 +23,23 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
   **shapes**, fieldsets, and paging.
 - `app/{components,pages,hooks,context}/…` — a **reference UI** (+ hooks/providers) built on that data
   layer; the field shapes and route patterns it uses (e.g. `/product/:slug`) are the data contract.
-- `seed/seed-*.js` — build-time **seeding functions** that create content.
+- `seed/seed-*.cjs` — build-time **seeding functions** that create content.
 - `INSTRUCTIONS.md` — the vertical's build guide + field-shape snippets; `seed/SEED.md` — how the seed
   module is run.
 
-**The nine verticals — data layer (`app/rest/`) + seed module (`seed/`):**
+**The verticals — data layer (`app/rest/`) + seed module (`seed/`):**
 
 | vertical | `app/rest/` data layer | seed module |
 |---|---|---|
-| storefront | `wix-store-catalog.js`, `wix-store-cart.js` — products & variants; server cart + checkout redirect | `seed-store.js` |
-| bookings | `wix-bookings-services.js`, `wix-bookings-checkout.js` — services/categories/slots; booking + checkout | `seed-bookings.js` |
-| blog | `wix-blog.js` — posts (list + by-slug), categories, tags | `seed-blog.js` |
-| events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.js` |
-| portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.js` |
-| restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.js` |
-| cms | `wix-cms.js` — Wix Data collections: list / detail / filter + form CRUD | `seed-cms.js` |
-| pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.js` |
+| storefront | `wix-store-catalog.js`, `wix-store-cart.js` — products & variants; server cart + checkout redirect | `seed-store.cjs` |
+| bookings | `wix-bookings-services.js`, `wix-bookings-checkout.js` — services/categories/slots; booking + checkout | `seed-bookings.cjs` |
+| blog | `wix-blog.js` — posts (list + by-slug), categories, tags | `seed-blog.cjs` |
+| events | `wix-events-browse.js`, `wix-events-registration.js` — events & categories; RSVP / ticketing + checkout | `seed-events.cjs` |
+| portfolio | `wix-portfolio.js` — collections, projects, galleries | `seed-portfolio.cjs` |
+| restaurants | `wix-restaurants-menu.js`, `-ordering.js`, `-reservations.js` — menu; online ordering; table reservations | `seed-restaurants.cjs` |
+| forms | `wix-forms.js`, `wix-forms-submissions.js` — any visitor-fillable form: read the schema; upload attachments, create a submission (schema accessors ship alongside in `lib/wix-form-schema-utils.js`) | *(none — REST shapes in `seed/SEED.md`)* |
+| cms | `wix-cms.js` — Wix Data collections: list / detail / filter | *(none — see `seed/SEED.md`)* |
+| pricing-plans | `wix-pricing-plans.js` — plans list + subscribe/checkout | `seed-pricing-plans.cjs` |
 | members | `wix-members-auth.js` — custom login/signup (email+password, social, SSO), session, account | *(none — members sign up at runtime; nothing to seed)* |
 
 Anything in the docs about the **host's own setup** — copying files into `src/`, its `@/` alias, its
@@ -49,12 +50,14 @@ the token set) is **universal — follow it as-is**.
 
 ## The flow — install → build client → seed → done
 
-Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work within each.
+Run **build the client** (step 2) and **seed** (step 3) in parallel; parallelize independent work
+within each. **One exception — `forms` must be seeded before its UI is built; read that gate in
+`references/forms/INSTRUCTIONS.md` (Prerequisites) first.** Everything else still parallelizes.
 
 ### 1 · Install the skills
 
 Two skills, into `.agents/skills/`: **`wix-vibe-headless`** (this build guide + the seed modules —
-self-contained) and **`wix-docs`** (fallback to search/read the Wix API reference).
+self-contained) and **`wix-docs`** (search/read the Wix API reference).
 
 ```bash
 CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
@@ -107,8 +110,9 @@ V=<vertical>
 find .agents/skills/wix-vibe-headless/references/$V/seed -name '*.js' -exec tail -n +1 {} +
 ```
 
-They encode the Wix API sequences (incl. app-install + provisioning-race handling); use `wix-docs`
-for anything they don't cover. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
+They encode the Wix API sequences (incl. app-install + provisioning-race handling). For anything
+they don't cover, consult the official Wix API documentation using the documentation skill available
+in your environment. Content queries return `REQUIRED_APP_NOT_INSTALLED` until the app is
 installed + seeded (expected; the seed modules install it first). Image seeding = two Wix Media calls
 (`generate-upload-url` → `PUT` the bytes) before attaching.
 

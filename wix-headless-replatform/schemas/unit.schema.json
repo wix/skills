@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/unit.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "unitKind", "pageKey", "status", "classification", "scope", "content", "assets", "layers", "layout", "styleables", "behavior", "children", "reconstruction", "acceptance", "diagnostics", "provenance", "gapRefs", "hash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "kind": { "const": "unit" },
+    "id": { "type": "string", "minLength": 1 },
+    "unitKind": { "enum": ["section", "component"] },
+    "pageKey": { "const": "home" },
+    "parentUnitId": { "type": ["string", "null"] },
+    "order": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["accepted", "provisional"] },
+    "classification": { "type": "object" },
+    "scope": { "type": "object" },
+    "content": { "type": "object" },
+    "assets": { "type": "array" },
+    "layers": { "type": "array" },
+    "layout": { "type": "object" },
+    "styleables": { "type": "array" },
+    "behavior": {},
+    "children": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "reconstruction": { "type": "object" },
+    "acceptance": { "type": "object" },
+    "diagnostics": { "type": "array" },
+    "provenance": { "type": "object" },
+    "gapRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "dependencyHashes": { "type": "array", "items": { "type": "string" } },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "provisional" } } },
+      "then": { "properties": { "gapRefs": { "minItems": 1 } } }
+    }
+  ],
+  "additionalProperties": false
+}

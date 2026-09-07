@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "google-youtube-connect",
+  "displayName": "Google & YouTube (Google Merchant Center, Shopping, YouTube Shopping)",
+  "capability": "commerce.google-shopping-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": "wix.stores_channels.gateway.v1.google_merchant_api_gateway",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "google-listings-and-ads-for-woocommerce",
+      "confidence": "medium",
+      "note": "No WooCommerce plugin profile authored yet for a Google Shopping feed plugin (e.g. Google Listings & Ads, WooCommerce Google Product Feed); this alias is a forward-pointer for when one is profiled."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant connects via Wix dashboard OAuth-style flow to Google Merchant Center",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [],
+  "mappingGuidance": [
+    "This channel is the most automated of the group: after the one-time connect, sync is push-based and continuous — there is no feed link for the merchant to copy anywhere, unlike Meta/TikTok/Pinterest."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/adding-wix-store-products-to-your-google-merchant-center-catalog"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-connecting-your-youtube-channel-to-wix"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.gateway.v1.google_merchant_api_gateway; wix.stores_channels.gateway.v1.google_content_api_gateway; wix.stores_channels.gms.v1.product_sync — verified via docs-schema MCP, 2026-08-16"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.actions.v1.marketplace_actions — ConnectExistingAccount/CreateAccount/OnboardingStep/PreOnboardingStep all carry Google-typed request variants (googleAccountConnection, googleOnboardingStep, googlePreOnboardingStep) only; no other marketplace has a typed onboarding variant on this service, confirming Google & YouTube is the one channel with a full Wix-hosted account-connect flow"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "A Google Merchant Center account (can be created during the connect flow itself).",
+    "steps": [
+      { "actor": "merchant", "text": "In the Wix dashboard, go to Catalog > Sales Channels > Google & YouTube, and click Get Started." },
+      { "actor": "merchant", "text": "Choose Sign Up With Wix to create a new Merchant Center account, or connect an existing one (existing accounts must first remove any previously added data feeds)." },
+      { "actor": "external", "text": "Complete Google's account verification/consent screen to authorize the connection." },
+      { "actor": "merchant", "text": "Optional: merchants with a Merchant Center account can additionally connect their YouTube channel from the same dashboard section to tag and display products on videos." }
+    ],
+    "mechanism": "Push-based and fully automated after the one-time connect: Wix syncs inventory and pricing to Google continuously via its own Content API / Merchant API gateway. Products then surface across Google Search, Google Shopping, and (if connected) YouTube.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/adding-wix-store-products-to-your-google-merchant-center-catalog" },
+      { "type": "internal-fqdn", "path": "wix.stores_channels.gateway.v1.google_merchant_api_gateway; wix.stores_channels.gms.v1.product_sync" }
+    ]
+  }
+}

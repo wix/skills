@@ -1,6 +1,6 @@
 # Bookings — seeding
 
-Seed a Wix Bookings catalog by **calling `seed-bookings.js`** — don't hand-write the REST calls.
+Seed a Wix Bookings catalog by **calling `seed-bookings.cjs`** — don't hand-write the REST calls.
 It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix
 Bookings seed operation. Load it and call **`setupBookings` — the one-call path** — with plain data.
 
@@ -8,12 +8,8 @@ Bookings seed operation. Load it and call **`setupBookings` — the one-call pat
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // ONE call: install → resolve staff → categories → services → CLASS sessions → images, all in the
@@ -101,9 +97,50 @@ await seed.attachServiceImage(ctx, { serviceId: services[0].id, revision: servic
 Both bulk calls report per-item `success`/`error` — retry only the failed items **once** with the
 same body; don't loop and don't re-create the ones that already succeeded.
 
+## Rentals
+
+`seed-rentals.cjs` is the rentals half — the same transport, a different create order and payload.
+Wix Rentals has no APIs of its own, so a rental is a Bookings service with rentals-specific
+field values.
+
+```js
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.cjs");
+await seed.setupRentals(ctx, {
+  resourceTypeName: "Meeting rooms",
+  resources: ["Room A", "Room B"],              // parallel capacity = MORE RESOURCES
+  rentals: [
+    { name: "Meeting room, hourly", description: "…", price: 25, unit: "HOUR", min: 60, max: 480 },
+    { name: "Meeting room, daily",  description: "…", price: 180, unit: "DAY", min: 1, max: 5 },
+  ],
+});
+// → { resourceType, resources, services, ok, problems }
+```
+
+`price` is a RATE — per hour or per day — not the cost of a rental.
+Hourly `min`/`max` are MINUTES (30–1440); daily are DAYS (1–8).
+
+**`ok` must be true.** `problems` is the read-back check: a service created without `appId` or
+without `durationRange` still returns 200 and is simply a plain Bookings service from then on.
+
+### The four traps this seed handles
+
+- **Install Rentals ONLY.** It provisions the Bookings infrastructure it runs on; installing
+  Wix Bookings as well is redundant.
+- **`appId` is immutable after create.** A service created without it is a plain Bookings
+  service forever — there is no update that converts it.
+- **Order is load-bearing: resource type → resources → services.** A service whose resource
+  type holds no resources has permanently empty availability, and nothing errors.
+- **Rental services do not use categories.** Unlike bookings, do not create or assign one.
+- **`serviceResources` is required** and the docs' Create Service parameter list omits it.
+  Without it the create fails `MISSING_APPOINTMENT_RESOURCES`, whose message sends you to check
+  the resource type's contents — a dead end, since it fails even when the type is populated.
+
+Resources are seeded **24/7** (no working hours) so a multi-day rental stays one booking rather
+than a multi-service group. Pass `workingHours` only when the brief names opening hours.
+
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-bookings.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

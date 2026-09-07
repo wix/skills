@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woocommerce-other-payment-gateway",
+  "displayName": "Custom Payment Gateway for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/woocommerce-other-payment-gateway/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.payment-gateway-notes"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woocommerce-other-payment-gateway/woocommerce-other-payment-gateway.php"
+    ],
+    "assetPathSlugs": [
+      "woocommerce-other-payment-gateway"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "payment-note",
+      "channel": "plugin-rest-child",
+      "route": "/wc/v3/orders/{parentId}/notes",
+      "parentRoute": "/wc/v3/orders",
+      "candidateTargetRefs": ["ecom/order-merchant-note"],
+      "pitfalls": [
+        {
+          "code": "note-write-is-post-import-follow-up",
+          "severity": "warning",
+          "summary": "VERIFIED against the plugin's own source (class-woocommerce-other-payment-gateway.php, github.com/WordPressBugBounty/plugins-woocommerce-other-payment-gateway, 2026-08-11): the checkout-time admin note is saved via $order->add_order_note(...) — a genuine WooCommerce order note, reachable at GET /wc/v3/orders/{id}/notes (VERIFIED LIVE against the reference store 2026-08-11: the site advertises /wc/v3/orders/(?P<order_id>[\\d]+)/notes). Wix target CONFIRMED by Spec Owner 2026-08-16: ecom/order-merchant-note — Add Activities (MERCHANT_COMMENT, max 5000 chars) as a follow-up write AFTER Import Order; author/timestamp stamp at call time and cannot be backdated, so prefix source author/date into the message if provenance matters."
+        },
+        {
+          "code": "commingled-with-other-notes",
+          "severity": "warning",
+          "summary": "The /notes sub-resource returns ALL order notes (system-generated, other plugins', and this plugin's own), not a filtered subset — there is no dedicated meta key or note-type marker that isolates this plugin's payment note from the rest. Distinguishing it requires inspecting note content at import time, not just the read channel."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "A generic/white-label offline payment gateway: the merchant defines the gateway's own title, instructions, and this optional admin-only note field at checkout. There is no per-gateway-instance identifier beyond the note text itself.",
+    "channel plugin-rest-child (finding #21): this sub-resource cannot be listed on its own — it needs a real order id first. Discovery samples a representative few orders' /notes as a presence check, not a full-coverage read; the actual migration reader must iterate every order (see rp-import-codegen/SKILL.md)."
+  ]
+}

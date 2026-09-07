@@ -29,12 +29,15 @@ function scenario(over: Partial<ScenarioComparison> = {}): ScenarioComparison {
   };
 }
 
-function group(scenarios: ScenarioComparison[]): CompareGroupComplete {
+function group(
+  scenarios: ScenarioComparison[],
+  resultOver: Partial<CompareGroupComplete['result']> = {},
+): CompareGroupComplete {
   return {
     status: 'complete',
     completedRuns: scenarios.length,
     totalRuns: scenarios.length,
-    result: { comparisonGroupId: 'cg1', verdict: 'not-required', tag: 'draft:wix/skills#1', scenarios },
+    result: { comparisonGroupId: 'cg1', verdict: 'not-required', tag: 'draft:wix/skills#1', scenarios, ...resultOver },
   };
 }
 
@@ -78,6 +81,31 @@ describe('comment formatters', () => {
     expect(c.formatServiceError('boom', false)).toContain('⚠️');
   });
 
+  it('formatDocsEntryProblems renders a reason line per problem kind', () => {
+    const base = { file: 'skills/wix-manage/references/seo/a.md', yamlPath: 'yaml/wix-manage/seo/documentation.yaml', title: 'A', docsEntry: 'https://dev.wix.com/docs/api-reference/x' };
+    const out = c.formatDocsEntryProblems([
+      { ...base, kind: 'portal-not-found' },
+      { ...base, kind: 'node-not-found' },
+      { ...base, kind: 'not-a-category', nodeType: 'RESOURCE', suggestion: 'https://dev.wix.com/docs/api-reference/parent' },
+    ]);
+    expect(out).toContain('does not match any docs portal');
+    expect(out).toContain('does not exist in the docs menu');
+    expect(out).toContain('an API page, not a category');
+    expect(out).toContain('https://dev.wix.com/docs/api-reference/parent');
+    expect(out).toContain('or pick/create a different one');
+    expect(out).toContain('yaml/wix-manage/seo/documentation.yaml');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('formatDocsEntryProblems calls a SECTION target a section and falls back when there is no suggestion', () => {
+    const out = c.formatDocsEntryProblems([
+      { file: 'f.md', yamlPath: 'y.yaml', title: 'A', docsEntry: 'https://dev.wix.com/docs/api-reference/tools', kind: 'not-a-category', nodeType: 'SECTION' },
+    ]);
+    expect(out).toContain('a section, not a category');
+    expect(out).not.toContain('the category that groups it');
+    expect(out).toContain('Point it at an existing category, or create one in the docs menu.');
+  });
+
   it('formatEvalPassed includes pass rate + run link', () => {
     const metrics = { totalAssertions: 1, passed: 1, failed: 0, skipped: 0, errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0 };
     const out = c.formatEvalPassed(metrics, 'run-1', 'https://bo.wix.com/pages/evalforge/proj-1/results?runId=run-1');
@@ -88,6 +116,37 @@ describe('comment formatters', () => {
 
   it('formatNoChanges signals success', () => {
     expect(c.formatNoChanges()).toContain('No Gated Changes');
+  });
+
+  it('formatComparisonResult warns and drops the green tick when judging was partial', () => {
+    const tie = scenario({ pairwiseJudgement: undefined, required: false });
+    const out = c.formatComparisonResult(group([tie], { judgeCoverage: { judged: 1, total: 3 } }), 'proj-1');
+
+    // A not-required verdict from partial judging must not read as a pass.
+    // Scoped to the heading, since ✅/⚠️ also appear in the scenario rows.
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+    expect(out).toContain('Only 1/3 scenarios were judged');
+    expect(heading).toContain('⚠️');
+    expect(heading).not.toContain('✅');
+  });
+
+  it('formatComparisonResult keeps the green tick at full coverage', () => {
+    const tie = scenario({ pairwiseJudgement: { winner: 'tie', confidence: 'high', reasoning: 'same' }, required: false });
+    const out = c.formatComparisonResult(group([tie], { judgeCoverage: { judged: 1, total: 1 } }), 'proj-1');
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+
+    expect(out).not.toContain('scenarios were judged');
+    expect(heading).toContain('✅');
+  });
+
+  it('formatComparisonResult is unchanged when the pipeline reports no coverage', () => {
+    const tie = scenario({ pairwiseJudgement: { winner: 'tie', confidence: 'high', reasoning: 'same' }, required: false });
+    const out = c.formatComparisonResult(group([tie]), 'proj-1');
+
+    // Older pipeline builds omit the field; absent must not mean degraded.
+    const heading = out.split('\n').find(l => l.startsWith('## '))!;
+    expect(out).not.toContain('scenarios were judged');
+    expect(heading).toContain('✅');
   });
 
   it('formatComparisonResult adds a Runs column with PR + prod run links', () => {

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "plugin": "seo-by-rank-math",
+  "displayName": "Rank Math SEO",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/seo-by-rank-math/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.seo-meta"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "seo-by-rank-math/rank-math"
+    ],
+    "restNamespaces": [
+      "rankmath/v1"
+    ],
+    "recordProperties": [
+      "rank_math_title",
+      "rank_math_description",
+      "rank_math_canonical_url",
+      "rank_math_focus_keyword",
+      "rank_math_robots",
+      "rankMath"
+    ],
+    "assetPathSlugs": [
+      "seo-by-rank-math"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "post-seo-meta",
+      "channel": "export-file",
+      "candidateTargetRefs": [
+        "seo/item-seo-tags",
+        "blog/post",
+        "stores/product"
+      ],
+      "pitfalls": [
+        {
+          "code": "unregistered-postmeta-invisible-to-rest",
+          "severity": "blocker",
+          "summary": "Rank Math calls register_meta ZERO times. [VERIFIED IN PLUGIN SOURCE v1.0.276 (wordpress.org, the exact version installed), grep -rn 'register_meta' across includes/ returns nothing, 2026-08-16.] Its per-post SEO therefore lives entirely in unregistered wp_postmeta rows and never appears in the REST `meta` object, in any context, with any credential. The only register_rest_field it declares is `rankMath` on the `page` post type, and only when Helper::is_site_editor() is true and the caller can `read` (includes/rest/class-post.php:53) - an editor-screen convenience, not a data surface. So there is NO REST read path for Rank Math SEO data; it is postmeta, which means a WXR export carries it, hence channel export-file rather than db-only."
+        },
+        {
+          "code": "capability-shared-with-yoast",
+          "severity": "info",
+          "summary": "This profile claims content.seo-meta, the same capability as wordpress-seo (Yoast), because it is the same business capability: per-item SEO title, meta description, canonical, Open Graph/Twitter overrides, robots directives and focus keyphrase. The Wix decision is identical for both, which is the point of keying knowledge on capability rather than plugin. Only the read channel differs - Yoast is REST-readable, Rank Math is not."
+        },
+        {
+          "code": "meta-keys-source-verified-not-live",
+          "severity": "warning",
+          "summary": "The per-record keys are rank_math_title, rank_math_description, rank_math_canonical_url, rank_math_focus_keyword, rank_math_robots (plus rank_math_advanced_robots), rank_math_facebook_title / _description / _image, rank_math_twitter_title / _description / _image, rank_math_permalink, rank_math_breadcrumb_title, rank_math_pillar_content, rank_math_rich_snippet / rank_math_schema_*, rank_math_seo_score and rank_math_exclude_sitemap. [VERIFIED IN PLUGIN SOURCE v1.0.276, string-frequency scan over includes/, 2026-08-16.] [NEEDS-VERIFICATION on a live site with Rank Math ACTIVE: the reference store has it installed but deliberately INACTIVE, so no payload, no route and no asset path could be observed - every claim here is source-derived.]"
+        },
+        {
+          "code": "detection-must-not-depend-on-being-active",
+          "severity": "warning",
+          "summary": "An inactive plugin registers no REST namespace, enqueues no asset and writes no record property, so restNamespaces / recordProperties / assetPathSlugs all fail. [VERIFIED LIVE 2026-08-16: no rankmath/v1 namespace in the REST index of a site where the plugin is installed at version 1.0.276, and no seo-by-rank-math asset path in the homepage HTML.] Detection here rests on pluginFileIds against the admin-gated /wp/v2/plugins list, which is exactly the 'strongest signal first' principle - without the Application Password an installed-but-inactive Rank Math is invisible. That is correct behaviour: an inactive SEO plugin's stale postmeta is not what the live site renders, and a run that cannot see it should say the plugin list was incomplete rather than guess."
+        },
+        {
+          "code": "both-seo-plugins-installed-is-ambiguous",
+          "severity": "warning",
+          "summary": "The reference store has Yoast ACTIVE and Rank Math INACTIVE simultaneously - a common state, because Rank Math ships an importer for Yoast data and users trial one against the other. When both are detected, the ACTIVE one is the source of truth for what the site currently renders; the inactive one's postmeta may be stale, partial, or an abandoned import. Never merge the two into one SEO record. Surface the conflict at the mapping review rather than picking silently."
+        },
+        {
+          "code": "no-import-without-a-user-supplied-file",
+          "severity": "warning",
+          "summary": "channel export-file means this entity is Blocked - recoverable (kind: user-file) until the user supplies a WXR export, and never a limitation of Wix: seo/item-seo-tags is a verified write surface waiting for the data. Application Passwords authenticate REST and XML-RPC only, never wp-admin, so the WXR is something the user PRODUCES and supplies - we cannot fetch it. Rank Math's own Status & Tools > Import & Export exports plugin SETTINGS, not per-post meta, so it is not an alternative."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `seo-by-rank-math/rank-math` - the main-file basename differs from the directory and the /wp/v2/plugins id carries no .php suffix [VERIFIED LIVE 2026-08-16 against the reference store: status INACTIVE, version 1.0.276, textdomain seo-by-rank-math]. Never construct dir/dir.php. The directory exists and is served (GET /wp-content/plugins/seo-by-rank-math/rank-math.php returns HTTP 200 with an empty body), which confirms the directory slug but is not a detection signal.",
+    "Storage model: unregistered post meta. Decisive for this profile - it is the reason the channel is export-file and not core-meta, and it is the single fact that separates Rank Math from Yoast for migration purposes even though the two hold the same capability.",
+    "REST namespace is `rankmath/v1` when active [VERIFIED IN PLUGIN SOURCE v1.0.276, includes/rest/class-rest-helper.php:29 `const BASE = 'rankmath/v1'`]. Its routes are admin/editor actions and dashboards - /updateMetaBulk (POST, capability-gated write), /getHead (read-only URL-to-head helper, registered only when the headless_support setting is on), /getFeaturedImageId, /disconnectSite, /setupWizard/*. None is a readable collection of SEO records, so an active Rank Math would still not yield a plugin-rest data route; the same conclusion the live /yoast/v1 walk reached for Yoast.",
+    "Rank Math also owns custom tables (rank_math_redirections, rank_math_internal_links, rank_math_analytics_*) [VERIFIED IN PLUGIN SOURCE v1.0.276]. The redirections table is genuine durable data and is NOT claimed by this profile: it is a different capability (content.url-redirects) for which no Wix write surface exists at all - see the seo domain's no-url-redirect-api pitfall and the pending proposal in the 2026-08-16 authoring report. The internal-links and analytics tables are derived indexes and reports, not data to move.",
+    "Do not confuse the free plugin (this one, wordpress.org slug seo-by-rank-math) with Rank Math PRO (seo-by-rank-math-pro), which is a separate premium add-on directory and would appear as its own row in /wp/v2/plugins."
+  ]
+}

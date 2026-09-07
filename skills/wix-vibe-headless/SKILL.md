@@ -1,6 +1,6 @@
 ---
 name: wix-vibe-headless
-description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), CMS / Wix Data (list, detail, filter, forms, CRUD), Pricing Plans (memberships, subscriptions, checkout), and Members (custom login — email+password, Google/Facebook, and custom SSO — plus account areas and member-gated content). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, sell membership/subscription plans, add member login / sign up, let members log in with Google or Facebook, custom login page, account / profile page, gate content behind login, sign in with SSO/Okta, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
+description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), Forms (any visitor-fillable form — contact/enquiry, signup, waitlist, application, survey, quote request; schema-driven render + submit), CMS / Wix Data (list, detail, filter, CRUD), Pricing Plans (memberships, subscriptions, checkout), and Members (custom login — email+password, Google/Facebook, and custom SSO — plus account areas and member-gated content). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, add a contact/enquiry form, build a signup or application form, take survey responses, sell membership/subscription plans, add member login / sign up, let members log in with Google or Facebook, custom login page, account / profile page, gate content behind login, sign in with SSO/Okta, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
 ---
 
 # Wix Vibe Headless — client-only REST connectors
@@ -86,47 +86,62 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   genuine gap (a field, an endpoint, or an error the snippets don't cover), extend the client with
   `wixApiRequest` — confirming the exact endpoint, method, and body first. **For that iteration and
   troubleshooting** — finding the right endpoint, reading a method's request/response schema, or
-  diagnosing an API error — fall back to the **`wix-docs`** skill (`../wix-docs/SKILL.md` when
-  co-installed): it covers `curl` doc-search, reading pages, and structured API-spec queries.
+  diagnosing an API error — consult the official Wix API documentation using the documentation
+  skill available in your environment to search methods, read pages, and inspect API schemas.
   Reference index: https://dev.wix.com/docs/api-reference.md
 - **Provide the user with deep links to the Wix dashboard**: In many cases, the user will need to modify the default vertical data in the Wix dashboard. Always provide the user with these links. The relevant information for each vertical's links is in its `INSTRUCTIONS.md` file.
 
 ## How this skill is structured
 
-`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Each vertical ships a **complete UI
-client as files** under `references/<vertical>/app/` — `components/`, `pages/`,
-`hooks/`/`context/`, and its REST helpers in `app/rest/` — plus the **shared transport** in
+`<SKILL_ROOT>` is this file's directory (strip `/SKILL.md`). Each vertical supplies integration
+code under `references/<vertical>/app/`: REST helpers in `app/rest/`, and, depending on the
+vertical, utilities, hooks, context, components, or pages. All use the **shared transport** in
 `references/shared/app/` (`app/rest/wix-client.js` + `wix-config.js`, identical for every vertical).
 Set `WIX_CLIENT_ID` (and `WIX_METASITE_ID`) in `wix-config.js`. Deploying `references/<vertical>/app/`
-and `references/shared/app/` into the app's `src/` puts every file in place — the helpers all land in
+and `references/shared/app/` into the app's `src/` puts every file in place — the REST helpers land in
 `src/rest/`, so their relative imports resolve.
 
 **Where these files live in the app, and how they get there** (pre-installed at setup, or copied
 in) **is your platform's call — follow your platform instructions for that.**
 
-Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
-prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.
-**Open the relevant `INSTRUCTIONS.md` before wiring** — the shapes and gotchas live there.
+Each vertical's `INSTRUCTIONS.md` specifies its prerequisites, supplied pieces, exported interfaces,
+and the presentation you must build. **Read it before implementation**: reuse the supplied pieces
+and build the missing presentation without reimplementing shipped logic. Follow the platform's
+and vertical's completion guidance where provided.
 
 ## Routing — pick the vertical(s) from the request
 
 Load the vertical(s) the user's app needs; a project may combine several (e.g. a restaurant
 with a blog, or a store with pricing plans).
 
-Each vertical's UI + helpers ship in `references/<vertical>/app/`; copy that dir plus
+Each vertical's integration files ship in `references/<vertical>/app/`; copy that dir plus
 `references/shared/app/` into the app's `src/` (base44 does this at install via `deploy.cjs`).
 
 | The user wants… | Vertical | Read |
 |---|---|---|
 | Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` |
-| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Appointments: services, time slots, booking, checkout — **and the form attached to a bookable service** | **bookings** | `references/bookings/INSTRUCTIONS.md` |
+| Rentals: an item hired for a length **the customer picks** (by the hour or by the day) — Wix Rentals runs on the Bookings APIs, so it is the same vertical | **bookings** | `references/bookings/INSTRUCTIONS.md` ("Rentals") |
 | Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` |
-| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` |
+| Events: browse, event page, RSVP, ticketing — **an RSVP is here, not `forms`**, even for one occasion with no tickets | **events** | `references/events/INSTRUCTIONS.md` |
 | Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` |
 | Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` |
-| CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` |
+| Any visitor-fillable form: contact/enquiry, lead, signup, waitlist, application, feedback/survey, quote request, intake or registration. **Not** an event RSVP (`events`) or a per-service booking form (`bookings`) | **forms** | `references/forms/INSTRUCTIONS.md` |
+| CMS content: list/detail, filter/search, data CRUD. **A visitor-fillable form is `forms`** — cms only when the app must read the entries back | **cms** | `references/cms/INSTRUCTIONS.md` |
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
 | Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` |
+
+**⚠️ Anything a visitor fills in and submits is `forms` — with three exceptions:**
+
+1. **The app must read the entries back → `cms`.** A public gallery, a listing, a member's "my
+   submissions". A visitor cannot read Forms submissions, so those need a collection. Submit-only is
+   always `forms`: a form wired to `insertDataItem` works, but gives up the dashboard form builder,
+   spam protection, submission notifications and CRM contact mapping, and needs the owner to set
+   collection permissions by hand before anyone can submit at all.
+2. **Confirming attendance to an event or occasion → `events`.** A wedding, party or gathering —
+   events ships a built-in RSVP registration form. Route there even for a single occasion with no
+   tickets.
+3. **A form attached to a bookable service → `bookings`.**
 
 ### When the request doesn't name a Wix Business Solution — ask, or check the site
 
@@ -151,14 +166,12 @@ installed, not what the business is about. Never default to store/bookings on si
    `references/shared/app/` into the app's `src/`, and set `WIX_CLIENT_ID` in `wix-config.js`. (Where
    and how they get there is your platform's call — see its instructions. On base44 the install step
    writes and verifies `wix-config.js` for you, so there's nothing to set by hand.)
-4. **Wire the shipped client** following the vertical's INSTRUCTIONS: the components are themed by
-   base44's design tokens (`src/index.css` — shadcn palette, already set by the design phase), so
-   there's no re-skin step; just wire routes + header/footer through the Layout. The UI ships as
-   files — you compose the home page and wire it, you don't rebuild the client. Style what you add
-   from the same tokens: every background paired with its own foreground (`bg-primary` with
-   `text-primary-foreground`), `border-input` on form controls, `border-border` on cards and dividers.
-5. **Verify** against the vertical's checklist before declaring done: token persists across
-   reload, live data renders (or a real empty state), and purchases go through the Wix redirect.
+4. **Build the presentation and wire the integration** following the vertical's `INSTRUCTIONS.md`.
+   Reuse its supplied pieces through their documented interfaces, build the presentation it leaves
+   to you, and connect routes/providers as specified. Do not reimplement shipped logic. Style new
+   presentation using the existing platform theme.
+5. **Complete the applicable platform and vertical guidance**, including any required checks and
+   handoff instructions they provide.
 
 > Some flows need Wix-side setup the user completes later (payments connected, the deployed
 > domain allow-listed on the OAuth client for hosted-checkout return, collection permissions).

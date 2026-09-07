@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "domain": "members",
+  "entity": "custom-field",
+  "displayName": "Member Custom Field",
+  "capability": "identity.member-custom-fields",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "Members Custom Field",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Members Custom Fields",
+    "endpoint": "POST /members/v1/custom-fields",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "Two-step: (1) define the field with { field: { name, fieldType, defaultPrivacy } } and capture the SERVER-ASSIGNED key from the response; (2) write per-member values with PATCH /members/v1/members/{memberId} { member: { contact: { customFields: { \"<key>\": { value } } } } }. Delete needs the revision as a query param: DELETE /members/v1/custom-fields/{id}?revision=<n>."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "definitions-then-values",
+      "severity": "warning",
+      "summary": "This surface defines the profile field (name, fieldType, defaultPrivacy); per-member values are written on the member profile. Import definitions before members or the value writes have no field to land in."
+    },
+    {
+      "code": "meta-key-selection",
+      "severity": "warning",
+      "summary": "WordPress user_meta is a mixed bag of plugin bookkeeping and real profile data; import only keys the mapping review approves, or the member profile schema fills with junk fields."
+    },
+    {
+      "code": "key-is-server-assigned",
+      "severity": "blocker",
+      "summary": "CORRECTED 2026-08-16 (live): `key` is READ-ONLY and server-derived — creating a field named \"ZZZ Probe WP Meta\" returned key `custom.zzz-probe-wp-meta-iveokecsuhrarwyqq` (slugified name + random suffix). You cannot set the source meta key as the Wix key, and you cannot reconstruct it. Capture `field.key` from the create response into the crosswalk; every value write addresses that key. A codegen path that derives the key from the source meta key writes into a field that does not exist."
+    },
+    {
+      "code": "value-write-is-a-member-patch",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: values land at member.contact.customFields[key].value via PATCH /members/v1/members/{id} — not on this surface, and not under member.profile. The patch succeeded with no revision field on the member payload; the readback returns { name, value } per key."
+    },
+    {
+      "code": "delete-requires-revision-query-param",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: DELETE /members/v1/custom-fields/{id} with no query string → 400 `revision must not be empty`. Pass the current revision as a query param (`?revision=1`) — rollback/cleanup code must read the field first."
+    }
+  ],
+  "mappingGuidance": [
+    "Create one custom field per approved source user_meta key: human label → name, inferred type → fieldType (TEXT | NUMBER | DATE | URL | SOCIAL), defaultPrivacy PUBLIC | PRIVATE.",
+    "Record the SERVER-ASSIGNED field key from the create response in the crosswalk (source meta key → Wix `field.key`); the member import addresses values by that key, never by the source key.",
+    "SOCIAL fields additionally require socialType (FACEBOOK, INSTAGRAM, LINKEDIN, TWITTER, YOUTUBE, PINTEREST, TIKTOK, DEVIANTART, SOUNDCLOUD, TUMBLR, VIMEO, VKONTAKTE, ODNOKLASSNIKI, OTHER)."
+  ],
+  "setupRequirements": [
+    "Wix Members Area app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/custom-fields/custom-fields/custom-field-object",
+      "note": "object page: key (read-only), name, fieldType, defaultPrivacy, appliesTo"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/custom-fields/custom-fields/create-custom-field"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: create → 200 (id 32611f4f…, server key custom.zzz-probe-wp-meta-iveokecsuhrarwyqq, fieldOrigin CUSTOM, appliesTo ALL_MEMBERS, section GENERAL); value set on a probe member via member PATCH and read back; DELETE without revision → 400, DELETE ?revision=1 → 200; list-custom-fields empty afterwards"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (member Custom Fields). Classified setup-config: it defines profile schema (the member-side analog of contact extended fields); per-member values ride on members/member. Promoted to verified-live 2026-08-16; the probe corrected the original mappingGuidance claim that the source meta key becomes the Wix field key — the key is server-assigned."
+}

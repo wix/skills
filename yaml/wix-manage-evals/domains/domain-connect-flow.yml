@@ -1,0 +1,39 @@
+name: domains/domain-connect-flow
+description: >-
+  Verifies the agent reads the domain-search-purchase-and-connect recipe when the user already owns a
+  domain, treats it as a connect rather than a purchase, and resolves the target site per Part C Case B —
+  asking which site when the account holds several, without handing over a connect link first.
+triggerPrompt: >-
+  I want to connect a domain I already own to my Wix site.
+tags: [domains]
+maxTokens: 800000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect-a-domain
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already owns a domain and wants it on their Wix site. Their request: "I want to connect a domain I already own to my Wix site."
+
+      Per Part C of the recipe this is the connect path, and the request names no site. Case B of §C1
+      applies: with several sites on the account, the agent lists them and asks which one. Connecting
+      is gated on that site's Premium plan, so the plan-specific answer — connect link, or connect link
+      plus upgrade block — can only come after a site is chosen. Every connect URL embeds a siteId
+      (§R6), so no such URL can appear in the question itself.
+
+      Pass if the response:
+      - reads this as connecting a domain the user already owns, not as a purchase, AND
+      - asks which domain to connect OR
+      - asks which site to connect it to, presenting the sites on the account, rather than answering
+        for a site it never established, OR
+      - explain the user the whole procedure step by step, select a premium site, choose the connection type by pointing vs nameservers.
+
+      Fail if the response:
+      - hands over a dashboard connect link, or a link with a site placeholder in it, before a site has
+        been chosen, OR
+      - walks the user through buying a domain, or offers alternative domains to register instead, OR
+      - narrates internal mechanics — API or tool names, endpoint paths, error codes, or
+        premium-status field names, OR
+      - claims a plan outcome for a site it never identified.

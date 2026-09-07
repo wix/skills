@@ -1,0 +1,20 @@
+name: rich-content/ricos-collapsible-list
+description: Sharp-edge check on the Author Ricos Rich Content recipe — a COLLAPSIBLE_LIST with correct title/body nesting.
+triggerPrompt: Create Ricos rich content with a one-item FAQ collapsible list. The title is "What is your return policy?" and the body is "Returns are accepted within 30 days." Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a collapsible FAQ list.
+
+      Score 9-10: contains `COLLAPSIBLE_LIST` → `COLLAPSIBLE_ITEM` → `COLLAPSIBLE_ITEM_TITLE` and `COLLAPSIBLE_ITEM_BODY`; each title/body wraps a `PARAGRAPH` containing `TEXT` with `paragraphData` present (e.g. `textStyle.textAlignment`); title text mentions the return policy question and body text mentions 30 days; `collapsibleListData` is present; every `type` is a bare string.
+      Score 6-8: correct nesting but a minor field is missing (e.g. `collapsibleListData`) or title/body text is slightly off.
+      Score 3-5: nesting skips a level (e.g. TEXT directly in COLLAPSIBLE_ITEM), OR missing TITLE or BODY, OR wrong node types.
+      Score 0-2: no collapsible list, prose/plain-text output, OR any item node uses `COLLAPSIBLE_LIST_ITEM` (wrong — must be `COLLAPSIBLE_ITEM`).
+      **Cap at 5** if item nodes use `COLLAPSIBLE_LIST_ITEM` instead of `COLLAPSIBLE_ITEM` — that type is not in the Author Ricos recipe or Ricos plugin schema.

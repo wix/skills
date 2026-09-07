@@ -1,0 +1,97 @@
+name: forms/create-form
+description: >-
+  Verifies the agent reads the create-form recipe when asked to build a Wix
+  form with custom fields, and produces a Form Schemas v4 request that uses
+  the Wix Forms (New) app, the wix.form_app.form namespace, predefined field
+  identifiers, a well-formed choice field, per-field contactMapping, and a
+  layout placing every field — then verifies the result rather than trusting
+  the 200.
+triggerPrompt: >-
+  Build a contact form on my Wix site that collects first name, last name,
+  email, a "How did you hear about us?" dropdown with the options Google,
+  Instagram and Friend, and a message box. Email should be required, and
+  submissions should create contacts.
+tags: [forms]
+maxTokens: 800000
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Wix Forms (New) — a blank site has no forms app, and the create 400s without it
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 225dd912-7dea-4738-8688-4b8c6955ffc2
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/create-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for a Wix contact form with first name, last name, a
+      required email, a "How did you hear about us?" dropdown (Google,
+      Instagram, Friend), and a message box, with submissions creating
+      contacts.
+
+      Pass if the response builds the form on the Form Schemas v4 API
+      (POST /form-schema-service/v4/forms) AND:
+      - uses namespace "wix.form_app.form", AND
+      - names the Wix Forms app as 225dd912-7dea-4738-8688-4b8c6955ffc2 if it
+        names one at all, AND
+      - uses predefined identifiers for the fields (CONTACTS_FIRST_NAME,
+        CONTACTS_LAST_NAME, CONTACTS_EMAIL, DROPDOWN, TEXT_AREA or TEXT_INPUT,
+        SUBMIT_BUTTON) rather than invented strings like "how_did_you_hear", AND
+      - builds the dropdown as inputType STRING with componentType DROPDOWN,
+        every option carrying its own id/value/label AND
+        stringOptions.validation.enum listing the same three values, AND
+      - puts the required flag at inputOptions.required (NOT inside
+        validation), AND
+      - maps contacts with per-field inputOptions.contactMapping.contactField
+        (NOT postSubmissionTriggers / upsertContact), AND
+      - includes a steps[].layout placing every field including the
+        SUBMIT_BUTTON, with lowercase GUIDs matching the field ids, AND
+      - verifies the created form afterwards (list read-back and/or
+        GET /form-schema-service/v4/forms/{formId}/summary) rather than
+        treating the 200 as proof.
+
+      Fail if the response:
+      - targets the old Wix Forms app 14ce1214-b278-a7e4-1373-00cebd1bef7c, OR
+      - uses any namespace other than wix.form_app.form (e.g.
+        wix.form_platform.form), OR
+      - invents an identifier for the dropdown or the message field, OR
+      - emits the dropdown as a plain text input, or omits option ids or the
+        validation enum, OR
+      - uses postSubmissionTriggers.upsertContact for contact mapping, OR
+      - omits the layout, or leaves the submit button unplaced, OR
+      - proposes creating throwaway test forms to probe the field shape, OR
+      - works around a field-count or plan limit by splitting the form across
+        several schemas instead of telling the user to reduce or upgrade.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the quality of the tool-call path, not just the final answer.
+
+      Pass if:
+      - the agent opened the create-form recipe from the recipes index before
+        composing the request, AND
+      - it assembled the whole form in a single create call rather than
+        iterating with probe forms, AND
+      - every Wix API detail it states (endpoint, identifiers, enums, where
+        `required` goes) traces to a doc it read, not to memory, AND
+      - it verified the created form by reading it back, rather than treating
+        the create's 200 as proof.
+
+      Fail if:
+      - the agent guessed at field shapes and then corrected itself across
+        several create attempts, OR
+      - it created and deleted test forms to discover the schema, OR
+      - it hallucinated endpoints or enum values not present in the Form
+        Schemas v4 API.

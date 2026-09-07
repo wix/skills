@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "domain": "tax",
+  "fetchedAt": "2026-08-12",
+  "roots": [
+    "api-reference/business-solutions/e-commerce/extensions/tax"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/contact-tax-details",
+      "title": "Contact Tax Details",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/contact-tax-details",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Per-contact tax-exempt-group association (e.g. reseller/non-profit customer exemption). WooCommerce's current capture (product tax_class/tax_status, wc/v3/taxes, wc/v3/settings/tax) has no per-customer tax exemption signal to map here; the reference store's one exemption case is product-level (tax_status=none), handled via manual-tax-mapping.json's tax-group approach instead.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings",
+      "title": "Manual Tax Mappings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings",
+      "group": null,
+      "verdict": "claimed",
+      "refs": ["tax/manual-tax-mapping"],
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation",
+      "title": "Tax Calculation",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Calculate Tax / List Tax Calculators are read/runtime APIs (Wix invokes Calculate Tax itself during checkout) with nothing to import. Used here as a live verification aid only: List Tax Calculators resolves the manual-calculator appId a Tax Region needs (see resolveManualTaxCalculatorAppId in wix-writers.js), and Calculate Tax was used to live-confirm the unmapped-tax-group-calculates-to-exactly-zero-tax finding recorded in domain.json sharedPitfalls.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation-integration-service-plugin",
+      "title": "Tax Calculation Integration Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation-integration-service-plugin",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Service plugin surface for an app providing a custom/external tax calculation engine. RePlatform is a one-time migration client, not an app extending the site's tax calculation pipeline -- out of scope.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-exempt-groups",
+      "title": "Tax Exempt Groups",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-exempt-groups",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Reusable customer-exemption-group catalog (resellers, non-profits, etc.), read via a buyer's Contact Tax Details association. No such source concept exists in the current WooCommerce capture; the reference store's one exemption is product-level, not customer-level. Revisit if a future source exposes customer/role-based tax exemption.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-exempt-groups-integration-service-plugin",
+      "title": "Tax Exempt Groups Integration Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-exempt-groups-integration-service-plugin",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Service plugin surface for an app providing default exempt groups to a site. Not applicable to a one-time migration client.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-groups",
+      "title": "Tax Groups",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups",
+      "group": null,
+      "verdict": "claimed",
+      "refs": ["tax/tax-group"],
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-groups-integration-service-plugin",
+      "title": "Tax Groups Integration Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-groups-integration-service-plugin",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Service plugin surface for an app providing default tax groups to a site's catalog. RePlatform writes ordinary custom tax groups via the regular Create Tax Group call instead -- not applicable.",
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-regions",
+      "title": "Tax Regions",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions",
+      "group": null,
+      "verdict": "claimed",
+      "refs": ["tax/tax-region"],
+      "reviewedOn": "2026-08-12"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax/tax-settings",
+      "title": "Tax Settings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings",
+      "group": null,
+      "verdict": "claimed",
+      "refs": ["tax/tax-settings"],
+      "reviewedOn": "2026-08-12"
+    }
+  ]
+}

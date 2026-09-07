@@ -1,0 +1,8 @@
+{
+  "bundle": "wix-headless-replatform",
+  "version": "2.0.0",
+  "sourceRepo": "wix-private/replatform",
+  "sourcePath": "skills/wix-headless-replatform/",
+  "sourceCommit": "f5f585c",
+  "publishedAt": "2026-08-27T14:52:23Z"
+}

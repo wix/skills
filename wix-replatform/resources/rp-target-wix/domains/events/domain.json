@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "displayName": "Wix Events",
+  "ownerHint": "Events, registration, RSVP, and ticketing domain owners",
+  "wixAppsRequired": [
+    "Wix Events"
+  ],
+  "docsRoots": [
+    "api-reference/business-solutions/events"
+  ],
+  "defaultImportOrder": [
+    "event",
+    "registration-form",
+    "ticket-definition",
+    "rsvp"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "ticket-order-history-not-importable",
+      "severity": "blocker",
+      "summary": "Ticketed registration history has no import path: ticket orders are only created through the live checkout flow. Past ticket sales cannot be migrated even though the events themselves can."
+    },
+    {
+      "code": "registration-notifications-default-on",
+      "severity": "warning",
+      "summary": "Registration side effects are on by default across this domain. RSVP creation sends a confirmation email unless disableNotifications is set."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event"
+    }
+    
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "domain": "tax",
+  "displayName": "Wix Tax",
+  "ownerHint": "eCommerce tax domain owners (Tax Groups / Tax Regions / Manual Tax Mappings)",
+  "wixAppsRequired": ["Wix Stores"],
+  "docsRoots": [
+    "api-reference/business-solutions/e-commerce/extensions/tax"
+  ],
+  "defaultImportOrder": [
+    "tax-settings",
+    "tax-group",
+    "tax-region",
+    "manual-tax-mapping"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "tax-apis-live-under-billing-v1-not-ecom-v1",
+      "severity": "warning",
+      "summary": "Tax Groups, Tax Regions, and Manual Tax Mappings all live under `/billing/v1/...` — not `/ecom/v1/...` like Discount Rules, and not `/stores/v2/...` like Coupons. Guessing the ecom prefix by analogy with sibling commerce-extension entities is the most likely first-try mistake."
+    },
+    {
+      "code": "tax-group-has-no-rate-rate-lives-on-the-mapping",
+      "severity": "info",
+      "summary": "A Tax Group only categorizes products; it carries no tax rate. The rate for a (group, region) pair lives in a separate Manual Tax Mapping record (only meaningful when the region's calculator is the Wix manual calculator, not Avalara). A product joins a group via the product's own `taxGroupId` field on Wix Stores Catalog V3 (Update Product), not via any call in this domain."
+    },
+    {
+      "code": "query-tax-groups-excludes-defaults",
+      "severity": "blocker",
+      "summary": "Every site already has default tax groups (e.g. Products, Shipping and delivery, Services, Cancellation fees) inherited from its installed apps. Query Tax Groups returns ONLY custom groups a site created — it never returns the defaults. Call List Default Tax Groups (GET /billing/v1/tax-groups/default-tax-groups) to see or resolve a default group's id; this is flagged by Wix's own docs as the most common mistake when looking up a group id such as the shipping group."
+    },
+    {
+      "code": "never-hardcode-the-tax-calculator-appid",
+      "severity": "blocker",
+      "summary": "A Tax Region requires an `appId` naming an installed tax calculator, and calculator appIds are installation-scoped — they differ between sites. Always resolve live via List Tax Calculators (GET /billing/v1/list-tax-calculators) immediately before creating a region; never reuse an appId hardcoded from a different site or from docs examples. On the reference store (2026-08-12) the two installed calculators were 'Wix Manual Tax Calculator' (57d13128-4a4c-494b-80b3-a6fb2e28018d) and 'Avalara Tax Calculator' (7516f85b-0868-4c23-9fcb-cea7784243df) — pick the calculator whose displayName is not Avalara for a manually-transcribed rate."
+    },
+    {
+      "code": "unmapped-tax-group-calculates-to-exactly-zero-tax",
+      "severity": "info",
+      "summary": "LIVE-VERIFIED (2026-08-12, not stated explicitly in docs): calling Calculate Tax for a line item whose tax group has NO manual tax mapping for the matched region returns exactly zero tax (taxAmount/taxableAmount both \"0\", empty taxBreakdown[]) rather than an error or a fallback rate. This is the correct primitive for representing a genuinely tax-exempt product/category: create one dedicated tax group for it and deliberately create no manual tax mapping for that group in any region, instead of enumerating a 0% mapping per region."
+    },
+    {
+      "code": "iso-codes-not-display-names",
+      "severity": "blocker",
+      "summary": "`country` (ISO 3166-1 alpha-2) and `subdivision` (ISO 3166-2 without the country prefix, e.g. `NY` not `US-NY`) are stored as codes only — no display name is kept anywhere. Storing a display name like `Georgia` instead of `GA` doesn't error; it just silently matches nothing at calculation time. Subdivision-level regions are only accepted for AU, BR, CA, FR, DE, IN, IT, MX, NL, PT, ES, AE, GB, and US; for any other country, omit `subdivision` (or pass `*`) to create a country-level region."
+    },
+    {
+      "code": "delete-diagnostic-tax-regions-they-surface-as-merchant-facing-warnings",
+      "severity": "warning",
+      "summary": "A Tax Region created without a Manual Tax Mapping is not inert: Wix's own Tax Locations UI lists it immediately with a visible warning icon and \"Add rates to this location to collect tax at checkout\" — merchant-facing, not just an internal API state. A diagnostic create-then-forget-to-delete cycle leaves real warnings on the live site. Always pair a diagnostic createTaxRegion with a matching deleteTaxRegion in the same session, and independently re-verify via the Tax Locations page (or Query Tax Regions) that nothing was left behind — do not rely on the create/delete call sequence in a script having actually run to completion."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/introduction"
+    },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real Create/Query/Delete Tax Group, Create/Query/Delete Tax Region, Create/Query/Delete Manual Tax Mapping, List Tax Calculators, and Calculate Tax calls against the live reference store, plus a real Stores Catalog V3 Update Product call assigning `taxGroupId` to the one genuinely tax-exempt product. CORRECTION (2026-08-15): the Tax Region \"create/delete cycle\" was not actually cleaned up — the reference store's live Tax Locations page currently shows 3 undeleted, unmapped Tax Regions (Israel, United Kingdom, California/United States) each flagged with a merchant-facing warning. Left in place at the site owner's direction pending a deliberate cleanup pass. Query/Delete Tax Region themselves remain live-verified as working calls — what's corrected is the claim that this PR's diagnostic session left the reference store clean."
+    }
+  ]
+}

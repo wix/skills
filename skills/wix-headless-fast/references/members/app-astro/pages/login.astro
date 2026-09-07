@@ -1,0 +1,11 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import LoginForm from "../components/members/LoginForm";
+---
+
+<SiteLayout title="Log in">
+  <section class="mx-auto max-w-md">
+    <h1 class="mb-6 text-2xl font-semibold">Welcome</h1>
+    <LoginForm client:only="react" />
+  </section>
+</SiteLayout>

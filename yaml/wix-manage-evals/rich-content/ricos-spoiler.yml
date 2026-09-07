@@ -1,0 +1,20 @@
+name: rich-content/ricos-spoiler
+description: Sharp-edge check on the Author Ricos Rich Content recipe — inline SPOILER decoration on a split TEXT run.
+triggerPrompt: Create Ricos rich content with a paragraph that reads "The secret code is hidden" where only the words "secret code" use a spoiler/reveal decoration. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for spoiler inline formatting.
+
+      Score 9-10: a PARAGRAPH splits into multiple TEXT runs; the run containing "secret code" carries a `SPOILER` decoration (`{ "type": "SPOILER" }` with no required data fields); surrounding words are separate plain TEXT runs; every `type` is a bare string.
+      Score 6-8: spoiler applied to the right words but the sentence is one TEXT run, OR a minor decoration shape issue.
+      Score 3-5: spoiler missing, applied to the whole sentence, OR uses a non-Ricos pattern (e.g. custom `spoilerData` instead of decoration type `SPOILER`).
+      Score 0-2: no spoiler formatting, or prose/plain-text output.
+      **Cap at 5** if spoiler is not a `SPOILER` decoration on TEXT — prod schema search rarely documents this decoration.

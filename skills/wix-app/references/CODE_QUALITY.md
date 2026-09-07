@@ -26,7 +26,6 @@ Applies to all generated code across every Wix CLI app extension type. Each per-
 
 - If a generated file would exceed ~300 lines, split it into multiple smaller files with imports. Each component or function should stay ~50–100 lines.
 - Extract utilities/helpers into separate files; put types/interfaces into dedicated type files.
-- **Exception — auto-patterns override files** (column / action / slot / section / component / header overrides) ALWAYS live in their own file under `components/<type>/` with a `use*` hook, **regardless of file size**. This is a structural requirement of the override-registration model, not a size-based split — the ~300-line rule does NOT license inlining an override into the page component, even for a single small one. See [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md).
 
 ## Error Handling
 

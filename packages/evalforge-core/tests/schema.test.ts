@@ -398,8 +398,8 @@ describe('scenario templateId', () => {
   ].join('\n');
 
   it('accepts an optional top-level templateId', () => {
-    const s = parseScenario(base + '\ntemplateId: 33f2cb85-054e-4281-b617-3bc21ac0803f\n');
-    expect(s.templateId).toBe('33f2cb85-054e-4281-b617-3bc21ac0803f');
+    const s = parseScenario(base + '\ntemplateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa\n');
+    expect(s.templateId).toBe('c0ee6fd2-5265-4c57-b083-4f1308ff5ffa');
   });
   it('is valid without templateId (wix-manage scenarios omit it)', () => {
     const s = parseScenario(base + '\n');

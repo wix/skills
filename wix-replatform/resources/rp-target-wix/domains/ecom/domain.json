@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "docsRoots": [
+    "api-reference/business-solutions/e-commerce"
+  ],
+  "displayName": "Wix eCommerce",
+  "ownerHint": "eCommerce Orders, refunds, checkout, and order-history domain owners",
+  "wixAppsRequired": [
+    "Wix Stores"
+  ],
+  "defaultImportOrder": [
+    "delivery-profile",
+    "order",
+    "order-line-item",
+    "order-applied-discount",
+    "order-line-item-options",
+    "order-refund",
+    "order-merchant-note"
+  ],
+  "sideEffectNotes": [
+    "Historical order writes are blocked unless setup verification proves side-effect behavior."
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/ecom/entities/order.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (delivery-profile, order, order-line-item, order-applied-discount, order-line-item-options, order-refund, order-merchant-note)"
+    }
+  ]
+}

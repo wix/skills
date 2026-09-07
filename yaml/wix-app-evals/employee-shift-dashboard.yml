@@ -1,14 +1,14 @@
 name: employee-shift-dashboard
-description: Dashboard page for store owners to manage employee shifts with a table and add-shift functionality
+description: Dashboard page for store owners to manage employee shifts, built with @wix/patterns over a scoped data collection
 triggerPrompt: |-
   Build a dashboard page that lets store owners manage employee shifts. The page should have a table where each row is a shift with these fields: employee name, date, and hours. The store owner must be able to add new shifts to the table.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
-templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
-tags: [dashboard-page, data-collection, auto-patterns-dashboard]
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, data-collection, wix-patterns-docs, entity-page-toolkit, collection-toolkit]
 assertions:
   - type: skill_was_called
-    negate: true
+    negate: false
     skillNames: [wix-app]
     referenceFiles:
       wix-app: [references/DASHBOARD_PAGE.md]
@@ -16,12 +16,17 @@ assertions:
     negate: false
     skillNames: [wix-app]
     referenceFiles:
-      wix-app: [references/AUTO_PATTERNS_DASHBOARD.md]
+      wix-app: [references/WIX_PATTERNS_DOCS.md]
   - type: skill_was_called
     negate: false
     skillNames: [wix-app]
     referenceFiles:
       wix-app: [references/DATA_COLLECTION.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/dashboard-page/ENTITY_PAGE_TOOLKIT.md]
   - type: build_passed
     command: npm run build
   - type: llm_judge
@@ -29,7 +34,17 @@ assertions:
     minScore: 7
     prompt: |-
       Evaluate whether the agent created a functional dashboard page for managing employee shifts. Check: (1) There is a visible table/grid displaying shifts with columns for employee name, date, and hours. (2) There is a way to add new shifts (e.g. a form or add button). (3) New shifts appear in the table after being added. (4) The code is well-structured and the UI is usable. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the shifts UI follows the patterns-first component selection rule. Check: (1) The shifts table/grid comes from `@wix/patterns` — a `Table`/`Grid` driven by a collection state hook (`useTableCollection` or a sibling) inside a `@wix/patterns` page shell (`CollectionPage`) — and is NOT a hand-written `<table>`, a manually assembled Wix Design System table, or a custom collection implementation. (2) **The add/edit-shift flow is a `@wix/patterns` `EntityPage` driven by `useEntityPage`, with form state from `@wix/patterns/form`, reached via `usePatternsNavigate` — NOT a hand-built Wix Design System form inside a dashboard modal.** A correct table paired with a hand-rolled WDS entity form scores no higher than 4. (3) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. (4) `@wix/design-system` is used only for leaf UI inside those shells (inputs, buttons, form fields, text, layout) — not to replace anything patterns provides. (5) There is no `@wix/auto-patterns` import and no `patterns.json` file anywhere in the project. (6) The agent looked up `@wix/patterns` names via `dist/dts-bundle/index.json` and `dist/docs/index.json` (and the specific `.d.ts`/`.md` files those point at) — not by running `ls`, `find`, `cat`, or `grep` against arbitrary paths under `node_modules`. Any such direct `node_modules` exploration is an automatic low score, same severity as the `@wix/auto-patterns` check above. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      The prompt requires adding new shifts, so this build has a create route as well as an edit one. Evaluate only how that create route is wired. Check: (1) The create route is registered as its own `PatternsReactRoute` with `type="createEntity"` — not the edit route reused with the id left out, and not a dashboard modal. (2) The navigation to it calls `navigateToEntityPage({ path })` with **no** `entity` argument. Inventing a blank/placeholder record to pass as `entity` is a defect: it becomes `state.entity` until `fetch` resolves. (3) `fetch` is supplied on the create route and resolves `{ entity: undefined }` for it — not omitted, not throwing, not a fabricated empty record. (4) `isNewEntity` is passed, and is true on the create route. Omitting it is the silent failure this checks for: the save is then announced to the collection as an update, so the new shift never appears in the table. (5) If the agent had to work around an installed `@wix/patterns` older than 1.464.0, it says so explicitly rather than guessing at the signature. Score 0-10, and treat a missing `isNewEntity` or a placeholder `entity` as no higher than 4.
   - type: time_limit
-    maxDurationMs: 180000
+    maxDurationMs: 900000
   - type: cost
-    maxCostUsd: 1
+    maxCostUsd: 2.5

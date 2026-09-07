@@ -1,0 +1,35 @@
+name: cms/cms-ecommerce-catalog-integration
+description: >-
+  Verifies the agent reads the CMS eCommerce catalog integration reference and explains
+  how to sell CMS collection items through Wix Cart V2 via the CATALOG plugin.
+triggerPrompt: >-
+  I have a Wix CMS collection of event tickets with name and price fields, and I want to sell them
+  through Wix checkout. How do I turn the collection into a purchasable catalog and add an item to
+  a cart? Written REST instructions only, no live API call.
+tags: [cms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-e-commerce-catalog-integration
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to sell items from a CMS collection through Wix checkout. Evaluate both the final
+      response and any Wix API/tool calls made.
+      Intent: add the CATALOG plugin to the collection and use the CMS catalog items in the Cart V2 flow.
+
+      Pass if the response:
+      - adds the CATALOG plugin via `POST /wix-data/v2/collections/add-plugin`, mapping at least the
+        `name` and `price` fields in `catalogOptions`, AND
+      - uses the CMS appId `e593b0bd-b783-45b8-97c2-873d42aacaf4` in the `catalogReference`, AND
+      - adds the item to a cart using the Cart V2 API with `catalogItems` (e.g. create cart via
+        `POST /ecom/v2/carts` or add via `POST /ecom/v2/carts/{cartId}/add-line-items`), AND
+      - correctly represents CMS catalogs versus Wix Stores (e.g. manual variants/inventory).
+
+      Fail if the response:
+      - uses Checkout/Cart V1 (e.g. `/ecom/v1/checkouts`, a create-checkout step, or `lineItems`
+        instead of `catalogItems`), OR
+      - invents a different CMS appId, OR
+      - omits adding the CATALOG plugin before using the item in a cart, OR
+      - tells the user they must migrate the collection into Wix Stores to sell it.

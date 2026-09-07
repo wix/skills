@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "tiktok-catalog-connect",
+  "displayName": "TikTok Catalog",
+  "capability": "commerce.tiktok-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": "wix.stores_channels.feed.v1.catalog",
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "tiktok-for-woocommerce",
+      "confidence": "medium",
+      "note": "No WooCommerce plugin profile authored yet for a TikTok catalog plugin (e.g. TikTok for WooCommerce); this alias is a forward-pointer for when one is profiled."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant copies a feed link into TikTok for Business",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [],
+  "mappingGuidance": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-adding-store-products-to-your-tiktok-for-business-catalog"
+    },
+    {
+      "type": "internal-fqdn",
+      "path": "wix.stores_channels.feed.v1.catalog — BuildMarketplaceCatalogFeedUrlV2Request.FeedFile enum includes TIKTOK_XML and TIKTOK_TSV (ALPHA maturity) — verified via docs-schema MCP, 2026-08-16"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "A TikTok for Business account with Catalog access.",
+    "steps": [
+      { "actor": "merchant", "text": "Go to Catalog > Sales Channels > TikTok Catalog in the Wix dashboard, click Get Catalog Link, and copy it." },
+      { "actor": "external", "text": "In TikTok for Business, add the copied link as the catalog's data feed and choose a sync frequency." }
+    ],
+    "mechanism": "Pull-based, scheduled feed: the merchant sets how often TikTok re-fetches it, so product changes in Wix are NOT reflected on TikTok until the next scheduled pull — unlike Meta, which polls continuously.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-adding-store-products-to-your-tiktok-for-business-catalog" },
+      { "type": "internal-fqdn", "path": "wix.stores_channels.feed.v1.catalog (TIKTOK_XML / TIKTOK_TSV)" }
+    ]
+  }
+}

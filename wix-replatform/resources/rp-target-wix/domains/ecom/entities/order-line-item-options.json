@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-line-item-options",
+  "displayName": "eCommerce Order Line Item Options (Description Lines)",
+  "capability": "commerce.order-addon-values",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "eCommerce Order Line Item Description Lines",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "media/media-file"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_item_addon_value",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "ecomOrderLineItemDescriptionLine",
+      "routes": [
+        "eCommerce Orders API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders/import",
+    "writerId": "importOrder",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use a CMS shadow (keyed by the order crosswalk + line item) for the raw addon payload when fidelity matters, or when values overflow the descriptionLines caps (20 lines / 600 chars per value)."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "modifier-groups-read-only-on-import",
+      "severity": "warning",
+      "summary": "lineItems[].modifierGroups is READ-ONLY on import: it is absent from the Import Order writable request body and marked read-only (maxItems 10) on the returned Order object — addon values can never be recreated as structured modifiers on historical orders. descriptionLines[] is the import-time carrier. VERIFIED LIVE 2026-08-16: an imported line item carrying descriptionLines and catalogReference.options read back with modifierGroups: [] — the field stays empty even when the referenced catalog product genuinely has modifiers attached."
+    },
+    {
+      "code": "description-lines-readback-adds-legacy-mirrors",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-08-16: the readback of a description line adds server-computed legacy mirror fields alongside what was sent — plainText lines gain lineType: 'PLAIN_TEXT' plus a duplicated plainTextValue, and colorInfo lines gain lineType: 'COLOR' plus a flattened color string. Verification/diff passes must compare only the fields that were sent, or they will report spurious drift."
+    },
+    {
+      "code": "catalog-reference-options-is-untyped",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-08-16: lineItems[].catalogReference.options accepts and preserves arbitrary key:value string pairs verbatim (probe carried variantId, a source addon group id, and a human-labelled addon value side by side). Nothing validates the keys against the referenced product's real customizations, so a typo here is silent — it is a machine-readable carry, not a checked link."
+    },
+    {
+      "code": "description-lines-caps",
+      "severity": "warning",
+      "summary": "descriptionLines caps: max 20 lines per line item; name.original max 100 chars; value is a one-of plainText (original max 600 chars) OR colorInfo (never both). Sources with >20 addon fields per line item or values >600 chars overflow to the CMS shadow or truncate with a ledger entry."
+    },
+    {
+      "code": "display-only-semantics",
+      "severity": "warning",
+      "summary": "descriptionLines are display-purpose text on the cart/checkout/order — not machine-readable selections. Mirror machine-readable selections into lineItems[].catalogReference.options (writable key:value object) when downstream logic needs them; text-only carry loses structure."
+    },
+    {
+      "code": "file-upload-values-need-media-copy",
+      "severity": "warning",
+      "summary": "Addon values that are file uploads reference files hosted on the source site. They need a media copy step (import the file to Wix Media, rewrite the reference) before the value is written; a bare source URL in a description line dies with the source site."
+    }
+  ],
+  "mappingGuidance": [
+    "Mapping confirmed by Spec Owner 2026-08-16: captured addon/option values on historical order line items map to Import Order lineItems[].descriptionLines[] — one line per addon field, name.original = field title (max 100 chars), plainText.original = captured value (max 600 chars) — written on the order import payload (ecom/order).",
+    "plainText and colorInfo are a one-of per description line; addon values are text, so use plainText (colorInfo only for genuine color selections with a name and optional HEX/RGB code).",
+    "Optionally mirror machine-readable selections into lineItems[].catalogReference.options — a writable key:value object for item-selection specificity — in addition to the display-oriented description lines.",
+    "modifierGroups is read-only on import — never plan it as a target for addon values; record that explicitly in mapping reports.",
+    "File-upload addon values need a media copy step first (Wix Media import + reference rewrite); keep the original source URL in the migration ledger.",
+    "When full fidelity matters (raw source payload such as PPOM's _ppom_fields hidden meta), shadow the untruncated payload to a CMS collection keyed by the order crosswalk + source line item id.",
+    "Written through the parent order payload — never a standalone write; sequencing and crosswalks are the parent order's (ecom/order).",
+    "dependsOn media/media-file is conditional, not universal: only orders whose addon values include file uploads need the media copy step before write. Plain text/color addon values have no dependency at all."
+  ],
+  "setupRequirements": [
+    "Media copy step for file-upload addon values before order import.",
+    "CMS shadow collection setup only if the raw-payload fallback is used.",
+    "Side-effect verification before historical order execution (inherited from ecom/order)."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order",
+      "note": "Import Order request schema, markdown fetched 2026-08-16: lineItems[].descriptionLines[] writable (minItems 0, maxItems 20; one-of plainText.original maxLength 600 / colorInfo.original maxLength 500 + code; name.original maxLength 100); lineItems[].catalogReference.options writable object ('Additional item details in key:value pairs'); modifierGroups is ABSENT from the writable request body and appears read-only (maxItems 10) on the returned Order object."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
+      "note": "Order object page (read 2026-08-16): descriptionLines, catalogReference, and modifierGroups confirmed on the order line item object."
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
+      "note": "commerce.order-addon-values pending-register entry (researched 2026-08-16 against PPOM plugin source v34.0.8; source payload shape source-verified, not live-verified — no PPOM order existed on the test site); resolved by this entity 2026-08-16."
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Import Order create + GET readback on a two-line-item order. Line item 1 carried three descriptionLines (two plainText, one colorInfo with name + HEX code) and a catalogReference { appId: Wix Stores, catalogItemId: <live probe product>, options: { variantId, sourceAddonGroupId, 'ZZZ Probe engraving': '<value>' } }; all persisted exactly as sent. Line item 2 carried none and read back with descriptionLines: []. modifierGroups came back [] on both. Probe order 1cfe4291 and its probe product deleted afterwards."
+    }
+  ],
+  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site: descriptionLines (plainText and colorInfo variants) and catalogReference.options both persisted verbatim, and modifierGroups was confirmed empty on readback."
+}

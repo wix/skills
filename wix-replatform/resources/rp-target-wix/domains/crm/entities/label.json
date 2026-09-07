@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "entity": "label",
+  "displayName": "CRM Label",
+  "capability": "crm.label",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Contact Label",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "customer_tag",
+      "routes": [
+        "customer metadata",
+        "segments"
+      ],
+      "confidence": "low"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "contactLabel",
+      "routes": [
+        "Contacts Labels"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Contacts Labels",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for source segmentation rules that are not contact labels."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "source-segment-semantics",
+      "severity": "warning",
+      "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review."
+    }
+  ],
+  "mappingGuidance": [
+    "Create labels before assigning them to contacts."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/labels/label-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 3/3 labels (MailPoet segments) created and read back"
+    }
+  ]
+}

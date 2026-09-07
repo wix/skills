@@ -1,0 +1,1311 @@
+{
+  "schemaVersion": 1,
+  "domains": {
+    "blog": {
+      "path": "domains/blog/domain.json",
+      "displayName": "Wix Blog",
+      "ownerHint": "Blog posts, categories, tags, authorship, and comments domain owners",
+      "entities": {
+        "category": {
+          "path": "domains/blog/entities/category.json",
+          "displayName": "Blog Category",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Wix Blog categories are flat; WordPress hierarchy needs CMS shadowing if it matters."
+        },
+        "comment": {
+          "path": "domains/blog/entities/comment.json",
+          "displayName": "Blog Comment",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify the target relation and notification behavior before native comment writes."
+        },
+        "post": {
+          "path": "domains/blog/entities/post.json",
+          "displayName": "Blog Post",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "Exact original URL or slug preservation is not reliable through public Blog Draft Posts."
+        },
+        "tag": {
+          "path": "domains/blog/entities/tag.json",
+          "displayName": "Blog Tag",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Blog tag slug is derived; dedupe by label/language."
+        }
+      }
+    },
+    "bookings": {
+      "path": "domains/bookings/domain.json",
+      "displayName": "Wix Bookings",
+      "ownerHint": "Bookings (services, bookings, sessions/schedules, availability, staff, resources, policies) domain owners",
+      "entities": {
+        "booking": {
+          "path": "domains/bookings/entities/booking.json",
+          "displayName": "Booking",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "sendSmsReminder has 'Default: true' on both Create Booking and Bulk Create Booking (read 2026-08-16). This is the inverse of every other notification control the KB has met - events/rsvp's disableNotifications and this API's own participantNotification.notifyParticipants both default to OFF, so a generated payload built from the required-field list alone is SAFE there and UNSAFE here. Omitting the flag opts every migrated customer into an SMS to their real phone number. Every create call in the generated script must set sendSmsReminder:false explicitly, and the script's own test must assert its presence on every element of a bulk request, not just the first."
+        },
+        "service-add-on": {
+          "path": "domains/bookings/entities/service-add-on.json",
+          "displayName": "Bookings Service Add-On",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "Create Add On declares durationInMinutes and maxQuantity as a required ONE-OF: every add-on is EITHER duration-based (durationInMinutes 1..1440, i.e. max 24 hours) OR quantity-based (maxQuantity 1..9999), never both and never neither. A source extra that is conceptually both ('add 30 minutes, up to 3 times') cannot be expressed as one add-on and must be split or ledgered. The two kinds also behave differently at booking time: for duration-based add-ons quantity is not applicable - passing quantity 1 is accepted but silently cleared, and any other value returns INVALID_ARGUMENT with the message 'Invalid AddOn details: either duration or quantity must be set correctly'."
+        },
+        "service": {
+          "path": "domains/bookings/entities/service.json",
+          "displayName": "Bookings Service",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Wix Bookings is not present on a fresh headless site, and neither `/bookings/v2/services` nor `/bookings/v2/resources/query` reveal that by erroring — both answer with ordinary 200s/validation errors regardless. Create Service instead fails with a plain 'form Form with id 00000000-0000-0000-0000-000000000000 doesn't exist', which reads like a form problem but is actually the app-install gap. Install with appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97 (see rp-execute-setup SKILL.md) before the first Create Service call; this also auto-provisions the default booking form and one default 'Business Owner' staff resource."
+        }
+      }
+    },
+    "cms": {
+      "path": "domains/cms/domain.json",
+      "displayName": "Wix CMS",
+      "ownerHint": "CMS/Data collections, items, references, permissions, and indexes domain owners",
+      "entities": {
+        "collection": {
+          "path": "domains/cms/entities/collection.json",
+          "displayName": "CMS Collection",
+          "classification": "setup-config",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Collections, fields, permissions, and indexes must be represented in setup before item import."
+        },
+        "data-item": {
+          "path": "domains/cms/entities/data-item.json",
+          "displayName": "CMS Data Item",
+          "classification": "cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "_createdDate and _updatedDate are read-only; preserve source dates in explicit fields."
+        },
+        "reference": {
+          "path": "domains/cms/entities/reference.json",
+          "displayName": "CMS Reference",
+          "classification": "cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "References and multi-references often require a second pass after target IDs are known."
+        }
+      }
+    },
+    "crm": {
+      "path": "domains/crm/domain.json",
+      "displayName": "Wix CRM",
+      "ownerHint": "Contacts, labels, extended fields, and subscription-consent domain owners",
+      "entities": {
+        "contact": {
+          "path": "domains/crm/entities/contact.json",
+          "displayName": "CRM Contact",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Original contact created dates are not writable as native createdDate."
+        },
+        "email-subscription": {
+          "path": "domains/crm/entities/email-subscription.json",
+          "displayName": "Email Subscription",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Only set subscribed states when the migration has consent evidence."
+        },
+        "label": {
+          "path": "domains/crm/entities/label.json",
+          "displayName": "CRM Label",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review."
+        }
+      }
+    },
+    "ecom": {
+      "path": "domains/ecom/domain.json",
+      "displayName": "Wix eCommerce",
+      "ownerHint": "eCommerce Orders, refunds, checkout, and order-history domain owners",
+      "entities": {
+        "delivery-profile": {
+          "path": "domains/ecom/entities/delivery-profile.json",
+          "displayName": "Delivery Profile",
+          "classification": "setup-config",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "WooCommerce shipping zones (location rules + per-zone methods) and Wix delivery profiles/regions do not map one-to-one; carrier-calculated Woo methods (e.g. a real UPS/FedEx/USPS integration plugin) have no data equivalent and become reconfigure-in-Wix decisions — shipping-build.js's classifyMethod flags these as a gap rather than guessing a rate."
+        },
+        "discount-rule": {
+          "path": "domains/ecom/entities/discount-rule.json",
+          "displayName": "eCommerce Discount Rule (\"Automatic Discounts\" in the dashboard)",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "not-yet-live-verified"
+          ],
+          "summary": "The Wix dashboard calls this feature 'Automatic Discounts'; the API/data model name is DiscountRule (`ecom/v1/discount-rules`). Distinct from the Coupons API (stores/coupon.json) — coupons need a customer-entered code, discount rules apply automatically when their trigger is met. Do not conflate the two when a source plugin (e.g. WooCommerce Discount Rules) models automatic, no-code discounting."
+        },
+        "order-applied-discount": {
+          "path": "domains/ecom/entities/order-applied-discount.json",
+          "displayName": "eCommerce Order Applied Discount",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Applied discounts import as historical fact via the merchantDiscount variant — Wix never re-evaluates them as live discount rules, and Import Order stores all money values as-is without recalculating priceSummary. The mapper must therefore keep the source order's totals internally consistent itself; nothing on the Wix side reconciles appliedDiscounts against priceSummary.discount. VERIFIED LIVE 2026-08-16: an order carrying appliedDiscounts totalling 8.00 with priceSummary.total 22.00 on a 30.00 subtotal was stored exactly as sent — and a control order with the same appliedDiscounts but NO priceSummary.discount kept total == subtotal, proving Wix applies nothing."
+        },
+        "order-line-item-options": {
+          "path": "domains/ecom/entities/order-line-item-options.json",
+          "displayName": "eCommerce Order Line Item Options (Description Lines)",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "lineItems[].modifierGroups is READ-ONLY on import: it is absent from the Import Order writable request body and marked read-only (maxItems 10) on the returned Order object — addon values can never be recreated as structured modifiers on historical orders. descriptionLines[] is the import-time carrier. VERIFIED LIVE 2026-08-16: an imported line item carrying descriptionLines and catalogReference.options read back with modifierGroups: [] — the field stays empty even when the referenced catalog product genuinely has modifiers attached."
+        },
+        "order-line-item": {
+          "path": "domains/ecom/entities/order-line-item.json",
+          "displayName": "eCommerce Order Line Item",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Line items are written through their parent order; do not create standalone duplicates."
+        },
+        "order-merchant-note": {
+          "path": "domains/ecom/entities/order-merchant-note.json",
+          "displayName": "eCommerce Order Merchant Note (Activity)",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Order.activities[] is read-only on Create/Import Order — a merchant note can NEVER ride the order import payload. It must be a separate Add Activities call AFTER Import Order creates the order, using the crosswalked Wix order id."
+        },
+        "order-refund": {
+          "path": "domains/ecom/entities/order-refund.json",
+          "displayName": "eCommerce Order Refund",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify whether the selected order write shape preserves refund amounts, reasons, dates, and line references."
+        },
+        "order": {
+          "path": "domains/ecom/entities/order.json",
+          "displayName": "eCommerce Order",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Never route historical orders through createOrder — it decrements inventory, emails the buyer, and auto-creates contacts; importOrder is the only import-safe writer."
+        },
+        "shipping-option": {
+          "path": "domains/ecom/entities/shipping-option.json",
+          "displayName": "Wix Shipping Option",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "CRITICAL, LIVE-DISCOVERED 2026-08-15 (not documented on any Delivery Profile/Delivery Carrier doc page -- found only via dev.wix.com's 'Fix Shipping Coverage Gaps' skill article, a separate doc tree from shipping-delivery/delivery-profiles/*): DeliveryCarrier.backupRate does NOT create a ShippingOption, and does NOT clear Wix's own 'This region is missing rates. Add them so customers can complete checkout.' dashboard warning. VERIFIED on the reference store: 'Europe'/'Israel' (created by this pipeline via addDeliveryRegion + addDeliveryCarrier with a correctly-shaped, active backupRate) still showed the warning and had ZERO linked ShippingOptions, while 'Domestic'/'International' (Wix's own auto-created defaults, never touched by this pipeline) each already had a real ShippingOption. A region migration that only calls addDeliveryCarrier is INCOMPLETE -- it appears fully successful (the write returns 200, the read-back matches exactly what was sent) while silently leaving the region non-functional at checkout. Always create a matching ShippingOption (via createShippingOption) for every DeliveryRegion this pipeline creates, from the SAME classified method used for that region's DeliveryCarrier.backupRate -- see shipping-build.js's buildShippingOptionInput."
+        }
+      }
+    },
+    "events": {
+      "path": "domains/events/domain.json",
+      "displayName": "Wix Events",
+      "ownerHint": "Events, registration, RSVP, and ticketing domain owners",
+      "entities": {
+        "category": {
+          "path": "domains/events/entities/category.json",
+          "displayName": "Events Category",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "Wix Events categories are flat; a hierarchical source event taxonomy (tribe_events_cat is hierarchical) flattens on import — faithfulness-ledger entry required."
+        },
+        "event": {
+          "path": "domains/events/entities/event.json",
+          "displayName": "Event",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Backdating is not documented either way. Historical events are the common migration case, so confirm a past startDate is accepted before promising event history; if rejected, past events fall back to CMS."
+        },
+        "registration-form": {
+          "path": "domains/events/entities/registration-form.json",
+          "displayName": "Event Registration Form",
+          "classification": "setup-config",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "The form is per-event configuration (an ordered list of controls), not standalone records: there is no create — controls are added/updated on the event's existing form. Historical submissions do not live here; they arrive as RSVP/order data."
+        },
+        "rsvp": {
+          "path": "domains/events/entities/rsvp.json",
+          "displayName": "Event RSVP",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "RSVP creation emails the guest a confirmation unless disableNotifications is set — the domain's registration-notifications-default-on pitfall. An import that forgets the flag mass-mails migrated guests. importSafe is false until the generated script provably sets it on every call AND the suppression itself is proven."
+        },
+        "ticket-definition": {
+          "path": "domains/events/entities/ticket-definition.json",
+          "displayName": "Event Ticket Definition",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "A ticket definition is the purchasable ticket type (name, price, limits) — importing it does not carry sold tickets. Past ticket sales remain not importable (domain pitfall ticket-order-history-not-importable, owner tracker EVNT-01)."
+        }
+      }
+    },
+    "forms": {
+      "path": "domains/forms/domain.json",
+      "displayName": "Wix Forms",
+      "ownerHint": "Wix Forms (form schemas, form submissions) domain owners — the Forms APIs sit under the CRM docs tree, not Business Solutions",
+      "entities": {
+        "form-submission": {
+          "path": "domains/forms/entities/form-submission.json",
+          "displayName": "Wix Form Submission",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "OBSERVED 2026-08-16, full method-parameter list of Create Submission read end to end: the call accepts exactly `submission`, `additionalMetadata` and `captchaToken`. There is NO disableNotifications, no suppressNotifications, no flowControlSettings, no participantNotification, and no `sendEmail`-style toggle anywhere on the Form Submissions surface; the words 'notification' and 'email' do not appear on the Create Submission, Submission Object, Confirm Submission or Form Submissions Introduction pages at all. What IS documented: creating a submission fires the `Submission Created` domain event, and the Form Schemas glossary defines 'post-submission trigger' as 'automated actions that are executed after a form submission is received' — i.e. the Wix Automations hook that the default 'new form submission' owner email rides on. Suppression therefore cannot be proven from the docs, so importSafe stays false, exactly as for events/rsvp. The only control we have is the site-wide MuteSite policy, which is not a per-call flag, is applied by default only to newly created target sites, and has not been verified to cover the Automations email path."
+        },
+        "form": {
+          "path": "domains/forms/entities/form.json",
+          "displayName": "Wix Form (form schema)",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "THE TWO DOCS PAGES CONTRADICT EACH OTHER on this field and both readings are recorded here, because either one is bad enough to matter. About Form Fields says the mild version: 'Wix Forms uses `identifier` to render submissions in the submission table, so a field with a missing or non-standard identifier may display incorrectly there, even though the form itself works and the API accepts the request.' The Form Object page says the severe version: 'An unrecognized value, such as a custom string or a GUID, is dropped rather than rejected: the request still succeeds, but the field doesn't appear in the response's formFields, and neither the field nor its submitted values appear in the Wix dashboard.' Both agree the request returns success, so neither failure mode surfaces as an error at import time. Behave as if the severe reading holds until a live probe settles it: map every source field type onto a known identifier from the Field types table, ledger anything forced to a generic TEXT_INPUT/TEXT_AREA as a fidelity loss, never invent an identifier or pass a source GUID through — and after creating a schema, DIFF the returned formFields against what was sent, which detects the drop directly. Note also that the identifier list is per-namespace: apps owning their own namespace may define additional identifiers, so the table applies to `wix.form_app.form` only."
+        }
+      }
+    },
+    "gift-cards": {
+      "path": "domains/gift-cards/domain.json",
+      "displayName": "Wix Gift Cards",
+      "ownerHint": "Gift cards, stored value, and store credit domain owners",
+      "entities": {
+        "gift-card-product": {
+          "path": "domains/gift-cards/entities/gift-card-product.json",
+          "displayName": "Gift Card Product",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "A site supports a MAXIMUM OF ONE gift card product (documented as a temporary limitation; second create → 409 GIFT_CARD_PRODUCT_ALREADY_EXISTS). A source shop with several gift-card products (different designs, different denomination sets, seasonal variants) CANNOT be migrated one-to-one: collapse them into a single product whose presetVariants union the denominations, and ledger the lost designs/descriptions as fidelity_loss. Check for an existing product before creating — on a non-empty destination the create will fail rather than merge."
+        },
+        "gift-card": {
+          "path": "domains/gift-cards/entities/gift-card.json",
+          "displayName": "Gift Card",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder."
+        }
+      }
+    },
+    "media": {
+      "path": "domains/media/domain.json",
+      "displayName": "Wix Media Manager",
+      "ownerHint": "Media Manager import, upload, folders, and metadata domain owners",
+      "entities": {
+        "media-file": {
+          "path": "domains/media/entities/media-file.json",
+          "displayName": "Media File",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Media import is asynchronous; poll until READY before referencing the file."
+        },
+        "media-folder": {
+          "path": "domains/media/entities/media-folder.json",
+          "displayName": "Media Folder",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Do not require folder creation for media file preservation unless verified for the project."
+        }
+      }
+    },
+    "members": {
+      "path": "domains/members/domain.json",
+      "displayName": "Wix Members",
+      "ownerHint": "Members identity, profile, roles, and badges domain owners",
+      "entities": {
+        "badge": {
+          "path": "domains/members/entities/badge.json",
+          "displayName": "Member Badge",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Verify badge creation and assignment surfaces before native execution."
+        },
+        "custom-field": {
+          "path": "domains/members/entities/custom-field.json",
+          "displayName": "Member Custom Field",
+          "classification": "setup-config",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "This surface defines the profile field (name, fieldType, defaultPrivacy); per-member values are written on the member profile. Import definitions before members or the value writes have no field to land in."
+        },
+        "member-about": {
+          "path": "domains/members/entities/member-about.json",
+          "displayName": "Member About",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "content is Ricos RichContent (node tree), not plain text; a WordPress user description must be wrapped as paragraph nodes. Malformed node trees fail the write. Verified-live minimal shape: { nodes: [ { type: 'PARAGRAPH', id: 'p1', paragraphData: {}, nodes: [ { type: 'TEXT', id: '', nodes: [], textData: { text, decorations: [] } } ] } ] }."
+        },
+        "member": {
+          "path": "domains/members/entities/member.json",
+          "displayName": "Site Member",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "unreliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "VERIFIED LIVE 2026-08-16: safe mode cannot import members at all today. `mockEmailForEntity` (rp-target-wix/lib/wix-writers.js) mints `replatform+<type>_<id>@wix.com`, and POST /members/v1/members rejects that domain with 400 INVALID_EMAIL_DOMAIN — so a safe-mode member import fails wholesale on the first record. The bug hid because Contacts V5 ACCEPTS @wix.com (existing test contacts use it), so only the Members surface trips it. A reserved-TLD address (RFC 2606 `.invalid`) was accepted by other surfaces in the same probe session and is the obvious candidate, but changing the safe-mode address format alters what gets written to a customer's site on every entity, not just members — it needs an explicit decision, not a silent lib patch. Until then: treat safe mode + member import as unsupported and say so in the plan rather than discovering it mid-run."
+        }
+      }
+    },
+    "pricing-plans": {
+      "path": "domains/pricing-plans/domain.json",
+      "displayName": "Wix Pricing Plans",
+      "ownerHint": "Pricing Plans (paid plans, memberships, plan orders/subscriptions) domain owners",
+      "entities": {
+        "plan-order": {
+          "path": "domains/pricing-plans/entities/plan-order.json",
+          "displayName": "Pricing Plan Order",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "STILL UNPROVEN after a live probe (2026-08-16) — importSafe deliberately stays false. Create Offline Order documents no member-notification behavior and has no suppress/silent flag (the request is only planId, memberId, paid, startDate, couponCode, submissionId), while the sibling Mark As Paid explicitly documents that offline payments 'trigger events and emails'. The 2026-08-16 probe created a real offline order with paid:true and observed NOTHING that indicates an email either way — but the observation is worthless as proof of silence for two independent reasons: (a) the target site was under a site-wide notification mute for the whole probe, which by design suppresses all notifications to all recipients on all channels, so no email could have been sent regardless of the API's default behavior; and (b) the probe member's address was deliberately undeliverable (example.invalid), and there is no Wix read API that lists emails a site has sent, so even unmuted there would have been nothing to inspect. Absence of evidence here is an artifact of the method, not a finding. See notification-proof-requirements for what would actually settle it."
+        },
+        "plan": {
+          "path": "domains/pricing-plans/entities/plan.json",
+          "displayName": "Pricing Plan",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "plan.status is REQUIRED on create and is NOT listed among the docs' required parameters. VERIFIED LIVE 2026-08-16: omitting it 400s with REQUIRED_FIELD on plan.status; 'ACTIVE' is accepted. Any generated create payload built strictly from the documented required-field list will fail on the first call."
+        }
+      }
+    },
+    "sales-channels": {
+      "path": "domains/sales-channels/domain.json",
+      "displayName": "Wix Sales Channels",
+      "ownerHint": "Stores multichannel/marketplace integrations — the \"Sales Channels\" section of the Wix Stores dashboard (Catalog > Sales Channels)",
+      "entities": {
+        "amazon-shop-connect": {
+          "path": "domains/sales-channels/entities/amazon-shop-connect.json",
+          "displayName": "Amazon",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "not-independently-verified-live"
+          ],
+          "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated since 2025-05-04, with Wix recommending a third-party app (Koongo) as the replacement. But a live internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, was created 2026-06-17 and last updated 2026-07-20 — well after that deprecation — and implements an automatic feed-push mechanism (AMAZON_XML format, pushed to an Amazon-owned S3 bucket). This suggests Wix has since built a newer native Amazon integration distinct from the deprecated app, but the exact current merchant click-path was not independently confirmed against a live dashboard this session. Re-verify the steps below (and whether the current \"Amazon\" sidebar entry is this newer service or a third-party app) against a live site before relying on them for a real migration report."
+        },
+        "ebay-shop-connect": {
+          "path": "domains/sales-channels/entities/ebay-shop-connect.json",
+          "displayName": "eBay",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "not-independently-verified-live",
+            "no-internal-fqdn-match"
+          ],
+          "summary": "No FQDN matching \"ebay\" was found anywhere in the internal Business Schema registry this session (docs-schema MCP fqdn_lookup), unlike every other channel in this domain (Google, Facebook, TikTok, Pinterest, and Amazon all resolved to a real internal wix.stores_channels.* service). The mechanism below is sourced from support.wix.com only — treat it as lower confidence than the other entities in this domain until an internal service is located or a live site is checked."
+        },
+        "google-youtube-connect": {
+          "path": "domains/sales-channels/entities/google-youtube-connect.json",
+          "displayName": "Google & YouTube (Google Merchant Center, Shopping, YouTube Shopping)",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "This channel is the most automated of the group: after the one-time connect, sync is push-based and continuous — there is no feed link for the merchant to copy anywhere, unlike Meta/TikTok/Pinterest."
+        },
+        "meta-catalog-connect": {
+          "path": "domains/sales-channels/entities/meta-catalog-connect.json",
+          "displayName": "Meta Catalog (Facebook, Instagram, WhatsApp)",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "The connect flow below reproduces the sync OUTCOME, not the plugin's per-product configuration. Meta for WooCommerce's fb_visibility, _wc_facebook_product_image_source, _wc_facebook_google_product_category, _wc_facebook_gender, and _wc_facebook_color_attribute have no receiving field: wix.stores_channels.marketplace_overrides.v1.product_override (the live, GA per-product channel-override mechanism) implements only googleProductOverrides/youtubeProductOverrides in its oneof — no facebookProductOverrides variant exists (verified via docs-schema MCP fqdn_schema, 2026-08-16). Report these as accepted, reported loss."
+        },
+        "pinterest-catalog-connect": {
+          "path": "domains/sales-channels/entities/pinterest-catalog-connect.json",
+          "displayName": "Pinterest Catalogs",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Unlike Meta/TikTok, Pinterest requires a site-ownership verification step (a Pinterest-issued HTML tag pasted into Wix Custom Code) BEFORE the catalog-link step. A runbook that skips straight to \"Get Catalog Link\" will fail — the merchant must verify the site first."
+        },
+        "tiktok-catalog-connect": {
+          "path": "domains/sales-channels/entities/tiktok-catalog-connect.json",
+          "displayName": "TikTok Catalog",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": ""
+        }
+      }
+    },
+    "seo": {
+      "path": "domains/seo/domain.json",
+      "displayName": "Wix SEO",
+      "ownerHint": "SEO (item SEO tags, site SEO tags, SEO patterns, robots.txt/ads.txt/llms.txt) domain owners",
+      "entities": {
+        "item-seo-tags": {
+          "path": "domains/seo/entities/item-seo-tags.json",
+          "displayName": "Item SEO Tags",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "An item is addressed by `{itemType}:{itemId}` where itemId is the WIX GUID of an already-created item (a page, a Blog post, a Stores product). SEO tags therefore import in a SECOND pass, after the owning entity has been written and its id recorded in the crosswalk. There is no create-by-source-id path here, which is why crosswalkRequired is true."
+        },
+        "seo-pattern": {
+          "path": "domains/seo/entities/seo-pattern.json",
+          "displayName": "SEO Pattern",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "POST /promote/seo/v1/seo-patterns/{pageType} fails with 409 PATTERN_ALREADY_EXISTS when the site already has its own pattern for that page type, and PATCH on the same path fails with 404 PATTERN_NOT_FOUND when it does not. `source` on the object says which is the case (the site's own pattern versus the Wix default). Read first, then branch; do not retry the other verb blindly."
+        },
+        "site-seo-tags": {
+          "path": "domains/seo/entities/site-seo-tags.json",
+          "displayName": "Site SEO Tags",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on the reference store 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+        }
+      }
+    },
+    "stores": {
+      "path": "domains/stores/domain.json",
+      "displayName": "Wix Stores",
+      "ownerHint": "Stores Catalog, Inventory, Coupons, Tags, and merchandising domain owners",
+      "entities": {
+        "back-in-stock-request": {
+          "path": "domains/stores/entities/back-in-stock-request.json",
+          "displayName": "Back In Stock Notification Request",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "target-write-not-yet-live-verified"
+          ],
+          "summary": "Creating a request 428s with REQUEST_COLLECTION_DISABLED unless Start Collecting Requests has been called for the site first. This is a one-time setup step, not a per-record concern — emit it as a setup requirement, not a per-row retry."
+        },
+        "brand": {
+          "path": "domains/stores/entities/brand.json",
+          "displayName": "Stores Brand",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "The Wix Brand object is {id, name, revision, dates} only; source brand logos and descriptions have no native home and are dropped unless preserved via the CMS fallback. Record the loss in the faithfulness ledger."
+        },
+        "category": {
+          "path": "domains/stores/entities/category.json",
+          "displayName": "Stores Category",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Pass Stores treeReference as a top-level sibling of category."
+        },
+        "coupon": {
+          "path": "domains/stores/entities/coupon.json",
+          "displayName": "Stores Coupon",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Source coupon constraints may be narrower or differently modeled in Wix."
+        },
+        "inventory-item": {
+          "path": "domains/stores/entities/inventory-item.json",
+          "displayName": "Stores Inventory Item",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Inventory requires target product and variant IDs."
+        },
+        "product-customization": {
+          "path": "domains/stores/entities/product-customization.json",
+          "displayName": "Stores Product Customization",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Attaching an existing customization to a product by id ALONE fails. VERIFIED LIVE 2026-08-16: product.modifiers[] = [{ id: <customization GUID>, mandatory: false }] → 400 REQUIRED_ONE_OF_FIELD 'freeTextSettings or choicesSettings must not be empty', and adding freeTextSettings without a title → 400 MIN_LENGTH on modifiers[0].modifierSettings.freeTextSettings.title. A ConnectedModifier must restate name, modifierRenderType, and the full settings block (title included) next to the id. Note the field renames between the two surfaces: the standalone customization uses freeTextInput/customizationRenderType, the product-side modifier uses freeTextSettings/modifierRenderType — a transform that reuses the create payload verbatim will fail."
+        },
+        "product-tag": {
+          "path": "domains/stores/entities/product-tag.json",
+          "displayName": "Stores Product Tag",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Use the verified product FQDN and resolve tag IDs before attaching them to products."
+        },
+        "product": {
+          "path": "domains/stores/entities/product.json",
+          "displayName": "Stores Product",
+          "classification": "native-plus-cms",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Normalize V1/simple product fields into Catalog V3 product and variant shapes before create."
+        },
+        "promotion": {
+          "path": "domains/stores/entities/promotion.json",
+          "displayName": "Stores Promotion (Category Banner)",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "CORRECTED 2026-08-16 (this entity previously claimed the opposite). A Wix Stores promotion is 'a visual banner displayed on store category pages, including their product gallery sections' — it is a MERCHANDISING IMAGE with a name, a required media asset, an optional destinationUrl, and category placements. It carries NO discount, NO percentage, NO scope, NO date window, and NO price effect of any kind; the create schema has no such fields and a body containing them is rejected. Discount-rule plugin campaigns therefore DO NOT map here — route them to stores/coupon, to native discount rules, or to per-product pricing on stores/product. Mapping a source discount campaign to this entity would produce a decorative banner and silently lose the discount."
+        },
+        "review": {
+          "path": "domains/stores/entities/review.json",
+          "displayName": "Product Review",
+          "classification": "native",
+          "reliabilityStatus": "unknown",
+          "reliabilityFlags": [],
+          "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore CREATES OR RESOLVES A CONTACT PER DISTINCT REVIEWER — a CRM side effect well beyond the catalog, and reviewers are frequently not customers. Resolve each reviewer by email through Query Contacts first, create only on miss, and disclose the contact count at the execution gate."
+        },
+        "subscription-product": {
+          "path": "domains/stores/entities/subscription-product.json",
+          "displayName": "Stores Subscription Product Settings",
+          "classification": "native",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [],
+          "summary": "Subscription expiry/length, initial signup price, and free trial have NO product.subscriptionDetails field. Decided by Spec Owner 2026-08-16: these are reported loss — ledger them as fidelity_loss entries in the migration report; they are NOT CMS-carried. Do not invent an extended-field or CMS home for them."
+        }
+      }
+    },
+    "tax": {
+      "path": "domains/tax/domain.json",
+      "displayName": "Wix Tax",
+      "ownerHint": "eCommerce tax domain owners (Tax Groups / Tax Regions / Manual Tax Mappings)",
+      "entities": {
+        "manual-tax-mapping": {
+          "path": "domains/tax/entities/manual-tax-mapping.json",
+          "displayName": "Wix Manual Tax Mapping",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Create/Query/Delete Manual Tax Mapping are `/billing/v1/manual-tax-mappings...`, not `/ecom/v1/...`."
+        },
+        "tax-group": {
+          "path": "domains/tax/entities/tax-group.json",
+          "displayName": "Wix Tax Group",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Create/Query/Delete Tax Group are all `/billing/v1/tax-groups...`, not `/ecom/v1/...` (unlike sibling Discount Rules) or `/stores/v2/...` (unlike Coupons)."
+        },
+        "tax-region": {
+          "path": "domains/tax/entities/tax-region.json",
+          "displayName": "Wix Tax Region",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Create/Query/Delete Tax Region are `/billing/v1/tax-regions...`, not `/ecom/v1/...`."
+        },
+        "tax-settings": {
+          "path": "domains/tax/entities/tax-settings.json",
+          "displayName": "Wix Tax Settings",
+          "classification": "setup-config",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "There is exactly one TaxSettings object per site (Get returns defaults if never set; Upsert creates-or-updates the same singleton). Treat this as ordinary setup/config work, never a per-record write with a crosswalk."
+        }
+      }
+    }
+  },
+  "sourceAliasIndex": {
+    "wordpress:category": [
+      "blog/category"
+    ],
+    "wix:blogCategory": [
+      "blog/category"
+    ],
+    "wordpress:comment": [
+      "blog/comment"
+    ],
+    "wix:comment": [
+      "blog/comment"
+    ],
+    "wordpress:post": [
+      "blog/post"
+    ],
+    "wix:blogPost": [
+      "blog/post"
+    ],
+    "wordpress:tag": [
+      "blog/tag"
+    ],
+    "wix:blogTag": [
+      "blog/tag"
+    ],
+    "woocommerce:bookingOrderLineItem": [
+      "bookings/booking"
+    ],
+    "woocommerce:bookingAdditionalServiceTerm": [
+      "bookings/service-add-on"
+    ],
+    "woocommerce:bookingProduct": [
+      "bookings/service"
+    ],
+    "wordpress:event": [
+      "bookings/service",
+      "events/event"
+    ],
+    "wordpress:custom_post_type": [
+      "cms/collection"
+    ],
+    "wix:cmsCollection": [
+      "cms/collection"
+    ],
+    "wordpress:custom_post_type_item": [
+      "cms/data-item"
+    ],
+    "wix:cmsDataItem": [
+      "cms/data-item"
+    ],
+    "wordpress:relationship": [
+      "cms/reference"
+    ],
+    "wix:cmsReference": [
+      "cms/reference"
+    ],
+    "woocommerce:customer": [
+      "crm/contact",
+      "members/member"
+    ],
+    "woocommerce:order": [
+      "crm/contact",
+      "ecom/order"
+    ],
+    "wordpress:user": [
+      "crm/contact",
+      "members/member"
+    ],
+    "wix:contact": [
+      "crm/contact"
+    ],
+    "wordpress:newsletter_subscription": [
+      "crm/email-subscription"
+    ],
+    "wix:emailSubscription": [
+      "crm/email-subscription"
+    ],
+    "woocommerce:customer_tag": [
+      "crm/label"
+    ],
+    "wix:contactLabel": [
+      "crm/label"
+    ],
+    "woocommerce:shipping-zone": [
+      "ecom/delivery-profile"
+    ],
+    "wix:deliveryProfile": [
+      "ecom/delivery-profile"
+    ],
+    "woocommerce:discount-rule-definition": [
+      "ecom/discount-rule"
+    ],
+    "woocommerce:applied_discount": [
+      "ecom/order-applied-discount"
+    ],
+    "wix:ecomOrderAppliedDiscount": [
+      "ecom/order-applied-discount"
+    ],
+    "woocommerce:order_item_addon_value": [
+      "ecom/order-line-item-options"
+    ],
+    "wix:ecomOrderLineItemDescriptionLine": [
+      "ecom/order-line-item-options"
+    ],
+    "woocommerce:order_line_item": [
+      "ecom/order-line-item"
+    ],
+    "wix:ecomOrderLineItem": [
+      "ecom/order-line-item"
+    ],
+    "woocommerce:order_note": [
+      "ecom/order-merchant-note"
+    ],
+    "wix:ecomOrderActivity": [
+      "ecom/order-merchant-note"
+    ],
+    "woocommerce:order_refund": [
+      "ecom/order-refund"
+    ],
+    "wix:ecomOrderRefund": [
+      "ecom/order-refund"
+    ],
+    "wix:ecomOrder": [
+      "ecom/order"
+    ],
+    "woocommerce:shipping-zone.method": [
+      "ecom/shipping-option"
+    ],
+    "wordpress:tribe_events_cat": [
+      "events/category"
+    ],
+    "wix:event": [
+      "events/event"
+    ],
+    "woocommerce:giftCard": [
+      "gift-cards/gift-card"
+    ],
+    "wordpress:attachment": [
+      "media/media-file"
+    ],
+    "wix:mediaFile": [
+      "media/media-file"
+    ],
+    "wordpress:media_folder": [
+      "media/media-folder"
+    ],
+    "wix:mediaFolder": [
+      "media/media-folder"
+    ],
+    "wordpress:user_badge": [
+      "members/badge"
+    ],
+    "wix:memberBadge": [
+      "members/badge"
+    ],
+    "wix:member": [
+      "members/member"
+    ],
+    "woocommerce:subscription": [
+      "pricing-plans/plan-order"
+    ],
+    "woocommerce:subscriptionProduct": [
+      "pricing-plans/plan"
+    ],
+    "woocommerce:amazon-for-woocommerce": [
+      "sales-channels/amazon-shop-connect"
+    ],
+    "woocommerce:ebay-for-woocommerce": [
+      "sales-channels/ebay-shop-connect"
+    ],
+    "woocommerce:google-listings-and-ads-for-woocommerce": [
+      "sales-channels/google-youtube-connect"
+    ],
+    "woocommerce:facebook-for-woocommerce": [
+      "sales-channels/meta-catalog-connect"
+    ],
+    "woocommerce:pinterest-for-woocommerce": [
+      "sales-channels/pinterest-catalog-connect"
+    ],
+    "woocommerce:tiktok-for-woocommerce": [
+      "sales-channels/tiktok-catalog-connect"
+    ],
+    "wordpress:yoastHeadJson": [
+      "seo/item-seo-tags"
+    ],
+    "wordpress:rankMathPostMeta": [
+      "seo/item-seo-tags"
+    ],
+    "woocommerce:back-in-stock-subscriber": [
+      "stores/back-in-stock-request"
+    ],
+    "woocommerce:product_brand": [
+      "stores/brand"
+    ],
+    "woocommerce:product_category": [
+      "stores/category"
+    ],
+    "wix:storesCategory": [
+      "stores/category"
+    ],
+    "woocommerce:coupon": [
+      "stores/coupon"
+    ],
+    "wix:coupon": [
+      "stores/coupon"
+    ],
+    "woocommerce:product_variation_inventory": [
+      "stores/inventory-item"
+    ],
+    "wix:inventoryItem": [
+      "stores/inventory-item"
+    ],
+    "woocommerce:addon-field-group": [
+      "stores/product-customization"
+    ],
+    "woocommerce:product_tag": [
+      "stores/product-tag"
+    ],
+    "wix:productTag": [
+      "stores/product-tag"
+    ],
+    "woocommerce:product": [
+      "stores/product"
+    ],
+    "wix:storesProduct": [
+      "stores/product"
+    ],
+    "woocommerce:product_review": [
+      "stores/review"
+    ],
+    "woocommerce:subscription-product-settings": [
+      "stores/subscription-product"
+    ],
+    "woocommerce:tax-rate.rate": [
+      "tax/manual-tax-mapping"
+    ],
+    "woocommerce:product.tax_class": [
+      "tax/tax-group"
+    ],
+    "woocommerce:product.tax_status": [
+      "tax/tax-group"
+    ],
+    "woocommerce:tax-rate": [
+      "tax/tax-region"
+    ],
+    "woocommerce:settings.woocommerce_prices_include_tax": [
+      "tax/tax-settings"
+    ]
+  },
+  "routeAliasIndex": {
+    "/wp/v2/categories": [
+      "blog/category",
+      "seo/item-seo-tags"
+    ],
+    "Blog Categories": [
+      "blog/category"
+    ],
+    "/wp/v2/comments": [
+      "blog/comment"
+    ],
+    "Comments API": [
+      "blog/comment"
+    ],
+    "/wp/v2/posts": [
+      "blog/post",
+      "seo/item-seo-tags"
+    ],
+    "Blog Draft Posts": [
+      "blog/post"
+    ],
+    "Blog Posts": [
+      "blog/post"
+    ],
+    "/wp/v2/tags": [
+      "blog/tag"
+    ],
+    "Blog Tags": [
+      "blog/tag"
+    ],
+    "/wc/v3/orders": [
+      "bookings/booking",
+      "crm/contact",
+      "ecom/order",
+      "ecom/order-applied-discount",
+      "ecom/order-line-item",
+      "ecom/order-line-item-options",
+      "gift-cards/gift-card"
+    ],
+    "/wp/v2/mwb_booking_service": [
+      "bookings/service-add-on"
+    ],
+    "/wp/v2/mwb_booking_cost": [
+      "bookings/service-add-on"
+    ],
+    "/wc/v3/products": [
+      "bookings/service",
+      "pricing-plans/plan",
+      "seo/item-seo-tags",
+      "stores/inventory-item",
+      "stores/product",
+      "stores/subscription-product",
+      "tax/tax-group"
+    ],
+    "/tribe/events/v1/events": [
+      "bookings/service",
+      "events/event"
+    ],
+    "/wp/v2/{type}": [
+      "cms/collection",
+      "cms/data-item"
+    ],
+    "Wix Data Collections": [
+      "cms/collection"
+    ],
+    "Wix Data Items": [
+      "cms/data-item"
+    ],
+    "post meta": [
+      "cms/reference"
+    ],
+    "term relationships": [
+      "cms/reference"
+    ],
+    "Wix Data reference fields": [
+      "cms/reference"
+    ],
+    "/wc/v3/customers": [
+      "crm/contact",
+      "members/member"
+    ],
+    "/wp/v2/users": [
+      "crm/contact",
+      "members/member"
+    ],
+    "CRM Contacts V4": [
+      "crm/contact"
+    ],
+    "CRM Contacts V5": [
+      "crm/contact"
+    ],
+    "plugin-specific subscription routes": [
+      "crm/email-subscription"
+    ],
+    "Email Subscriptions API": [
+      "crm/email-subscription"
+    ],
+    "customer metadata": [
+      "crm/label"
+    ],
+    "segments": [
+      "crm/label"
+    ],
+    "Contacts Labels": [
+      "crm/label"
+    ],
+    "/wc/v3/shipping/zones": [
+      "ecom/delivery-profile"
+    ],
+    "/wc/v3/shipping/zones/{id}/locations": [
+      "ecom/delivery-profile"
+    ],
+    "/wc/v3/shipping/zones/{id}/methods": [
+      "ecom/delivery-profile",
+      "ecom/shipping-option"
+    ],
+    "eCommerce Delivery Profiles API": [
+      "ecom/delivery-profile"
+    ],
+    "eCommerce Orders API": [
+      "ecom/order",
+      "ecom/order-applied-discount",
+      "ecom/order-line-item",
+      "ecom/order-line-item-options",
+      "ecom/order-merchant-note",
+      "ecom/order-refund"
+    ],
+    "/wc/v3/orders/{parentId}/notes": [
+      "ecom/order-merchant-note"
+    ],
+    "/wc/v3/orders/{id}/refunds": [
+      "ecom/order-refund"
+    ],
+    "/wp/v2/tribe_events_cat": [
+      "events/category"
+    ],
+    "/wp/v2/tribe_events": [
+      "events/event"
+    ],
+    "Events V3": [
+      "events/event"
+    ],
+    "/wc/v3/gift-cards": [
+      "gift-cards/gift-card"
+    ],
+    "/wp/v2/media": [
+      "media/media-file"
+    ],
+    "Media Manager": [
+      "media/media-file"
+    ],
+    "plugin-specific media folder routes": [
+      "media/media-folder"
+    ],
+    "Media Manager folders": [
+      "media/media-folder"
+    ],
+    "plugin-specific member badge routes": [
+      "members/badge"
+    ],
+    "Members Badges APIs": [
+      "members/badge"
+    ],
+    "Members APIs": [
+      "members/member"
+    ],
+    "/wsp-route/v1/wsp-view-subscription": [
+      "pricing-plans/plan-order"
+    ],
+    "/wc-instocknotifier/v3/list_subscriber": [
+      "stores/back-in-stock-request"
+    ],
+    "/wc/v3/products/brands": [
+      "stores/brand"
+    ],
+    "/wc/v3/products/categories": [
+      "stores/category"
+    ],
+    "Catalog V3 Categories": [
+      "stores/category"
+    ],
+    "V1 collections": [
+      "stores/category"
+    ],
+    "/wc/v3/coupons": [
+      "stores/coupon"
+    ],
+    "Coupons API": [
+      "stores/coupon"
+    ],
+    "/wc/v3/products/{productId}/variations": [
+      "stores/inventory-item"
+    ],
+    "Stores Inventory APIs": [
+      "stores/inventory-item"
+    ],
+    "/ppom/v1/admin/field-groups/context": [
+      "stores/product-customization"
+    ],
+    "/wc/v3/products/tags": [
+      "stores/product-tag"
+    ],
+    "Tags API scoped to product FQDN": [
+      "stores/product-tag"
+    ],
+    "Stores Catalog V1 Products": [
+      "stores/product"
+    ],
+    "Stores Catalog V3 Products": [
+      "stores/product"
+    ],
+    "/wc/v3/products/reviews": [
+      "stores/review"
+    ],
+    "/wc/v3/taxes": [
+      "tax/manual-tax-mapping",
+      "tax/tax-region"
+    ],
+    "/wc/v3/taxes/classes": [
+      "tax/tax-group"
+    ],
+    "/wc/v3/settings/tax": [
+      "tax/tax-settings"
+    ]
+  },
+  "capabilityIndex": {
+    "content.blog-category": [
+      "blog/category"
+    ],
+    "content.comments": [
+      "blog/comment"
+    ],
+    "content.blog-post": [
+      "blog/post"
+    ],
+    "content.blog-tag": [
+      "blog/tag"
+    ],
+    "commerce.bookings": [
+      "bookings/booking"
+    ],
+    "commerce.bookable-service-add-ons": [
+      "bookings/service-add-on"
+    ],
+    "commerce.bookable-services": [
+      "bookings/service"
+    ],
+    "cms.collection": [
+      "cms/collection"
+    ],
+    "cms.data-item": [
+      "cms/data-item"
+    ],
+    "cms.reference": [
+      "cms/reference"
+    ],
+    "crm.contact": [
+      "crm/contact"
+    ],
+    "crm.email-subscription": [
+      "crm/email-subscription"
+    ],
+    "crm.label": [
+      "crm/label"
+    ],
+    "commerce.delivery-profiles": [
+      "ecom/delivery-profile"
+    ],
+    "commerce.discount-rules": [
+      "ecom/discount-rule"
+    ],
+    "commerce.applied-discounts": [
+      "ecom/order-applied-discount"
+    ],
+    "commerce.order-addon-values": [
+      "ecom/order-line-item-options"
+    ],
+    "commerce.order-line-items": [
+      "ecom/order-line-item"
+    ],
+    "commerce.payment-gateway-notes": [
+      "ecom/order-merchant-note"
+    ],
+    "commerce.order-refunds": [
+      "ecom/order-refund"
+    ],
+    "commerce.orders": [
+      "ecom/order"
+    ],
+    "commerce.shipping-rate": [
+      "ecom/shipping-option"
+    ],
+    "content.event-categories": [
+      "events/category"
+    ],
+    "content.events": [
+      "events/event"
+    ],
+    "content.event-registration-form": [
+      "events/registration-form"
+    ],
+    "content.event-rsvps": [
+      "events/rsvp"
+    ],
+    "content.event-ticket-definitions": [
+      "events/ticket-definition"
+    ],
+    "content.form-submissions": [
+      "forms/form-submission"
+    ],
+    "content.form-definitions": [
+      "forms/form"
+    ],
+    "commerce.gift-card-products": [
+      "gift-cards/gift-card-product"
+    ],
+    "commerce.gift-cards": [
+      "gift-cards/gift-card"
+    ],
+    "media.file": [
+      "media/media-file"
+    ],
+    "media.folder": [
+      "media/media-folder"
+    ],
+    "identity.member-badge": [
+      "members/badge"
+    ],
+    "identity.member-custom-fields": [
+      "members/custom-field"
+    ],
+    "identity.member-about": [
+      "members/member-about"
+    ],
+    "identity.member": [
+      "members/member"
+    ],
+    "commerce.subscription-contracts": [
+      "pricing-plans/plan-order"
+    ],
+    "commerce.subscription-plans": [
+      "pricing-plans/plan"
+    ],
+    "commerce.amazon-catalog-sync": [
+      "sales-channels/amazon-shop-connect"
+    ],
+    "commerce.ebay-catalog-sync": [
+      "sales-channels/ebay-shop-connect"
+    ],
+    "commerce.google-shopping-catalog-sync": [
+      "sales-channels/google-youtube-connect"
+    ],
+    "commerce.facebook-catalog-sync": [
+      "sales-channels/meta-catalog-connect"
+    ],
+    "commerce.pinterest-catalog-sync": [
+      "sales-channels/pinterest-catalog-connect"
+    ],
+    "commerce.tiktok-catalog-sync": [
+      "sales-channels/tiktok-catalog-connect"
+    ],
+    "content.seo-meta": [
+      "seo/item-seo-tags"
+    ],
+    "content.seo-patterns": [
+      "seo/seo-pattern"
+    ],
+    "content.site-seo-tags": [
+      "seo/site-seo-tags"
+    ],
+    "commerce.back-in-stock-notifications": [
+      "stores/back-in-stock-request"
+    ],
+    "commerce.catalog-brand": [
+      "stores/brand"
+    ],
+    "commerce.catalog-category": [
+      "stores/category"
+    ],
+    "commerce.coupons": [
+      "stores/coupon"
+    ],
+    "commerce.inventory": [
+      "stores/inventory-item"
+    ],
+    "commerce.product-addon-fields": [
+      "stores/product-customization"
+    ],
+    "commerce.catalog-product-tag": [
+      "stores/product-tag"
+    ],
+    "commerce.catalog-product": [
+      "stores/product"
+    ],
+    "marketing.storefront-banner": [
+      "stores/promotion"
+    ],
+    "commerce.product-reviews": [
+      "stores/review"
+    ],
+    "commerce.subscription-products": [
+      "stores/subscription-product"
+    ],
+    "commerce.tax-rate-mapping": [
+      "tax/manual-tax-mapping"
+    ],
+    "commerce.tax-treatment-group": [
+      "tax/tax-group"
+    ],
+    "commerce.tax-region": [
+      "tax/tax-region"
+    ],
+    "commerce.tax-settings": [
+      "tax/tax-settings"
+    ]
+  },
+  "flags": {
+    "IMPORT_UNRELIABLE": [
+      "blog/post",
+      "members/member"
+    ],
+    "not-yet-live-verified": [
+      "ecom/discount-rule"
+    ],
+    "not-independently-verified-live": [
+      "sales-channels/amazon-shop-connect",
+      "sales-channels/ebay-shop-connect"
+    ],
+    "no-internal-fqdn-match": [
+      "sales-channels/ebay-shop-connect"
+    ],
+    "target-write-not-yet-live-verified": [
+      "stores/back-in-stock-request"
+    ]
+  }
+}

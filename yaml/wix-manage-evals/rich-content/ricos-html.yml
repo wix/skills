@@ -1,0 +1,20 @@
+name: rich-content/ricos-html
+description: Sharp-edge check on the Author Ricos Rich Content recipe — an HTML embed block with htmlData.url and container sizing.
+triggerPrompt: Create Ricos rich content with an HTML embed block loading https://example.com/embed in a 550 by 550 iframe. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for an HTML embed block.
+
+      Score 9-10: root-level `HTML` node (not a raw iframe in a PARAGRAPH); `htmlData.url` is `https://example.com/embed`; `htmlData.source` is `HTML` (or equivalent); `htmlData.containerData` sets width and height to 550 (e.g. `custom: "550"`); every `type` is a bare string.
+      Score 6-8: correct HTML block and URL but sizing or `source` is slightly off.
+      Score 3-5: embed expressed as inline HTML in TEXT, OR uses wrong node type, OR URL is wrong.
+      Score 0-2: no HTML embed, or prose/plain-text output.
+      **Cap at 5** if the embed is not a root `HTML` node with `htmlData`.

@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "fetchedAt": "2026-08-16",
+  "roots": [
+    "api-reference/crm/members-contacts/contacts",
+    "api-reference/crm/communication",
+    "api-reference/crm/community/feedback-moderation"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/crm/communication/channels/communication-channels-media",
+      "title": "Communication Channels Media",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/channels/communication-channels-media",
+      "group": "Channels",
+      "verdict": "not-relevant",
+      "reason": "Runtime messaging-channel media; no source equivalent.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/communication/email-subscriptions",
+      "title": "Email Subscriptions",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/email-subscriptions",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "crm/email-subscription"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/communication/inbox/conversations",
+      "title": "Conversations",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/inbox/conversations",
+      "group": "Inbox",
+      "verdict": "not-relevant",
+      "reason": "Site inbox runtime communication; WordPress sources have no inbox concept, conversation history is not a migration capability.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/communication/inbox/messages",
+      "title": "Messages",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/inbox/messages",
+      "group": "Inbox",
+      "verdict": "not-relevant",
+      "reason": "Site inbox runtime communication; see conversations.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/comments/categories",
+      "title": "Categories",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/categories",
+      "group": "Comments",
+      "verdict": "not-relevant",
+      "reason": "A comments Category is per-resource comment CONFIGURATION (guest commenting, reaction type, marked-comment label, ratings settings, permissions) — the settings a Comments widget runs under, not user content. WordPress carries the analogous knobs as per-post comment_status/ping_status and site discussion options, which are site setup, not migratable records. No source record maps to a Category.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/comments/comments",
+      "title": "Comments",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/comments/comments",
+      "group": "Comments",
+      "verdict": "claimed",
+      "refs": [
+        "blog/comment"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/moderation-rules",
+      "title": "Moderation Rules",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/moderation-rules",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Forward-looking moderation POLICY for content submitted after the migration (max 20 rules per namespace, already integrated into Comments and Reviews with no app install). Nothing in a WordPress/WooCommerce source is a moderation rule. It matters to an import only as an environmental effect — rules run against reviews created by Bulk Create Review and can move them to IN_MODERATION or REJECTED — and that interaction is recorded as a pitfall on stores/review, not as an entity here.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/reports-v2",
+      "title": "Reports V2",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reports-v2",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Abuse reports filed by site visitors against content (\"currently supported for Wix Comments only\"). A runtime moderation signal produced by visitors after the fact; WordPress/WooCommerce sources carry no report records, and importing accusations against imported content would be neither faithful nor desirable.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/reviews/review-requests",
+      "title": "Review Requests",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/review-requests",
+      "group": "Reviews",
+      "verdict": "not-relevant",
+      "reason": "Requests SENT TO customers asking them to review an order or item — an outbound solicitation the site schedules going forward, not a record of past customer feedback. WooCommerce core has no review-request entity (review reminders are plugin territory), so there is nothing to import; and creating requests during a migration would email a store's whole customer history.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/community/feedback-moderation/reviews/reviews",
+      "title": "Reviews",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews",
+      "group": "Reviews",
+      "verdict": "claimed",
+      "refs": [
+        "stores/review"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/attachments/attachment-v4",
+      "title": "Attachment V4",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/attachments/attachment-v4",
+      "group": "Attachments",
+      "verdict": "not-relevant",
+      "reason": "Contact file attachments; no observed source capability. Revisit if a CRM source carrying per-contact files is profiled.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/contacts-v5",
+      "title": "Contacts V5",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "crm/contact"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/contacts/bulk-job",
+      "title": "Bulk Job",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/bulk-job",
+      "group": "Contacts",
+      "verdict": "not-relevant",
+      "reason": "V4-generation bulk-job machinery; the used bulk path is Contacts V5 bulk upsert (crm/contact).",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/contacts/contact-v4",
+      "title": "Contact V4",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4",
+      "group": "Contacts",
+      "verdict": "not-relevant",
+      "reason": "Superseded contact API generation; crm/contact targets Contacts V5.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/extended-fields",
+      "title": "Extended Fields",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/extended-fields",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "crm/contact"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/labels",
+      "title": "Labels",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/labels",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "crm/label"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/notes/notes-v2",
+      "title": "Notes V2",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/notes/notes-v2",
+      "group": "Notes",
+      "verdict": "not-relevant",
+      "reason": "Per-contact notes; no observed WP/Woo source capability (order notes live on orders). Revisit if a CRM-notes source is profiled.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

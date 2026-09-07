@@ -1,0 +1,36 @@
+name: bookings/end-to-end-booking-flow
+description: >-
+  Verifies the agent reads the end-to-end booking flow reference and describes the full
+  REST flow, using the Cart V2 create-cart step for online-payment bookings.
+triggerPrompt: >-
+  Walk me through implementing a complete booking experience end to end with the Wix REST APIs,
+  from finding services to taking payment for an online-paid appointment. Written REST instructions
+  only, no live API call.
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/end-to-end-booking-flow
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for a complete end-to-end booking flow, including payment for an online-paid
+      appointment. Evaluate both the final response and any Wix API/tool calls made.
+      Intent: describe the full flow (query services -> availability -> create booking -> confirm or pay)
+      using the correct Cart V2 flow for online payments.
+
+      Pass if the response:
+      - queries services and checks availability with Time Slots V2 (not the deprecated availability calendar), AND
+      - creates a booking with the appointment `slot` structure and notes the booking starts as `CREATED`, AND
+      - for free/offline bookings confirms directly, and for online payments creates a cart via
+        `POST /ecom/v2/carts` with `catalogItems` using the booking ID as `catalogItemId`, AND
+      - to place the order server-side, calculates the cart for a `priceVerificationToken` then calls
+        `POST /ecom/v2/carts/{cartId}/place-order`, AND
+      - notes the booking is auto-confirmed after online payment.
+
+      Fail if the response:
+      - uses Checkout V1 for the payment step (e.g. `/ecom/v1/checkouts`, a create-checkout call,
+        `createOrder`, or `lineItems` instead of `catalogItems`), OR
+      - uses the deprecated availability query instead of Time Slots V2, OR
+      - omits the create-booking or the online-payment cart step.

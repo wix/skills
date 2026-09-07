@@ -1,0 +1,12 @@
+'use strict';
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const STORES_PRODUCT_TAGS_MAX = 100;
+const STORES_SKU_MAX = 40;
+function truncate(value, limit, sourceId) { const chars = Array.from(String(value || '')); if (chars.length <= limit) return String(value || ''); const suffix = `-${crypto.createHash('sha256').update(String(sourceId)).digest('hex').slice(0, 7)}`; return `${chars.slice(0, Math.max(0, limit - suffix.length)).join('')}${suffix}`; }
+function normalizeProduct({ sourceId, sku, tagIds = [] }) { const recoveries = []; const uniqueTags = [...new Set(tagIds)].slice(0, STORES_PRODUCT_TAGS_MAX); if (tagIds.length > uniqueTags.length) recoveries.push({ code: 'stores_product_tag_count', field: 'tags.publicTags.tagIds', action: 'capped', originalCount: tagIds.length, finalCount: uniqueTags.length }); const nextSku = truncate(sku, STORES_SKU_MAX, sourceId); if (nextSku !== sku) recoveries.push({ code: 'stores_variant_sku_length', field: 'variants.sku', action: 'trimmed_with_source_suffix', originalLength: Array.from(String(sku)).length, finalLength: Array.from(nextSku).length }); return { sku: nextSku, tagIds: uniqueTags, recoveries }; }
+async function appendRecoveries(projectDir, adapter, sourceId, recoveries) { if (!recoveries.length) return; const file = path.join(projectDir, 'execution', 'quick-limit-recoveries.ndjson'); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.appendFile(file, recoveries.map((r) => JSON.stringify({ adapter, sourceId: String(sourceId), outcome: 'written_with_loss', ...r })).join('\n') + '\n'); }
+function recordRecoveredRecord(summary, recoveries) { if (!recoveries.length) return; summary.recovered = (summary.recovered || 0) + 1; summary.recoveryCounts ||= {}; for (const item of recoveries) summary.recoveryCounts[item.code] = (summary.recoveryCounts[item.code] || 0) + 1; }
+async function writeFinalReport(projectDir, summary) { const file = path.join(projectDir, 'execution', 'quick-mode-final-report.md'); const rows = Object.entries(summary.recoveryCounts || {}).map(([code, count]) => `- ${code}: ${count}`).join('\n') || '- None'; await fs.writeFile(file, `# Quick-mode final report\n\nImported with deterministic recovery: ${summary.recovered || 0}\n\n## Target-limit recoveries\n\n${rows}\n`); summary.finalReport = 'execution/quick-mode-final-report.md'; }
+module.exports = { STORES_PRODUCT_TAGS_MAX, STORES_SKU_MAX, truncate, normalizeProduct, appendRecoveries, recordRecoveredRecord, writeFinalReport };

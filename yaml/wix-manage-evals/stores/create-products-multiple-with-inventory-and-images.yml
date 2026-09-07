@@ -1,0 +1,25 @@
+name: stores/create-products-multiple-with-inventory-and-images
+description: Verifies inventory-aware bulk creation with multiple images, exact per-product stock, SKUs, prices, and complete product/inventory result validation.
+triggerPrompt: >-
+  Create two physical products with images and inventory: "Blue Mug" at $24, SKU MUG-BLUE, quantity 8, using
+  https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800; and "Dog Poster" at $40, SKU POSTER-DOG, quantity 3, using
+  https://images.unsplash.com/photo-1552053831-71594a27632d?w=800.
+tags: [stores, media]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass only if the tool trace contains exactly one product-create mutation: one POST to /stores/v3/bulk/products-with-inventory/create with returnEntity true and both products in the same request. The agent must upload both supplied URLs together in one Wix image-upload call when that capability is available (or use the documented Media Manager fallback). A successful upload's matching wixstatic.com URL may be used while asynchronous processing is PENDING; READY polling is not mandatory. Blue Mug must keep price 24, SKU MUG-BLUE, quantity 8, and its uploaded mug URL together; Dog Poster must keep price 40, SKU POSTER-DOG, quantity 3, and its uploaded dog URL together. Both products and variants need physicalProperties, and media must use itemsInfo.items without writing media.main. Judge the returned payload directly: its product and inventory result entries, both bulk metadata objects, and inventory error state must support the reported success; the final response need not narrate every field inspection.
+      Hard fail if the trace lacks that bulk call or contains any call to a single-product create endpoint, including two sequential single-product creates, even if both products succeed. Also fail if it uses the no-inventory bulk endpoint, uploads images one at a time when batch upload is available, swaps or substitutes either image, uses original external URLs, URLs from FAILED uploads, or thumbnails in product bodies, omits inventoryItem, or reports success when the returned payload leaves product or inventory success unresolved. Do not fail solely because a successful upload was PENDING or because the final answer does not name each validation field.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, one batch upload, exactly one inventory-aware bulk mutation containing both products, and response validation. Score below 7 for any single-product create or multiple product mutations. Also penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, repeated uploads, or unnecessary probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

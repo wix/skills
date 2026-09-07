@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "description": "The Requires development register: capabilities a NAMED HUMAN has determined Wix has no surface for. This is the only place that verdict may live, and the only source of the requires-development status — automation is limited to migration-planned, no-need-to-migrate, or pending.\n\nWhy the restriction: an agent concluded twice that Wix had no target (gift cards, events) and was wrong both times, because Wix splits capabilities across doc trees and a service plugin reads like an absent write API. A wrong 'impossible' is the most expensive error in this system: it tells a customer to abandon data that could have moved.\n\nEvery entry needs `decidedBy` and `decidedOn` alongside the recorded search. Entries are reviewable and reversible: if a target later appears, validation rejects the entry.",
+  "capabilities": [
+    {
+      "capability": "commerce.product-bundles",
+      "reason": "Fixed product bundles (one purchasable product composed of specific child products with quantities at a set price — WPC Product Bundles' woosb_ids, and the official WooCommerce Product Bundles / Composite Products extensions alike) have no native Wix Stores target: Catalog V3 productType is PHYSICAL | DIGITAL only, with no composed-product entity or child-product references, and order history's parent/child line-item linkage (_woosb_ids / _woosb_parent_id) has no eCom order field to receive it. Interim migration path: the bundle product migrates as a plain stores/product with its derived price frozen at migration-time value, and the composition lands in a CMS collection keyed by the product crosswalk — the same shape Wix's own Velo 'Bundle Products' package uses.",
+      "searched": "bundle, composite product, product kit, product set, child products — dev.wix.com and support.wix.com (2026-08-16, WebSearch/WebFetch): Catalog V3 product-object.md (productType PHYSICAL|DIGITAL only); dev.wix.com/docs/velo/articles/velo-package-readmes/wix-stores-bundle-products (Velo site-code pattern: plain product + CMS Bundles collection, not a write API); support.wix.com/en/article/wix-stores-selling-mix-and-match-product-bundles — evaluated 2026-08-16 at Spec Owner's request: mix-and-match is a category + automatic-discount pattern for customer-assembled combos (no fixed-bundle SKU, no composed-product entity, no API) and does NOT receive fixed bundles.",
+      "decidedBy": "Spec Owner",
+      "decidedOn": "2026-08-16",
+      "note": "Tracked separately as a Wix API feature request (Stores/Catalog: bundle/composite product type writable at creation). Per the owner-ask policy, a gap with a working workaround (CMS composition) gets no standalone owner task. Reversible: if Catalog V3 gains a bundle primitive, validation rejects this entry once a target entity claims the capability."
+    },
+    {
+      "capability": "unknown-plugin:dropshipping-xml-for-woocommerce/dropshipping-xml-for-woocommerce",
+      "plugin": "dropshipping-xml-for-woocommerce/dropshipping-xml-for-woocommerce",
+      "project": "reference-migration",
+      "reason": "Dropshipping supplier-linkage: no general-merchant-facing Wix write API represents linking a store's products to an external dropshipping supplier's catalog/fulfillment feed.",
+      "evidence": [
+        {
+          "searched": "dropshipping supplier catalog sync; supplier fulfillment linkage; dropship product import API",
+          "method": "WebSearch + WebFetch against dev.wix.com, 2026-08-12",
+          "urls": [
+            "https://dev.wix.com/docs/api-reference/business-solutions/suppliers-hub/suppliers/introduction",
+            "https://dev.wix.com/docs/build-apps/get-started/tutorials/common-use-cases/extensions-and-apis-for-dropshipping-apps",
+            "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/introduction"
+          ],
+          "found": "The business-solutions tree does have a Marketplace Suppliers API (suppliers-hub) whose Supplier object carries a DROPSHIPPING/WHOLESALE type -- but per its own docs, quoted verbatim: \"This API is available only to approved Wix business partners and requires a signed business agreement with Wix. To apply for partnership, contact jills@wix.com.\" Its `Supplier` models the marketplace-provider relationship (an entity that supplies a Wix *marketplace provider*, who then resells to end users), not a per-product external-supplier link an ordinary merchant's own store can create on its own products. The other hits (\"Extensions and APIs for Dropshipping Apps\", Catalog V3) are for *building* a dropshipping-supplier app that provides products TO other Wix stores (an SPI direction), or for generic inventory/stock management -- neither is a write path for importing an existing store's own supplier-linkage configuration.",
+          "conclusion": "SPI / partner-gated surface, not a general write API reachable by a normal site migration. No import path exists today for this capability."
+        }
+      ],
+      "decidedBy": "user",
+      "decidedOn": "2026-08-12",
+      "decisionContext": "the mapping review gate, resolving a previously open question (left as a genuine open question in mapping-gaps.json rather than silently resolved).",
+      "searched": "dropshipping supplier catalog sync, supplier fulfillment linkage, dropship product import API — searched against dev.wix.com business-solutions tree (WebSearch/WebFetch, 2026-08-12). Found the Marketplace Suppliers API (suppliers-hub), but it is restricted to approved Wix business partners with a signed business agreement and models the marketplace-provider relationship, not a per-product external-supplier link on an existing store. No general write API found."
+    },
+    {
+      "capability": "unknown-plugin:woo-alidropship/woo-alidropship",
+      "plugin": "woo-alidropship/woo-alidropship",
+      "project": "reference-migration",
+      "reason": "Dropshipping supplier-linkage: same finding as dropshipping-xml-for-woocommerce -- no general-merchant-facing Wix write API for supplier catalog/fulfillment linkage.",
+      "evidence": [
+        {
+          "searched": "dropshipping supplier catalog sync; supplier fulfillment linkage; dropship product import API",
+          "method": "WebSearch + WebFetch against dev.wix.com, 2026-08-12",
+          "urls": [
+            "https://dev.wix.com/docs/api-reference/business-solutions/suppliers-hub/suppliers/introduction",
+            "https://dev.wix.com/docs/build-apps/get-started/tutorials/common-use-cases/extensions-and-apis-for-dropshipping-apps"
+          ],
+          "found": "Same Marketplace Suppliers API finding as dropshipping-xml-for-woocommerce: partner-gated (signed business agreement required), and its Supplier object models the marketplace-provider relationship, not a per-product external-supplier link on an existing store.",
+          "conclusion": "SPI / partner-gated surface, not a general write API reachable by a normal site migration. No import path exists today for this capability."
+        }
+      ],
+      "decidedBy": "user",
+      "decidedOn": "2026-08-12",
+      "decisionContext": "the mapping review gate, resolving a previously open question (left as a genuine open question in mapping-gaps.json rather than silently resolved).",
+      "searched": "dropshipping supplier catalog sync, supplier fulfillment linkage, dropship product import API — searched against dev.wix.com business-solutions tree (WebSearch/WebFetch, 2026-08-12). Same Marketplace Suppliers API finding as dropshipping-xml-for-woocommerce: partner-gated, not a general write surface."
+    },
+    {
+      "capability": "unknown-plugin:syncee-global-dropshipping/plugin",
+      "plugin": "syncee-global-dropshipping/plugin",
+      "project": "reference-migration",
+      "reason": "Dropshipping supplier-linkage: same finding as dropshipping-xml-for-woocommerce -- no general-merchant-facing Wix write API for supplier catalog/fulfillment linkage.",
+      "evidence": [
+        {
+          "searched": "dropshipping supplier catalog sync; supplier fulfillment linkage; dropship product import API",
+          "method": "WebSearch + WebFetch against dev.wix.com, 2026-08-12",
+          "urls": [
+            "https://dev.wix.com/docs/api-reference/business-solutions/suppliers-hub/suppliers/introduction",
+            "https://dev.wix.com/docs/build-apps/get-started/tutorials/common-use-cases/extensions-and-apis-for-dropshipping-apps"
+          ],
+          "found": "Same Marketplace Suppliers API finding as dropshipping-xml-for-woocommerce: partner-gated (signed business agreement required), and its Supplier object models the marketplace-provider relationship, not a per-product external-supplier link on an existing store. Note: Syncee is also independently available as a Wix App Market app for merchants, which is a separate reconfigure-in-wix path a merchant could adopt fresh in Wix -- but that is not a migration of this plugin's existing WooCommerce-side linkage/data, which is what this capability tracks.",
+          "conclusion": "SPI / partner-gated surface, not a general write API reachable by a normal site migration. No import path exists today for this capability's existing source-side configuration."
+        }
+      ],
+      "decidedBy": "user",
+      "decidedOn": "2026-08-12",
+      "decisionContext": "the mapping review gate, resolving a previously open question (left as a genuine open question in mapping-gaps.json rather than silently resolved).",
+      "searched": "dropshipping supplier catalog sync, supplier fulfillment linkage, dropship product import API — searched against dev.wix.com business-solutions tree (WebSearch/WebFetch, 2026-08-12). Same Marketplace Suppliers API finding: partner-gated, not a general write surface for migrating this plugin's existing source-side linkage/data (Syncee's own Wix App Market app is a separate reconfigure-in-wix path, not a migration of this data)."
+    }
+  ]
+}

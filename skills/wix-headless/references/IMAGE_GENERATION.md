@@ -54,6 +54,7 @@ The pass-2 **write shape is per-entity earned knowledge and lives in each capabi
 | Blog post cover | `setup-blog.md` | **Attach images** |
 | CMS item | `setup-cms.md` | **Attach images** |
 | Bookings service | `setup-bookings.md` | **Attach images** |
+| Rental service | `setup-rentals.md` | **Attach images** |
 | Portfolio project / collection | `setup-portfolio.md` | **Attach images** (cover + gallery) |
 | Restaurant menu item | `setup-restaurants.md` | **Attach images** |
 | Event hero (`mainImage`) | `setup-events.md` | **Attach images** |

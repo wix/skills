@@ -19,6 +19,40 @@ export type Classification = {
   evalsRemoved: ChangedFile[];
 };
 
+const GIT_STATUS_MAP: Record<string, string> = {
+  A: 'added',
+  M: 'modified',
+  D: 'removed',
+  T: 'modified',
+};
+
+/**
+ * Parses `git diff --name-status <before> <after>` output into `ChangedFile[]`, for the
+ * merge-tag sweep (a push event, not a PR — there's no octokit file-list API to call here).
+ * Copy (C) is treated as added and type-change (T) as modified; renames (R<score>) carry
+ * both paths. Unrecognized status codes are skipped rather than guessed at.
+ */
+export function parseChangedFiles(diffOutput: string): ChangedFile[] {
+  const files: ChangedFile[] = [];
+  for (const line of diffOutput.split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    const letter = parts[0][0];
+    if (letter === 'R') {
+      files.push({ filename: parts[2], status: 'renamed', previousFilename: parts[1] });
+      continue;
+    }
+    if (letter === 'C') {
+      files.push({ filename: parts[2], status: 'added' });
+      continue;
+    }
+    const status = GIT_STATUS_MAP[letter];
+    if (!status) continue;
+    files.push({ filename: parts[1], status });
+  }
+  return files;
+}
+
 export function classifyChanges(files: ChangedFile[]): Classification {
   const classification: Classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
   for (const file of files) {

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/blog"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/blog/category",
+      "title": "Category",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/category",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "blog/category"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/blog/draft-posts",
+      "title": "Draft Posts",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "blog/post"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/blog/likes",
+      "title": "Likes",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/likes",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Post likes; WordPress has no post-like concept, no source capability maps.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/blog/posts-stats",
+      "title": "Posts & Stats",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats",
+      "group": null,
+      "verdict": "not-importable",
+      "reason": "Read-only published-post queries and view stats; all writes go through Draft Posts (claimed by blog/post).",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/blog/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/blog/tags",
+      "title": "Tags",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/tags",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "blog/tag"
+      ],
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

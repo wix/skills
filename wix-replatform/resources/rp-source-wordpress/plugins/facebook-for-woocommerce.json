@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "plugin": "facebook-for-woocommerce",
+  "displayName": "Meta for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://woocommerce.com/products/facebook/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.facebook-catalog-sync"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "facebook-for-woocommerce/facebook-for-woocommerce.php"
+    ],
+    "recordProperties": [
+      "_wc_facebook_sync_enabled",
+      "fb_visibility",
+      "_wc_facebook_google_product_category"
+    ],
+    "assetPathSlugs": [
+      "facebook-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "facebook-catalog-sync",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/products"],
+      "propertyPath": "_wc_facebook_sync_enabled",
+      "candidateTargetRefs": ["sales-channels/meta-catalog-connect"],
+      "pitfalls": [
+        {
+          "code": "manual-mapping-per-product-settings-not-portable",
+          "severity": "warning",
+          "summary": "Migration-planned via manual-mapping, superseding the earlier reconfigure-in-wix/no-need-to-migrate verdict (Spec Owner, 2026-08-16) now that rp-target-wix/domains/sales-channels/entities/meta-catalog-connect.json exists: the sync outcome is a real, numbered merchant runbook (connect the native Meta catalog feed), not just a one-line reason. The per-product settings in wc/v3/products meta_data — including _wc_facebook_google_product_category — still do not carry over; see that entity's per-product-settings-not-portable pitfall for the live-verified reason (no facebookProductOverrides arm in wix.stores_channels.marketplace_overrides.v1.product_override)."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "No REST route at all — data is only visible as meta_data entries on wc/v3/products (verified in source, includes/Products.php, 2026-08-11: not directly network-verified against a live site's actual meta_data payload; confirm on next live run).",
+    "sync-enabled/visibility/category fields are per-product configuration for the Facebook/Instagram/WhatsApp shops integration, not customer-facing commerce data like orders or reviews."
+  ]
+}

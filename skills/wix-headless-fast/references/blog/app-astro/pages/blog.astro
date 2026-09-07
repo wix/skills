@@ -1,0 +1,24 @@
+---
+// Blog index — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR feed component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import BlogFeedView from "../components/blog/BlogFeedView";
+import { fetchPosts } from "../wix/blog/posts";
+import { fetchBlogCategories, fetchBlogTags } from "../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag, PostPage } from "../wix/blog/types";
+
+let page: PostPage = { posts: [], nextCursor: null };
+let categories: BlogCategory[] = [];
+let tags: BlogTag[] = [];
+try {
+  [page, categories, tags] = await Promise.all([fetchPosts(), fetchBlogCategories(), fetchBlogTags()]);
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Blog">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Blog</h1>
+  <BlogFeedView client:load initialPage={page} initialCategories={categories} initialTags={tags} />
+</SiteLayout>

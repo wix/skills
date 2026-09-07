@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "plugin": "the-events-calendar",
+  "displayName": "The Events Calendar",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://theeventscalendar.com/knowledgebase/introduction-to-the-events-calendar-rest-api/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.events",
+    "content.event-categories",
+    "commerce.bookable-services"
+  ],
+  "classificationHeuristic": {
+    "decision": "event-vs-bookings-service",
+    "summary": "The Events Calendar's `event` entity can map to either Wix Events (events/event) or a Wix Bookings Service (bookings/service, type CLASS) — they are not interchangeable targets, and picking wrong loses real functionality (ticketing vs. per-attendee capacity/booking flow).",
+    "preferBookings": "Small-group, bookable workshops/classes/pop-ups: capped capacity implied by 'limited spots'/'booking required' language, a single or small recurring set of sessions, no ticket tiers, and priced (or free) per-attendee registration rather than a public RSVP/ticket sale.",
+    "preferEvents": "Large public ticketed or open-attendance happenings: galas, concerts, meetups, launches with no attendee cap, or anything the source models with ticket tiers/pricing rather than a single flat per-session price.",
+    "signals": [
+      "Description language: 'booking required', 'limited spots', 'sign up' -> Bookings. 'RSVP', 'doors open', ticket-tier pricing -> Events.",
+      "cost_details.values with a single flat value and no ticket 'tiers'/'types' concept -> Bookings-shaped pricing.",
+      "Recurring short sessions of the same class ('2 sessions') -> Bookings COURSE/CLASS, not a Wix Events recurring series.",
+      "The source plugin itself never distinguishes these — the heuristic is read off the CONTENT (title/description/cost shape), not a field the API exposes."
+    ],
+    "confirmWithHuman": "Always ambiguous-case: a human should confirm the classification before the first live write when signals conflict (e.g. a large recurring public series with per-session capacity language). See migrations/reference-run/mapping/entity-decisions/event-plugin-rest.json for one applied precedent (8/8 records classified Bookings on 2026-08-12).",
+    "verifiedPrecedent": "migrations/reference-run, 2026-08-12: all 8 real event-plugin-rest records were workshops/pop-ups with 'Limited spots, booking required' language and flat per-session pricing — classified Bookings Classes, not Wix Events."
+  },
+  "detect": {
+    "pluginFileIds": [
+      "the-events-calendar/the-events-calendar.php"
+    ],
+    "routes": [
+      "/tribe/events/v1/events"
+    ],
+    "restNamespaces": [
+      "tribe/events/v1",
+      "tec/v1"
+    ],
+    "restBases": [
+      "tribe_events",
+      "tribe_venue",
+      "tribe_organizer",
+      "tribe_events_cat"
+    ],
+    "assetPathSlugs": [
+      "the-events-calendar"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "event",
+      "channel": "plugin-rest",
+      "route": "/tribe/events/v1/events",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "events/event",
+        "bookings/service"
+      ],
+      "relations": [
+        {
+          "field": "venue",
+          "targetEntity": "venue",
+          "evidence": "tribe/events/v1 event payload embeds venue"
+        },
+        {
+          "field": "organizer",
+          "targetEntity": "organizer",
+          "evidence": "tribe/events/v1 event payload embeds organizer"
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "event-ticket-history-no-import-path",
+          "severity": "blocker",
+          "summary": "Wix has no import path for ticketed event order history; ticket sales cannot be migrated even once Events is native."
+        },
+        {
+          "code": "default-list-hides-events-without-date-filter",
+          "severity": "warning",
+          "summary": "GET /tribe/events/v1/events with no parameters can return total 0 while published events exist; always pass an explicit start_date filter (verified live 2026-08-10 on TEC 6.17.2: parameterless list returned 0, ?start_date=2026-01-01 returned all 3 published events)."
+        },
+        {
+          "code": "events-vs-bookings-classification-required",
+          "severity": "warning",
+          "summary": "This entity has TWO real Wix targets (events/event, bookings/service) that are not interchangeable — see the top-level `classificationHeuristic` field for the small-group-workshop-vs-public-happening heuristic and a human-confirmation requirement on ambiguous data. Do not default to events/event without checking it."
+        }
+      ]
+    },
+    {
+      "entity": "venue",
+      "channel": "plugin-rest",
+      "route": "/tribe/events/v1/venues",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "folds-into-event-record",
+          "severity": "info",
+          "summary": "Wix has no separate venue entity; this data folds into the event's location/organizer fields. Read it to enrich the event, not as its own collection."
+        }
+      ]
+    },
+    {
+      "entity": "organizer",
+      "channel": "plugin-rest",
+      "route": "/tribe/events/v1/organizers",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "folds-into-event-record",
+          "severity": "info",
+          "summary": "Wix has no separate organizer entity; this data folds into the event's location/organizer fields. Read it to enrich the event, not as its own collection."
+        }
+      ]
+    },
+    {
+      "entity": "event-category",
+      "channel": "core-cpt",
+      "route": "/wp/v2/tribe_events_cat",
+      "recordKeyField": "id",
+      "hierarchical": true,
+      "candidateTargetRefs": [
+        "events/category"
+      ],
+      "pitfalls": [
+        {
+          "code": "flat-wix-categories",
+          "severity": "warning",
+          "summary": "Source event categories are hierarchical; Wix Events categories are flat — flatten requires a faithfulness-ledger entry."
+        }
+      ]
+    },
+    {
+      "entity": "event-cpt",
+      "channel": "core-cpt",
+      "route": "/wp/v2/tribe_events",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "events/event"
+      ],
+      "pitfalls": [
+        {
+          "code": "prefer-tribe-rest-over-cpt",
+          "severity": "info",
+          "summary": "When /tribe/events/v1/events is available prefer it: the CPT route omits venue/organizer/schedule fields the plugin API returns."
+        }
+      ]
+    }
+  ],
+  "excludeRoutes": [
+    {
+      "route": "/tribe/events/v1/doc",
+      "reason": "Swagger self-documentation endpoint, not durable data"
+    }
+  ],
+  "quirks": [
+    "The plugin publishes a Swagger 2.0 document at /wp-json/tribe/events/v1/doc that can be read to confirm the exact endpoint set on a given site.",
+    "Recurring events expand into multiple records; deduplicate by parent event before mapping."
+  ]
+}

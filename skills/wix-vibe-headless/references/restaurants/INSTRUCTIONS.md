@@ -170,6 +170,8 @@ render.
 
 ## Using the client from your own UI (menu, order cart)
 
+> Migrating from Cart V1 / Checkout V1? These helpers are V2-only — see the [migration guide](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/migration-guide) for the before/after.
+
 ```jsx
 import { getFullMenu } from "@/rest/wix-restaurants-menu";
 import { useOrderCart } from "@/context/OrderCartContext";
@@ -188,7 +190,8 @@ const { menus } = await getFullMenu();            // [] when no menus → show t
 // Load-bearing field paths (the shipped components already do these):
 // - item.image / section.image / label.icon are OBJECTS → render `.url`, never the object; //-urls → https:
 // - MENU prices are plain decimal strings with NO currency symbol ("12.50") — format in the UI.
-//   The eCom cart line price (line.price.formattedAmount) DOES include the symbol.
+//   The eCom cart line price (line.pricing.unitPrice / line.pricing.totalPrice) is a ConvertedMoney
+//   { amount, convertedAmount } with NO symbol either — format the number yourself.
 // - an item is priced by EITHER item.price (single) OR item.variants[] (one-of, each { name, price }).
 // - a cart mutation uses cart.lineItems[].id (the lineItemId), NOT the menu item id.
 ```
@@ -214,7 +217,7 @@ Building something beyond the shipped pages, or need a path these snippets don't
 Modifier up-charges / price-variant selection / special requests on the **cart line** are **not**
 wired into `addItemToCart` — the restaurants `catalogReference.options` shape for these isn't
 documented for client add-to-cart, so `ItemDialog` displays modifier groups for the diner but sends
-only quantity. To wire them, confirm the shape via the **`wix-docs`** skill / the reference first,
+only quantity. To wire them, confirm the shape via the documentation skill available in your environment / the reference first,
 never guess:
 - Restaurants API reference: https://dev.wix.com/docs/api-reference/business-solutions/restaurants.md
 - Sample flows (cart options): https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
@@ -223,7 +226,7 @@ never guess:
   in lets them see their own order/reservation history.
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped
-file under `src/`, or look it up via the **`wix-docs`** skill.
+file under `src/`, or look it up via the documentation skill available in your environment.
 
 ## Hard rules
 - Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.

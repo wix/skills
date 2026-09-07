@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "docsRoots": [
+    "api-reference/business-solutions/cms"
+  ],
+  "displayName": "Wix CMS",
+  "ownerHint": "CMS/Data collections, items, references, permissions, and indexes domain owners",
+  "wixAppsRequired": [
+    "Wix Data"
+  ],
+  "defaultImportOrder": [
+    "collection",
+    "data-item",
+    "reference"
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/cms/entities/data-item.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (collection, data-item, reference)"
+    }
+  ]
+}

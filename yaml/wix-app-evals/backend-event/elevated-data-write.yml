@@ -1,0 +1,49 @@
+name: backend-event/elevated-data-write
+description: Backend event handler writing to a CMS collection — backend extensions run as the app, so the Wix Data call must be elevated inside the handler, the one context where auth.elevate is valid
+triggerPrompt: |-
+  Build a backend event handler for my app that listens for e-commerce orders being paid, and records each paid order in a CMS collection with the order number, buyer email, and total. Also add a dashboard page that lists what has been recorded.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [backend-event, data-collection, dashboard-page, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BACKEND_EVENT.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/WIX_PATTERNS_DOCS.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      A backend event handler runs as the **app** — this is the one context where `auth.elevate` is both valid and expected, and the counterpart to scenarios where elevation in frontend code is the defect.
+
+      Check: (1) An event extension is registered for the order-paid event and receives the event payload. (2) The handler writes to the CMS collection through `auth.elevate` wrapping the Wix Data method (`auth.elevate(items.insert)` or equivalent), not a bare call — the handler has no site-user identity to inherit permissions from. (3) The collection is created via a Data Collection extension with the app namespace applied to its ID, so it exists when the app is installed. (4) The recorded fields match the order data the event actually carries. (5) The dashboard page reads the collection and renders the records, with its table built from `@wix/patterns` per the Patterns Docs Gate rather than hand-written or raw WDS.
+
+      Score 0-10. Score 4 or below if the handler writes without elevation, and note whether the agent explained why elevation is required here but wrong in a site extension.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It confirmed the exact event name against the common-events reference or the API docs rather than inventing a plausible one. (2) It scoped the collection ID with the supplied `APP_NAMESPACE` rather than using a bare collection name. (3) It did not attempt to reach the event payload from the dashboard page, or route the write through an HTTP endpoint the event handler could perform itself. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 1200000
+  - type: cost
+    maxCostUsd: 3.5

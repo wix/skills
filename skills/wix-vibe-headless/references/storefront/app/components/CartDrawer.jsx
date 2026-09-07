@@ -2,29 +2,36 @@
 // check out via the context (redirect-session URL). Styled with base44 design tokens (shadcn Tailwind classes).
 //
 // Load-bearing beyond the styling:
-// • prices come from the SERVER cart — `price` is post-discount, `fullPrice` is before it, so the
-//   two together are the strikethrough. Never compute a total in the client: tax, shipping and
-//   promotions are resolved server-side, so `subtotal` is the only figure safe to show pre-checkout.
-//   Money objects carry { amount, convertedAmount, formattedAmount, formattedConvertedAmount }; use a
-//   formatted one so the currency symbol and grouping come from Wix. Prefer `subtotalAfterDiscounts`
-//   over `subtotal` — the two are equal until a cart-level coupon applies, and then `subtotal` is the
-//   pre-discount figure, which would quote the buyer more than they'll pay.
-// • `availability.quantityAvailable` caps the stepper, so exceeding stock is refused here rather than
+// • prices come from the SERVER cart. In Cart V2 each line total is `pricing.totalPrice`, a
+//   ConvertedMoney { amount, convertedAmount } with NO formatted string — format it yourself with the
+//   cart's currency (see formatCartMoney). Never compute a total in the client: tax, shipping and
+//   promotions are resolved server-side, so the cart's `subtotal` is the only figure safe to show
+//   pre-checkout. The V2 cart has no `subtotalAfterDiscounts`/`discount`/`appliedDiscounts` — the
+//   discounted total comes from a currentCartV2 estimate/calculate `summary.priceSummary`, not the
+//   cart; absent that call, show the raw `subtotal`.
+// • `quantityInfo.availableQuantity` caps the stepper, so exceeding stock is refused here rather than
 //   at checkout.
-// • `availability.status` is flagged per line here because checkout() refuses the whole cart when
-//   any item isn't AVAILABLE — showing it on the row is what makes that refusal understandable.
+// • `status` is flagged per line here because checkout() refuses the whole cart when any item isn't
+//   IN_STOCK — showing it on the row is what makes that refusal understandable.
 import { useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { storeImage } from "@/lib/storeImage";
 
+// Cart V2 money is a ConvertedMoney { amount, convertedAmount } with NO formatted string — format it
+// with the cart's currency (buyer's display currency when present, else the site currency).
+function formatCartMoney(money, cart) {
+  const value = money?.convertedAmount ?? money?.amount;
+  const currency = cart?.customerInfo?.currencyCode ?? cart?.businessInfo?.currencyCode ?? "USD";
+  return value == null ? "" : new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(value));
+}
+
 export default function CartDrawer() {
   const { cart, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading, error, clearError } = useCart();
   const lineItems = cart?.lineItems ?? [];
-  const money = (m) => m?.formattedConvertedAmount || m?.formattedAmount;
-  const subtotal = money(cart?.subtotalAfterDiscounts) || money(cart?.subtotal);
-  const discount = money(cart?.discount);
-  const hasDiscount = (cart?.appliedDiscounts?.length || 0) > 0 && Number(cart?.discount?.amount) > 0;
-  const unavailable = lineItems.filter((li) => li.availability?.status && li.availability.status !== "AVAILABLE");
+  // The V2 cart carries only a raw `subtotal` (ConvertedMoney); discounted totals live on an
+  // estimate/calculate `summary.priceSummary`, which this cart helper doesn't fetch — so show `subtotal`.
+  const subtotal = formatCartMoney(cart?.subtotal, cart);
+  const unavailable = lineItems.filter((li) => li.status && li.status !== "IN_STOCK");
 
   // Escape closes the drawer while it's open — expected of anything modal, and the only way out for
   // keyboard users (the backdrop click is pointer-only).
@@ -70,46 +77,44 @@ export default function CartDrawer() {
                 className="border border-border bg-card text-foreground rounded-sm py-2 px-4 cursor-pointer text-sm">Continue shopping</button>
             </div>
           ) : lineItems.map((item) => {
-            const image = storeImage(item.image?.url);
-            const struck = item.fullPrice?.formattedAmount;
-            const paid = item.price?.formattedAmount;
-            const isOut = item.availability?.status && item.availability.status !== "AVAILABLE";
-            const stock = item.availability?.quantityAvailable;
-            const atStockLimit = Number.isFinite(stock) && item.quantity >= stock;
+            const image = storeImage(item.attributes?.image?.url);
+            const paid = formatCartMoney(item.pricing?.totalPrice, cart);
+            const isOut = item.status && item.status !== "IN_STOCK";
+            const stock = item.quantityInfo?.availableQuantity;
+            const qty = item.quantityInfo?.confirmedQuantity;
+            const atStockLimit = Number.isFinite(stock) && qty >= stock;
             return (
               <div key={item.id} className="flex gap-3 py-3 px-0 border-b border-border">
                 <div className="w-16 h-16 shrink-0 rounded-sm bg-card overflow-hidden">
-                  {image && <img src={image} alt={item.productName?.original || ""} className="w-full h-full object-cover" />}
+                  {image && <img src={image} alt={item.name?.original || ""} className="w-full h-full object-cover" />}
                 </div>
                 <div className="flex-1 flex flex-col gap-1 min-w-0">
-                  <span className="font-semibold truncate">{item.productName?.original}</span>
-                  {item.descriptionLines?.map((dl, i) => (
+                  <span className="font-semibold truncate">{item.name?.original}</span>
+                  {/* V2 nests these under `attributes` — a top-level lineItem.descriptionLines no longer exists */}
+                  {item.attributes?.descriptionLines?.map((dl, i) => (
                     <small key={i} className="text-muted-foreground">
                       {dl.name?.original}: {dl.plainText?.original || dl.colorInfo?.original}
                     </small>
                   ))}
                   {isOut ? (
                     <small className="text-destructive">
-                      {item.availability.status === "NOT_AVAILABLE" ? "No longer available" : "Not enough stock"}
+                      {item.status === "PARTIALLY_IN_STOCK" ? "Not enough stock" : "No longer available"}
                     </small>
                   ) : atStockLimit ? (
                     <small className="text-muted-foreground">Only {stock} left</small>
                   ) : null}
                   <div className="flex items-center gap-2 mt-1">
-                    <QtyButton disabled={loading || item.quantity <= 1} label="Decrease quantity"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</QtyButton>
-                    <span className="min-w-5 text-center" aria-label={`Quantity ${item.quantity}`}>{item.quantity}</span>
+                    <QtyButton disabled={loading || qty <= 1} label="Decrease quantity"
+                      onClick={() => updateQuantity(item.id, qty - 1)}>−</QtyButton>
+                    <span className="min-w-5 text-center" aria-label={`Quantity ${qty}`}>{qty}</span>
                     <QtyButton disabled={loading || atStockLimit} label="Increase quantity"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</QtyButton>
+                      onClick={() => updateQuantity(item.id, qty + 1)}>+</QtyButton>
                     <button onClick={() => removeItem(item.id)} disabled={loading}
                       className="ml-auto border-none bg-transparent cursor-pointer text-muted-foreground text-[13px] underline disabled:opacity-50">Remove</button>
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
                   <span className="font-semibold">{paid}</span>
-                  {struck && struck !== paid && (
-                    <span className="text-muted-foreground line-through text-[13px]">{struck}</span>
-                  )}
                 </div>
               </div>
             );
@@ -118,12 +123,6 @@ export default function CartDrawer() {
 
         {lineItems.length > 0 && (
           <footer className="p-4 border-t border-border flex flex-col gap-3">
-            {hasDiscount && (
-              <div className="flex justify-between items-baseline text-sm">
-                <span className="text-muted-foreground">Discount</span>
-                <span>−{discount}</span>
-              </div>
-            )}
             {subtotal && (
               <div className="flex justify-between items-baseline">
                 <span className="text-muted-foreground">Subtotal</span>

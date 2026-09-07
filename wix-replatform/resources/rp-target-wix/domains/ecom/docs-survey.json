@@ -1,0 +1,306 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/e-commerce"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/e-commerce/catalogs/catalog-service-plugin",
+      "title": "Catalog Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/catalogs/catalog-service-plugin",
+      "group": "Catalogs",
+      "verdict": "not-relevant",
+      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/catalogs/inventory-service-plugin",
+      "title": "Inventory Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/catalogs/inventory-service-plugin",
+      "group": "Catalogs",
+      "verdict": "not-relevant",
+      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/additional-fees",
+      "title": "Additional Fees",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/additional-fees",
+      "group": "Extensions",
+      "verdict": "not-relevant",
+      "reason": "Checkout extension SPI, not an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/discounts",
+      "title": "Discounts",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts",
+      "group": "Extensions",
+      "verdict": "not-relevant",
+      "reason": "Checkout extension SPI, not an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/shipping-rates",
+      "title": "Shipping Rates",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates",
+      "group": "Extensions",
+      "verdict": "not-relevant",
+      "reason": "Checkout extension SPI, not an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/tax",
+      "title": "Tax",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax",
+      "group": "Extensions",
+      "verdict": "not-relevant",
+      "reason": "Checkout extension SPI, not an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/extensions/validations",
+      "title": "Validations",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/validations",
+      "group": "Extensions",
+      "verdict": "not-relevant",
+      "reason": "Checkout extension SPI, not an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/get-started/apps",
+      "title": "Apps",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/get-started/apps",
+      "group": "Get Started",
+      "verdict": "not-relevant",
+      "reason": "Documentation article, not an API surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/get-started/headless",
+      "title": "Headless",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/get-started/headless",
+      "group": "Get Started",
+      "verdict": "not-relevant",
+      "reason": "Documentation article, not an API surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/get-started/sites",
+      "title": "Sites",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/get-started/sites",
+      "group": "Get Started",
+      "verdict": "not-relevant",
+      "reason": "Documentation article, not an API surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/guides",
+      "title": "Guides",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/guides",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Documentation articles, not an API surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/draft-orders",
+      "title": "Draft Orders",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/draft-orders",
+      "group": "Orders",
+      "verdict": "not-relevant",
+      "reason": "Merchant draft-order authoring flow; historical orders import through the Orders import endpoint (ecom/order), not as drafts.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/order-billing",
+      "title": "Order Billing",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing",
+      "group": "Orders",
+      "verdict": "claimed",
+      "refs": [
+        "ecom/order-refund"
+      ],
+      "reason": "CORRECTED 2026-08-16. Billing *details* are indeed carried on the imported order payload (ecom/order), which is why this was marked not-relevant on 2026-08-11 — but that reading missed Refund Payments (POST /ecom/v1/order-billing/refund-payments), the only write surface for refund records anywhere in eCommerce. Dismissing this node is what made the 2026-08-12 Order Transactions walk conclude refunds were unwritable (a conclusion since withdrawn). Refund Payments is live-verified: 18/18 on the reference store 2026-08-12, with externalRefund:true mandatory for historical data.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/order-fulfillments",
+      "title": "Order Fulfillments",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-fulfillments",
+      "group": "Orders",
+      "verdict": "not-relevant",
+      "reason": "Fulfillment status folds into the imported order payload; standalone fulfillment creation targets live orders. Revisit if imported historical orders prove to need explicit fulfillment records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/order-invoices",
+      "title": "Order Invoices",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-invoices",
+      "group": "Orders",
+      "verdict": "not-relevant",
+      "reason": "Wix-generated invoice documents; source PDF-invoice plugin outputs are documents, not records to recreate.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/order-payment-requests",
+      "title": "Order Payment Requests",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-payment-requests",
+      "group": "Orders",
+      "verdict": "not-relevant",
+      "reason": "Live payment-collection flow, not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/order-transactions",
+      "title": "Order Transactions",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-transactions",
+      "group": "Orders",
+      "verdict": "claimed",
+      "refs": [
+        "ecom/order-refund"
+      ],
+      "reason": "Add Payments is the first half of the refund write path: Import Order creates no payment record, so a payment must be added before Order Billing's Refund Payments has a paymentId to reference. Note this surface alone is payments-only (refunds reach it as the Refund Completed webhook, and balanceSummary.refunded is computed) — the refund create lives in the sibling Order Billing tree, and reading this menu in isolation produced a false 'no refund-record import path' conclusion on 2026-08-12, corrected 2026-08-16.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/orders",
+      "title": "Orders",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders",
+      "group": "Orders",
+      "verdict": "claimed",
+      "refs": [
+        "ecom/order",
+        "ecom/order-line-item",
+        "ecom/order-refund",
+        "ecom/order-applied-discount",
+        "ecom/order-merchant-note",
+        "ecom/order-line-item-options"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/orders/orders-settings",
+      "title": "Orders Settings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders-settings",
+      "group": "Orders",
+      "verdict": "not-relevant",
+      "reason": "Settings singleton (get/update); configuration, not records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/other-services/back-in-stock",
+      "title": "Back In Stock",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/other-services/back-in-stock",
+      "group": "Other Services",
+      "verdict": "not-relevant",
+      "reason": "Back-in-stock request collection; no waitlist source capability observed in runs so far. Revisit when a waitlist plugin is profiled.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/other-services/recommendations",
+      "title": "Recommendations",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/other-services/recommendations",
+      "group": "Other Services",
+      "verdict": "not-relevant",
+      "reason": "Algorithmic recommendations; computed, not migratable.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/other-services/tips",
+      "title": "Tips",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/other-services/tips",
+      "group": "Other Services",
+      "verdict": "not-relevant",
+      "reason": "Live checkout tipping flow; no migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/payments/gift-cards",
+      "title": "Gift Cards",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards",
+      "group": "Payments",
+      "verdict": "claimed",
+      "refs": [
+        "gift-cards/gift-card"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/payments/memberships",
+      "title": "Memberships",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/memberships",
+      "group": "Payments",
+      "verdict": "not-relevant",
+      "reason": "Membership/pricing-plan payment surface; pricing-plans territory with no authored domain yet — whole-tree assignment is the deferred register’s job (future work).",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/payments/payment-settings",
+      "title": "Payment Settings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/payment-settings",
+      "group": "Payments",
+      "verdict": "not-relevant",
+      "reason": "Payment configuration; setup territory, not records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/purchase-flow/cart",
+      "title": "Cart",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart",
+      "group": "Purchase Flow",
+      "verdict": "not-relevant",
+      "reason": "Ephemeral purchase-flow state; carts are not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/purchase-flow/cart-v2",
+      "title": "Cart V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2",
+      "group": "Purchase Flow",
+      "verdict": "not-relevant",
+      "reason": "Ephemeral purchase-flow state; carts are not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/purchase-flow/checkout",
+      "title": "Checkout",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout",
+      "group": "Purchase Flow",
+      "verdict": "not-relevant",
+      "reason": "Ephemeral purchase-flow state; checkouts are not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/purchase-flow/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/skills",
+      "group": "Purchase Flow",
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles",
+      "title": "Delivery Profiles",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles",
+      "group": "Shipping & Delivery",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "ecom/delivery-profile"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/e-commerce/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

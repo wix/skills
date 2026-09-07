@@ -31,8 +31,9 @@ export function useServiceDetail(serviceId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // getService returns null on a miss — show not-found, never invent a service.
-    getService(serviceId).then((s) => (s ? setService(s) : setNotFound(true)));
+    // getService returns null on a miss — show not-found, never invent a service. A rejected
+    // request (network, 4xx) must also resolve the page to not-found, never leave it loading forever.
+    getService(serviceId).then((s) => (s ? setService(s) : setNotFound(true))).catch(() => setNotFound(true));
   }, [serviceId]);
 
   useEffect(() => {
@@ -41,7 +42,8 @@ export function useServiceDetail(serviceId) {
     // returns { slots, nextCursor }. The LIST call takes fromLocalDate / toLocalDate — a different
     // arg naming than the single-slot re-validate call (getAvailableSlot: localStartDate/localEndDate).
     listSlotsForService(service, { fromLocalDate: localMidnight(0), toLocalDate: localMidnight(14) })
-      .then(({ slots, nextCursor, timeZone }) => { setSlots(slots); setCursor(nextCursor); setTimeZone(timeZone); });
+      .then(({ slots, nextCursor, timeZone }) => { setSlots(slots); setCursor(nextCursor); setTimeZone(timeZone); })
+      .catch(() => setSlots([]));
   }, [service]);
 
   const loadMoreSlots = useCallback(() => {

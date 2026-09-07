@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "domain": "bookings",
+  "entity": "service",
+  "displayName": "Bookings Service",
+  "capability": "commerce.bookable-services",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Service",
+    "verifiedFqdn": "wix.bookings.services.v2.service",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "bookingProduct",
+      "sourcePlugin": "mwb-bookings-for-woocommerce",
+      "routes": [
+        "/wc/v3/products"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "event",
+      "sourcePlugin": "the-events-calendar",
+      "routes": [
+        "/tribe/events/v1/events"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Bookings Services V2",
+    "endpoint": "POST /bookings/v2/services",
+    "writerId": "createBookingsService",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "unsupported-native-gap",
+      "when": "Attendee/registrant PII import: Bookings has no bulk 'import a past booking' path, mirroring the Events domain's ticket-order-history-not-importable gap. Only the service+session definitions are importable, never historical bookings."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "bookings-app-not-installed-by-default",
+      "severity": "blocker",
+      "summary": "Wix Bookings is not present on a fresh headless site, and neither `/bookings/v2/services` nor `/bookings/v2/resources/query` reveal that by erroring — both answer with ordinary 200s/validation errors regardless. Create Service instead fails with a plain 'form Form with id 00000000-0000-0000-0000-000000000000 doesn't exist', which reads like a form problem but is actually the app-install gap. Install with appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97 (see rp-execute-setup SKILL.md) before the first Create Service call; this also auto-provisions the default booking form and one default 'Business Owner' staff resource."
+    },
+    {
+      "code": "staff-member-required-and-it-is-a-resource-id",
+      "severity": "blocker",
+      "summary": "For appointment-based services at least one staffMemberIds entry is REQUIRED at create, and the docs are explicit that the values are RESOURCE GUIDs (staffMember.resourceId), not staff-member GUIDs - 'Query staff members with the RESOURCE_DETAILS field set to retrieve resourceId'. A WooCommerce booking product has no provider concept at all, so the import must provision (or reuse) a staff member during setup and record the substitution in the faithfulness ledger; the app install already provisions one default 'Business Owner' resource that can be reused. For classes and courses staffMemberIds is read-only and derived from the recurring sessions, so it must NOT be sent."
+    },
+    {
+      "code": "five-required-create-fields",
+      "severity": "blocker",
+      "summary": "Create Service requires type (APPOINTMENT | CLASS | COURSE), name, onlineBooking, payment, and defaultCapacity - all five, on every call. defaultCapacity must be exactly 1 for APPOINTMENT services; a source per-slot capacity greater than 1 therefore cannot be expressed as an appointment and must either become a CLASS or be ledgered as loss. payment.options must have at least one of inPerson or online true even when rateType is NO_FEE."
+    },
+    {
+      "code": "session-is-a-calendar-v3-event-not-a-bookings-endpoint",
+      "severity": "blocker",
+      "summary": "There is no '/bookings/v2/...' endpoint for a service's date/time occurrence. The one-time or recurring session is an ordinary Calendar V3 event (POST /calendar/v3/events) on `service.schedule.id` (present on the Create Service response). `event.type` must equal the service's `type` or the create 400s 'type must match the service type'; a CLASS/COURSE event additionally requires `resources: [{ id, permissionRole: 'WRITER' }]` naming a real Bookings resource (POST /bookings/v2/resources/query) or it 400s 'resources must have at least 1 resource for class events'. `start.localDate`/`end.localDate` are LOCAL date-time strings with no offset/zone suffix, paired with a separate `timeZone` — the same trap documented for Wix Events."
+    },
+    {
+      "code": "payment-options-has-no-default",
+      "severity": "warning",
+      "summary": "Omitting `payment.options` 400s 'It is mandatory to specify either payment.options.online or payment.options.inPerson as true', even for a NO_FEE service with no money changing hands. Always set at least one of `online`/`inPerson`. (Live-verified error string 2026-08-12; the docs state the same requirement.)"
+    },
+    {
+      "code": "default-capacity-required-by-type",
+      "severity": "warning",
+      "summary": "`defaultCapacity` must be exactly 1 for `type: APPOINTMENT` and greater than 1 for `CLASS`/`COURSE`. The source rarely carries a capacity figure (The Events Calendar has none) — pick and document a deterministic default rather than guessing per record."
+    },
+    {
+      "code": "no-category-means-invisible",
+      "severity": "warning",
+      "summary": "Create Service: 'Without an assigned category, the service isn't visible on the live site.' Services are not auto-categorized, so the import must create/crosswalk a Categories V2 category and set category.id, or every imported service silently fails to appear. Separately, service.hidden controls whether the service shows in Wix Bookings pages and widgets - set it deliberately rather than letting the default decide."
+    },
+    {
+      "code": "no-organizer-or-category-field",
+      "severity": "warning",
+      "summary": "Bookings Services have no organizer/contact field and use their own Categories V2 catalog, disconnected from any other domain's categories (e.g. Wix Events categories). A source record's organizer name/email and taxonomy have nowhere native to land and are dropped unless explicitly folded into `description` or a real Bookings category is created and linked."
+    },
+    {
+      "code": "session-durations-rules-differ-by-type",
+      "severity": "warning",
+      "summary": "schedule.availabilityConstraints.sessionDurations is required for appointment-based services and must NOT be specified for classes or courses. For appointment services with varied pricing by session length the field is still mandatory but its values are IGNORED - real durations come from Service Options and Variants. Duration values are minutes, min 1 and max 44639 (30 days minus a minute), maxItems 50."
+    },
+    {
+      "code": "pricing-plan-and-manual-approval-conflict",
+      "severity": "warning",
+      "summary": "payment.options.pricingPlan cannot be combined with onlineBooking.requireManualApproval, and online payment requires rateType FIXED or VARIED. A source service that is both 'admin must confirm' and 'payable by membership' cannot be recreated as-is; pick one and ledger the other."
+    },
+    {
+      "code": "location-country-is-iso-alpha-2",
+      "severity": "warning",
+      "summary": "`locations[].custom.address.country` validates as an ISO-3166-1 alpha-2 code ('IL'), not a free-text country name ('Israel'). `formattedAddress` and `city` are free text and accept the source value directly; convert or omit `country`."
+    },
+    {
+      "code": "locations-immutable-on-bulk-create",
+      "severity": "warning",
+      "summary": "The Bulk Create Services parameter table marks locations as immutable (maxItems 500). Set Service Locations exists as a dedicated method, so plan location assignment as part of the create payload or through that method - not as a later Update Service field patch."
+    },
+    {
+      "code": "add-on-groups-not-settable-at-create",
+      "severity": "info",
+      "summary": "Create Service explicitly says not to specify existing add-on groups; use Create Add On Group / Set Add Ons For Group after the service exists. Add-on import is therefore a second pass (bookings/service-add-on), ordered after the service."
+    },
+    {
+      "code": "hidden-does-not-hide-from-dashboard-services-list",
+      "severity": "info",
+      "summary": "`hidden: true` only affects the public storefront/booking page — a migrated service still shows normally under the dashboard's Bookings > Services list, live-confirmed by the site owner. Do not treat 'I don't see my migrated classes' as evidence `hidden` needs to change; ask which dashboard view is being checked first. A genuinely separate dashboard view lists actual customer bookings/reservations (appointments against a session), not services or sessions themselves — that view is correctly empty when the source recorded zero registrants (e.g. The Events Calendar exposes no RSVP/attendee data on its public REST routes), since this migration only imports service+session definitions, never historical bookings (see the unsupported-native-gap fallback above)."
+    }
+  ],
+  "mappingGuidance": [
+    "One Wix service per source bookable record. For the WooCommerce mwb_booking product type the natural target is type APPOINTMENT (the plugin books a person-less time window against one product); a source product whose per-slot capacity is greater than 1 (mwb_mbfw_max_bookings / mwb_mbfw_maximum_booking_per_unit) is a CLASS instead, because APPOINTMENT forces defaultCapacity = 1.",
+    "Small-group workshops/classes with per-attendee capacity and 'booking required' language are a Bookings fit (type CLASS); large public ticketed happenings stay Wix Events — see rp-source-wordpress's the-events-calendar profile for the classification heuristic.",
+    "Create with `hidden: true` and `onlineBooking.enabled: false` for an initial migration pass, mirroring Wix Events' `draft: true` — this avoids turning on real online booking/payment collection before a human reviews pricing and policy.",
+    "name and description come from the product title and description; media.mainMedia takes the product image after the media import has uploaded it (Media Manager GUIDs, not source URLs).",
+    "payment.rateType FIXED with payment.fixed.price = the product price (the plugin writes its unit cost to both mwb_mbfw_booking_unit_cost and _price). payment.options.inPerson = true is the safe default, because the source checkout (WooCommerce gateways) does not migrate.",
+    "A blank/empty source cost defaults to NO_FEE (free) — record this as an explicit mapping note per affected record, never invent a price.",
+    "onlineBooking.enabled = true, and onlineBooking.requireManualApproval = (source mwb_mbfw_admin_confirmation === 'yes') - that flag is the plugin's 'Booking confirmation required by admin' checkbox.",
+    "schedule.availabilityConstraints.sessionDurations: derive minutes from the source cadence pair mwb_mbfw_booking_unit x mwb_mbfw_booking_count. A day-unit source booking has no minute duration of its own; use the product's daily window (mwb_mbfw_daily_calendar_start_time / mwb_mbfw_daily_calendar_end_time) where present and ledger the assumption otherwise.",
+    "locations: the plugin stores a free-text venue in mwb_mbfw_booking_location, which maps to a CUSTOM location (the documented default type). Fold a per-event source venue into `locations[0]` as a CUSTOM address (formattedAddress + city + ISO alpha-2 country code) rather than BUSINESS. Business locations must exist first if the source venue should become a real location rather than free text.",
+    "category.id: crosswalk the source product category (WooCommerce product_cat) to a Categories V2 category. Without it the service is invisible on the live site. [NEEDS-VERIFICATION] the mwb-bookings-for-woocommerce profile records that the plugin assigns a 'booking' product_cat term only when the PRO edition is active with its category setting enabled, and that was never observed live - so do not assume a discriminating source category exists. Until bookings/service-category is authored (the categories-v2 gap in the docs survey), setup creates a single catch-all category and the source's real category structure is flattened into it; ledger that loss.",
+    "Import services BEFORE bookings and before add-ons: a booking needs bookedEntity plus a resolvable service, and add-on groups can only be attached to a service that already exists.",
+    "Bulk Create Services accepts up to 100 services per call and is the documented path for large catalogs, but the verified-live writer (`createBookingsService`) creates one at a time - persist the returned service.id (and schedule.id, which is the handle into Business Management > Calendar) against the source record id in the crosswalk either way."
+  ],
+  "setupRequirements": [
+    "Wix Bookings app installed (appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97)",
+    "At least one staff member provisioned, with its resourceId known - required for every APPOINTMENT service",
+    "At least one Categories V2 category, otherwise imported services are invisible on the live site",
+    "Business locations configured if source venues should become real locations rather than CUSTOM free text"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/service-object",
+      "note": "object page: type enum APPOINTMENT|CLASS|COURSE, hidden, category (services aren't auto-assigned; without one the service is invisible), defaultCapacity, form, onlineBooking, locations, policy, schedule.id (links into Business Management > Calendar), staffMemberIds are resource IDs and are read-only for classes/courses (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service",
+      "note": "POST https://www.wixapis.com/_api/bookings/v2/services; required type + name + onlineBooking + payment + defaultCapacity; defaultCapacity must be 1 for appointments; rateType FIXED|VARIED|CUSTOM|NO_FEE and at least one of payment.options.inPerson/online; pricingPlan option incompatible with requireManualApproval; sessionDurations required for appointments and forbidden for classes/courses; staffMemberIds are resource GUIDs; don't specify existing add-on groups (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services",
+      "note": "POST https://www.wixapis.com/bookings/v2/bulk/services/create; services maxItems 100; locations marked immutable, maxItems 500; sessionDurations minutes 1..44639, maxItems 50 (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/wix-forms-integration"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/create-event"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "source shape: mwb_booking product type + unregistered mwb_mbfw_*/wps_mbfw_* product meta (cadence, capacity, venue, admin confirmation, daily window)"
+    },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real POST /bookings/v2/services, POST /calendar/v3/events, POST /apps-installer-service/v1/app-instance/install, POST /form-schema-service/v4/forms/{id}/clone against the live reference store; 8/8 services + sessions created and independently re-queried."
+    }
+  ],
+  "notes": "Two independent authorings merged 2026-08-16. The Events Calendar path (WordPress events -> CLASS services + Calendar V3 sessions) was exercised live on the reference store 2026-08-12, 8/8 - that is where reliability:reliable and the verified error strings come from. The WooCommerce mwb-bookings-for-woocommerce path (WPS Bookings for WooCommerce 3.12.0, authored 2026-08-16) is docs-verified only and has never been exercised live; treat its cadence/capacity/venue meta mapping as unproven. Service creation itself has no documented customer-facing notification (the only 'notif' hits on the Create Service and Service object pages are waitlist reservationTimeInMinutes prose), which is why importSafe is true here while bookings/booking is false."
+}

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "discount-rule",
+  "displayName": "eCommerce Discount Rule (\"Automatic Discounts\" in the dashboard)",
+  "capability": "commerce.discount-rules",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "DiscountRule",
+    "verifiedFqdn": "wix.ecom.discounts.v1.discount_rule",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "discount-rule-definition",
+      "sourcePlugin": "woo-discount-rules",
+      "routes": [],
+      "confidence": "low",
+      "note": "No REST route — see admin-page-only channel in the plugin profile. Source data can only arrive via human transcription of the wp-admin settings page."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Discount Rules",
+    "endpoint": "POST /ecom/v1/discount-rules",
+    "writerId": "createDiscountRule",
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "The source rule's trigger/effect combination cannot be expressed by DiscountRule's trigger/discount model (e.g. a shape Wix genuinely has no primitive for) — record as a mapping gap with the specific unsupported combination, do not approximate silently."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": ["not-yet-live-verified"]
+  },
+  "pitfalls": [
+    {
+      "code": "automatic-discounts-is-a-dashboard-label-for-discount-rules",
+      "severity": "info",
+      "summary": "The Wix dashboard calls this feature 'Automatic Discounts'; the API/data model name is DiscountRule (`ecom/v1/discount-rules`). Distinct from the Coupons API (stores/coupon.json) — coupons need a customer-entered code, discount rules apply automatically when their trigger is met. Do not conflate the two when a source plugin (e.g. WooCommerce Discount Rules) models automatic, no-code discounting."
+    },
+    {
+      "code": "only-one-discount-per-rule",
+      "severity": "warning",
+      "summary": "Per dev.wix.com: 'Currently, only 1 discount can be defined per discount rule.' A source rule with multiple stacked effects needs one Wix DiscountRule per effect, not one rule with a list."
+    },
+    {
+      "code": "trigger-type-and-discount-type-are-each-a-closed-enum",
+      "severity": "warning",
+      "summary": "trigger.triggerType: AND | OR | SUBTOTAL_RANGE | ITEM_QUANTITY_RANGE | CUSTOM | CUSTOMER_ELIGIBILITY. discounts.values[].discountType: PERCENTAGE | FIXED_AMOUNT | FIXED_PRICE | QUANTITY_BASED. A source rule shape outside these (e.g. WooCommerce's free-gift-with-purchase style BOGO) may not map 1:1 — QUANTITY_BASED ('3 for $10') covers simple buy-X-for-amount, but a true 'buy X get Y free' where X and Y are different products has no direct equivalent found in this schema as of 2026-08-12; verify live before assuming it's supported.",
+      "unverified": true
+    },
+    {
+      "code": "scope-targets-a-real-catalog-item-id-not-a-source-id",
+      "severity": "blocker",
+      "summary": "`scopes[].catalogItemFilter.catalogItemIds` takes Wix catalog item GUIDs (e.g. the migrated product's Wix product id from the product crosswalk), not the source WooCommerce product id. Resolve via the product crosswalk before building the scope, the same as category/tag assignment elsewhere in this pipeline. Omitting scopes (or passing none) applies the rule storewide."
+    },
+    {
+      "code": "not-yet-live-verified-for-this-project",
+      "severity": "warning",
+      "summary": "Authored from dev.wix.com docs (Create Discount Rule) on 2026-08-12; no live call has been made yet — the reference store has no source data for this capability's rule definitions until the site owner transcribes the wp-admin settings page (see woo-discount-rules.json's admin-page-only entity). Promote `preferredWrite.verification` to verified-live and this flag away once the first real rule is created and independently re-queried."
+    }
+  ],
+  "mappingGuidance": [
+    "A trigger-less rule (`trigger` omitted) always applies — use this for a source rule with no minimum-spend/quantity condition.",
+    "SUBTOTAL_RANGE trigger maps a WooCommerce 'X% off orders over $Y' rule: trigger.subtotalRange.from = Y, no `to` needed for an open-ended minimum.",
+    "ITEM_QUANTITY_RANGE maps a simple buy-N-get-discount rule when the discount applies to the same items counted by the trigger.",
+    "Storewide (no product/category restriction) omits `scopes` entirely on both the trigger and the discount's specificItemsInfo — do not pass an empty array where omission is what 'no restriction' means; verify live which of the two Wix actually expects."
+  ],
+  "setupRequirements": [],
+  "objectPageException": "The Discount Rules API menu (dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/introduction, checked 2026-08-12) lists only Create/Update/Delete/Get/Query — no dedicated '…-object' reference page exists for DiscountRule. The full field shape is sourced from Create Discount Rule's request/response schema instead.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/introduction"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/create-discount-rule"
+    }
+  ]
+}

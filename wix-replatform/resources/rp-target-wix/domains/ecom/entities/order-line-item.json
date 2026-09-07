@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-line-item",
+  "displayName": "eCommerce Order Line Item",
+  "capability": "commerce.order-line-items",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "eCommerce Order Line Item",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "stores/product"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_line_item",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "ecomOrderLineItem",
+      "routes": [
+        "eCommerce Orders API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders/import",
+    "writerId": "importOrder",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use when source line-item metadata cannot fit native order line fields or extended fields."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "parent-order-write",
+      "severity": "blocker",
+      "summary": "Line items are written through their parent order; do not create standalone duplicates."
+    },
+    {
+      "code": "catalog-reference-is-optional-but-paired",
+      "severity": "warning",
+      "summary": "CORRECTED 2026-08-17: catalogReference is NOT required on every line item (a custom, non-catalog line has none) — but per wix-writers.js's live-verified buildImportOrderRequest contract, when it IS present both catalogItemId and appId are required together, or the call fails. catalogItemId must be the crosswalked Wix product id (or gift-card-product id, or another catalog app's item id), never the source id — resolve stores/product's crosswalk before writing."
+    },
+    {
+      "code": "preferredWrite-was-stale",
+      "severity": "info",
+      "summary": "This entity previously pointed at createOrder (live-commerce, importSafe:false) — wrong for historical import, and inconsistent with every sibling order sub-entity (order-applied-discount, order-line-item-options) which correctly use importOrder. Corrected 2026-08-17 while doing spec 0041's dependency backfill on the order family; line items are written through Import Order exactly like the rest of the order payload."
+    }
+  ],
+  "mappingGuidance": [
+    "Preserve source line-item IDs in extended fields or CMS shadow data.",
+    "Written through the parent order payload (ecom/order) — never a standalone write; sequencing and crosswalks (contacts, products) are the parent order's."
+  ],
+  "setupRequirements": [
+    "Order data extension schema if line-item extended fields are used."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+    
+  ]
+}

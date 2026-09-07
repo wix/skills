@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "domain": "media",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/assets/media"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/assets/media/media-manager/files",
+      "title": "Files",
+      "url": "https://dev.wix.com/docs/api-reference/assets/media/media-manager/files",
+      "group": "Media Manager",
+      "verdict": "claimed",
+      "refs": [
+        "media/media-file"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/assets/media/media-manager/folders",
+      "title": "Folders",
+      "url": "https://dev.wix.com/docs/api-reference/assets/media/media-manager/folders",
+      "group": "Media Manager",
+      "verdict": "claimed",
+      "refs": [
+        "media/media-folder"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/assets/media/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/assets/media/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

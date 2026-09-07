@@ -1,0 +1,28 @@
+{
+  "registryItemName": "button",
+  "registryItemRevision": "shadcn-default-ac60ef5",
+  "decision": "approved",
+  "revoked": false,
+  "contractKind": "button",
+  "runtimeClass": "react-static",
+  "sourceHash": "b77b5c3f3f739353a51966400697dbc49dd6e15ea4f7c44cd0d4e8a9680c5b08",
+  "capabilitiesRef": "items/button/shadcn-default-ac60ef5/capabilities.json",
+  "capabilitiesHash": "f53c94e9f826d39b54a46d2ad4a2c99eeb833b72747cb62a6e5932189cd82e64",
+  "contractRef": "items/button/shadcn-default-ac60ef5/contract.md",
+  "contractHash": "bf3e6dc863a84dbbd86b0891b65dee83dd8bb5a75773f56ea97cc3f5a2936ccd",
+  "licenseRef": "licenses/shadcn-ui-ac60ef5-MIT.txt",
+  "approvalRef": "approvals/button/shadcn-default-ac60ef5.json",
+  "qualityGates": {
+    "license": true,
+    "accessibility": true,
+    "responsive": true,
+    "ssr": true,
+    "rtl": true,
+    "reducedMotion": true
+  },
+  "reviewer": {
+    "human": true,
+    "id": "danbs"
+  },
+  "reviewedAt": "2026-08-24T09:55:02+03:00"
+}

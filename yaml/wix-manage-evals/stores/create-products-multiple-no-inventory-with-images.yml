@@ -1,0 +1,25 @@
+name: stores/create-products-multiple-no-inventory-with-images
+description: Verifies bulk creation of multiple Catalog V3 products with images but without inventory, including exact asset identity, failure isolation, response paths, and image-to-product mapping.
+triggerPrompt: >-
+  Create two physical products with no inventory: "Black Mug" at $22 with SKU MUG-BLK using
+  https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800, and "Dog Print" at $35 with SKU PRINT-DOG using
+  https://images.unsplash.com/photo-1552053831-71594a27632d?w=800.
+tags: [stores, media]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent uploads both supplied URLs together when batch upload is available (or uses the documented Media Manager fallback), preserves each exact asset's product mapping, and uses POST /stores/v3/bulk/products/create with returnEntity true for the products whose requested images uploaded successfully. A successful upload's matching wixstatic.com URL may be used while asynchronous processing is PENDING; READY polling is not mandatory. When both exact assets upload successfully, one bulk call must create both products: Black Mug keeps price 22, SKU MUG-BLK, and its mug image; Dog Print keeps price 35, SKU PRINT-DOG, and its dog image. If an upload fails, the agent may retry the same asset through another supported transfer method, but must never substitute unrelated content. If the exact asset remains unavailable, it should bulk-create only the successful product subset and report Dog Print as blocked rather than claim full success. All submitted products must be PHYSICAL with physicalProperties and media.itemsInfo.items, without media.main or inventoryItem. The returned results[].itemMetadata and bulkActionMetadata must support success; returned entities are under results[].item rather than results[].product. Request values absent from the response must be labeled submitted, not API-verified.
+      Fail if it silently replaces the dog image with another image, lets one upload fallback return another product's URL, swaps product images, uses either original external URL, a URL from a FAILED upload, or a thumbnail in a product body, makes repeated product-create calls, calls a with-inventory endpoint, writes media.main, adds inventory, reads returned entities from results[].product, or claims both products and their fields were verified when the response did not prove that. Do not fail solely because a successful upload was PENDING.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, one batch upload, preserved asset mapping, one bulk create, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, repeated creates, substitution, cross-product fallback, wrong result paths, or overstated verification. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

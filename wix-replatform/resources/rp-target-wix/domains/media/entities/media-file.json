@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "domain": "media",
+  "entity": "media-file",
+  "displayName": "Media File",
+  "capability": "media.file",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Media Manager File",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "attachment",
+      "routes": [
+        "/wp/v2/media"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "mediaFile",
+      "routes": [
+        "Media Manager"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Media Manager Import",
+    "endpoint": "POST /site-media/v1/files/import",
+    "writerId": "importMedia",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for attachment parent, captions, external source IDs, or metadata not represented by Media Manager."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "async-ready",
+      "severity": "blocker",
+      "summary": "Media import is asynchronous; poll until READY before referencing the file."
+    },
+    {
+      "code": "source-url-access",
+      "severity": "warning",
+      "summary": "Remote source URLs may expire or block hotlinking."
+    }
+  ],
+  "mappingGuidance": [
+    "Import referenced media by default; treat full-library import as explicit opt-in."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/file-descriptor-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+    
+  ]
+}

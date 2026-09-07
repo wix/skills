@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "domain": "bookings",
+  "entity": "service-add-on",
+  "displayName": "Bookings Service Add-On",
+  "capability": "commerce.bookable-service-add-ons",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Bookings Add-On",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "bookingAdditionalServiceTerm",
+      "sourcePlugin": "mwb-bookings-for-woocommerce",
+      "routes": [
+        "/wp/v2/mwb_booking_service",
+        "/wp/v2/mwb_booking_cost"
+      ],
+      "confidence": "low"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Add-Ons",
+    "endpoint": "POST /addons/v1/add-ons",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": true,
+    "decision": "importSafe is true: an add-on is a catalog object with no customer-facing side effect documented anywhere on the Add On object, Create Add On, or Bulk Create Add Ons pages (read 2026-08-16) - no notification field, no recipient, no delivery prose. It is also invisible to customers until it is placed in an add-on group on a service, which is a second, deliberate call. Note this is the WEAKER of the two importSafe claims in this domain; it rests on absence of documented notification, never on a live probe."
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "duration-or-quantity-is-a-required-one-of",
+      "severity": "blocker",
+      "summary": "Create Add On declares durationInMinutes and maxQuantity as a required ONE-OF: every add-on is EITHER duration-based (durationInMinutes 1..1440, i.e. max 24 hours) OR quantity-based (maxQuantity 1..9999), never both and never neither. A source extra that is conceptually both ('add 30 minutes, up to 3 times') cannot be expressed as one add-on and must be split or ledgered. The two kinds also behave differently at booking time: for duration-based add-ons quantity is not applicable - passing quantity 1 is accepted but silently cleared, and any other value returns INVALID_ARGUMENT with the message 'Invalid AddOn details: either duration or quantity must be set correctly'."
+    },
+    {
+      "code": "add-on-is-invisible-until-grouped",
+      "severity": "blocker",
+      "summary": "Creating an add-on is only half the import. About Add-On Groups states plainly: 'Add-ons for Bookings services must be included in a group before customers can book them.' The group is the thing that binds an add-on to a service and it lives on a DIFFERENT surface (Services V2: Create Add On Group / Set Add Ons For Group / Update Add On Group / List Add On Groups By Service Id), not on the Add-Ons API. An import that stops after POST /addons/v1/add-ons produces orphan add-ons that no customer can ever select and that no site page shows - a silent, look-successful failure mode."
+    },
+    {
+      "code": "group-limits-cap-the-catalog",
+      "severity": "warning",
+      "summary": "About Add-On Groups: a maximum of 3 add-on groups per service and 7 add-ons per group - 'Exceeding these limits results in validation errors'. That is a hard ceiling of 21 selectable add-ons per service, which the Booking object independently corroborates (bookedAddOns maxItems 21). A source product carrying more optional extras than that cannot be recreated in full; count add-ons per source product BEFORE the import and surface the overflow at the approval gate rather than discovering it as a validation error mid-run."
+    },
+    {
+      "code": "group-requires-a-service-id-so-ordering-is-fixed",
+      "severity": "warning",
+      "summary": "'Each add-on group is associated with a single service and requires a service ID when created', while an add-on itself may be reused across groups on different services. The import order is therefore forced and three-phase: services first (bookings/service), then add-ons (which are service-independent and can be deduplicated across the whole source catalog), then one group per service that binds them. This is also why bookings/service records add-on-groups-not-settable-at-create - Create Service explicitly refuses existing add-on groups."
+    },
+    {
+      "code": "add-on-currency-is-explicit-not-inherited",
+      "severity": "warning",
+      "summary": "price is a Money object carrying its OWN currency field (ISO 4217, required format CURRENCY) rather than inheriting the site currency the way pricing-plans/plan.currency does. value is a decimal string with maxScale 2 (gte 0, lte 1000000000000000). [NEEDS-VERIFICATION] what happens when the currency sent differs from the site currency was not established - the docs neither coerce nor reject it in writing. Send the site currency explicitly and check the readback; do not assume inheritance."
+    },
+    {
+      "code": "deleting-an-add-on-silently-edits-every-group",
+      "severity": "warning",
+      "summary": "'Deleting an add-on automatically removes it from all groups where it's included.' Rollback of a partial add-on import is therefore not isolated - deleting one add-on mutates the composition of every service group that referenced it, with no error and no notification. Roll back groups and add-ons together, and re-read the affected services' groups afterwards rather than trusting the local plan."
+    },
+    {
+      "code": "booked-add-ons-are-snapshots-not-references",
+      "severity": "info",
+      "summary": "The Booking object stores bookedAddOns with name, nameTranslated and durationInMinutes captured 'at the time of booking' alongside the id/groupId. Historical bookings therefore carry their own copy of the add-on wording, so importing bookings does NOT require the add-on catalog to be imported first for the names to be right - but bookings/booking still needs real add-on and group GUIDs unless flowControlSettings.skipAddOnValidation is set. Import add-ons before bookings anyway; that keeps the crosswalk honest."
+    }
+  ],
+  "mappingGuidance": [
+    "One Wix add-on per distinct source extra, deduplicated across the whole source catalog - add-ons are service-independent objects and the same one may be reused in groups on many services, so never mint one add-on per (product x extra) pair.",
+    "Classify each source extra into the required ONE-OF before writing: an extra that lengthens the appointment becomes durationInMinutes (cap 1440); an extra sold in units becomes maxQuantity (cap 9999). If the source expresses neither, quantity-based with maxQuantity 1 is the closest faithful default - record the choice in the faithfulness ledger.",
+    "name is capped at 100 characters (minLength 1); truncate long source labels and keep the full text in the ledger. There is no description field on an add-on - any source blurb has nowhere native to go.",
+    "price.value is a decimal string with at most 2 decimal places; price.currency must be sent explicitly as the site currency ISO code (see add-on-currency-is-explicit-not-inherited).",
+    "Use Bulk Create Add Ons (POST /addons/v1/bulk/add-ons/create, minItems 1 / maxItems 100) for the catalog pass, then one Create Add On Group per service on Services V2, then Set Add Ons For Group with the crosswalked add-on GUIDs - the order in addOnIds is the customer-facing display order, so preserve the source ordering there.",
+    "taxGroup is an eCommerce tax-group GUID and only applies to Wix eCommerce checkout; leave it unset for imports that are not also provisioning tax groups (the field 'doesn't apply to custom checkout/billing implementations').",
+    "Persist both the add-on GUID and its owning group GUID per source extra in the crosswalk - bookings/booking needs bookedAddOns[].id AND bookedAddOns[].groupId, and the group GUID is not derivable from the add-on."
+  ],
+  "setupRequirements": [
+    "Wix Bookings app installed (appId 13d21c63-b5ec-5912-8397-c3a5ddb27a97) - see the bookings-app-required shared pitfall",
+    "SCOPE.DC-BOOKINGS.MANAGE-BOOKINGS (the permission on Create Add On, Bulk Create Add Ons, and the Services V2 add-on-group methods alike)",
+    "bookings/service imported first - an add-on group cannot be created without a service GUID"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/add-ons/add-on-object",
+      "note": "object page: id, revision, name, price (Money with its own currency + formattedValue), taxGroup, extendedFields, tags.privateTags/tags; the duration-vs-quantity ONE-OF is on the create/response schema (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/add-ons/create-add-on",
+      "note": "POST https://www.wixapis.com/addons/v1/add-ons; required param addOn; required ONE-OF durationInMinutes (1..1440) | maxQuantity (1..9999); name minLength 1 maxLength 100; price.value DECIMAL_VALUE maxScale 2; permission SCOPE.DC-BOOKINGS.MANAGE-BOOKINGS; NO notification field of any kind (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/add-ons/bulk-create-add-ons",
+      "note": "POST https://www.wixapis.com/addons/v1/bulk/add-ons/create; addOns minItems 1, maxItems 100 (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-add-on-groups",
+      "note": "the binding half of this entity, and why it lives on Services V2 not Add-Ons: 'Add-ons for Bookings services must be included in a group before customers can book them'; group requires a service ID; limits 3 groups per service and 7 add-ons per group; deleting an add-on removes it from all groups; addOnIds order is display order (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-object",
+      "note": "consumer side: booking.bookedAddOns[] carries id, groupId, quantity, durationInMinutes, name and nameTranslated 'at the time of booking', maxItems 21 - which independently confirms the 3x7 group ceiling (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "the source profile this domain was authored against; it is the authority for the two add-on-shaped product taxonomies (mwb_booking_service, mwb_booking_cost) that sourceAliases points at, and for the fact that their prices and quantity rules sit in REST-invisible term meta"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
+      "note": "sourceAliases added 2026-08-16 after the live probe: WPS Bookings for WooCommerce DOES expose an add-on-shaped surface - the product taxonomies mwb_booking_service ('Additional Services') and mwb_booking_cost ('Additional Costs'), both registered show_in_rest:true and both serving 200 with X-WP-Total 0 on the reference store (the taxonomies exist, no terms created). confidence is 'low' because only the term NAMES are reachable: the plugin stores every price and quantity rule as term meta and never calls register_meta, so the fields this entity actually needs are invisible to REST. See the profile's booking-additional-service / booking-additional-cost entities."
+    }
+  ],
+  "notes": "Authored 2026-08-16 to complete the bookings vertical alongside bookings/service and bookings/booking. Docs-verified only, never exercised live - reliability unknown, verification docs. sourceAliases carries ONE low-confidence entry, added 2026-08-16: WPS Bookings for WooCommerce's two REST-exposed product taxonomies (mwb_booking_service, mwb_booking_cost) are a real, live-verified route claim - both returned 200 with X-WP-Total 0 - but only the term names come back, because the plugin's prices and quantity rules live in unregistered term meta. So the source mapping is proven to EXIST and proven to be INCOMPLETE, which is what 'low' records. The entity is genuinely two surfaces stitched together - Add-Ons for the catalog object and Services V2 for the add-on group that makes it bookable - which is why the docs survey claims both surfaces for it."
+}

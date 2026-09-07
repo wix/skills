@@ -1,0 +1,47 @@
+name: site-plugin/session-calls-not-routed
+description: Site plugin in a Stores slot reading the visitor's cart, the catalog, and a CMS collection — all three are callable from plugin code, so routing any of them to a backend endpoint and elevating it retargets or over-exposes the call
+triggerPrompt: |-
+  Build a site plugin for my app that sits in a Wix Stores slot on the storefront. It should show what the visitor currently has in their cart with a running total, list a few products from the store catalog underneath as suggestions, and display a short shipping notice that I maintain in a CMS collection.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [site-plugin, backend-api, data-collection]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/SITE_PLUGIN.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      A site plugin runs on the live site as the **site visitor or member**, never as the app, and `auth.elevate` does not work in plugin code at all. Each of the three reads this task needs is callable directly from the plugin, and each for a different reason:
+
+      - `currentCartV2.getCurrentCart` resolves the cart from the **caller's session identity**. Elevated, it runs as the app and returns a different cart — the plugin would render a cart that is not the visitor's.
+      - `items.query` on the CMS collection is enforced per caller against the collection's `dataPermissions`; the scaffolded default permits `ANYONE` to read. A blank notice is a permissions problem to fix on the collection, not a reason to add a server hop.
+      - `products.queryProducts` returns catalog base fields to anyone. `MERCHANT_DATA` (cost, profit, margin) and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`, so a plugin must not request them.
+
+      The specific defect: an agent that sees one of these as "admin-ish" — or sees a sparse result — and routes it to an endpoint under `src/pages/api/` that wraps it in `auth.elevate`. For the cart that silently targets the wrong actor; for the collection read and the catalog read it hands back data the visitor was never entitled to.
+
+      Check: (1) All three reads appear in the plugin's own code under `src/extensions/site/`, not behind an HTTP endpoint. (2) There is **no** `auth.elevate` anywhere in the project. (3) **No endpoint was created under `src/pages/api/`** for any of these reads. (4) SDK modules are imported directly in the plugin — no `createClient()`, which changes the API surface in a site plugin. (5) The cart total and line items render from the fetched cart, and the plugin degrades to an honest empty state when the cart is empty. (6) The collection the shipping notice reads from has read permissions that actually admit an anonymous site visitor, set deliberately rather than inherited from a default the agent never inspected. (7) The catalog read requests only base fields — no `MERCHANT_DATA` fieldset and no reliance on non-visible products, either of which renders empty for an anonymous visitor.
+
+      Dual-catalog handling for the product read (checking the catalog version and branching between the V1 and V3 modules) is correct and expected here; it is not what this scenario scores, so neither credit nor penalize it beyond it not breaking the build.
+
+      Score 0-10. Score 2 or below if any of the three reads is wrapped in `auth.elevate` — that is the specific defect this scenario exists to catch. Score 4 or below if any of them is routed through a backend endpoint even without elevation.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It settled the identity question from the Site Plugin reference before writing the calls, rather than discovering it after a runtime failure or reasoning from a scope name — a `MANAGE`/`ADMIN` scope on a cart or catalog method is not a reason to route or elevate. (2) It did not scaffold a backend endpoint and then delete it. (3) It set the CMS collection's permissions deliberately for anonymous read, and scoped the collection ID with the supplied `APP_NAMESPACE`. (4) It used `npx wix generate` with `extensionType: SITE_PLUGIN` to scaffold, and picked a real `slotId` rather than inventing one. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "domain": "media",
+  "docsRoots": [
+    "api-reference/assets/media"
+  ],
+  "displayName": "Wix Media Manager",
+  "ownerHint": "Media Manager import, upload, folders, and metadata domain owners",
+  "defaultImportOrder": [
+    "media-folder",
+    "media-file"
+  ],
+  "rateLimitNotes": [
+    "Prefer referenced media by default; full-library imports are opt-in."
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/media/entities/media-file.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (media-folder, media-file)"
+    }
+  ]
+}

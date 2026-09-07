@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "entity": "post",
+  "displayName": "Blog Post",
+  "capability": "content.blog-post",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Blog Post",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "post",
+      "routes": [
+        "/wp/v2/posts"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "blogPost",
+      "routes": [
+        "Blog Draft Posts",
+        "Blog Posts"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Blog Draft Posts",
+    "endpoint": "POST /blog/v3/draft-posts",
+    "writerId": "createDraftPost",
+    "verification": "verified-live",
+    "importSafe": false,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for SEO fields, author/profile metadata, or source-only fields not represented by Blog APIs."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": [
+      "IMPORT_UNRELIABLE"
+    ]
+  },
+  "pitfalls": [
+    {
+      "code": "slug-url-rewrite",
+      "severity": "blocker",
+      "summary": "Exact original URL or slug preservation is not reliable through public Blog Draft Posts."
+    },
+    {
+      "code": "publish-side-effects",
+      "severity": "warning",
+      "summary": "Publishing imported posts may trigger public publish behavior."
+    }
+  ],
+  "mappingGuidance": [
+    "Create categories, tags, media, and author/member references before posts."
+  ],
+  "setupRequirements": [
+    "Wix Blog app",
+    "Fallback member decision for author attribution."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/draft-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: "How to Code Members (Astro)"
-description: The frontend contract for member sign-up / log-in / log-out and member-gated surfaces on a Wix-managed **Astro** frontend — the built-in `/api/auth/login` + `/api/auth/logout` routes that `@wix/astro` ships, the `returnUrl` param, gating a page by resolving the member in SSR / a backend route, reading the current member with `@wix/members` `getCurrentMember`, and the two rules that keep this path from breaking: **no `OAuthStrategy`/no client** (that 500s under auto-auth) and **no `auth.elevate`** for a member reading their own data. Specifies the *how* for the Astro axis only — read `how-to-code-members-non-astro.md` for any non-Astro frontend.
+description: The frontend contract for member sign-up / log-in / log-out and member-gated surfaces on a Wix-managed **Astro** frontend — the built-in `/api/auth/login` + `/api/auth/logout` routes that `@wix/astro` ships, the `returnToUrl` param, gating a page by resolving the member in SSR / a backend route, reading the current member with `@wix/members` `getCurrentMember`, and the two rules that keep this path from breaking: **no `OAuthStrategy`/no client** (that 500s under auto-auth) and **no `auth.elevate`** for a member reading their own data. Specifies the *how* for the Astro axis only — read `how-to-code-members-non-astro.md` for any non-Astro frontend.
 ---
 **RECIPE**: How to Code Member Auth on a Wix-managed **Astro** Frontend (built-in `/api/auth/*`, `@wix/members`)
 
@@ -39,16 +39,16 @@ So a paywall that only needs "logged-in vs not" runs on identity alone; anything
 <a href="/api/auth/login">Log in / Sign up</a>
 
 <!-- land the member somewhere specific afterward -->
-<a href="/api/auth/login?returnUrl=/account">Log in</a>
+<a href="/api/auth/login?returnToUrl=/account">Log in</a>
 ```
 
-Logout is a **POST** to `/api/auth/logout` (optionally with `?returnUrl=`):
+Logout is a **POST** to `/api/auth/logout` (optionally with `?returnToUrl=`):
 
 ```astro
 <form method="POST" action="/api/auth/logout"><button>Log out</button></form>
 ```
 
-- **`returnUrl` must be an allowed redirect URI.** When the project is created with that URL it's auto-added; an un-allow-listed `returnUrl` fails the redirect. Default to a relative path already known-good (the login page auto-allows the project's own origin paths).
+- **The param is `returnToUrl` — not `returnUrl`.** The routes validate their query with a strict schema that silently DROPS unknown params, so a misspelled param doesn't error — the member just lands on `/`. The value must be a **relative path** (the callback refuses absolute URLs).
 - After login the member identity **rides on every subsequent SDK call automatically** — no client, no token handling. That's auto-auth (`astro.md`).
 
 ---
@@ -67,14 +67,14 @@ try {
   me = res.member ?? null;
 } catch { /* not a member / not installed — treat as anonymous */ }
 
-if (!me) return Astro.redirect('/api/auth/login?returnUrl=/account');
+if (!me) return Astro.redirect('/api/auth/login?returnToUrl=/account');
 ---
 <h1>Welcome, {me.profile?.nickname ?? me.loginEmail}</h1>
 ```
 
 - **Guard the SSR call in `try/catch`** — an unguarded throw truncates the response mid-stream (white screen; `astro.md` A3). An anonymous visitor is a normal state, not an error: catch → treat as logged-out → redirect to login.
 - **Don't render account/gated UI as a client island that checks auth in the browser.** Resolve identity server-side and gate the route; render only what a member should see. (Same reasoning as the blog-comment API-endpoint path — avoid the browser-auth detour.)
-- For an **action** that only *some* callers may take (post a comment, place a member order), don't gate the whole page: render the control always, and on submit POST to a `src/pages/api/*.ts` endpoint that resolves the session and, if the caller isn't a member, redirects to `/api/auth/login?returnUrl=…`.
+- For an **action** that only *some* callers may take (post a comment, place a member order), don't gate the whole page: render the control always, and on submit POST to a `src/pages/api/*.ts` endpoint that resolves the session and, if the caller isn't a member, redirects to `/api/auth/login?returnToUrl=…`.
 
 ---
 
@@ -116,8 +116,8 @@ So: browsing the plans grid is public, but the **subscribe** button and the **my
 
 ## Conclusion
 Correct member auth on an Astro frontend:
-- uses the **built-in `/api/auth/login`** (login *and* sign-up) and **POST `/api/auth/logout`** routes with an allow-listed `returnUrl` — the login handshake **never** builds an `OAuthStrategy` client, and one must never be built in **SSR frontmatter** (the public-env `clientId` is `undefined` at server render → 500). (The one exception is the custom-login surface — `how-to-code-members-custom-login.md` — which builds an explicit client in a backend route or client island, never in SSR frontmatter.)
-- gates surfaces **server-side** (SSR frontmatter or a `src/pages/api/*.ts` route), guarded in `try/catch`, bouncing anonymous visitors to `/api/auth/login?returnUrl=…`;
+- uses the **built-in `/api/auth/login`** (login *and* sign-up) and **POST `/api/auth/logout`** routes with an allow-listed `returnToUrl` — the login handshake **never** builds an `OAuthStrategy` client, and one must never be built in **SSR frontmatter** (the public-env `clientId` is `undefined` at server render → 500). (The one exception is the custom-login surface — `how-to-code-members-custom-login.md` — which builds an explicit client in a backend route or client island, never in SSR frontmatter.)
+- gates surfaces **server-side** (SSR frontmatter or a `src/pages/api/*.ts` route), guarded in `try/catch`, bouncing anonymous visitors to `/api/auth/login?returnToUrl=…`;
 - reads the current member via **`@wix/members` `getCurrentMember`** (not the dev-preview `@wix/site-members`), resolving the photo `wix:image://` URI and expecting only PUBLIC fields for other members;
 - does **no `auth.elevate`** for a member reading their own data (elevation is a different, admin-only axis that lives in a backend route);
 - treats **login as required** whenever pricing-plans is present (subscribe + my-subscription), and as a soft add-on for the "my …" surfaces of the other verticals;

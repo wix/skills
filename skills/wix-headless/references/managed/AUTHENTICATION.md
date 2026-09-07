@@ -4,6 +4,11 @@ For a **managed** project (hosted on Wix infrastructure), every Wix call uses a 
 
 ## 1 · Ensure an authenticated CLI session
 
+### Secret boundary — mandatory
+
+Never read authentication material or tokens into agent context.
+Never emit them to stdout, stderr, logs, prompts, or tool results.
+
 ```bash
 npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 ```

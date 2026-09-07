@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "entity": "collection",
+  "displayName": "CMS Collection",
+  "capability": "cms.collection",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "Wix Data Collection",
+    "verifiedFqdn": null,
+    "idPolicy": "client-assigned",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    { "sourceSystem": "wordpress", "sourceEntity": "custom_post_type", "routes": ["/wp/v2/{type}"], "confidence": "medium" },
+    { "sourceSystem": "wix", "sourceEntity": "cmsCollection", "routes": ["Wix Data Collections"], "confidence": "high" }
+  ],
+  "preferredWrite": {
+    "surface": "Wix Data Collections",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "unverified",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": { "status": "partially-reliable", "flags": [] },
+  "pitfalls": [
+    { "code": "setup-before-items", "severity": "blocker", "summary": "Collections, fields, permissions, and indexes must be represented in setup before item import." }
+  ],
+  "mappingGuidance": ["Use CMS collections for custom content models and native gaps where data should remain queryable."],
+  "setupRequirements": ["Wix Data enabled", "Collection schema and permissions plan"],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/cms/domain.json",
+      "note": "domain-level evidence and cross-entity notes for CMS collections/data-items/references"
+    }
+  ]
+}

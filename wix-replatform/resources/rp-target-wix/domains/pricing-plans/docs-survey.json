@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "domain": "pricing-plans",
+  "fetchedAt": "2026-08-16",
+  "roots": [
+    "api-reference/business-solutions/pricing-plans"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/pricing-plans/orders",
+      "title": "Orders",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "pricing-plans/plan-order"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/pricing-plans/plans-v3",
+      "title": "Plans V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "pricing-plans/plan"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/pricing-plans/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation pages (agent walkthroughs: Create and Update Pricing Plans, Bookings integration, dashboard navigation), not a data surface.",
+      "reviewedOn": "2026-08-16"
+    }
+  ]
+}

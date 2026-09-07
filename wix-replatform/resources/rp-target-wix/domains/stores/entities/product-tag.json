@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "product-tag",
+  "displayName": "Stores Product Tag",
+  "capability": "commerce.catalog-product-tag",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Wix Tag",
+    "verifiedFqdn": "wix.stores.catalog.v3.product",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product_tag",
+      "routes": [
+        "/wc/v3/products/tags"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "productTag",
+      "routes": [
+        "Tags API scoped to product FQDN"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Tags",
+    "endpoint": "POST /tags/v1/tags",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use only for source tag metadata not represented by Wix Tags."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "fqdn-required",
+      "severity": "blocker",
+      "summary": "Use the verified product FQDN and resolve tag IDs before attaching them to products."
+    }
+  ],
+  "mappingGuidance": [
+    "Create tags via the Tags API (product FQDN), then assign IDs on the product's tags.publicTags for a public source taxonomy (WooCommerce product tags are public) or tags.privateTags for internal-only tags.",
+    "Source tag-archive URLs have no Wix equivalent; record each in the URL-preservation map with a redirect decision (category/search target or drop)."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
+  "evidence": [
+    
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "tags.publicTags / tags.privateTags on the V3 product object; supplied by reviewer 2026-08-10"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 2 tags created via POST /tags/v1/tags + attach to variable product verified; the fqdn-required pitfall reproduced live (400 without fqdn) before the fix"
+    }
+  ],
+  "notes": "Corrected at the mapping review 2026-08-10 (reviewer-supplied docs): the Catalog V3 product object carries tags.publicTags (visible to site members and visitors) and tags.privateTags (permission-gated, merchant-side). A public source taxonomy (WooCommerce product tags) maps to publicTags; internal/organizational tags map to privateTags. Tag-archive pages/URLs still do not exist on Wix by default — only the per-product tag visibility carries over."
+}

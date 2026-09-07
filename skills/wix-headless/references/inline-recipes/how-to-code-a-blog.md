@@ -63,7 +63,7 @@ const { items } = await posts
   .limit(20)
   .find();
 ```
-Doc: <https://dev.wix.com/docs/api-reference/business-solutions/blog/posts/query-posts.md?apiView=SDK>
+Doc: <https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md?apiView=SDK>
 
 **⚠️ CRITICAL: request the `RICH_CONTENT` fieldset, or `post.richContent` is `undefined`.** `queryPosts` omits the body by default; without `fieldsets: ["RICH_CONTENT"]` the post comes back with no `richContent`, and the detail page renders blank. (Add `"URL"` to get `post.url`/`slug` for links.)
 
@@ -114,7 +114,7 @@ export default function RicosContentViewer({ content }) {
   return <div className="ricos-content"><RicosViewer content={content} plugins={plugins} /></div>;
 }
 ```
-Doc: <https://dev.wix.com/docs/sdk/business-solutions/blog/introduction.md?apiView=SDK> (follow it to the current Ricos viewer API; verify with `SearchWixSDKDocumentation "ricos viewer"`).
+Doc: <https://dev.wix.com/docs/api-reference/business-solutions/blog/introduction.md?apiView=SDK> (follow it to the current Ricos viewer API; verify with `SearchWixSDKDocumentation "ricos viewer"`).
 
 **⚠️ CRITICAL (Astro): render the viewer with `client:only="react"`.** `@wix/ricos` is a React component that breaks under SSR. `<RicosViewer client:only="react" content={post.richContent} />` makes it render client-side only. `@wix/ricos` accepts the camelCase `richContent` from the `@wix/blog` SDK directly — no key renaming.
 

@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "description": "Nothing-to-move verdicts, in two tiers.\n\n`hints[]` \u2014 a flat slug lookup for plugins that need no data migration at all, where a full profile would be dead weight. A hit here is strong evidence the agent confirms at classification, never the answer by itself. Without this list, a caching or SMTP plugin whose data we cannot read is reported as potential data loss \u2014 which is both wrong and alarming. Keyed by plugin directory slug; a slug with a full profile may not appear here.\n\n`capabilities[]` \u2014 the human-signed per-capability register, for PROFILED plugins the slug list cannot reach. This is the only way a profiled capability reaches the no-need-to-migrate status (basis: decision); without it a decided capability re-lands as pending on every run. It is not an impossibility verdict (that is requires-development.json) \u2014 it says the outcome exists in Wix or was never data \u2014 but it is still a decision about what the customer does not get, so it carries decidedBy + decidedOn and validation rejects an unsigned entry. Mutually exclusive with requires-development.json and capabilities-pending-decision.json, and rejected once a Wix target entity claims the capability.",
+  "reasons": {
+    "platform-does-it": "Wix provides this capability natively; drop the plugin and keep the behaviour.",
+    "not-needed": "Development, hosting or licensing tooling with no role after migration; it was never data.",
+    "reconfigure-in-wix": "A setting or rule you set up once in Wix rather than data to move."
+  },
+  "capabilities": [],
+  "hints": [
+    {
+      "slug": "nextend-facebook-connect",
+      "reason": "reconfigure-in-wix",
+      "does": "Social login buttons (Nextend Social Login): Facebook, Google, X/Twitter free; more providers in Pro",
+      "replacedBy": "Wix native member social login: enable the matching Google/Facebook toggles in dashboard Signup & Login settings (default form only). No settings API exists (members docs-survey 2026-08-16) — manual setup step. Fidelity: enable only the providers the source actually had enabled (detect from wp-login.php button render, not stylesheet class names). Providers beyond Google/Facebook are reportable loss; an org-restricted OAuth client is a different capability — see members.domain-restricted-login in capabilities-pending-decision.json.",
+      "provenance": "observed:reference-store-2026-08-16"
+    },
+    {
+      "slug": "akismet",
+      "reason": "platform-does-it",
+      "does": "Comment and form spam protection",
+      "replacedBy": "Wix Forms and comments include spam protection.",
+      "provenance": "observed:reference-store-2026-08-10"
+    },
+    {
+      "slug": "wp-rocket",
+      "reason": "platform-does-it",
+      "does": "Page caching and performance tuning",
+      "replacedBy": "Wix handles caching and delivery for you.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "redis-cache-pro",
+      "reason": "platform-does-it",
+      "does": "Redis object caching",
+      "replacedBy": "Managed by Wix infrastructure.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "cloudflare-helper",
+      "reason": "platform-does-it",
+      "does": "Purges the Cloudflare cache",
+      "replacedBy": "Wix serves through its own CDN.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "webp-express",
+      "reason": "platform-does-it",
+      "does": "Serves images in WebP format",
+      "replacedBy": "Wix converts and serves optimised images automatically.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "imagify",
+      "reason": "platform-does-it",
+      "does": "Compresses images",
+      "replacedBy": "Image optimisation is part of Wix media.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "ssl-insecure-content-fixer",
+      "reason": "platform-does-it",
+      "does": "Fixes mixed HTTP and HTTPS content",
+      "replacedBy": "Wix is HTTPS end to end, so the problem disappears.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "wp-mail-smtp",
+      "reason": "platform-does-it",
+      "does": "Sends site email through an SMTP provider",
+      "replacedBy": "Wix sends transactional email itself.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "post-smtp",
+      "reason": "platform-does-it",
+      "does": "Sends site email through an SMTP provider",
+      "replacedBy": "Wix sends transactional email itself.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "invisible-recaptcha",
+      "reason": "platform-does-it",
+      "does": "Blocks form spam",
+      "replacedBy": "Wix Forms includes spam protection.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "equalweb",
+      "reason": "platform-does-it",
+      "does": "Accessibility overlay",
+      "replacedBy": "Wix has a built-in accessibility wizard \u2014 compare coverage before dropping it.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "chaty",
+      "reason": "platform-does-it",
+      "does": "Floating WhatsApp and social contact buttons",
+      "replacedBy": "Wix Chat plus social icons cover this.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "woocommerce-products-filter",
+      "reason": "platform-does-it",
+      "does": "Storefront product filtering",
+      "replacedBy": "Wix Stores has category, price and option filters.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "disclaimer-popup",
+      "reason": "platform-does-it",
+      "does": "Shows a site popup",
+      "replacedBy": "Wix lightboxes do this.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "jetpack",
+      "reason": "platform-does-it",
+      "does": "Stats, security and CDN bundle",
+      "replacedBy": "Its parts are all native to Wix.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "wp-super-cache",
+      "reason": "platform-does-it",
+      "does": "Page caching",
+      "replacedBy": "Wix handles caching for you.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "w3-total-cache",
+      "reason": "platform-does-it",
+      "does": "Page and object caching",
+      "replacedBy": "Wix handles caching for you.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "wordfence",
+      "reason": "platform-does-it",
+      "does": "Firewall and malware scanning",
+      "replacedBy": "Wix operates platform-level security.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "really-simple-ssl",
+      "reason": "platform-does-it",
+      "does": "Forces HTTPS",
+      "replacedBy": "Wix is HTTPS end to end.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "all-in-one-wp-migration",
+      "reason": "not-needed",
+      "does": "Backs up and exports the whole site",
+      "replacedBy": "Wix keeps site history itself. Useful during migration though: it can produce a full export including data the REST API does not expose.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "woocommerce-legacy-rest-api",
+      "reason": "not-needed",
+      "does": "Re-enables the older WooCommerce API versions",
+      "replacedBy": "This is why the old API versions appear on the site; we read the current one.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "woo-update-manager",
+      "reason": "not-needed",
+      "does": "Manages licences and plugin updates",
+      "replacedBy": "No role after the move.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "health-check",
+      "reason": "not-needed",
+      "does": "WordPress diagnostics",
+      "replacedBy": "No role after the move.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "wp-rollback",
+      "reason": "not-needed",
+      "does": "Rolls plugins back to an earlier version",
+      "replacedBy": "No role after the move.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "heartbeat-control",
+      "reason": "not-needed",
+      "does": "Throttles WordPress admin polling",
+      "replacedBy": "A WordPress-specific performance workaround.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "regenerate-thumbnails",
+      "reason": "not-needed",
+      "does": "Rebuilds image thumbnail sizes",
+      "replacedBy": "Wix generates its own image renditions.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "loco-translate",
+      "reason": "not-needed",
+      "does": "Translates plugin and theme interface strings",
+      "replacedBy": "Interface strings, not your content.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "user-role-editor",
+      "reason": "not-needed",
+      "does": "Edits WordPress user roles and permissions",
+      "replacedBy": "WordPress roles do not map to Wix permissions; set those up fresh.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "log-emails",
+      "reason": "not-needed",
+      "does": "Logs outgoing email",
+      "replacedBy": "An operational log rather than business data.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "so-css",
+      "reason": "not-needed",
+      "does": "Custom CSS editor",
+      "replacedBy": "Theme styling; the storefront is rebuilt in Wix regardless.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "easy-woocommerce-auto-sku-generator",
+      "reason": "not-needed",
+      "does": "Auto-fills product SKUs",
+      "replacedBy": "The SKUs it generated live on the products and migrate with them.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "sku-for-woocommerce",
+      "reason": "not-needed",
+      "does": "Generates product SKUs",
+      "replacedBy": "The SKUs it generated live on the products and migrate with them.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "woo-order-note-templates-old",
+      "reason": "not-needed",
+      "does": "Canned order note templates",
+      "replacedBy": "Staff convenience text, not customer data.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "woocommerce-email-test",
+      "reason": "not-needed",
+      "does": "Sends test emails",
+      "replacedBy": "A testing tool.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "wp-theme-plugin-download",
+      "reason": "not-needed",
+      "does": "Downloads theme and plugin files",
+      "replacedBy": "A developer utility.",
+      "provenance": "observed:reference-store-2026-07-30"
+    },
+    {
+      "slug": "query-monitor",
+      "reason": "not-needed",
+      "does": "Developer debugging panel",
+      "replacedBy": "A development tool.",
+      "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "duplicate-post",
+      "reason": "not-needed",
+      "does": "Duplicates posts and products",
+      "replacedBy": "An authoring convenience.",
+      "provenance": "expected:not-yet-observed"
+    }
+  ],
+  "policy": "Grow from real runs: add a hint when a real migration surfaces the plugin as unresolved. `provenance` records whether we have actually seen the plugin or added it by expectation, so the unobserved entries stay visible and reviewable rather than accumulating silently."
+}

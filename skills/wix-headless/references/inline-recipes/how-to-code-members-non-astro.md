@@ -11,7 +11,7 @@ A concise contract for wiring **login / sign-up / logout and member-gated surfac
 > **One mechanism, not three.** Sign-up, log-in and log-out are the *same* flow — the Wix login page **logs in an existing member or registers a new one** in one step; you never build a separate "sign up" call. Member tokens are the **same shape** as visitor tokens, just `role: member`: login just swaps the token set on the client you already have.
 
 Pinned docs (read before wiring — `curl` the `.md` directly):
-- Wix-managed login via the JS SDK: <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/wix-login-page/wix-managed-login-using-the-js-sdk.md>
+- Wix-managed login via the JS SDK: <https://dev.wix.com/docs/go-headless/authentication/members/wix-login-page/add-a-wix-login-page-js-sdk.md>
 - `OAuthStrategy` reference (member flows, token/session methods): <https://dev.wix.com/docs/sdk/core-modules/sdk/oauth-strategy.md>
 - Handle visitors & members via the JS SDK: <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/visitors/handle-visitors-using-the-js-sdk.md>
 - Current member (SDK): <https://dev.wix.com/docs/sdk/frontend-modules/members/current-member/introduction> (open with `?apiView=SDK`)

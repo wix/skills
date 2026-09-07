@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/stores",
+    "api-reference/business-solutions/coupons",
+    "api-reference/business-management/tags"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-management/tags",
+      "title": "Tags",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/tags",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "stores/product-tag"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/coupons/coupons",
+      "title": "Coupons",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "stores/coupon"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v1/catalog",
+      "title": "Catalog",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v1/catalog",
+      "group": "Catalog V1",
+      "verdict": "not-relevant",
+      "reason": "Legacy Catalog V1; imports provision and target Catalog V3. V1 remains only on old sites Wix converts, never a migration write target.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v1/inventory",
+      "title": "Inventory",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v1/inventory",
+      "group": "Catalog V1",
+      "verdict": "not-relevant",
+      "reason": "Legacy Catalog V1 inventory; superseded by Inventory Items V3 for all import targets.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/brands-v3",
+      "title": "Brands V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/brands-v3",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "stores/brand"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/categories",
+      "title": "Categories",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "refs": [
+        "stores/category"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/customizations-v3",
+      "title": "Customizations V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/customizations-v3",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "refs": [
+        "stores/product-customization"
+      ],
+      "reviewedOn": "2026-08-16",
+      "note": "Revisit condition met: PPOM for WooCommerce profiled 2026-08-16 (commerce.product-addon-fields); mapping confirmed by Spec Owner 2026-08-16."
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/info-sections-v3",
+      "title": "Info Sections V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/info-sections-v3",
+      "group": "Catalog V3",
+      "verdict": "not-relevant",
+      "reason": "Reusable product info sections (full CRUD exists), but no source capability observed in runs so far — core WooCommerce has no extra product tabs; custom-product-tabs plugins would map here. Revisit when such a plugin is profiled.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/inventory-items-v3",
+      "title": "Inventory Items V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "refs": [
+        "stores/inventory-item"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/products-v3",
+      "title": "Products V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "refs": [
+        "stores/product",
+        "stores/product-tag",
+        "stores/subscription-product"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/promotions-v3",
+      "title": "Promotions V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3",
+      "group": "Catalog V3",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-16",
+      "refs": [
+        "stores/promotion"
+      ],
+      "note": "Verdict unchanged (still claimed by stores/promotion), but the 2026-08-11 review characterised this surface as a catalog DISCOUNT-campaign entity. A live create probe on 2026-08-16 contradicted that: Promotions V3 is a category-page BANNER surface (required media, optional destinationUrl, category placements — no discount, scope, or date fields exist). stores/promotion was corrected accordingly and its capability renamed commerce.promotions -> marketing.storefront-banner. Discount-rule plugin campaigns do NOT belong to this surface."
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/read-only-variants-v3",
+      "title": "Read-Only Variants V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/read-only-variants-v3",
+      "group": "Catalog V3",
+      "verdict": "not-importable",
+      "reason": "Read-only query surface; variants are written through Products V3 option/variant fields (see stores/product two-pass pitfall), never directly here.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/ribbons-v3",
+      "title": "Ribbons V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/ribbons-v3",
+      "group": "Catalog V3",
+      "verdict": "not-relevant",
+      "reason": "Product ribbons/badges; no core WooCommerce equivalent, badge plugins not yet observed as a migration capability. Revisit if a badge-plugin capability is profiled.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-v3/stores-locations-v3",
+      "title": "Stores Locations V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/stores-locations-v3",
+      "group": "Catalog V3",
+      "verdict": "not-relevant",
+      "reason": "Physical store locations for inventory/pickup; setup-configuration territory rather than migratable catalog data, and no source capability observed.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/catalog-versioning",
+      "title": "Catalog Versioning",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-versioning",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Single Get Catalog Version helper; consumed by setup/provisioning to assert Catalog V3, not a data target.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/currency-converter",
+      "title": "Currency Converter",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/currency-converter",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Runtime conversion utility, not stored data.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/service-plugins/product-restrictions-v3",
+      "title": "Product Restrictions V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/service-plugins/product-restrictions-v3",
+      "group": "Service Plugins",
+      "verdict": "not-relevant",
+      "reason": "Service plugin (SPI) — an extension point the site implements, not a write API; per the target-search protocol an SPI is never an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/site-currency",
+      "title": "Site Currency",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/site-currency",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Site-level currency settings; setup-configuration handled at the setup gate, not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/stores/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/events"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/events/event-management/categories",
+      "title": "Categories",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories",
+      "group": "Event Management",
+      "verdict": "claimed",
+      "refs": [
+        "events/category"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/events-settings",
+      "title": "Events Settings",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-settings",
+      "group": "Event Management",
+      "verdict": "not-relevant",
+      "reason": "Site-level settings singleton (get/update only, no create); app configuration, not migratable records. Revisit only if a setup-config entity for Events defaults is ever needed.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/events-v3",
+      "title": "Events V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3",
+      "group": "Event Management",
+      "verdict": "claimed",
+      "refs": [
+        "events/event"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/form",
+      "title": "Form",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/form",
+      "group": "Event Management",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "events/registration-form"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/policies-v2",
+      "title": "Policies V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/policies-v2",
+      "group": "Event Management",
+      "verdict": "not-relevant",
+      "reason": "Checkout policy text attached to events (full CRUD exists), but no observed WP event source models policies as data. Revisit if a source carries per-event terms/refund policies.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/schedule-items",
+      "title": "Schedule Items",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/schedule-items",
+      "group": "Event Management",
+      "verdict": "not-relevant",
+      "reason": "Multi-session agenda model (full CRUD exists), but observed WP event sources (TEC) model a single start/end carried on events/event. Revisit if a conference-schedule source capability appears.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/staff-members",
+      "title": "Staff Members",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/staff-members",
+      "group": "Event Management",
+      "verdict": "not-relevant",
+      "reason": "Event staff records (full CRUD exists), but observed WP event sources model organizers as event fields, not standalone staff. Revisit if a source carries a staff/organizer directory worth importing.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/event-management/ticket-definitions-v3",
+      "title": "Ticket Definitions V3",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3",
+      "group": "Event Management",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "events/ticket-definition"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/events/registration/event-guests",
+      "title": "Event Guests",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/registration/event-guests",
+      "group": "Registration",
+      "verdict": "not-importable",
+      "reason": "Read-only derived records (query + webhooks, no write API); guest rows are produced by RSVP/ticket-order writes, so imports land there, never here.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/registration/rsvp-v2",
+      "title": "RSVP V2",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2",
+      "group": "Registration",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "events/rsvp"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/events/registration/ticketing",
+      "title": "Ticketing",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing",
+      "group": "Registration",
+      "verdict": "not-importable",
+      "reason": "Ticket orders/reservations are only created through the live checkout flow — the domain's ticket-order-history-not-importable blocker (owner tracker EVNT-01). Past ticket sales cannot be migrated.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/events/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page (agent walkthrough of Create Event), not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

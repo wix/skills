@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "registration-form",
+  "displayName": "Event Registration Form",
+  "capability": "content.event-registration-form",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "Events Registration Form",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Events Form (V1 form control API on a V3 event)",
+    "endpoint": "POST /events/v1/events/{eventId}/form/control",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "There is no form create. Add one control per call with a single-key oneof body — { text | phone | address | date | additionalGuests | dropdown | checkbox | radioButton: { … } } — against the event's existing form. Response returns the generated control id plus the whole modified form. Read back with GET /events/v3/events/{eventId}?fields=FORM. Verified live on a DRAFT event."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "per-event-config-not-records",
+      "severity": "warning",
+      "summary": "The form is per-event configuration (an ordered list of controls), not standalone records: there is no create — controls are added/updated on the event's existing form. Historical submissions do not live here; they arrive as RSVP/order data."
+    },
+    {
+      "code": "pinned-required-controls",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: a freshly created event already has system controls `name` (type NAME, orderIndex 0) and `email` (type INPUT, orderIndex 1), both system:true and mandatory; added controls append from orderIndex 2. Source forms that made name/email optional or reordered them cannot be reproduced — faithfulness-ledger entry."
+    },
+    {
+      "code": "control-ids-are-not-guids",
+      "severity": "warning",
+      "summary": "CORRECTED 2026-08-16 (live): the docs call the returned control id a \"generated unique input control GUID\", but the first added custom control came back with id `custom` and the second with `custom-a5976fed804ff46f`. Treat the id as an opaque server string, capture it from the AddControl response, and never construct or assume it — RSVP form.inputValues are addressed by input NAME anyway."
+    },
+    {
+      "code": "add-control-publishes-the-form",
+      "severity": "warning",
+      "summary": "Per the docs, applying a control change triggers form publishing. Configure the form inside the notification-mute window and before the event itself is published, the way the 2026-08-16 probe did (draft event, muted site)."
+    },
+    {
+      "code": "control-body-is-a-single-key-oneof",
+      "severity": "warning",
+      "summary": "The AddControl body is the control payload itself at top level — no wrapper object, exactly one of phone/address/date/additionalGuests/dropdown/checkbox/text/radioButton. dropdown and radioButton need minItems 2 options; checkbox needs at least 1; unsupported source input types fall back to a text control with a ledger entry."
+    }
+  ],
+  "mappingGuidance": [
+    "Configure after the event is created (draft is fine): replay source custom registration fields (e.g. Event Tickets attendee fields) as one Add Control call each, in source order — controls append in call order.",
+    "Do not re-add name/email; they are system controls on every event. Only their labels can change.",
+    "Before importing RSVPs, read the finished form back with GET /events/v3/events/{eventId}?fields=FORM and build rsvp.form.inputValues from controls[].inputs[].name — unrecognized input names, missing mandatory values, or values outside predefined options fail the RSVP with INVALID_FORM_RESPONSE."
+  ],
+  "setupRequirements": [
+    "Wix Events app",
+    "SCOPE.DC-EVENTS.MANAGE-EVENTS"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/form/form-object",
+      "note": "object page: ordered controls with nested inputs; name/email pinned required"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/form/add-control",
+      "note": "POST /events/v1/events/{eventId}/form/control; body is a single-key oneof"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/reference-run",
+      "note": "finding #17 follow-up; Form surface spotted at the docs-survey sweep"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: added a text control (\"ZZZ Probe Question\", id `custom`, orderIndex 2) and a dropdown control (\"ZZZ Probe Choice\", id `custom-a5976fed804ff46f`, orderIndex 3) to a draft event's form → 200 each; read back via GET /events/v3/events/{id}?fields=FORM; probe event deleted"
+    }
+  ],
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Form). Classified setup-config: per-event form layout applied via Add/Update Control after event creation, no importable records of its own. Promoted to verified-live 2026-08-16; the probe filled in the previously null endpoint (Events V1 form path on a V3 event) and corrected the docs' GUID claim for control ids."
+}

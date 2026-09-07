@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "domain": "tax",
+  "entity": "manual-tax-mapping",
+  "displayName": "Wix Manual Tax Mapping",
+  "capability": "commerce.tax-rate-mapping",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "ManualTaxMapping",
+    "verifiedFqdn": "wix.billing.tax.v1.manual_tax_mapping",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "tax-rate.rate",
+      "routes": ["/wc/v3/taxes"],
+      "confidence": "medium",
+      "note": "The `rate` field of a wc/v3/taxes row (a percentage, e.g. 7.5) maps to `taxRate` as a decimal-string FRACTION (\"0.075\"), joined with `class` (-> resolved tax-group.json group id) and country/state (-> resolved tax-region.json region id). `name` maps to `taxName` (cosmetic only -- shown at checkout, doesn't change the amount)."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Manual Tax Mappings",
+    "endpoint": "POST /billing/v1/manual-tax-mappings",
+    "writerId": "createManualTaxMapping",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "skip-by-default",
+      "when": "No source rate rows exist (the reference store's actual state, re-verified live 2026-08-12: 0 rows in wc/v3/taxes) -- nothing to map. A genuinely tax-exempt product/category needs NO manual tax mapping at all -- see the unmapped-tax-group pitfall below, which is the intentional non-writer path for that case."
+    }
+  ],
+  "reliability": { "status": "reliable", "flags": [] },
+  "pitfalls": [
+    {
+      "code": "tax-apis-live-under-billing-v1",
+      "severity": "warning",
+      "summary": "Create/Query/Delete Manual Tax Mapping are `/billing/v1/manual-tax-mappings...`, not `/ecom/v1/...`."
+    },
+    {
+      "code": "tax-rate-is-a-decimal-string-fraction",
+      "severity": "blocker",
+      "summary": "`taxRate` must be a decimal STRING representing a fraction: \"0.075\" for 7.5%, up to 6 decimal places. A number (0.075), an integer (5), or a percent string (\"7.5%\") are all wrong -- WooCommerce's `rate` field is a percentage (e.g. \"7.5000\"), so the transform must divide by 100 and re-stringify, not pass the WooCommerce value through."
+    },
+    {
+      "code": "group-and-region-must-already-exist",
+      "severity": "blocker",
+      "summary": "Both `taxGroupId` and `taxRegionId` must reference already-created entities (404s TAX_GROUP_ID_NOT_FOUND / TAX_REGION_ID_NOT_FOUND otherwise) -- enforce dependency order: tax-group and tax-region creates complete first, THEN manual-tax-mapping creates, resolving both ids from their own crosswalks."
+    },
+    {
+      "code": "duplicate-mapping-rejected-on-a-6-field-key",
+      "severity": "warning",
+      "summary": "Create Manual Tax Mapping 409s `MANUAL_TAX_MAPPING_ALREADY_EXISTS`/ALREADY_EXISTS when another mapping matches on (taxRegionId, taxGroupId, taxName, taxType, jurisdiction, jurisdictionType) -- dedupe on that composite key before creating, matching WooCommerce rows that differ only in an unrelated field (e.g. `priority`, which has no Wix Manual Tax Mapping equivalent)."
+    },
+    {
+      "code": "jurisdiction-type-undefined-sentinel-breaks-naive-dedupe",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-08-15: Query Manual Tax Mapping returns the literal STRING \"UNDEFINED\" for an unset `jurisdictionType`, not \"\" and not an absent field -- while a freshly-built mapping input (buildManualTaxMappingInput) simply never sets the field (JS `undefined`). Comparing a fetched existing mapping against a freshly-built one for the same (region, group) with a naive `field || ''` dedupe key produces two DIFFERENT keys for what's actually the same mapping, so a re-run tries to create it again and 409s instead of skipping. tax-build.js's `manualTaxMappingDedupeKey` normalizes both \"\" and \"UNDEFINED\" to the same bucket for every field (not just jurisdictionType, in case the same sentinel shows up elsewhere) -- do not simplify this back to a plain `|| ''` fallback."
+    },
+    {
+      "code": "unmapped-tax-group-calculates-to-exactly-zero-tax",
+      "severity": "info",
+      "summary": "LIVE-VERIFIED 2026-08-12 (not stated explicitly in docs): calling Calculate Tax for a line item whose tax group has NO manual tax mapping for the matched region returns exactly zero tax (taxAmount/taxableAmount both \"0\", empty taxBreakdown[]) -- confirmed against the reference store with a genuinely mapping-less tax group next to a 7%-mapped control group in the same calculateTax call/region. This is the correct primitive for a genuinely exempt product: create the dedicated tax group (tax-group.json) and deliberately create NO manual tax mapping for it anywhere, rather than enumerating a 0% mapping per region the product might ship to."
+    },
+    {
+      "code": "tax-breakdowns-are-multiple-mapping-rows-not-a-list-field",
+      "severity": "info",
+      "summary": "To show several tax components on one line (e.g. state + county tax), create MULTIPLE manual tax mapping rows for the same (taxGroupId, taxRegionId), one per component, each with its own taxName/taxRate -- there is no array field on a single mapping for this. No deduplication is applied; the set of rows IS the breakdown."
+    },
+    {
+      "code": "priority-and-compound-have-no-mapping-field",
+      "severity": "warning",
+      "summary": "WooCommerce tax-rate fields `priority` and `compound` have no corresponding ManualTaxMapping field. A compound/priority-ordered WooCommerce rate set needs the tax-breakdowns pattern above (verify Wix's calculation order matches priority intent)."
+    },
+    {
+      "code": "shipping-flag-is-a-group-fanout-not-a-mapping-field",
+      "severity": "blocker",
+      "summary": "CORRECTED 2026-08-15: earlier guidance treated WooCommerce's per-rate `shipping` boolean (whether the rate also applies to shipping, not just products) as an unmappable gap, since ManualTaxMapping has no such field. The real fix is structural, not a field: create one mapping per Wix DEFAULT tax group (see tax-group.json's DEFAULT_GROUP_NAMES / groupsForRate in tax-build.js), not one mapping against 'Products' only. A `class: \"standard\"` WooCommerce rate is the store's ONE general rate -- WooCommerce has no per-billing-category split the way Wix's Products/Shipping and delivery/Services/Cancellation fees groups do. Mapping to Products only silently zero-rates shipping, services, and cancellation fees in that region (a mapping-less group calculates to EXACTLY zero tax, see the finding below) -- a real undercharging bug, not a faithful migration. A non-`standard` class (reduced-rate, zero-rate, ...) is unaffected by this: it still targets only its own dedicated custom group, since that class is a per-product signal, not a store-wide one."
+    }
+  ],
+  "mappingGuidance": [
+    "Convert WooCommerce percentage `rate` to a Wix fraction string: rate / 100, formatted with no more than 6 decimal places, e.g. \"7.5\" -> \"0.075\".",
+    "Resolve `taxGroupId` from the source row's `class` via tax-group.json's crosswalk, and `taxRegionId` from (country, state) via tax-region.json's crosswalk -- never invent either id.",
+    "A `class: \"standard\"` (or blank) rate creates ONE Manual Tax Mapping PER DEFAULT GROUP (Products, Shipping and delivery, Services, Cancellation fees), all with the same taxRate/taxRegionId -- use tax-build.js's `groupsForRate` rather than hardcoding 'Products'. A non-standard class targets only its own custom group instead (never the defaults, never Tax Exempt).",
+    "Leave `taxName`/`taxType`/`jurisdiction`/`jurisdictionType` populated from the source `name`/country-state display info where available; they are cosmetic (shown at checkout) and don't affect the calculated amount, but a blank `taxName` shows a default 'Sales Tax' label which may not match a non-US source's terminology (VAT/GST)."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/manual-tax-mapping-object" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/create-manual-tax-mapping" },
+    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation/calculate-tax" },
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real Create Manual Tax Mapping (0% and 7% diagnostic rows), Query Manual Tax Mappings, Delete Manual Tax Mapping, and two real Calculate Tax calls against the live site -- one proving a 0%-mapped group and an unmapped group both charge zero tax, a second (after deleting the 0% mapping) proving an entirely UNMAPPED group also charges exactly zero tax next to a 7%-mapped control group in the same request/region. All diagnostic mappings/regions were deleted afterward; only the real 'Tax Exempt' tax group (see tax-group.json) and the product assignment remain on the site."
+    }
+  ]
+}

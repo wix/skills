@@ -1,173 +1,58 @@
 ---
 name: "Query Sites"
-description: Lists and queries all sites associated with a Wix account using the Sites API. Covers filtering, sorting, and cursor-based pagination.
+description: List, count, and find the sites in a Wix account. Covers the namespace filter for headless sites, counting before enumerating, cursor pagination, and resolving a site by name.
 ---
 # Query Sites
 
-This recipe demonstrates how to list and query the sites associated with a Wix account.
+List, count, and find the sites in a Wix account.
 
-## Prerequisites
+- **Auth**: account-level (a Wix user token, or an account-level API key). `wix token` prints one.
+- **Permission**: `SITE_LIST.READ` (scope `SCOPE.ACC-DC-OS.READ-SITE`).
+- **Endpoints**: list `POST https://www.wixapis.com/site-list/v2/sites/query` · count
+  `POST https://www.wixapis.com/site-list/v2/sites/count`.
 
-- Account-level API access (authenticated as a Wix user or using an account-level API key)
-- Permission `SITE_LIST.READ` (scope `SCOPE.ACC-DC-OS.READ-SITE`)
+## Include headless sites — filter by `namespace`
 
-## Required APIs
+Both endpoints see only `WIX`-namespace sites by default; **headless sites** (anything built on a
+connected OAuth app) are silently excluded. Filter on both namespaces to see everything:
 
-- **Query Sites API**: [REST](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites)
-
-> Returns up to **100** sites per request. Use cursor paging (below) to retrieve more.
-
----
-
-## Query Sites
-
-**Endpoint**: `POST https://www.wixapis.com/site-list/v2/sites/query`
-
-The request takes a `query` object that supports `filter`, `sort`, and `cursorPaging`.
-
-**Request Body**:
-```json
-{
-  "query": {
-    "filter": { "editorType": "EDITOR" },
-    "sort": [{ "fieldName": "createdDate", "order": "ASC" }],
-    "cursorPaging": { "limit": 50 }
-  }
-}
-```
-
-All three fields are optional — `{ "query": { "cursorPaging": { "limit": 50 } } }` lists every site.
-
-**Request**:
 ```bash
-curl -X POST \
-  'https://www.wixapis.com/site-list/v2/sites/query' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": {
-      "filter": { "editorType": "EDITOR" },
-      "sort": [{ "fieldName": "createdDate", "order": "ASC" }],
-      "cursorPaging": { "limit": 50 }
-    }
-  }'
+curl -X POST 'https://www.wixapis.com/site-list/v2/sites/query' \
+  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'Content-Type: application/json' \
+  -d '{ "query": { "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } }, "cursorPaging": { "limit": 100 } } }'
 ```
 
----
+`query` takes optional `filter`, `sort` (e.g. `[{ "fieldName": "createdDate", "order": "DESC" }]`),
+and `cursorPaging` (max `limit` 100).
 
-## Response Structure
+## Count before you enumerate
 
-The response has the sites array plus **two** paging objects: a top-level `cursorPaging`
-(echoes the applied limit and the next cursor) and `metadata` (count, `cursors.next`, `hasNext`).
+An account can hold thousands of sites. To find one by name, search (see "Find a site by name")
+rather than enumerate. To walk the whole list, count first and decide whether that's worth it:
 
-> ⚠️ There is **no** `pagingMetadata` field. Read paging info from `metadata`.
-
-```json
-{
-  "sites": [
-    {
-      "id": "f6061c5f-6aa3-42f8-8822-36a4981dabb2",
-      "htmlAppId": "70df538d-906c-44ca-9f27-c186b62f2b2b",
-      "name": "my-site-47",
-      "displayName": "My Site 47",
-      "createdDate": "2023-02-01T14:56:09.831Z",
-      "updatedDate": "2026-06-22T03:55:49.031Z",
-      "published": true,
-      "premium": false,
-      "viewUrl": "https://username.wixsite.com/my-site-47",
-      "editUrl": "/editor/f6061c5f-6aa3-42f8-8822-36a4981dabb2?editorSessionId=...",
-      "thumbnail": "/site-thumbnail/f6061c5f-6aa3-42f8-8822-36a4981dabb2",
-      "ownerAccountId": "e6a89eda-d100-4b2d-8a47-3040e2134497",
-      "contributorAccountIds": [],
-      "editorType": "EDITOR",
-      "blocked": false,
-      "namespace": "WIX",
-      "domainConnected": false,
-      "parentChildRole": "NONE"
-    }
-  ],
-  "cursorPaging": {
-    "limit": 50,
-    "cursor": "<cursor-for-next-page>"
-  },
-  "metadata": {
-    "count": 50,
-    "cursors": {
-      "next": "<cursor-for-next-page>"
-    },
-    "hasNext": true
-  }
-}
+```bash
+curl -X POST 'https://www.wixapis.com/site-list/v2/sites/count' \
+  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'Content-Type: application/json' \
+  -d '{ "filter": { "namespace": { "$in": ["WIX", "HEADLESS"] } } }'   # → { "count": 1335 }
 ```
 
-### Site object fields
+Enumerating costs **~0.7s per 100 sites** (100 → ~0.7s, 500 → ~3.4s, ~1,300 → ~9s). For a large
+count, render the first N sites with a "…and N more" note instead of fetching all of them.
 
-Each entry in `sites` has these fields (from the `Site` schema):
+## Paginate
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | string | Site ID — use for site-level API calls |
-| `htmlAppId` | string | Internal HTML app ID |
-| `name` | string | URL slug / internal name |
-| `displayName` | string | Human-readable site name |
-| `createdDate` / `updatedDate` | datetime | |
-| `trashedDate` | datetime | Present only if the site is in the trash |
-| `published` | boolean | Whether the site is published |
-| `premium` | boolean | Whether the site has a Wix Premium (paid) plan |
-| `viewUrl` | string | Public site address; empty string when unpublished. **There is no `siteUrl` field.** |
-| `editUrl` | string | Relative editor path; prefix with `https://manage.wix.com` to open |
-| `thumbnail` | string | Relative thumbnail path |
-| `ownerAccountId` | string | |
-| `contributorAccountIds` | string[] | |
-| `editorType` | string | e.g. `EDITOR`, `ODEDITOR` — also a valid `filter` field |
-| `blocked` | boolean | |
-| `folderId` / `parentId` | string | Set for sites organized in folders / parent-child setups |
-| `namespace` | string | e.g. `WIX` |
-| `domainConnected` | boolean | |
-| `parentChildRole` | string | e.g. `NONE` |
+The next cursor is at `metadata.cursors.next` (there is **no** `pagingMetadata` field); it already
+encodes the filter/sort, so follow-up pages send only the cursor:
 
----
-
-## Pagination
-
-Cursor-based. Read the next cursor from `metadata.cursors.next` and stop when
-`metadata.hasNext` is `false`.
-
-> The cursor does **not** carry the page limit, and it already encodes the filter/sort
-> from the first request. On follow-up pages send **only** the cursor (plus `limit` if you
-> want a non-default page size) — do **not** repeat `filter` or `sort`.
-
-**First request**:
-```json
-{
-  "query": {
-    "filter": { "editorType": "EDITOR" },
-    "sort": [{ "fieldName": "createdDate", "order": "ASC" }],
-    "cursorPaging": { "limit": 50 }
-  }
-}
-```
-
-**Next page** (cursor from `metadata.cursors.next`):
-```json
-{
-  "query": {
-    "cursorPaging": {
-      "limit": 50,
-      "cursor": "<metadata.cursors.next from previous response>"
-    }
-  }
-}
-```
-
-**Loop**:
 ```javascript
-async function listAllSites() {
+async function listAllSites(wixPost) {
   const sites = [];
   let cursor = null;
   do {
-    const cursorPaging = cursor ? { limit: 100, cursor } : { limit: 100 };
-    const res = await wixRequest({ query: { cursorPaging } }); // POST .../site-list/v2/sites/query
+    const query = cursor
+      ? { cursorPaging: { limit: 100, cursor } }
+      : { filter: { namespace: { $in: ["WIX", "HEADLESS"] } }, cursorPaging: { limit: 100 } };
+    const res = await wixPost("/site-list/v2/sites/query", { query });
     sites.push(...res.sites);
     cursor = res.metadata.hasNext ? res.metadata.cursors.next : null;
   } while (cursor);
@@ -175,23 +60,49 @@ async function listAllSites() {
 }
 ```
 
----
+## Find a site by name
 
-## Common Use Cases
+Substring-search by display name with `GET manage.wix.com/account/sites/api/sites/search`. It
+returns full site records (headless included) and, with `getCount=true`, the total:
 
-### List all sites
-Omit `filter` and page through with `cursorPaging` until `metadata.hasNext` is `false`.
+```bash
+curl 'https://manage.wix.com/account/sites/api/sites/search?query=kintsugi&getCount=true' \
+  -H 'Authorization: <ACCOUNT_TOKEN>' -H 'accept: application/json'
+# → { "sites": [ { "metaSiteId", "displayName", "namespace", "published", "editUrl", … } ], "totalCount": 5 }
+```
 
-### Find a specific site
-Prefer server-side `filter` (e.g. `{ "editorType": "EDITOR" }`) and `sort` over fetching
-everything and filtering client-side. Filterable fields match the site object (e.g. `name`,
-`displayName`, `editorType`, `published`).
+## Response — the `Site` object
 
----
+`sites` is an array of:
+
+```typescript
+interface Site {
+  id: string;                 // site ID — use for site-level API calls
+  htmlAppId: string;
+  name: string;               // URL slug / internal name; opaque `headless-<id>` for headless sites
+  displayName: string;        // human-readable name
+  createdDate: string;        // ISO datetime
+  updatedDate: string;        // ISO datetime
+  trashedDate?: string;       // present only when the site is in the trash
+  published: boolean;
+  premium: boolean;           // has a Wix Premium (paid) plan
+  viewUrl: string;            // public address; "" when unpublished (there is no `siteUrl` field)
+  editUrl: string;            // relative; prefix with https://manage.wix.com to open
+  thumbnail: string;
+  ownerAccountId: string;
+  contributorAccountIds: string[];
+  editorType: string;         // EDITOR | ODEDITOR | STUDIO | EDITORLESS
+  blocked: boolean;
+  folderId?: string;          // set for sites organized in folders / parent-child setups
+  namespace: string;          // WIX | HEADLESS
+  domainConnected: boolean;
+  parentChildRole: string;    // e.g. NONE
+}
+```
 
 ## Next Steps
 
-After finding a site:
-- Use the site `id` for site-level API calls
-- Create new sites using [Create Site from Template](create-site-from-template.md)
-- Manage site settings and content
+Use a site's `id` for site-level API calls — derive a site token from the account token
+(`wix token --site <id>`, or the `oauth2/token` refresh-grant in wix-auth `device-flow`), then read
+its context via [Read Site Context](read-site-context.md) or create sites with
+[Create Site from Template](create-site-from-template.md).

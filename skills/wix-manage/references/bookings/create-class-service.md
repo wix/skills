@@ -149,7 +149,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `defaultCapacity` is **required** — sets max participants per session
 - After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
 
-Save the `serviceId` from the response: `results[0].item.service.id`
+**Response:** Save the service ID from `results[0].itemMetadata.id`
 
 ---
 

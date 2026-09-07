@@ -1,0 +1,21 @@
+---
+// Events listing — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR listing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import EventsView from "../components/events/EventsView";
+import { fetchEvents } from "../wix/events/events";
+import type { EventSummary } from "../wix/events/types";
+
+let events: EventSummary[] = [];
+try {
+  events = await fetchEvents();
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Events">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Events</h1>
+  <EventsView client:load initialEvents={events} />
+</SiteLayout>

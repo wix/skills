@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wordpress-seo",
+  "displayName": "Yoast SEO",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/wordpress-seo/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.seo-meta"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wordpress-seo/wp-seo"
+    ],
+    "recordProperties": [
+      "yoast_head_json",
+      "yoast_head",
+      "_yoast_wpseo_title",
+      "_yoast_wpseo_metadesc",
+      "_yoast_wpseo_focuskw"
+    ],
+    "assetPathSlugs": [
+      "wordpress-seo"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "post-seo-meta",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wp/v2/posts"
+      ],
+      "propertyPath": "yoast_head_json",
+      "candidateTargetRefs": [
+        "seo/item-seo-tags",
+        "blog/post"
+      ],
+      "pitfalls": [
+        {
+          "code": "head-json-is-resolved-output-not-the-override",
+          "severity": "blocker",
+          "summary": "yoast_head_json is Yoast's RENDERED output for the record, not the values the author typed. Every key is populated for every post whether or not anyone edited its SEO: `title` falls back to the site title template, `og_description` falls back to the excerpt/content, `og_title` mirrors the title. [VERIFIED LIVE 2026-08-16 on the reference store: all 35 posts returned a fully populated yoast_head_json while all 35 had EMPTY _yoast_wpseo_title and _yoast_wpseo_metadesc, i.e. zero genuine per-post overrides.] Importing it wholesale into Wix Item SEO Tags converts inherited/templated values into hard per-item overrides on every record - the exact anti-pattern the Wix SEO docs warn about. Pair it with the post-seo-override-signal entity and import per-item tags only where the source proves an override."
+        },
+        {
+          "code": "head-json-key-set-varies-by-record",
+          "severity": "warning",
+          "summary": "Keys are present only when Yoast emits them, so absence is normal and is not profile drift. [VERIFIED LIVE 2026-08-16: across 35 posts the constant keys were title, robots, og_locale, og_type, og_title, og_description, og_url, og_site_name, article_published_time, author, twitter_card, twitter_misc, schema; across 19 pages og_description appeared on 10/19 and twitter_misc on 1/19; across 100 wc/v3 products og_image on 82/100, article_modified_time on 68/100, twitter_misc on 23/100.] Notably ABSENT on that site: `canonical` and `description` - `description` because no post has a meta description, and `canonical` because the whole site is noindex (blog_public = 0), which makes Yoast drop the canonical presenter. On a production source both normally appear. [NEEDS-VERIFICATION on an indexed production site: the exact shape of `canonical` and `description`.]"
+        },
+        {
+          "code": "robots-noindex-is-a-source-artefact",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] every record on the reference store reported robots {index: noindex, follow: follow, ...} because the WordPress site discourages search engines. Carrying a robots meta tag across without checking would de-index the new Wix site. Indexability is a launch decision (see seo/site-seo-tags pitfall site-noindex-is-writable-here), never a migrated field."
+        },
+        {
+          "code": "schema-graph-is-source-shaped",
+          "severity": "warning",
+          "summary": "yoast_head_json.schema is a full JSON-LD @graph whose @id values are absolute SOURCE URLs (https://<source-host>/... plus #article, #primaryimage, #/schema/person/<hash> fragments) and whose image URLs point at the source CDN. Copying it into a Wix script tag republishes structured data that references the old domain. Either drop it (Wix generates its own structured data) or rewrite every @id and URL through the URL/media crosswalks - never pass it through verbatim."
+        }
+      ]
+    },
+    {
+      "entity": "post-seo-override-signal",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wp/v2/posts"
+      ],
+      "propertyPath": "_yoast_wpseo_title",
+      "context": "view",
+      "candidateTargetRefs": [
+        "seo/item-seo-tags"
+      ],
+      "pitfalls": [
+        {
+          "code": "three-registered-keys-only-and-auth-gated",
+          "severity": "warning",
+          "summary": "Yoast registers exactly three meta keys into the REST `meta` object - _yoast_wpseo_title, _yoast_wpseo_metadesc, _yoast_wpseo_focuskw - and they are visible only to an authenticated caller. [VERIFIED LIVE 2026-08-16 on /wp/v2/posts/2041: the authenticated response carried those three keys and the unauthenticated response carried none of them, with all 66 other meta keys identical.] This entity's propertyPath names the title key; the other two travel with it and must be read from the same `meta` object. An unauthenticated run therefore cannot tell an override from a default and must fall back to post-seo-meta alone, recorded as reduced fidelity rather than as absent data."
+        },
+        {
+          "code": "registered-only-for-post-not-page-or-product",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] the three keys appeared on all 35 records of /wp/v2/posts but on NONE of 19 records of /wp/v2/pages and none of /wp/v2/product (authenticated in every case). So the override signal exists for blog posts only; for pages, products and CPTs there is no REST-visible way to distinguish a genuine Yoast override from Yoast's computed default. [NEEDS-VERIFICATION: whether this is a Yoast registration scope per post type or a host/config effect - the reference store runs Yoast 28.2 on WordPress.com staging.]"
+        },
+        {
+          "code": "canonical-and-social-overrides-are-not-registered",
+          "severity": "warning",
+          "summary": "The per-post canonical override (_yoast_wpseo_canonical) and the Open Graph / Twitter overrides (_yoast_wpseo_opengraph-title, -description, -image, _yoast_wpseo_twitter-title, ...) are NOT among the registered keys and never appear in `meta`. [VERIFIED LIVE 2026-08-16: only the three keys above were present.] Their VALUES are still readable, because Yoast folds them into yoast_head_json - but there is no REST-visible way to tell an authored canonical from Yoast's computed one. Migrating a computed canonical would point the new Wix page at the old domain, so a canonical is only safe to carry after it is rewritten through the URL ledger or dropped in favour of Wix's own."
+        }
+      ]
+    },
+    {
+      "entity": "product-seo-meta",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "yoast_head_json",
+      "candidateTargetRefs": [
+        "seo/item-seo-tags",
+        "stores/product"
+      ],
+      "pitfalls": [
+        {
+          "code": "woo-products-need-auth-for-any-read",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] yoast_head_json rides on /wc/v3/products (present on 100/100 sampled products), but /wc/v3/products itself returns 401 woocommerce_rest_cannot_view unauthenticated, so the whole entity is unreadable without the Application Password. The same product's SEO is ALSO reachable unauthenticated on /wp/v2/product, which is public on this store and carries yoast_head_json too - a useful fallback for an unauthenticated survey, though it exposes no Woo commerce fields."
+        },
+        {
+          "code": "no-yoast-keys-in-woo-meta-data",
+          "severity": "info",
+          "summary": "[VERIFIED LIVE 2026-08-16] no _yoast_* key appeared in the meta_data array of any of 100 products, so the override signal available for blog posts does not exist for products at all. Product SEO can only be read as resolved output."
+        },
+        {
+          "code": "prefer-seodata-on-the-product-create",
+          "severity": "info",
+          "summary": "Catalog V3 products carry their own `seoData` (SeoSchema: the same tags[] plus settings.preventAutoRedirect) on the create/update call, so product SEO can ride the product import instead of needing a second Item SEO Tags pass. Use stores/product when the product is being created anyway; use seo/item-seo-tags for a backfill over products that already exist."
+        }
+      ]
+    },
+    {
+      "entity": "term-seo-meta",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wp/v2/categories",
+        "/wp/v2/tags",
+        "/wc/v3/products/categories"
+      ],
+      "propertyPath": "yoast_head_json",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-verified-wix-item-type-for-terms",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-16] taxonomy terms carry yoast_head_json too - present on 8/8 /wp/v2/categories and 20/20 /wc/v3/products/categories - so archive-page SEO is real, readable source data. But Wix Item SEO Tags documents item types by example only (STATIC_PAGE, BLOG_POST, STORES_PRODUCT, WIX_DATA_PAGE_ITEM-{pageId}) and says the real list is per site, discoverable from the UNSUPPORTED_ITEM_TYPE error message. No item type for a blog category, blog tag or store category has been confirmed, and neither blog/category nor stores/category exposes a seoData field. candidateTargetRefs is deliberately empty rather than pointing at a target that may reject the write: probe the supported item types at setup and resolve this at the mapping review."
+        },
+        {
+          "code": "wp-users-also-carry-it",
+          "severity": "info",
+          "summary": "[VERIFIED LIVE 2026-08-16] /wp/v2/users records carry yoast_head_json as well (author-archive SEO, 5/5 sampled). Author archives have no Wix counterpart at all, so this is noted for completeness and is not proposed for migration."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `wordpress-seo/wp-seo` - the main-file basename differs from the directory and the /wp/v2/plugins id carries no .php suffix [VERIFIED LIVE 2026-08-16 against the reference store: active, version 28.2, textdomain wordpress-seo]. Never construct dir/dir.php.",
+    "Storage model: BOTH resolved-output-on-the-record and registered meta, and they answer different questions. The values are read as `yoast_head_json` injected into core and WooCommerce REST records (channel core-embedded); whether a value was actually authored is read from three registered meta keys (channel core-meta). Unregistered Yoast meta - the canonical and Open Graph/Twitter overrides - is invisible to REST as raw meta but is folded into yoast_head_json, so nothing is lost, only the provenance. [VERIFIED LIVE 2026-08-16.]",
+    "core-embedded VERIFICATION - this profile is the first user of the channel and it is now confirmed against a live site. [VERIFIED LIVE 2026-08-16] yoast_head_json is a top-level key on: /wp/v2/posts (35/35), /wp/v2/pages (19/19), /wp/v2/product (5/5), /wp/v2/podcast (4/4), /wp/v2/tribe_events (5/5), /wp/v2/categories (8/8), /wp/v2/users (5/5), /wc/v3/products (100/100), /wc/v3/products/categories (20/20). It is present with and without authentication and in context=edit, identically. It is ABSENT on /wp/v2/media (5/5) - attachments get no Yoast head. So the channel's probe (declared key present in a sampled record) fires from an ordinary unauthenticated sample and needs no special context.",
+    "`yoast/v1` is DELIBERATELY NOT declared in detect.restNamespaces, even though the namespace is real and public. Two reasons. (1) It buys nothing: an authenticated run already matches pluginFileIds against /wp/v2/plugins, and an unauthenticated run that samples any record sees `yoast_head_json`, which is a stronger signal because it proves the SEO data is actually there. (2) Claiming the namespace would suppress the fingerprinted tier for Yoast - `yoast` is the alias map's canonical entry (fingerprint-aliases.json: yoast -> Yoast SEO / wordpress-seo), and the public URL-scan funnel depends on an unauthenticated, unsampled run still naming Yoast from the namespace alone. A profile claiming the namespace turns that row off. If this profile ever needs the namespace as a signal, the fingerprint alias and its contract tests have to be reconsidered in the same change.",
+    "Registers 94 REST routes under /yoast/v1 and NOT ONE of them is a data collection [VERIFIED LIVE 2026-08-16, identical authenticated and unauthenticated]: they are AI generation (ai_generator/*, ai_content_planner/*), indexing jobs (indexing/*, link-indexing/*), setup wizard state (configuration/*), dashboards (statistics, seo_scores, readability_scores, time_based_seo_metrics, workouts), integrations (semrush/*, wincher/*, site_kit_*) and UI dismissals. This is the live evidence behind the rule that `/yoast/*` must never be opened wholesale, and behind the classifier's existing wp.integration.yoast exclusion - the per-record SEO data does not live there, it rides the core records. The one route that might tempt an author, /yoast/v1/get_head, is a URL-to-head helper, not a collection.",
+    "Yoast's head is NOT visible in this site's rendered front-end HTML [VERIFIED LIVE 2026-08-16]: the homepage and a post permalink both contain zero `Yoast SEO plugin` comments, zero og: meta tags, and no wp-content/plugins/wordpress-seo asset path - the WordPress.com/LiteSpeed layer serves a head without them, while the REST yoast_head / yoast_head_json fields are fully populated. Two consequences: assetPathSlugs will not fire for Yoast on this host (so the fingerprinted tier cannot see it), and a public HTML scrape is not a substitute for the REST read.",
+    "Plugin CONFIGURATION is not data. Yoast's sitemap settings (Wix generates its own sitemap), its per-post-type title/description templates, breadcrumbs, social profile URLs and knowledge-graph organisation data all live in the wpseo_* wp_options rows, which WordPress REST does not expose at all. They are reconfigure-in-wix; the templates have a real Wix home if the user supplies them (seo/seo-pattern), and the search-engine verification tags have one too (seo/site-seo-tags).",
+    "Redirects are a Yoast PREMIUM feature and this install is free Yoast, so no redirect data exists here [VERIFIED LIVE 2026-08-16: no yoast redirect route in the REST index]. Note the separate, active `redirection` plugin on the same store, which does hold a real redirect map - see the report's pending proposal for content.url-redirects. Wix has no public URL-redirect API either way (seo/domain.json pitfall no-url-redirect-api)."
+  ]
+}

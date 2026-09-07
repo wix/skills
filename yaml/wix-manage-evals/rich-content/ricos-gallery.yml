@@ -1,0 +1,20 @@
+name: rich-content/ricos-gallery
+description: Sharp-edge check on the Author Ricos Rich Content recipe — a GALLERY block with galleryData.items and GRID layout options.
+triggerPrompt: Create Ricos rich content with a two-image gallery in a GRID layout with two columns. Use placeholder Wix media ids for the images. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 450000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 9
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a gallery block.
+
+      Score 9-10: root-level `GALLERY` node; `galleryData.items` has at least two entries; each item uses `image.media` with `src` (`id` or `url`), `width`, and `height`; `galleryData.options.layout.type` is `GRID` with `numberOfColumns` set (e.g. 2); every `type` is a bare string.
+      Score 6-8: GALLERY present with two images but a minor field is missing (e.g. `options` or `containerData`).
+      Score 3-5: images listed as separate root IMAGE nodes instead of one GALLERY, OR items omit `image.media` nesting, OR layout is not GRID.
+      Score 0-2: no gallery, or prose/plain-text output.
+      **Cap at 5** if there is no `galleryData.items` array — a GALLERY is not a single IMAGE.

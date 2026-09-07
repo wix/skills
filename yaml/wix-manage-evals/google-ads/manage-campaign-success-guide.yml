@@ -1,0 +1,42 @@
+name: google-ads/manage-campaign-success-guide
+description: >-
+  Verifies the agent offers the success guide as a user-approved next step after
+  campaign creation without waiting for metrics, distinguishes it from
+  pre-campaign suggestions, and waits for approval before retrieving it.
+triggerPrompt: >-
+  I just created my Google Ads lead campaign on Wix and it's still learning, so
+  I don't see any results yet. Can I use its campaign success guide now, or
+  should I wait?
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-a-campaign-success-guide
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response:
+      - offers the guide as a valid immediate next step after campaign creation,
+        waits for the user's approval before retrieving it, and does not wait for
+        LEARNING to end or for performance metrics;
+      - distinguishes this existing-campaign guide from pre-campaign asset,
+        keyword, budget, or targeting suggestions; and
+      - briefly explains that the guide can prioritize improvements using the
+        campaign setup, landing page, and site connections before performance
+        data exists.
+
+      Fail if it retrieves or changes anything without confirmation, tells the
+      user to wait for metrics before using the guide, claims recommendations
+      are automatically implemented, or routes to pre-campaign suggestions.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path with the correct skill and
+      public documentation, no non-2xx calls, no guessed request shapes, no
+      redundant probing, no guide retrieval or mutation before user approval,
+      and no internal service or tool names in the user-facing answer. Penalize
+      each detour and name the likely recipe/docs gap. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "plugin": "pw-woocommerce-gift-cards",
+  "displayName": "PW WooCommerce Gift Cards",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/pw-woocommerce-gift-cards/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.gift-card-products",
+    "commerce.gift-cards"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "pw-woocommerce-gift-cards/pw-gift-cards"
+    ],
+    "recordProperties": [
+      "pw_gift_card_number",
+      "pw_gift_card_amount",
+      "pw_gift_card_to",
+      "pw_gift_card_from",
+      "pw_gift_card_message"
+    ],
+    "assetPathSlugs": [
+      "pw-woocommerce-gift-cards"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "gift-card-product",
+      "channel": "plugin-rest-child",
+      "route": "/wc/v3/products/{parentId}/variations",
+      "parentRoute": "/wc/v3/products",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [
+        "gift-cards/gift-card-product"
+      ],
+      "pitfalls": [
+        {
+          "code": "type-discriminated-subset",
+          "severity": "blocker",
+          "summary": "Gift-card products are ordinary WooCommerce products discriminated ONLY by type == \"pw-gift-card\" — no PW-specific meta key or property exists on the record [VERIFIED LIVE 2026-08-16: meta_data carried only _created_via and third-party keys]. The core products import must NOT map these as plain store products; enumerate them authoritatively with GET /wc/v3/products?type=pw-gift-card (the type enum on wc/v3/products includes pw-gift-card [VERIFIED LIVE 2026-08-16]) and route them to gift-cards/gift-card-product instead."
+        },
+        {
+          "code": "denominations-are-variations",
+          "severity": "warning",
+          "summary": "Denominations live as product variations under a \"Gift Card Amount\" attribute — one variation per amount, each with its own price [VERIFIED LIVE 2026-08-16: variations 10/25/50/100 on the reference store]. Map the variation prices to the Wix gift-card product's denomination options; a variant-filtering transform that drops unknown attribute terms would silently lose denominations."
+        }
+      ]
+    },
+    {
+      "entity": "gift-card",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/orders"],
+      "propertyPath": "pw_gift_card_number",
+      "candidateTargetRefs": [
+        "gift-cards/gift-card"
+      ],
+      "pitfalls": [
+        {
+          "code": "issuance-is-core-meta-not-db-only",
+          "severity": "warning",
+          "summary": "CORRECTED 2026-08-17 (VERIFIED LIVE on poratus, resolving the 2026-08-16 quirk below): issued-card identity (code, amount, recipient email, sender name, message) is NOT db-only — it rides as line_item.meta_data (pw_gift_card_number/pw_gift_card_amount/pw_gift_card_to/pw_gift_card_from/pw_gift_card_message) on GET /wc/v3/orders once the order reaches processing or completed. The plugin's own PHP source (pw-gift-cards-purchasing.php, github.com/common-repository/pw-woocommerce-gift-cards mirror) calls PW_Gift_Card::create_card() from the woocommerce_order_status_processing/woocommerce_payment_complete (both gated on is_paid()) and woocommerce_order_status_completed hooks — a pending/on-hold order simply has no card yet, which is not the same as 'unreachable'. Only the ongoing BALANCE (post-issuance activity/redemption) remains genuinely db-only — see gift-card-activity's no-wix-write-surface-for-history pitfall, now also live-confirmed."
+        },
+        {
+          "code": "outstanding-balance-is-a-liability",
+          "severity": "blocker",
+          "summary": "Unspent balances are money owed to customers. Reconcile the total outstanding value before and after import and show it in the execution plan; a silently dropped card is a lost customer entitlement."
+        },
+        {
+          "code": "code-alphanumeric-only-not-just-length",
+          "severity": "blocker",
+          "summary": "CORRECTED 2026-08-17 (VERIFIED LIVE against the real Wix Create Gift Card endpoint, msid fd0ad9fb-d439-406f-8a00-b6c6ad0d95ab): the 2026-08-16 note below that PW's dash-separated format 'fits' Wix's 8-20 character bound is INCOMPLETE and misleading. Wix's giftCard.code rejects ANY non-alphanumeric character outright (live 428 INVALID_CODE: 'Gift Card Code can only contain letters(A-z) and numbers(0-9)') — independent of length. PW's own default code format (four groups of four separated by hyphens, e.g. ARQQ-69TH-5Q4Z-TBYQ) is REJECTED AS-IS by Wix, every single time, not just as an edge case. Stripping the hyphens produces a 16-character alphanumeric string Wix accepts (confirmed live: create + read-back succeeded), but that changes the code the customer already holds printed/emailed — the same 'do not silently rewrite' principle as the length pitfall, except this one is the DEFAULT case for this plugin, not an outlier."
+        },
+        {
+          "code": "balance-derived-from-activity",
+          "severity": "warning",
+          "summary": "PW derives a card's balance from its activity ledger (sum of credit/debit rows), and Wix likewise only accepts an initial value with balance derived from transactions. A partly-redeemed card needs an explicit policy: import at remaining balance, or at face value with the spend replayed. Decide it in the mapping plan; do not default silently. [DOCUMENTED]"
+        }
+      ]
+    },
+    {
+      "entity": "gift-card-activity",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "blocked": [
+        {
+          "kind": "bridge-plugin",
+          "resolution": "No fulfillment path exists yet. Once wix-migration-helper's Case 2 is cleared for production and the site owner installs it, its route exposes this ledger read-only.",
+          "declined": false,
+          "fulfillment": {
+            "kind": "bridge-plugin",
+            "handlerId": "wix-migration-helper-pw-gift-cards",
+            "manifestCaseId": "case-2-pw-gift-cards-activity",
+            "expectedNamespace": "wix-migration-helper/v1",
+            "extractionRoute": "/wix-migration-helper/v1/pw-gift-cards",
+            "freshnessWindowHours": 24
+          }
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "no-wix-write-surface-for-history",
+          "severity": "warning",
+          "summary": "Per-card activity history (issuance, redemptions, adjustments) is durable data in the same plugin-owned tables as the cards [DOCUMENTED], but Wix has no public method to write historical gift-card transactions (see gift-cards/gift-card pitfall no-transaction-history-import); the domain entity's documented fallback is a CMS archive. Unlike issued-card identity (see gift-card's issuance-is-core-meta-not-db-only pitfall — that data turned out to be reachable via order line-item meta), this activity ledger itself has no REST path at all; see this same entity's redemption-invisible-even-in-order-rest-data pitfall, and spec 0040's bridge-plugin proposal for the actual unblock."
+        },
+        {
+          "code": "redemption-invisible-even-in-order-rest-data",
+          "severity": "blocker",
+          "summary": "VERIFIED LIVE 2026-08-17 (poratus): this is a stronger claim than 'db-only plugin tables' — applying a gift card at checkout adds a custom WooCommerce order-item type ('pw_gift_card', class WC_Order_Item_PW_Gift_Card via $order->add_item()) that the stock /wc/v3/orders REST controller never serializes at all (it only knows line_items/fee_lines/shipping_lines/coupon_lines/tax_lines). A live redemption was generated end-to-end (headless storefront checkout via the WooCommerce Store API) and the resulting order's full REST payload has ZERO trace of it: order.total drops by the redeemed amount, but discount_total/fee_lines/coupon_lines are all unchanged, so nothing in the standard response explains why. There is no order-meta fallback here the way there is for gift-card-issuance — this genuinely has no REST path at all, only a DB export."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Storage model [VERIFIED LIVE 2026-08-16, the reference store, v2.47]: gift-card PRODUCTS (catalog) are REST-visible as wc/v3 products of type pw-gift-card with denomination variations. UPDATED 2026-08-17 (poratus, VERIFIED LIVE): issued-card IDENTITY (code/amount/recipient) is reachable too, once positively observed on a completed order — see gift-card's issuance-is-core-meta-not-db-only pitfall. Only the ongoing balance/redemption ledger is genuinely db-only with no REST route at all.",
+    "The route /wc-pimwick/v1/pw-gift-cards previously recorded on the Wix-side sourceAliases (gift-cards/gift-card) does NOT exist: 404 rest_no_route, and no wc-pimwick namespace in the REST index [VERIFIED LIVE 2026-08-16 against free v2.47, re-confirmed 2026-08-17 on poratus]. Whether the separate PW Gift Cards Pro plugin registers such a surface is [NEEDS-VERIFICATION].",
+    "Plugin id basename differs from the directory: pw-woocommerce-gift-cards/pw-gift-cards, no .php suffix on this host's plugin list [VERIFIED LIVE 2026-08-16]. Never construct dir/dir.php.",
+    "Unauthenticated fingerprint: the storefront homepage loads /wp-content/plugins/pw-woocommerce-gift-cards/assets/dist/blocks.js?ver=2.47, so the asset-path signal works with no credentials [VERIFIED LIVE 2026-08-16].",
+    "Enumerating gift-card products via the {parentId}/variations child route depends on the sampled parent page containing the pw-gift-card product; the authoritative enumeration is GET /wc/v3/products?type=pw-gift-card (returned the product with X-WP-Total [VERIFIED LIVE 2026-08-16]).",
+    "RESOLVED 2026-08-17 (was NEEDS-VERIFICATION as of 2026-08-16, below): a gift-card PURCHASE order DOES carry PW recipient/message line-item meta once it actually completes. VERIFIED LIVE on poratus by generating 3 real orders via the WooCommerce REST API directly (POST /wc/v3/orders with the same pw_gift_card_amount/to/from/message meta the plugin's own checkout hook sets, then PUT status:completed — a status transition fires the same woocommerce_order_status_completed hook regardless of whether the order originated from checkout or the REST API) and confirming pw_gift_card_number appeared on completion. Prior note, for context: 'all 150 orders on the reference store were scanned ... and none contained PW keys — but the store has never sold a gift card, so there was no positive case to observe.'",
+    "Discovered 2026-08-17 (poratus): the plugin's checkout redeem widget ('Have a gift card?') is wired only to classic Cart/Checkout template hooks (woocommerce_before_checkout_form, woocommerce_review_order_before_order_total, woocommerce_cart_totals_before_order_total). A site using WooCommerce's Cart/Checkout BLOCKS (poratus does) never renders it at all — confirmed by finding no classic form markup and no localized pwgc nonce anywhere on the block-rendered /cart/ or /checkout/ pages. The plugin's own AJAX action (admin-ajax.php?action=pw-gift-cards-redeem) and Store API cart 'extensions.pw-gift-cards' data still work if invoked directly (verified by doing exactly that, via a temporary [woocommerce_cart]-shortcode page created solely to obtain a real nonce, then deleted) — but a real end customer on an unmodified block-checkout site currently has no way to redeem a card through the storefront UI at all."
+  ]
+}

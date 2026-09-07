@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "domain": "gift-cards",
+  "entity": "gift-card",
+  "displayName": "Gift Card",
+  "capability": "commerce.gift-cards",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Gift Card",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.pw-woocommerce-gift-cards.gift-card-activity",
+      "degradedField": "balance",
+      "pitfallCode": "balance-is-read-only",
+      "degradation": "warning"
+    }
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "giftCard",
+      "sourcePlugin": "woocommerce-gift-cards",
+      "routes": [
+        "/wc/v3/gift-cards"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "giftCard",
+      "sourcePlugin": "pw-woocommerce-gift-cards",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "high",
+      "note": "CORRECTED 2026-08-17 (live-verified on poratus, matching an independent 2026-08-16 finding already recorded in plugins/pw-woocommerce-gift-cards.json): the plugin has no REST namespace of its own -- /wc-pimwick/v1/pw-gift-cards does not exist. Issuance data (code, amount, recipient) rides as line_item meta_data on /wc/v3/orders once the order reaches processing/completed. Redemption/balance data has no REST or order-meta surface at all -- see that same profile's gift-card-activity entity."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Gift Cards",
+    "endpoint": "POST /gift-cards/v1/gift-cards",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only for redemption/transaction history, which has no public write surface, or for source-only fields such as the original card design."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "suppress-recipient-email-on-import",
+      "severity": "blocker",
+      "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder."
+    },
+    {
+      "code": "code-length-8-to-20",
+      "severity": "blocker",
+      "summary": "`giftCard.code` is constrained to 8-20 characters and is immutable. Source codes outside that range cannot be preserved, which breaks the code customers already hold; surface affected cards before import rather than silently rewriting them."
+    },
+    {
+      "code": "code-alphanumeric-only",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-08-17 (msid fd0ad9fb-d439-406f-8a00-b6c6ad0d95ab): `giftCard.code` also rejects any non-alphanumeric character outright — a hyphenated code returns `428 INVALID_CODE: \"Gift Card Code can only contain letters(A-z) and numbers(0-9)\"`, independent of the 8-20 length check above. This is a bigger deal than the length pitfall for sources whose default code format includes separators (e.g. PW WooCommerce Gift Cards' `XXXX-XXXX-XXXX-XXXX`) — EVERY such code is rejected as-is, not just outliers. Stripping non-alphanumeric characters produces an acceptable code (confirmed live: create + read-back succeeded), but that changes what the customer already holds — treat it the same as the length pitfall: report affected cards and get an explicit decision, don't strip silently by default."
+    },
+    {
+      "code": "full-code-returned-only-at-create",
+      "severity": "blocker",
+      "summary": "The create response is the only place the full unobfuscated code appears; Get/Query return it masked (`****-****-****-4444`) plus `codeSuffix`. Persist the code-to-id crosswalk in the same step as the create or it is unrecoverable."
+    },
+    {
+      "code": "balance-is-read-only",
+      "severity": "warning",
+      "summary": "Only `initialValue` is settable; `balance` is derived from transactions and there is no public adjust-balance method. A partly-spent card must either be created at its remaining value (loses face value and spend history) or created at face value and reduced via a redeem call (preserves both, adds a synthetic transaction). See spec 0042 Decision 5's ONE-policy-per-run rule (Policy A/B, never both for the same card) and lib/gift-card-balance-reconciliation.js's buildBalanceReconciliationReport() (fixed 2026-08-18) for the reporting-only drift check this implies — it never proposes a balance patch, only disable-and-replace or investigate, for exactly the no-adjust-balance-method reason stated here."
+    },
+    {
+      "code": "no-transaction-history-import",
+      "severity": "warning",
+      "summary": "No public method writes historical redemption transactions, so per-card spend history is not reproducible natively."
+    }
+  ],
+  "mappingGuidance": [
+    "Always send `source: \"MANUAL\"` — it is required, and it distinguishes imported cards from cards bought through a Wix order.",
+    "Pass a stable `idempotencyKey` derived from the source card id so a retried import cannot double-issue a card.",
+    "`expirationDate` is accepted at create, so original expiry dates are preserved.",
+    "Decide the partial-balance policy in the mapping plan and surface it in the execution plan; do not default silently.",
+    "Amounts are decimal strings with at most 2 decimal places, and currency is ISO-4217 alphabetic.",
+    "CORRECTED 2026-08-17 (VERIFIED LIVE): `currency` is a TOP-LEVEL field on the giftCard object, NOT nested inside `initialValue`. `{ giftCard: { initialValue: { amount, currency } } }` fails with `400 currency must not be empty`; the working shape is `{ giftCard: { initialValue: { amount }, currency, source, code, idempotencyKey } }`."
+  ],
+  "setupRequirements": [
+    "Wix Gift Card app installed",
+    "SCOPE.DC-ECOM-MEGA.MANAGE-ECOM"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/gift-card-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/create-gift-card"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/introduction"
+    },
+    {
+      "type": "wix-docs-search",
+      "path": "searched: gift card, stored value, voucher, store credit — across business-solutions/gift-cards and e-commerce/payments/gift-cards (2026-08-01)"
+    },
+    {
+      "type": "live-verification",
+      "path": "msid fd0ad9fb-d439-406f-8a00-b6c6ad0d95ab (poratus)",
+      "note": "2026-08-17: installed the Wix Gift Cards app (appDefId d80111c5-a0f4-47a8-b63a-65b54d774a27, per the 'About Apps Created by Wix' table — the site had no gift-card app installed at all, which is what a first create attempt surfaces as `428 RISE_ACCOUNT_DOES_NOT_EXIST_FOR_META_SITE`, not a code bug), then successfully created and read back a real gift card built by rp-target-wix/lib/gift-card-build.js from a real PW WooCommerce Gift Cards order (source-side generated the same day — see plugins/pw-woocommerce-gift-cards.json). This is what surfaced both the currency-placement correction above and the code-alphanumeric-only pitfall. Not exercised: Send Gift Card Email, Query/Search, redeem-at-Wix-checkout, or disabling/deleting a card (the one test card was left live on the site, same as the tax-region precedent in research/poratus-first-live-run-findings.md finding #30)."
+    }
+  ]
+}

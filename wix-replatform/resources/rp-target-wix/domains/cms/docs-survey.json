@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "domain": "cms",
+  "fetchedAt": "2026-08-11",
+  "roots": [
+    "api-reference/business-solutions/cms"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/data-collections",
+      "title": "Data Collections ",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections",
+      "group": "Collection Management",
+      "verdict": "claimed",
+      "refs": [
+        "cms/collection"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/data-collections-extension",
+      "title": "Data Collections Extension",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections-extension",
+      "group": "Collection Management",
+      "verdict": "not-relevant",
+      "reason": "Extends Wix-app collections with custom fields; app data is imported through the owning app’s native APIs, extension schemas are an app-side concern.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/data-permissions",
+      "title": "Data Permissions",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-permissions",
+      "group": "Collection Management",
+      "verdict": "not-relevant",
+      "reason": "Collection permission configuration; applied as part of cms/collection creation at setup, no migratable records of its own.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/data-sharing",
+      "title": "Data Sharing ",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-sharing",
+      "group": "Collection Management",
+      "verdict": "not-relevant",
+      "reason": "Cross-site collection sharing configuration; single-site migrations have no source equivalent.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/folders",
+      "title": "Folders",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/folders",
+      "group": "Collection Management",
+      "verdict": "not-relevant",
+      "reason": "Dashboard organization of collections; cosmetic, no source equivalent.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/indexes",
+      "title": "Indexes",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/indexes",
+      "group": "Collection Management",
+      "verdict": "not-relevant",
+      "reason": "Query-performance index configuration; optional post-import tuning, not source data.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/collection-management/wix-app-collections",
+      "title": "Wix App Collections",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/wix-app-collections",
+      "group": "Collection Management",
+      "verdict": "not-importable",
+      "reason": "App-owned collections are read-only through the Data API; writes go through the owning app’s native APIs — the KB’s native entities.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/data-items",
+      "title": "Data Items",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "cms/data-item",
+        "cms/reference"
+      ],
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/external-databases/external-database-connection",
+      "title": "External Database Connection",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/external-databases/external-database-connection",
+      "group": "External Databases",
+      "verdict": "not-relevant",
+      "reason": "Connects external databases at runtime; migrations import into native collections instead of leaving data external.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/external-databases/external-database-service-plugin",
+      "title": "External Database Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/external-databases/external-database-service-plugin",
+      "group": "External Databases",
+      "verdict": "not-relevant",
+      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/operations/background-tasks",
+      "title": "Background Tasks",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/background-tasks",
+      "group": "Operations",
+      "verdict": "not-relevant",
+      "reason": "Task status introspection utility, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/operations/backups",
+      "title": "Backups",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/backups",
+      "group": "Operations",
+      "verdict": "not-relevant",
+      "reason": "Site data backup/restore operations; operational tooling, not migratable records.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/operations/data-movement-jobs",
+      "title": "Data Movement Jobs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/data-movement-jobs",
+      "group": "Operations",
+      "verdict": "claimed",
+      "reviewedOn": "2026-08-11",
+      "refs": [
+        "cms/data-item"
+      ]
+    },
+    {
+      "id": "api-reference/business-solutions/cms/operations/data-sync-jobs",
+      "title": "Data Sync Jobs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/data-sync-jobs",
+      "group": "Operations",
+      "verdict": "not-relevant",
+      "reason": "Ongoing sync between collections/external sources; migrations are one-shot imports, not standing syncs.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/operations/site-data-usage",
+      "title": "Site Data Usage",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/site-data-usage",
+      "group": "Operations",
+      "verdict": "not-relevant",
+      "reason": "Quota/usage introspection; consumed by planning, not a data target.",
+      "reviewedOn": "2026-08-11"
+    },
+    {
+      "id": "api-reference/business-solutions/cms/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/skills",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "AI-skill documentation page, not a data surface.",
+      "reviewedOn": "2026-08-11"
+    }
+  ]
+}

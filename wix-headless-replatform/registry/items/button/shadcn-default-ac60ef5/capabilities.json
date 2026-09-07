@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "component-capabilities/1",
+  "component": {
+    "name": "button",
+    "revision": "shadcn-default-ac60ef5"
+  },
+  "contract": {
+    "name": "button",
+    "version": "button/v1"
+  },
+  "axes": [
+    {
+      "name": "variant",
+      "values": ["default", "destructive", "outline", "secondary", "ghost", "link"],
+      "default": "default",
+      "description": "Visual emphasis encoded by the component variant prop."
+    },
+    {
+      "name": "size",
+      "values": ["default", "sm", "lg", "icon"],
+      "default": "default",
+      "description": "Control dimensions encoded by the component size prop."
+    }
+  ],
+  "slots": [
+    { "name": "label", "kind": "text", "description": "Visible accessible button or link text." },
+    { "name": "icon", "kind": "icon", "description": "Optional source-backed or approved icon content." },
+    { "name": "accessibleName", "kind": "text", "description": "Accessible name required when visible text is absent." },
+    { "name": "href", "kind": "url", "description": "Preserved destination for the as-link composition." }
+  ],
+  "states": ["rest", "hover", "focus-visible", "disabled"],
+  "defaultComposition": "text",
+  "compositions": [
+    { "name": "text", "requiredSlots": ["label"], "description": "Text-only native button." },
+    { "name": "leading-icon", "requiredSlots": ["label", "icon"], "description": "Icon before visible text." },
+    { "name": "trailing-icon", "requiredSlots": ["label", "icon"], "description": "Icon after visible text." },
+    { "name": "icon-only", "requiredSlots": ["icon", "accessibleName"], "description": "Square icon button with a non-visible accessible name." },
+    { "name": "as-link", "requiredSlots": ["label", "href"], "description": "Native anchor rendered with button variants through Radix Slot." }
+  ],
+  "unsupportedCompositions": [
+    { "name": "loading-spinner", "reason": "Requires a separately approved spinner component and loading-state contract." },
+    { "name": "button-group", "reason": "Requires a separately approved group component and group semantics." },
+    { "name": "client-managed-toggle", "reason": "This revision is approved only as a statically rendered native control without hydrated state." }
+  ],
+  "constraints": [
+    {
+      "id": "icon-only-accessible-name",
+      "description": "An icon-only button must retain an evidence-backed accessible name.",
+      "appliesTo": ["composition:icon-only"],
+      "requires": ["slot:accessibleName"]
+    },
+    {
+      "id": "native-link-semantics",
+      "description": "A button-styled link must preserve its source href and native anchor semantics.",
+      "appliesTo": ["composition:as-link"],
+      "requires": ["slot:href", "slot:label"]
+    }
+  ],
+  "evidenceRefs": ["contract.md"]
+}

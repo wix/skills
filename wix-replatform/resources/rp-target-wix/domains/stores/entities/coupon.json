@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "domain": "stores",
+  "entity": "coupon",
+  "displayName": "Stores Coupon",
+  "capability": "commerce.coupons",
+  "target": {
+    "classification": "native-plus-cms",
+    "nativeEntity": "Stores Coupon",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "coupon",
+      "routes": [
+        "/wc/v3/coupons"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "coupon",
+      "routes": [
+        "Coupons API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Coupons",
+    "endpoint": "POST /stores/v2/coupons",
+    "writerId": "createCoupon",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Use for unsupported source constraints, audit detail, or manual setup notes."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "constraint-coverage",
+      "severity": "warning",
+      "summary": "Source coupon constraints may be narrower or differently modeled in Wix."
+    },
+    {
+      "code": "name-is-required-separately-from-code",
+      "severity": "blocker",
+      "summary": "VERIFIED live 2026-08-12: `name` is a required field distinct from `code` — omitting it 400s \"name.trim must not be empty\". A source coupon with no separate display name can default `name` to its `code`."
+    },
+    {
+      "code": "starttime-required-despite-looking-optional",
+      "severity": "blocker",
+      "summary": "VERIFIED live: omitting `startTime` does not mean \"no start restriction\" — Wix's own default resolves to epoch 0, which the API then rejects (\"date with value 0 got 0, expected more than 0\"). Always send an explicit startTime (the source coupon's creation date, or now if unavailable)."
+    },
+    {
+      "code": "non-freeshipping-requires-scope-or-minimum",
+      "severity": "blocker",
+      "summary": "VERIFIED live: any non-FreeShipping coupon (percentOffRate/moneyOffAmount/fixedPriceAmount) without a product/category `scope` AND without `minimumSubtotal > 0` 400s \"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed\". A source coupon with no real minimum spend and no product restriction has nothing genuine to put there — Wix does not model an unrestricted percent/fixed coupon. Default to a nominal minimumSubtotal (e.g. 0.01) as the closest faithful equivalent and record the substitution as a mapping gap; do not invent a real-looking minimum."
+    },
+    {
+      "code": "free-shipping-is-its-own-type-not-a-zero-percent-discount",
+      "severity": "warning",
+      "summary": "VERIFIED live: `freeShipping: true` is a distinct, valid coupon type exempt from the scope/minimumSubtotal requirement above. A source `free_shipping: true` flag (e.g. WooCommerce) must map to `freeShipping: true`, never to `percentOffRate: 0` — the latter creates a real, active, non-functional 0%-off coupon that does not actually grant free shipping."
+    }
+  ],
+  "mappingGuidance": [
+    "Prefer native coupons and record unsupported conditions as CMS shadow fields or setup gaps.",
+    "Required fields beyond `code`: `name` (default to `code` if the source has no separate display name) and `startTime` (default to the source coupon's creation date, or now)."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/coupon-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    
+    {
+      "type": "live-verification",
+      "path": "migrations/reference-run (2026-08-12): real POST /stores/v2/coupons against the live reference store; 4/4 coupons created and independently re-queried (3 percent/fixed-cart with a substituted nominal minimumSubtotal, 1 genuine freeShipping)."
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 4/4 coupons created and read back, corroborating the same day's reference-store verification independently"
+    }
+  ]
+}

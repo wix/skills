@@ -1,0 +1,144 @@
+name: forms/list-forms
+description: >-
+  Verifies the agent reads the REST List Forms reference — there is no recipe
+  for listing — then lists a site's forms with the required namespace query
+  parameter, reports them with their IDs, and knows that the default
+  enabled=true hides disabled forms. The site is seeded with one enabled and
+  one disabled form, so a single default listing is incomplete.
+triggerPrompt: >-
+  What forms does my Wix site have? List them with their IDs.
+tags: [forms]
+maxTokens: 400000
+# Two forms are seeded, one of them disabled, so a run that lists once with the default
+# enabled=true reports only half the site's forms. Bootstrap steps are fail-fast, so a broken
+# setup names itself instead of surfacing as a confused agent run.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Wix Forms (New) — a blank site has no forms app, and the create 400s without it
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 225dd912-7dea-4738-8688-4b8c6955ffc2
+      - label: seed an enabled contact form
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Contact form
+            namespace: wix.form_app.form
+            formFields:
+              - id: 192371c5-f45d-45f5-880f-e7571a3cf3d0
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_1923
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+              - id: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f
+                identifier: SUBMIT_BUTTON
+                fieldType: DISPLAY
+                displayOptions:
+                  displayFieldType: PAGE_NAVIGATION
+                  pageNavigationOptions: { submitText: Send }
+            steps:
+              - id: 3194a1be-3053-4fa2-b1a5-9c14baf627b1
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: 192371c5-f45d-45f5-880f-e7571a3cf3d0, row: 0, column: 0, width: 12, height: 1 }
+                      - { fieldId: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f, row: 1, column: 6, width: 6, height: 1 }
+      - label: seed a second form, disabled — invisible to a default listing
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Newsletter signup
+            namespace: wix.form_app.form
+            enabled: false
+            formFields:
+              - id: c4668719-180a-4ffe-8c60-3dbc11a9843d
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_c466
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+            steps:
+              - id: fb159d38-591e-432e-9b27-6bd6d7c493bb
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: c4668719-180a-4ffe-8c60-3dbc11a9843d, row: 0, column: 0, width: 12, height: 1 }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked what forms their Wix site has, with IDs. The site holds
+      two forms in the wix.form_app.form namespace: "Contact form" (enabled)
+      and "Newsletter signup" (disabled).
+
+      Pass if the response:
+      - lists the site's forms by calling
+        GET /form-schema-service/v4/forms with the required
+        `?namespace=wix.form_app.form` query parameter, AND
+      - reports each form's name together with its form ID, AND
+      - accounts for the disabled form — either by listing a second time with
+        `enabled=false` and reporting both forms, or by telling the user the
+        default listing covers enabled forms only and offering to check.
+
+      Fail if the response:
+      - omits the namespace query parameter, or answers a resulting 400 by
+        reshaping the request instead of adding the parameter, OR
+      - reports only the enabled form as if it were the whole site, with no
+        mention that disabled forms are excluded, OR
+      - invents form names or IDs rather than reading them from the response,
+        OR
+      - deletes, disables or otherwise modifies any form — the request is
+        read-only.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not just the final answer.
+
+      Pass if:
+      - the agent read the REST List Forms reference
+        (`crm/forms/form-schemas/list-forms`) before composing the call —
+        listing has no management recipe, so the reference is the source, AND
+      - it used the listing endpoint rather than guessing IDs or scanning an
+        index, AND
+      - every API detail it states (endpoint, query parameters, the enabled
+        default) traces to a doc it read.
+
+      A read-only listing that 400s costs nothing and self-corrects, so a
+      retry is not itself a failure.
+
+      Fail if:
+      - it never arrived at `?namespace=wix.form_app.form`, OR
+      - it called a write endpoint at any point — the request is read-only, OR
+      - it hallucinated endpoints, query parameters or namespaces.

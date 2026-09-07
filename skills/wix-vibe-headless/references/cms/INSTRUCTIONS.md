@@ -2,9 +2,12 @@
 
 Unlike the other verticals, CMS ships **no UI**. A CMS is schema-driven — every collection is
 different — so there are no meaningful "list/detail" components to hand you. You **build the UI
-yourself** (list, detail, home, forms) in your own framework and design tokens, calling the shipped
-**utils**. Everything talks to Wix directly over the public `WIX_CLIENT_ID` (anonymous visitor token)
-using the official Wix Data endpoints — never hand-build a Wix Data URL, never mock items.
+yourself** (list, detail, home) in your own framework and design tokens, calling the shipped
+**utils**. **A visitor-fillable form is the `forms` vertical, not `cms`** — come here only when the
+app must read the entries back (a public gallery, a listing, a member's "my submissions"); a visitor
+cannot read Forms submissions. Everything talks to Wix directly over the public `WIX_CLIENT_ID`
+(anonymous visitor token) using the official Wix Data endpoints — never hand-build a Wix Data URL,
+never mock items.
 
 ## What ships (utils only)
 
@@ -145,7 +148,7 @@ Validate the mime type and the size there as well.
 
 ## Fallback — beyond the helpers
 Need something the helpers don't cover? Call it yourself with `wixApiRequest`, but look up the exact
-endpoint/method/body in the official Wix reference first (or use the `wix-docs` skill) — never guess.
+endpoint/method/body in the official Wix reference first (or use the documentation skill available in your environment) — never guess.
 - Data Items API: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items.md
 - Partial update (Patch): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
 - Upsert by id (Save): https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/save-data-item.md

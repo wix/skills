@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "plugin": "free-gifts-for-woocommerce",
+  "displayName": "Free Gifts for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://woocommerce.com/products/free-gifts-for-woocommerce/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.coupons",
+    "commerce.free-gift-rules"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "free-gifts-for-woocommerce/free-gifts-for-woocommerce.php"
+    ],
+    "assetPathSlugs": [
+      "free-gifts-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "coupon-gift-rule-definition",
+      "capability": "commerce.coupons",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": ["stores/coupon"],
+      "pitfalls": [
+        {
+          "code": "plugin-identity-ambiguous",
+          "severity": "warning",
+          "summary": "Two distinct plugins both document an install folder literally named `free-gifts-for-woocommerce`: the closed-source WooCommerce.com Marketplace extension 'Free Gifts for WooCommerce' (woocommerce.com/products/free-gifts-for-woocommerce/, active development through v12.8.0 as of 2025-12-19 per wpspring.com's changelog mirror), and the free wordpress.org plugin now listed under a DIFFERENT current slug, `free-gifts-product-for-woocommerce` ('Free Gift Product For WooCommerce'). This profile assumes the WooCommerce.com Marketplace extension, matching both the requested slug and the existing `fgf` alias in fingerprint-aliases.json — but neither plugin's source was reachable (closed/paid, not GitHub-mirrored; wordpress.org network fetches failed in the research pass behind this profile). Re-verify plugin identity against the live site's `GET /wp/v2/plugins` name/description before trusting this profile's specifics.",
+          "unverified": true
+        },
+        {
+          "code": "rest-crud-added-2025-unverified-route",
+          "severity": "warning",
+          "summary": "Per the vendor's own changelog (v12.2.0, released 2025-07-02, mirrored at wpspring.com/free-gifts-for-woocommerce-changelog/): 'REST API endpoints support was added to enable full CRUD operation for Free Gift rule(s) and Master Log', with a response-key rename in the same release. This means current installs (v12.2.0+) may have a genuine plugin-rest channel for rule definitions — a materially better position than woo-discount-rules ever had. No route path, namespace, or auth requirement was discoverable without source access (closed-source, no live site to probe). Classified admin-page-only here as the conservative default; the highest-value follow-up for this profile is a live `GET /wp-json` route-index check on an actual install running v12.2.0+ before assuming no REST path.",
+          "unverified": true
+        },
+        {
+          "code": "admin-page-not-reachable-with-application-password",
+          "severity": "blocker",
+          "summary": "Coupon Gift is standing configuration and maps to a product-scoped Wix coupon, not an Automatic Discount. The source rule is still admin-page-only unless the unverified REST CRUD route is present; Application Passwords cannot authenticate a wp-admin settings-page render.",
+          "blocked": [
+            {
+              "kind": "user-file",
+              "resolution": "First check whether the live site's REST index exposes a Free Gifts namespace (v12.2.0+ may have one). If not, ask the site owner to transcribe or screenshot each Coupon Gift rule, including its code, trigger threshold, and eligible gift product. Rebuild it as a product-scoped Wix coupon.",
+              "declined": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "entity": "automatic-or-bogo-gift-rule-definition",
+      "capability": "commerce.free-gift-rules",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "different-product-gift-has-no-confirmed-native-target",
+          "severity": "blocker",
+          "summary": "Automatic Gift and Buy X Get Y grant a different product after a trigger. Wix DiscountRule QUANTITY_BASED discounts the same items counted by its trigger; no native target for granting a different product is confirmed. Keep this capability pending rather than routing it to ecom/discount-rule or stores/coupon."
+        },
+        {
+          "code": "admin-page-not-reachable-with-application-password",
+          "severity": "blocker",
+          "summary": "The rule definitions are admin-page-only unless the vendor's unverified v12.2.0+ REST CRUD route is present. Application Passwords cannot authenticate a wp-admin settings-page render.",
+          "blocked": [
+            {
+              "kind": "user-file",
+              "resolution": "First check whether the live site's REST index exposes a Free Gifts namespace. If not, ask the site owner to transcribe or screenshot each Automatic Gift and Buy X Get Y rule so the unsupported behavior is visible at mapping review.",
+              "declined": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Functional scope (vendor docs, woocommerce.com/document/free-gifts/): Coupon Gift is standing configuration mapped to stores/coupon; Automatic Gift and Buy X Get Y are tracked separately as the pending commerce.free-gift-rules capability; Manual Gift is a merchant action on an individual order, not standing configuration or an entity to migrate.",
+    "Vendor docs and third-party summaries consistently describe the applied gift as landing on the order as a real $0.00 line item for the gift product (either via a zero-price line or a $0 coupon restricted to that product) — this is NOT a distinct entity here because a $0 product line item already migrates generically through the existing commerce.order-line-items capability (ecom/order-line-item, sourceEntity woocommerce:order_line_item, confidence high) with no plugin-specific channel required. What is NOT captured anywhere in this profile is a marker distinguishing 'this $0 line was a promotional gift' from 'the merchant manually priced this product at $0' — no meta key was found (no source access); if a future live run finds one (search sampled order line_items[].meta_data for anything gift-related), add it here as a core-meta entity under a new applied-discount-style capability rather than folding it into commerce.order-line-items.",
+    "fingerprint-aliases.json already maps the observed `fgf` asset-path token to `free-gifts-for-woocommerce`, promoting that otherwise named-only signal to this profile's deterministic detection path.",
+    "This profile has not been verified against a running installation of the assumed WooCommerce.com Marketplace extension. Every behavioral claim above is vendor-documentation-tier, not source- or live-verified."
+  ]
+}

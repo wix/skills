@@ -19,7 +19,7 @@ Each built vertical has three parts (the latter two scoped to `create`/backend-o
 
 ## Built verticals — installed, seeded, and described in the Handoff
 
-The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants · portfolio** (with `forms` as the floor when nothing richer is named).
+The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · rentals · pricing-plans · restaurants · portfolio** (with `forms` as the floor when nothing richer is named).
 
 ### stores — sell products
 - **Intent:** sell / shop / products / catalog / merch / store.
@@ -63,8 +63,16 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 ### bookings — appointments and classes
 - **Intent:** book / appointment / schedule / class / session / reserve a slot — a **service or appointment with a provider** (a stylist, trainer, tutor, clinic, studio).
 - **Not bookings — route to `restaurants` instead:** a **table at a restaurant** is a Table Reservations concern, not a bookable service; and a **special dining occasion guests reserve** — a wine tasting, cheese pairing, chef's table, or tasting-menu evening at a restaurant — is a **restaurants → Table Reservations *experience*** (see the restaurants entry), **not** a bookings service. Reach for `bookings` only when what's booked is a standalone service/class with a provider, never a seat at a restaurant.
+- **Not bookings — route to `rentals` instead:** when the **customer chooses how long** they want something, and what's booked is a **thing rather than a person** — a room by the hour, a desk for three days, a van for the weekend. The tell is a duration *range* the customer picks within. A 60-minute haircut is `bookings`; a meeting room booked for 1–8 hours is `rentals`.
 - **Required site features:** a list of services; a page per service; a way to pick a time and book it.
 - **Implementation checklist:** show each service's name, duration, and price; show the staff or provider; show the available time slots; a book action; a confirmation after booking.
+
+### rentals — rent a room, vehicle, or piece of equipment
+- **Intent:** rent / rental / hire / lease / "by the hour" / "by the day" / hourly or daily rate / **customer picks how long** — plus the things people rent: meeting room, conference room, co-working desk, hot desk, studio, hall, venue, workspace, vehicle, van, car, boat, bike, equipment, gear, camera, tool. Reach for it whenever what's booked is a **resource** (a room, vehicle, or item) for a **length the customer selects within a range**, not a fixed session with a provider.
+- **Not rentals — route to `bookings` instead:** a session whose length the **business** fixes, delivered by a **person** (a 60-minute massage, a class, a consultation). The word "rent" in a brief sometimes describes the *business model* ("we rent out desks") while the thing being sold is really a fixed session — decide on the **duration model**, not the vocabulary.
+- **Required site features:** a list of rentable items; a page per item; a way to pick a start **and a length** (an end time or an end date) and book it. A rental is priced per hour or per day, so the site must show the **computed total for the chosen length** before the customer commits — a per-unit price alone is not enough.
+- **Implementation checklist:** show each item's name, description, and **per-hour or per-day rate** (say which); show the item's attributes where they exist (capacity, amenities, equipment type); show available start times, then the valid lengths for the chosen start; show the running total for the selected length; a book action; a confirmation after booking.
+- **One unit type per item** — an item is rented by the hour *or* by the day, never both. When a brief wants both for the same room, that's **two** rentals, each with its own rate.
 
 ### pricing-plans — memberships and subscriptions
 - **Intent:** membership / subscription / plans / paid tiers.

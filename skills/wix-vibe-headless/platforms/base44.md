@@ -6,57 +6,43 @@ initial prompt, and the Wix connector is already configured; use it for all admi
 Your Wix client id is in your prompt — a public, buyer-facing credential (anonymous visitor tokens
 only), safe in the frontend; use it directly for the Wix client setup.
 
-> **`wix-vibe-headless` and `wix-docs` are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
+> **The Wix skills installed below are the complete build and seed path for this app — the Wix connector supplies the token for admin API calls.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).**
 
-Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3).
+**Banner enabled for this entry flow:** mount `<WixManageBanner/>` once in the Layout, above
+the header in the fixed top region, per the vertical instructions. It is preview-only.
+
+Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see STEP 3).
 
 ## STEP 1 — Install the Wix skills locally
 
-Install two skills — they land under `.agents/skills/`:
-- **`wix-vibe-headless`** — the client build **and** seed guide (STEPs 3–4): your main source of
-  truth. Seeding lives here too, per-vertical under `references/<vertical>/seed/`.
-- **`wix-docs`** — a **fallback**: search + read the Wix API docs for anything `wix-vibe-headless`
-  doesn't cover.
+Install three skills under `.agents/skills/`: **`wix-vibe-headless`** (the client build + seed guide — your main source of truth), **`wix-manage`** (REST recipes to manage/configure the site), and **`wix-base44-connector`** (site context + API-doc discovery).
 
-Install via the skills CLI — run this through exec_tool, exactly as written. It installs the two
-skills, then runs `deploy.cjs <vertical…> --client-id … --metasite-id …` (lays the shared transport +
-**each** listed vertical's REST scaffolds and UI client into `src/`, writes `wix-config.js` from
-those two ids — the site id from your prompt always wins, so pass both) and `pin-agents-md.cjs`
-(pins the project's AGENTS.md
-note so later turns keep the rules).
+Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
 
-**Set `VERTICALS`** to what the prompt asks for (too vague to tell? do STEP 2 first, then set it):
+**Set `VERTICALS`** to what the prompt asks for — **list every vertical the app uses**, since several often join the main one (too vague to tell? do STEP 2 first, then set it). Adding one later: re-run with the extra name.
 
 | vertical | pick it when the app needs to |
 |---|---|
 | `storefront` | sell products |
 | `bookings` | take appointments or service bookings |
+| `rentals` | rent out an item for a length the customer picks (by the hour or by the day) |
 | `blog` | publish articles |
 | `events` | publish events with RSVPs or ticket sales |
 | `portfolio` | showcase creative work |
-| `pricing-plans` | sell memberships or subscriptions |
+| `pricing-plans` | sell memberships or subscriptions, incl. paid enrollment/access to an online course or program — but an "online store selling courses" is still `storefront` |
 | `restaurants` | show a menu, take orders, book tables |
 | `members` | let visitors sign in — this is **auth** |
-| `cms` | keep its own structured content — user submissions, galleries, listings, anything the rows above don't already cover |
-
-**List every vertical the app actually uses** — one is the common case, and name more when the intent
-spans them, so all their scaffolds come from the skill rather than being written by hand. Anything the
-app stores itself needs `cms`, and anything where visitors sign in needs `members`, so those two often
-join whichever vertical is the main one. Adding one later is fine too: re-run with the extra name (the
-copy only fills in missing files).
+| `forms` | any visitor-fillable form: contact, signup, waitlist, application, survey, quote request (an event RSVP is `events`; a per-service booking form is `bookings`) |
+| `cms` | structured content the app reads back — galleries, listings, "my submissions" (a visitor-fillable form is `forms`) |
 
 ```js
 const { execSync } = require('child_process');
 const { existsSync, readdirSync } = require('fs');
-const VERTICALS = ['storefront'];        // ← set from the prompt; list every vertical the app uses
-// const VERTICALS = ['members', 'cms']; // ← e.g. visitors sign in AND the app stores what they submit
-// COPY these two straight from the prompt — deploy writes them into src/rest/wix-config.js, so never
-// retype either one into a file by hand afterwards.
-const WIX_CLIENT_ID = '<client id from the prompt>';
+const VERTICALS = ['storefront'];         // ← set from the prompt; list every vertical the app uses (e.g. ['members','cms'])
+const WIX_CLIENT_ID = '<client id from the prompt>';   // copy both from the prompt — deploy writes them into src/rest/wix-config.js
 const WIX_METASITE_ID = '<site id from the prompt>';
 const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-docs']) {
-  // Some hosts install these at app creation; keep the copy that's already there.
+for (const skill of ['wix-vibe-headless', 'wix-manage', 'wix-base44-connector']) {
   if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
   try {
     const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
@@ -65,19 +51,12 @@ for (const skill of ['wix-vibe-headless', 'wix-docs']) {
       : out.includes('No valid skills') ? 'not_found' : 'unknown';
   } catch (e) { results[skill] = 'error: ' + e.message; }
 }
-// Deploy the shared transport + each listed vertical's scaffolds/UI into src/, and write
-// wix-config.js. The site id you pass wins over anything already in that file.
 const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs ${VERTICALS.join(' ')} --client-id ${WIX_CLIENT_ID} --metasite-id ${WIX_METASITE_ID}`, { cwd: '/app' }).toString();
-// Pin the project's AGENTS.md note (idempotent) so the rules survive after this doc leaves context.
 const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
 return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
 ```
 
-Read the skills with **`read_file`** (rooted at `/app` → workspace-relative path, e.g.
-`.agents/skills/wix-vibe-headless/SKILL.md`; absolute `/app/...` fails — exec_tool/shell wants
-absolute). Prefer it over `cat`/exec_tool and web-fetch, which cap output (~5000 chars) and
-truncate. Always read from **`.agents/skills/` exactly**, on later turns too — don't guess; ignore
-stray copies like `agent/skills/`.
+Read skills with **`read_file`** using workspace-relative paths (e.g. `.agents/skills/wix-vibe-headless/SKILL.md`) — absolute `/app/...` fails. Always read from `.agents/skills/` exactly on every turn; ignore stray copies like `agent/skills/`.
 
 ## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
@@ -105,12 +84,11 @@ fails or shows nothing relevant, ask the user what they offer.
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — the single source of
 truth for how the client is built.
 
-**REST scaffolds are already in `src/rest/`** (STEP 1), `wix-config.js` among them — both ids are in
-it, so there is nothing to write here. Some
-verticals also ship a **ready UI client** under `src/` (STEP 1 deployed it) — theme + wire it per
-`INSTRUCTIONS.md`, don't rebuild. STEP 1 already deployed these files — **don't `read_file` the
-deployed component/page source to inspect them**; every field shape is in `INSTRUCTIONS.md`. Read a
-deployed file only on a real fallback (an error, or a field the snippets don't cover).
+**REST scaffolds + `wix-config.js` are already in `src/rest/`** (STEP 1 wrote them). Some verticals also ship a ready UI client in `src/` — theme + wire it per `INSTRUCTIONS.md`, don't rebuild. **Don't `read_file` deployed files** — every field shape is in `INSTRUCTIONS.md`; read one only on a real error or gap.
+
+**⚠️ `forms` is the ONE vertical that does NOT run in parallel with STEP 4** — its UI is gated on a
+file the seed writes. Read its `INSTRUCTIONS.md` **Prerequisites** before building any form UI; seed
+it first (STEP 4) and build the rest of the app meanwhile.
 
 **`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
 (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
@@ -118,68 +96,29 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 ## STEP 4 — Manage and seed the business
 
-**Never delete or clean up anything on the user's site — seeding is additive only.** It's a live
-user-owned business, so never delete or overwrite existing content, even apparent sample data. If a
-cleanup truly seems needed, ask the user first.
-
 Seed by calling your vertical's ready-made seed module — read
-`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and load its `seed-*.js` via
-its loader snippet (build-time exec_tool); call its functions with your data. Gaps or an unexpected
-shape → the **`wix-docs`** skill.
+`.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and follow it (the loader
+snippet, admin connector token, entity images with the final `media.base44.com` url, and every field
+shape are there). Gaps or an unexpected shape → the documentation skill available in your environment.
+Seeding is **admin-only** — not part of the client, which is built solely per the `wix-vibe-headless` skill.
 
-**Auth for these admin calls is the already-configured Wix connector — nothing else.** Get its
-access token and send it as a bearer token; do **not** hand-roll a token getter (e.g.
-`getAdminToken()`), install/run the Wix CLI (`@wix/cli`), or device-login (no managed-project auth
-flow applies to Base44):
-
-```js
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-// then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
-```
-
-Inline via exec_tool, `base44` is already declared — use it directly; do **not** import
-`@base44/sdk`, re-declare it, or call `createClient()` (that's for standalone `.js` files only;
-inline it throws *"Identifier 'base44' has already been declared."*).
-
-**Entity images.** For image-bearing entities (store products, blog covers, bookings services,
-restaurant items, portfolio projects, event heroes, CMS items), generate with **Base44's built-in
-image generation**, then attach via the vertical seed module's image-attach step — `wix-docs` if the
-module doesn't cover that entity.
-
-**Seed images with the FINAL url, in one call.** Seeding writes to Wix, so use the real
-`https://media.base44.com/...` url from the **completed** `generate_image` result and pass it straight
-into your single `setupStore`/seed call (images included). A still-generating `/__generating__/<id>.png`
-placeholder is not a real url — Wix can't fetch it. `generate_image` runs in the background while you
-build the client, so the urls are ready by the time you seed.
-
-The connector + seeding are **admin-only** (STEP 4) — **not** part of the client, which is built
-solely per the `wix-vibe-headless` skill.
-
-## Parallelism
-
-Run STEP 3 and STEP 4 in parallel — building and seeding are independent. Within each, also
-parallelize independent work (API calls, multiple entities).
+- **Additive only:** never delete or overwrite the user's content, even apparent sample data; ask first if a cleanup truly seems needed.
+- Inline in exec_tool, `base44` is already declared — use it directly; do **not** `import @base44/sdk`, re-declare it, or call `createClient()` (throws *"Identifier 'base44' has already been declared."*).
 
 ## STEP 5 — Wrap up
 
-Once the site is built and seeded:
+**Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (your metasite id) to complete setup in Wix.
 
-1. **Mount the preview-only manage banner** (required; links the app to its Wix back office; shipped,
-   self-gates to the preview, never on the published site): render the `<WixManageBanner/>` component
-   in your Layout's fixed top region, above the header, per your vertical's INSTRUCTIONS STEP 4.
-2. **Ask the user to open** `https://manage.wix.com/dashboard/{metaSiteId}` (substitute your
-   metasite id) to complete setup in Wix (required), and mention that the preview shows a dismissible
-   top banner linking to this same dashboard.
-
-**Preview briefly, don't chase images.** A quick render check is enough. Generated images show as
-alt-text/broken in this preview because `generate_image` returns a `/__generating__/…` placeholder —
-the platform swaps every placeholder for the final url **automatically at the end of the turn**
-(failed ones get a stock fallback), in your own components and the seeded data alike. So a broken
-image in the preview is expected and already handled: **do NOT swap, re-seed, re-attach, or debug
-image urls.** Hand-editing a placeholder `src` is wasted work and just risks find_replace errors on
-urls that are about to be replaced anyway. Leave them and finish.
+**Don't chase images.** A `/__generating__/…` placeholder is swapped for the final url automatically at turn end — do **not** edit, re-seed, or debug image urls.
 
 ## Later admin requests
 
 For any later admin/management request, work as in STEP 4: your vertical's seed module first, else
-`wix-docs` — all over the connector.
+consult official Wix API documentation using the documentation skill available in your environment.
+Keep admin calls on the connected Wix connector.
+
+**A change to what the business data COLLECTS is one of these, however UI it sounds** — a new form
+field, product option or service setting. Change it on Wix first per the vertical's `seed/SEED.md`,
+then edit the client against the verified result.
+
+version: v1341

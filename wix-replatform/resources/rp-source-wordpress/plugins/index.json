@@ -1,0 +1,756 @@
+{
+  "schemaVersion": 1,
+  "plugins": {
+    "advanced-custom-fields": {
+      "path": "plugins/advanced-custom-fields.json",
+      "displayName": "Advanced Custom Fields",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.custom-field-schema",
+        "content.custom-fields"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "core-embedded",
+        "export-file"
+      ],
+      "requiresCredentials": false
+    },
+    "back-in-stock-notifier-for-woocommerce": {
+      "path": "plugins/back-in-stock-notifier-for-woocommerce.json",
+      "displayName": "Back In Stock Notifier for WooCommerce | WooCommerce Waitlist Pro",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.back-in-stock-notifications"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "contact-form-7": {
+      "path": "plugins/contact-form-7.json",
+      "displayName": "Contact Form 7",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.form-definitions"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "plugin-rest",
+        "plugin-rest-child"
+      ],
+      "requiresCredentials": false
+    },
+    "facebook-for-woocommerce": {
+      "path": "plugins/facebook-for-woocommerce.json",
+      "displayName": "Meta for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.facebook-catalog-sync"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "free-gifts-for-woocommerce": {
+      "path": "plugins/free-gifts-for-woocommerce.json",
+      "displayName": "Free Gifts for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.coupons",
+        "commerce.free-gift-rules"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "admin-page-only"
+      ],
+      "requiresCredentials": false
+    },
+    "mailpoet": {
+      "path": "plugins/mailpoet.json",
+      "displayName": "MailPoet",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "crm.email-subscription"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "membership-for-woocommerce": {
+      "path": "plugins/membership-for-woocommerce.json",
+      "displayName": "Membership For WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.subscription-contracts",
+        "commerce.subscription-plans"
+      ],
+      "entityCount": 4,
+      "channels": [
+        "core-meta",
+        "export-file"
+      ],
+      "requiresCredentials": true
+    },
+    "mwb-bookings-for-woocommerce": {
+      "path": "plugins/mwb-bookings-for-woocommerce.json",
+      "displayName": "WPS Bookings for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.bookable-service-add-ons",
+        "commerce.bookable-services",
+        "commerce.bookings"
+      ],
+      "entityCount": 4,
+      "channels": [
+        "core-cpt",
+        "core-embedded",
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "pricing-deals-for-woocommerce": {
+      "path": "plugins/pricing-deals-for-woocommerce.json",
+      "displayName": "VarkTech Pricing Deals for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.applied-discounts",
+        "commerce.discount-rules"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "admin-page-only",
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
+    "pw-woocommerce-gift-cards": {
+      "path": "plugins/pw-woocommerce-gift-cards.json",
+      "displayName": "PW WooCommerce Gift Cards",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.gift-card-products",
+        "commerce.gift-cards"
+      ],
+      "entityCount": 3,
+      "channels": [
+        "core-meta",
+        "db-only",
+        "plugin-rest-child"
+      ],
+      "requiresCredentials": false
+    },
+    "seo-by-rank-math": {
+      "path": "plugins/seo-by-rank-math.json",
+      "displayName": "Rank Math SEO",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.seo-meta"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "export-file"
+      ],
+      "requiresCredentials": false
+    },
+    "seriously-simple-podcasting": {
+      "path": "plugins/seriously-simple-podcasting.json",
+      "displayName": "Seriously Simple Podcasting",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.podcast"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "subscriptions-for-woocommerce": {
+      "path": "plugins/subscriptions-for-woocommerce.json",
+      "displayName": "Subscriptions For WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.subscription-contracts",
+        "commerce.subscription-products"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "core-meta",
+        "plugin-rest"
+      ],
+      "requiresCredentials": true
+    },
+    "the-events-calendar": {
+      "path": "plugins/the-events-calendar.json",
+      "displayName": "The Events Calendar",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.bookable-services",
+        "content.event-categories",
+        "content.events"
+      ],
+      "entityCount": 5,
+      "channels": [
+        "core-cpt",
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "woo-checkout-field-editor-pro": {
+      "path": "plugins/woo-checkout-field-editor-pro.json",
+      "displayName": "Checkout Field Editor for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.checkout-custom-fields"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "admin-page-only"
+      ],
+      "requiresCredentials": false
+    },
+    "woo-discount-rules": {
+      "path": "plugins/woo-discount-rules.json",
+      "displayName": "Discount Rules for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.applied-discounts",
+        "commerce.discount-rules"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "admin-page-only",
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "woo-product-bundle": {
+      "path": "plugins/woo-product-bundle.json",
+      "displayName": "WPC Product Bundles for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.product-bundles"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "woocommerce-gift-cards": {
+      "path": "plugins/woocommerce-gift-cards.json",
+      "displayName": "WooCommerce Gift Cards",
+      "profileVersion": "2026-08",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.gift-cards"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "woocommerce-other-payment-gateway": {
+      "path": "plugins/woocommerce-other-payment-gateway.json",
+      "displayName": "Custom Payment Gateway for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.payment-gateway-notes"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "plugin-rest-child"
+      ],
+      "requiresCredentials": false
+    },
+    "woocommerce-product-addon": {
+      "path": "plugins/woocommerce-product-addon.json",
+      "displayName": "PPOM for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.order-addon-values",
+        "commerce.product-addon-fields"
+      ],
+      "entityCount": 3,
+      "channels": [
+        "core-meta",
+        "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "woocommerce-progressive-discounts": {
+      "path": "plugins/woocommerce-progressive-discounts.json",
+      "displayName": "Progressive Discounts for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.discount-rules"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "admin-page-only"
+      ],
+      "requiresCredentials": false
+    },
+    "wordpress-seo": {
+      "path": "plugins/wordpress-seo.json",
+      "displayName": "Yoast SEO",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.seo-meta"
+      ],
+      "entityCount": 4,
+      "channels": [
+        "core-embedded",
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "wpc-composite-products": {
+      "path": "plugins/wpc-composite-products.json",
+      "displayName": "WPC Composite Products for WooCommerce",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.composite-products"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "wpforms-lite": {
+      "path": "plugins/wpforms-lite.json",
+      "displayName": "WPForms Lite",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.form-definitions"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "db-only",
+        "export-file"
+      ],
+      "requiresCredentials": false
+    }
+  },
+  "routeIndex": {
+    "/wc-instocknotifier/v3/list_subscriber": [
+      "back-in-stock-notifier-for-woocommerce"
+    ],
+    "/contact-form-7/v1/contact-forms": [
+      "contact-form-7"
+    ],
+    "/mailpoet/v1/subscribers": [
+      "mailpoet"
+    ],
+    "/wps-mfw/get-membership-offers": [
+      "membership-for-woocommerce"
+    ],
+    "/wps-mfw/get-user-membership": [
+      "membership-for-woocommerce"
+    ],
+    "/wps-bfw/v1/bookings": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "/wp/v2/mwb_booking_cost": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "/wp/v2/mwb_booking_service": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "/ssp/v1/episodes": [
+      "seriously-simple-podcasting"
+    ],
+    "/ssp/v1/*": [
+      "seriously-simple-podcasting"
+    ],
+    "/wsp-route/v1/wsp-view-subscription": [
+      "subscriptions-for-woocommerce"
+    ],
+    "/tribe/events/v1/events": [
+      "the-events-calendar"
+    ],
+    "/tribe/events/v1/venues": [
+      "the-events-calendar"
+    ],
+    "/tribe/events/v1/organizers": [
+      "the-events-calendar"
+    ],
+    "/wp/v2/tribe_events_cat": [
+      "the-events-calendar"
+    ],
+    "/wp/v2/tribe_events": [
+      "the-events-calendar"
+    ],
+    "/wc/v3/gift-cards": [
+      "woocommerce-gift-cards"
+    ],
+    "/ppom/v1/admin/field-groups/context": [
+      "woocommerce-product-addon"
+    ],
+    "/ppom/v1/nonces/file": [
+      "woocommerce-product-addon"
+    ],
+    "/wpforms/v1/setup-wizard/hydrate": [
+      "wpforms-lite"
+    ]
+  },
+  "namespaceIndex": {
+    "back-in-stock/v1": [
+      "back-in-stock-notifier-for-woocommerce"
+    ],
+    "wc-instocknotifier/v3": [
+      "back-in-stock-notifier-for-woocommerce"
+    ],
+    "contact-form-7/v1": [
+      "contact-form-7"
+    ],
+    "mailpoet/v1": [
+      "mailpoet"
+    ],
+    "wps-mfw": [
+      "membership-for-woocommerce"
+    ],
+    "wps-bfw/v1": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "rankmath/v1": [
+      "seo-by-rank-math"
+    ],
+    "ssp/v1": [
+      "seriously-simple-podcasting"
+    ],
+    "wsp-route/v1": [
+      "subscriptions-for-woocommerce"
+    ],
+    "tribe/events/v1": [
+      "the-events-calendar"
+    ],
+    "tec/v1": [
+      "the-events-calendar"
+    ],
+    "ppom/v1": [
+      "woocommerce-product-addon"
+    ],
+    "wpforms/v1": [
+      "wpforms-lite"
+    ]
+  },
+  "restBaseIndex": {
+    "mwb_booking_cost": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "mwb_booking_service": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "podcast": [
+      "seriously-simple-podcasting"
+    ],
+    "tribe_events": [
+      "the-events-calendar"
+    ],
+    "tribe_venue": [
+      "the-events-calendar"
+    ],
+    "tribe_organizer": [
+      "the-events-calendar"
+    ],
+    "tribe_events_cat": [
+      "the-events-calendar"
+    ]
+  },
+  "recordPropertyIndex": {
+    "acf": [
+      "advanced-custom-fields"
+    ],
+    "_acf_changed": [
+      "advanced-custom-fields"
+    ],
+    "_wc_facebook_sync_enabled": [
+      "facebook-for-woocommerce"
+    ],
+    "fb_visibility": [
+      "facebook-for-woocommerce"
+    ],
+    "_wc_facebook_google_product_category": [
+      "facebook-for-woocommerce"
+    ],
+    "wps_membership_plan_with_product": [
+      "membership-for-woocommerce"
+    ],
+    "_wps_plan_id": [
+      "membership-for-woocommerce"
+    ],
+    "_wps_single_cal_date_time_from": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "wps_mbfw_booking_type": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "mwb_mbfw_booking_criteria": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "mwb_order_type": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "_mwb_bfwp_date_time_from": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "pw_gift_card_number": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "pw_gift_card_amount": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "pw_gift_card_to": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "pw_gift_card_from": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "pw_gift_card_message": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "rank_math_title": [
+      "seo-by-rank-math"
+    ],
+    "rank_math_description": [
+      "seo-by-rank-math"
+    ],
+    "rank_math_canonical_url": [
+      "seo-by-rank-math"
+    ],
+    "rank_math_focus_keyword": [
+      "seo-by-rank-math"
+    ],
+    "rank_math_robots": [
+      "seo-by-rank-math"
+    ],
+    "rankMath": [
+      "seo-by-rank-math"
+    ],
+    "_wps_sfw_product": [
+      "subscriptions-for-woocommerce"
+    ],
+    "_wdr_discounts": [
+      "woo-discount-rules"
+    ],
+    "woosb_ids": [
+      "woo-product-bundle"
+    ],
+    "_woosb_parent_id": [
+      "woo-product-bundle"
+    ],
+    "_ppom_fields": [
+      "woocommerce-product-addon"
+    ],
+    "_product_meta_id": [
+      "woocommerce-product-addon"
+    ],
+    "yoast_head_json": [
+      "wordpress-seo"
+    ],
+    "yoast_head": [
+      "wordpress-seo"
+    ],
+    "_yoast_wpseo_title": [
+      "wordpress-seo"
+    ],
+    "_yoast_wpseo_metadesc": [
+      "wordpress-seo"
+    ],
+    "_yoast_wpseo_focuskw": [
+      "wordpress-seo"
+    ],
+    "wooco_components": [
+      "wpc-composite-products"
+    ],
+    "wooco_ids": [
+      "wpc-composite-products"
+    ],
+    "wooco_parent_id": [
+      "wpc-composite-products"
+    ]
+  },
+  "capabilityIndex": {
+    "content.custom-fields": [
+      "advanced-custom-fields"
+    ],
+    "content.custom-field-schema": [
+      "advanced-custom-fields"
+    ],
+    "commerce.back-in-stock-notifications": [
+      "back-in-stock-notifier-for-woocommerce"
+    ],
+    "content.form-definitions": [
+      "contact-form-7",
+      "wpforms-lite"
+    ],
+    "commerce.facebook-catalog-sync": [
+      "facebook-for-woocommerce"
+    ],
+    "commerce.coupons": [
+      "free-gifts-for-woocommerce"
+    ],
+    "commerce.free-gift-rules": [
+      "free-gifts-for-woocommerce"
+    ],
+    "crm.email-subscription": [
+      "mailpoet"
+    ],
+    "commerce.subscription-plans": [
+      "membership-for-woocommerce"
+    ],
+    "commerce.subscription-contracts": [
+      "membership-for-woocommerce",
+      "subscriptions-for-woocommerce"
+    ],
+    "commerce.bookable-services": [
+      "mwb-bookings-for-woocommerce",
+      "the-events-calendar"
+    ],
+    "commerce.bookings": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "commerce.bookable-service-add-ons": [
+      "mwb-bookings-for-woocommerce"
+    ],
+    "commerce.discount-rules": [
+      "pricing-deals-for-woocommerce",
+      "woo-discount-rules",
+      "woocommerce-progressive-discounts"
+    ],
+    "commerce.applied-discounts": [
+      "pricing-deals-for-woocommerce",
+      "woo-discount-rules"
+    ],
+    "commerce.gift-card-products": [
+      "pw-woocommerce-gift-cards"
+    ],
+    "commerce.gift-cards": [
+      "pw-woocommerce-gift-cards",
+      "woocommerce-gift-cards"
+    ],
+    "content.seo-meta": [
+      "seo-by-rank-math",
+      "wordpress-seo"
+    ],
+    "content.podcast": [
+      "seriously-simple-podcasting"
+    ],
+    "commerce.subscription-products": [
+      "subscriptions-for-woocommerce"
+    ],
+    "content.events": [
+      "the-events-calendar"
+    ],
+    "content.event-categories": [
+      "the-events-calendar"
+    ],
+    "commerce.checkout-custom-fields": [
+      "woo-checkout-field-editor-pro"
+    ],
+    "commerce.product-bundles": [
+      "woo-product-bundle"
+    ],
+    "commerce.payment-gateway-notes": [
+      "woocommerce-other-payment-gateway"
+    ],
+    "commerce.product-addon-fields": [
+      "woocommerce-product-addon"
+    ],
+    "commerce.order-addon-values": [
+      "woocommerce-product-addon"
+    ],
+    "commerce.composite-products": [
+      "wpc-composite-products"
+    ]
+  },
+  "channels": {
+    "core-embedded": [
+      "advanced-custom-fields",
+      "mwb-bookings-for-woocommerce",
+      "wordpress-seo"
+    ],
+    "export-file": [
+      "advanced-custom-fields",
+      "membership-for-woocommerce",
+      "seo-by-rank-math",
+      "wpforms-lite"
+    ],
+    "plugin-rest": [
+      "back-in-stock-notifier-for-woocommerce",
+      "contact-form-7",
+      "mailpoet",
+      "seriously-simple-podcasting",
+      "subscriptions-for-woocommerce",
+      "the-events-calendar",
+      "woocommerce-gift-cards",
+      "woocommerce-product-addon"
+    ],
+    "plugin-rest-child": [
+      "contact-form-7",
+      "pw-woocommerce-gift-cards",
+      "woocommerce-other-payment-gateway"
+    ],
+    "core-meta": [
+      "facebook-for-woocommerce",
+      "membership-for-woocommerce",
+      "mwb-bookings-for-woocommerce",
+      "pw-woocommerce-gift-cards",
+      "subscriptions-for-woocommerce",
+      "woo-discount-rules",
+      "woo-product-bundle",
+      "woocommerce-product-addon",
+      "wordpress-seo",
+      "wpc-composite-products"
+    ],
+    "admin-page-only": [
+      "free-gifts-for-woocommerce",
+      "pricing-deals-for-woocommerce",
+      "woo-checkout-field-editor-pro",
+      "woo-discount-rules",
+      "woocommerce-progressive-discounts"
+    ],
+    "core-cpt": [
+      "mwb-bookings-for-woocommerce",
+      "the-events-calendar"
+    ],
+    "db-only": [
+      "pricing-deals-for-woocommerce",
+      "pw-woocommerce-gift-cards",
+      "wpforms-lite"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
 //   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
-//   (storefront | bookings | blog | cms | portfolio | pricing-plans | events | members)
+//   (storefront | bookings | blog | cms | forms | portfolio | pricing-plans | events | members | restaurants)
 // Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
 // Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
@@ -9,7 +9,7 @@
 // members and cms names both, and its CMS helpers then come from the skill instead of being
 // hand-written. Order matters only where two verticals ship a file at the SAME path (both have
 // components/…, pages/…): the first one listed wins, since the copy never overwrites. Verticals whose
-// file sets don't overlap (cms ships utils only, no UI) combine freely.
+// file sets don't overlap (cms and forms ship utils only, no UI) combine freely.
 // paths are the Base44 sandbox's /app. Re-running is non-destructive: it fills in only missing files,
 // never overwriting the agent's edits (see COPY), so a later call can add a vertical safely.
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
@@ -19,7 +19,7 @@ const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
-const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
+const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
@@ -74,15 +74,14 @@ function replaceMembersAuthLeftovers() {
 // The two ids arrive as flags so this script writes them once, character-for-character, instead of a
 // later hand-edit of the placeholder file.
 //
-// Precedence differs per id, because the two are not equally trustworthy when a host writes this
-// file itself at app creation:
+// An id already in the file wins; the flags only fill what is unset. A host that writes this file
+// at app creation (Base44) has each id as an exact value rather than a copy read out of a prompt.
+// Per id, so a host that resolved one but not the other still gets the gap filled.
 //
-//   WIX_METASITE_ID — the flag WINS. A host can derive this one indirectly (Base44 resolves it from
-//     the launch instance) and get a different site than the business, and a wrong site id is sent
-//     as the `wix-site-id` header on every catalog read, so the storefront returns nothing. The id
-//     in the prompt is the site the user is looking at, so prefer it and overwrite.
-//   WIX_CLIENT_ID — an existing value wins. It reaches a host as an exact value on the launch
-//     request, so its copy is at least as good as one retyped into a command.
+// This briefly worked the other way round for WIX_METASITE_ID, while Base44 could write a different
+// site than the business: it shared one field between the launch and a metasite it provisions per
+// app, and the launch's id lost. Fixed on that side, and the ids it stores now verify against the
+// site each launch came from, so the file is trusted again.
 function readWixConfig() {
   if (!existsSync(WIX_CONFIG)) return {};
   const src = readFileSync(WIX_CONFIG, 'utf8');
@@ -118,8 +117,16 @@ const clientId = flag('client-id');
 const metaSiteId = flag('metasite-id');
 // Verticals are the positional args — drop the flags and their values.
 const flagArgs = new Set(['--client-id', '--metasite-id', clientId, metaSiteId].filter(Boolean));
-const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
+// `rentals` is an alias of the Bookings vertical — Wix Rentals runs on the Bookings APIs. A rental
+// business picks `rentals` and gets the bookings scaffolds; it resolves to bookings everywhere.
+const ALIASES = { rentals: 'bookings' };
+const positional = argv.filter((a) => !flagArgs.has(a));
+const requested = [...new Set(positional.map((a) => ALIASES[a] || a))];
 const deployed = { verticals: [] };
+// Report any alias resolution so the caller sees an intended mapping (rentals -> bookings), not a
+// silent `bookings` result it might read as "rentals unsupported" and wastefully re-deploy.
+const aliased = [...new Set(positional.filter((a) => ALIASES[a]))].map((a) => `${a} -> ${ALIASES[a]}`);
+if (aliased.length) deployed.aliased = aliased;
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
@@ -142,17 +149,15 @@ if (!requested.length) {
 
 const onDisk = readWixConfig();
 const finalClientId = onDisk.clientId || clientId;
-const finalMetaSiteId = metaSiteId || onDisk.metaSiteId;
+const finalMetaSiteId = onDisk.metaSiteId || metaSiteId;
 
 if (!finalClientId || !finalMetaSiteId) {
-  deployed.wixConfig = 'missing_ids — src/rest/wix-config.js is not configured; re-run with '
-    + '--client-id and --metasite-id rather than editing the file by hand';
+  deployed.wixConfig = 'skipped — no ids provided';
 } else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
   deployed.wixConfig = 'already_set';
 } else {
-  const replaced = onDisk.metaSiteId && onDisk.metaSiteId !== finalMetaSiteId;
   writeWixConfig(finalClientId, finalMetaSiteId);
-  deployed.wixConfig = replaced ? 'written — replaced a different WIX_METASITE_ID' : 'written';
+  deployed.wixConfig = 'written';
 }
 
 console.log(JSON.stringify(deployed));

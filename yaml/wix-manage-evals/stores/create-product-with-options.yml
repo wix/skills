@@ -1,0 +1,27 @@
+name: stores/create-product-with-options
+description: Verifies that the unified skill creates every V3 option combination while preserving per-variant prices, SKUs, and inventory in the inventory-aware endpoint.
+triggerPrompt: >-
+  Create a physical T-shirt named "Everyday Tee" with sizes S and M and colors Black and White, with no image.
+  Use these exact variant values: S/Black $30 SKU TEE-S-BLK quantity 5; S/White $31 SKU TEE-S-WHT quantity 6;
+  M/Black $32 SKU TEE-M-BLK quantity 7; M/White $33 SKU TEE-M-WHT quantity 8. All four should be visible.
+  Generate a short description.
+tags: [stores]
+maxTokens: 25000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user fully specified a no-image physical product with 2 sizes, 2 colors, and variant-specific price, SKU, and stock.
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are acceptable. Pass if the agent detects V3, skips image upload, and creates exactly one product through either /stores/v3/products-with-inventory or /stores/v3/bulk/products-with-inventory/create containing Size and Color options plus exactly four visible variants: S/Black ($30, TEE-S-BLK, 5), S/White ($31, TEE-S-WHT, 6), M/Black ($32, TEE-M-BLK, 7), and M/White ($33, TEE-M-WHT, 8). Each variant must keep its own values together and contain physicalProperties. The agent should inspect both product and inventory results.
+      Fail if it calls a no-inventory endpoint, uploads or invents an image, omits an option/combination, loses or swaps any price/SKU/quantity, uses a non-Ricos V3 description, or reports success without checking inventory results. The inventory-aware bulk endpoint with exactly this one product is valid if both product and inventory results are checked.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, existing V3 context or one version check, the correct inventory endpoint, one mutation, and response validation. Penalize redundant docs, speculative probes, wrong inventory mode, recovered errors, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

@@ -3741,8 +3741,8 @@ __metadata:
   linkType: hard
 
 "@wix/data@npm:^1.0.0, @wix/data@npm:^1.0.323, @wix/data@npm:^1.0.461":
-  version: 1.0.504
-  resolution: "@wix/data@npm:1.0.504"
+  version: 1.0.506
+  resolution: "@wix/data@npm:1.0.506"
   dependencies:
     "@wix/auto_sdk_data_backups": "npm:1.0.68"
     "@wix/auto_sdk_data_collections": "npm:1.0.92"
@@ -3756,8 +3756,8 @@ __metadata:
     "@wix/auto_sdk_data_sharing": "npm:1.0.25"
     "@wix/auto_sdk_data_tasks": "npm:1.0.41"
     "@wix/headless-cms": "npm:^0.0.45"
-    "@wix/wix-data-items-sdk": "npm:^1.0.545"
-  checksum: 10c0/fca5bc57bbc9c383abfb46e7617f9e5b85e2d8f69c5ae40adbb7acb9cf41826501e0cabe929ceaf03464b72a1aab1baf9f1c927c74cf8b34fb93c7eb1b420bd0
+    "@wix/wix-data-items-sdk": "npm:1.0.545"
+  checksum: 10c0/d71ef285fab3ba1ed484e90bf2768b5feb7093f26c1d9a82f3d85a42f3a370f86a37b5eb04ee43386c04f895e4f44026886e9ed6b127a48451d423e7348f454e
   languageName: node
   linkType: hard
 
@@ -5469,7 +5469,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/wix-data-items-sdk@npm:^1.0.545":
+"@wix/wix-data-items-sdk@npm:1.0.545":
   version: 1.0.545
   resolution: "@wix/wix-data-items-sdk@npm:1.0.545"
   dependencies:

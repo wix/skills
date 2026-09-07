@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "fetchedAt": "2026-08-16",
+  "roots": [
+    "api-reference/business-management/seo",
+    "api-reference/business-management/marketing/seo",
+    "api-reference/business-management/headless/sitemap",
+    "api-reference/site/viewer/seo-tags"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-management/headless/sitemap/headless-sitemap-entry-v1",
+      "title": "Headless Sitemap Entry V1",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/headless/sitemap/headless-sitemap-entry-v1",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Read-only listing (List Sitemap Pages) of the pages in a headless site's sitemap; there is no write method, so nothing can be imported here. A WordPress XML sitemap (Yoast/Rank Math sitemap module) is generated output, not durable data: Wix builds and serves its own sitemap, so the source sitemap is replaced rather than migrated. Both reference pages under this surface returned HTTP 404 when fetched on 2026-08-16.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/marketing/seo/seo-keywords-suggestions-service-plugin",
+      "title": "Seo Keywords Suggestions Service Plugin",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/seo-keywords-suggestions-service-plugin",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "A service plugin (SPI): an extension point where a 3rd-party keyword tool SUPPLIES suggestions to Wix (Extension Config, Get Quota, List Suggested Keywords). An SPI is not an import path. The source-side analogue - a Yoast/Rank Math focus keyphrase stored on a post - is durable data and imports through Item SEO Tags `focusKeywords`, not here.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/marketing/seo/seo-user-config",
+      "title": "Seo User Config",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/seo-user-config",
+      "group": null,
+      "verdict": "not-relevant",
+      "reason": "Site-level routing configuration, not per-record data: `shouldFlattenUrlHierarchy` (flat vs hierarchical page URLs) and `shouldUsePartialRouteMatch` (whether an unknown path returns 200 instead of 404). Reconfigure-in-wix. Flagged for URL preservation: flattening changes every subpage URL, so it is a setup decision taken BEFORE the URL ledger is computed, never an import step.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/marketing/seo/txt-file-server/ads-txt",
+      "title": "Ads Txt",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/txt-file-server/ads-txt",
+      "group": "TXT File server",
+      "verdict": "not-relevant",
+      "reason": "ads.txt declares authorised digital ad sellers (IAB Tech Lab standard). It is advertising configuration, not migrated business data, and no WordPress SEO plugin in scope stores it as per-record data.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/marketing/seo/txt-file-server/llms-txt",
+      "title": "Llms Txt",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/txt-file-server/llms-txt",
+      "group": "TXT File server",
+      "verdict": "not-relevant",
+      "reason": "llms.txt is an AI-crawler manifest Wix generates and serves per site (Get / Update / Append / Update Hidden Status). It is generated output about the destination site, with no source-side counterpart to carry across.",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/marketing/seo/txt-file-server/robots-txt",
+      "title": "Robots Txt",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/txt-file-server/robots-txt",
+      "group": "TXT File server",
+      "verdict": "not-relevant",
+      "reason": "robots.txt is crawler configuration, not durable data, and it does not transfer literally: a WordPress robots.txt disallows source-only paths (/wp-admin/, /wp-content/, /?s=) that do not exist on Wix, and Wix serves its own default. Reconfigure-in-wix. A writable path does exist if a future step wants it (PUT https://www.wixapis.com/promote-seo-robots-server/v2/robots, SCOPE.PROMOTE.MANAGE-SEO).",
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/seo/item-seo-tags-v1",
+      "title": "Item Seo Tags V1",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "seo/item-seo-tags"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/seo/seo-pattern-v1",
+      "title": "Seo Pattern V1",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "seo/seo-pattern"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/business-management/seo/site-seo-tags-v1",
+      "title": "Site Seo Tags V1",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/site-seo-tags-v1",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "seo/site-seo-tags"
+      ],
+      "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/site/viewer/seo-tags",
+      "title": "SEO Tags",
+      "url": "https://dev.wix.com/docs/api-reference/site/viewer/seo-tags",
+      "group": null,
+      "verdict": "not-importable",
+      "reason": "Read-only resolve endpoints (Resolve Item SEO Tags, Resolve Static Page SEO Tags) that return the tags a page is expected to render with. Migration-relevant as the post-import VERIFICATION path for seo/item-seo-tags, but it has no write method so nothing imports here. Its object page also carries the `custom` caveat recorded as the `custom-flag-is-not-an-override-signal` pitfall on seo/item-seo-tags: ResolveStaticPageSeoTags called without `seoData` reads only the Vibe/managed-headless override store, so on classic Editor/Studio pages `custom: false` means 'could not tell', not 'no custom tag'.",
+      "reviewedOn": "2026-08-16"
+    }
+  ]
+}

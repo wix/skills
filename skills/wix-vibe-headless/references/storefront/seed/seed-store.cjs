@@ -1,0 +1,512 @@
+// Storefront seed helpers — run at BUILD TIME via exec_tool (NOT shipped in the app).
+// The agent requires this and calls the functions with plain data; all Wix Stores
+// request/response mechanics (bulk shapes, variant expansion, rich-text descriptions,
+// the 409-serial category rule, the re-hosted-image quirk) live here, once.
+//
+// Usage (build-time exec_tool):
+//   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+//   const ctx = { token: accessToken }; // Installation reads the site ID from the deployed Wix config.
+//   await seed.installStoresApp(ctx);
+//   const products = await seed.bulkCreateProducts(ctx, [{ name, description, price, quantity, options? }]);
+//   const cats = await seed.createCategories(ctx, ["Legends", "Rising Stars"]);
+//   await seed.addProductsToCategories(ctx, { [cats[0].id]: products.map(p => p.id) });
+//   await seed.attachProductImages(ctx, products.map((p,i) => ({ id:p.id, url:imageUrls[i], altText:p.slug })));
+//
+// If any call fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment
+// (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
+// wix-headless/references/inline-recipes/setup-online-store.md.
+
+const API = "https://www.wixapis.com";
+const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+const WIX_CONFIG_PATH = "/app/src/rest/wix-config.js";
+let siteId;
+
+function getSiteId() {
+  if (siteId) return siteId;
+  let source;
+  try {
+    source = require("fs").readFileSync(WIX_CONFIG_PATH, "utf8");
+  } catch {
+    throw new Error(`Cannot read ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  // Base44/deploy writes a named export containing a JSON string literal. Do not execute config.
+  const match = source.match(/^export const WIX_METASITE_ID\s*=\s*("(?:[^"\\]|\\.)*")\s*;/m);
+  let value;
+  try { value = match && JSON.parse(match[1]); } catch { /* invalid config */ }
+  if (typeof value !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error(`Missing or invalid WIX_METASITE_ID in ${WIX_CONFIG_PATH}; deploy the Wix config before seeding.`);
+  }
+  siteId = value;
+  return siteId;
+}
+
+
+async function req(ctx, path, { method = "POST", body, headers = {} } = {}) {
+  // Retry while the catalog is still provisioning: right after a fresh Stores install the V3 WRITE
+  // path becomes usable a bit later than the V3 read path, so even once waitForCatalogV3 (a read
+  // probe) returns, the first bulk-create can still 428. Wait it out (~80s budget); every other
+  // error throws on the first try as before.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(API + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${ctx.token}`,
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return json;
+    if (isProvisioning(res.status, json) && attempt < 40) {
+      await sleep(2000);
+      continue;
+    }
+    throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
+  }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// A freshly installed catalog isn't writable yet, and Wix has signalled that with two different
+// 428s: the older CATALOG_V1_SITE_CALLING_CATALOG_V3_API (site still reports V1) and the current
+// CATALOG_V3_SITE_PROVISIONING ("Site is currently being provisioned for CATALOG_V3"). Sites exist
+// on both behaviours, so match either. The message check catches a further rename: on this endpoint
+// a 428 means "not ready, retry", and treating an unknown one as fatal turns a wait into a failed
+// seed — which is exactly how the V3 code slipped through when only the V1 code was matched.
+const PROVISIONING_CODES = new Set(["CATALOG_V1_SITE_CALLING_CATALOG_V3_API", "CATALOG_V3_SITE_PROVISIONING"]);
+
+function isProvisioning(status, json) {
+  if (PROVISIONING_CODES.has(json?.details?.applicationError?.code)) return true;
+  return status === 428 && /provision/i.test(json?.message || "");
+}
+
+// A freshly installed Stores catalog 428s on V3 calls until provisioning settles (see
+// isProvisioning for the codes). Poll a cheap V3 read until that clears (bounded ~80s), so we don't
+// fire the expensive bulk-create repeatedly during the window. This is a pre-gate on the READ path;
+// the WRITE path clears slightly later, so the real guarantee is req()'s retry — this just minimizes
+// how many times the actual write has to retry.
+async function waitForCatalogV3(ctx, { attempts = 40, delayMs = 2000 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(`${API}/stores/v3/products/query`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query: { paging: { limit: 1 } } }),
+    });
+    if (res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    // Anything that isn't a provisioning signal is a real error — return and let the caller's own
+    // request surface it. Matching only one of the two codes here made this exit the wait on the
+    // other one, handing the caller straight to a write that then 428'd.
+    if (!isProvisioning(res.status, json)) return;
+    await sleep(delayMs);
+  }
+}
+
+// description string -> Wix rich-text node tree.
+//
+// Descriptions arrive as HTML as often as not: asked to describe a product, a model writes
+// <p>…</p><strong>Care:</strong><br/>. The writable field is `description` (Ricos nodes) — the HTML
+// `plainDescription` the storefront renders is read-only, derived from them. So markup dropped into
+// a single TEXT node is stored as literal text, comes back escaped, and the PDP shows the tags to
+// the buyer. Convert the tags a model actually emits; a string with no tags stays one paragraph.
+const HTML_ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+
+function decodeEntities(s) {
+  return s.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (m) => HTML_ENTITIES[m] ?? m);
+}
+
+// One paragraph's inner HTML -> TEXT nodes, carrying bold/italic as Ricos decorations.
+function mkTextNodes(html) {
+  const nodes = [];
+  let bold = 0, italic = 0, last = 0, m;
+  const tag = /<(\/?)(strong|b|em|i)\s*\/?>/gi;
+  const push = (raw) => {
+    const text = decodeEntities(raw.replace(/<[^>]*>/g, ""));
+    if (!text) return;
+    const decorations = [];
+    if (bold > 0) decorations.push({ type: "BOLD" });
+    if (italic > 0) decorations.push({ type: "ITALIC" });
+    nodes.push({ type: "TEXT", textData: { text, decorations } });
+  };
+  while ((m = tag.exec(html)) !== null) {
+    push(html.slice(last, m.index));
+    const step = m[1] ? -1 : 1;
+    if (/^(strong|b)$/i.test(m[2])) bold = Math.max(0, bold + step);
+    else italic = Math.max(0, italic + step);
+    last = tag.lastIndex;
+  }
+  push(html.slice(last));
+  return nodes.length ? nodes : [{ type: "TEXT", textData: { text: "", decorations: [] } }];
+}
+
+function mkDesc(text, i) {
+  const blocks = String(text ?? "").split(/<\/p\s*>|<br\s*\/?>/i).map((b) => b.trim()).filter(Boolean);
+  return {
+    nodes: (blocks.length ? blocks : [""]).map((block, n) => ({
+      type: "PARAGRAPH", id: `desc-${i}-${n}`,
+      nodes: mkTextNodes(block),
+      paragraphData: { textStyle: { textAlignment: "AUTO" } },
+    })),
+    metadata: { version: 1, id: `desc-meta-${i}` },
+  };
+}
+
+// [{name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}]}] -> Wix options[]
+function buildOptions(options = []) {
+  return options.map((o) => {
+    const color = o.type === "color";
+    return {
+      name: o.name,
+      optionRenderType: color ? "SWATCH_CHOICES" : "TEXT_CHOICES",
+      choicesSettings: {
+        choices: o.choices.map((c) =>
+          color
+            ? { choiceType: "ONE_COLOR", name: c.name, colorCode: c.colorCode }
+            : { choiceType: "CHOICE_TEXT", name: typeof c === "string" ? c : c.name }),
+      },
+    };
+  });
+}
+
+// Validate the whole batch before installation, uploads, or product creation.
+function validateProducts(products) {
+  const seen = new Map();
+  for (const product of products) {
+    if (product.inStock !== undefined && typeof product.inStock !== "boolean") {
+      throw new Error(`Product "${product.name}": inStock must be a boolean. No products were created by this call.`);
+    }
+    if (product.inStock !== undefined && product.quantity !== undefined) {
+      throw new Error(`Product "${product.name}": supply either inStock or quantity, not both. No products were created by this call.`);
+    }
+    if (!product.digitalFileUrl && product.quantity !== undefined &&
+        (!Number.isInteger(product.quantity) || product.quantity < 0 || product.quantity > 99999)) {
+      throw new Error(`Product "${product.name}": quantity must be an integer from 0 to 99999. ` +
+        `For unlimited stock, use inStock: true without quantity. No products were created by this call.`);
+    }
+    for (const option of product.options ?? []) {
+      const choiceNames = new Set();
+      for (const choice of option.choices ?? []) {
+        const name = typeof choice === "string" ? choice : choice.name;
+        const normalized = name.trim().toLowerCase();
+        if (choiceNames.has(normalized)) {
+          throw new Error(`Duplicate choice "${name}" in option "${option.name}" on product "${product.name}". ` +
+            `Each choice name must be unique within an option. No products were created by this call.`);
+        }
+        choiceNames.add(normalized);
+        if (option.type !== "color") continue;
+        const key = JSON.stringify([option.name.trim().toLowerCase(), choice.name.trim().toLowerCase()]);
+        const code = choice.colorCode?.trim().toLowerCase();
+        const previous = seen.get(key);
+        if (previous && previous.code !== code) {
+          throw new Error(`Conflicting color "${choice.name}" in option "${option.name}": ` +
+            `"${previous.product}" uses ${previous.code}, but "${product.name}" uses ${code}. ` +
+            `Use one color code for this name across the batch, or distinct names for different shades. No products were created by this call.`);
+        }
+        seen.set(key, { code, product: product.name });
+      }
+    }
+  }
+}
+
+// Choose one inventory tracking mode; downloads retain their default available stock.
+function inventoryFor(product) {
+  if (product.inStock !== undefined) return { inStock: product.inStock };
+  if (product.digitalFileUrl) return { inStock: true };
+  return { quantity: product.quantity ?? 0 };
+}
+
+// full Cartesian product of variants, each priced/stocked from the product; visible:true baked in
+function expandVariants(options = [], product, digitalFileId) {
+  const { price, compareAtPrice } = product;
+  const inventoryItem = inventoryFor(product);
+  const base = {
+    price: {
+      actualPrice: { amount: String(price) },
+      ...(compareAtPrice ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
+    },
+    visible: true,
+    ...(digitalFileId
+      ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem }
+      : { physicalProperties: {}, inventoryItem: { ...inventoryItem,
+          ...(inventoryItem.quantity !== undefined ? { preorderInfo: { enabled: false } } : {}) } }),
+  };
+  if (!options.length) return [base];
+  let combos = [[]];
+  for (const o of options) {
+    const rt = o.type === "color" ? "SWATCH_CHOICES" : "TEXT_CHOICES";
+    const names = o.choices.map((c) => (typeof c === "string" ? c : c.name));
+    combos = combos.flatMap((combo) =>
+      names.map((choiceName) => [...combo, { optionChoiceNames: { optionName: o.name, choiceName, renderType: rt } }]));
+  }
+  return combos.map((choices) => ({ ...base, choices }));
+}
+
+// A digital variant is SELLABLE only with BOTH a file and stock: without the file the cart rejects
+// it as ITEM_NOT_FOUND_IN_CATALOG, without stock as "exceeds available inventory" — and either way
+// the product reads back visible and in the catalog, so nothing surfaces until a buyer tries to buy.
+// `digitalFileUrl` is the only way into DIGITAL here, which makes the file-less product unbuildable.
+// The bytes are PUT, not imported by url: an uploaded file is READY at once, while an imported one
+// stays PENDING and the cart rejects the product until it settles.
+const FILE_MIME = { pdf: "application/pdf", zip: "application/zip", epub: "application/epub+zip",
+  mp3: "audio/mpeg", wav: "audio/wav", mp4: "video/mp4", png: "image/png", jpg: "image/jpeg" };
+
+async function uploadDigitalFile(ctx, url, fileName) {
+  const mimeType = FILE_MIME[(fileName.split(".").pop() || "").toLowerCase()];
+  if (!mimeType) throw new Error(`digitalFileName needs one of these extensions (${Object.keys(FILE_MIME).join(", ")}): ${fileName}`);
+  const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
+  const src = await fetch(url);
+  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}`);
+  const res = await fetch(uploadUrl, {
+    method: "PUT", headers: { "Content-Type": mimeType }, body: Buffer.from(await src.arrayBuffer()),
+  });
+  const json = await res.json().catch(() => ({}));
+  const id = (json.file || json)?.id;
+  if (!res.ok || !id) throw new Error(`digital file upload failed (${res.status}): ${JSON.stringify(json).slice(0, 200)}`);
+  return id;
+}
+
+const digitalFileName = (p) =>
+  p.digitalFileName || decodeURIComponent(new URL(p.digitalFileUrl).pathname.split("/").pop() || "");
+
+// ---- exported operations ----
+
+async function installStoresApp(ctx) {
+  const siteId = getSiteId(); // Fail before the install-error catch if config is missing.
+  try {
+    await req(ctx, "/apps-installer-service/v1/app-instance/install", { headers: { "wix-site-id": siteId }, body: {
+      tenant: { tenantType: "SITE", id: siteId },
+      appInstance: { appDefId: STORES_APP_ID, enabled: true },
+    } });
+  } catch {
+    // already installed is fine — the readiness wait below still confirms the V3 catalog is live
+  }
+  // Do NOT return to the caller until V3 is ready, else the first V3 seed call 428s on CATALOG_V1.
+  await waitForCatalogV3(ctx);
+}
+
+async function listProducts(ctx) {
+  const r = await req(ctx, "/stores/v3/products/query", { body: { query: { paging: { limit: 50 } } } });
+  return (r.products ?? []).map((p) => ({ id: p.id, name: p.name }));
+}
+
+/**
+ * Bulk-create products.
+ * @param products [{ name, description, price, compareAtPrice?, quantity?, inStock?,
+ *   options?: [{ name, type?:"text"|"color", choices:["8","9"] | [{name,colorCode}] }],
+ *   digitalFileUrl?, digitalFileName? }]
+ *   digitalFileUrl: makes the product a DIGITAL download — the file is uploaded and the variant
+ *   created with both the file and stock (see uploadDigitalFile). `quantity` is ignored.
+ *   description: plain text, or simple HTML (`<p>`, `<br/>`, `<strong>`, `<em>`) — converted to
+ *   Wix rich text here, so the storefront renders paragraphs and bold rather than tag text.
+ *   options = ONLY things the buyer selects-and-buys (Size, Color) -> become variants.
+ *   Display-only attributes go in name/category/description, NOT options. Default: no options.
+ *   visible/physicalProperties/variant-expansion handled here. `quantity` tracks 0–99999 units (default 0); `inStock` selects availability without a count.
+ *   Supply only one. Each variant inherits that stock mode. Downloads default to inStock:true.
+ * @returns [{ id, slug, revision }]
+ */
+async function bulkCreateProducts(ctx, products) {
+  validateProducts(products);
+  const fileIds = await Promise.all(products.map((p) =>
+    p.digitalFileUrl ? uploadDigitalFile(ctx, p.digitalFileUrl, digitalFileName(p)) : null));
+  const body = {
+    returnEntity: true,
+    products: products.map((p, i) => ({
+      name: p.name,
+      // DIGITAL drops physicalProperties and can't be POS-visible (DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS).
+      ...(fileIds[i]
+        ? { productType: "DIGITAL" }
+        : { productType: "PHYSICAL", physicalProperties: {}, visibleInPos: true }),
+      visible: true,
+      description: mkDesc(p.description, i),
+      options: buildOptions(p.options),
+      variantsInfo: { variants: expandVariants(p.options, p, fileIds[i]) },
+    })),
+  };
+  const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
+  // NB: results nest under productResults.results[].item — NOT a top-level `results`.
+  const results = r.productResults?.results ?? [];
+  const created = [];
+  const failures = [];
+  const seen = new Set();
+  for (const [position, result] of results.entries()) {
+    const index = result.itemMetadata?.originalIndex ?? position;
+    seen.add(index);
+    if (result.itemMetadata?.success === false || !result.item?.id) {
+      failures.push({ index, name: products[index]?.name, ...result.itemMetadata?.error,
+        message: result.itemMetadata?.error?.description ?? "Create result has no product ID" });
+      continue;
+    }
+    created.push({
+      id: result.item.id, slug: result.item.slug, revision: result.item.revision,
+      variantId: result.item.variantsInfo?.variants?.[0]?.id,
+      hasOptions: (products[index]?.options?.length ?? 0) > 0,
+      isDigital: !!fileIds[index], inventory: inventoryFor(products[index]),
+      index, name: products[index]?.name,
+    });
+  }
+  products.forEach((product, index) => {
+    if (!seen.has(index)) failures.push({ index, name: product.name, message: "Missing bulk-create result; creation status unknown" });
+  });
+  if (failures.length) {
+    const successes = created.map(({ id, name, index }) => ({ id, name, index }));
+    const error = new Error(`Product creation did not fully succeed. ` +
+      `Created: ${JSON.stringify(successes)}. Failures: ${JSON.stringify(failures)}. ` +
+      `Stopped before stock, categories, or images. Do not rerun the full seed: existing products would be duplicated.`);
+    error.createdProducts = successes;
+    error.failures = failures;
+    throw error;
+  }
+  created.sort((a, b) => a.index - b.index);
+  await stockOptionlessProducts(ctx, created);
+  return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
+}
+
+// products-with-inventory/create stocks a variant via its choices; an OPTION-LESS product has a
+// single choiceless (default) variant that the create does NOT stock — it lands OUT_OF_STOCK. So
+// set stock on those default variants explicitly (bulk/inventory-items/create). Products WITH options
+// are already stocked by the create above, so they're skipped. Backfills the default variantId from a
+// query if the create response didn't return it.
+async function stockOptionlessProducts(ctx, created) {
+  const need = created.filter((p) => !p.hasOptions && !p.isDigital && p.id); // digital variants ship inStock from the create
+  if (!need.length) return;
+  const missing = need.filter((p) => !p.variantId).map((p) => p.id);
+  if (missing.length) {
+    const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: missing } }, paging: { limit: missing.length } } } });
+    const vById = new Map((q.products ?? []).map((p) => [p.id, p.variantsInfo?.variants?.[0]?.id]));
+    need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
+  }
+  const inventoryItems = need
+    .filter((p) => p.variantId)
+    .map((p) => ({ productId: p.id, variantId: p.variantId, ...p.inventory }));
+  if (inventoryItems.length) {
+    await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
+  }
+}
+
+// Categories: no bulk create, and MUST be sequential — they share the @wix/stores tree revision,
+// so concurrent creates 409. Run after products (catalog can lag right after the Stores install).
+async function createCategories(ctx, names) {
+  const out = [];
+  for (const name of names) {
+    const r = await req(ctx, "/categories/v1/categories", {
+      body: { category: { name, visible: true }, treeReference: { appNamespace: "@wix/stores", treeKey: null } },
+    });
+    out.push({ id: r.category?.id, name });
+  }
+  return out;
+}
+
+// mapping: { [categoryId]: [productId, ...] } — also sequential (same shared tree)
+async function addProductsToCategories(ctx, mapping) {
+  for (const [categoryId, productIds] of Object.entries(mapping)) {
+    await req(ctx, `/categories/v1/bulk/categories/${categoryId}/add-items`, {
+      body: {
+        items: productIds.map((catalogItemId) => ({ catalogItemId, appId: STORES_APP_ID })),
+        treeReference: { appNamespace: "@wix/stores", treeKey: null },
+      },
+    });
+  }
+}
+
+// Bulk image attach in ONE call. items: [{ id, url, altText }] — NO revision.
+// An attach bumps the product's revision, so a caller-supplied revision goes stale between passes
+// (INVALID_REVISION); we read each product's CURRENT revision here, right before the update, so the
+// caller never manages a revision token — attach any number of times, in any pass. Wix re-hosts the
+// image from the url server-side; the re-hosted media can take a little while to appear on read-back
+// (propagation) — that's normal, not a failure, so we don't block on it.
+async function attachProductImages(ctx, items) {
+  if (!items?.length) return;
+  if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
+  const ids = items.map((it) => it.id);
+  const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
+  const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
+  return req(ctx, "/stores/v3/bulk/products/update", {
+    body: {
+      products: items.map((it) => ({
+        product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
+      })),
+    },
+  });
+}
+
+// Site-wide payment currency; product amounts are not converted when this changes.
+// https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties.md
+async function configureCurrency(ctx, requested) {
+  const result = { requested: requested ?? null, actual: null, status: "unchanged", warnings: [] };
+  if (requested !== undefined) {
+    try {
+      if (typeof requested !== "string" || !/^[A-Z]{3}$/.test(requested))
+        throw new Error("currency must be a three-letter uppercase ISO currency code");
+      await req(ctx, "/site-properties/v4/properties", {
+        method: "PATCH",
+        body: { properties: { paymentCurrency: requested }, fields: { paths: ["paymentCurrency"] } },
+      });
+      result.status = "updated";
+    } catch (error) {
+      result.status = "failed";
+      result.warnings.push(`Currency update failed; seeding continued: ${error.message}`);
+    }
+  }
+  try {
+    const snapshot = await req(ctx, "/site-properties/v4/properties", { method: "GET" });
+    result.actual = snapshot.properties?.paymentCurrency ?? null;
+    if (!result.actual) throw new Error("Site Properties returned no paymentCurrency");
+    if (requested !== undefined && result.actual !== requested) {
+      result.status = "failed";
+      result.warnings.push(`Requested currency ${requested}; site currency is ${result.actual}.`);
+    }
+  } catch (error) {
+    result.status = "failed";
+    result.warnings.push(`Currency verification failed; seeding continued: ${error.message}`);
+  }
+  return result;
+}
+
+/**
+ * ONE-CALL seed: install → create products → categories → attach images, in the correct order,
+ * keeping the created ids in memory (no hand-threading of product ids across exec calls). This is
+ * the DEFAULT path — call it once instead of the individual functions.
+ *
+ * @param plan {{
+ *   currency?: string, // requested site payment currency; omitted preserves the current setting
+ *   products: [{ name, description, price, compareAtPrice?, quantity?, inStock?, options?, imageUrl?, altText?,
+ *                digitalFileUrl?, digitalFileName? }],
+ *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
+ * }}
+ * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number, currency: {requested,actual,status,warnings} }
+ */
+async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
+  validateProducts(products);
+  await installStoresApp(ctx); // installs if needed AND waits for the V3 catalog to be ready
+
+  const currencyResult = await configureCurrency(ctx, currency);
+  const created = await bulkCreateProducts(ctx, products);
+  const withNames = created.map((p, i) => ({ ...p, name: products[i]?.name }));
+  const idByName = new Map(withNames.map((p) => [p.name, p.id]));
+
+  const names = Object.keys(categories);
+  const cats = names.length ? await createCategories(ctx, names) : [];
+  if (cats.length) {
+    const mapping = {};
+    for (const c of cats) {
+      const ids = (categories[c.name] || []).map((n) => idByName.get(n)).filter(Boolean);
+      if (ids.length) mapping[c.id] = ids;
+    }
+    if (Object.keys(mapping).length) await addProductsToCategories(ctx, mapping);
+  }
+
+  const imageItems = withNames
+    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
+    .filter((it) => it.url);
+  if (imageItems.length) await attachProductImages(ctx, imageItems);
+
+  return { products: withNames, categories: cats, imagesAttached: imageItems.length, currency: currencyResult };
+}
+
+module.exports = {
+  setupStore,
+  installStoresApp, listProducts,
+  bulkCreateProducts, createCategories, addProductsToCategories, attachProductImages,
+};

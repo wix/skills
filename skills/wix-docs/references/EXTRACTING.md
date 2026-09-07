@@ -112,9 +112,11 @@ curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'
 # resolve a referenced type's enum values by grepping the Type name, e.g.:  grep -nE 'SelectedPaymentOption'
 ```
 
-**5. Cap the search response** — on `…/docs/search/markdown`, pass `maximum_results` (1–20) and
-`lines_in_each_result` (1–200) so each hit is truncated with a "Read more here: `<url>`" hint instead
-of dumping full pages.
+**5. Size the search response** — on `…/docs/search/markdown`, `maximum_results` (1–20) caps the hit
+count and `lines_in_each_result` (0–200) caps lines per hit; `0` removes the per-hit line cap. Either
+way a hit is the **condensed format with fixed per-section limits — a preview, never the full page**:
+raising the line count does not expand every section. When a hit lacks a field or condition you need,
+follow its URL (or query the structured spec) instead of re-searching with bigger numbers.
 
 **For deep/nested schemas**, don't hand-slice markdown — query the structured spec instead
 (`references/API_SPEC_SEARCH.md`, or the Wix MCP `SearchWixAPISpec → getResourceSchemaByUrl`).

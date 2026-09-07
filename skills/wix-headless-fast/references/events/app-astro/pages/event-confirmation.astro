@@ -1,0 +1,12 @@
+---
+// Post-checkout thank-you page — the Wix-hosted checkout redirects here with
+// ?orderNumber=&eventId=. KEEP THIS ROUTE: the data layer's checkout callbacks point at
+// /event-confirmation. The island is client:only (it reads the browser URL); swap its
+// import to YOUR confirmation component if you design one.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import EventConfirmationView from "../components/events/EventConfirmationView";
+---
+
+<SiteLayout title="Order confirmed">
+  <EventConfirmationView client:only="react" />
+</SiteLayout>

@@ -1,6 +1,6 @@
 # Portfolio — seeding
 
-Seed a Wix Portfolio by **calling `seed-portfolio.js`** — don't hand-write the REST calls. It's
+Seed a Wix Portfolio by **calling `seed-portfolio.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix
 Portfolio seed operation. `require` it and call the functions with plain data.
 
@@ -16,12 +16,8 @@ first, then thread their real ids into each project.
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const summary = await seed.setupPortfolio(ctx, {
@@ -79,7 +75,7 @@ hide. `setupPortfolio` **installs the Wix Portfolio app first** (`installPortfol
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-portfolio.md`.
 
 **Transcribed from the recipe — NOT yet live-verified.** The endpoints/fields mirror

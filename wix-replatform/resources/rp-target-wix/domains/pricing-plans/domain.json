@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "domain": "pricing-plans",
+  "docsRoots": [
+    "api-reference/business-solutions/pricing-plans"
+  ],
+  "displayName": "Wix Pricing Plans",
+  "ownerHint": "Pricing Plans (paid plans, memberships, plan orders/subscriptions) domain owners",
+  "wixAppsRequired": [
+    "Wix Pricing Plans"
+  ],
+  "defaultImportOrder": [
+    "plan",
+    "plan-order"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "pricing-plans-app-required",
+      "severity": "blocker",
+      "summary": "The Wix Pricing Plans app must be installed before any write in this domain; Create Offline Order fails with 428 PRICING_PLANS_NOT_INSTALLED. Verify during setup rather than discovering it at import time."
+    },
+    {
+      "code": "recurring-billing-never-migrates",
+      "severity": "blocker",
+      "summary": "Payment tokens do not carry from any source platform, and an offline plan order has no charge method attached. At best the contract's facts migrate; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Decision: Spec Owner 2026-08-16."
+    },
+    {
+      "code": "offline-order-lifecycle-calls-fire-events",
+      "severity": "warning",
+      "summary": "Order lifecycle calls emit domain events (Order Purchased/Started/Paused/Marked As Paid webhooks), and Mark As Paid explicitly documents that offline payments 'trigger events and emails'. Treat every post-create lifecycle call during import as a potential member-facing notification until verified live."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/introduction",
+      "note": "domain root; menu walked 2026-08-16 (Plans V3, Orders, Skills)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
+      "note": "commerce.subscription-contracts pending entry resolved by Spec Owner 2026-08-16: recreate active WooCommerce subscriptions as Pricing Plans memberships (Create Plan + Create Offline Order)"
+    }
+  ]
+}

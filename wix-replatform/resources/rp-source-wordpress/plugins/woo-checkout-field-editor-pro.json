@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woo-checkout-field-editor-pro",
+  "displayName": "Checkout Field Editor for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://www.themehigh.com/product/woocommerce-checkout-field-editor-pro/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.checkout-custom-fields"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woo-checkout-field-editor-pro/checkout-form-designer"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "checkout-field-definition",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": [
+        "ecom/order"
+      ],
+      "blocked": [
+        {
+          "kind": "user-file",
+          "resolution": "Ask the site owner to open WooCommerce > Checkout Fields (their own login session) and transcribe each configured field into the canonical CSV (meta_key,label,type,section,required,options,enabled,sort_order). The plugin's own Export/Import feature (Actions dropdown per section) may produce a usable file directly once its format is verified live -- not yet done.",
+          "declined": false,
+          "fulfillment": {
+            "kind": "csv-upload",
+            "handlerId": "checkout-field-csv",
+            "expectedInputPath": "data/user-supplied/woo-checkout-field-editor-pro.csv",
+            "freshnessWindowHours": 720
+          }
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "no-rest-route",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-19] Queried the reference store's full REST index directly (every registered namespace and route) and found none belonging to this plugin (checked for `checkout`, `cfe`, `field-editor`, `wcfe`, and the plugin's own basename). The `checkout`-named routes present belonged to other plugins/WooCommerce's own ephemeral session-checkout routes, not this plugin."
+        },
+        {
+          "code": "vendor-export-shape-unverified",
+          "severity": "info",
+          "summary": "[NEEDS-VERIFICATION] The plugin ships its own Export/Import feature (Actions dropdown per checkout section -> Export -> file saved to the Media Library, per themehigh.com/docs/how-to-import-export-checkout-fields/), but its file format (JSON vs CSV, exact schema) has not been triggered or inspected live. This profile's `blocked[].fulfillment` depends only on the `checkout-field-csv` handler's canonical, plugin-agnostic CSV contract (lib/checkout-field-csv-parser.js), not on that vendor format."
+        },
+        {
+          "code": "values-have-no-fallback-envelope-key",
+          "severity": "warning",
+          "summary": "[VERIFIED LIVE 2026-08-11] Captured values land as unregistered order postmeta, one meta key per field, keyed by the merchant's own field name verbatim (a \"Gift message\" field saves as `gift_message`) -- no fixed prefix, no wrapper/envelope key (contrast woocommerce-product-addon.json's `_ppom_fields`, which gives an unambiguous fallback signal even without its field-group definitions). A postmeta key is only recognizable as this plugin's once it appears in the fulfilled CSV's `meta_key` column."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Exact plugin file id `woo-checkout-field-editor-pro/checkout-form-designer`, v2.1.9, active [VERIFIED LIVE 2026-08-19 via GET /wp/v2/plugins on the reference store].",
+    "Values (captured order postmeta) are NOT a second profile entity here -- core-meta requires a static propertyPath, and this plugin's meta keys are only known per-site, after the CSV in checkout-field-definition's blocked[].fulfillment is fulfilled. NOT YET IMPLEMENTED: the INTENDED consumption path, once fulfilled, is for rp-import-codegen to read the parsed field list's metaKey column and look those exact keys up via the same generic meta_data[] scan any other plugin's unregistered order meta already goes through (fixed 2026-08-11 for Meta for WooCommerce / Discount Rules) -- but no such runtime consumer exists yet, for this plugin or for any other Data Extension Schema-backed capability in this repo. A fulfilled CSV snapshot means the field definitions were captured; it does not by itself mean any value has been written to ecom/order.extendedFields -- these are two distinct notions of success, and completion reporting must never conflate them.",
+    "The `checkout-field-csv` handler (lib/checkout-field-csv-parser.js) is plugin-agnostic by design -- it validates only this pipeline's own canonical CSV shape, never a vendor-specific export format. A different checkout-field-editor-style WooCommerce plugin found on another site gets its own profile file, but can reuse this exact handlerId rather than registering a near-duplicate parser."
+  ]
+}

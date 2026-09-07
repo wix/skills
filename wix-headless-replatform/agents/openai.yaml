@@ -1,0 +1,6 @@
+interface:
+  display_name: "Wix Headless RePlatform"
+  short_description: "Clone sites into Wix Headless frontends"
+  default_prompt: "Use $wix-headless-replatform to clone this website into a Wix Headless frontend."
+policy:
+  allow_implicit_invocation: true

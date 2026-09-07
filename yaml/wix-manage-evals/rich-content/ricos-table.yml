@@ -1,8 +1,8 @@
 name: rich-content/ricos-table
 description: Sharp-edge check on the Author Ricos Rich Content recipe — a table with a filled header row (exact field tableCellData.cellStyle.backgroundColor) and correct TABLE nesting.
-triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) for a two-column comparison table with columns Feature and Price, a colored/filled header row, and one body row. Output only the richContent JSON.
+triggerPrompt: Create Ricos rich content with a two-column comparison table with columns Feature and Price, a colored/filled header row, and one body row. Output only the richContent JSON.
 tags: [rich-content]
-maxTokens: 150000
+maxTokens: 450000
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -21,8 +21,8 @@ Order events use **`@wix/ecom`** (namespace `orders`). Order **refund** events a
 | Order canceled | `import { orders } from "@wix/ecom"` | `orders.onOrderCanceled(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderCanceled](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-canceled?apiView=SDK) |
 | Refund created | `import { refunds } from "@wix/payments"` | `refunds.onRefundCreated(handler)` | `SCOPE.DC-PAYMENTS.READ-REFUNDS` | [onRefundCreated](https://dev.wix.com/docs/api-reference/business-management/payments/refunds/refund-created?apiView=SDK) |
 | Refund updated | `import { refunds } from "@wix/payments"` | `refunds.onRefundUpdated(handler)` | `SCOPE.DC-PAYMENTS.READ-REFUNDS` | [onRefundUpdated](https://dev.wix.com/docs/api-reference/business-management/payments/refunds/refund-updated?apiView=SDK) |
-| Cart created | `import { cart } from "@wix/ecom"` | `cart.onCartCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-created?apiView=SDK) |
-| Cart updated | `import { cart } from "@wix/ecom"` | `cart.onCartUpdated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartUpdated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-updated?apiView=SDK) |
+| Cart created | `import { cartV2 } from "@wix/ecom"` | `cartV2.onCartCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/cart-created?apiView=SDK) |
+| Cart updated | `import { cartV2 } from "@wix/ecom"` | `cartV2.onCartUpdated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartUpdated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/cart-updated?apiView=SDK) |
 
 ## Bookings Events
 

@@ -1,0 +1,78 @@
+name: events/ticket-tiers
+description: >-
+  Verifies the events recipes carry the ticket-definition shape and the cancel call, so the agent
+  prices two tiers and cancels in one pass — rather than discovering by rejection that feeType is
+  required, that a price value is a string, and that the registration type is TICKETING rather than
+  the TICKETS the API's own error text advertises.
+triggerPrompt: >-
+  Create a ticketed event called Winter Fest next month with two ticket types — General Admission
+  at $20 and VIP at $60.
+tags: [events]
+maxTokens: 500000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428 until the agent
+  # installs it — an incidental setup step this scenario is not measuring.
+  templateId: events-studio
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-event
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create a ticketed event called Winter Fest next month with two
+      ticket types — General Admission at $20 and VIP at $60."
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if ALL of these hold:
+      - a successful (2xx) `POST /events/v3/events` created "Winter Fest", starting about a month
+        from now, with `registration.initialType` of `TICKETING`;
+      - two successful (2xx) `POST /events/v3/ticket-definitions` calls against that event id — one
+        named for General Admission priced at 20, one for VIP priced at 60, in the site's currency;
+      - the event is usable, i.e. not left as an unreachable draft.
+
+      Fail if only one ticket type exists; OR the prices are wrong; OR the event was created as an
+      RSVP event (an RSVP event can never be converted to ticketing); OR the agent only explained
+      how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to a two-tier ticketed event.
+      Examine the tool-call trace, including request bodies and any error bodies. 10 = no wasted
+      calls and no errors.
+
+      Reading the recipes is expected and is never a wasted call. Two ticket-definition calls are
+      correct and are not redundancy — there is no bulk-create for ticket definitions.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - any non-2xx response, in particular:
+        - `403` on a draft event (`READ_DRAFT_EVENTS`) — the event was created with `draft: true`,
+          which blocks adding tickets and querying it. The recipe says to create the
+          event already published; creating a draft here is an avoidable wrong turn, not bad luck;
+        - `400 feeType value is required` — omitted, or a value outside
+          `FEE_ADDED_AT_CHECKOUT` / `FEE_INCLUDED`, since an invalid enum reports as a missing one;
+        - `400 Unexpected value for field value` — a price sent as a number instead of a string;
+        - `400 initialType is unexpected` — including `TICKETS`, which the API's own error text
+          advertises but rejects; the accepted value is `TICKETING`;
+        - `400 Expected a string.` — a date sent as `{seconds, nanos}` instead of ISO-8601;
+        - `400 getTimeZoneId is not supported`, which means `timeZoneId` was omitted;
+      - a ticket quantity sent as `initialQuantity` rather than `initialLimit`, or an attempt to set
+        the read-only `limitPerCheckout` or `pricingMethod.free`;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out a shape
+        the recipes already give;
+      - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

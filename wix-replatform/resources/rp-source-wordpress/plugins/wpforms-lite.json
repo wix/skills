@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wpforms-lite",
+  "displayName": "WPForms Lite",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wpforms.com/docs/how-to-export-and-import-wpforms/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.form-definitions"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wpforms-lite/wpforms"
+    ],
+    "routes": [
+      "/wpforms/v1/setup-wizard/hydrate"
+    ],
+    "restNamespaces": [
+      "wpforms/v1"
+    ],
+    "assetPathSlugs": [
+      "wpforms-lite"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "form-definition",
+      "channel": "export-file",
+      "candidateTargetRefs": [
+        "forms/form"
+      ],
+      "pitfalls": [
+        {
+          "code": "no-rest-channel-at-all",
+          "severity": "blocker",
+          "summary": "[VERIFIED LIVE 2026-08-16] WPForms form definitions cannot be read over REST. The `wpforms` CPT is absent from /wp/v2/types even with an administrator application password and GET /wp/v2/wpforms returns 404; [DOCUMENTED, source 2.0.0.4 includes/class-form.php register_cpt()] the CPT registers with public=false, show_ui=false and NO `show_in_rest` key, which defaults to false. The `wpforms/v1` namespace that DOES appear in the REST index carries only setup-wizard routes (hydrate, update, install-plugins, complete, stripe/connect-url, license/key, license/verify) — installer plumbing, no form data. So this plugin is detectable without credentials but not readable over any REST channel, at any auth level."
+        },
+        {
+          "code": "wxr-export-does-not-carry-forms",
+          "severity": "blocker",
+          "summary": "[DOCUMENTED, source 2.0.0.4 includes/class-form.php] The CPT sets `'can_export' => false`, so WordPress's own WXR exporter SKIPS WPForms forms entirely. The usual credential-free fallback — ask the operator for a WXR export — silently yields zero forms here rather than failing loudly. This is the single most important fact in this profile: an operator who hands over a full site export in good faith has handed over nothing for this plugin, and nothing in the export says so."
+        },
+        {
+          "code": "use-the-plugins-own-json-export",
+          "severity": "warning",
+          "summary": "[DOCUMENTED, source 2.0.0.4 src/Admin/Tools/Export/Views/Forms/Page.php] The one operator-supplied channel that works is WPForms' OWN exporter: WP Admin → WPForms → Tools → Export → Forms, which downloads `wpforms-form-export-MM-DD-YYYY.json`. It is nonce-guarded and admin-only, so it cannot be fetched by the adapter — it must be requested from the operator as a file, which is why this entity's channel is export-file. Ask for it explicitly during discovery whenever wpforms-lite is detected; the operator will not think to offer it, because every other plugin's data rides along in the WXR."
+        },
+        {
+          "code": "field-choices-are-ordinal-keyed",
+          "severity": "warning",
+          "summary": "[NEEDS-VERIFICATION — not yet read from a real export on this site] WPForms stores a form as a serialized settings blob keyed by numeric field id, with choices keyed by ordinal rather than by a stable slug. forms/form needs a stable `target` per field and a lowercase GUID id per choice option, so codegen must MINT both and record the source-ordinal -> minted-id map in the crosswalk. Confirm the exact shape against a real wpforms-form-export JSON before writing the mapper; nothing in this profile was read from an export file."
+        }
+      ]
+    },
+    {
+      "entity": "entry",
+      "channel": "db-only",
+      "candidateTargetRefs": [
+        "forms/form-submission"
+      ],
+      "pitfalls": [
+        {
+          "code": "lite-stores-no-entries",
+          "severity": "blocker",
+          "summary": "[DOCUMENTED, source 2.0.0.4 — read end to end 2026-08-16] The Lite tier does not store submissions AT ALL. There is no entries table: src/Db/ contains only Analytics and Payments, and the Lite code says so in its own words — 'Lite owns no aggregate metric tables, so it cannot rank by entries and returns an empty list. Pro overrides this against `wp_wpforms_entries`' (src/Integrations/AI/Admin/Chat/Scope/FormsInventory/FormSearcher.php). The ONLY thing Lite persists per submission is a COUNTER: lite/wpforms-lite.php increments the `wpforms_entries_count` post meta on the form's own post (add_post_meta(..., 1) then a direct `UPDATE ... SET meta_value = meta_value + 1`). The Entries admin screen in Lite renders sample data behind an 'Upgrade to Pro to get access to Entries' notice (lite/templates/admin/entries/notice.php). So on a Lite site there is nothing to migrate here — not 'hard to reach', genuinely absent. Report the per-form counter to the operator as the honest measure of what was lost: it is the exact number of submissions that existed and cannot be recovered from this plugin."
+        },
+        {
+          "code": "pro-entries-are-db-only",
+          "severity": "warning",
+          "summary": "[DOCUMENTED, source 2.0.0.4] If the site is later found to run WPForms PRO (a different plugin id, `wpforms/wpforms`), entries DO exist in the custom table `wp_wpforms_entries` with no REST route and no WXR coverage — db-only, out of current scope. That is a separate profile with a separate slug, not a widening of this one. Pro also ships an entries CSV export (in Lite the ExportEntries class lives under src/Admin/Education/, WPForms' upsell namespace, which is itself the confirmation that Lite has none)."
+        }
+      ]
+    }
+  ],
+  "excludeRoutes": [
+    {
+      "route": "/wpforms/v1/setup-wizard/*",
+      "reason": "installer plumbing (hydrate, update, install-plugins, complete, stripe/connect-url, license/key, license/verify) — configuration and license actions, no durable business data. Several are state-changing; kept out of scope so the namespace can never be opted in wholesale."
+    }
+  ],
+  "quirks": [
+    "[VERIFIED LIVE 2026-08-16 on the reference store] Plugin file id `wpforms-lite/wpforms`, version 2.0.0.4, active. Directory and main-file basename differ (`wpforms-lite` vs `wpforms`), so the id must be read from GET /wp/v2/plugins, never constructed.",
+    "The `wpforms/v1` namespace is registered by BOTH tiers, so it identifies WPForms rather than specifically Lite. Tier is decided by the plugin file id: `wpforms-lite/wpforms` (this profile) vs `wpforms/wpforms` (Pro, no profile yet). Detection that leans only on the namespace will label a Pro site as Lite and wrongly report its entries as non-existent — the pluginFileIds signal is what keeps this honest, which is why it is listed first.",
+    "This profile claims the same capability string as contact-form-7 — `content.form-definitions` — by design: one business capability, many source plugins, one Wix target (forms/form). Neither profile claims `content.form-submissions`, and for different reasons: CF7 never stores submissions (Flamingo does, and needs its own profile), while WPForms Lite genuinely has none to store. That capability is already claimed on the Wix side by forms/form-submission, so it is not a pending-register item — it is waiting on source-side reachability, not on a Wix target."
+  ]
+}

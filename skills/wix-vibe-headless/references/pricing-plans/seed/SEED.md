@@ -1,6 +1,6 @@
 # Pricing Plans — seeding
 
-Seed Wix Pricing Plans (Plans V3) by **calling `seed-pricing-plans.js`** — don't hand-write the
+Seed Wix Pricing Plans (Plans V3) by **calling `seed-pricing-plans.cjs`** — don't hand-write the
 REST calls. It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts
 every Pricing Plans + Benefit Programs seed operation. `require` it and call the functions with
 plain data.
@@ -9,12 +9,8 @@ plain data.
 
 ```js
 // build-time exec_tool
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix"); // Base44 (generic: use $TOKEN)
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/pricing-plans/seed/seed-pricing-plans.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/pricing-plans/seed/seed-pricing-plans.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // setupPricingPlans installs the Wix Pricing Plans app first (idempotent) — base44 sites may not have it.
@@ -74,7 +70,7 @@ is NOT a plan field or a perk). Those ids come from the **bookings seed**
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-pricing-plans.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "domain": "forms",
+  "entity": "form",
+  "displayName": "Wix Form (form schema)",
+  "capability": "content.form-definitions",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Form Schema",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Form Schemas V4 (FormSchemaService)",
+    "endpoint": "POST /form-schema-service/v4/forms",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": true
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "nonstandard-identifier-breaks-the-submission-table",
+      "severity": "warning",
+      "summary": "THE TWO DOCS PAGES CONTRADICT EACH OTHER on this field and both readings are recorded here, because either one is bad enough to matter. About Form Fields says the mild version: 'Wix Forms uses `identifier` to render submissions in the submission table, so a field with a missing or non-standard identifier may display incorrectly there, even though the form itself works and the API accepts the request.' The Form Object page says the severe version: 'An unrecognized value, such as a custom string or a GUID, is dropped rather than rejected: the request still succeeds, but the field doesn't appear in the response's formFields, and neither the field nor its submitted values appear in the Wix dashboard.' Both agree the request returns success, so neither failure mode surfaces as an error at import time. Behave as if the severe reading holds until a live probe settles it: map every source field type onto a known identifier from the Field types table, ledger anything forced to a generic TEXT_INPUT/TEXT_AREA as a fidelity loss, never invent an identifier or pass a source GUID through — and after creating a schema, DIFF the returned formFields against what was sent, which detects the drop directly. Note also that the identifier list is per-namespace: apps owning their own namespace may define additional identifiers, so the table applies to `wix.form_app.form` only."
+    },
+    {
+      "code": "choice-options-need-lowercase-guid-ids",
+      "severity": "blocker",
+      "summary": "Every option of a choice field (dropdown, radio group, checkbox group, tags) needs its own lowercase GUID `id`: 'An option without one is rejected at creation.' Source plugins do not carry option ids — CF7 form-tags list bare option strings, WPForms keys choices by ordinal — so codegen must MINT an id per option and keep the mint deterministic across re-runs, or a retry produces a schema whose option ids no longer match anything already crosswalked."
+    },
+    {
+      "code": "field-must-be-placed-in-layout",
+      "severity": "blocker",
+      "summary": "`formFields` is an unordered set; display order comes from `steps[].layout.<breakpoint>.items` positioning each field by row/column and matching it through `fieldId`. Every field, INCLUDING the submit button, must be placed. An unplaced field still stores submitted values but the Wix dashboard renders the field — and every submission made against it — as EMPTY. Codegen must emit a layout for every imported form, not just the field list."
+    },
+    {
+      "code": "field-id-must-be-lowercase",
+      "severity": "warning",
+      "summary": "The server stores `formFields[].id` in lowercase. An uppercase GUID still saves, but the layout's `fieldId` no longer matches it once the schema is stored, so the field is silently unplaced (see field-must-be-placed-in-layout). Lowercase every generated GUID on both sides, or omit `id` and let the server generate it — then the layout must be built from the response."
+    },
+    {
+      "code": "name-collision-renames-silently",
+      "severity": "warning",
+      "summary": "Form schema names are unique within a namespace. If the name is already taken the request still SUCCEEDS and the schema is stored under a numbered variation of the name. Read `name` back from the response and crosswalk that value; re-running an import otherwise produces 'Contact form 1', 'Contact form 1 (1)', … instead of failing or upserting."
+    },
+    {
+      "code": "premium-and-app-gated-field-types",
+      "severity": "warning",
+      "summary": "File upload, signature and all four payment fields need a Core premium plan or higher; product/fixed-price/custom-price/donation fields also need Wix eCommerce, appointment fields Wix Meetings, service pickers Wix Services. A schema containing an unavailable field type FAILS at create. Source forms carrying file-upload or payment fields therefore need a setup-discovery check before the import step, and a degradation decision (drop the field vs. block the form) recorded at the mapping gate."
+    },
+    {
+      "code": "source-field-count-can-exceed-the-cap",
+      "severity": "warning",
+      "summary": "Caps are set per namespace by the app that provides the schema, not hardcoded, and they are enforced by FAILING the create (FORM_FIELDS_COUNT_EXCEEDED / NAMESPACE_FORMS_COUNT_EXCEEDED / FORM_SIZE_EXCEEDED) rather than by truncating. List Forms Providers Configs returns the live numbers per namespace: `maxForms` (forms per namespace, excluding deleted), `maxFields` (all fields and display elements in one form), `maxDeletedForms` (trash-bin occupants count toward it). Read them during setup discovery instead of assuming. Note `formFields` also carries a hard schema ceiling of maxItems 500 independent of the provider config. Splitting one oversized source form across several Wix schemas is possible but trades one submission record for several and consumes more of the namespace allowance — a faithfulness-ledger decision, not an automatic fallback."
+    },
+    {
+      "code": "conditional-logic-and-notification-config-do-not-carry",
+      "severity": "warning",
+      "summary": "WordPress form plugins keep three things next to the field list that have no equivalent create input here: the mail/notification templates (CF7 `properties.mail` / `mail_2`, WPForms `settings.notifications`), the confirmation messages, and the conditional-show/hide rules. Wix has `submitSettings.submitSuccessAction` (NO_ACTION / THANK_YOU_MESSAGE / REDIRECT / POPUP) and `formRules[]`, but their shapes are unrelated to the source's. Treat notification templates as reconfigure-in-wix (they become Wix Automations) and ledger conditional logic as a manual follow-up rather than attempting a rule translation."
+    }
+  ],
+  "mappingGuidance": [
+    "Create every imported WordPress form in namespace `wix.form_app.form`; that is the Wix Forms app's namespace and the only one whose submissions land in the site owner's Forms dashboard. A form created in another app's namespace inherits that app's business logic.",
+    "Compose each input field from three values that must agree: `inputOptions.inputType` (STRING / NUMBER / BOOLEAN / ARRAY / ADDRESS / PAYMENT / SCHEDULING / WIX_FILE), `inputOptions.<inputType>Options.componentType` (TEXT_INPUT, TEXT_AREA, DROPDOWN, RADIO_GROUP, CHECKBOX_GROUP, …) and the matching `<componentType>Options` block holding label/description/choices. The nesting rule is mechanical: camelCase the enum value and append `Options`.",
+    "`inputOptions.target` is the stable storage key a submitted value is written under, and it is the ONLY key Create Submission accepts. Derive it from the source field's machine name (CF7 form-tag name, e.g. `your-email`; WPForms `fields[].id` + label) and persist source-field-name -> Wix target in the crosswalk — the submissions import is unusable without it.",
+    "Map source field types onto Wix identifiers where a semantic match exists (email -> CONTACTS_EMAIL, name -> CONTACTS_FIRST_NAME/CONTACTS_LAST_NAME, phone -> CONTACTS_PHONE, single-line text -> TEXT_INPUT, textarea -> TEXT_AREA, select -> DROPDOWN with stringOptions, checkboxes -> ARRAY/CHECKBOX_GROUP, file -> WIX_FILE). For a CONTACTS_* field also set `inputOptions.contactMapping.contactField` and `pii: true` so Wix encrypts the stored value.",
+    "Emit a single step unless the source form is genuinely paginated, and place every field (plus the submit DISPLAY field) in that step's layout for at least one breakpoint; fall back across breakpoints when reading, never assume `large` exists.",
+    "Persist the returned `form.id` against the source form id (CF7 post id, WPForms post id) in the crosswalk at create time — `id` is read-only, so the source id cannot be preserved and the submissions import depends on the crosswalk.",
+    "Bulk Create Form accepts 1–30 schemas per call (POST /forms/v4/bulk/forms/create) and is the right shape for a site with many small forms; a single oversized form still has to go through Create Form.",
+    "Deleting a form schema in Wix moves it to a 90-day trash bin and permanently deleting it deletes all of its submissions — relevant to re-run/rollback design, which must never delete a schema that already carries imported submissions."
+  ],
+  "setupRequirements": [
+    "Wix Forms app installed (`wix_forms`; confirm with GetAppInstance)",
+    "SCOPE.FORMS.EDIT-FORM (Manage forms)",
+    "Premium plan check via List Forms Providers Configs when the source forms carry file-upload, signature or payment fields",
+    "Wix eCommerce / Wix Meetings / Wix Services installed only if the source forms carry payment, appointment or service-picker fields"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object",
+      "note": "object page: id read-only; formFields[] (id lowercase-stored, identifier dropped-if-unknown, fieldType INPUT/DISPLAY), steps[] layout with per-breakpoint items, rules/formRules, namespace, limitationRule, spamFilterProtectionLevel, submitSettings.submitSuccessAction enum, enabled/activationBlock semantics, submissionAccess enum, autoFillContact (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/create-form",
+      "note": "POST https://www.wixapis.com/form-schema-service/v4/forms; scope SCOPE.FORMS.EDIT-FORM; required form + form.namespace; id is read-only in the response; errors incl. UNSUPPORTED_FORM_NAMESPACE, FORM_SIZE_EXCEEDED, FORM_FIELDS_COUNT_EXCEEDED, NAMESPACE_FORMS_COUNT_EXCEEDED, DUPLICATED_FIELD_TARGETS, MISSING_FIELD_TARGETS (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields",
+      "note": "field composition rule (inputType + componentType + <componentType>Options); the Field types table with its Requires column (File upload/Signature = Premium plan; Product/Fixed price/Custom price/Donation = Premium plan + Wix eCommerce; Appointment = Wix Meetings; Service picker + Multi-service picker = Wix Services); identifier is a rendering hint for the submission table and a non-standard one 'may display incorrectly there, even though the form itself works and the API accepts the request'; identifiers are per-namespace; target as the stable storage key; contactMapping.contactField (FIRST_NAME/LAST_NAME/COMPANY/POSITION/EMAIL/PHONE/ADDRESS/BIRTHDATE/VAT_ID/CUSTOM_FIELD/SUBSCRIPTION) + pii for CONTACTS_* fields; 'Every field must appear in the layout, including the submit button. A field that isn't placed still stores submitted values, but the Wix dashboard renders it, and the submissions made against it, as empty'; 'The server stores id in lowercase … an uppercase id still saves, but the layout's fieldId no longer matches it once the form schema is stored, so the field is silently unplaced'; choice options each need a lowercase GUID id or are 'rejected at creation'; componentType alone does not identify a field (long answer and short answer share TEXT_INPUT; image choice and multi choice share CHECKBOX_GROUP) (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/bulk-create-form",
+      "note": "POST https://www.wixapis.com/forms/v4/bulk/forms/create; forms[] minItems 1 maxItems 30 (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms-providers-configs",
+      "note": "GET https://www.wixapis.com/form-schema-service/v4/forms/providers-config; returns configs[] per namespace with maxForms (0–15000), maxFields (0–200) and maxDeletedForms — the documented way to read the site's live caps instead of assuming fixed numbers (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/contact-form-7.json",
+      "note": "source side, VERIFIED LIVE 2026-08-16 on the reference store: CF7 form definitions ARE readable over the plugin's own namespace (GET /contact-form-7/v1/contact-forms/{id} returns properties.form.fields[] with type/basetype/name/options), while WPForms Lite definitions are NOT REST-readable (the `wpforms` CPT registers with no show_in_rest). Both profiles point content.form-definitions here"
+    }
+  ],
+  "notes": "Authored 2026-08-16 alongside the contact-form-7 and wpforms-lite profiles. Docs-verified only, no live write attempted. importSafe is true for the schema create itself: Create Form takes no visitor-facing action and emits only Form Created; the notification risk in this domain sits entirely on forms/form-submission. reliability stays `unknown` until a real form is created on a live site — the layout/lowercase-id trap is exactly the kind of thing that returns 200 and produces an empty dashboard. CORRECTION LOG: the first draft of this entity claimed an unrecognized `identifier` is silently dropped from the stored schema; re-reading About Form Fields on 2026-08-16 showed the docs claim only that a non-standard identifier may render incorrectly in the submission table while the API still accepts the field. The pitfall was rewritten and downgraded from blocker to warning (nonstandard-identifier-breaks-the-submission-table), and the genuinely-blocking option-id rule the first draft missed was added (choice-options-need-lowercase-guid-ids)."
+}

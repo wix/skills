@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wpc-composite-products",
+  "displayName": "WPC Composite Products for WooCommerce",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/wpc-composite-products/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.composite-products"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wpc-composite-products/wpc-composite-products"
+    ],
+    "recordProperties": [
+      "wooco_components",
+      "wooco_ids",
+      "wooco_parent_id"
+    ],
+    "assetPathSlugs": [
+      "wpc-composite-products"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "composite-definition",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/products"],
+      "propertyPath": "wooco_components",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-wix-target-decided",
+          "severity": "warning",
+          "summary": "A WPC composite is a WooCommerce product of custom type `composite` whose component definition rides in unregistered product meta `wooco_components` inside the wc/v3/products meta_data array. The composite product itself (name, price, media, SEO) migrates as a plain stores/product; the component structure has no native Wix Stores target — Catalog V3 productType is PHYSICAL | DIGITAL only, with no composed-product entity, no child-product references, and no component-group construct [VERIFIED LIVE 2026-08-16 against dev.wix.com catalog-v3/products-v3/product-object.md: `productType` enum reads exactly `PHYSICAL, DIGITAL`; the nearest structural fields are `options`/`modifiers` (variant-generating customizations, not references to other products) and `purchaseEligibility.userCriteria: MEMBERS_ONLY`]. See capabilities-pending-decision.json: this is NOT automatically covered by the signed commerce.product-bundles verdict — see the composite-is-not-a-fixed-bundle pitfall — and needs its own human co-signature."
+        },
+        {
+          "code": "composite-is-not-a-fixed-bundle",
+          "severity": "warning",
+          "summary": "Semantically distinct from the sibling woo-product-bundle profile, and the distinction changes which Wix surface is the closest fit. A woosb bundle is a FIXED composition (a set list of child products at set quantities). A `composite` is a CUSTOMER-ASSEMBLED kit: the product defines component groups (a group can be sourced from an explicit product list, or from whole categories/tags via `categories`/`tags`/`other` with `exclude`), each with min/max quantities and an `optional` flag, and the buyer picks one product per group at purchase time [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php component panel fields + includes/class-wooco.php add-to-cart validation, 2026-08-16]. The requires-development.json entry for commerce.product-bundles rejected Wix's mix-and-match precisely because it is 'a category + automatic-discount pattern for customer-assembled combos' with no fixed-bundle SKU — which is the shape a composite actually has. That makes mix-and-match a nearer (though still config-only, non-API) parallel for composites than it was for bundles, so the bundles verdict must not be extended here by inference. A human decides."
+        },
+        {
+          "code": "components-referenced-by-source-id",
+          "severity": "warning",
+          "summary": "`wooco_components` is an associative array keyed by a generated component key; each component carries `name`, `desc`, `type`, `products[]` (WooCommerce product ids), `exclude[]`, `categories[]`, `tags[]` (term ids), `default`, `optional`, `price`, `qty`, `custom_qty`, `min`, `max`, `m_min`, `m_max`, `multiple`, `selector`, `orderby`, `order`, `other` [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php `wooco_components[<key>][<field>]` panel inputs and the `$component['<field>']` reads across includes/, 2026-08-16]. Every product id and term id is a WooCommerce id: any import must remap them through the product and category crosswalks AFTER the referenced products and categories are created. Unlike woosb_ids there is no cached SKU to fall back on, so an unresolved id is an unrecoverable reference, not a soft match."
+        },
+        {
+          "code": "derived-composite-price",
+          "severity": "warning",
+          "summary": "The displayed price is derived at runtime from the buyer's selections plus the composite's own pricing mode (`wooco_pricing`, with `wooco_discount_percent` and `wooco_custom_price`) rather than being a single stored sale price [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-product.php get_pricing/get_price and includes/class-wooco.php cart price handling, 2026-08-16]. Migrating the composite as a static stores/product therefore freezes a price that never was a fixed price to begin with — a sharper fidelity loss than the bundle case. Whatever wc/v3/products reports in `price`/`regular_price` at migration time is what carries over; the selection-dependent pricing does not."
+        },
+        {
+          "code": "settings-meta-siblings",
+          "severity": "info",
+          "summary": "Sibling per-composite meta written by the same save handler [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php process_meta_composite, 2026-08-16]: wooco_pricing, wooco_discount_percent, wooco_qty_min, wooco_qty_max, wooco_total_limits (on/off) + wooco_total_limits_min/max, wooco_same_products, wooco_shipping_fee, wooco_custom_price, wooco_before_text, wooco_after_text, wooco_component_layout. Only wooco_components is durable composition data; the rest are pricing/display/behaviour settings (reconfigure-or-drop, decided at mapping review)."
+        }
+      ]
+    },
+    {
+      "entity": "order-item-composite-linkage",
+      "channel": "core-meta",
+      "embeddedIn": ["/wc/v3/orders"],
+      "propertyPath": "wooco_ids",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-wix-target-decided",
+          "severity": "warning",
+          "summary": "Historical orders record what the buyer actually assembled, on the line items: the composite's own line item carries `wooco_ids` and `wooco_price`, and each selected child line item carries `wooco_parent_id`, `wooco_qty`, and `wooco_component` (the component name it was chosen for) [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-wooco.php add_order_item_meta hooked on woocommerce_checkout_create_order_line_item, plus includes/class-backend.php hidden_order_itemmeta which also lists wooco_pos, 2026-08-16]. Child items are real WooCommerce line items, so an order import that copies line items loses nothing sellable — only the parent/child grouping and the which-component-was-this-chosen-for label. No Wix eCom order-line-item field for that grouping has been verified; until one is, the linkage is candidate CMS/ledger data, not silently dropped."
+        },
+        {
+          "code": "parent-id-is-a-product-id-not-a-line-id",
+          "severity": "warning",
+          "summary": "TRAP, and it differs from the sibling bundle plugin. `wooco_parent_id` on a child line item holds the composite PRODUCT id, not the parent line item's id and not its cart key: the cart writes `'wooco_parent_id' => $product_id` where $product_id is the composite being added, and the display code round-trips it through wc_get_product()/get_permalink() [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-wooco.php add_to_cart_items() and the cart/order item-name filters, 2026-08-16]. The cart-item key does exist as `wooco_key` / `wooco_parent_key` but is NEVER copied to order item meta (add_order_item_meta writes only wooco_parent_id, wooco_qty, wooco_ids, wooco_price, wooco_component). Consequence: if one order contains the SAME composite product twice with different selections, the child lines cannot be attributed to the right parent line by wooco_parent_id alone — disambiguate by pairing each parent line's parsed wooco_ids against the child lines, and ledger the case as ambiguous when that pairing is not unique."
+        },
+        {
+          "code": "wooco-ids-is-a-packed-string",
+          "severity": "info",
+          "summary": "`wooco_ids` is not JSON: it is a comma-separated list of `id/qty/componentKey` triples, parsed by exploding on ',' then '/' [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-helper.php get_items(), 2026-08-16 — `id` = absint, `qty` = float, `key` = sanitize_key]. Sanitization (clean_ids) permits only [,.%/0-9a-zA-Z], so component keys are alphanumeric. A reader must parse the string; treating it as an id list will silently drop quantities."
+        },
+        {
+          "code": "sampling-may-miss-linkage",
+          "severity": "info",
+          "summary": "This meta appears only on orders that contain a composite. A small order sample from a store with few composite sales can legitimately lack the key, which detection then reports as property-absent (blocked: surface-changed) — that reads as profile drift but may simply mean no sampled order had a composite. [VERIFIED LIVE 2026-08-16] the test site has no composite products and none of its 150 orders carries any wooco_* line-item meta."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Plugin file id is `wpc-composite-products/wpc-composite-products` — directory and main-file basename happen to match here, unlike the sibling woo-product-bundle/wpc-product-bundles, and the /wp/v2/plugins id carries no .php suffix [VERIFIED LIVE 2026-08-16 against the reference store: plugin active, version 8.0.0, textdomain wpc-composite-products]. Never construct dir/dir.php and assume.",
+    "THE PRODUCT TYPE SLUG IS `composite`, NOT `wooco`. The `wooco_` prefix names the plugin's meta keys, hooks, and assets, but the WooCommerce product type registered in the type selector is the literal string `composite`, backed by class WC_Product_Composite whose get_type() returns 'composite' [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php product_type_selector() → $types['composite'] = 'Smart composite', and includes/class-product.php; the same slug is present in v7.8.9, so this is not a v8 rename — VERIFIED IN PLUGIN SOURCE v7.8.9, 2026-08-16]. Anything keyed on a `wooco` product type will match zero products. [NEEDS-VERIFICATION] whether releases older than 7.8.9 used a different slug — WPClever's wordpress.org tag list no longer serves 6.x, so pre-7.x sites are unchecked.",
+    "THE TYPE IS INVISIBLE TO THE wc/v3 `?type=` FILTER, and this is a plugin bug-shaped behaviour worth planning around, not drift. `product_type_selector` is registered inside class-backend.php, which the bootstrap instantiates only under `is_admin()` [VERIFIED IN PLUGIN SOURCE v8.0.0, wpc-composite-products.php wooco_init(): `if ( is_admin() ) { WPCleverWooco_Backend(); }`], so wc_get_product_types() in a REST request never learns about it. [VERIFIED LIVE 2026-08-16] on the reference store with the plugin ACTIVE, `GET /wc/v3/products?type=__nope__` returns the enum 'simple, grouped, external, variable, woosb, and pw-gift-card' — woosb and pw-gift-card are present, `composite` is absent — so `?type=composite` is rejected with rest_invalid_param (400) rather than returning composites. Consequence for discovery: composites cannot be filtered server-side; they must be found by scanning /wc/v3/products and matching `type == \"composite\"` or the presence of the `wooco_components` meta key. Do not read a 400 here as 'the plugin is not installed'.",
+    "Registers no REST namespace, no route, and no custom post type: /wp-json advertises no wpclever/wooco/composite namespace among its 93 namespaces, and the authed /wp/v2/types lists no composite type [VERIFIED LIVE 2026-08-16]. Detection therefore rests entirely on the plugin id (authed), the asset path (no-auth — GET /wp-content/plugins/wpc-composite-products/assets/css/frontend.css returned 200 [VERIFIED LIVE 2026-08-16]), and the wooco_* record properties.",
+    "Storage model: unregistered WooCommerce post meta — the plugin calls no register_post_meta / register_meta / show_in_rest / register_rest_route / register_post_type / register_taxonomy anywhere [VERIFIED IN PLUGIN SOURCE v8.0.0, grep across includes/, 2026-08-16] — but WooCommerce surfaces non-internal product meta in the wc/v3/products meta_data array and non-internal order-item meta in wc/v3/orders line_items[].meta_data regardless of registration, so both the composition and the order linkage are REST-visible via the authenticated Woo API, not via /wp/v2. The order-item half of that mechanism is live-proven on this site: a custom underscore-prefixed key (`_reduced_stock`) and attribute keys (`pa_size`, `pa_color`, `pa_scent`, `pa_pack-size`) do appear in line_items[].meta_data across the 150 sampled orders [VERIFIED LIVE 2026-08-16]. [NEEDS-VERIFICATION on a real composite payload: the test site has ZERO composite products (205 products scanned 2026-08-16, no product of type 'composite' and no wooco_* meta key on any), so the exact meta_data value shapes are source-verified but not network-verified.]",
+    "Do not conflate with WooCommerce's own premium 'Composite Products' extension (slug woocommerce-composite-products), which uses the `composite` product type as well but exposes a documented `composite_data` / `composite_layout` structure and its own admin model. This WPC plugin's signal is the `wooco_components` meta key plus the wooco_* order-item meta; a site could in principle run either, and the type value alone does not tell them apart [DOCUMENTED — models compared 2026-08-16]. The same caution the sibling profile records for woosb vs. the official Product Bundles applies here."
+  ]
+}

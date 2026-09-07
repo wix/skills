@@ -292,7 +292,7 @@ Use these IDs for traceability when mapping findings to review feedback.
 | 122 | Handle site duplication through `originInstanceId`. | Multi-instance |
 | 123 | External pricing page is broken or used instead of Wix internal billing. | Billing |
 | 125 | Premium features require a clear upgrade path; do not infer app billing from Business Solutions Pricing Plans API usage. | Billing |
-| 130 | Apps supporting Wix Stores catalog data must support both Catalog V1 and Catalog V3. | Stores |
+| 130 | Apps using Wix Stores catalog data must support Catalog V1 and Catalog V3 — see [STORES_VERSIONING.md](STORES_VERSIONING.md). | Stores |
 | 132 | App installation process fails or results in errors. | Installation |
 | 133 | Login/session issues occur during or after installation. | Identity |
 | 151 | Custom element has quality issues such as pixelated images or missing descriptions. | Component quality |

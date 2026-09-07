@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "domain": "blog",
+  "docsRoots": [
+    "api-reference/business-solutions/blog"
+  ],
+  "displayName": "Wix Blog",
+  "ownerHint": "Blog posts, categories, tags, authorship, and comments domain owners",
+  "wixAppsRequired": [
+    "Wix Blog"
+  ],
+  "defaultImportOrder": [
+    "category",
+    "tag",
+    "post",
+    "comment"
+  ],
+  "sideEffectNotes": [
+    "Publishing imported posts may fire public publish side effects."
+  ],
+  "evidence": [
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/blog/entities/post.json",
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (category, tag, post, comment)"
+    }
+  ]
+}

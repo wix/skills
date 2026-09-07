@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "plugin": "seriously-simple-podcasting",
+  "displayName": "Seriously Simple Podcasting",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/seriously-simple-podcasting/",
+  "distribution": "wordpress-org",
+  "capabilities": ["content.podcast"],
+  "detect": {
+    "pluginFileIds": ["seriously-simple-podcasting/seriously-simple-podcasting.php"],
+    "routes": ["/ssp/v1/episodes"],
+    "restNamespaces": ["ssp/v1"],
+    "restBases": ["podcast"],
+    "assetPathSlugs": ["seriously-simple-podcasting"]
+  },
+  "entities": [
+    {
+      "entity": "episode",
+      "channel": "plugin-rest",
+      "route": "/ssp/v1/episodes",
+      "recordKeyField": "id",
+      "candidateTargetRefs": ["cms/collection", "cms/data-item"],
+      "pitfalls": [
+        {
+          "code": "no-native-podcast-target",
+          "severity": "warning",
+          "summary": "Wix has no native podcast entity; episodes migrate as a CMS collection and audio files as media. Decided by Spec Owner 2026-08-16: CMS is the confirmed migration model for content.podcast (collection + media files), not a stopgap — this entity's candidateTargetRefs (cms/collection, cms/data-item) are the signed mapping, and the capability's former pending-register note is retired. The consequence still worth surfacing at review: no podcast player/feed reappears automatically on Wix; the episodes arrive as CMS data."
+        },
+        {
+          "code": "podcast-route-is-settings-not-records",
+          "severity": "info",
+          "summary": "/ssp/v1/podcast (singular) is the show's settings/feed object, not a record collection; the durable records are the episodes (verified live 2026-08-10 on SSP 3.16.3 — the previously declared /ssp/v1/podcasts route does not exist)."
+        }
+      ]
+    }
+  ],
+  "dataRoutePatterns": [
+    {
+      "pattern": "/ssp/v1/*",
+      "reason": "Seriously Simple Podcasting routes expose durable podcast records"
+    }
+  ],
+  "quirks": [
+    "Episode audio is referenced by URL in record fields; media reachability rules apply as for any external media URL."
+  ]
+}

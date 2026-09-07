@@ -1,0 +1,30 @@
+name: sites/manage-oauth-apps
+description: >-
+  Verifies the agent reads the manage-oauth-apps skill and uses the OAuth Apps API to create or
+  update an OAuth app for a headless site, correctly setting allowedRedirectUris and using a
+  mask.paths on update.
+triggerPrompt: >-
+  I have a Wix headless site and I want to add a second OAuth app for a new frontend I'm building
+  at https://shop.example.com. The post-login callback will be https://shop.example.com/callback.
+  Show me the API call to create the OAuth app and how to get its client_id.
+tags: [sites]
+assertions:
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to create a second OAuth app for their Wix headless site, with a redirect URI
+      of https://shop.example.com/callback, and wants the client_id.
+
+      Pass if the response:
+      - calls POST https://www.wixapis.com/oauth-app/v1/oauth-apps with a wix-site-id header, AND
+      - includes allowedRedirectUris containing the callback URL in the request body, AND
+      - states that the response id field is the OAuth client_id, AND
+      - mentions that the client_secret is only available from the Headless Settings dashboard
+        (not returned by the API).
+
+      Fail if the response:
+      - uses the headless-business-setup provision endpoint to create a new site instead of a new
+        OAuth app on the existing site, OR
+      - claims the client_secret is returned by the create API, OR
+      - omits the endpoint or the allowedRedirectUris field.

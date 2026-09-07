@@ -3,7 +3,7 @@ import { wixApiRequest } from "./wix-client.js";
 // Data model reference: see INSTRUCTIONS.md
 // Service and TimeSlot shapes: see wix-bookings-services.js
 
-// Wix Bookings app id — required inside catalogReference for the eCommerce checkout.
+// Wix Bookings app id — required inside catalogReference when adding the booking to the eCom cart.
 const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 
 /**
@@ -101,27 +101,28 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
 }
 
 /**
- * Create an eCommerce checkout for a created booking and return the hosted checkout URL.
+ * Add a created booking to the current eCom cart and return the hosted checkout URL.
+ * In Cart V2 the cart id IS the checkout id — add the booking line to the current cart, then create
+ * the redirect session straight from that cart's id (there is no separate checkout-creation call).
  * Redirect the buyer there (window.location.href = ...). On return, the booking is confirmed.
  * Throws if no redirect URL is produced.
- * https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout.md
+ * https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
  * @param {string} bookingId  booking.id from createBooking().
  * @returns {Promise<string>} The hosted-checkout URL to redirect to.
  */
 export async function checkoutBooking(bookingId) {
   if (!bookingId) throw new Error("checkoutBooking requires a bookingId.");
 
-  const checkoutRes = await wixApiRequest("/ecom/v1/checkouts", {
+  const cartRes = await wixApiRequest("/ecom/v2/carts/current/add-line-items", {
     method: "POST",
     body: {
-      channelType: "WEB",
-      lineItems: [
+      catalogItems: [
         { quantity: 1, catalogReference: { appId: BOOKINGS_APP_ID, catalogItemId: bookingId } },
       ],
     },
   });
-  const checkoutId = checkoutRes?.checkout?.id;
-  if (!checkoutId) throw new Error("Failed to create a checkout for the booking.");
+  const checkoutId = cartRes?.cart?.id;
+  if (!checkoutId) throw new Error("Failed to add the booking to the cart for checkout.");
 
   const redirect = await wixApiRequest("/headless/v1/redirect-session", {
     method: "POST",

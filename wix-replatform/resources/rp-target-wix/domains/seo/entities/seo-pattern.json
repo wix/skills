@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "domain": "seo",
+  "entity": "seo-pattern",
+  "displayName": "SEO Pattern",
+  "capability": "content.seo-patterns",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "SEO Pattern",
+    "verifiedFqdn": null,
+    "idPolicy": "natural-key",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "SEO Pattern V1",
+    "endpoint": "POST /promote/seo/v1/seo-patterns/{pageType}",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "create-versus-set-is-a-real-branch",
+      "severity": "warning",
+      "summary": "POST /promote/seo/v1/seo-patterns/{pageType} fails with 409 PATTERN_ALREADY_EXISTS when the site already has its own pattern for that page type, and PATCH on the same path fails with 404 PATTERN_NOT_FOUND when it does not. `source` on the object says which is the case (the site's own pattern versus the Wix default). Read first, then branch; do not retry the other verb blindly."
+    },
+    {
+      "code": "variables-are-per-page-type",
+      "severity": "blocker",
+      "summary": "A pattern may reference only the variables its page type offers ({{product.name}} style, double braces). Anything else fails with INVALID_PATTERN, whose message lists the permitted variables. Call List SEO Pattern Variables (GET /promote/seo/v1/seo-patterns/{pageType}/variables) for the page type before translating a source template; a WordPress template variable such as %%title%% %%sep%% %%sitename%% (Yoast) or %title% %sep% %sitename% (Rank Math) has no automatic equivalent and must be mapped variable by variable, with anything unmappable resolved to a literal or ledgered."
+    },
+    {
+      "code": "page-type-availability-is-per-site",
+      "severity": "warning",
+      "summary": "UNSUPPORTED_PAGE_TYPE (400) means Wix does not recognise the page type at all; PAGE_TYPE_NOT_ON_SITE (404) means it is valid but the business solution providing it is not installed. These are different problems - the second is a setup ordering bug (install the app first), not a mapping gap. Only WIX_DATA_PAGE_ITEM supports a per-page pattern via pageId; passing pageId for any other type fails with PAGE_ID_NOT_SUPPORTED, and passing collectionName fails with COLLECTION_NAME_NOT_SUPPORTED."
+    },
+    {
+      "code": "pattern-write-is-blast-radius",
+      "severity": "warning",
+      "summary": "A pattern applies to EVERY item of its page type that has no override, so one bad write changes the title of every product or post on the site at once, with no revision check to stop a concurrent dashboard edit. `defaultPattern` is always returned so a reset target is known - record it before writing."
+    },
+    {
+      "code": "boolean-fields-cannot-be-variables-round-trip",
+      "severity": "info",
+      "summary": "A tag whose `disabled` or `custom` value is itself a variable is returned with that value UNSET (they are booleans), even though the behaviour still applies at render time. A read-modify-write round trip therefore silently drops such a variable; re-send the intended value rather than echoing what was read."
+    }
+  ],
+  "mappingGuidance": [
+    "This is where a WordPress SEO plugin's per-post-type TITLE and META DESCRIPTION TEMPLATES belong - Yoast's Settings > Content Types templates (wpseo_titles option) and Rank Math's equivalent. Migrating those as patterns reproduces the source's SEO conventions in one write per page type instead of one write per item, which is exactly the split the Wix SEO introduction asks for.",
+    "The source side is the hard half: those templates live in wp_options, which WordPress REST does not expose, so they arrive only from a user-supplied export or by asking. No plugin profile claims content.seo-patterns today for that reason; the capability is here so the surface has an owner and the mapping is written down.",
+    "Pattern id is the page type (`{pageType}`), or `{pageType}:{pageId}` for a single Wix Data dynamic page. No crosswalk is needed for the page type itself, but WIX_DATA_PAGE_ITEM patterns need the created page's GUID.",
+    "The tag shape is identical to seo/item-seo-tags (`{type, props, children, meta, custom, disabled}`); only the values differ, in that they may contain {{variables}}.",
+    "Precedence: the site's own pattern beats the Wix default pattern, and both are beaten by the host page and the item. Import patterns BEFORE per-item overrides so that a later item write is a deliberate exception rather than an accidental duplicate of the pattern's output."
+  ],
+  "setupRequirements": [
+    "SCOPE.PROMOTE.MANAGE-SEO (writes)",
+    "SCOPE.PROMOTE.VIEW-SEO (reads, incl. List SEO Pattern Variables)",
+    "The business solution that provides each page type must be installed before its pattern is written"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1/seo-pattern-object",
+      "note": "object page: id {pageType} / {pageType}:{pageId}, pattern vs defaultPattern, source, boolean-variable caveat, language is the primary language (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1/set-seo-pattern",
+      "note": "PATCH https://www.wixapis.com/promote/seo/v1/seo-patterns/{pageType}; errors PATTERN_NOT_FOUND / INVALID_PATTERN / UNSUPPORTED_PAGE_TYPE / PAGE_ID_NOT_SUPPORTED / COLLECTION_NAME_NOT_SUPPORTED (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1/create-seo-pattern",
+      "note": "POST same path; 409 PATTERN_ALREADY_EXISTS, 404 PAGE_TYPE_NOT_ON_SITE (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1/list-seo-pattern-variables",
+      "note": "GET https://www.wixapis.com/promote/seo/v1/seo-patterns/{pageType}/variables - the only authoritative source of the variables a page type offers (read 2026-08-16)"
+    }
+  ],
+  "notes": "Authored 2026-08-16 with the seo domain. Docs-verified only. Unclaimed by any WordPress plugin profile today because the source templates are in wp_options and unreadable over REST - the honest verdict for the Yoast/Rank Math template settings is reconfigure-in-wix unless the user supplies an export, and this entity is where that reconfiguration lands if it is ever automated."
+}

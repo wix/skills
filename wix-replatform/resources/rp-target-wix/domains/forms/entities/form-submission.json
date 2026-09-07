@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "domain": "forms",
+  "entity": "form-submission",
+  "displayName": "Wix Form Submission",
+  "capability": "content.form-submissions",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Form Submission",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Form Submissions V4 (FormSubmissionService)",
+    "endpoint": "POST /forms/v4/submissions",
+    "writerId": null,
+    "verification": "docs",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "create-notification-behavior-undocumented",
+      "severity": "blocker",
+      "summary": "OBSERVED 2026-08-16, full method-parameter list of Create Submission read end to end: the call accepts exactly `submission`, `additionalMetadata` and `captchaToken`. There is NO disableNotifications, no suppressNotifications, no flowControlSettings, no participantNotification, and no `sendEmail`-style toggle anywhere on the Form Submissions surface; the words 'notification' and 'email' do not appear on the Create Submission, Submission Object, Confirm Submission or Form Submissions Introduction pages at all. What IS documented: creating a submission fires the `Submission Created` domain event, and the Form Schemas glossary defines 'post-submission trigger' as 'automated actions that are executed after a form submission is received' — i.e. the Wix Automations hook that the default 'new form submission' owner email rides on. Suppression therefore cannot be proven from the docs, so importSafe stays false, exactly as for events/rsvp. The only control we have is the site-wide MuteSite policy, which is not a per-call flag, is applied by default only to newly created target sites, and has not been verified to cover the Automations email path."
+    },
+    {
+      "code": "submitter-is-read-only",
+      "severity": "blocker",
+      "summary": "`submitter` (the oneOf memberId / visitorId / applicationId / userId) is READ-ONLY on both the request and the response — the original submitter cannot be set. A migrated submission will be attributed to the importing identity, not to the person who filled the WordPress form. The one identity field that IS settable at create is `contactId` (GUID, immutable), so submitter attribution has to be carried as a contact reference resolved through the CRM contacts crosswalk, and the loss of the true submitter identity must be ledgered rather than papered over."
+    },
+    {
+      "code": "backdating-is-documented-but-unverified",
+      "severity": "warning",
+      "summary": "`createdDate` IS a request field on Create Submission (format date-time, `immutable`, and — unlike id / namespace / updatedDate / revision / submitter — NOT marked read-only), so the docs say a submission can be created carrying its original date and that the date cannot be changed afterwards. Whether the server actually honours a past createdDate rather than overwriting it with now is not stated anywhere and has not been probed live. Verify on a throwaway form before promising historical fidelity; if it is overwritten there is no Update Submission path back, because the field is immutable."
+    },
+    {
+      "code": "unknown-key-fails-the-whole-submission",
+      "severity": "blocker",
+      "summary": "Every key in `submissions` must be the `target` of a field in the form's schema. A single key that is not a target is rejected as UNKNOWN_VALUE_ERROR and fails the ENTIRE submission — not just that value. WordPress submission stores keep whatever field names the form had at the time, so a form that was edited after some submissions were taken will have historical records carrying retired field names. Reconcile every record's keys against the created schema's targets before writing, and route unmatched values to a ledgered overflow (or add a hidden catch-all field) rather than letting one stale key drop a whole message."
+    },
+    {
+      "code": "status-is-namespace-dependent-not-chosen",
+      "severity": "warning",
+      "summary": "The status a submission is created with depends on the form's namespace and on whether the form collects payment; the docs say to read `status` from the response rather than assume it. For `wix.form_app.form` without payment the submission is recorded immediately as CONFIRMED, which is what an import wants — but a PENDING submission is NOT recorded and is auto-deleted if it is not confirmed in time, so a codegen path that ignores the response status can silently lose records."
+    },
+    {
+      "code": "no-bulk-create",
+      "severity": "warning",
+      "summary": "There is no bulk create for submissions — the tree offers Bulk Mark Submissions As Seen and nothing else. Every historical message is one POST, so a store with thousands of Flamingo inbound messages is a long, rate-limited, one-record-at-a-time import that must be checkpointed and resumable. (Form SCHEMAS do have Bulk Create Form; submissions do not.)"
+    },
+    {
+      "code": "file-uploads-need-a-separate-upload-step",
+      "severity": "warning",
+      "summary": "Values for WIX_FILE fields are not URLs from the source site: the documented path is Get Media Upload URL, upload the file, then reference the resulting media in the submission. A WordPress attachment URL passed straight through will not resolve, so file-upload answers require the media import to run first and the submission import to consume its crosswalk."
+    },
+    {
+      "code": "seen-flag-should-be-set-on-import",
+      "severity": "info",
+      "summary": "`seen` is settable at create. Historical submissions imported from another platform were already read by the owner there; leaving `seen` false lands the whole history in the dashboard as unread and, on top of any notification behaviour, makes the migration look like a flood of new leads. Set seen:true for imported history unless the user asks otherwise."
+    }
+  ],
+  "mappingGuidance": [
+    "Import order is strict: forms/form (the schema) first, then contacts/members if contactId is to be populated, then media for any file-upload answers, then submissions. formId is required and is the crosswalked Wix schema id.",
+    "Build `submissions` as a map keyed by the schema field's `target` — the value shape follows that field's inputType: STRING (including date and time fields), NUMBER, BOOLEAN, ARRAY (array of selected option values), ADDRESS (address object), PAYMENT (array of product objects), SCHEDULING (appointment object). The source-field-name -> target map written by the forms/form step is the input to this.",
+    "Set `createdDate` to the source submission's original timestamp (Flamingo inbound messages carry post_date; the CSV export carries a `Date` column produced by get_post_time('c')) and verify on the first record that the value came back unchanged before importing the rest.",
+    "Resolve `contactId` from the submission's email through the CRM contacts crosswalk where a contact exists; leave it unset otherwise. Do not attempt to set `submitter` — it is read-only.",
+    "Set `seen: true` on imported history so a migration does not present years of answered enquiries as new unread leads.",
+    "Read `status` from every response; only CONFIRMED means the record is stored. For `wix.form_app.form` without payment fields this should be CONFIRMED on create, so anything else is a signal to stop, not to continue.",
+    "Until the notification behaviour is proven silent, treat this as a guarded write: run the first record against a throwaway form on the target site with a mailbox the team controls, confirm nothing was sent to the owner or the submitter, and only then release the batch. If a send is observed, the fallback is not 'skip the data' — it is site-level MuteSite for the import window, or landing the history in a CMS collection with its original ids and re-deciding at the gate.",
+    "Spam-flagged source records (Flamingo's flamingo-spam post status, Akismet meta) should be filtered out before import rather than recreated; Wix's own spamFilterProtectionLevel does not re-evaluate an API-created submission."
+  ],
+  "setupRequirements": [
+    "Wix Forms app installed (`wix_forms`; the Form Submission API only works with it — confirm with GetAppInstance)",
+    "SCOPE.DC-FORMS.MANAGE-SUBMISSIONS (Manage Submissions)",
+    "The target form schema created and crosswalked first (404 FORM_NOT_FOUND otherwise)",
+    "Target site must not be a template (428 SITE_IS_A_TEMPLATE)",
+    "Notification decision taken at the execution-plan gate: either a live probe proving Create Submission is silent, or site-level MuteSite for the import window"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/submission-object",
+      "note": "object page: id, formId, namespace, status enum (PENDING/CONFIRMED/PAYMENT_WAITING/PAYMENT_CANCELED), submissions map keyed by field target, createdDate/updatedDate, revision, submitter, seen, extendedFields, orderDetails, contactId, accessRestriction, tags, appointmentDetails (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/create-submission",
+      "note": "POST https://www.wixapis.com/forms/v4/submissions; scope SCOPE.DC-FORMS.MANAGE-SUBMISSIONS; required submission + submission.formId; settable createdDate (date-time, immutable), seen, contactId (immutable), accessRestriction, tags, extendedFields; read-only id/namespace/updatedDate/revision/SUBMITTER; only additionalMetadata and captchaToken beyond the submission — NO notification/suppression parameter of any kind; errors SUBMISSION_VALIDATION, FORM_NOT_FOUND, SITE_IS_A_TEMPLATE, INVALID_CAPTCHA, FORM_RETRIEVAL_ERROR (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/introduction",
+      "note": "a key that is not a field target fails the whole submission (UNKNOWN_VALUE_ERROR); status-on-creation table; validation error shape (errorPath/errorType/errorMessage/params). No mention of notifications or emails anywhere on the page (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/submission-created",
+      "note": "the Submission Created domain event fires on create — the trigger surface Wix Automations (and therefore the owner's 'new form submission' email) hangs off; the webhook page documents no way to create a submission without emitting it (read 2026-08-16)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values",
+      "note": "per-inputType value shapes (ADDRESS/PAYMENT/SCHEDULING objects), keys come from field targets, one rejected value fails the whole submission (read 2026-08-16)"
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/events/entities/rsvp.json",
+      "note": "precedent: importSafe:false when a create call's member-notification behaviour cannot be proven suppressed from the docs"
+    }
+  ],
+  "notes": "Authored 2026-08-16 (forms vertical). Docs-verified only. Two honest negatives recorded rather than guessed: the submitter CANNOT be set (read-only; contactId is the only settable identity), and notification behaviour CANNOT be proven safe — Create Submission has no suppression flag at all and fires Submission Created, which is the documented automation trigger. Backdating IS documented as settable (createdDate is a non-read-only, immutable request field) but has not been verified live, which is the single highest-value probe to run next on this entity."
+}

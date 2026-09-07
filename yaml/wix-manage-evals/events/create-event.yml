@@ -8,7 +8,7 @@ triggerPrompt: >-
   Create an event called Autumn Gala next month at 7pm at the Grand Hall, limit it to 40 guests,
   and give it the description "An evening of music and food."
 tags: [events]
-maxTokens: 30000
+maxTokens: 500000
 siteSetup:
   mode: template
   # events-studio, not events-editor: the Editor events dev-site template ships

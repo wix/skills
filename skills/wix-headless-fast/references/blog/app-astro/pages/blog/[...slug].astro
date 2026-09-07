@@ -1,0 +1,99 @@
+---
+// Post page.
+//
+// This is a Wix ITEM PAGE: the wixMetadata export + <SEO.Tags> below let the site owner edit
+// this page's title/description/OG in the dashboard and register the route in the sitemap.
+// Keep all three SEO pieces, the [...slug] rest param, and this frontmatter; restyle the
+// template below freely. The body island is client:only — the ricos viewer breaks under SSR.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import RichContent from "../../components/blog/RichContent";
+import { fetchPostBySlug } from "../../wix/blog/posts";
+import { fetchBlogCategories, fetchBlogTags } from "../../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag } from "../../wix/blog/types";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.blogs.id,
+  pageIdentifier: WIX_APPS.blogs.postPageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.blogs.postPageMetadata.identifiers.slug,
+  },
+};
+
+const slug = Astro.params.slug;
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+// Behind Wix's proxy the request URL is internal — the real public page URL arrives on
+// x-wix-forwarded-url; the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let post = null;
+let allCategories: BlogCategory[] = [];
+let allTags: BlogTag[] = [];
+let seoTagsServiceConfig = null;
+try {
+  [post, allCategories, allTags, seoTagsServiceConfig] = await Promise.all([
+    fetchPostBySlug(slug),
+    fetchBlogCategories(),
+    fetchBlogTags(),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.BLOG_POST,
+      itemData: { slug },
+    }).catch(() => null),
+  ]);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!post) {
+  return new Response(null, { status: 404 });
+}
+
+const postCategories = allCategories.filter((c) => post!.categoryIds.includes(c.id));
+const postTags = allTags.filter((t) => post!.tagIds.includes(t.id));
+---
+
+<SiteLayout title={post.title} description={post.excerpt}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+
+  <article class="mx-auto max-w-3xl">
+    {postCategories.length > 0 && <p class="eyebrow">{postCategories.map((c) => c.label).join(" · ")}</p>}
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight">{post.title}</h1>
+    <p class="mt-3 text-sm text-muted-foreground">
+      {post.dateLabel && <time datetime={post.dateISO}>{post.dateLabel}</time>}
+      {post.dateLabel && post.minutesToRead > 0 ? " · " : ""}
+      {post.minutesToRead > 0 ? `${post.minutesToRead} min read` : ""}
+    </p>
+    {
+      post.coverUrl && (
+        <div class="mt-6 aspect-[16/9] overflow-hidden rounded-xl bg-secondary">
+          <img src={post.coverUrl} alt={post.title} class="h-full w-full object-cover" />
+        </div>
+      )
+    }
+    <div class="mt-8">
+      <RichContent client:only="react" content={post.richContent} fallbackParagraphs={post.paragraphs} />
+    </div>
+    {
+      postTags.length > 0 && (
+        <div class="mt-10 flex flex-wrap gap-2">
+          {postTags.map((t) => (
+            <span class="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+              {t.label}
+            </span>
+          ))}
+        </div>
+      )
+    }
+  </article>
+</SiteLayout>

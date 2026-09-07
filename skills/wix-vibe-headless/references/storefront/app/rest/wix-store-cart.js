@@ -7,20 +7,22 @@ import { wixApiRequest } from "./wix-client.js";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 /**
- * Wix eCom Cart — key fields for building a cart UI.
+ * Wix eCom Cart V2 — key fields for building a cart UI.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
  *
- *   id {string}, currency {string},
+ *   id {string} — the cart id IS the checkout id (currency lives under businessInfo.currencyCode / customerInfo.currencyCode, not at the cart root),
  *   lineItems[].id {string} — lineItemId for update/remove (NOT catalogItemId),
- *   lineItems[].quantity {number},
- *   lineItems[].catalogReference.catalogItemId {string},
- *   lineItems[].productName.original {string},
- *   lineItems[].price.formattedAmount {string} — after discounts with currency symbol,
- *   lineItems[].fullPrice.formattedAmount {string} — before discount (strikethrough),
- *   lineItems[].descriptionLines {array} — human-readable option/modifier labels:
+ *   lineItems[].quantityInfo.confirmedQuantity {number},
+ *   lineItems[].source.catalogReference.catalogItemId {string} — NOT top-level in V2,
+ *   lineItems[].name.original {string},
+ *   lineItems[].pricing.unitPrice {ConvertedMoney} — per-unit price after discounts,
+ *   lineItems[].pricing.totalPrice {ConvertedMoney} — line total after discounts,
+ *     ConvertedMoney is { amount, convertedAmount } with NO formatted string — `amount` is in the
+ *     site currency, `convertedAmount` in the display currency; format the number client-side.
+ *   lineItems[].attributes.descriptionLines {array} — human-readable option/modifier labels:
  *     [{ name: { original }, plainText: { original } OR colorInfo: { original, code } }],
- *   lineItems[].image.url {string},
- *   lineItems[].availability.status {string} — "AVAILABLE"|"NOT_AVAILABLE"|"PARTIALLY_AVAILABLE"|"NOT_FOUND"
+ *   lineItems[].attributes.image {object} — { id, url, height, width, altText } (use .url),
+ *   lineItems[].status {string} — "IN_STOCK"|"PARTIALLY_IN_STOCK"|"OUT_OF_STOCK"|"REMOVED_FROM_CATALOG"
  */
 
 /**
@@ -52,20 +54,22 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
 
   const catalogReference = { appId: STORES_APP_ID, catalogItemId };
   if (Object.keys(catalogReferenceOptions).length) catalogReference.options = catalogReferenceOptions;
-  const res = await wixApiRequest("/ecom/v1/carts/current/add-to-cart", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/add-line-items", {
     method: "POST",
-    body: { lineItems: [{ catalogReference, quantity }] },
+    body: { catalogItems: [{ catalogReference, quantity }] },
   });
+  // V2 nests the reference under `source` — a top-level lineItem.catalogReference no longer exists.
   const line = (res?.cart?.lineItems ?? []).find(
-    (l) => l.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.catalogReference?.options?.variantId === variantId),
+    (l) => l.source?.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.source?.catalogReference?.options?.variantId === variantId),
   );
-  // Wix returns 200 even when the line is silently rejected — guard both signals:
-  // 1. availability.status set to something other than AVAILABLE
-  // 2. no matching line at all (quantity 0 / line absent)
-  if (line?.availability?.status && line.availability.status !== "AVAILABLE") {
-    throw new Error(`Item not available for sale (status: ${line.availability.status}). Is it in stock?`);
+  // Cart V2 rejects an unbuyable line with an explicit error rather than silently dropping it, but
+  // guard both signals defensively:
+  // 1. status set to something other than IN_STOCK
+  // 2. no matching line at all (confirmed quantity 0 / line absent)
+  if (line?.status && line.status !== "IN_STOCK") {
+    throw new Error(`Item not available for sale (status: ${line.status}). Is it in stock?`);
   }
-  if (!line || line.quantity === 0) {
+  if (!line || line.quantityInfo?.confirmedQuantity === 0) {
     // A missing line usually means a required selection wasn't sent — a mandatory modifier
     // (pass modifierChoices/customTextFields) or the variantId for a product with options —
     // not necessarily out of stock. Verify every required choice is included in this call.
@@ -81,7 +85,7 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
 /** Read the visitor's current cart. Returns null if no cart exists yet. */
 export async function getCurrentCart() {
   try {
-    const res = await wixApiRequest("/ecom/v1/carts/current", { method: "GET" });
+    const res = await wixApiRequest("/ecom/v2/carts/current", { method: "GET" });
     return res?.cart ?? null;
   } catch {
     return null;
@@ -89,7 +93,9 @@ export async function getCurrentCart() {
 }
 
 /**
- * Create a checkout from the current cart and return the hosted checkout URL.
+ * Start the hosted checkout for the current cart and return its URL.
+ * In Cart V2 the cart id IS the checkout id — there is no separate checkout-creation call; the
+ * redirect session is created straight from the current cart's id.
  * Throws on empty cart, unavailable lines, or a missing redirect URL.
  * Usage: window.location.href = await checkout()
  * @returns {Promise<string>}
@@ -98,22 +104,16 @@ export async function checkout() {
   const cart = await getCurrentCart();
   const lines = cart?.lineItems ?? [];
   if (!lines.length) throw new Error("Cannot check out: the cart is empty.");
-  const unavailable = lines.filter((l) => l.availability?.status && l.availability.status !== "AVAILABLE");
+  const unavailable = lines.filter((l) => l.status && l.status !== "IN_STOCK");
   if (unavailable.length) {
-    const names = unavailable.map((l) => l.productName?.original ?? l.catalogReference?.catalogItemId).join(", ");
+    const names = unavailable.map((l) => l.name?.original ?? l.source?.catalogReference?.catalogItemId).join(", ");
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
-
-  const checkoutRes = await wixApiRequest("/ecom/v1/carts/current/create-checkout", {
-    method: "POST",
-    body: { channelType: "WEB" },
-  });
-  const checkoutId = checkoutRes?.checkoutId;
-  if (!checkoutId) throw new Error("Failed to create checkout from the current cart.");
+  if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");
 
   const redirect = await wixApiRequest("/headless/v1/redirect-session", {
     method: "POST",
-    body: { ecomCheckout: { checkoutId }, callbacks: { postFlowUrl: window.location.href } },
+    body: { ecomCheckout: { checkoutId: cart.id }, callbacks: { postFlowUrl: window.location.href } },
   });
   const url = redirect?.redirectSession?.fullUrl;
   if (!url) throw new Error("Failed to create the checkout redirect session.");
@@ -122,13 +122,13 @@ export async function checkout() {
 
 /**
  * Update the quantity of a cart line. lineItemId is cart.lineItems[].id, not catalogItemId.
- * Wix caps the result at remaining stock — returned quantity may be lower than requested.
+ * Cart V2 rejects an over-stock quantity with an explicit error rather than clamping it.
  * @returns {Promise<object>} Updated cart.
  */
 export async function updateCartItemQuantity(lineItemId, quantity) {
-  const res = await wixApiRequest("/ecom/v1/carts/current/update-line-items-quantity", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/update-line-items", {
     method: "POST",
-    body: { lineItems: [{ id: lineItemId, quantity }] },
+    body: { lineItems: [{ lineItemId, quantity: { newQuantity: quantity } }] },
   });
   return res?.cart;
 }
@@ -139,7 +139,7 @@ export async function updateCartItemQuantity(lineItemId, quantity) {
  * @returns {Promise<object>} Updated cart.
  */
 export async function removeFromCart(lineItemId) {
-  const res = await wixApiRequest("/ecom/v1/carts/current/remove-line-items", {
+  const res = await wixApiRequest("/ecom/v2/carts/current/remove-line-items", {
     method: "POST",
     body: { lineItemIds: [lineItemId] },
   });

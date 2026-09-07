@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "category",
+  "displayName": "Events Category",
+  "capability": "content.event-categories",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Wix Events Category",
+    "verifiedFqdn": "wix.events.v1.category",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "tribe_events_cat",
+      "routes": [
+        "/wp/v2/tribe_events_cat"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Events Categories",
+    "endpoint": "POST /events/v1/categories",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only if category metadata beyond name/assignment must survive (Wix category carries name + assigned events)."
+    }
+  ],
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "mappingGuidance": [
+    "Create categories first, then assign events to them by ID — assignment happens on the category, not the event.",
+    "Wix Events categories are flat: flatten hierarchical source taxonomies and record the faithfulness-ledger entry."
+  ],
+  "setupRequirements": [
+    "Wix Events app"
+  ],
+  "pitfalls": [
+    {
+      "code": "flat-categories",
+      "severity": "warning",
+      "summary": "Wix Events categories are flat; a hierarchical source event taxonomy (tribe_events_cat is hierarchical) flattens on import — faithfulness-ledger entry required."
+    }
+  ],
+  "notes": "Surfaced by the mapping review 2026-08-10: the mapper proposed CMS for event categories and the reviewer pointed at the native Categories API (dev.wix.com Events > Event Management > Categories). Docs-verified only; exercise live before confirming.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/category-object"
+    },
+    {
+      "type": "review-decision",
+      "path": "supplied by the reviewer (Spec Owner) at the mapping review, 2026-08-10"
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/execution/verification.json",
+      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 3/3 categories created via POST /events/v1/categories, server IDs crosswalked; assignment-to-events not exercised (events stayed drafts)"
+    }
+  ]
+}

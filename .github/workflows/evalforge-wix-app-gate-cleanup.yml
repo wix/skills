@@ -35,8 +35,8 @@ jobs:
         with:
           mode: cleanup
           evalforge-url: ${{ vars.EVALFORGE_URL }}
-          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evalforge-project-id: ${{ vars.STUDIO2_PIPELINE_PROJECT_ID }}
           evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
           evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
-          capability-id: ad0b7e36-e85b-40b1-902b-d67bb3c90363
+          capability-id: 6eb9e9b8-6fd7-4b6d-b846-cde489899ff2

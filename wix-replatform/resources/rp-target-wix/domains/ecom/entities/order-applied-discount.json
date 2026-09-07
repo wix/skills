@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-applied-discount",
+  "displayName": "eCommerce Order Applied Discount",
+  "capability": "commerce.applied-discounts",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "eCommerce Order Applied Discount",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "stores/coupon"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "applied_discount",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "ecomOrderAppliedDiscount",
+      "routes": [
+        "eCommerce Orders API"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Orders",
+    "endpoint": "POST /ecom/v1/orders/import",
+    "writerId": "importOrder",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "historical-fact-not-live-rule",
+      "severity": "warning",
+      "summary": "Applied discounts import as historical fact via the merchantDiscount variant — Wix never re-evaluates them as live discount rules, and Import Order stores all money values as-is without recalculating priceSummary. The mapper must therefore keep the source order's totals internally consistent itself; nothing on the Wix side reconciles appliedDiscounts against priceSummary.discount. VERIFIED LIVE 2026-08-16: an order carrying appliedDiscounts totalling 8.00 with priceSummary.total 22.00 on a 30.00 subtotal was stored exactly as sent — and a control order with the same appliedDiscounts but NO priceSummary.discount kept total == subtotal, proving Wix applies nothing."
+    },
+    {
+      "code": "merchant-discount-amount-must-be-object",
+      "severity": "blocker",
+      "summary": "merchantDiscount.amount is a Price OBJECT ({ amount: \"5.00\" }), not a bare decimal string. VERIFIED LIVE 2026-08-16: sending merchantDiscount.amount as the string \"5.00\" 400s with 'Expected an object'. Same for lineItemDiscounts[].totalDiscount."
+    },
+    {
+      "code": "applied-discounts-order-not-preserved",
+      "severity": "warning",
+      "summary": "The appliedDiscounts array comes back REORDERED — VERIFIED LIVE 2026-08-16: [GLOBAL, SPECIFIC_ITEMS, SHIPPING] was sent and [SPECIFIC_ITEMS, GLOBAL, SHIPPING] read back. Any verification or crosswalk pass must correlate entries by content (discountType + amount + description), never by array index. Server-assigned appliedDiscounts[].id is available for post-create correlation."
+    },
+    {
+      "code": "line-item-ids-are-client-settable",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-08-16: lineItems[].id accepts a client-supplied GUID and Import Order preserves it verbatim (create response and later GET both return the sent GUID). This is what makes the lineItemDiscounts[].id linkage resolvable inside a single payload — mint the line item GUIDs locally during the transform and reference them from appliedDiscounts[].lineItemDiscounts[]."
+    },
+    {
+      "code": "order-number-must-be-numeric",
+      "severity": "blocker",
+      "summary": "Order.number must be a NUMERIC string. VERIFIED LIVE 2026-08-16: a non-numeric number (e.g. an order-prefix plugin's 'ZZZ-PROBE-1') fails the whole Import Order call with a bare 400 { message: 'Not a numeric value' } and no field path — the least diagnosable error on this surface. Sources with prefixed/suffixed order numbers (WooCommerce Sequential Order Numbers and friends) must strip to digits and carry the original display number elsewhere."
+    },
+    {
+      "code": "rule-definitions-reconfigure-in-wix",
+      "severity": "warning",
+      "summary": "Only the applied-discount RECORDS on historical orders migrate. The discount rule DEFINITIONS (percentage/BOGO/tiered configuration) are plugin-owned config with no migration path — reconfigure them in Wix (native discount rules / coupons) and report them as reconfigure-in-wix, never as imported data."
+    },
+    {
+      "code": "line-item-discount-id-linkage",
+      "severity": "warning",
+      "summary": "appliedDiscounts[].lineItemDiscounts[].id must be the GUID of a line item in the SAME Import Order payload (docs: 'Line item GUID', maxItems 300). Source per-line-item discount rows (e.g. _wdr_discounts on order-item meta) must be joined to their line items before the write; a dangling id silently misattributes the discount."
+    },
+    {
+      "code": "merchant-discount-description-cap",
+      "severity": "warning",
+      "summary": "merchantDiscount is a one-of: either a predefined discountReason enum (UNSPECIFIED / EXCHANGED_ITEMS / BILLING_ADJUSTMENT — none fits a source plugin rule) or a free-text description capped at 200 chars. Source rule names/labels longer than 200 chars truncate; keep the full label in the migration ledger if it matters."
+    }
+  ],
+  "mappingGuidance": [
+    "Mapping confirmed by Spec Owner 2026-08-16: source-plugin applied-discount records map to Order.appliedDiscounts[] with the merchantDiscount variant, written at import time on the eCom Import Order (or Create Order for live flows) payload.",
+    "Use the merchantDiscount one-of variant for discounts a source plugin computed and applied on the source site: description = source rule label (free text, max 200 chars), amount = the applied discount Price. Do NOT use the discountRule variant — its id is a Wix discount-rule GUID that does not exist for source-computed discounts — and do not use coupon unless the source discount genuinely was a coupon redemption (then it belongs to the coupon crosswalk instead).",
+    "These records are carried as historical fact only: Wix never re-evaluates them as live discount rules, and rule DEFINITIONS are reconfigure-in-wix, not migratable data.",
+    "Set discountType per record: GLOBAL for order-level discounts, SPECIFIC_ITEMS when the source recorded per-line-item amounts, SHIPPING for free/discounted shipping. For SPECIFIC_ITEMS, fill lineItemDiscounts[] with { id: <line item GUID in the same payload>, totalDiscount: <Price> } per affected line.",
+    "appliedDiscounts caps: maxItems 320 per order; lineItemDiscounts maxItems 300 per discount entry. Overflow is implausible for real orders but must fail loudly, not silently drop.",
+    "Written through the parent order payload (ecom/order) — never a standalone write; sequencing and crosswalk requirements are the parent order's (contacts first, catalog crosswalks resolved).",
+    "dependsOn stores/coupon is conditional, not universal: only use the coupon one-of variant (and need that crosswalk) when the source discount genuinely was a coupon-code redemption. The far more common merchantDiscount variant (a plugin-computed, source-specific discount) needs no crosswalk at all — do not require stores/coupon for every order, only the ones that actually redeemed a real coupon."
+  ],
+  "setupRequirements": [
+    "Side-effect verification before historical order execution (inherited from ecom/order)."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order",
+      "note": "Import Order request schema, markdown fetched 2026-08-16: appliedDiscounts (array<AppliedDiscount>, maxItems 320) is writable on the request; each entry is a one-of coupon | merchantDiscount | discountRule; merchantDiscount = one-of discountReason enum (UNSPECIFIED/EXCHANGED_ITEMS/BILLING_ADJUSTMENT) or description (maxLength 200) plus amount (Price); discountType enum GLOBAL/SPECIFIC_ITEMS/SHIPPING; lineItemDiscounts[] (maxItems 300) carries { id: line item GUID, totalDiscount: Price }. Values stored as-is, no recalculation, no side effects."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
+      "note": "Order object page (read 2026-08-16): appliedDiscounts field confirmed on the Order object (Array<AppliedDiscount>)."
+    },
+    {
+      "type": "repo-research",
+      "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
+      "note": "commerce.applied-discounts pending-register entry (researched 2026-08-11, source-side _wdr_discounts shape verified against woo-discount-rules plugin source); resolved by this entity 2026-08-16."
+    },
+    {
+      "type": "live-run",
+      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
+      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Import Order create + GET readback exercised all three discountType values in one payload and again in isolation. GLOBAL + merchantDiscount.description, SHIPPING + merchantDiscount.description, GLOBAL + merchantDiscount.discountReason BILLING_ADJUSTMENT, and SPECIFIC_ITEMS + lineItemDiscounts[{ id: <client-minted line item GUID>, totalDiscount }] all persisted with the values sent; server assigned appliedDiscounts[].id; lineItemIds[] and itemCombinations[] came back empty (the linkage lives in lineItemDiscounts). Discovered live: merchantDiscount.amount must be an object, the array is reordered on readback, and order.number must be numeric. Probe orders 501e1d96/a02680f8/8e577f10/b36cabfa/d4643149 deleted afterwards via Bulk Delete Imported Orders."
+    }
+  ],
+  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site (see the live-run evidence entry); the merchantDiscount object-amount trap, the readback reordering, the client-settable line item GUID, and the numeric-order-number trap were all discovered by that probe, not by docs."
+}
