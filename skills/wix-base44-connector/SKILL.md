@@ -25,7 +25,8 @@ they also surface from a search that began at the methods.
 
 The app's audience picks the token, and the token picks the architecture: the **visitor token is
 public** — anyone can mint it from the site's `clientId` — and the **admin token is a secret**,
-the connector's, server-side only.
+the connector's, server-side only. **Never use the admin connector token for a headless site's
+visitor reads or actions; it is only for admin operations.**
 
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
@@ -286,8 +287,7 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, access_tok
 **Create redirect sessions with a visitor token minted for the headless OAuth app.**
 Use the OAuth app's `clientId` from `wx.context()`. If the report doesn't include an OAuth app
 and you need redirect sessions, create one with the admin connector token as shown below,
-then mint a visitor token from its `clientId`. This setup is required even for an unpublished
-preview; anonymous visitors do not need to log in.
+then mint a visitor token from its `clientId`. Anonymous visitors do not need to log in.
 
 ```js
 // Use your app's actual destinations, including preview when supported.
@@ -323,7 +323,7 @@ import { wix } from "@/lib/wixClient";
 // Flow prerequisites and supported intents:
 // https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
 export async function redirectToWix(intent, returnPath = "/") {
-  // wix sends the minted visitor token, never the admin connector token.
+  // wix sends the minted visitor token. Never use the admin token here; it is only for admin operations.
   // Pass the intent required by the selected flow's schema.
   const response = await wix("/headless/v1/redirect-session", {
     method: "POST",
