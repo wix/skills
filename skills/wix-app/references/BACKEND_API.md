@@ -216,17 +216,17 @@ Build the URL from the extension module's origin, not the host page's origin.
 Studio 2 runs `wix dev` with `--base`, so the request must preserve
 `import.meta.env.WIX_SERVER_BASE_PATH`. The standalone runtime defaults this
 value to `/` without a configured base, including the normal production build.
-Keep this code for both dev and release: guard a missing/empty value and trim
-boundary slashes so root deployments do not produce `//hello` or `undefined`.
+During dev, the injected value is Vite's resolved base, which already has a
+trailing slash even when `--base` omits it. Concatenate the endpoint name
+directly, with `/` as a fallback for a missing/empty value.
 Do not hardcode the sandbox prefix or add `/api` to a standalone route.
 
 ```typescript
 import { httpClient } from "@wix/essentials";
 
 const origin = new URL(import.meta.url).origin;
-const basePath = (import.meta.env.WIX_SERVER_BASE_PATH ?? "")
-  .replace(/^\/+|\/+$/g, "");
-const endpointUrl = `${origin}/${basePath ? `${basePath}/` : ""}hello`;
+const basePath = import.meta.env.WIX_SERVER_BASE_PATH || "/";
+const endpointUrl = `${origin}${basePath}hello`;
 
 // Inside an event handler or runtime data-loading function:
 const res = await httpClient.fetchWithAuth(endpointUrl);
@@ -239,6 +239,8 @@ const data = await res.json();
 With `--base=/studio-prefix/`, this calls `/studio-prefix/hello`; with `/`, an
 empty value, or a missing value, it calls `/hello`. The value is supplied by the
 runtime/bundler; do not add a production environment variable for it.
+Keep the module origin: passing only `${basePath}hello` can resolve against the
+hosting site's origin instead of the app server.
 
 ### Astro App Extensions
 
