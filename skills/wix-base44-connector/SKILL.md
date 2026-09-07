@@ -26,7 +26,8 @@ they also surface from a search that began at the methods.
 The app's audience picks the token, and the token picks the architecture: the **visitor token is
 public** — anyone can mint it from the site's `clientId` — and the **admin token is a secret**,
 the connector's, server-side only. **Never use the admin connector token for a headless site's
-visitor reads or actions; it is only for admin operations.**
+visitor reads or actions.** Use it for ad hoc management calls in `exec_tool` or backend functions
+that implement the app's admin logic.
 
 ```
 browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
@@ -323,7 +324,8 @@ import { wix } from "@/lib/wixClient";
 // Flow prerequisites and supported intents:
 // https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
 export async function redirectToWix(intent, returnPath = "/") {
-  // wix sends the minted visitor token. Never use the admin token here; it is only for admin operations.
+  // wix sends the minted visitor token. Never use the admin token here.
+  // Admin tokens are for ad hoc management calls or backend functions implementing admin logic.
   // Pass the intent required by the selected flow's schema.
   const response = await wix("/headless/v1/redirect-session", {
     method: "POST",
