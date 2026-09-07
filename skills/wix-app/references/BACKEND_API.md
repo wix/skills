@@ -106,7 +106,7 @@ export const GET: APIRoute = async ({ params }) => {
     });
   }
 
-  // Use id to fetch data
+  return Response.json({ id });
 };
 ```
 
@@ -121,7 +121,7 @@ export const GET: APIRoute = async ({ request }) => {
   const limit = parseInt(url.searchParams.get("limit") || "10", 10);
   const offset = parseInt(url.searchParams.get("offset") || "0", 10);
 
-  // Use query parameters
+  return Response.json({ search, limit, offset });
 };
 ```
 
@@ -146,7 +146,7 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Process data
+    return Response.json({ title, content });
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,

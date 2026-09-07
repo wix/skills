@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["__generated__/**/*.tsx"]
+  "include": ["env.d.ts", "__generated__/**/*.tsx"]
 }
