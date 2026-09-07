@@ -35,8 +35,8 @@ after building the client, read or change whatever you need to diagnose and fix 
 If deployment failed or files are missing, re-run the install/deploy step.
 
 ## Theme
-Use the existing Base44 theme in `src/index.css` for new components. The shipped client already
-uses it; don't add a parallel theme or restyle shipped components.
+Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
+share the same colors and typography.
 
 ## Presentation interfaces
 Build `pages/Shop.jsx`, `components/ProductGrid.jsx`, `components/ProductCard.jsx`, and
@@ -419,7 +419,6 @@ For a specifically missing field/interface or an observed runtime error, read on
 shipped file; catalog and cart helpers link their API references inline.
 
 ## Hard rules
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file. Everything you build (Shop, grid, card, PDP, variant controls, Home) draws from the same tokens.
 - Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — keep shared chrome out of individual pages.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or your empty state — never mock products.
