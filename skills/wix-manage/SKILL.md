@@ -43,7 +43,7 @@ Read and update SEO titles and tags at the right level. For "change my site's SE
 "Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
 
 ### [Generate and Read a Wix Site's Content Plan](references/seo/manage-content-plan.md)
-**Technical:** Triggers AI-generated SEO content plans (blog topic ideas with keyword research), polls the async generation to completion, reads and optionally edits keyword research, and reads the resulting blog post briefs. The flow parks mid-way and must be explicitly released. Handles copy-on-write keyword edits and the PENDING_REQUIREMENTS state when the site lacks business data.
+Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow stuck at KEYWORD_RESEARCH while polling GetContentPlanFlow. Use this recipe for both generation and stalled-flow questions: it explains the intentional pause, the Create Content Plan release request, missing flow IDs, and the exact public API paths and response fields.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: "Generate and Read a Wix Site's Content Plan"
-description: Trigger an AI content plan for a Wix site, poll to completion, and read the blog post briefs. The flow parks mid-way and must be explicitly released — this recipe tells you when and how.
+description: Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow stuck at KEYWORD_RESEARCH while polling GetContentPlanFlow. Use this recipe for both generation and stalled-flow questions: it explains the intentional pause, the Create Content Plan release request, missing flow IDs, and the exact public API paths and response fields.
 ---
 
 # Generate and Read a Wix Site's Content Plan
