@@ -42,15 +42,6 @@ siteSetup:
   templateId: stores-v3-editor
   bootstrap:
     steps:
-      - label: set business context for content plan generation
-        method: patch
-        url: https://www.wixapis.com/site-properties/v4/properties
-        body:
-          properties:
-            categories:
-              primary: "Online Store"
-            description: "A store selling handmade ceramic products and home goods."
-          fieldMask: "categories,description"
       # Fixture provisioning only: general site properties do not populate the
       # SEO location prerequisite. Keep this internal setup out of the public skill.
       - label: seed online SEO business location
@@ -62,3 +53,12 @@ siteSetup:
             physicalLocations: []
             serviceLocations: []
             online: true
+      - label: set business context for content plan generation
+        method: patch
+        url: https://www.wixapis.com/site-properties/v4/properties
+        body:
+          properties:
+            categories:
+              primary: "Online Store"
+            description: "A store selling handmade ceramic products and home goods."
+          fieldMask: "categories,description"
