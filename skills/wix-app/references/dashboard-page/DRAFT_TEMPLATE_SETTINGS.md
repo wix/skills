@@ -1,7 +1,6 @@
 # Draft Template — Settings page (Cases C and D)
 
-> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) to keep both files inside the 10k-char
-> reference fetch limit. Pick your case there first; come here only for Case C or D.
+> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) so each file covers one case. Pick your case there first; come here only for Case C or D.
 
 ## The settings page
 

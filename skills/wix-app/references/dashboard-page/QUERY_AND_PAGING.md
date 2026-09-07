@@ -1,7 +1,7 @@
 # Querying and paging a Wix API from a collection page
 
-> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) to stay inside the 10k-char reference fetch
-> limit. That file is about finding the method and its fields; this one is about calling it.
+> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) so each file covers one job: that one is about
+> finding the method and its fields, this one is about calling it.
 
 Filters are written in **WQL**, which is shared across the platform — the rules below come from
 [About the Wix API Query Language][wql], not from one endpoint's behaviour, so they hold for
@@ -43,6 +43,23 @@ const dateFilter = dateRangeFilter({
 `initialValue` is on every filter factory (`FilterStateBaseParams`), so the same trick seeds a status
 or category default. Pick a window that matches the page's job — a booking review wants recent and
 upcoming, an audit log wants the last 24 hours.
+
+**A seeded default must not defeat search.** Search is a "find this anywhere" gesture, so a window
+the user never chose silently hiding matches from it reads as broken search — a measured run shipped
+exactly that, and the report was "search doesn't work", not "the date filter is too narrow". Bypass
+the range while it is still the seeded value, and keep it once the user has set their own:
+
+```ts
+const DEFAULT_FROM = startOfDayDaysAgo(30);
+const isUntouchedDefault = (r?: { from?: Date; to?: Date }) =>
+  !r?.to && r?.from?.getTime() === DEFAULT_FROM.getTime();
+// in fetchData AND fetchTotal:
+dateRange: search?.trim() && isUntouchedDefault(range) ? undefined : range,
+```
+
+Whatever a filter or a permission removes from the result, **say so in `noResultsState`** — "no
+matches" and "no matches because a default you didn't set, or a scope you don't hold, excluded them"
+look identical, and only the second is actionable.
 
 Two traps the list resolves, both of which look like a working filter:
 

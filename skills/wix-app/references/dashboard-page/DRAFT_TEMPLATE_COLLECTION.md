@@ -1,7 +1,7 @@
 # Draft Template — Collection page (Cases A, B and D)
 
-> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) to keep both files inside the 10k-char
-> reference fetch limit. Pick your case there first. This page is shared by A, B and D.
+> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) so the case chooser stays short. Pick your
+> case there first. This page is shared by A, B and D.
 
 ## The collection page
 
@@ -103,7 +103,9 @@ export const {Feature}CollectionPage: FC = () => {
             // Three distinct messages. Without errorState a failed query looks
             // exactly like a slow one: skeletons, forever.
             emptyState={<CollectionEmptyState title="No {feature} yet" />}
-            noResultsState={<CollectionNoResultsState />}
+            // Name what excluded the rows — a seeded default or a missing scope
+            // looks exactly like "nothing matched", and only one is actionable.
+            noResultsState={<CollectionNoResultsState title="No {feature} match" subtitle="…" />}
             // errorState is a RENDER FUNCTION: (err, { retry }) => ReactElement.
             errorState={(err, { retry }) => (
               <CollectionErrorState
