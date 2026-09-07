@@ -146,7 +146,7 @@ export default Panel;
 ### Extension Configuration (`best-seller-badge.extension.ts`)
 
 ```typescript
-import { extensions } from '@wix/astro/builders';
+import { extensions } from '@wix/custom-extensions';
 
 export default extensions.sitePlugin({
   id: 'f8e2a1b3-c4d5-6789-abcd-ef0123456789',

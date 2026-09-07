@@ -43,7 +43,7 @@ wix generate --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"TOOLS_PRO
 Open the generated `src/extensions/backend/app-tools/my-tools/my-tools.extension.ts` and replace the stub tool with your own. Read [app-tools/TOOLS.md](app-tools/TOOLS.md) for the full field reference and constraints.
 
 ```typescript
-import { extensions } from '@wix/astro/builders';
+import { extensions } from '@wix/custom-extensions';
 
 export default extensions.appTools({
   id: '<generated-uuid>',
