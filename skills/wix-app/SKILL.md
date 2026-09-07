@@ -22,7 +22,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
-  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and [Collection Toolkit](references/dashboard-page/COLLECTION_TOOLKIT.md) for which component serves each need.
+  - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and the installed package's own `Collection Toolkit.md` guide for which component serves each need ([The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain)).
     - [ ] **The page shows aggregate numbers, not only rows** (`SummaryBar`) — unless the prompt asks for a single record. "How many, and which ones need me" is why someone opens a dashboard.
     - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
@@ -159,9 +159,9 @@ This is the most common place the selection order gets dropped: the collection g
 
 The documented flow:
 
-1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.) On the **create** route there is no record to pass: omit `entity` and see [ENTITY_PAGE_TOOLKIT.md § Create route](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md#create-route), which is what the whole "add new" flow turns on.
+1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.) On the **create** route there is no record to pass: omit `entity` and read the **Create route** section of `<pkgRoot>/dist/docs/useEntityPage.md`, which is what the whole "add new" flow turns on.
 2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
-3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in `<pkgRoot>/dist/docs/useEntityPage.md`.
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
 
 Use a Dashboard Modal for dialogs that neither write nor display a listed record: a delete or discard confirmation, an unsaved-changes prompt, an informational notice, or any dialog on a page that lists nothing. Dialog size and field count are not exceptions — a one-field create form over a listed record is still an `EntityPage`. Reach for a modal because the interaction persists nothing, never because "the form should open in a modal."
@@ -212,8 +212,6 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
-| Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
-| Reading a patterns bundle or doc file the index names | [PATTERNS_BUNDLE_READING.md](references/dashboard-page/PATTERNS_BUNDLE_READING.md) |
 
 ---
 

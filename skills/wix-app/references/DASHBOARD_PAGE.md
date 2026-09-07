@@ -6,7 +6,7 @@ Dashboard pages appear in the site owner's Wix dashboard, where admins manage da
 
 A dashboard page is a workflow, not a screen. The site owner has to understand the situation, focus on what needs attention, investigate one record, act, and see the result confirmed — so translate the prompt into those needs before choosing any component.
 
-Do this first because a bare filtered table answers "what are all the records" and none of "how many", "which one needs my attention", or "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done. Which component serves each need: [Collection Toolkit](dashboard-page/COLLECTION_TOOLKIT.md).
+Do this first because a bare filtered table answers "what are all the records" and none of "how many", "which one needs my attention", or "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done. Which component serves each need is the installed package's own answer — see [The Discovery Chain](WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
 ## UI Libraries — Read Before Writing Any JSX
 
@@ -29,7 +29,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+**Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
 **Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell — re-set the path variable in every call.
 
@@ -70,7 +70,7 @@ Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** u
 >
 > **If this page lists nothing** (settings, config) the rule doesn't apply. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
 >
-> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, `<pkgRoot>/dist/docs/useEntityPage.md`.
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 
