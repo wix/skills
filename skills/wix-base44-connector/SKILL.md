@@ -119,30 +119,26 @@ these same recipes in its `hits` list, so they surface either way.
 
 ### Search and browse
 
-`wx.search` returns an object, not an array. Its ranked `hits` mix methods, articles,
-and recipes; identify each by its title field. Articles and recipes can explain the
-integration flow even though they have no method endpoint.
+`wx.search` returns a saved-file reference and ranked hits. Each hit is a method,
+article, or recipe, identified by its title field; only methods have an endpoint.
 
 ```ts
 type Section = { title: string; line: number }; // 1-based line in the saved file
-type SearchHit = { docsUrl: string } & (
-  | { method: string; endpoint: string | null; gist?: string; examples?: Section[] }
-  | { article: string | null; line: number; outline?: Section[] }
-  | { recipe: string | null; line: number; lines: number;
-      file?: string; steps?: string[]; calls?: string[] }
-);
-type SavedSearch = { path: string; bytes: number; lines: number };
-type SearchResult =
-  | (SavedSearch & { hits: SearchHit[]; note?: string })
-  | (SavedSearch & { head: string; note: string }) // no result blocks parsed
-  | { truncated: true; total: number; head: string }; // final size-limit fallback
+type SearchResult = {
+  path: string; bytes: number; lines: number; note?: string;
+  hits: ({ docsUrl: string } & (
+    | { method: string; endpoint: string | null; gist?: string; examples?: Section[] }
+    | { article: string | null; line: number; outline?: Section[] }
+    | { recipe: string | null; line: number; lines: number;
+        file?: string; steps?: string[]; calls?: string[] }
+  ))[];
+};
 ```
 
-`path` holds the full returned Markdown. Optional details and then excess hits may be
-removed to fit the inline budget; missing details do not mean the source lacks them.
-A null title or endpoint means it was absent from the parsed source. Use `docsUrl`
-to read the page, or the saved file's line numbers to read articles and examples.
-
+The file at `path` keeps the full returned Markdown, while optional details and excess
+hits may be omitted from the inline response. Null titles or endpoints were not parsed.
+If no result blocks parse, `head` and `note` replace `hits`; the final size-limit fallback
+is `{ truncated: true, total: number, head: string }` instead of the object above.
 
 ```js
 // name the method? search finds it in one call:
