@@ -10,15 +10,28 @@ Two repos, three phases, strictly ordered: **cairo ships → cairo releases → 
 
 ---
 
-## Status — 2026-09-07
+## Status — 2026-09-08 (re-synced)
 
 Both PRs are open. Implemented as one PR per repo, split by commit.
 
 | | PR | Commits |
 | --- | --- | --- |
-| cairo | **#5869** `feat/patterns-discovery-guides` | A1, A2, A3, A4 (+ the field-binding section) |
-| skills | **#1279** (draft) `feat/patterns-discovery-chain` | C1, C2, C3, C4, C5, this plan |
+| cairo | **#5869** `feat/patterns-discovery-guides` | 8 — A1, A2, A3, A4, field binding, + 3 from review |
+| skills | **#1279** (draft) `feat/patterns-discovery-chain` | 7 — C1…C5, this plan, + the floor bump |
 | merged earlier | cairo **#5843** | A5, cut to one section |
+
+Both branches rebased 2026-09-08: cairo onto `master` at **1.467.0**, skills onto `main` at
+`2d9d319e`. **1.466.0 and 1.467.0 were both cut without the guides**, which is why the floor
+text now says 1.468.0 at the earliest and why the key probe, not the number, is authoritative.
+
+Three conflicts on the skills rebase, all expected and all resolved toward the move:
+skills#1280 corrected `useOptimisticActions` in `COLLECTION_TOOLKIT.md` (carried into the cairo
+guide, in words) and skills#1281 added read-batching guidance to `PATTERNS_BUNDLE_READING.md`
+(kept in the skill — it is instruction about how to read, not what the format means, so the
+moving test puts it on this side).
+
+Review on cairo#5869 found two real defects, both fixed: the provider entry points were wrong,
+and the validator's alias guard disabled the whole check. See §0.6 and §0.7.
 
 **The skills PR must not merge before cairo #5869 is released.** Its floor check is a key
 probe, so no version number is baked in and nothing needs editing at merge time — but until a
@@ -103,6 +116,39 @@ now *also* asserts **`references/dashboard-page/ENTITY_PAGE_TOOLKIT.md`**, which
 C2's deletion breaks a merged eval on `main`: the scenario edit is not optional cleanup, it belongs in
 the deletion commit alongside C4. Re-check this list before writing Phase C — it changed twice in six
 days.
+
+### 0.6 cairo doc prose does not carry code — the guides had to be rewritten for it
+
+`cairo/packages/cairo/docs/**` prose describes what to pass and why in words; the runnable
+examples carry the code. These guides were drafted from skill references, where the opposite
+holds — an agent reads those, so exact signatures are the point — so they arrived full of
+inline calls and one entire type signature.
+
+Out of the prose on the second pass: the filter factory's generic signature, the navigate call
+with its argument object, the `useEntityPage` call with its parameter object, the two `register`
+misuses spelled as JSX, and the form methods written as calls. Component **names** stay — a
+guide about which component serves which need cannot avoid naming components — and code blocks
+stay, since that is where code belongs.
+
+**Applies to anything else moved into cairo.** The direction of travel is not neutral: content
+that was correct as skill prose needs rewriting, not relocating.
+
+### 0.7 Moving prose is where inherited errors surface
+
+Both review bots on cairo#5869 caught the composition guide pointing `WixPatternsBMProvider`
+and `WixPatternsGizaProvider` at `@wix/patterns/provider`, which exports only
+`WixPatternsProvider`; BM is `/bm` and Giza is `/giza`. The guide also described the default as
+detecting its environment, which it does not — it lives in `src/dashboard/` and requires the
+`@wix/dashboard` peer.
+
+The auto-detection claim came straight from the skill file, which had said the default
+"auto-detects the environment (BM, Essentials, Giza)" for as long as the file has existed. The
+wrong import mapping was then generalised on top of it while moving.
+
+**So verify every claim against source as it moves, not just the ones that look uncertain** —
+the four guides carried roughly a hundred assertions across, and the two that were wrong were
+both inherited rather than invented. This is also, precisely, the argument for the whole
+design: the claim was wrong in a place nothing could check it.
 
 ---
 
