@@ -134,13 +134,13 @@ direction.
 
 ### Array Props
 
-Array elements must be objects with named keys. This provides stable identity,
-semantic field names, and room for non-breaking extension.
+Array elements must be objects with named keys. This provides semantic field
+names and room for non-breaking extension.
 
 ```ts
 type GalleryProps = {
-  images: Array<{ id: string; image: Image; caption?: string }>;
-  tags: Array<{ id: string; label: string }>;
+  images: Array<{ image: Image; caption?: string }>;
+  tags: Array<{ label: string }>;
 };
 ```
 
@@ -154,9 +154,10 @@ Do not export arrays of primitives, leaf Wix data types, or nested arrays:
 // Array<{ items: Array<Image> }>
 ```
 
-The parent owns the array. Item sub-components receive one item rather than
-redeclaring the collection. Use a stable item identifier as the React key; do
-not synthesize identity from the array index when stable identity is available.
+The parent owns the array. Item sub-components receive one item, not the
+collection. Do not add an `id` field for React keys—use the item's semantic
+named fields instead. Prefer: (1) a stable unique field (`value`, `uri`, `label`, …), (2)
+else slug a user-facing string (`name`, `label`), (3) else the array index.
 
 ### Active-Item Components
 
@@ -177,7 +178,7 @@ and multi-expand accordions.
 import type { A11y, Direction } from '@wix/editor-react-types';
 import type { ActiveItemIndex } from '@wix/react-component-utils';
 
-export type Step = { id: string; name: string; body: string };
+export type Step = { name: string; body: string };
 
 export type StepsProps = {
   id?: string;
@@ -189,7 +190,7 @@ export type StepsProps = {
 };
 
 export const defaultProps = {
-  steps: [{ id: 'first', name: 'Step 1', body: 'First step' }],
+  steps: [{ name: 'Step 1', body: 'First step' }],
   activeItem: 0,
 } satisfies Omit<StepsProps, 'id' | 'className'>;
 ```
@@ -269,7 +270,8 @@ Do not extract tiny fragments merely to satisfy a line-count threshold.
 - [ ] New or changed fixed-domain numeric props use `@min` and `@max`.
 - [ ] Every named inner part has `elementProps` wiring and merged classes.
 - [ ] Leaf components avoid exported `children`.
-- [ ] Array elements are named objects with stable identity.
+- [ ] Array elements are objects with semantic named fields. No separate `id` field added to item types; React keys use item fields
+      (stable unique → slug → index), not a typed `id`.
 - [ ] One-body-visible arrays use the active-item contract and render all bodies.
 - [ ] Defaults have one source of truth in the props file.
 - [ ] Resources are Wix-hosted, prop-supplied, or locally bundled.
