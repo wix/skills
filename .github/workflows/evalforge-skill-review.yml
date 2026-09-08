@@ -1,0 +1,69 @@
+name: EvalForge Skill Review
+
+# Reviews the *content* of wix-manage skills and their eval scenarios, against the guide sections
+# named in .github/prompts/skill-review.md. The eval gates check wiring; nothing else reads the prose.
+#
+# Automatic on PR creation, manual thereafter: a push does not spend. `/re-eval` re-runs it, via the
+# GATES list in evalforge-re-eval.yml.
+#
+# The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
+# the tests covering this wiring, so a differently named file would silently skip them.
+
+on:
+  pull_request:
+    branches: [main]
+    # No `paths:` filter, for the reason ci.yml gives at length: a required check whose workflow is
+    # path-scoped is never reported on PRs outside those paths, and GitHub leaves it "Expected —
+    # waiting for status to be reported" forever. The action decides scope from the changed files.
+    #
+    # `synchronize` is here even though a push must not spend: the check has to be reported on every
+    # head commit, and `/re-eval` re-runs the run for the current head, so there has to be one.
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: evalforge-skill-review-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # The job name *is* the required-status-check name. Left implicit it would be `review`, and
+    # generic names collide in the picker — both eval gates already expose a job called `gate`.
+    name: skill-review
+    runs-on: ubuntu-latest
+    # Comfortably over the reviewer's own 900-second ceiling, leaving room for checkout and install.
+    timeout-minutes: 20
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    # Three layers, none of them the commit email. Forks cannot reach the API key regardless, since
+    # GitHub withholds secrets from fork PRs, but the job should not start either. author_association
+    # is computed by GitHub rather than typed by the committer, so it cannot be spoofed the way
+    # `git config user.email` can, and it stops a non-member before a runner holds the key.
+    if: >-
+      ${{ !github.event.pull_request.draft
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                      github.event.pull_request.author_association) }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # One checkout: the tree the reviewer reads, its prompt, and the action source. fetch-depth: 0
+      # because it diffs against the base commit, which a depth-1 clone does not contain.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      # Pinned exactly: this action parses the CLI's JSON envelope and depends on its flag surface,
+      # and both move between releases.
+      - run: npm install -g @anthropic-ai/claude-code@2.1.263
+
+      - uses: ./.github/actions/evalforge-yaml-gate
+        with:
+          mode: review
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # A variable, not a secret: the endpoint is publicly documented. Blank falls back to the
+          # action's default.
+          anthropic-base-url: ${{ vars.ANTHROPIC_BASE_URL }}
+          # Soak first: findings post, the check stays green. Flipping this needs no code change.
+          blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}

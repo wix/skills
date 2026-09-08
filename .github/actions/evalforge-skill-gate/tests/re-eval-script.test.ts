@@ -61,6 +61,7 @@ const MANAGE_RUN: WorkflowRun = {
 };
 
 const YAML_GATE = 'evalforge-yaml-gate.yml';
+const SKILL_REVIEW = 'evalforge-skill-review.yml';
 
 const run = (overrides: Partial<WorkflowRun>): WorkflowRun => ({ ...FAILED_RUN, ...overrides });
 
@@ -74,6 +75,8 @@ function harness(options: {
   runs?: WorkflowRun[];
   /** The wix-manage gate's runs — none by default, so a PR touching one skill is the base case. */
   manageRuns?: WorkflowRun[];
+  /** The skill reviewer's runs — none by default, for the same reason. */
+  reviewRuns?: WorkflowRun[];
   rerunError?: Error;
 } = {}) {
   const comments: string[] = [];
@@ -89,9 +92,13 @@ function harness(options: {
   });
   const listWorkflowRuns = vi.fn(async (query: Record<string, unknown>) => {
     runQueries.push(query);
-    const workflowRuns = query.workflow_id === YAML_GATE
-      ? options.manageRuns ?? []
-      : options.runs ?? [FAILED_RUN];
+    // Each gate gets its own fixture: routing every unrecognised id to the wix-app runs would
+    // make a newly added gate silently re-run someone else's workflow.
+    const byWorkflow: Record<string, WorkflowRun[] | undefined> = {
+      [YAML_GATE]: options.manageRuns ?? [],
+      [SKILL_REVIEW]: options.reviewRuns ?? [],
+    };
+    const workflowRuns = byWorkflow[String(query.workflow_id)] ?? options.runs ?? [FAILED_RUN];
     return { data: { workflow_runs: workflowRuns } };
   });
   const reRunWorkflow = vi.fn(async ({ run_id }: { run_id: number }) => {
@@ -254,7 +261,7 @@ describe('who may spend', () => {
 });
 
 describe('finding the run to re-run', () => {
-  it('asks for both gates, the PR trigger, and this head sha', async () => {
+  it('asks for every gate, the PR trigger, and this head sha', async () => {
     const test = harness();
     await test.execute();
 
@@ -271,7 +278,22 @@ describe('finding the run to re-run', () => {
         head_sha: OPEN_PR.head.sha,
         per_page: 1,
       }),
+      expect.objectContaining({
+        workflow_id: SKILL_REVIEW,
+        event: 'pull_request',
+        head_sha: OPEN_PR.head.sha,
+        per_page: 1,
+      }),
     ]);
+  });
+
+  it('re-runs the skill reviewer on a PR that only changed skill content', async () => {
+    const review = run({ id: 902 });
+    const test = harness({ runs: [], reviewRuns: [review] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([review.id]);
+    expect(test.comments[0]).toContain(SKILL_REVIEW);
   });
 
   it('re-runs the wix-manage gate on a PR that only touches that skill', async () => {

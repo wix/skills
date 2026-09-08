@@ -246,7 +246,9 @@ describe('EvalForge re-eval workflow', () => {
     expect(gates).toBeDefined();
     const files = [...gates!.matchAll(/'([^']+)'/g)].map(match => match[1]);
 
-    expect(files).toEqual(['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml']);
+    expect(files).toEqual([
+      'evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml', 'evalforge-skill-review.yml',
+    ]);
     for (const file of files) {
       expect(existsSync(join(__dirname, '../../../workflows', file))).toBe(true);
     }

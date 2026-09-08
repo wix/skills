@@ -65,19 +65,33 @@ A skill starts with orchestration: which APIs to call, in what order, what to de
 
 Orchestration on its own, though, still leaves the agent to go find the request body. That costs a round trip to the docs on every run, and it leaves room to guess wrong. So show the call too: the endpoint and HTTP method, a minimal request body for the common path, the response fields the next step reads, and any wrapper, enum value, or ID format that the field name alone doesn't reveal. An agent that can copy a working call finishes the task faster and more reliably than one that has to reconstruct it.
 
-Verify every example. Run it against a real site, or confirm it against the official reference and method schema — and when live behavior contradicts the reference, document what the API actually does. A plausible but wrong example is worse than no example, because the agent will trust it.
+What a skill is not is one endpoint's schema restated in prose. That belongs on the reference page, and duplicating it leaves two places to be wrong.
 
 Keep examples minimal and current. Show the fields the task needs, not the whole schema: exhaustive field lists, every optional field, and full enum tables belong in the linked reference, which stays accurate as the API evolves. Link that page alongside the example so the agent can go deeper when a task falls outside the common path. Use placeholder IDs rather than values from a real site.
 
+The reverse is a defect too. If which endpoint to call, in what order, or which field is required is only reachable through the link, the skill has offloaded its job and the agent pays a round trip on every run. Everything the common path needs belongs in the skill; the link is for the depth beyond it.
+
+Write instructions an agent can act on — an observable trigger and an action it can take. Hedging where a decision is required (*"you may want to"*, *"consider"*) leaves the agent guessing at the very thing the skill exists to settle, and a step whose order matters has to be written as an order.
+
+### Verify the API details
+
+Run every example against a real site, or confirm it against the official reference and method schema — and when live behavior contradicts the reference, document what the API actually does. A plausible but wrong example is worse than no example, because the agent will trust it.
+
 ### Stay agnostic to agent and client
 
-You don't know which agent will read a skill, which client or provider it's running in, or which tools it has. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. Describe the capability you need, not the tool that provides it.
+You don't know which agent will read a skill, which client or provider it's running in, which tools it has, or what machine it's on. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. The same goes for a named model, operating system, device, or editor. Describe the capability you need, not the tool that provides it.
+
+For the same reason, avoid content that only holds for one reader or one moment: references to the conversation so far (*"as mentioned above"*, *"the tool you just used"*), assumptions about a filesystem or a terminal, unanchored time claims (*"the new v3 API"*, *"currently in beta"*), or instructions that depend on a particular model's behavior or output format. Each of these reads fine and then quietly misleads every reader it doesn't fit.
 
 For mutating flows, ask for user confirmation before changing site or account data unless the surrounding skill already makes the mutation an explicit user-confirmed action.
 
 ## PR Checklist
 
-Before opening a PR, confirm:
+Before opening a PR, confirm the following. The first group is checked automatically and a failing
+check names the item that broke; the other two are what the skill review looks at, so they are worth
+reading before you write rather than after.
+
+**Wiring**
 
 - The content is in the right existing skill. New top-level skills are admin-only.
 - Each skill's `description` is at most 1024 characters.
@@ -86,12 +100,22 @@ Before opening a PR, confirm:
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) on its doc URL.
 - Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
 - The [wix-app eval gate](docs/skill-evaluation.md#wix-app-scenarios-the-pr-eval-gate) comment has been read: no uncovered tags, and any scenario you added or edited has at least 3 assertions including an `llm_judge`.
-- Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
-- The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
-- The skill names no MCP tool, client, or provider — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
-- Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
-- Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.
+
+**Skill content** — see [Writing Wix API Skills](#writing-wix-api-skills)
+
+- The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
+- The common path is completable [without leaving the skill](#orchestration-and-worked-examples): the reference page is linked for the full contract, not pasted in and not standing in for what the task needs.
+- Wix API details were [verified](#verify-the-api-details) against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
+- The skill names no MCP tool, client, provider, model, or device, and carries nothing that only holds for one reader or one moment — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
+- Instructions are ones [an agent can act on](#orchestration-and-worked-examples): no hedging where a decision is required, and steps whose order matters are written as an order.
+- Mutating flows [ask for user confirmation](#stay-agnostic-to-agent-and-client) before changing site or account data.
+
+**Eval scenario content** — see [What a Scenario Must Test](docs/eval-scenarios.md#what-a-scenario-must-test)
+
+- Every eval scenario starts from a real user's intent and [would come out worse without the skill](docs/eval-scenarios.md#test-behavior-not-skill-text) it covers.
+- Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
+- Each judge is [written so that a plausible-but-wrong run fails it](docs/eval-scenarios.md#assert-correctness-and-quality).
 
 ## Questions
 

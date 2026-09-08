@@ -4,7 +4,7 @@ name: EvalForge Re-eval
 # report an unverified result for reasons that have nothing to do with the PR; without this the
 # only remedy is an empty commit.
 #
-# Covers both eval gates. See GATES below to extend it.
+# Covers both eval gates and the skill content review. See GATES below to extend it.
 #
 # It re-runs the PR's own `pull_request` run rather than evaluating here, because an issue_comment
 # run is associated with the default branch's commit while required checks are evaluated on the PR
@@ -117,11 +117,11 @@ jobs:
               return decline('only the PR author or a collaborator with write access can trigger this');
             }
 
-            // Every gate that re-runs safely: both take their evaluated commit from the PR
+            // Every gate that re-runs safely: each takes its evaluated commit from the PR
             // payload, so a replayed event evaluates the same thing the original did. The loop
-            // below re-runs each gate that has a run for this commit, so a PR touching both
-            // skills re-runs both and one touching neither is declined.
-            const GATES = ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'];
+            // below re-runs each gate that has a run for this commit, so a PR touching two of
+            // them re-runs two and one touching none is declined.
+            const GATES = ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml', 'evalforge-skill-review.yml'];
             const notes = [];
             // Counted, not inferred from `notes`: three of the four branches below add a note
             // without having re-run anything, and a heading that claims otherwise is a lie the
