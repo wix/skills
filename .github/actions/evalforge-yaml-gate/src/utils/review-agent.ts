@@ -97,7 +97,6 @@ export function buildAgentEnv(apiKey: string, baseUrl: string, baseSha: string):
     ANTHROPIC_API_KEY: apiKey,
     ANTHROPIC_BASE_URL: baseUrl,
     BASE_SHA: baseSha,
-    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1',
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
   };
 }
