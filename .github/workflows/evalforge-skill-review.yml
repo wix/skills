@@ -34,15 +34,7 @@ jobs:
     timeout-minutes: 20
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    # Three layers, none of them the commit email. Forks cannot reach the API key regardless, since
-    # GitHub withholds secrets from fork PRs, but the job should not start either. author_association
-    # is computed by GitHub rather than typed by the committer, so it cannot be spoofed the way
-    # `git config user.email` can, and it stops a non-member before a runner holds the key.
-    if: >-
-      ${{ !github.event.pull_request.draft
-          && github.event.pull_request.head.repo.full_name == github.repository
-          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                      github.event.pull_request.author_association) }}
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
     permissions:
       contents: read
       pull-requests: write

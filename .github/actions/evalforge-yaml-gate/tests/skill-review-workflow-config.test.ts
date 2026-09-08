@@ -39,11 +39,13 @@ describe('EvalForge skill review workflow', () => {
     );
   });
 
-  it('skips drafts and forks, and runs only for org members', () => {
+  // The same two clauses the eval gates use: a fork PR gets no secrets anyway, and the author is
+  // checked inside the action. `author_association` was tried and dropped — it reports CONTRIBUTOR
+  // for an org member whose membership is private, which is GitHub's default.
+  it('skips drafts and forks, exactly as the eval gates do', () => {
     expect(job.if).toContain('!github.event.pull_request.draft');
     expect(job.if).toContain('github.event.pull_request.head.repo.full_name == github.repository');
-    // Computed by GitHub, so unlike a commit email it cannot be spoofed.
-    expect(job.if).toContain('author_association');
+    expect(job.if).not.toContain('author_association');
   });
 
   it('grants exactly what it needs and no more', () => {
