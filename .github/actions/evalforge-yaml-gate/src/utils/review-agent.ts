@@ -28,6 +28,10 @@ const SANDBOX_ARGS = ['--bare', '--restricted', '--permission-prompts', 'none'];
  */
 const INHERITED_ENV = ['PATH', 'HOME', 'SHELL', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR'] as const;
 
+const MAX_STDERR_CHARS = 2000;
+const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
+const SIGKILL_GRACE_MS = 5000;
+
 /** Built from `REVIEW_SEVERITIES`, so a new severity cannot be accepted here and rejected there. */
 const OUTPUT_SCHEMA = JSON.stringify({
   type: 'object',
@@ -37,7 +41,10 @@ const OUTPUT_SCHEMA = JSON.stringify({
       items: {
         type: 'object',
         properties: {
-          file: { type: 'string', description: 'Path from the repository root, as the changed-file list gives it — e.g. skills/wix-manage/references/stores/create-bundle.md.' },
+          file: {
+            type: 'string',
+            description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
+          },
           line: { type: 'integer', minimum: 1 },
           section: {
             type: 'string',
@@ -56,12 +63,6 @@ const OUTPUT_SCHEMA = JSON.stringify({
   required: ['findings'],
   additionalProperties: false,
 });
-
-const MAX_STDERR_CHARS = 2000;
-
-const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
-
-const SIGKILL_GRACE_MS = 5000;
 
 export type AgentInvocation = {
   cwd: string;

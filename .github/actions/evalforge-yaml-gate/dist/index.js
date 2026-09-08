@@ -66777,11 +66777,6 @@ exports.DEFAULT_ANTHROPIC_BASE_URL = 'https://www.wixapis.com/anthropic';
  * while the SDK assumes 200K and fails with `Prompt is too long` without it.
  */
 exports.DEFAULT_REVIEW_MODEL = 'claude-sonnet-5[1m]';
-/**
- * Below the CLI's own default of `xhigh`, which it sends as `output_config` on every request. The
- * review reads prose against a written standard rather than solving anything, and effort is the
- * cheapest lever there is — raise it if findings start coming back shallow.
- */
 exports.DEFAULT_REVIEW_EFFORT = 'medium';
 exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = 600;
 /** The job's own timeout is 20 minutes; leave room for checkout, install, and reporting. */
@@ -68403,6 +68398,9 @@ const SANDBOX_ARGS = ['--bare', '--restricted', '--permission-prompts', 'none'];
  * outside contributor wrote. A denylist would have to track every variable the runner adds.
  */
 const INHERITED_ENV = ['PATH', 'HOME', 'SHELL', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR'];
+const MAX_STDERR_CHARS = 2000;
+const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
+const SIGKILL_GRACE_MS = 5000;
 /** Built from `REVIEW_SEVERITIES`, so a new severity cannot be accepted here and rejected there. */
 const OUTPUT_SCHEMA = JSON.stringify({
     type: 'object',
@@ -68412,7 +68410,10 @@ const OUTPUT_SCHEMA = JSON.stringify({
             items: {
                 type: 'object',
                 properties: {
-                    file: { type: 'string', description: 'Path from the repository root, as the changed-file list gives it — e.g. skills/wix-manage/references/stores/create-bundle.md.' },
+                    file: {
+                        type: 'string',
+                        description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
+                    },
                     line: { type: 'integer', minimum: 1 },
                     section: {
                         type: 'string',
@@ -68431,9 +68432,6 @@ const OUTPUT_SCHEMA = JSON.stringify({
     required: ['findings'],
     additionalProperties: false,
 });
-const MAX_STDERR_CHARS = 2000;
-const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
-const SIGKILL_GRACE_MS = 5000;
 function buildAgentEnv(apiKey, baseUrl, baseSha) {
     const env = {};
     for (const name of INHERITED_ENV) {

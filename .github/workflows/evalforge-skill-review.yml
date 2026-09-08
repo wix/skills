@@ -54,8 +54,7 @@ jobs:
           mode: review
           github-token: ${{ secrets.GITHUB_TOKEN }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # A variable, not a secret: the endpoint is publicly documented. Blank falls back to the
-          # action's default.
           anthropic-base-url: ${{ vars.ANTHROPIC_BASE_URL }}
-          # Soak first: findings post, the check stays green. Flipping this needs no code change.
+          review-model: ${{ vars.SKILL_REVIEW_MODEL }}
+          review-effort: ${{ vars.SKILL_REVIEW_EFFORT }}
           blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}

@@ -146,11 +146,6 @@ export const DEFAULT_ANTHROPIC_BASE_URL = 'https://www.wixapis.com/anthropic';
  */
 export const DEFAULT_REVIEW_MODEL = 'claude-sonnet-5[1m]';
 
-/**
- * Below the CLI's own default of `xhigh`, which it sends as `output_config` on every request. The
- * review reads prose against a written standard rather than solving anything, and effort is the
- * cheapest lever there is — raise it if findings start coming back shallow.
- */
 export const DEFAULT_REVIEW_EFFORT = 'medium';
 
 export const DEFAULT_REVIEW_TIMEOUT_SECONDS = 600;
