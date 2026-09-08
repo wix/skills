@@ -8,7 +8,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44 (generic: use $TOKEN)
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   await seed.installBookingsApp(ctx);                          // if the site doesn't have Wix Bookings yet

@@ -1,0 +1,28 @@
+name: stores/change-store-currency
+description: Changes store payment currency through Site Properties and explains catalog propagation.
+triggerPrompt: >-
+  Change my store currency to EUR. I confirm this site-wide change. Keep existing
+  product price numbers unchanged, and tell me if catalog prices may take time to reflect it.
+tags: [stores]
+maxTokens: 30000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/change-store-currency
+  - type: llm_judge
+    minScore: 7
+    prompt: >-
+      Verify the agent updates paymentCurrency to EUR through Site Properties with
+      the top-level field mask, reads back the setting, leaves product amounts unchanged,
+      and explains that catalog responses may temporarily lag behind carts and checkout.
+      Fail if it only relabels displayed prices or claims all catalog responses updated immediately.
+  - type: llm_judge
+    minScore: 7
+    prompt: >-
+      Rate the tool-call path from 0 to 10. Prefer following the linked Site Properties recipe,
+      a successful currency update, and readback. Penalize guessed currency endpoints,
+      using display-conversion settings instead of payment currency, repeated update attempts,
+      or unnecessary product rewrites. Identify the documentation gap behind any detour.

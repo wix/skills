@@ -1,6 +1,6 @@
 # Restaurants — seeding
 
-Seed a Wix Restaurants site by **calling `seed-restaurants.js`** — don't hand-write the REST calls.
+Seed a Wix Restaurants site by **calling `seed-restaurants.cjs`** — don't hand-write the REST calls.
 It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every seed
 operation across the vertical's four recipes: the **menu** (always) plus three on-demand add-ons —
 **online ordering**, **table reservations**, and **experiences**. `require` it and call the functions
@@ -18,11 +18,7 @@ across exec calls. Online ordering and table reservations run only when the plan
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/restaurants/seed/seed-restaurants.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/restaurants/seed/seed-restaurants.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const result = await seed.setupRestaurants(ctx, {

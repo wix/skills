@@ -425,6 +425,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 
 ## Stores
 
+### [Change Store Currency](references/stores/change-store-currency.md)
+Changes the store's payment currency through Site Properties and explains delayed currency updates in catalog responses.
+
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
 Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
 

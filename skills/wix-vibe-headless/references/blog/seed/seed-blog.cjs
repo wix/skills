@@ -6,7 +6,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //   const memberId = await seed.getAuthorMemberId(ctx);                    // STEP 1 — required for every post
 //   const cats = await seed.createCategories(ctx, ["Recipes", "Brewing"]); // STEP 3 — only if the brief groups posts

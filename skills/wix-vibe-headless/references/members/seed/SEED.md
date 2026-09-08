@@ -2,7 +2,7 @@
 
 **Nothing to seed.** Members login is the identity layer: members **self-register** through the
 Wix login page, so there is no member to create at build time and nothing lands in a `seeded`
-map. There is intentionally no `seed-*.js` here.
+map. There is intentionally no `seed-*.cjs` here.
 
 The members work is entirely **frontend wiring** (custom login, account area, gated content) —
 see this vertical's `INSTRUCTIONS.md` and the reference components.
