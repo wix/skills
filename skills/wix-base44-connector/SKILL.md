@@ -18,35 +18,36 @@ does not inherit an earlier turn's context, so re-read it before building on or 
 **A management or admin task starts at the recipes**: call `wx.mgmtRecipes` (Learn Wix) and follow
 the one that fits. A recipe states outright what an API does not support, which fields a bulk call
 actually writes, and the order two calls have to go in — from the schemas alone those get re-derived
-several errors at a time. A REST search ranks the matching recipes too (recipe entries in `hits`), so
+several errors at a time. `wx.search` ranks the matching recipes too (recipe entries in `hits`), so
 they also surface from a search that began at the methods.
 
 ## What are you building?
 
-The app's audience picks the token, and the token picks the architecture: the **visitor token is
-public** — anyone can mint it from the site's `clientId` — and the **admin token is a secret**,
-the connector's, server-side only.
+Choose the token by who the code acts for. A headless app can serve visitors, provide admin
+management tools, or do both.
+
+**A site for visitors** — use a visitor token for public reads and actions on behalf of the
+visitor, never the admin connector token. Call Wix directly from the browser through one shared
+visitor client (Write the code, below). Redirect sessions for Wix-hosted flows also require a
+visitor token minted for the headless OAuth app; see Visitor authentication and Wix-hosted flows below.
+Anyone can mint an anonymous visitor token from the
+OAuth app's public `clientId`; no visitor login is required. APIs for the "current visitor"
+use that token to identify whose data and state to access. This applies both to a standalone
+headless frontend and to a frontend extending an existing Wix site.
+
+**An admin tool for the owner** — use the admin connector token in backend functions implementing
+admin logic; keep it secret and server-side. The frontend calls those functions, not Wix with
+visitor tokens. A custom headless management site extending the Wix back office follows this
+flow too. Ad hoc management calls in `exec_tool` also use the admin token. Backend functions
+also handle work requiring the owner's permissions, such as webhooks, scheduled jobs, and
+explicitly authorized elevated operations. For an app with both visitor and admin features,
+keep each feature on its corresponding flow.
 
 ```
-browser            ──(visitor token)─► wixapis.com   the visitor's own reads & actions
-base44/functions/… ──(admin token)───► wixapis.com   work that needs the owner's identity
-exec_tool          ──(admin token)───► wixapis.com   you: ad hoc probing/managing while building
+visitor pages ──(visitor token)────────────────────────► wixapis.com
+admin pages   ──► base44/functions/… ──(admin token)────► wixapis.com
+exec_tool     ──(admin token, ad hoc management)────────► wixapis.com
 ```
-
-**A site for visitors** — store, blog, booking, ecom, CMS, CRM, and the rest of the business solutions.
-Your app is the site's frontend — whether the site is headless (no pages of its own) or your
-frontend extends an existing site. **The complete visitor experience —
-every page, every read, every action a visitor takes — is browser calls on the visitor token;
-none of it needs a backend function.** Public reads
-included (the visitor token queries public content directly), and per-visitor state is scoped to
-the CALLER — an API that acts on "the current visitor's" data resolves the visitor from the
-token, so only the visitor token reaches that visitor's own state. One shared visitor client
-carries it all (Write the code, below). `base44/functions/…` appear only where work
-needs the owner's identity — elevated-permission ops a visitor triggers, webhooks, scheduled
-jobs — and for the app's non-Wix backend.
-
-**An admin tool for the owner** — dashboard, back office. Admin pages and agent act as the
-owner, using the secret admin token: `pages → base44/functions/… ──(admin token)──► wixapis.com`.
 
 ## The helpers
 
@@ -67,7 +68,7 @@ const wx = require(require("path").resolve(P));
 - `wx.clip(value)` — cap a return value: oversized → `{ truncated, total, head }`; renders `undefined` as `null` so absence stays visible
 - `wx.context(token)` — the site's full dynamic context report; inline when small, otherwise a saved Markdown file with a heading outline
 - `wx.browse(menuUrl, { include, filter, depth })` — walk a docs-portal menu deterministically
-- `wx.search(term, { type, max, lines })` — ranked docs search; hits carry endpoint (`VERB url`) + docsUrl + gist, and the worked requests the docs publish for them. A default REST search also searches **WIX_HEADLESS** for integration articles (included in `hits`) and ranks the **management recipes**, returned as recipe entries in the same `hits` list as methods and articles — each with its steps, the endpoints it calls, and `file` when the wix-manage skill is on disk
+- `wx.search(term, { type, max, lines })` — ranked REST docs, Headless articles, and management recipes in one `hits` list; see the response type under Search and browse. Only method hits carry an endpoint.
 - `wx.page(docsUrl)` — read a doc page; its worked examples come back as titles + line numbers
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
@@ -113,14 +114,36 @@ await wx.mgmtRecipes("stores");   // a category's list — or any task word: wx.
 // straight off disk — else `url`: wx.page(url), whole when small, saved + outline when big
 ```
 
-A recipe carries prerequisites, order, and gotchas that no method page has. A REST search ranks
+A recipe carries prerequisites, order, and gotchas that no method page has. `wx.search` ranks
 these same recipes in its `hits` list, so they surface either way.
 
-### Find a method — search and browse
+### Search and browse
+
+`wx.search` returns a saved-file reference and ranked hits. Each hit is a method,
+article, or recipe, identified by its title field; only methods have an endpoint.
+
+```ts
+type Section = { title: string; line: number }; // 1-based line in the saved file
+type SearchResult = {
+  path: string; bytes: number; lines: number; note?: string;
+  hits: ({ docsUrl: string } & (
+    | { method: string; endpoint: string | null; gist?: string; examples?: Section[] }
+    | { article: string | null; line: number; outline?: Section[] }
+    | { recipe: string | null; line: number; lines: number;
+        file?: string; steps?: string[]; calls?: string[] }
+  ))[];
+};
+```
+
+The file at `path` keeps the full returned Markdown, while optional details and excess
+hits may be omitted from the inline response. Null titles or endpoints were not parsed.
+If no result blocks parse, `head` and `note` replace `hits`; the final size-limit fallback
+is `{ truncated: true, total: number, head: string }` instead of the object above.
 
 ```js
 // name the method? search finds it in one call:
-await wx.search("stores v3 update product");   // → [{ method, endpoint: "VERB url", docsUrl, gist }]; call wx.<verb>(url, body, token); spec(docsUrl) for the full schema
+const result = await wx.search("stores v3 update product"); // SearchResult above
+// Keep all hit kinds; only a method hit has an endpoint to call and a schema for wx.spec.
 // exploring an unfamiliar product? browse is deterministic — menuUrl alone orients (children + counts);
 // filter before listing methods. browse works for both portals this skill uses — REST
 // (api-reference) and WIX_HEADLESS (go-headless) — just pass that portal's menu URL.
@@ -131,7 +154,7 @@ await wx.browse("https://dev.wix.com/docs/go-headless/authentication", { depth: 
 
 // don't know where it lives? search ranks, never says "no match" — drop wrong-product hits
 await wx.search("pause a pricing plan subscription and resume it");
-// → { hits: [{ method, endpoint /* callable */, docsUrl, gist }] } — hits often ARE the answer
+// Same SearchResult: methods, articles, and recipes remain in ranked order.
 ```
 
 Products and their capabilities — the common ones, partial lists:
@@ -271,19 +294,24 @@ export const wix = (path, opts = {}) => fetch("https://www.wixapis.com" + path, 
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
 ```
 
-Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md). Prove the lane in one exec before
-writing pages — mint a visitor, make one public read with it:
+If you need to test a visitor API, including redirect sessions, you can do so in `exec_tool`. Mint a visitor
+token and pass it to the API call so the test uses the same identity as the visitor frontend.
+Token contract: [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens.md).
+For example, test a public read:
 
 ```js
-const { access_token } = await wx.post("https://www.wixapis.com/oauth2/token",
+const { access_token: visitorToken } = await wx.post("https://www.wixapis.com/oauth2/token",
   { clientId: WIX_CLIENT_ID, grantType: "anonymous" });   // clientId: from the context report
-return await wx.post("<a public read from Learn Wix>", { query: {} }, access_token);
+return await wx.post("<a public read from Learn Wix>", { query: {} }, visitorToken);
 // 200 ⇒ every visitor-facing page in the app is this same call, no server between
 // a lean default response isn't the whole shape — contracts often define a fields param
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-No OAuth app in the context report to take the `clientId` from? Create one (admin, one-time):
+**Create redirect sessions with a visitor token minted for the headless OAuth app.**
+Use the OAuth app's `clientId` from `wx.context()`. If the report doesn't include an OAuth app
+and you need redirect sessions, create one with the admin connector token as shown below,
+then mint a visitor token from its `clientId`. Anonymous visitors do not need to log in.
 
 ```js
 // Use your app's actual destinations, including preview when supported.
@@ -293,7 +321,7 @@ const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
 
 // OAuth redirect configuration: exact login URLs versus domains for other returns.
 // https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains.md
-const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const { accessToken: adminToken } = await base44.asServiceRole.connectors.getConnection("wix");
 const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
   oAuthApp: {
     name: "My App",
@@ -302,7 +330,7 @@ const { oAuthApp } = await wx.post("https://www.wixapis.com/oauth-app/v1/oauth-a
     // Returns from Wix-hosted flows: hostnames only, allowing URLs under each domain.
     allowedRedirectDomains: returnDomains,
   },
-}, accessToken);
+}, adminToken);
 const clientId = oAuthApp.id; // Public visitor client ID, used by the frontend client above.
 
 // If destinations change later, update this OAuth app rather than creating another.
@@ -319,6 +347,8 @@ import { wix } from "@/lib/wixClient";
 // Flow prerequisites and supported intents:
 // https://dev.wix.com/docs/go-headless/business-solutions/wix-hosted-pages/redirect-using-the-rest-api.md
 export async function redirectToWix(intent, returnPath = "/") {
+  // wix sends the minted visitor token. Never use the admin token here.
+  // Admin tokens are for ad hoc management calls or backend functions implementing admin logic.
   // Pass the intent required by the selected flow's schema.
   const response = await wix("/headless/v1/redirect-session", {
     method: "POST",
