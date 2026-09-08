@@ -520,6 +520,18 @@ yarn docs:gen && ts-node -T --project tsconfig.scripts.json scripts/dts-bundle/v
 Run the validator directly rather than the whole `dts:bundle` chain while iterating — it is one of
 seven chained steps and only needs `dist/` to exist.
 
+**But verify against a tree that has never been built.** This PR produced two local passes that CI
+disagreed with, and both were stale artifacts in `dist/`:
+
+| Stale file | What it hid |
+| --- | --- |
+| `dist/types/index.d.ts` | the `symbols` alias whitelist. Present locally, absent on a clean tree — so the alias channel silently vanishes and the related-component check sees half its input. |
+| `dist/dts-bundle/index.json` | `generate-index.ts` writes it as **step 7** of `dts:bundle`; the in-doc path check is **step 6**. A doc naming the index therefore passes on a warm tree and fails on a clean one. |
+
+Neither is reachable by re-running the chain — a re-run leaves both files in place. Delete the
+artifact the check reads, or build from scratch. The second one had been latent since the in-doc
+check was written, because no doc in the package had ever named that index.
+
 **The drift test is three cases, not one, and the first one passing is correct.** Measured
 2026-09-08 against `SummaryBar`, which `Collection Toolkit` recommends:
 
