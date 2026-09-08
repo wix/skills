@@ -9,10 +9,10 @@ The **GSC Connection API** links a Google account to the site. The **GSC Site
 Readiness API** acts through that account: verifies ownership, adds the Search
 Console property, submits the sitemap, requests indexing, reads search performance
 and URL inspection. Both select the site from the caller's authorization context
-and take no site ID. Use the site the environment already supplies; if no site is
-selected, list the user's sites once and auto-select the only one, or ask the user
-to choose by site name when several are available. Never invent a site ID or ask
-the user to type one, and never stop to ask which site before a read.
+and take no site ID. Use the site already selected in the environment. If none is
+selected, list the available sites. Select the only site automatically; if several
+are available, ask the user to choose by name before making site-specific calls.
+Never invent a site ID or ask the user to type one.
 
 All endpoints are under `https://www.wixapis.com`: Connection calls under
 `/gsc/connection/v1`, everything else under `/gsc/v1`.
@@ -73,20 +73,27 @@ not tell the user the site is connected.
 
 Get Connect URL is `GET`, but it **writes**: every call starts a new single-use
 authorization attempt (two-hour expiry) and Get Connection reports `PENDING` while
-it is open. Never call it to "check" anything, and never twice for one attempt. On
-an already-connected site it is allowed: the same Google account refreshes the
-credentials, a different one replaces the connection. Say which before you do it.
+it is open. Use Get Connection to check connection status. Call Get Connect URL
+when starting a connection or reconnection attempt; while the user completes that
+attempt, use Get Connection for status checks. Request a new URL when a new attempt
+is needed, such as after expiry. On an already-connected site it is allowed: the
+same Google account refreshes the credentials, a different one replaces the
+connection. Say which before you do it.
 
 1. Read Get Connection. If `VALID`, stop unless the user wants to reconnect.
-2. Call Get Connect URL.
+2. Call [Get Connect URL](https://dev.wix.com/docs/api-reference/business-management/seo/google-search-console/connection-v1/get-connect-url). The request takes no parameters or body.
 
    ```
    GET https://www.wixapis.com/gsc/connection/v1/connect-url
    ```
 
    ```json
-   { "connectUrl": "https://accounts.google.com/o/oauth2/v2/auth?..." }
+   { "connectUrl": "https://accounts.google.com/o/oauth2/v2/auth?client_id=407408718192.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fwww.wixapis.com%2Fgsc%2Fconnection%2Fv1%2Fconnect-callback&response_type=code&scope=openid%20email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fwebmasters&state=EXAMPLE_STATE" }
    ```
+
+   The response above is illustrative. Wix generates the authorization URL,
+   including its OAuth query parameters. Give the user the exact returned
+   `connectUrl`; do not construct, modify, or reuse the example URL.
 
 3. Give the URL to the user and ask them to tell you when they have finished. Wix
    completes the exchange server-side; there is no code to send back.
@@ -183,9 +190,29 @@ GET https://www.wixapis.com/gsc/v1/search-analytics?startDate=2026-08-01&endDate
 
 ## Inspect pages
 
-Page IDs are Wix static-page IDs, not URLs. Discover them with the SEO Tags API's
-List Item SEO Tags for `STATIC_PAGE` (see the SEO Tags recipe): each `itemId` (for
-example `c1dmp`, the homepage) is a `pageId` Inspect URLs takes. Never invent one.
+Page IDs are Wix static-page IDs, not URLs. Discover them with
+[List Item SEO Tags](https://dev.wix.com/docs/api-reference/business-management/seo/item-seo-tags-v1/list-item-seo-tags)
+for `STATIC_PAGE`. The request has no body:
+
+```
+GET https://www.wixapis.com/promote/seo/v1/item-seo-tags/STATIC_PAGE
+```
+
+Relevant response fields (unrelated SEO fields omitted; IDs are illustrative):
+
+```json
+{ "itemSeoTags": [ { "id": "STATIC_PAGE:c1dmp", "itemType": "STATIC_PAGE", "itemId": "c1dmp" } ],
+  "pagingMetadata": { "count": 1, "hasNext": false, "cursors": {} } }
+```
+
+If `pagingMetadata.hasNext` is `true`, pass `pagingMetadata.cursors.next` back as
+`paging.cursor` in the next request's query string, URL-encoded. Continue until
+`hasNext` is `false`. The optional `paging.limit` controls the page size; omit the
+cursor on the first request. Treat cursors as opaque.
+
+Use each selected entry's `itemId` as a `pageIds` entry for Inspect URLs. Do not
+use the composite `id` (`STATIC_PAGE:c1dmp`) or a page URL, and never invent an ID.
+The example below assumes discovery returned `c1dmp` for the selected page.
 
 ```
 POST https://www.wixapis.com/gsc/v1/inspect-urls
@@ -198,13 +225,16 @@ POST https://www.wixapis.com/gsc/v1/inspect-urls
 ```json
 { "results": [ { "page": { "pageId": "c1dmp", "name": "Home", "path": "/", "itemType": "STATIC_PAGE" },
   "status": "OK", "createdDate": "2026-09-07T12:09:55.301Z",
-  "data": { "inspectionResultLink": "https://search.google.com/search-console/inspect?...",
+  "data": { "inspectionResultLink": "https://search.google.com/search-console/inspect?resource_id=https%3A%2F%2Fwww.example.com%2F&id=EXAMPLE_INSPECTION_ID",
     "indexStatusResult": { "verdict": "PASS", "coverageState": "Submitted and indexed",
       "indexingState": "INDEXING_ALLOWED", "lastCrawlTime": "2026-08-16T11:39:45Z",
       "googleCanonical": "https://www.example.com/", "userCanonical": "https://www.example.com/" } } } ],
   "status": "COMPLETE", "remainingPageCount": 0 }
 ```
 
+- `data.inspectionResultLink` is returned by Google. The complete URL above is
+  illustrative; use the actual returned link unchanged, including its query
+  parameters. Do not construct a link from the example values.
 - Each page spends one unit of the account's Google quota (2,000 per property per
   day): confirm the page list first. Sites over 2,000 pages fail with
   `SITE_EXCEEDS_INSPECTION_LIMIT`.
