@@ -137,9 +137,6 @@ describe('the command line', () => {
     expect(after('--permission-prompts')).toBe('none');
     expect(after('--tools')).toBe('Read,Grep,Glob,Bash');
     expect(after('--allowedTools')).toBe('Read,Grep,Glob,Bash(git diff:*)');
-    for (const tool of ['WebFetch', 'WebSearch', 'Edit', 'Write']) {
-      expect(after('--disallowedTools'), tool).toContain(tool);
-    }
     expect(after('--model')).toBe('claude-sonnet-5[1m]');
     expect(after('--effort')).toBe('medium');
   });

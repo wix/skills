@@ -3,12 +3,11 @@ import * as core from '@actions/core';
 import { REVIEW_SEVERITIES, type ReviewFinding, type ReviewSeverity } from './review-comment';
 
 /**
- * Two layers, because the CLI separates them: `--tools` decides which tools exist at all,
- * `--allowedTools` what they may do. So Bash exists solely to run `git diff`.
+ * `--tools` is the closed set. Bash is wider than the grant below, though: `ls`, `cat`, `grep` and
+ * read-only `git` run unprompted in every mode, and that set is not configurable.
  */
 const TOOLS = 'Read,Grep,Glob,Bash';
 const ALLOWED_TOOLS = 'Read,Grep,Glob,Bash(git diff:*)';
-const DISALLOWED_TOOLS = 'Edit,Write,NotebookEdit,WebFetch,WebSearch,Task';
 
 /**
  * The working directory is the PR's own tree, which holds `.mcp.json`, `.claude/` and `AGENTS.md`.
@@ -93,7 +92,14 @@ export function buildAgentEnv(apiKey: string, baseUrl: string, baseSha: string):
     const value = process.env[name];
     if (value !== undefined) env[name] = value;
   }
-  return { ...env, ANTHROPIC_API_KEY: apiKey, ANTHROPIC_BASE_URL: baseUrl, BASE_SHA: baseSha, CI: 'true', TERM: 'dumb', NO_COLOR: '1' };
+  return {
+    ...env,
+    ANTHROPIC_API_KEY: apiKey,
+    ANTHROPIC_BASE_URL: baseUrl,
+    BASE_SHA: baseSha,
+    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1',
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+  };
 }
 
 function buildArgs(invocation: AgentInvocation): string[] {
@@ -103,7 +109,6 @@ function buildArgs(invocation: AgentInvocation): string[] {
     '--tools', TOOLS,
     '--append-system-prompt-file', invocation.promptPath,
     '--allowedTools', ALLOWED_TOOLS,
-    '--disallowedTools', DISALLOWED_TOOLS,
     '--json-schema', OUTPUT_SCHEMA,
     '--output-format', 'json',
     '--model', invocation.model,
@@ -182,11 +187,23 @@ function runCli(invocation: AgentInvocation): Promise<CliResult> {
 
 type Envelope = {
   structured_output?: { findings?: ReviewFinding[] };
+  terminal_reason?: unknown;
+  result?: unknown;
+  errors?: unknown;
   num_turns?: unknown;
   duration_ms?: unknown;
   total_cost_usd?: unknown;
   permission_denials?: unknown;
 };
+
+/** `result` holds the text on most failures, but a turn-limit stop carries `errors` instead. */
+function describeEnvelope(envelope: Envelope): string {
+  const detail = typeof envelope.result === 'string' ? envelope.result
+    : Array.isArray(envelope.errors) ? envelope.errors.join('; ')
+    : '';
+  const reason = String(envelope.terminal_reason ?? 'unknown');
+  return detail === '' ? reason : `${reason}: ${detail}`;
+}
 
 function parseEnvelope(stdout: string): Envelope | undefined {
   try {
@@ -240,13 +257,18 @@ function describeFailure(result: CliResult): string {
   }
 }
 
-/** No retry: `--json-schema` constrains the answer, so re-rolling would only double the cost. */
+/** No retry here: the CLI already re-rolls a schema failure five times by default. */
 export async function runReviewAgent(invocation: AgentInvocation): Promise<AgentOutcome> {
   const result = await runCli(invocation);
 
   if (result.kind !== 'completed' || result.code !== 0) {
-    if (result.kind === 'completed' && result.stderrTail !== '') {
-      core.info(`Reviewer stderr (tail): ${result.stderrTail}`);
+    if (result.kind === 'completed') {
+      // A failure inside the run is reported as the result on stdout; stderr is startup only.
+      const envelope = parseEnvelope(result.stdout);
+      if (envelope !== undefined) {
+        core.info(`Reviewer failure — ${describeEnvelope(envelope).slice(0, 500)}`);
+      }
+      if (result.stderrTail !== '') core.info(`Reviewer stderr (tail): ${result.stderrTail}`);
     }
     return { ok: false, reason: describeFailure(result) };
   }
@@ -259,7 +281,7 @@ export async function runReviewAgent(invocation: AgentInvocation): Promise<Agent
 
   const parsed = parseFindings(envelope.structured_output);
   if (!parsed) {
-    core.warning('The reviewer produced no structured output; the schema tool was never called.');
+    core.warning(`The reviewer returned no structured output — ${describeEnvelope(envelope)}.`);
     return { ok: false, reason: 'it did not return findings in the expected format' };
   }
 
