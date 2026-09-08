@@ -345,14 +345,16 @@ skill; content about *what the format means* moves.
 1. ~~`ENTITY_PAGE_TOOLKIT.md:59` claims "the hook's doc has an empty API section".~~ **Fixed on
    `main`** — the line now reads "the hook's doc ends by pointing at the bundle rather than tabulating
    props" (`:78`). Nothing to do.
-2. **Still open: `dist/dts-bundle/exports/<subpath>.d.ts` is a curated subset, not a mirror of the
-   entry point.** `exports/page.d.ts` lists two exports; `src/exports/page.ts` also exports
+2. **Fixed in this PR, but still wrong on `main` until it merges:
+   `dist/dts-bundle/exports/<subpath>.d.ts` is a curated subset, not a mirror of the entry point.** `exports/page.d.ts` lists two exports; `src/exports/page.ts` also exports
    `CollectionPageHeaderBadge`, `CollectionPageHeaderProps` and all of `CollectionPageNew`. Both
    `ENTITY_PAGE_TOOLKIT.md:52` and `COLLECTION_TOOLKIT.md:54` tell an agent to read those files "to see
    what that subpath actually gives you" — which is not what they show. Found the hard way: PR 1's
    first draft asserted the subset as an inventory and both review bots caught it. This belongs in the
-   `reading-the-doc-indices` guide (A4) as a stated limit of the format, and the two skill lines need
-   rewording either way.
+   `reading-the-doc-indices` guide (A4) as a stated limit of the format — where it now is — and the
+   two skill lines go with the files this PR deletes. **But both still say it on `main` today**, and
+   this PR is blocked on cairo's release, so the wrong claim outlives the fix. It is two lines and
+   independent of everything else here: worth a standalone PR rather than waiting.
 
 **Phase C is also happening organically, one commit at a time.** `ENTITY_PAGE_TOOLKIT.md:47` and
 `:89` now send the reader to `dist/docs/useEntityPage.md`'s **Create route** section — a section cairo
@@ -505,7 +507,7 @@ yarn docs:gen && yarn dts:bundle
 - `dist/docs/index.json` has four new `Guides` entries; three carry a `relatedComponents` array
   (`Reading the Doc Indices` deliberately does not — it is about the format, not any component).
 - Each generated guide `.md` carries its `## Related components` section (A2).
-- `dist/docs/EntityPage.md` carries the Gotchas section.
+- `dist/docs/useEntityPage.md` carries the **Typing the call** section (shipped in #5843).
 
 **The validator must be proven to fire, not just to pass.** Deliberate-break test:
 
@@ -516,9 +518,21 @@ yarn docs:gen && ts-node -T --project tsconfig.scripts.json scripts/dts-bundle/v
 ```
 
 Run the validator directly rather than the whole `dts:bundle` chain while iterating — it is one of
-seven chained steps and only needs `dist/` to exist. Second break test: rename a real component's
-story and confirm the guide referencing it fails. That is the drift case this whole design exists for;
-if it does not fail, the design did not ship.
+seven chained steps and only needs `dist/` to exist.
+
+**The drift test is three cases, not one, and the first one passing is correct.** Measured
+2026-09-08 against `SummaryBar`, which `Collection Toolkit` recommends:
+
+| Change | Expected | Why |
+| --- | --- | --- |
+| Story title renamed, export unchanged | **exit 0** | `SummaryBar` becomes a `symbols` alias on the renamed entry, so the guide's name still resolves *and* still imports. Nothing is broken, so nothing should fail. |
+| Component removed from the docs (`docs/SummaryBar/` gone) | exit 1, naming the guide and the name | |
+| Name no longer root-importable — a real rename or removal | exit 1, naming the guide and the name | The alias cannot form without the export in `dist/types/index.d.ts`, so the last channel closes. |
+
+An earlier version of this section prescribed only the first case and called it "the drift case this
+design exists for". That was wrong, and following it would read as the design having failed. **What
+the check catches is a name a reader can no longer resolve or import** — not every edit that moves a
+name around.
 
 **skill** — run `wix-app` against a project on the new version with the employee-shifts prompt
 (`yaml/wix-app-evals/employee-shift-dashboard.yml`) and confirm the read order is
