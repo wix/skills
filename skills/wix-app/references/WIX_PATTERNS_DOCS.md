@@ -54,8 +54,10 @@ place: it used to live in this skill and now lives in the package, so proceeding
 guessing component names, which is exactly the failure this chain exists to prevent. Do not
 look elsewhere in `node_modules` for a substitute.
 
-The guides ship from **1.466.0**; the key probe, not that number, is what decides — a later
-first release only moves the number, while the probe stays correct. The rest of the chain also
+The guides ship from **1.468.0** at the earliest; the key probe, not that number, is what
+decides — and it has already earned that framing, since 1.466.0 and 1.467.0 were both cut
+before the guides landed. A later first release only moves the number; the probe stays
+correct. The rest of the chain also
 assumes **1.465.0**+ (`OffsetQuery`, `useEntityPage`'s create route and typing rule,
 `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router
 paths).
