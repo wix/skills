@@ -21,6 +21,23 @@ actually writes, and the order two calls have to go in — from the schemas alon
 several errors at a time. `wx.search` ranks the matching recipes too (recipe entries in `hits`), so
 they also surface from a search that began at the methods.
 
+In this skill:
+
+- **What are you building?** — route each feature to its identity: visitor token, admin token
+  in a backend function, or admin ad hoc in exec_tool
+- **The helpers** — the `wx.*` loader every exec opens with
+- **Gather context** — `wx.context`, the report of what the site actually has
+- **Learn Wix** — find the APIs, learn their contracts
+  - **Management recipes** — first stop for an admin task (`wx.mgmtRecipes`)
+  - **Search and browse** — `wx.search` across methods, recipes and articles
+  - **Read a doc page** — `wx.page` for a located doc URL
+  - **The spec index** — `wx.spec`, a located method's exact schema
+- **Write the code**
+  - **Admin ops while building** — you, in exec_tool
+  - **Backend functions** — the app, as the owner
+  - **Visitor authentication and Wix-hosted flows** — the visitor client, redirect sessions,
+    the headless OAuth app — and bootstrapping a whole vertical with `wix-vibe-headless`
+
 ## What are you building?
 
 Choose the token by who the code acts for. A headless app can serve visitors, provide admin
@@ -378,3 +395,17 @@ export async function redirectToWix(intent, returnPath = "/") {
   window.location.assign(redirectSession.fullUrl);
 }
 ```
+
+**Building a whole vertical? Bootstrap it with `wix-vibe-headless`.** When the build is a
+visitor-facing site on a Wix vertical it supports — a storefront, bookings, pricing plans,
+events, restaurants, rentals, a blog and more — the `wix-vibe-headless` skill stands the
+vertical up fast: it is built entirely on the same Wix APIs as this skill, but ships working
+code (REST transport, scaffolds, UI) plus management-API abstractions (seeding,
+configuration), so the vertical bootstraps on Base44 in a fraction of the calls.
+Read the entry point at
+[`www.wix.com/skills/wix-vibe-headless/platforms/base44.md`](https://www.wix.com/skills/wix-vibe-headless/platforms/base44.md).
+Its STEP 1 carries the install itself — the verbatim `npx skills add` call to run through
+exec_tool, the companion skills, the vertical table and the scaffold deploy — after which the
+guide lives at `.agents/skills/wix-vibe-headless/platforms/base44.md`. Reading it as
+reference alone is fine, but when you do install, go through its flow end to end — the
+shipped scaffolds and seed path are most of its value.
