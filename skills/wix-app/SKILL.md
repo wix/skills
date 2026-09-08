@@ -457,11 +457,21 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 
 **Dashboard page UI only.** `tsc`, `wix build`, and `wix preview` all check that the code compiles and runs — none of them check that it's the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. A page with a bare, un-summarized, un-openable table compiles cleanly and still fails the requirement — that gap is exactly how a generated dashboard passes every technical check and still disappoints. Measured runs confirm it: a page can compile clean and still ship with none of the three items below, because the earlier checklist entries were a stated intention rather than something re-checked against the code that actually landed.
 
-Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
+**Run the check, don't recite it:**
+
+```bash
+node <skill-dir>/scripts/audit-dashboard-page.cjs src/extensions/dashboard/pages/<feature>
+```
+
+It exits non-zero on the findings below that can be checked mechanically, and it exists because
+the prose version passes by assertion. A measured page ticked every box here and still shipped a
+search that returned every row: the term was threaded through three call sites and never read by
+the filter builder. "Does `query.search` appear inside `fetchData`" was true; the filter was still
+unfiltered. Fix what it reports, then re-read the file for the judgment calls it can't make:
 
 - [ ] The aggregate decision from Step 2 is what actually landed. If the page has a `SummaryBar`, every metric earns its place and the headline counts what **matches the filters** (`state.collection.total`, fed by `fetchTotal`), not what has been paged in — any metric derived from `keyedItems` is labelled as such. If it has none, that was a decision you can state, not an omission.
 - [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
-- [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
+- [ ] Every filter name declared in the toolbar, **and the search term**, is read inside the function that builds the query filter — not merely passed into `fetchData` or forwarded as an unused parameter. Reaching the api module is not reaching the query.
 - [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
 - [ ] Every `@wix/*` vertical imported by the page's api module is a declared dependency, and each one's scope is listed under Manual Steps. Any call to a **secondary** vertical (an enrichment lookup, a filter's options, a search term resolved to ids) is wrapped so its failure degrades that feature instead of failing the page.
 

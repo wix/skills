@@ -142,6 +142,13 @@ has its own trap: [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
 Cursor mode also takes a separate `fetchTotal`, since a cursor-paged response carries no total.
 Build its filter exactly as the page's, or the count disagrees with the rows it counts.
 
+**Get that total from the endpoint's own count method** — `countExtendedBookings`, `countServices`,
+`countContacts` and their equivalents. The tempting shortcut is to re-run the query and read
+`pagingMetadata.total`, which compiles, runs, and always yields `undefined`: that field is
+documented as "returned if **offset** paging is used", so under cursor paging it is never
+populated. Wrapped in `?? 0` it becomes a confident zero, and a headline reading "0 bookings"
+above a full table is how it reaches the user.
+
 ## When a table will not settle
 
 An extension runs in a cross-origin iframe whose console you cannot read, but its own `SummaryBar`
