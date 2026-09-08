@@ -34,7 +34,7 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | A fixed in-memory option list for a filter | `useStaticListFilterCollection` |
 | Sorting | `Sortable Columns`, `MultiLevelSorting` |
 
-**A factory or hook's doc is often empty where its signature should be** — `docs idNameArrayFilter` prints an `## API` heading with nothing under it, because the props table only exists for components. Ask `types idNameArrayFilter` instead and you get the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That applies to every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing the name and being able to call it.
+**A factory or hook's doc is often empty where its signature should be**, because props tables only exist for components. Look the name up in `dist/dts-bundle/index.json` instead — that gives the signature, e.g. `idNameArrayFilter: <T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. True of every `use…` hook and `…Filter` factory above.
 
 **The search box renders whether or not you wire one.** `search` defaults to ON, so a page that
 never mentions it still ships a search input that reaches no query and silently does nothing. Wire
@@ -76,7 +76,7 @@ prose can still be rejected, and the endpoint's *Supported Filters* page settles
 
 A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md); for the create route itself — registering it, and the four params that differ from the edit call — [ENTITY_PAGE_TOOLKIT.md § Create route](ENTITY_PAGE_TOOLKIT.md#create-route). A row the user cannot open is the second most common failure after the missing aggregate.
 
-**Form state on an entity page** comes from `@wix/patterns/form` — `useForm` for the form, `useController` for a single field. That subpath re-exports `@wix/bex-core/form`, which wraps `react-hook-form`, so its API is react-hook-form's and only a handful of its names appear in the patterns docs: `FieldValues`, `ControllerProps` and most of the rest are documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` to see what the subpath actually gives you.
+**Form state on an entity page** comes from `@wix/patterns/form` (`useForm`, `useController`), which re-exports `@wix/bex-core/form` wrapping `react-hook-form` — so that API is documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` for what the subpath gives you.
 
 ## Act and confirm
 

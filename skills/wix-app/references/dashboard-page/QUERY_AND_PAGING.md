@@ -1,7 +1,8 @@
 # Querying and paging a Wix API from a collection page
 
-> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) so each file covers one job: that one is about
-> finding the method and its fields, this one is about calling it.
+> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) to stay under the 10,000-char reference limit —
+> `scripts/check-truncation.mjs` gates it in CI, because an agent fetching a longer file silently
+> loses the tail. That file finds the method and its fields; this one is about calling it.
 
 Filters are written in **WQL**, which is shared across the platform — the rules below come from
 [About the Wix API Query Language][wql], not from one endpoint's behaviour, so they hold for

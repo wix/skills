@@ -192,7 +192,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | App Tools (AI assistant tools) | Backend | `APP_TOOLS`, then `SERVICE_PLUGIN` with `pluginType: TOOLS_PROVIDER_CONFIG` | [APP_TOOLS.md](references/APP_TOOLS.md) |
 | Backend Event Extension | Backend | `EVENT` | [BACKEND_EVENT.md](references/BACKEND_EVENT.md) |
 | Backend API | Backend | — (manual, see banner below) | [BACKEND_API.md](references/BACKEND_API.md) |
-| Data Collection | Backend | `DATA_COLLECTION` | [DATA_COLLECTION.md](references/DATA_COLLECTION.md) |
+| Data Collection | Backend | `DATA_COLLECTION` | [DATA_COLLECTION.md](references/DATA_COLLECTION.md) (+ [SCHEMA](references/data-collection/SCHEMA.md), [LIFECYCLE](references/data-collection/LIFECYCLE.md)) |
 | Editor React component | Site | `EDITOR_REACT_COMPONENT` | [EDITOR_REACT_COMPONENT.md](references/EDITOR_REACT_COMPONENT.md) |
 | Custom element widget | Site | `CUSTOM_ELEMENT` | [CUSTOM_ELEMENT_WIDGET.md](references/CUSTOM_ELEMENT_WIDGET.md) |
 | Site Plugin | Site | `SITE_PLUGIN` | [SITE_PLUGIN.md](references/SITE_PLUGIN.md) |

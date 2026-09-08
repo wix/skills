@@ -1,7 +1,8 @@
 # Draft Template — Collection page (Cases A, B and D)
 
-> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) so the case chooser stays short. Pick your
-> case there first. This page is shared by A, B and D.
+> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) to keep both files under the 10,000-char
+> reference limit that `scripts/check-truncation.mjs` enforces. Pick your case there first.
+> This page is shared by A, B and D.
 
 ## The collection page
 
