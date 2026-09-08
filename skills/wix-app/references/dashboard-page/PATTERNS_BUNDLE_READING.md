@@ -9,24 +9,49 @@
 
 ## What the bundle leaves out
 
-The bundle exists to be read, and is abridged in two ways that mislead if you treat
-`dist/dts-bundle/index.json` as the list of what exists.
+**The index is not the list of what exists.** It omits names (one install: 94 entries against 212
+real exports — `CollectionErrorState` among the missing) and publishes some classes as
+`[key: string]: unknown` stubs, which mean "you receive this, you don't construct it" rather than
+"untyped". Rule and remedy: [the gate](../WIX_PATTERNS_DOCS.md#the-index-is-not-the-list-of-what-exists).
 
-**It omits names.** One measured install: 94 entries in the index, 212 names reachable from
-`dist/types/index.d.ts` — the path `package.json` actually points `tsc` at. `CollectionErrorState`,
-`ActionCell`, `BulkActionToolbar` and about a hundred more are exported and usable while absent from
-the index. A measured run lost a compile round to exactly this: the index had no
-`CollectionErrorState`, so the page substituted `CollectionEmptyState`, whose props differ.
+## Read the index once, then open its files in one call
 
-**It abridges types.** Some classes are published as stubs with an `[key: string]: unknown` index
-signature — `CollectionState`, `RangeFilterState`, `Filter`, `RangeItem` in some files. The stub is a
-docs convenience meaning "you receive this, you don't construct it". The real declaration is fully
-typed: `CollectionState` re-exports from `@wix/bex-core` with no index signature, so
-`state.collection.…` is properly typed and a wrong member is a compile error at the access.
+One index read covers the whole page. So name every symbol you plan to write — components, hooks,
+state types, prop types — look them all up in the index you now hold, and open what it named in a
+single call with one `Read` per file:
 
-So the index tells you **which doc to read**. `dist/types/index.d.ts` and the compiler tell you
-whether something exists and what its type really is. Reach for the second only when the first comes
-up empty on a name you have reason to believe in — not as a browsing habit.
+```
+call 1   Read <pkgRoot>/dist/docs/index.json
+         Read <pkgRoot>/dist/dts-bundle/index.json
+
+call 2   Read <pkgRoot>/dist/docs/Table.md                            <- docs entry's `file`
+         Read <pkgRoot>/dist/docs/useTableCollection.md
+         Read <pkgRoot>/dist/dts-bundle/components/Table.d.ts         <- its `bundle`
+         Read <pkgRoot>/dist/dts-bundle/hooks/useTableCollection.d.ts
+         Read <pkgRoot>/dist/dts-bundle/types/TableState.d.ts         <- bundle entry's `file`
+```
+
+Two calls, not twenty-two — and nothing is lost by batching, because there is nothing to learn
+between the files: every path came out of the same index and `bytes` already told you each size.
+The same files opened one per call re-send the whole conversation once per file, which is where a
+lookup session's token cost actually goes. Batch the follow-ups the same way: when a doc names an
+example file, or a stub names another bundle (below), collect them and read them together.
+
+## Where props live
+
+From `@wix/patterns` **1.460.0** onward a doc does not repeat props that the bundle already
+describes. Which one holds them is stated in the doc's own index entry:
+
+| `dist/docs/index.json` entry | where the props are |
+| --- | --- |
+| has a `bundle` field | that bundle — the doc's `### Props` is a pointer to it, on purpose |
+| no `bundle` field | the doc's own `### Props` table, as before |
+
+Roughly 74 of 167 docs point at a bundle and 62 still carry a table, so expect both. When a doc
+says `Read \`dist/dts-bundle/...\``, that **is** the props answer — read the named file rather
+than treating the doc as incomplete. The bundle is the better source anyway: it keeps the
+`extends` clause with its exclusions, so `Omit<PopoverMenuItemProps, 'text' | 'prefixIcon' | 'onClick'>` tells
+you what you do *not* inherit, which the old doc link did not.
 
 ## Types the docs don't cover
 

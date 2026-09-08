@@ -352,7 +352,7 @@ The three calls above are correct exactly as written, and each for a different r
 
 | Call | Why it works directly |
 | --- | --- |
-| `items.query(...)` | Wix Data enforces the collection's `dataPermissions` per caller — the scaffolded default reads as `ANYONE`. See [Permissions](data-collection/LIFECYCLE.md#permissions) |
+| `items.query(...)` | Wix Data enforces the collection's `dataPermissions` per caller — the scaffolded default reads as `ANYONE`. See [Permissions](DATA_COLLECTION.md#permissions) |
 | `currentCartV2.getCurrentCart()` | Resolves the cart from the caller's session. Elevating it would return the app's cart, not the visitor's |
 | `products.queryProducts()` | Catalog base fields are public. `MERCHANT_DATA` and non-visible products are withheld unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN` — don't request them from a plugin |
 

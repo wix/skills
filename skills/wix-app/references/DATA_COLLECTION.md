@@ -70,6 +70,12 @@ collection still does not exist on the site, and the steps that finish the job a
 have to surface — that gap is the single most common way this extension "silently doesn't work".
 
 
+## Permissions
+
+Access levels, the common patterns, and the context rules that decide which to use now live in
+[data-collection/LIFECYCLE.md](data-collection/LIFECYCLE.md#permissions) — permissions are part of
+getting a collection working on a real site, not part of writing its schema.
+
 ## Wix CLI-Specific Constraints
 
 ### When NOT to use a Collection
