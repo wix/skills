@@ -23,7 +23,7 @@ const ctx = { token: accessToken };
 // result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
-  currency: "EUR", // Use the user's requested currency; omit when none was specified.
+  currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
     // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -41,9 +41,11 @@ const result = await seed.setupStore(ctx, {
 //   currency: { requested, actual, status, warnings } }
 ```
 
-The optional `currency` sets the site's payment currency before product creation. Product prices
-are numbers in that currency; changing currency does not convert existing amounts. When omitted,
-the current site currency is preserved.
+The optional `currency` sets the site's payment currency before product creation. Pass it only when
+the user explicitly asked for a currency, or when it's obvious for the store — otherwise omit it. Do
+not infer a currency from the builder's country/region or the brief's language; when in doubt, leave
+it out and the current site currency is preserved. Product prices are numbers in that currency;
+changing currency does not convert existing amounts.
 Currency update or verification failures do not stop seeding: inspect `result.currency.status`
 and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
 unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
