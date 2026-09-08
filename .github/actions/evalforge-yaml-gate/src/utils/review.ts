@@ -18,7 +18,7 @@ import { runReviewAgent } from './review-agent';
 
 /**
  * `synchronize` is absent because a push must not spend, but it still has to trigger the workflow:
- * a required check has to be reported on every head commit, and `/re-eval` re-runs the head's own
+ * a required check has to be reported on every head commit, and `/review` re-runs the head's own
  * run, so there has to be one. See evalforge-skill-review.yml.
  */
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
@@ -97,10 +97,10 @@ export async function runReview(): Promise<void> {
 
   // The verdict comment is left untouched: overwriting it would lose findings worth acting on.
   if (!shouldReview()) {
-    core.info('The skill review is manual after the first look. Comment `/re-eval` to review this commit.');
+    core.info('The skill review is manual after the first look. Comment `/review` to review this commit.');
     await pending.post(formatReviewPending(config.headSha));
     fail(
-      `Commit ${config.headSha.slice(0, 7)} has not been reviewed. Comment \`/re-eval\` on the PR to review it.`,
+      `Commit ${config.headSha.slice(0, 7)} has not been reviewed. Comment \`/review\` on the PR to review it.`,
       config.isBlocking,
     );
     return;

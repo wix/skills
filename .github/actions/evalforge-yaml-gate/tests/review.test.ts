@@ -106,7 +106,7 @@ describe('review mode — whether it spends', () => {
   it.each([
     ['a newly opened PR', 'opened', '1'],
     ['a draft marked ready for review', 'ready_for_review', '1'],
-    // A re-run replays the original payload, so `/re-eval` after a push still arrives as
+    // A re-run replays the original payload, so `/review` after a push still arrives as
     // `synchronize`; without the attempt check the manual command would silently do nothing.
     ['a re-run whose replayed payload says synchronize', 'synchronize', '2'],
   ])('reviews %s', async (_label, action, attempt) => {
@@ -131,7 +131,7 @@ describe('review mode — whether it spends', () => {
     expect(runReviewAgent).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
     expect(postPending).toHaveBeenCalledOnce();
-    expect(postPending.mock.calls[0][0]).toContain('/re-eval');
+    expect(postPending.mock.calls[0][0]).toContain('/review');
     expect(postPending.mock.calls[0][0]).toContain('abcdef1');
   });
 
@@ -232,6 +232,6 @@ describe('review mode — what may and may not fail the check', () => {
     payload.action = 'synchronize';
     await run();
     expect(setFailed).toHaveBeenCalledOnce();
-    expect(setFailed.mock.calls[0][0]).toContain('/re-eval');
+    expect(setFailed.mock.calls[0][0]).toContain('/review');
   });
 });

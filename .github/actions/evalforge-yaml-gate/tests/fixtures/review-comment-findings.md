@@ -19,4 +19,4 @@
 
   **Instead:** The response returns `bundle.id`, which the publish call takes as `bundleId`.
 
-_Comment `/re-eval` to review the current commit again._
+_Comment `/review` to review the current commit again._

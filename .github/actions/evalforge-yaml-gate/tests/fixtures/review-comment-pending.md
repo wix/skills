@@ -3,4 +3,4 @@
 
 The review runs automatically when a PR is opened, and on request after that.
 
-Comment `/re-eval` to review this commit.
+Comment `/review` to review this commit.

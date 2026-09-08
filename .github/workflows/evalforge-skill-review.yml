@@ -3,8 +3,8 @@ name: EvalForge Skill Review
 # Reviews the *content* of wix-manage skills and their eval scenarios, against the guide sections
 # named in .github/prompts/skill-review.md. The eval gates check wiring; nothing else reads the prose.
 #
-# Automatic on PR creation, manual thereafter: a push does not spend. `/re-eval` re-runs it, via the
-# GATES list in evalforge-re-eval.yml.
+# Automatic on PR creation, manual thereafter: a push does not spend. `/review` re-runs it, via the
+# COMMANDS map in evalforge-re-eval.yml.
 #
 # The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
 # the tests covering this wiring, so a differently named file would silently skip them.
@@ -17,7 +17,7 @@ on:
     # waiting for status to be reported" forever. The action decides scope from the changed files.
     #
     # `synchronize` is here even though a push must not spend: the check has to be reported on every
-    # head commit, and `/re-eval` re-runs the run for the current head, so there has to be one.
+    # head commit, and `/review` re-runs the run for the current head, so there has to be one.
     types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:

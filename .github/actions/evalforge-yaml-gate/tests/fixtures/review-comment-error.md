@@ -5,4 +5,4 @@
 
 This commit has not been reviewed.
 
-Comment `/re-eval` to try again.
+Comment `/review` to try again.

@@ -68,7 +68,7 @@ function severityRank(severity: ReviewSeverity): number {
 }
 
 function retryNote(): string[] {
-  return ['', '_Comment `/re-eval` to review the current commit again._'];
+  return ['', '_Comment `/review` to review the current commit again._'];
 }
 
 /** Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404. */
@@ -176,7 +176,7 @@ export function formatReviewPending(headSha: string): string {
     '',
     'The review runs automatically when a PR is opened, and on request after that.',
     '',
-    'Comment `/re-eval` to review this commit.',
+    'Comment `/review` to review this commit.',
   ].join('\n');
 }
 
@@ -184,6 +184,6 @@ export function formatReviewServiceError(reason: string): string {
   return render(REVIEW_PENDING_MARKER, 'failed', reason, [
     'This commit has not been reviewed.',
     '',
-    'Comment `/re-eval` to try again.',
+    'Comment `/review` to try again.',
   ]);
 }

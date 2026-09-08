@@ -223,10 +223,11 @@ describe('EvalForge re-eval workflow', () => {
     expect(workflow.on.issue_comment?.types).toEqual(['created']);
   });
 
-  it('fires only for PR comments, from non-bots, mentioning the command', () => {
+  it('fires only for PR comments, from non-bots, mentioning either command', () => {
     expect(job.if).toContain('github.event.issue.pull_request');
     expect(job.if).toContain('/re-eval');
-    // Its own comments name the command; without this they re-fire the webhook.
+    expect(job.if).toContain('/review');
+    // Its own comments name the commands; without this they re-fire the webhook.
     expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
   });
 
@@ -241,15 +242,21 @@ describe('EvalForge re-eval workflow', () => {
 
   // A workflow id that names no file finds no run, and the command then declines as if the gate
   // had never run for the commit — a silent scope loss no behavioural test can see.
-  it('names gate workflows that exist', () => {
-    const gates = step.with?.script?.match(/const GATES = \[([^\]]*)\]/)?.[1];
-    expect(gates).toBeDefined();
-    const files = [...gates!.matchAll(/'([^']+)'/g)].map(match => match[1]);
+  it('gives each command its own gates, and every one names a file that exists', () => {
+    const script = step.with?.script;
+    expect(script).toBeDefined();
 
-    expect(files).toEqual([
-      'evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml', 'evalforge-skill-review.yml',
+    const commands = [...script!.matchAll(/\['(\/[a-z-]+)', \{/g)].map(match => match[1]);
+    expect(commands).toEqual(['/re-eval', '/review']);
+
+    const gateLists = [...script!.matchAll(/gates: \[([^\]]*)\]/g)]
+      .map(match => [...match[1].matchAll(/'([^']+)'/g)].map(quoted => quoted[1]));
+    expect(gateLists).toEqual([
+      ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'],
+      ['evalforge-skill-review.yml'],
     ]);
-    for (const file of files) {
+
+    for (const file of gateLists.flat()) {
       expect(existsSync(join(__dirname, '../../../workflows', file))).toBe(true);
     }
   });

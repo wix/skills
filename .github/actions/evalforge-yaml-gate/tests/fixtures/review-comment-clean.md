@@ -7,4 +7,4 @@
 
 Nothing to raise against the reviewed sections of the contribution guide.
 
-_Comment `/re-eval` to review the current commit again._
+_Comment `/review` to review the current commit again._

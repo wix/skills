@@ -68638,7 +68638,7 @@ function severityRank(severity) {
     return exports.REVIEW_SEVERITIES.indexOf(severity);
 }
 function retryNote() {
-    return ['', '_Comment `/re-eval` to review the current commit again._'];
+    return ['', '_Comment `/review` to review the current commit again._'];
 }
 /** Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404. */
 function sectionRef(section) {
@@ -68735,14 +68735,14 @@ function formatReviewPending(headSha) {
         '',
         'The review runs automatically when a PR is opened, and on request after that.',
         '',
-        'Comment `/re-eval` to review this commit.',
+        'Comment `/review` to review this commit.',
     ].join('\n');
 }
 function formatReviewServiceError(reason) {
     return render(exports.REVIEW_PENDING_MARKER, 'failed', reason, [
         'This commit has not been reviewed.',
         '',
-        'Comment `/re-eval` to try again.',
+        'Comment `/review` to try again.',
     ]);
 }
 
@@ -68801,7 +68801,7 @@ const review_comment_1 = __nccwpck_require__(8333);
 const review_agent_1 = __nccwpck_require__(2969);
 /**
  * `synchronize` is absent because a push must not spend, but it still has to trigger the workflow:
- * a required check has to be reported on every head commit, and `/re-eval` re-runs the head's own
+ * a required check has to be reported on every head commit, and `/review` re-runs the head's own
  * run, so there has to be one. See evalforge-skill-review.yml.
  */
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
@@ -68870,9 +68870,9 @@ async function runReview() {
     }
     // The verdict comment is left untouched: overwriting it would lose findings worth acting on.
     if (!shouldReview()) {
-        core.info('The skill review is manual after the first look. Comment `/re-eval` to review this commit.');
+        core.info('The skill review is manual after the first look. Comment `/review` to review this commit.');
         await pending.post((0, review_comment_1.formatReviewPending)(config.headSha));
-        (0, github_1.fail)(`Commit ${config.headSha.slice(0, 7)} has not been reviewed. Comment \`/re-eval\` on the PR to review it.`, config.isBlocking);
+        (0, github_1.fail)(`Commit ${config.headSha.slice(0, 7)} has not been reviewed. Comment \`/review\` on the PR to review it.`, config.isBlocking);
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
