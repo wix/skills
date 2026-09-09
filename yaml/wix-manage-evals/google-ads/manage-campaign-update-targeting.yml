@@ -1,8 +1,8 @@
 name: google-ads/manage-campaign-update-targeting
 description: >-
-  Verifies the agent treats a campaign's nested arrays as wholesale replaces on
-  update: adding one geo target means reading the campaign and sending the
-  existing locations plus the new one, not a locations array with a single entry.
+  Verifies the agent sends complete arrays on update: adding one geo target
+  means reading the campaign and sending the existing locations plus the new
+  one, not a locations array holding a single entry.
 triggerPrompt: >-
   Add Brooklyn, NY to the locations my Google Ads campaign targets — it already
   targets Manhattan and Queens. Which Wix Google Ads API calls do I make, and
@@ -24,7 +24,7 @@ assertions:
         id via GET /v1/campaigns if needed) to obtain the current locations; AND
       - sends PATCH /v1/campaigns/{campaignId} with a locations array holding
         the existing entries AND the new one — explicitly stating that an array
-        sent partially replaces the stored one and drops the omitted entries; AND
+        sent partially loses the entries left out of it; AND
       - carries the campaign's other fields (name, budget, and the
         smartCampaign / performanceMaxCampaign block) through the update
         unchanged; AND

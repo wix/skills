@@ -1,8 +1,8 @@
 name: google-ads/manage-campaign-update
 description: >-
-  Verifies the agent treats UpdateCampaign as a whole-entity replace: it reads
-  the campaign with GetCampaign before updating and sends every existing field
-  back in the PATCH body, rather than a minimal budget-only payload.
+  Verifies the agent sends the whole campaign on UpdateCampaign: it reads the
+  campaign with GetCampaign before updating and sends every existing field back
+  in the PATCH body, rather than a minimal budget-only payload.
 triggerPrompt: >-
   Raise the daily budget on my Google Ads campaign to $30 a day. Show me the
   exact Wix Google Ads API calls and the request body you would send.
@@ -26,8 +26,8 @@ assertions:
         read returned, with only budget.amountMicros changed to "30000000"; AND
       - makes clear the body carries the campaign's other existing fields
         (at least name, locations, and the smartCampaign /
-        performanceMaxCampaign block) unchanged, because fields left out of the
-        payload are removed from the campaign; AND
+        performanceMaxCampaign block) unchanged, because data left out of the
+        payload is rejected or dropped rather than left alone; AND
       - either uses a placeholder id it explains it must read first, or asks one
         targeted question to identify the campaign — not both a guess and a
         mutation.

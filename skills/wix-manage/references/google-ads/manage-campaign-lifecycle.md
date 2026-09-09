@@ -36,7 +36,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/resum
 
 ## Update a campaign — read it first, send it whole
 
-`PATCH /v1/campaigns/{campaignId}` **replaces what the payload names.** Every writable field you leave out, and every value you drop from an array you did send, is removed from the campaign. A budget-only body strips the name, geo targets, keyword themes and asset group; a `locations` array holding one entry deletes the other geo targets. The call still returns `200` — the damage is silent, and a campaign left without its targeting or assets stops serving or has to be rebuilt.
+`PATCH /v1/campaigns/{campaignId}` — **send the whole campaign with your change applied.** The server diffs what it receives against the stored campaign and patches the difference, so the payload is not a delta you compose yourself. Data missing from it is usually rejected by a validation guard, and in the cases those guards don't yet cover it corrupts the campaign and still returns `200`. Arrays are the sharpest edge: send one partially and the items you left out are removed, or the call errors when an item is required.
 
 **So the payload is never assembled from what the user asked for.** The user supplies the *change* ("make it $30 a day", "rename it to Spring Sale"), usually with a campaign name at best. The body has to be the *whole campaign* with that change applied — which you cannot produce without reading the campaign first.
 
@@ -65,9 +65,9 @@ curl -s 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}' -H 'Autho
 
 Building the body by hand instead of piping? Copy the `campaign` object out of the `GET` response verbatim and edit the one value in it. Do not retype it from the fields you happen to remember.
 
-**A nested array is replaced wholesale, not merged.** To add a keyword theme, send the existing themes *plus* the new one. To reword one headline, send the asset group with every other headline, description, image and signal unchanged. To add a city, send the existing `locations` plus the new entry.
+**An array sent partially loses the items left out of it** — or is rejected, where an item is required. To add a keyword theme, send the existing themes *plus* the new one. To reword one headline, send the asset group with every other headline, description, image and signal unchanged. To add a city, send the existing `locations` plus the new entry.
 
-Both worked updates below start from the same `campaign.json` the read in step 1 produced, and append to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry deletes everything already there.
+Both worked updates below start from the same `campaign.json` the read in step 1 produced, and append to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry loses everything already in it.
 
 **Smart campaign — exclude a search term.** Traffic-quality tuning; this is the only way to set `excludedSearchTerms`.
 
@@ -87,7 +87,7 @@ jq '{ campaign: (.campaign | .performanceMaxCampaign.assetGroups[0].assetGroupSi
      ]) }' campaign.json > update.json
 ```
 
-The entire asset group rides along — every headline, description, image and existing signal — because `assetGroups` is replaced wholesale, not merged. `[0]` assumes a single asset group; with more than one, select the intended group by its `resourceName` instead of by index. `performanceMaxCampaign.excludedKeywords` takes the same `{ freeFormKeywordTheme, displayName }` shape as a Smart campaign's excluded search terms.
+The entire asset group rides along — every headline, description, image and existing signal — because an asset missing from the array it is sent in is dropped or rejected, not left alone. `[0]` assumes a single asset group; with more than one, select the intended group by its `resourceName` instead of by index. `performanceMaxCampaign.excludedKeywords` takes the same `{ freeFormKeywordTheme, displayName }` shape as a Smart campaign's excluded search terms.
 
 | What the user asks for | What the payload must still carry |
 | --- | --- |
@@ -117,7 +117,7 @@ Budget is in **micros** (`30000000` = $30.00/day). Over the account max → `CAM
 | `ACCOUNT_NOT_FOUND` | No Google Ads account — run the install-and-create-account recipe |
 | `MAXIMUM_NUMBER_OF_CAMPAIGNS_REACHED` | 5 live already — pause one, then Launch/Resume |
 | `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` | Budget over account max — lower within daily-budget-boundaries |
-| Fields vanished after an update (targeting, assets, name) | The `PATCH` body was partial — it replaced what it named and dropped the rest. Re-`GET`, rebuild the full entity, `PATCH` it back, and verify by reading again |
+| Fields vanished after an update (targeting, assets, name) | The `PATCH` body was partial, and no guard caught it. Re-`GET`, rebuild the full entity, `PATCH` it back, and verify by reading again |
 | 5xx with no actionable message on a `SMART` update | A field the Smart handler hard-requires was omitted — `smartCampaign.adGroups` / `url` / `languageCode` / `businessName` (and `phone` for call ads). Re-`GET` and resend the full entity |
 | An update was rejected for a read-only field | Drop only the field the error names (`status`, `resourceName`, `createdDate`, `updatedDate`, `actionDate`, `reportingKey`) and resend the rest of the entity |
 | `CUSTOM_CHARGES_SUBSCRIPTION_EXPIRED` / `…_AUTO_RENEWAL_OFF` | Renew / re-enable auto-renewal (Resume accepts `turnAutoRenewOn`) |
