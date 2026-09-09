@@ -13,7 +13,7 @@ Operate on campaigns that already exist. Base URL: `https://www.wixapis.com/goog
 ## Read
 
 - **List:** `GET /v1/campaigns` → `{ "campaigns": [ { "id", "campaignType", "status", "name", "budget": { "amountMicros" } } ] }`
-- **Get one:** `GET /v1/campaigns/{campaignId}` — `status` and `budget` are synced live from Google on each read.
+- **Get one:** `GET /v1/campaigns/{campaignId}` — takes a campaign id only; resolve a name to an id with the list call first. `status` and `budget` are synced live from Google on each read.
 
 `status` (read-only, can change on its own via policy/billing): `DRAFT`, `LIVE`, `PAUSED`, `LEARNING` (PMAX Leads, ~28d post-launch), `IN_REVIEW`, `DISAPPROVED`, `NOT_SERVING` (budget), `ENDED`, `ERROR`.
 
@@ -40,7 +40,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/resum
 
 **So the payload is never assembled from what the user asked for.** The user supplies the *change* ("make it $30 a day", "rename it to Spring Sale"), usually with a campaign name at best. The body has to be the *whole campaign* with that change applied — which you cannot produce without reading the campaign first.
 
-1. **Get the current entity.** `GET /v1/campaigns/{campaignId}`. No id — only a name or nothing? `GET /v1/campaigns` first and match on `name`; ask the user which one when more than one matches, and never guess.
+1. **Get the current entity — `GetCampaign`, `GET /v1/campaigns/{campaignId}`.** It takes an id and nothing else; there is no lookup by name. When the user gave a name (or nothing), call **`ListCampaigns`** — `GET /v1/campaigns` — find the entry whose `name` matches, take its `id`, and then read that campaign. Ask the user which one they mean when more than one matches, and never guess.
 2. **Apply the change to the returned `campaign` object, in place.** Touch only what the user asked for; leave every other field at the value the read returned.
 3. **Show the user what changes** — the old value and the new one — and get their approval, then **`PATCH` that entire object back**, fields you changed and fields you didn't.
 4. **Read it back and check.** A `200` proves the body parsed, not what was stored — re-`GET` and confirm the untouched fields are still there.
