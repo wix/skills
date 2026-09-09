@@ -12,6 +12,8 @@ export type SimpleConfig = {
   prNumber: number;
   owner: string;
   repo: string;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation?: string;
 };
 
 export type Config = SimpleConfig & {
@@ -49,7 +51,14 @@ export function getSimpleConfig(): SimpleConfig {
     prNumber: coreGetPrNumber(github.context.payload),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+    authorAssociation: getAuthorAssociation(),
   };
+}
+
+/** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
+function getAuthorAssociation(): string | undefined {
+  const pr = github.context.payload.pull_request as { author_association?: string } | undefined;
+  return pr?.author_association;
 }
 
 export type ScheduleConfig = {
@@ -168,6 +177,7 @@ export type ReviewConfig = {
   effort: string;
   timeoutSeconds: number;
   isBlocking: boolean;
+  authorAssociation?: string;
 };
 
 export function getReviewConfig(): ReviewConfig {
@@ -193,6 +203,7 @@ export function getReviewConfig(): ReviewConfig {
     // variable must not fail a check that promises it cannot fail during soak.
     timeoutSeconds: getClampedReviewTimeout(),
     isBlocking: core.getInput('blocking') === 'true',
+    authorAssociation: getAuthorAssociation(),
   };
 }
 
