@@ -23,6 +23,8 @@ Older `settings/domains` and `manage-website/domains` links redirect to `domain-
 | Domain availability / suggestions | `GET /domain-search/v2/check-domain-availability?domain=...` · `GET /domain-search/v2/suggest-domains?query=...` | `https://manage.wix.com/account/domains` (after purchase) |
 | This site's connected domains | Site Properties (`GET /site-properties/v4/properties` → `url`) | `domain-settings` |
 
+Before building either link, call the `CallWixSiteAPI` MCP tool against Site Properties to confirm which domain is currently connected.
+
 Example — after a purchase-link flow:
 
 ```
