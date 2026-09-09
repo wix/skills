@@ -25,11 +25,16 @@ function fakeOctokit(association?: string | null) {
 }
 
 describe('isWixOrgAuthor', () => {
-  it('accepts org members, owners and direct collaborators', () => {
+  it('accepts org members and owners', () => {
     expect(isWixOrgAuthor('MEMBER')).toBe(true);
     expect(isWixOrgAuthor('OWNER')).toBe(true);
-    expect(isWixOrgAuthor('COLLABORATOR')).toBe(true);
     expect(isWixOrgAuthor('  member  ')).toBe(true);
+  });
+
+  // Push access on the repo is not org membership: an outside collaborator can hold it
+  // without being in the organization, so it must not open the gate.
+  it('rejects a direct collaborator', () => {
+    expect(isWixOrgAuthor('COLLABORATOR')).toBe(false);
   });
 
   it('rejects outside authors and missing associations', () => {
@@ -153,7 +158,7 @@ describe('assertWixAuthor', () => {
   it('throws for an outside author, naming the association and the org', async () => {
     const { octokit } = fakeOctokit(null);
     await expect(assertWixAuthor(octokit, 'wix', 'skills', 1, undefined, 'CONTRIBUTOR')).rejects.toThrow(
-      /not a member of the wix organization.*author_association: CONTRIBUTOR/s,
+      /not a member of the wix organization \(author_association: CONTRIBUTOR\)/,
     );
   });
 

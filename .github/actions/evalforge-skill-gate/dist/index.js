@@ -30095,8 +30095,8 @@ exports.getPullAuthorAssociation = getPullAuthorAssociation;
 exports.resolveWixAuthor = resolveWixAuthor;
 exports.assertWixAuthor = assertWixAuthor;
 /**
- * `author_association` values GitHub reports for someone who belongs to the repo's
- * organization, or who has been granted access to the repo directly.
+ * `author_association` values GitHub reports for someone who belongs to the
+ * organization that owns the repo.
  *
  * GitHub computes this server-side from the PR author's identity, so it is the only
  * signal here that the author cannot set themselves. It also needs no extra token
@@ -30104,15 +30104,13 @@ exports.assertWixAuthor = assertWixAuthor;
  * `members: read`, which the default `GITHUB_TOKEN` does not carry, and would 404 for
  * anyone whose membership is private.
  *
- * `COLLABORATOR` means push access granted on this repo specifically. That is a
- * deliberate grant rather than an org identity, so it is accepted on the same footing
- * as membership; drop it from this set if the gate should be org-only.
+ * `COLLABORATOR` is deliberately **not** here. It means push access on this repo,
+ * which an outside collaborator can hold without being in the organization — so
+ * accepting it would gate on repo permissions rather than on org membership. Push
+ * access is not the question this gate asks.
  */
-const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
-/**
- * True when the PR author belongs to the organization that owns the repo, or has
- * direct access to it.
- */
+const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
+/** True when the PR author belongs to the organization that owns the repo. */
 function isWixOrgAuthor(association) {
     return typeof association === 'string' && ORG_ASSOCIATIONS.has(association.trim().toUpperCase());
 }
@@ -30160,8 +30158,8 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log, authorAssoci
     const result = await resolveWixAuthor(octokit, owner, repo, prNumber, authorAssociation);
     if (!result.authorized) {
         throw new Error(`PR author gate failed: the PR author is not a member of the ${owner} organization ` +
-            `and has no direct access to this repository (author_association: ` +
-            `${result.association ?? 'unknown'}). This gate is restricted to Wix authors.`);
+            `(author_association: ${result.association ?? 'unknown'}). This gate is restricted ` +
+            `to Wix authors.`);
     }
     log?.(`Author gate passed — PR author association: ${result.association} (from the ${result.via})`);
 }
