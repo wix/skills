@@ -31,7 +31,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@wix/evalforge-core')>();
   return {
     ...actual,
-    getFirstCommitAuthorEmail: vi.fn(),
+    getHeadCommitAuthorEmail: vi.fn(),
     getChangedFiles: vi.fn(),
     // Routed on the option so the retract path keeps its own spy: sharing one would let a
     // superseded note land in `upsertComment.mock.calls.at(-1)` and be read as the gate comment.
@@ -107,7 +107,7 @@ const runMetrics = (
 beforeEach(async () => {
   vi.clearAllMocks();
   const evalforge = await import('@wix/evalforge-core');
-  vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+  vi.mocked(evalforge.getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
   vi.mocked(evalforge.getChangedFiles).mockResolvedValue([]);
   vi.mocked(evalforge.loadScenarios).mockReturnValue({ scenarios: new Map(), errors: [] });
   vi.mocked(evalforge.collectSkillFiles).mockReturnValue([{ path: 'SKILL.md', content: '# skill' }]);
@@ -130,7 +130,7 @@ async function harness(configOverrides: Partial<GateConfig> = {}) {
 describe('runGate — cheap exits before any EvalForge write', () => {
   it('exits without touching EvalForge when the PR author is not a @wix.com address', async () => {
     const { runGate, core, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
+    vi.mocked(evalforge.getHeadCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
     await runGate();
@@ -142,7 +142,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
   it('skips rather than fails when the author lookup itself errors', async () => {
     const { runGate, core, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
+    vi.mocked(evalforge.getHeadCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
     const setFailedSpy = vi.spyOn(core, 'setFailed');
     const warningSpy = vi.spyOn(core, 'warning');
 
@@ -155,7 +155,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
   it('skips on an author lookup error even when blocking is on', async () => {
     const { runGate, core, evalforge } = await harness({ isBlocking: true });
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('502'));
+    vi.mocked(evalforge.getHeadCommitAuthorEmail).mockRejectedValue(new Error('502'));
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
     await runGate();
@@ -165,7 +165,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
   it('comments on skip, so a green check is not mistaken for a pass', async () => {
     const { runGate, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
+    vi.mocked(evalforge.getHeadCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
 
     await runGate();
 
@@ -175,7 +175,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
   it('comments on skip when the lookup breaks too', async () => {
     const { runGate, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
+    vi.mocked(evalforge.getHeadCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
 
     await runGate();
 

@@ -90,6 +90,8 @@ export type GateConfig = {
   baseSha: string;
   comparisonGroupId: string;
   runsPerScenario: number;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation?: string;
   /** Milliseconds, converted once here from the `base-arm-grace-seconds` input — see `getBaseArmGraceSeconds`. */
   baseArmGraceMs: number;
 };
@@ -275,6 +277,7 @@ export function getGateConfig(): GateConfig {
     comparisonGroupId: randomUUID(),
     runsPerScenario,
     baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
+    authorAssociation: getAuthorAssociation(),
   };
 }
 
@@ -322,4 +325,10 @@ export function getCleanupConfig(): CleanupConfig {
     repoFullName: `${owner}/${repo}`,
     prNumber: getPrNumber(github.context.payload),
   };
+}
+
+/** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
+export function getAuthorAssociation(): string | undefined {
+  const pr = github.context.payload.pull_request as { author_association?: string } | undefined;
+  return pr?.author_association;
 }
