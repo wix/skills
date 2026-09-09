@@ -1,12 +1,10 @@
 ---
 name: "Manage a Campaign Success Guide"
-description: "Use for any request to improve an existing Wix Google Ads campaign, see what to fix next, view its Campaign Success Guide, or mark or reopen a guide item. The guide supports Performance Max Leads campaigns. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval, while a direct improvement or guide request is already approval. If site or campaign identity is absent, ask one targeted selection question before any site-scoped API call. Present prioritized suggestions as an actionable plan with deduplicated Editor and dashboard links, destination-specific CTAs, proactive offers for supported work, and status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
+description: "Campaign Success Guide for existing Wix Google Ads Performance Max Leads campaigns. Use after creating a supported campaign, even while it is learning or has no metrics, and whenever users ask how to improve a campaign, what to fix next, to view the guide, or to mark or reopen a recommendation. Covers campaign and site selection; prioritized actionable recommendations; deduplicated, destination-specific Editor and Google Ads navigation; offers to perform supported work after approval; Merchant Center and Business Profile connection follow-ups; and suggestion-status tracking."
 ---
 # RECIPE: Manage a Campaign Success Guide
 
-A campaign success guide is a prioritized list of improvements for an **existing** Google Ads `PERFORMANCE_MAX_LEADS` campaign. Offer it as a useful next step after [creating a Performance Max campaign](create-performance-max-campaign.md). Once Create Campaign returns the campaign ID, ask whether the user wants to retrieve the guide; call the API only after they approve. There is no need to wait for the campaign to leave `LEARNING` or generate performance metrics because the guide analyzes the landing page, campaign configuration, and relevant site connections rather than depending on campaign performance data.
-
-Also use this recipe for requests such as "How can I improve my campaign?", "What should I fix next?", "Show my campaign success guide", "I made the call-to-action button clearer as the success guide recommended", "Mark this recommendation complete", or "Reopen that guide item."
+A campaign success guide is a prioritized list of improvements for an **existing** Google Ads `PERFORMANCE_MAX_LEADS` campaign. Offer it as a useful next step after [creating a Performance Max campaign](create-performance-max-campaign.md). Once Create Campaign returns the campaign ID, ask whether the user wants to retrieve the guide; call the API only after they approve. The guide does not use campaign performance metrics. It evaluates landing-page content, campaign configuration, and Wix site connections, so `LEARNING` status and an empty analytics history do not block it.
 
 A direct request to improve a campaign, see what to fix next, or show its success guide is itself approval to retrieve the guide once the campaign is identified. Do not ask whether the user wants the guide after they have already made one of those requests. Separate approval is needed only when you proactively offer the guide after campaign creation.
 
@@ -18,11 +16,11 @@ Base URL: `https://www.wixapis.com/pa-platform/suggestions/v1`. `<AUTH>` is the 
 
 ## Resolve the campaign
 
-The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign."
+The guide endpoints require a campaign UUID and site context, but users often provide only a campaign name or say "my campaign."
 
-1. If the user provides a campaign UUID, use it.
-2. If neither the Wix site nor the campaign can be identified from the conversation or available context, ask one targeted question such as "Which Wix site or Google Ads campaign should I use?" Do this before calling any site-scoped campaign or guide endpoint. Do not guess a site, campaign, or installation state.
-3. Once the Wix site is selected, if the campaign UUID is still unknown, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
+1. Resolve the Wix site from the conversation or available site context. If no site is identifiable, ask which Wix site to use before calling a site-scoped campaign or guide endpoint. Do not guess or probe every accessible site.
+2. If the selected site and campaign UUID are both known, use them.
+3. If the site is known but the campaign UUID is not, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
 
    ```bash
    curl -X GET 'https://www.wixapis.com/google-ads/v1/campaigns' \
@@ -30,12 +28,14 @@ The guide endpoints require a campaign UUID, but users often provide only a camp
    ```
 
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
-4. Select a campaign only when one result clearly matches the user's wording. If none or multiple plausibly match, show concise choices and ask the user to choose; never guess.
+4. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.
 5. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
 
 The common flow always sends `platformType: "GOOGLE"`; do not ask the user to provide it.
 
 ## Retrieve or create the guide
+
+Skip this call when the conversation already contains a retrieved guide or its recommendations; present the supplied result using the next section instead of retrieving it again.
 
 ```bash
 curl -X POST \
@@ -87,14 +87,23 @@ Do not return a bare list of task labels. Turn the returned suggestions into a c
 | `CLEAR_CTA_COPY`, `ABOVE_THE_FOLD_CTA`, `HEADER_MATCH`, `CONVERSION_POINT`, `GOOGLE_REVIEWS`, `TESTIMONIAL`, `CONTACT_AND_CREDIBILITY`, `FAQ_SECTION`, `MINIMIZE_FORM_FIELDS`, `SOCIAL_CHANNELS` | These change visible landing-page content. Briefly describe the edit and point to the single **Go to Editor** CTA after the suggestions. If the current environment has a site-editing capability that can safely make the specific change, offer to make it after the user approves; otherwise do not imply that marking the suggestion complete will edit the page. |
 | `MOBILE_OPTIMIZATION`, `SITE_SPEED` | Offer to inspect the problem and recommend a concrete fix first; these broad findings are not a safe one-click mutation. Include the single Editor link when the resulting work belongs there. Do not promise an improvement before identifying the actual cause. |
 | `GOOGLE_ADS_SEARCH_THEMES` | Offer to generate relevant search themes, show the proposed set, and apply the approved set to the existing campaign by following [Get AI Campaign Suggestions](get-campaign-suggestions.md) and [Manage Campaign Lifecycle](manage-campaign-lifecycle.md). Updating the campaign is a mutation, so do not apply themes merely because the guide returned this item. |
-| `GOOGLE_MERCHANT_CENTER_CONNECTION` | Offer to link the Merchant Center account by following [Install Google Ads and Create an Account](install-and-create-account.md). Ask for or confirm the Merchant Center account ID and get approval before the account update. Explain that the link begins as `PENDING` and its owner may still need to approve it in Google. |
+| `GOOGLE_MERCHANT_CENTER_CONNECTION` | Offer to link the Merchant Center account using the account flow below. Reuse an already-linked Merchant Center account ID when present; otherwise ask the user for the ID. Get approval before the account update. Explain that the link begins as `PENDING` and its owner may still need to approve it in Google. |
 | `GOOGLE_BUSINESS_PROFILE_CONNECTION` | Offer to check the connection and start it by following [Connect a Wix Site to Google Business Profile](../google-business-profile/connect-google-business-profile.md). Be explicit that the agent can initiate the flow and provide its authorization URL, but the site owner must finish Google's consent in their browser. |
 
-Do not pepper the list with a separate "Want me to do this?" after every actionable item. Mark supported items clearly (for example, **I can help with this**) and make one concise closing offer that names the work the agent can take on.
+After the tasks, make one closing offer that groups the supported actions you can take; do not append a separate approval question to every item.
+
+For a Merchant Center connection, first read the selected site's Google Ads account:
+
+```bash
+curl -X GET 'https://www.wixapis.com/google-ads/v1/accounts/current-site' \
+  -H 'Authorization: <AUTH>'
+```
+
+Read `account.id`, `account.merchantCenterAccountId`, and `account.merchantCenterAccountLinkStatus`. If `merchantCenterAccountId` is present, use it as the existing connection context. If it is absent, ask the user for the account ID shown in Google Merchant Center; the Google Ads account API does not list candidate Merchant Center accounts. After the user confirms the ID and approves the mutation, follow [Install Google Ads and Create an Account](install-and-create-account.md) and update `merchantCenterAccountId` on `account.id`.
 
 ### Build destination-specific CTAs
 
-- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the selected site's exact `editUrl` from available site context. If it is not available, resolve the site by following [Query Sites](../sites/query-sites.md), then use the returned `editUrl`; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
+- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the selected site's exact `editUrl` from available site context. If it is not available, list the accessible sites and read the selected site's `editUrl`; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
 - **Google Ads:** When a returned item belongs in Google Ads, use the verified route from [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md): `https://manage.wix.com/dashboard/{metaSiteId}/google-ads`. Label the CTA **Go to Google Ads** or name the specific campaign action.
 - **Other destinations:** Name the destination or action in the CTA, such as **Open Forms dashboard**, **Review site speed**, or **Connect Google Business Profile**. Never make several unrelated links look like the same generic action.
 - Include only relevant destinations and list each URL once. Authorization URLs created by a later connection flow are task-specific; return one only after the user accepts that offer and the flow creates it.
@@ -164,6 +173,24 @@ curl -X POST \
     "type": "CLEAR_CTA_COPY",
     "status": "COMPLETED"
   }'
+```
+
+```json
+{
+  "campaignSuccessGuide": {
+    "id": "7d4a9c2e-86f1-4b37-a2d5-9e18c6f043ab",
+    "suggestions": [
+      {
+        "type": "CLEAR_CTA_COPY",
+        "status": "COMPLETED"
+      },
+      {
+        "type": "FAQ_SECTION",
+        "status": "OPEN"
+      }
+    ]
+  }
+}
 ```
 
 Reopen the same item by sending:

@@ -5,23 +5,15 @@ description: >-
   destination-specific CTA, and offers to perform supported campaign and
   account work after approval.
 triggerPrompt: |-
-  I already retrieved the success guide for my Wix Google Ads Performance Max
-  Leads campaign. The analyzed landing page is
-  https://www.example.com/request-a-quote and the API returned these OPEN items
-  in priority order:
-
-  1. CLEAR_CTA_COPY
-  2. ABOVE_THE_FOLD_CTA
-  3. FAQ_SECTION
-  4. GOOGLE_ADS_SEARCH_THEMES
-  5. GOOGLE_MERCHANT_CENTER_CONNECTION
-
-  The selected Wix site's context has:
-  - metaSiteId: 2c9d2b46-fc18-4557-ae71-4d21a2228914
-  - editUrl: /site-editor-for-eval
-
-  Turn this into an actionable guide for me. Don't change anything yet.
+  I opened the campaign success guide for my Wix Google Ads lead campaign. It
+  says I still need to clarify the main call-to-action button, move that action
+  above the fold, add an FAQ section, configure Google Ads search themes, and
+  connect Merchant Center, in that order. What should I do next? Don't change
+  anything until I approve it.
 tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -34,41 +26,40 @@ assertions:
       - presents exactly the five returned suggestions in their API priority
         order, with clear user-facing labels, pending status, and a concrete next
         step for each rather than returning a bare list of enum values;
-      - gives the three landing-page tasks a single shared Editor CTA after the
-        task list. Its label must name the destination or action, such as "Go to
-        Editor" or "Edit the landing page"; the response must not use the generic
-        label "Open in Wix" for it. The resolved URL
-        https://manage.wix.com/site-editor-for-eval must occur exactly once in
-        the response, not once per task;
-      - includes the Google Ads dashboard link
-        https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/google-ads
-        exactly once after the task list, with CTA text that names Google Ads or
-        the campaign action rather than "Open in Wix";
+      - gives the three landing-page tasks one shared Editor CTA after the task
+        list. The URL must be the provisioned site's exact Editor URL, resolved
+        from site context rather than guessed, and appear once rather than once
+        per task. Its label names the destination or action, such as "Go to
+        Editor" or "Edit the landing page", not "Open in Wix";
+      - includes one Google Ads dashboard link for the provisioned site after
+        the task list, using the route
+        https://manage.wix.com/dashboard/{provisioned-site-id}/google-ads and CTA
+        text that names Google Ads or the campaign action rather than "Open in
+        Wix";
       - offers to generate and apply search themes only after the user reviews
         and approves the proposed set; and
       - offers to link Merchant Center after the account ID and update are
         approved, noting that Google-side owner approval may still be required.
 
-      Fail if it invents suggestions, changes anything despite the user's
-      instruction, labels navigation URLs generically as "Open in Wix", repeats
-      the Editor link beside multiple tasks, substitutes the public landing-page
-      URL for the Editor link, tells the user to perform agent-supported Google
-      Ads work manually without offering help, or claims that marking a guide
-      item complete implements its underlying change.
+      Fail if it invents suggestions, retrieves the already-supplied guide or
+      changes anything despite the user's instruction, labels navigation URLs
+      generically as "Open in Wix", repeats the Editor link beside multiple
+      tasks, tells the user to perform agent-supported Google Ads work manually
+      without offering help, or claims that marking a guide item complete
+      implements its underlying change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent turned the supplied API result into a useful
       guide. Examine the tool-call trace. Score 0-10, where 10 means it reads the
-      campaign success guide documentation directly, preserves the supplied
-      order, uses the supplied editUrl rather than guessing an Editor route,
-      consolidates shared navigation at the bottom, gives each link a
-      destination-specific CTA, makes one concise offer for supported work, and
-      performs no unnecessary API call or mutation. Penalize generic "Open in
-      Wix" labels, generic optimization advice, repeated links or repeated
-      approval questions, guessed URLs, unsupported automation claims,
-      redundant docs or probing, non-2xx calls, and internal service or tool
-      names in the user-facing answer. Name the likely recipe/docs gap for each
-      detour. Return only
+      campaign success guide documentation directly, preserves the user's order,
+      resolves the provisioned site's Editor URL without guessing, consolidates
+      shared navigation at the bottom, gives each link a destination-specific
+      CTA, makes one concise offer for supported work, and performs no guide
+      retrieval or mutation. Penalize generic "Open in Wix" labels, generic
+      optimization advice, repeated links or approval questions, guessed URLs,
+      unsupported automation claims, redundant docs or probing, non-2xx calls,
+      and internal service or tool names in the user-facing answer. Name the
+      likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
