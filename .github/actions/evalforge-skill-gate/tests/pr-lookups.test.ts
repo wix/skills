@@ -17,44 +17,24 @@ beforeEach(() => {
 });
 
 describe('checkPrAuthor', () => {
-  it('allows an org member without calling the API', async () => {
-    const pullsGet = vi.fn();
+  it('allows an org member', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-
-    expect(await checkPrAuthor(octokitWith(pullsGet), { ...CONFIG, authorAssociation: 'MEMBER' }))
-      .toEqual({ allowed: true });
-    expect(pullsGet).not.toHaveBeenCalled();
+    expect(checkPrAuthor({ authorAssociation: 'MEMBER' })).toEqual({ allowed: true });
   });
 
-  it('denies an outside author as routine, not unexpected', async () => {
+  it('denies an outside author, with the reason the gate comments on the PR', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-
-    expect(await checkPrAuthor(octokitWith(vi.fn()), { ...CONFIG, authorAssociation: 'NONE' })).toEqual({
+    expect(checkPrAuthor({ authorAssociation: 'NONE' })).toEqual({
       allowed: false,
       reason: 'the PR author is not a wix author',
-      isUnexpected: false,
     });
-  });
-
-  it('falls back to the API when the payload carried no association', async () => {
-    const pullsGet = vi.fn().mockResolvedValue({ data: { author_association: 'OWNER' } });
-    const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-
-    expect(await checkPrAuthor(octokitWith(pullsGet), CONFIG)).toEqual({ allowed: true });
-    expect(pullsGet).toHaveBeenCalledWith({ owner: 'wix', repo: 'skills', pull_number: 42 });
   });
 
   // A missing return here would open the gate rather than close it, which is why the result is a
   // discriminated union rather than an optional value.
-  it('denies and flags as unexpected when the lookup throws', async () => {
-    const pullsGet = vi.fn().mockRejectedValue(new Error('Bad credentials'));
+  it('denies a collaborator, who has push access but no org membership', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-    const result = await checkPrAuthor(octokitWith(pullsGet), CONFIG);
-
-    expect(result.allowed).toBe(false);
-    if (result.allowed) return;
-    expect(result.isUnexpected).toBe(true);
-    expect(result.reason).toContain('Bad credentials');
+    expect(checkPrAuthor({ authorAssociation: 'COLLABORATOR' }).allowed).toBe(false);
   });
 });
 

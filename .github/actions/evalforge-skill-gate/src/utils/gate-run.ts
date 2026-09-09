@@ -14,13 +14,11 @@ export async function runGate(): Promise<void> {
   const octokit = github.getOctokit(config.githubToken);
   const comment = makeGateCommenter(octokit, config);
 
-  // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
-  // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
-  // a green check would look like a pass.
-  const author = await checkPrAuthor(octokit, config);
+  // First, so a fork PR costs nothing. Skips rather than fails, and says so on the PR,
+  // since otherwise a green check would look like a pass.
+  const author = checkPrAuthor(config);
   if (!author.allowed) {
-    const log = author.isUnexpected ? core.warning : core.info;
-    log(`Skipping wix-app eval gate — ${author.reason}`);
+    core.info(`Skipping wix-app eval gate — ${author.reason}`);
     await comment(formatGateSkipped(author.reason));
     return;
   }

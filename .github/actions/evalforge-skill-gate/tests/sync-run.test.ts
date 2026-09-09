@@ -54,10 +54,8 @@ vi.mock('../src/utils/config', () => ({
   getSyncConfig: vi.fn(),
 }));
 
-const pullsGet = vi.fn();
-
 vi.mock('@actions/github', () => ({
-  getOctokit: vi.fn(() => ({ rest: { pulls: { get: pullsGet } } })),
+  getOctokit: vi.fn(() => ({ rest: { pulls: {} } })),
 }));
 
 const listTestScenarios = vi.fn().mockResolvedValue([]);
@@ -115,7 +113,7 @@ describe('runSync — author gate', () => {
     expect(infoSpy).toHaveBeenCalledWith('Skipping wix-app sync — PR author is not a Wix author');
   });
 
-  it('proceeds for an org member without calling the API', async () => {
+  it('proceeds for an org member', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
     const { loadScenarios } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
@@ -124,21 +122,6 @@ describe('runSync — author gate', () => {
 
     await runSync();
 
-    expect(loadScenarios).toHaveBeenCalledOnce();
-    expect(pullsGet).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the API when the payload carried no association', async () => {
-    const { getSyncConfig } = await import('../src/utils/config');
-    const { loadScenarios } = await import('@wix/evalforge-core');
-    const { runSync } = await import('../src/utils/sync-run');
-
-    vi.mocked(getSyncConfig).mockReturnValue({ ...baseConfig, authorAssociation: undefined });
-    pullsGet.mockResolvedValue({ data: { author_association: 'MEMBER' } });
-
-    await runSync();
-
-    expect(pullsGet).toHaveBeenCalledOnce();
     expect(loadScenarios).toHaveBeenCalledOnce();
   });
 

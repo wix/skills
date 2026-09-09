@@ -4,7 +4,7 @@ import * as github from '@actions/github';
 import {
   DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
   DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
-  readAuthorAssociation,
+  requireAuthorAssociation,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -47,7 +47,7 @@ export type SyncConfig = {
   githubToken: string;
   prNumber: number;
   /** GitHub's server-side view of the PR author's relationship to this repo. */
-  authorAssociation?: string;
+  authorAssociation: string;
 };
 
 export function getSyncConfig(): SyncConfig {
@@ -60,7 +60,7 @@ export function getSyncConfig(): SyncConfig {
     repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
     githubToken: core.getInput('github-token', { required: true }),
     prNumber: getPrNumber(github.context.payload),
-    authorAssociation: readAuthorAssociation(github.context.payload),
+    authorAssociation: requireAuthorAssociation(github.context.payload),
   };
 }
 
@@ -95,7 +95,7 @@ export type GateConfig = {
   comparisonGroupId: string;
   runsPerScenario: number;
   /** GitHub's server-side view of the PR author's relationship to this repo. */
-  authorAssociation?: string;
+  authorAssociation: string;
   /** Milliseconds, converted once here from the `base-arm-grace-seconds` input — see `getBaseArmGraceSeconds`. */
   baseArmGraceMs: number;
 };
@@ -281,7 +281,7 @@ export function getGateConfig(): GateConfig {
     comparisonGroupId: randomUUID(),
     runsPerScenario,
     baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
-    authorAssociation: readAuthorAssociation(github.context.payload),
+    authorAssociation: requireAuthorAssociation(github.context.payload),
   };
 }
 

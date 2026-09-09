@@ -30089,20 +30089,16 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.requireAuthorAssociation = requireAuthorAssociation;
 exports.isWixOrgAuthor = isWixOrgAuthor;
-exports.readAuthorAssociation = readAuthorAssociation;
-exports.getPullAuthorAssociation = getPullAuthorAssociation;
-exports.resolveWixAuthor = resolveWixAuthor;
 exports.assertWixAuthor = assertWixAuthor;
 /**
  * `author_association` values GitHub reports for someone who belongs to the
  * organization that owns the repo.
  *
- * GitHub computes this server-side from the PR author's identity, so it is the only
- * signal here that the author cannot set themselves. It also needs no extra token
- * scope — reading org membership directly (`orgs.checkMembershipForUser`) would need
- * `members: read`, which the default `GITHUB_TOKEN` does not carry, and would 404 for
- * anyone whose membership is private.
+ * GitHub computes this server-side from the account that opened the pull request, so
+ * it is the only signal about the author that the author cannot set. A commit's author
+ * email is free text copied from `user.email`, which is why none is consulted here.
  *
  * `COLLABORATOR` is deliberately **not** here. It means push access on this repo,
  * which an outside collaborator can hold without being in the organization — so
@@ -30110,58 +30106,42 @@ exports.assertWixAuthor = assertWixAuthor;
  * access is not the question this gate asks.
  */
 const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
+/**
+ * The PR author's association, from a `pull_request` webhook payload.
+ *
+ * Throws rather than returning `undefined`, for the same reason `getPrNumber` does:
+ * every gated mode is triggered by a `pull_request` event, and GitHub always puts
+ * `author_association` on that payload's PR object. An absent one means the action was
+ * wired to the wrong trigger or the payload is malformed — and a security gate that
+ * cannot identify the author must fail loudly, not quietly pick a branch.
+ */
+function requireAuthorAssociation(payload) {
+    const pr = payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const association = pr.author_association;
+    if (typeof association !== 'string' || association.trim() === '') {
+        throw new Error('PR payload missing author_association');
+    }
+    return association;
+}
 /** True when the PR author belongs to the organization that owns the repo. */
 function isWixOrgAuthor(association) {
     return typeof association === 'string' && ORG_ASSOCIATIONS.has(association.trim().toUpperCase());
 }
 /**
- * The association carried on a `pull_request` webhook payload, if there is one.
+ * Throw unless the PR author is a member of the organization that owns the repo.
  *
- * Shared by both actions so neither has to reach into the payload itself. Every
- * author-gated mode runs on a `pull_request` event, and a workflow re-run replays
- * the original payload, so in practice this is always populated — but a payload
- * from any other event has no `pull_request` at all, hence `undefined` rather than
- * a throw, and hence `getPullAuthorAssociation` as the fallback.
+ * Takes the association rather than a client: the value is already on the payload
+ * every gated mode receives, so deciding costs no API call, no token scope, and
+ * nothing that can fail in transit.
  */
-function readAuthorAssociation(payload) {
-    const association = payload.pull_request?.author_association;
-    return typeof association === 'string' ? association : undefined;
-}
-/** The same field, read from the API rather than the payload. */
-async function getPullAuthorAssociation(octokit, owner, repo, prNumber) {
-    const { data } = await octokit.rest.pulls.get({ owner, repo, pull_number: prNumber });
-    return data.author_association ?? undefined;
-}
-/**
- * Resolve whether a PR author is a Wix author, from organization membership alone.
- *
- * A commit author email is deliberately **not** consulted. `user.email` is whatever
- * the author typed into `git config`: an unsigned commit can claim any `@wix.com`
- * address, so an email check would let any outside contributor past the gate. The
- * association cannot be self-asserted, which is the whole reason to prefer it.
- *
- * The payload value is authoritative when present, including when it *denies* the
- * author, so the API call happens only when the payload carried no association at
- * all — never to second-guess a refusal.
- */
-async function resolveWixAuthor(octokit, owner, repo, prNumber, authorAssociation) {
-    const fromPayload = authorAssociation ?? undefined;
-    if (fromPayload !== undefined) {
-        return { authorized: isWixOrgAuthor(fromPayload), via: 'payload', association: fromPayload };
-    }
-    const association = await getPullAuthorAssociation(octokit, owner, repo, prNumber);
-    if (association === undefined)
-        return { authorized: false, via: 'none' };
-    return { authorized: isWixOrgAuthor(association), via: 'api', association };
-}
-async function assertWixAuthor(octokit, owner, repo, prNumber, log, authorAssociation) {
-    const result = await resolveWixAuthor(octokit, owner, repo, prNumber, authorAssociation);
-    if (!result.authorized) {
+function assertWixAuthor(association, owner, log) {
+    if (!isWixOrgAuthor(association)) {
         throw new Error(`PR author gate failed: the PR author is not a member of the ${owner} organization ` +
-            `(author_association: ${result.association ?? 'unknown'}). This gate is restricted ` +
-            `to Wix authors.`);
+            `(author_association: ${association}). This gate is restricted to Wix authors.`);
     }
-    log?.(`Author gate passed — PR author association: ${result.association} (from the ${result.via})`);
+    log?.(`Author gate passed — PR author association: ${association}`);
 }
 
 
@@ -62900,7 +62880,7 @@ function getSyncConfig() {
         repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
         githubToken: core.getInput('github-token', { required: true }),
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
-        authorAssociation: (0, evalforge_core_1.readAuthorAssociation)(github.context.payload),
+        authorAssociation: (0, evalforge_core_1.requireAuthorAssociation)(github.context.payload),
     };
 }
 /** Newline-separated list input, falling back to `fallback` when blank. */
@@ -63057,7 +63037,7 @@ function getGateConfig() {
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
         runsPerScenario,
         baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
-        authorAssociation: (0, evalforge_core_1.readAuthorAssociation)(github.context.payload),
+        authorAssociation: (0, evalforge_core_1.requireAuthorAssociation)(github.context.payload),
     };
 }
 function getAnalyzeConfig() {
@@ -63148,13 +63128,11 @@ async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, report_1.makeGateCommenter)(octokit, config);
-    // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
-    // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
-    // a green check would look like a pass.
-    const author = await (0, pr_lookups_1.checkPrAuthor)(octokit, config);
+    // First, so a fork PR costs nothing. Skips rather than fails, and says so on the PR,
+    // since otherwise a green check would look like a pass.
+    const author = (0, pr_lookups_1.checkPrAuthor)(config);
     if (!author.allowed) {
-        const log = author.isUnexpected ? core.warning : core.info;
-        log(`Skipping wix-app eval gate — ${author.reason}`);
+        core.info(`Skipping wix-app eval gate — ${author.reason}`);
         await comment((0, evalforge_core_1.formatGateSkipped)(author.reason));
         return;
     }
@@ -63348,24 +63326,15 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
 const AUTHOR_ALLOWED = { allowed: true };
 /**
- * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
- * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ * Whether the gate may run for this PR's author.
+ *
+ * Synchronous and client-free: the association is already on the payload the workflow was
+ * triggered by, so there is no lookup here to blip, and no "could not resolve" case.
  */
-async function checkPrAuthor(octokit, config) {
-    try {
-        // The payload's association settles it with no API call.
-        const { authorized } = await (0, evalforge_core_1.resolveWixAuthor)(octokit, config.owner, config.repo, config.prNumber, config.authorAssociation);
-        if (authorized)
-            return AUTHOR_ALLOWED;
-        return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
-    }
-    catch (error) {
-        return {
-            allowed: false,
-            reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`,
-            isUnexpected: true,
-        };
-    }
+function checkPrAuthor(config) {
+    if ((0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation))
+        return AUTHOR_ALLOWED;
+    return { allowed: false, reason: 'the PR author is not a wix author' };
 }
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */
 async function isDraftTagActive(octokit, tag) {
@@ -63819,7 +63788,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.applyPlan = applyPlan;
 exports.runSync = runSync;
 const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const workspace_1 = __nccwpck_require__(9620);
@@ -63854,10 +63822,7 @@ async function applyPlan(client, projectId, plan) {
 }
 async function runSync() {
     const config = (0, config_1.getSyncConfig)();
-    const octokit = github.getOctokit(config.githubToken);
-    const [owner, repoName] = config.repo.split('/', 2);
-    const { authorized } = await (0, evalforge_core_1.resolveWixAuthor)(octokit, owner, repoName, config.prNumber, config.authorAssociation);
-    if (!authorized) {
+    if (!(0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation)) {
         core.info('Skipping wix-app sync — PR author is not a Wix author');
         return;
     }

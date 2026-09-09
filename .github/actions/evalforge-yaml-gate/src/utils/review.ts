@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { resolveWixAuthor } from '@wix/evalforge-core';
+import { isWixOrgAuthor } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
@@ -80,19 +80,9 @@ export async function runReview(): Promise<void> {
     return;
   }
 
-  // Not `assertWixAuthor`: it throws, which would turn a lookup blip into a red check.
-  // The payload's association decides on its own, so this makes no API call on the
-  // path that matters.
-  let authorized: boolean;
-  try {
-    ({ authorized } = await resolveWixAuthor(
-      octokit, config.owner, config.repo, config.prNumber, config.authorAssociation,
-    ));
-  } catch (error) {
-    await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
-    return;
-  }
-  if (!authorized) {
+  // Not `assertWixAuthor`: this mode skips rather than throwing for a non-Wix author.
+  // The association is already on the payload, so there is nothing here that can fail.
+  if (!isWixOrgAuthor(config.authorAssociation)) {
     const reason = 'the PR author is not a wix author';
     core.info(`Skipping the skill review — ${reason}`);
     await comment(formatReviewSkipped(reason));

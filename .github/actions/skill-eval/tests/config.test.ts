@@ -54,12 +54,12 @@ describe('getEvalConfig', () => {
     expect(config.authorAssociation).toBe('MEMBER');
   });
 
-  // The author gate falls back to an API lookup on undefined, so this must not
-  // become an empty string or the fallback is skipped for a payload that has none.
-  it('leaves the author association undefined when the payload carries none', () => {
+  // The gate cannot identify the author without it, so this fails loudly at config time
+  // rather than letting a malformed payload look like an ordinary refusal.
+  it('throws when the payload carries no author association', () => {
     const { author_association: _dropped, ...rest } = basePullRequest;
     payload.pull_request = rest;
-    expect(getEvalConfig().authorAssociation).toBeUndefined();
+    expect(() => getEvalConfig()).toThrow(/missing author_association/);
   });
 
   it('masks all secret inputs', () => {

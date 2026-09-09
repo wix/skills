@@ -7,7 +7,7 @@ import type { AgentOutcome } from '../src/utils/review-agent';
 // `vi.hoisted` because `vi.mock` is hoisted above these declarations, and this file imports the
 // mocked modules at the top — so a factory would run before a plain `const` spy was initialised.
 const {
-  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, pullsGet,
+  getChangedFiles, runReviewAgent, upsert, postPending, clearPending,
   existsSync,
 } =
   vi.hoisted(() => ({
@@ -16,7 +16,6 @@ const {
     upsert: vi.fn<(body: string) => Promise<void>>(),
     postPending: vi.fn<(body: string) => Promise<void>>(),
     clearPending: vi.fn<() => Promise<void>>(),
-    pullsGet: vi.fn<() => Promise<{ data: { author_association?: string } }>>(),
     existsSync: vi.fn<() => boolean>(),
   }));
 
@@ -46,7 +45,7 @@ const payload: { action: string; pull_request: Record<string, unknown> } = {
   pull_request: { ...basePullRequest },
 };
 vi.mock('@actions/github', () => ({
-  getOctokit: () => ({ rest: { pulls: { get: pullsGet } } }),
+  getOctokit: () => ({}),
   context: { repo: { owner: 'wix', repo: 'skills' }, get payload() { return payload; } },
 }));
 
@@ -73,13 +72,6 @@ const finding = (over: Partial<ReviewFinding> = {}): ReviewFinding => ({
 /** GitHub's own verdict that the author is an outsider. */
 const asOutsideAuthor = () => { payload.pull_request = { ...basePullRequest, author_association: 'NONE' }; };
 
-/** No association on the payload, and the API call that would supply it fails. */
-const withBrokenAuthorLookup = () => {
-  const { author_association: _dropped, ...rest } = basePullRequest;
-  payload.pull_request = rest;
-  pullsGet.mockRejectedValue(new Error('502'));
-};
-
 let setFailed: ReturnType<typeof vi.spyOn>;
 
 async function run(): Promise<void> {
@@ -92,7 +84,6 @@ beforeEach(() => {
   upsert.mockResolvedValue(undefined);
   postPending.mockResolvedValue(undefined);
   clearPending.mockResolvedValue(undefined);
-  pullsGet.mockResolvedValue({ data: { author_association: 'MEMBER' } });
   payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
   runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0 });
@@ -219,7 +210,6 @@ describe('review mode — what may and may not fail the check', () => {
     ['a missing CLI', () => runReviewAgent.mockResolvedValue({ ok: false, reason: 'the reviewer is not installed on this runner' })],
     ['unparseable output', () => runReviewAgent.mockResolvedValue({ ok: false, reason: 'it did not return findings in the expected format' })],
     ['an unreadable changed-file list', () => getChangedFiles.mockRejectedValue(new Error('502'))],
-    ['a broken author lookup', withBrokenAuthorLookup],
   ])('fails the check on %s', async (_label, breakIt) => {
     process.env.INPUT_BLOCKING = 'true';
     breakIt();

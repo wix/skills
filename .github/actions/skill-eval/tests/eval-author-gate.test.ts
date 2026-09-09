@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Config } from '../src/utils/config';
 
 const getChangedFiles = vi.fn();
-const pullsGet = vi.fn();
 
 vi.mock('../src/utils/config', () => ({ getEvalConfig: vi.fn() }));
 vi.mock('../src/utils/github', () => ({
@@ -11,7 +10,7 @@ vi.mock('../src/utils/github', () => ({
   fail: vi.fn(),
 }));
 vi.mock('@actions/github', () => ({
-  getOctokit: vi.fn(() => ({ rest: { pulls: { get: pullsGet } } })),
+  getOctokit: vi.fn(() => ({ rest: { pulls: {} } })),
   context: { repo: { owner: 'wix', repo: 'skills' }, payload: {} },
 }));
 
@@ -55,7 +54,6 @@ describe('runEval — author gate', () => {
 
     await expect(runEval()).rejects.toThrow(/not a member of the wix organization/);
     expect(getChangedFiles).not.toHaveBeenCalled();
-    expect(pullsGet).not.toHaveBeenCalled();
   });
 
   it('lets an org member through to the changed-file lookup', async () => {
@@ -64,16 +62,6 @@ describe('runEval — author gate', () => {
     await runEval();
 
     expect(getChangedFiles).toHaveBeenCalledOnce();
-    expect(pullsGet).not.toHaveBeenCalled();
   });
 
-  it('falls back to the API when the payload carried no association', async () => {
-    pullsGet.mockResolvedValue({ data: { author_association: 'MEMBER' } });
-    const runEval = await runWith({ authorAssociation: undefined });
-
-    await runEval();
-
-    expect(pullsGet).toHaveBeenCalledWith({ owner: 'wix', repo: 'skills', pull_number: 42 });
-    expect(getChangedFiles).toHaveBeenCalledOnce();
-  });
 });

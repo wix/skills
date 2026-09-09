@@ -18,7 +18,7 @@ export async function runEval(): Promise<void> {
   const octokit = github.getOctokit(config.githubToken);
   // Before anything that spends: an eval run costs a live agent build per scenario.
   // Same gate as the evalforge-* actions, so this one cannot be the way in.
-  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber, core.info, config.authorAssociation);
+  assertWixAuthor(config.authorAssociation, config.owner, core.info);
 
   core.info(`Skill eval — PR #${config.prNumber}`);
 

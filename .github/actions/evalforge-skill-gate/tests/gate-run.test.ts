@@ -138,29 +138,6 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     expect(setFailedSpy).not.toHaveBeenCalled();
   });
 
-  it('skips rather than fails when the author lookup itself errors', async () => {
-    const { runGate, core, evalforge } = await harness({ authorAssociation: undefined });
-    pullsGet.mockRejectedValueOnce(new Error('Bad credentials'));
-    const setFailedSpy = vi.spyOn(core, 'setFailed');
-    const warningSpy = vi.spyOn(core, 'warning');
-
-    await runGate();
-
-    expect(evalforge.EvalForgeClient).not.toHaveBeenCalled();
-    expect(setFailedSpy).not.toHaveBeenCalled();
-    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
-  });
-
-  it('skips on an author lookup error even when blocking is on', async () => {
-    const { runGate, core, evalforge } = await harness({ isBlocking: true, authorAssociation: undefined });
-    pullsGet.mockRejectedValueOnce(new Error('502'));
-    const setFailedSpy = vi.spyOn(core, 'setFailed');
-
-    await runGate();
-
-    expect(setFailedSpy).not.toHaveBeenCalled();
-  });
-
   it('comments on skip, so a green check is not mistaken for a pass', async () => {
     const { runGate, evalforge } = await harness({ authorAssociation: 'NONE' });
 
@@ -168,15 +145,6 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/\*\*not evaluated\*\*/));
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('not a wix author'));
-  });
-
-  it('comments on skip when the lookup breaks too', async () => {
-    const { runGate, evalforge } = await harness({ authorAssociation: undefined });
-    pullsGet.mockRejectedValueOnce(new Error('Bad credentials'));
-
-    await runGate();
-
-    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
   });
 
   it('fails on YAML load errors before creating any capability version', async () => {
