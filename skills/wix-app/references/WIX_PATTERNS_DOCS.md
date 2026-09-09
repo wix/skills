@@ -79,6 +79,11 @@ open — none of them is a guess.
 entry for every documented name *and* the library's own guides, and it is the larger of the
 two.
 
+**Read each entry's `summary` before deciding to open anything.** It is the opening paragraph
+of that page's description — what the symbol is and how it wires into your code — so for most
+questions the index *is* the answer, and step 4 resolves to no read at all. 169 of the 172
+entries carry one.
+
 Resolve a name against the keys **and** each entry's `symbols` aliases: the index is keyed by
 Storybook title, so `ExportButton` lives under `ExportTo` and `CollectionToolbarFilters` under
 `ToolbarFilters`. Lookup is exact-match — no fuzzy matching — so if a key isn't there, scan the
@@ -120,6 +125,7 @@ from step 1 says which of them exist, so decide before you open anything:
 
 | Your question | Read | Path |
 | --- | --- | --- |
+| What is it, and how does it wire into my code? | **nothing** — the entry says | `summary` |
 | Where do I import it from? | **nothing** — the entry says | `importPath` |
 | How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example** | `<pkgRoot>/dist/examples/<examples[i]>` |
 | What props does it take, and which are optional? | the **`.d.ts`** *or* the doc — never both | `bundle` present: `<pkgRoot>/dist/dts-bundle/<bundle>` · absent: `<pkgRoot>/dist/docs/<file>` |
@@ -135,6 +141,16 @@ path resolves under `dist/docs/`, and the page's own "Example code: read" line s
 on its page — its `### Props` is only a pointer, so reading the page for props is a wasted hop.
 An entry without `bundle` carries its own table, and that table marks which props are required,
 so the types add nothing.
+
+**A `.d.ts` names props; it never says what they do.** The rule above is about *props*, and it
+is easy to over-read as "this symbol is now answered" — it is not. Wiring, defaults and the
+contract between a prop and your own callbacks live in prose, and a `bundle` entry's page is
+where that prose is. `CollectionSearch` is the case that earned this paragraph: its bundle
+lists four optional props and no behaviour, while its page opens with "the search term is
+passed to your `fetchData` function via `query.search`" — the entire answer to *how do I wire
+a search box to my query*. Reading the bundle and stopping cost 54 seconds of reconstructing
+that from `ComputedQuery.d.ts`. That opening line is now the entry's `summary`, so the index
+settles it; when a behaviour question outlives the summary, open the page.
 
 Worked through on one entry, exactly as step 1 hands it to you:
 
