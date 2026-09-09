@@ -1,55 +1,74 @@
 import { describe, it, expect } from 'vitest';
-import { isWixAuthorEmail, getFirstCommitAuthorEmail, assertWixAuthor } from '../src/author-gate';
+import { isWixOrgAuthor, requireAuthorAssociation, assertWixAuthor } from '../src/author-gate';
 
-describe('isWixAuthorEmail', () => {
-  it('accepts @wix.com addresses (case-insensitive)', () => {
-    expect(isWixAuthorEmail('orgold@wix.com')).toBe(true);
-    expect(isWixAuthorEmail('Some.Person@Wix.com')).toBe(true);
-    expect(isWixAuthorEmail('  dev@wix.com  ')).toBe(true);
+describe('isWixOrgAuthor', () => {
+  it('accepts org members and owners', () => {
+    expect(isWixOrgAuthor('MEMBER')).toBe(true);
+    expect(isWixOrgAuthor('OWNER')).toBe(true);
+    expect(isWixOrgAuthor('  member  ')).toBe(true);
   });
 
-  it('rejects non-wix, spoofed, bot, and empty addresses', () => {
-    expect(isWixAuthorEmail('attacker@gmail.com')).toBe(false);
-    expect(isWixAuthorEmail('evil@wix.com.attacker.io')).toBe(false);
-    expect(isWixAuthorEmail('wix.com@gmail.com')).toBe(false);
-    expect(isWixAuthorEmail('123+bot@users.noreply.github.com')).toBe(false);
-    expect(isWixAuthorEmail('')).toBe(false);
-    expect(isWixAuthorEmail(undefined)).toBe(false);
-    expect(isWixAuthorEmail(null)).toBe(false);
+  // Push access on the repo is not org membership: an outside collaborator can hold it
+  // without being in the organization, so it must not open the gate.
+  it('rejects a direct collaborator', () => {
+    expect(isWixOrgAuthor('COLLABORATOR')).toBe(false);
+  });
+
+  it('rejects outside authors and missing associations', () => {
+    expect(isWixOrgAuthor('CONTRIBUTOR')).toBe(false);
+    expect(isWixOrgAuthor('FIRST_TIME_CONTRIBUTOR')).toBe(false);
+    expect(isWixOrgAuthor('NONE')).toBe(false);
+    expect(isWixOrgAuthor('')).toBe(false);
+    expect(isWixOrgAuthor(undefined)).toBe(false);
+    expect(isWixOrgAuthor(null)).toBe(false);
   });
 });
 
-type CommitStub = { commit: { author: { email: string } | null } };
-
-function fakeOctokit(commits: CommitStub[]) {
-  return {
-    rest: { pulls: { listCommits: async () => ({ data: commits }) } },
-  } as unknown as Parameters<typeof getFirstCommitAuthorEmail>[0];
-}
-
-describe('getFirstCommitAuthorEmail', () => {
-  it('returns the first (oldest) commit author email', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'first@wix.com' } } }]);
-    expect(await getFirstCommitAuthorEmail(octokit, 'wix', 'skills', 1)).toBe('first@wix.com');
+describe('requireAuthorAssociation', () => {
+  it('reads the association off a pull_request payload', () => {
+    expect(requireAuthorAssociation({ pull_request: { author_association: 'MEMBER' } })).toBe('MEMBER');
   });
 
-  it('returns undefined when there are no commits', async () => {
-    expect(await getFirstCommitAuthorEmail(fakeOctokit([]), 'wix', 'skills', 1)).toBeUndefined();
+  /**
+   * A gate that cannot identify the author must fail loudly. Returning a default here
+   * would make a malformed payload look like an ordinary refusal, or worse a pass.
+   */
+  it('throws for a payload from any other event', () => {
+    expect(() => requireAuthorAssociation({})).toThrow(/must be triggered by a pull_request event/);
+    expect(() => requireAuthorAssociation({ pull_request: null })).toThrow(/pull_request event/);
+  });
+
+  it('throws when the PR object carries no usable association', () => {
+    expect(() => requireAuthorAssociation({ pull_request: { number: 7 } }))
+      .toThrow(/missing author_association/);
+    expect(() => requireAuthorAssociation({ pull_request: { author_association: null } }))
+      .toThrow(/missing author_association/);
+    expect(() => requireAuthorAssociation({ pull_request: { author_association: 42 } }))
+      .toThrow(/missing author_association/);
+    expect(() => requireAuthorAssociation({ pull_request: { author_association: '  ' } }))
+      .toThrow(/missing author_association/);
   });
 });
 
 describe('assertWixAuthor', () => {
-  it('resolves when the first commit is a @wix.com author', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'dev@wix.com' } } }]);
-    await expect(assertWixAuthor(octokit, 'wix', 'skills', 1)).resolves.toBeUndefined();
+  it('passes an org member and logs the association', () => {
+    const lines: string[] = [];
+    expect(() => assertWixAuthor('MEMBER', 'wix', m => lines.push(m))).not.toThrow();
+    expect(lines).toEqual(['Author gate passed — PR author association: MEMBER']);
   });
 
-  it('throws when the first commit is not a @wix.com author', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'outsider@gmail.com' } } }]);
-    await expect(assertWixAuthor(octokit, 'wix', 'skills', 1)).rejects.toThrow(/not a @wix\.com address/);
+  it('throws for an outside author, naming the association and the org', () => {
+    expect(() => assertWixAuthor('CONTRIBUTOR', 'wix')).toThrow(
+      /not a member of the wix organization \(author_association: CONTRIBUTOR\)/,
+    );
   });
 
-  it('throws when the PR has no commits', async () => {
-    await expect(assertWixAuthor(fakeOctokit([]), 'wix', 'skills', 1)).rejects.toThrow(/author gate failed/i);
+  /**
+   * The gate reads no commit data at all, so there is nothing an author can set to
+   * clear it — a commit author email is free text copied from `user.email`.
+   */
+  it('cannot be cleared by anything the author controls', () => {
+    expect(() => assertWixAuthor('NONE', 'wix')).toThrow();
+    expect(() => assertWixAuthor('ceo@wix.com', 'wix')).toThrow();
   });
 });

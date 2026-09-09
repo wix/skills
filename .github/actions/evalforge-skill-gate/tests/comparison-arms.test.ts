@@ -33,6 +33,7 @@ const CONFIG: GateConfig = {
   comparisonGroupId: 'group-1',
   runsPerScenario: 3,
   baseArmGraceMs: 60_000,
+  authorAssociation: 'MEMBER',
 };
 
 const runCreated = (id: string): EvalRunCreated => ({ id, status: 'pending' });

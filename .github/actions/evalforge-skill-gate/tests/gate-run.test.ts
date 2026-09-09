@@ -4,6 +4,9 @@ import type { GateConfig } from '../src/utils/config';
 
 vi.mock('../src/utils/config', () => ({
   getGateConfig: vi.fn(),
+  getCommentTarget: vi.fn(() => ({
+    githubToken: 'gh-token', owner: 'wix', repo: 'skills', prNumber: 42,
+  })),
   BASE_WORKSPACE_SUBDIR: '.action-src',
 }));
 
@@ -31,7 +34,6 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@wix/evalforge-core')>();
   return {
     ...actual,
-    getFirstCommitAuthorEmail: vi.fn(),
     getChangedFiles: vi.fn(),
     // Routed on the option so the retract path keeps its own spy: sharing one would let a
     // superseded note land in `upsertComment.mock.calls.at(-1)` and be read as the gate comment.
@@ -77,6 +79,7 @@ const CONFIG: GateConfig = {
   comparisonGroupId: 'pr-42-merge99',
   runsPerScenario: 1,
   baseArmGraceMs: 60_000,
+  authorAssociation: 'MEMBER',
 };
 
 const strongScenario = (name: string, tags: string[]) => ({
@@ -107,7 +110,6 @@ const runMetrics = (
 beforeEach(async () => {
   vi.clearAllMocks();
   const evalforge = await import('@wix/evalforge-core');
-  vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
   vi.mocked(evalforge.getChangedFiles).mockResolvedValue([]);
   vi.mocked(evalforge.loadScenarios).mockReturnValue({ scenarios: new Map(), errors: [] });
   vi.mocked(evalforge.collectSkillFiles).mockReturnValue([{ path: 'SKILL.md', content: '# skill' }]);
@@ -127,22 +129,26 @@ async function harness(configOverrides: Partial<GateConfig> = {}) {
   return { runGate, core: coreModule, evalforge };
 }
 
-describe('runGate — cheap exits before any EvalForge write', () => {
-  it('exits without touching EvalForge when the PR author is not a @wix.com address', async () => {
-    const { runGate, core, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
-    const setFailedSpy = vi.spyOn(core, 'setFailed');
+describe('runGate — an unresolvable author skips, it never reddens the check', () => {
+  /**
+   * `index.ts` turns any escaped throw into `setFailed`, and does so regardless of
+   * `blocking` — so a config that throws over the author would fail a required check
+   * during the soak period, which is exactly what the gate promises it cannot do.
+   */
+  async function harnessThrowing(error: Error) {
+    const { getGateConfig } = await import('../src/utils/config');
+    const coreModule = await import('@actions/core');
+    const evalforge = await import('@wix/evalforge-core');
+    const { runGate } = await import('../src/utils/gate-run');
+    vi.mocked(getGateConfig).mockImplementation(() => { throw error; });
+    return { runGate, core: coreModule, evalforge };
+  }
 
-    await runGate();
-
-    expect(evalforge.EvalForgeClient).not.toHaveBeenCalled();
-    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
-    expect(setFailedSpy).not.toHaveBeenCalled();
-  });
-
-  it('skips rather than fails when the author lookup itself errors', async () => {
-    const { runGate, core, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
+  it('skips rather than fails when the author cannot be resolved', async () => {
+    const { AuthorAssociationError } = await import('@wix/evalforge-core');
+    const { runGate, core, evalforge } = await harnessThrowing(
+      new AuthorAssociationError('PR payload missing author_association'),
+    );
     const setFailedSpy = vi.spyOn(core, 'setFailed');
     const warningSpy = vi.spyOn(core, 'warning');
 
@@ -153,33 +159,52 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
   });
 
-  it('skips on an author lookup error even when blocking is on', async () => {
-    const { runGate, core, evalforge } = await harness({ isBlocking: true });
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('502'));
+  // Returning normally is what keeps index.ts from calling setFailed, so this is the
+  // blocking-on case: there is no path left by which the check can go red.
+  it('returns normally, so nothing downstream can fail the check', async () => {
+    const { AuthorAssociationError } = await import('@wix/evalforge-core');
+    const { runGate } = await harnessThrowing(new AuthorAssociationError('missing'));
+
+    await expect(runGate()).resolves.toBeUndefined();
+  });
+
+  it('comments on skip, so a green check is not mistaken for a pass', async () => {
+    const { AuthorAssociationError } = await import('@wix/evalforge-core');
+    const { runGate } = await harnessThrowing(new AuthorAssociationError('missing'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
+  });
+
+  // The recovery is scoped to the author. A missing input is a real misconfiguration and
+  // must still fail, or this catch would hide every broken workflow.
+  it('still fails for a config error that is not about the author', async () => {
+    const { runGate } = await harnessThrowing(new Error('Input required and not supplied: evalforge-url'));
+
+    await expect(runGate()).rejects.toThrow('Input required and not supplied: evalforge-url');
+  });
+});
+
+describe('runGate — cheap exits before any EvalForge write', () => {
+  it('exits without touching EvalForge when the PR author is not a Wix author', async () => {
+    const { runGate, core, evalforge } = await harness({ authorAssociation: 'NONE' });
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
     await runGate();
 
+    expect(evalforge.EvalForgeClient).not.toHaveBeenCalled();
+    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
     expect(setFailedSpy).not.toHaveBeenCalled();
   });
 
   it('comments on skip, so a green check is not mistaken for a pass', async () => {
-    const { runGate, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
+    const { runGate, evalforge } = await harness({ authorAssociation: 'NONE' });
 
     await runGate();
 
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/\*\*not evaluated\*\*/));
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('not a wix author'));
-  });
-
-  it('comments on skip when the lookup breaks too', async () => {
-    const { runGate, evalforge } = await harness();
-    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
-
-    await runGate();
-
-    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
   });
 
   it('fails on YAML load errors before creating any capability version', async () => {

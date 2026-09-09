@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type * as github from '@actions/github';
 
-const getFirstCommitAuthorEmail = vi.fn();
-
-vi.mock('@wix/evalforge-core', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@wix/evalforge-core')>(),
-  getFirstCommitAuthorEmail,
-}));
-
 type Octokit = ReturnType<typeof github.getOctokit>;
 
 /**
@@ -24,35 +17,24 @@ beforeEach(() => {
 });
 
 describe('checkPrAuthor', () => {
-  it('allows a @wix.com author', async () => {
-    getFirstCommitAuthorEmail.mockResolvedValue('someone@wix.com');
+  it('allows an org member', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-
-    expect(await checkPrAuthor(octokitWith(vi.fn()), CONFIG)).toEqual({ allowed: true });
+    expect(checkPrAuthor({ authorAssociation: 'MEMBER' })).toEqual({ allowed: true });
   });
 
-  it('denies a non-Wix author as routine, not unexpected', async () => {
-    getFirstCommitAuthorEmail.mockResolvedValue('outsider@gmail.com');
+  it('denies an outside author, with the reason the gate comments on the PR', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-
-    expect(await checkPrAuthor(octokitWith(vi.fn()), CONFIG)).toEqual({
+    expect(checkPrAuthor({ authorAssociation: 'NONE' })).toEqual({
       allowed: false,
       reason: 'the PR author is not a wix author',
-      isUnexpected: false,
     });
   });
 
   // A missing return here would open the gate rather than close it, which is why the result is a
   // discriminated union rather than an optional value.
-  it('denies and flags as unexpected when the lookup throws', async () => {
-    getFirstCommitAuthorEmail.mockRejectedValue(new Error('Bad credentials'));
+  it('denies a collaborator, who has push access but no org membership', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-    const result = await checkPrAuthor(octokitWith(vi.fn()), CONFIG);
-
-    expect(result.allowed).toBe(false);
-    if (result.allowed) return;
-    expect(result.isUnexpected).toBe(true);
-    expect(result.reason).toContain('Bad credentials');
+    expect(checkPrAuthor({ authorAssociation: 'COLLABORATOR' }).allowed).toBe(false);
   });
 });
 

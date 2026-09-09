@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@actions/core', () => ({ getInput: vi.fn(), setSecret: vi.fn(), warning: vi.fn() }));
+/** Mutable so the author-association cases can vary it; reset in beforeEach. */
+const basePullRequest = {
+  number: 42,
+  base: { sha: 'base-sha-123' },
+  head: { sha: 'head-sha-456' },
+  author_association: 'MEMBER',
+};
+const payload: { pull_request: Record<string, unknown> } = { pull_request: { ...basePullRequest } };
+
 vi.mock('@actions/github', () => ({
   context: {
-    payload: {
-      pull_request: {
-        number: 42,
-        base: { sha: 'base-sha-123' },
-        head: { sha: 'head-sha-456' },
-      },
-    },
+    get payload() { return payload; },
     repo: { owner: 'wix', repo: 'skills' },
   },
 }));
@@ -30,6 +33,7 @@ const ALL_INPUTS: Record<string, string> = {
 
 beforeEach(() => {
   vi.mocked(core.getInput).mockImplementation((name: string) => ALL_INPUTS[name] ?? '');
+  payload.pull_request = { ...basePullRequest };
 });
 
 describe('getEvalConfig', () => {
@@ -47,6 +51,15 @@ describe('getEvalConfig', () => {
     expect(config.headSha).toBe('head-sha-456');
     expect(config.owner).toBe('wix');
     expect(config.repo).toBe('skills');
+    expect(config.authorAssociation).toBe('MEMBER');
+  });
+
+  // The gate cannot identify the author without it, so this fails loudly at config time
+  // rather than letting a malformed payload look like an ordinary refusal.
+  it('throws when the payload carries no author association', () => {
+    const { author_association: _dropped, ...rest } = basePullRequest;
+    payload.pull_request = rest;
+    expect(() => getEvalConfig()).toThrow(/missing author_association/);
   });
 
   it('masks all secret inputs', () => {

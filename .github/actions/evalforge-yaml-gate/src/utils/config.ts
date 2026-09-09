@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { ensureHttps as coreEnsureHttps, safeGetSecret as coreSafeGetSecret, getPrNumber as coreGetPrNumber } from '@wix/evalforge-core';
+import { ensureHttps as coreEnsureHttps, safeGetSecret as coreSafeGetSecret, getPrNumber as coreGetPrNumber, requireAuthorAssociation } from '@wix/evalforge-core';
 
 export type SimpleConfig = {
   githubToken: string;
@@ -12,6 +12,8 @@ export type SimpleConfig = {
   prNumber: number;
   owner: string;
   repo: string;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation: string;
 };
 
 export type Config = SimpleConfig & {
@@ -49,6 +51,7 @@ export function getSimpleConfig(): SimpleConfig {
     prNumber: coreGetPrNumber(github.context.payload),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+    authorAssociation: requireAuthorAssociation(github.context.payload),
   };
 }
 
@@ -168,6 +171,8 @@ export type ReviewConfig = {
   effort: string;
   timeoutSeconds: number;
   isBlocking: boolean;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation: string;
 };
 
 export function getReviewConfig(): ReviewConfig {
@@ -193,6 +198,7 @@ export function getReviewConfig(): ReviewConfig {
     // variable must not fail a check that promises it cannot fail during soak.
     timeoutSeconds: getClampedReviewTimeout(),
     isBlocking: core.getInput('blocking') === 'true',
+    authorAssociation: requireAuthorAssociation(github.context.payload),
   };
 }
 
