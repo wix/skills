@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { getHeadCommitAuthorEmail, isWixAuthorEmail, isWixOrgAuthor } from '@wix/evalforge-core';
+import { resolveWixAuthor } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
@@ -81,18 +81,16 @@ export async function runReview(): Promise<void> {
   }
 
   // Not `assertWixAuthor`: it throws, which would turn a lookup blip into a red check.
-  // Org membership settles it without an API call, so the commit lookup only runs for
-  // authors it does not already clear.
-  let authorized = isWixOrgAuthor(config.authorAssociation);
-  if (!authorized) {
-    try {
-      authorized = isWixAuthorEmail(
-        await getHeadCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber),
-      );
-    } catch (error) {
-      await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
-      return;
-    }
+  // The payload's association decides on its own, so this makes no API call on the
+  // path that matters.
+  let authorized: boolean;
+  try {
+    ({ authorized } = await resolveWixAuthor(
+      octokit, config.owner, config.repo, config.prNumber, config.authorAssociation,
+    ));
+  } catch (error) {
+    await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
+    return;
   }
   if (!authorized) {
     const reason = 'the PR author is not a wix author';

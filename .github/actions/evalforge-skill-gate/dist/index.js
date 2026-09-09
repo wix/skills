@@ -30089,106 +30089,81 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isWixAuthorEmail = isWixAuthorEmail;
 exports.isWixOrgAuthor = isWixOrgAuthor;
-exports.getFirstCommitAuthorEmail = getFirstCommitAuthorEmail;
-exports.getHeadCommitAuthorEmail = getHeadCommitAuthorEmail;
+exports.readAuthorAssociation = readAuthorAssociation;
+exports.getPullAuthorAssociation = getPullAuthorAssociation;
 exports.resolveWixAuthor = resolveWixAuthor;
 exports.assertWixAuthor = assertWixAuthor;
-const WIX_EMAIL_RE = /@wix\.com$/i;
 /**
  * `author_association` values GitHub reports for someone who belongs to the repo's
  * organization, or who has been granted access to the repo directly.
  *
- * This is the primary signal: GitHub computes it server-side from the PR author's
- * identity, so unlike a commit author email it cannot be set by whoever wrote the
- * commit. It also costs no API call and needs no extra token scope — reading org
- * membership directly (`orgs.checkMembershipForUser`) would need `members: read`,
- * which the default `GITHUB_TOKEN` does not carry, and would 404 for anyone whose
- * membership is private.
+ * GitHub computes this server-side from the PR author's identity, so it is the only
+ * signal here that the author cannot set themselves. It also needs no extra token
+ * scope — reading org membership directly (`orgs.checkMembershipForUser`) would need
+ * `members: read`, which the default `GITHUB_TOKEN` does not carry, and would 404 for
+ * anyone whose membership is private.
+ *
+ * `COLLABORATOR` means push access granted on this repo specifically. That is a
+ * deliberate grant rather than an org identity, so it is accepted on the same footing
+ * as membership; drop it from this set if the gate should be org-only.
  */
 const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
-/** listCommits caps at 100 per page; PR branches here are far shorter than that. */
-const COMMITS_PER_PAGE = 100;
-function isWixAuthorEmail(email) {
-    return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
-}
 /**
  * True when the PR author belongs to the organization that owns the repo, or has
- * direct access to it, per `author_association` on the pull_request payload.
+ * direct access to it.
  */
 function isWixOrgAuthor(association) {
     return typeof association === 'string' && ORG_ASSOCIATIONS.has(association.trim().toUpperCase());
 }
-async function listCommitsPage(octokit, owner, repo, prNumber, page, perPage) {
-    const { data } = await octokit.rest.pulls.listCommits({
-        owner,
-        repo,
-        pull_number: prNumber,
-        per_page: perPage,
-        page,
-    });
-    return data;
-}
-async function getFirstCommitAuthorEmail(octokit, owner, repo, prNumber) {
-    // listCommits returns the PR's commits oldest-first; we only need the first,
-    // so ask for a single-item page rather than paginating the whole PR.
-    const data = await listCommitsPage(octokit, owner, repo, prNumber, 1, 1);
-    return data[0]?.commit?.author?.email ?? undefined;
-}
 /**
- * The author email of the PR's **latest** commit — the current committer.
+ * The association carried on a `pull_request` webhook payload, if there is one.
  *
- * This is what the gate should judge: the head commit is the content an eval run
- * actually spends on. The first commit is both less relevant and weaker evidence,
- * since anyone can open a PR whose opening commit was cherry-picked from someone
- * else and then push their own work on top.
+ * Shared by both actions so neither has to reach into the payload itself. Every
+ * author-gated mode runs on a `pull_request` event, and a workflow re-run replays
+ * the original payload, so in practice this is always populated — but a payload
+ * from any other event has no `pull_request` at all, hence `undefined` rather than
+ * a throw, and hence `getPullAuthorAssociation` as the fallback.
  */
-async function getHeadCommitAuthorEmail(octokit, owner, repo, prNumber) {
-    let page = 1;
-    let last = [];
-    // Walk forward until a short page proves it was the last one. The PR commits API
-    // returns them oldest-first and has no "give me the newest" option.
-    for (;;) {
-        const data = await listCommitsPage(octokit, owner, repo, prNumber, page, COMMITS_PER_PAGE);
-        if (data.length > 0)
-            last = data;
-        if (data.length < COMMITS_PER_PAGE)
-            break;
-        page += 1;
-    }
-    return last[last.length - 1]?.commit?.author?.email ?? undefined;
+function readAuthorAssociation(payload) {
+    const association = payload.pull_request?.author_association;
+    return typeof association === 'string' ? association : undefined;
+}
+/** The same field, read from the API rather than the payload. */
+async function getPullAuthorAssociation(octokit, owner, repo, prNumber) {
+    const { data } = await octokit.rest.pulls.get({ owner, repo, pull_number: prNumber });
+    return data.author_association ?? undefined;
 }
 /**
- * Resolve whether a PR author is a Wix author: organization membership first,
- * falling back to the current committer's email.
+ * Resolve whether a PR author is a Wix author, from organization membership alone.
  *
- * The email fallback is kept so the gate still clears authors on payloads that
- * carry no `author_association` — a replayed or manually dispatched run — rather
- * than turning a missing field into a refusal.
+ * A commit author email is deliberately **not** consulted. `user.email` is whatever
+ * the author typed into `git config`: an unsigned commit can claim any `@wix.com`
+ * address, so an email check would let any outside contributor past the gate. The
+ * association cannot be self-asserted, which is the whole reason to prefer it.
+ *
+ * The payload value is authoritative when present, including when it *denies* the
+ * author, so the API call happens only when the payload carried no association at
+ * all — never to second-guess a refusal.
  */
 async function resolveWixAuthor(octokit, owner, repo, prNumber, authorAssociation) {
-    const association = authorAssociation ?? undefined;
-    if (isWixOrgAuthor(association)) {
-        return { authorized: true, via: 'org', association };
+    const fromPayload = authorAssociation ?? undefined;
+    if (fromPayload !== undefined) {
+        return { authorized: isWixOrgAuthor(fromPayload), via: 'payload', association: fromPayload };
     }
-    const email = await getHeadCommitAuthorEmail(octokit, owner, repo, prNumber);
-    if (isWixAuthorEmail(email)) {
-        return { authorized: true, via: 'email', association, email };
-    }
-    return { authorized: false, via: 'none', association, email };
+    const association = await getPullAuthorAssociation(octokit, owner, repo, prNumber);
+    if (association === undefined)
+        return { authorized: false, via: 'none' };
+    return { authorized: isWixOrgAuthor(association), via: 'api', association };
 }
 async function assertWixAuthor(octokit, owner, repo, prNumber, log, authorAssociation) {
     const result = await resolveWixAuthor(octokit, owner, repo, prNumber, authorAssociation);
     if (!result.authorized) {
         throw new Error(`PR author gate failed: the PR author is not a member of the ${owner} organization ` +
-            `(author_association: ${result.association ?? 'unknown'}), and the latest commit's ` +
-            `author email (${result.email ?? 'unknown'}) is not a @wix.com address. ` +
-            `This gate is restricted to Wix authors.`);
+            `and has no direct access to this repository (author_association: ` +
+            `${result.association ?? 'unknown'}). This gate is restricted to Wix authors.`);
     }
-    log?.(result.via === 'org'
-        ? `Author gate passed — PR author association: ${result.association}`
-        : `Author gate passed — latest commit author email: ${result.email}`);
+    log?.(`Author gate passed — PR author association: ${result.association} (from the ${result.via})`);
 }
 
 
@@ -62927,7 +62902,7 @@ function getSyncConfig() {
         repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
         githubToken: core.getInput('github-token', { required: true }),
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
-        authorAssociation: getAuthorAssociation(),
+        authorAssociation: (0, evalforge_core_1.readAuthorAssociation)(github.context.payload),
     };
 }
 /** Newline-separated list input, falling back to `fallback` when blank. */
@@ -63084,7 +63059,7 @@ function getGateConfig() {
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
         runsPerScenario,
         baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
-        authorAssociation: getAuthorAssociation(),
+        authorAssociation: (0, evalforge_core_1.readAuthorAssociation)(github.context.payload),
     };
 }
 function getAnalyzeConfig() {
@@ -63117,10 +63092,6 @@ function getCleanupConfig() {
     };
 }
 /** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
-function getAuthorAssociation() {
-    const pr = github.context.payload.pull_request;
-    return pr?.author_association;
-}
 
 
 /***/ }),
@@ -63384,11 +63355,9 @@ const AUTHOR_ALLOWED = { allowed: true };
  */
 async function checkPrAuthor(octokit, config) {
     try {
-        // Org membership settles it with no API call; the current committer is the fallback.
-        if ((0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation))
-            return AUTHOR_ALLOWED;
-        const email = await (0, evalforge_core_1.getHeadCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
-        if ((0, evalforge_core_1.isWixAuthorEmail)(email))
+        // The payload's association settles it with no API call.
+        const { authorized } = await (0, evalforge_core_1.resolveWixAuthor)(octokit, config.owner, config.repo, config.prNumber, config.authorAssociation);
+        if (authorized)
             return AUTHOR_ALLOWED;
         return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
     }
@@ -63889,8 +63858,7 @@ async function runSync() {
     const config = (0, config_1.getSyncConfig)();
     const octokit = github.getOctokit(config.githubToken);
     const [owner, repoName] = config.repo.split('/', 2);
-    const authorized = (0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation) ||
-        (0, evalforge_core_1.isWixAuthorEmail)(await (0, evalforge_core_1.getHeadCommitAuthorEmail)(octokit, owner, repoName, config.prNumber));
+    const { authorized } = await (0, evalforge_core_1.resolveWixAuthor)(octokit, owner, repoName, config.prNumber, config.authorAssociation);
     if (!authorized) {
         core.info('Skipping wix-app sync — PR author is not a Wix author');
         return;

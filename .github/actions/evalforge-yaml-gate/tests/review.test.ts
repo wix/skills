@@ -7,7 +7,7 @@ import type { AgentOutcome } from '../src/utils/review-agent';
 // `vi.hoisted` because `vi.mock` is hoisted above these declarations, and this file imports the
 // mocked modules at the top — so a factory would run before a plain `const` spy was initialised.
 const {
-  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, getHeadCommitAuthorEmail,
+  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, pullsGet,
   existsSync,
 } =
   vi.hoisted(() => ({
@@ -16,7 +16,7 @@ const {
     upsert: vi.fn<(body: string) => Promise<void>>(),
     postPending: vi.fn<(body: string) => Promise<void>>(),
     clearPending: vi.fn<() => Promise<void>>(),
-    getHeadCommitAuthorEmail: vi.fn<() => Promise<string | undefined>>(),
+    pullsGet: vi.fn<() => Promise<{ data: { author_association?: string } }>>(),
     existsSync: vi.fn<() => boolean>(),
   }));
 
@@ -29,21 +29,24 @@ vi.mock('../src/utils/github', async (importOriginal) => {
   };
 });
 
-vi.mock('@wix/evalforge-core', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@wix/evalforge-core')>();
-  return { ...actual, getHeadCommitAuthorEmail };
-});
-
 vi.mock('../src/utils/review-agent', () => ({ runReviewAgent }));
 
 vi.mock('node:fs', () => ({ existsSync }));
 
-const payload: { action: string; pull_request: unknown } = {
+/** An org member's PR, which is how every real PR from this org arrives. */
+const basePullRequest = {
+  number: 42,
+  head: { sha: 'abcdef1234' },
+  base: { sha: 'base5678' },
+  author_association: 'MEMBER',
+};
+
+const payload: { action: string; pull_request: Record<string, unknown> } = {
   action: 'opened',
-  pull_request: { number: 42, head: { sha: 'abcdef1234' }, base: { sha: 'base5678' } },
+  pull_request: { ...basePullRequest },
 };
 vi.mock('@actions/github', () => ({
-  getOctokit: () => ({}),
+  getOctokit: () => ({ rest: { pulls: { get: pullsGet } } }),
   context: { repo: { owner: 'wix', repo: 'skills' }, get payload() { return payload; } },
 }));
 
@@ -67,6 +70,16 @@ const finding = (over: Partial<ReviewFinding> = {}): ReviewFinding => ({
   ...over,
 });
 
+/** GitHub's own verdict that the author is an outsider. */
+const asOutsideAuthor = () => { payload.pull_request = { ...basePullRequest, author_association: 'NONE' }; };
+
+/** No association on the payload, and the API call that would supply it fails. */
+const withBrokenAuthorLookup = () => {
+  const { author_association: _dropped, ...rest } = basePullRequest;
+  payload.pull_request = rest;
+  pullsGet.mockRejectedValue(new Error('502'));
+};
+
 let setFailed: ReturnType<typeof vi.spyOn>;
 
 async function run(): Promise<void> {
@@ -79,7 +92,8 @@ beforeEach(() => {
   upsert.mockResolvedValue(undefined);
   postPending.mockResolvedValue(undefined);
   clearPending.mockResolvedValue(undefined);
-  getHeadCommitAuthorEmail.mockResolvedValue('someone@wix.com');
+  pullsGet.mockResolvedValue({ data: { author_association: 'MEMBER' } });
+  payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
   runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0 });
   existsSync.mockReturnValue(true);
@@ -136,7 +150,7 @@ describe('review mode — whether it spends', () => {
   });
 
   it('does not run the agent for a non-Wix author, and says so on the PR', async () => {
-    getHeadCommitAuthorEmail.mockResolvedValue('someone@example.com');
+    asOutsideAuthor();
     await run();
     expect(runReviewAgent).not.toHaveBeenCalled();
     expect(upsert.mock.calls[0][0]).toContain('Review job skipped');
@@ -146,7 +160,7 @@ describe('review mode — whether it spends', () => {
   // A reminder from an earlier push must not outlive the change it asked about.
   it.each([
     ['nothing in scope changed', () => getChangedFiles.mockResolvedValue([{ filename: 'README.md', status: 'modified' }])],
-    ['the author is not a wix author', () => getHeadCommitAuthorEmail.mockResolvedValue('someone@example.com')],
+    ['the author is not a wix author', asOutsideAuthor],
   ])('clears any standing reminder when %s', async (_label, setUp) => {
     setUp();
     await run();
@@ -205,7 +219,7 @@ describe('review mode — what may and may not fail the check', () => {
     ['a missing CLI', () => runReviewAgent.mockResolvedValue({ ok: false, reason: 'the reviewer is not installed on this runner' })],
     ['unparseable output', () => runReviewAgent.mockResolvedValue({ ok: false, reason: 'it did not return findings in the expected format' })],
     ['an unreadable changed-file list', () => getChangedFiles.mockRejectedValue(new Error('502'))],
-    ['a broken author lookup', () => getHeadCommitAuthorEmail.mockRejectedValue(new Error('502'))],
+    ['a broken author lookup', withBrokenAuthorLookup],
   ])('fails the check on %s', async (_label, breakIt) => {
     process.env.INPUT_BLOCKING = 'true';
     breakIt();
@@ -218,7 +232,7 @@ describe('review mode — what may and may not fail the check', () => {
 
   it.each([
     ['nothing in scope changed', () => getChangedFiles.mockResolvedValue([{ filename: 'README.md', status: 'modified' }])],
-    ['the author is not a wix author', () => getHeadCommitAuthorEmail.mockResolvedValue('someone@example.com')],
+    ['the author is not a wix author', asOutsideAuthor],
   ])('does not gate an unreviewed head when %s', async (_label, setUp) => {
     process.env.INPUT_BLOCKING = 'true';
     payload.action = 'synchronize';

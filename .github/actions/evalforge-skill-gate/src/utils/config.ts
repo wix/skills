@@ -4,6 +4,7 @@ import * as github from '@actions/github';
 import {
   DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
   DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
+  readAuthorAssociation,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -59,7 +60,7 @@ export function getSyncConfig(): SyncConfig {
     repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
     githubToken: core.getInput('github-token', { required: true }),
     prNumber: getPrNumber(github.context.payload),
-    authorAssociation: getAuthorAssociation(),
+    authorAssociation: readAuthorAssociation(github.context.payload),
   };
 }
 
@@ -280,7 +281,7 @@ export function getGateConfig(): GateConfig {
     comparisonGroupId: randomUUID(),
     runsPerScenario,
     baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
-    authorAssociation: getAuthorAssociation(),
+    authorAssociation: readAuthorAssociation(github.context.payload),
   };
 }
 
@@ -331,7 +332,3 @@ export function getCleanupConfig(): CleanupConfig {
 }
 
 /** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
-function getAuthorAssociation(): string | undefined {
-  const pr = github.context.payload.pull_request as { author_association?: string } | undefined;
-  return pr?.author_association;
-}

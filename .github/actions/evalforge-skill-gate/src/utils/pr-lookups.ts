@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { getHeadCommitAuthorEmail, isWixAuthorEmail, isWixOrgAuthor, parseDraftTag } from '@wix/evalforge-core';
+import { parseDraftTag, resolveWixAuthor } from '@wix/evalforge-core';
 import { describeError } from './report';
 import type { GateConfig } from './config';
 
@@ -23,10 +23,11 @@ export async function checkPrAuthor(
   config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber' | 'authorAssociation'>,
 ): Promise<AuthorCheck> {
   try {
-    // Org membership settles it with no API call; the current committer is the fallback.
-    if (isWixOrgAuthor(config.authorAssociation)) return AUTHOR_ALLOWED;
-    const email = await getHeadCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-    if (isWixAuthorEmail(email)) return AUTHOR_ALLOWED;
+    // The payload's association settles it with no API call.
+    const { authorized } = await resolveWixAuthor(
+      octokit, config.owner, config.repo, config.prNumber, config.authorAssociation,
+    );
+    if (authorized) return AUTHOR_ALLOWED;
     return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
   } catch (error) {
     return {

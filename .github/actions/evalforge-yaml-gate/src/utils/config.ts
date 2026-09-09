@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { ensureHttps as coreEnsureHttps, safeGetSecret as coreSafeGetSecret, getPrNumber as coreGetPrNumber } from '@wix/evalforge-core';
+import { ensureHttps as coreEnsureHttps, safeGetSecret as coreSafeGetSecret, getPrNumber as coreGetPrNumber, readAuthorAssociation } from '@wix/evalforge-core';
 
 export type SimpleConfig = {
   githubToken: string;
@@ -51,16 +51,11 @@ export function getSimpleConfig(): SimpleConfig {
     prNumber: coreGetPrNumber(github.context.payload),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
-    authorAssociation: getAuthorAssociation(),
+    authorAssociation: readAuthorAssociation(github.context.payload),
   };
 }
 
 /** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
-function getAuthorAssociation(): string | undefined {
-  const pr = github.context.payload.pull_request as { author_association?: string } | undefined;
-  return pr?.author_association;
-}
-
 export type ScheduleConfig = {
   evalforgeUrl: string;
   projectId: string;
@@ -203,7 +198,7 @@ export function getReviewConfig(): ReviewConfig {
     // variable must not fail a check that promises it cannot fail during soak.
     timeoutSeconds: getClampedReviewTimeout(),
     isBlocking: core.getInput('blocking') === 'true',
-    authorAssociation: getAuthorAssociation(),
+    authorAssociation: readAuthorAssociation(github.context.payload),
   };
 }
 
