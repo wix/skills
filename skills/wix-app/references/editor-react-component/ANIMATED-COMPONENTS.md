@@ -58,7 +58,7 @@ able to force the safety control visible.
 import type { A11y, Direction } from '@wix/editor-react-types';
 
 export interface MyAnimationProps {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
