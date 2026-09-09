@@ -4,7 +4,7 @@ import * as github from '@actions/github';
 import {
   DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
   DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
-  requireAuthorAssociation,
+  readHeadRepoFullName,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -46,8 +46,8 @@ export type SyncConfig = {
   repo: string;
   githubToken: string;
   prNumber: number;
-  /** GitHub's server-side view of the PR author's relationship to this repo. */
-  authorAssociation: string;
+  /** Where the PR's head branch lives; `null` if that repository is gone. */
+  headRepoFullName: string | null;
 };
 
 export function getSyncConfig(): SyncConfig {
@@ -60,7 +60,7 @@ export function getSyncConfig(): SyncConfig {
     repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
     githubToken: core.getInput('github-token', { required: true }),
     prNumber: getPrNumber(github.context.payload),
-    authorAssociation: requireAuthorAssociation(github.context.payload),
+    headRepoFullName: readHeadRepoFullName(github.context.payload),
   };
 }
 
@@ -94,8 +94,8 @@ export type GateConfig = {
   baseSha: string;
   comparisonGroupId: string;
   runsPerScenario: number;
-  /** GitHub's server-side view of the PR author's relationship to this repo. */
-  authorAssociation: string;
+  /** Where the PR's head branch lives; `null` if that repository is gone. */
+  headRepoFullName: string | null;
   /** Milliseconds, converted once here from the `base-arm-grace-seconds` input — see `getBaseArmGraceSeconds`. */
   baseArmGraceMs: number;
 };
@@ -243,19 +243,6 @@ function getEvaluatedSha(): string {
   return sha;
 }
 
-/**
- * The minimum needed to comment on the PR: everything here is read straight from the action
- * inputs and the event context, so it stays available when building a full config throws.
- */
-export function getCommentTarget(): { githubToken: string; owner: string; repo: string; prNumber: number } {
-  return {
-    githubToken: core.getInput('github-token', { required: true }),
-    owner: github.context.repo.owner,
-    repo: github.context.repo.repo,
-    prNumber: getPrNumber(github.context.payload),
-  };
-}
-
 export function getGateConfig(): GateConfig {
   const owner = github.context.repo.owner;
   const repo = github.context.repo.repo;
@@ -294,7 +281,7 @@ export function getGateConfig(): GateConfig {
     comparisonGroupId: randomUUID(),
     runsPerScenario,
     baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
-    authorAssociation: requireAuthorAssociation(github.context.payload),
+    headRepoFullName: readHeadRepoFullName(github.context.payload),
   };
 }
 

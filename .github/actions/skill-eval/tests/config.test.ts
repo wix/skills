@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@actions/core', () => ({ getInput: vi.fn(), setSecret: vi.fn(), warning: vi.fn() }));
-/** Mutable so the author-association cases can vary it; reset in beforeEach. */
+/** Mutable so the head-repository cases can vary it; reset in beforeEach. */
 const basePullRequest = {
   number: 42,
   base: { sha: 'base-sha-123' },
-  head: { sha: 'head-sha-456' },
-  author_association: 'MEMBER',
+  head: { sha: 'head-sha-456', repo: { full_name: 'wix/skills' } },
 };
 const payload: { pull_request: Record<string, unknown> } = { pull_request: { ...basePullRequest } };
 
@@ -51,15 +50,14 @@ describe('getEvalConfig', () => {
     expect(config.headSha).toBe('head-sha-456');
     expect(config.owner).toBe('wix');
     expect(config.repo).toBe('skills');
-    expect(config.authorAssociation).toBe('MEMBER');
+    expect(config.headRepoFullName).toBe('wix/skills');
   });
 
-  // The gate cannot identify the author without it, so this fails loudly at config time
-  // rather than letting a malformed payload look like an ordinary refusal.
-  it('throws when the payload carries no author association', () => {
-    const { author_association: _dropped, ...rest } = basePullRequest;
-    payload.pull_request = rest;
-    expect(() => getEvalConfig()).toThrow(/missing author_association/);
+  // A deleted fork leaves head.repo null. That is not this repository, so it reads as a
+  // refusal downstream rather than an error here.
+  it('reports a null head repository rather than throwing', () => {
+    payload.pull_request = { ...basePullRequest, head: { sha: 'head-sha-456', repo: null } };
+    expect(getEvalConfig().headRepoFullName).toBeNull();
   });
 
   it('masks all secret inputs', () => {

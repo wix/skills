@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { isWixOrgAuthor, parseDraftTag } from '@wix/evalforge-core';
+import { isSameRepoBranch, parseDraftTag } from '@wix/evalforge-core';
 import { describeError } from './report';
 import type { GateConfig } from './config';
 
@@ -20,10 +20,13 @@ const AUTHOR_ALLOWED: AuthorCheck = { allowed: true };
  * triggered by, so there is no lookup here to blip, and no "could not resolve" case.
  */
 export function checkPrAuthor(
-  config: Pick<GateConfig, 'authorAssociation'>,
+  config: Pick<GateConfig, 'owner' | 'repo' | 'headRepoFullName'>,
 ): AuthorCheck {
-  if (isWixOrgAuthor(config.authorAssociation)) return AUTHOR_ALLOWED;
-  return { allowed: false, reason: 'the PR author is not a wix author' };
+  if (isSameRepoBranch(config.headRepoFullName, config.owner, config.repo)) return AUTHOR_ALLOWED;
+  return {
+    allowed: false,
+    reason: 'the PR branch is not in this repository, so its author has no write access',
+  };
 }
 
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */

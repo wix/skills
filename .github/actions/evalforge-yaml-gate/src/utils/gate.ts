@@ -8,7 +8,7 @@ import { canonicalDocUrl } from './doc-url';
 import { changedDocsEntries, validateDocsEntries } from './docs-entry-check';
 import { computeCoverage } from './coverage';
 import {
-  EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
+  EvalForgeClient, assertSameRepoBranch, diffSyncPlan, draftTagFor, evalRunUrl,
   listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
   stripInactiveForeignDraftTags, type RemoteScenario,
 } from '@wix/evalforge-core';
@@ -94,7 +94,7 @@ async function isDraftTagActive(
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
-  assertWixAuthor(config.authorAssociation, config.owner, core.info);
+  assertSameRepoBranch(config.headRepoFullName, config.owner, config.repo, core.info);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
   const baseWorkspace = posix.join(workspace, BASE_WORKSPACE_SUBDIR);
