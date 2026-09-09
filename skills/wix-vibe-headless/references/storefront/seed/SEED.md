@@ -13,7 +13,7 @@ the `pricing-plans` vertical, not here.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs"));
 const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
