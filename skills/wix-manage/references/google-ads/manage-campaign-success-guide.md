@@ -1,6 +1,6 @@
 ---
 name: "Manage a Campaign Success Guide"
-description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval before retrieval. A direct request to improve a campaign, see what to fix next, or show the guide is already approval to retrieve it. Also use when a user reports completing or wants to reopen a guide item. Treat a clear completion report as an actionable update request even when phrased as a statement. Covers campaign selection, prioritized guide retrieval, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
+description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval before retrieval. A direct request to improve a campaign, see what to fix next, or show the guide is already approval to retrieve it. Also use when a user reports completing or wants to reopen a guide item. Treat a clear completion report as an actionable update request even when phrased as a statement. Covers campaign selection, prioritized guide retrieval presented as an actionable plan with deduplicated Editor and dashboard links, proactive offers for supported work, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
 ---
 # RECIPE: Manage a Campaign Success Guide
 
@@ -66,6 +66,57 @@ The first call may analyze the landing page, campaign configuration, and relevan
 Present only the suggestions the API returns and preserve their order; `suggestions` is already in priority order. An empty array means no currently detected items need attention, not an API failure. Show `campaignSuccessGuide.url` when it helps identify the analyzed landing page.
 
 `OPEN` means pending action. `COMPLETED` means the user marked the item completed; it does **not** mean the API changed the site or campaign for them.
+
+## Present the guide as an actionable plan
+
+Do not return a bare list of task labels. Turn the returned suggestions into a compact action plan while preserving the API's order:
+
+1. Name the campaign and link `campaignSuccessGuide.url` as the analyzed landing page when present.
+2. For every returned suggestion, show its user-facing label, tracking status (`Pending` for `OPEN`, `Marked complete` for `COMPLETED`), and one concrete next step. Do not show enum values unless they help resolve an ambiguity.
+3. For each `OPEN` item, distinguish work the agent can help perform from work the user must finish in Wix. Prefer an offer to do supported work over instructions that make the user do the same operation manually.
+4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
+5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.
+
+### Which action to offer
+
+| Suggestion types | Response behavior |
+| --- | --- |
+| `CLEAR_CTA_COPY`, `ABOVE_THE_FOLD_CTA`, `HEADER_MATCH`, `CONVERSION_POINT`, `GOOGLE_REVIEWS`, `TESTIMONIAL`, `CONTACT_AND_CREDIBILITY`, `FAQ_SECTION`, `MINIMIZE_FORM_FIELDS`, `SOCIAL_CHANNELS` | These change visible landing-page content. Briefly describe the edit and point to the single **Go to Editor** CTA after the suggestions. If the current environment has a site-editing capability that can safely make the specific change, offer to make it after the user approves; otherwise do not imply that marking the suggestion complete will edit the page. |
+| `MOBILE_OPTIMIZATION`, `SITE_SPEED` | Offer to inspect the problem and recommend a concrete fix first; these broad findings are not a safe one-click mutation. Include the single Editor link when the resulting work belongs there. Do not promise an improvement before identifying the actual cause. |
+| `GOOGLE_ADS_SEARCH_THEMES` | Offer to generate relevant search themes, show the proposed set, and apply the approved set to the existing campaign by following [Get AI Campaign Suggestions](get-campaign-suggestions.md) and [Manage Campaign Lifecycle](manage-campaign-lifecycle.md). Updating the campaign is a mutation, so do not apply themes merely because the guide returned this item. |
+| `GOOGLE_MERCHANT_CENTER_CONNECTION` | Offer to link the Merchant Center account by following [Install Google Ads and Create an Account](install-and-create-account.md). Ask for or confirm the Merchant Center account ID and get approval before the account update. Explain that the link begins as `PENDING` and its owner may still need to approve it in Google. |
+| `GOOGLE_BUSINESS_PROFILE_CONNECTION` | Offer to check the connection and start it by following [Connect a Wix Site to Google Business Profile](../google-business-profile/connect-google-business-profile.md). Be explicit that the agent can initiate the flow and provide its authorization URL, but the site owner must finish Google's consent in their browser. |
+
+Do not pepper the list with a separate "Want me to do this?" after every actionable item. Mark supported items clearly (for example, **I can help with this**) and make one concise closing offer that names the work the agent can take on.
+
+### Build destination-specific CTAs
+
+- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the selected site's exact `editUrl` from available site context. If it is not available, resolve the site by following [Query Sites](../sites/query-sites.md), then use the returned `editUrl`; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
+- **Google Ads:** When a returned item belongs in Google Ads, use the verified route from [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md): `https://manage.wix.com/dashboard/{metaSiteId}/google-ads`. Label the CTA **Go to Google Ads** or name the specific campaign action.
+- **Other destinations:** Name the destination or action in the CTA, such as **Open Forms dashboard**, **Review site speed**, or **Connect Google Business Profile**. Never make several unrelated links look like the same generic action.
+- Include only relevant destinations and list each URL once. Authorization URLs created by a later connection flow are task-specific; return one only after the user accepts that offer and the flow creates it.
+
+Example when several tasks share the Editor:
+
+```markdown
+## Campaign success guide
+Landing page: [Request a quote](https://www.example.com/request-a-quote)
+
+1. **Clarify the main call to action — Pending**
+   Make the button describe the conversion, such as “Request a quote.”
+2. **Move a call to action above the fold — Pending**
+   Place the primary button where visitors see it without scrolling.
+3. **Configure Google Ads search themes — Pending**
+   **I can help with this:** I can propose relevant themes and apply the set you approve.
+
+I can take care of the search-theme update after you review the proposed set.
+
+### Next actions
+- [Go to Editor]({editUrl})
+- [Go to Google Ads](https://manage.wix.com/dashboard/{metaSiteId}/google-ads)
+```
+
+Each link has its own destination-specific CTA, and the Editor URL appears once even though the first two recommendations both use it.
 
 ## Translate suggestion types for the user
 
