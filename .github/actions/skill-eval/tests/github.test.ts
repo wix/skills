@@ -24,6 +24,7 @@ const config: Config = {
   headSha: 'def456',
   owner: 'wix',
   repo: 'skills',
+  authorAssociation: 'MEMBER',
   blocking: true,
 };
 

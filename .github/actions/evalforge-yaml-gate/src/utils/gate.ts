@@ -94,7 +94,7 @@ async function isDraftTagActive(
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
-  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber, core.info);
+  assertWixAuthor(config.authorAssociation, config.owner, core.info);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
   const baseWorkspace = posix.join(workspace, BASE_WORKSPACE_SUBDIR);

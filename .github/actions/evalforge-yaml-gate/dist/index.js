@@ -34203,31 +34203,72 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isWixAuthorEmail = isWixAuthorEmail;
-exports.getFirstCommitAuthorEmail = getFirstCommitAuthorEmail;
+exports.AuthorAssociationError = void 0;
+exports.requireAuthorAssociation = requireAuthorAssociation;
+exports.isWixOrgAuthor = isWixOrgAuthor;
 exports.assertWixAuthor = assertWixAuthor;
-const WIX_EMAIL_RE = /@wix\.com$/i;
-function isWixAuthorEmail(email) {
-    return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
-}
-async function getFirstCommitAuthorEmail(octokit, owner, repo, prNumber) {
-    // listCommits returns the PR's commits oldest-first; we only need the first,
-    // so ask for a single-item page rather than paginating the whole PR.
-    const { data } = await octokit.rest.pulls.listCommits({
-        owner,
-        repo,
-        pull_number: prNumber,
-        per_page: 1,
-    });
-    return data[0]?.commit?.author?.email ?? undefined;
-}
-async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
-    const email = await getFirstCommitAuthorEmail(octokit, owner, repo, prNumber);
-    if (!isWixAuthorEmail(email)) {
-        throw new Error(`PR author gate failed: the PR's first-commit author email (${email ?? 'unknown'}) ` +
-            `is not a @wix.com address. This gate is restricted to Wix authors.`);
+/**
+ * Raised when the payload carries no usable association. Typed so a caller that skips rather
+ * than fails can recognise it, and let every other config error keep failing the check.
+ */
+class AuthorAssociationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthorAssociationError';
     }
-    log?.(`Author gate passed — first-commit author email: ${email}`);
+}
+exports.AuthorAssociationError = AuthorAssociationError;
+/**
+ * `author_association` values GitHub reports for someone who belongs to the
+ * organization that owns the repo.
+ *
+ * GitHub computes this server-side from the account that opened the pull request, so
+ * it is the only signal about the author that the author cannot set. A commit's author
+ * email is free text copied from `user.email`, which is why none is consulted here.
+ *
+ * `COLLABORATOR` is deliberately **not** here. It means push access on this repo,
+ * which an outside collaborator can hold without being in the organization — so
+ * accepting it would gate on repo permissions rather than on org membership. Push
+ * access is not the question this gate asks.
+ */
+const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
+/**
+ * The PR author's association, from a `pull_request` webhook payload.
+ *
+ * Throws rather than returning `undefined`, for the same reason `getPrNumber` does:
+ * every gated mode is triggered by a `pull_request` event, and GitHub always puts
+ * `author_association` on that payload's PR object. An absent one means the action was
+ * wired to the wrong trigger or the payload is malformed — and a security gate that
+ * cannot identify the author must fail loudly, not quietly pick a branch.
+ */
+function requireAuthorAssociation(payload) {
+    const pr = payload.pull_request;
+    if (!pr) {
+        throw new AuthorAssociationError('No pull_request payload — action must be triggered by a pull_request event');
+    }
+    const association = pr.author_association;
+    if (typeof association !== 'string' || association.trim() === '') {
+        throw new AuthorAssociationError('PR payload missing author_association');
+    }
+    return association;
+}
+/** True when the PR author belongs to the organization that owns the repo. */
+function isWixOrgAuthor(association) {
+    return typeof association === 'string' && ORG_ASSOCIATIONS.has(association.trim().toUpperCase());
+}
+/**
+ * Throw unless the PR author is a member of the organization that owns the repo.
+ *
+ * Takes the association rather than a client: the value is already on the payload
+ * every gated mode receives, so deciding costs no API call, no token scope, and
+ * nothing that can fail in transit.
+ */
+function assertWixAuthor(association, owner, log) {
+    if (!isWixOrgAuthor(association)) {
+        throw new Error(`PR author gate failed: the PR author is not a member of the ${owner} organization ` +
+            `(author_association: ${association}). This gate is restricted to Wix authors.`);
+    }
+    log?.(`Author gate passed — PR author association: ${association}`);
 }
 
 
@@ -66709,6 +66750,7 @@ function getSimpleConfig() {
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
+        authorAssociation: (0, evalforge_core_1.requireAuthorAssociation)(github.context.payload),
     };
 }
 function getScheduleConfig() {
@@ -66805,6 +66847,7 @@ function getReviewConfig() {
         // variable must not fail a check that promises it cannot fail during soak.
         timeoutSeconds: getClampedReviewTimeout(),
         isBlocking: core.getInput('blocking') === 'true',
+        authorAssociation: (0, evalforge_core_1.requireAuthorAssociation)(github.context.payload),
     };
 }
 function getClampedReviewTimeout() {
@@ -67534,7 +67577,7 @@ async function isDraftTagActive(octokit, tag) {
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    await (0, evalforge_core_1.assertWixAuthor)(octokit, config.owner, config.repo, config.prNumber, core.info);
+    (0, evalforge_core_1.assertWixAuthor)(config.authorAssociation, config.owner, core.info);
     const comment = (0, github_1.makeCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
@@ -68858,7 +68901,19 @@ async function reportUnavailable(reason, pending, isBlocking) {
     (0, github_1.fail)(`The skill review did not complete: ${reason}`, isBlocking);
 }
 async function runReview() {
-    const config = (0, config_1.getReviewConfig)();
+    // An unresolvable author skips rather than failing, the same as one who is simply not a
+    // Wix author. Every other config error still fails: a missing input is a misconfiguration,
+    // not a question about who opened the PR.
+    let config;
+    try {
+        config = (0, config_1.getReviewConfig)();
+    }
+    catch (error) {
+        if (!(error instanceof evalforge_core_1.AuthorAssociationError))
+            throw error;
+        core.info(`Skipping the skill review — could not resolve the PR author: ${error.message}`);
+        return;
+    }
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
@@ -68875,16 +68930,9 @@ async function runReview() {
         await pending.clear();
         return;
     }
-    // Not `assertWixAuthor`: it throws, which would turn a lookup blip into a red check.
-    let authorEmail;
-    try {
-        authorEmail = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
-    }
-    catch (error) {
-        await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
-        return;
-    }
-    if (!(0, evalforge_core_1.isWixAuthorEmail)(authorEmail)) {
+    // Not `assertWixAuthor`: this mode skips rather than throwing for a non-Wix author.
+    // The association is already on the payload, so there is nothing here that can fail.
+    if (!(0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation)) {
         const reason = 'the PR author is not a wix author';
         core.info(`Skipping the skill review — ${reason}`);
         await comment((0, review_comment_1.formatReviewSkipped)(reason));

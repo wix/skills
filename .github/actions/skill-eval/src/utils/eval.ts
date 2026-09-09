@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import { assertWixAuthor } from '@wix/evalforge-core';
 import { getEvalConfig } from './config';
 import * as github from '@actions/github';
 import { getChangedFiles, upsertComment, fail } from './github';
@@ -15,6 +16,9 @@ import type { ValidationError } from './yaml';
 export async function runEval(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
+  // Before anything that spends: an eval run costs a live agent build per scenario.
+  // Same gate as the evalforge-* actions, so this one cannot be the way in.
+  assertWixAuthor(config.authorAssociation, config.owner, core.info);
 
   core.info(`Skill eval — PR #${config.prNumber}`);
 

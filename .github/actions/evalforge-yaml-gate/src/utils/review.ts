@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { getFirstCommitAuthorEmail, isWixAuthorEmail } from '@wix/evalforge-core';
+import { AuthorAssociationError, isWixOrgAuthor } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
@@ -60,7 +60,18 @@ async function reportUnavailable(
 }
 
 export async function runReview(): Promise<void> {
-  const config = getReviewConfig();
+  // An unresolvable author skips rather than failing, the same as one who is simply not a
+  // Wix author. Every other config error still fails: a missing input is a misconfiguration,
+  // not a question about who opened the PR.
+  let config: ReviewConfig;
+  try {
+    config = getReviewConfig();
+  } catch (error) {
+    if (!(error instanceof AuthorAssociationError)) throw error;
+    core.info(`Skipping the skill review — could not resolve the PR author: ${error.message}`);
+    return;
+  }
+
   const octokit = github.getOctokit(config.githubToken);
 
   const comment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
@@ -80,15 +91,9 @@ export async function runReview(): Promise<void> {
     return;
   }
 
-  // Not `assertWixAuthor`: it throws, which would turn a lookup blip into a red check.
-  let authorEmail: string | undefined;
-  try {
-    authorEmail = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-  } catch (error) {
-    await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
-    return;
-  }
-  if (!isWixAuthorEmail(authorEmail)) {
+  // Not `assertWixAuthor`: this mode skips rather than throwing for a non-Wix author.
+  // The association is already on the payload, so there is nothing here that can fail.
+  if (!isWixOrgAuthor(config.authorAssociation)) {
     const reason = 'the PR author is not a wix author';
     core.info(`Skipping the skill review — ${reason}`);
     await comment(formatReviewSkipped(reason));
