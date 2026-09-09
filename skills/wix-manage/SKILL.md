@@ -37,10 +37,13 @@ Lists all apps installed on a site using Apps Installer API. Useful for verifyin
 ## SEO
 
 ### [Manage a Wix Site's SEO Tags](references/seo/manage-seo-tags.md)
-Read and update the SEO tags of a Wix site at the right level — site-wide tags, page-type patterns, or one item's tags. Discover item IDs and pattern variables instead of inventing them, read before every full-replace write, and report resolved tags with the source each one came from.
+Read and update SEO titles and tags at the right level. For "change my site's SEO title", clarify homepage, specific page, or page-type pattern before discovery or writes; site-level tags accept meta tags only, never titles. Discover item IDs and pattern variables, read before every full-replace write, and report resolved tags with their sources.
 
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 "Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
+
+### [Generate and Read a Wix Site's Content Plan](references/seo/manage-content-plan.md)
+Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow stuck at KEYWORD_RESEARCH while polling GetContentPlanFlow. Use this recipe for both generation and stalled-flow questions: it explains the intentional pause, the Create Content Plan release request, missing flow IDs, and the exact public API paths and response fields.
 
 ---
 
@@ -421,6 +424,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 ---
 
 ## Stores
+
+### [Change Store Currency](references/stores/change-store-currency.md)
+Changes the store's payment currency through Site Properties and explains delayed currency updates in catalog responses.
 
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
 Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.

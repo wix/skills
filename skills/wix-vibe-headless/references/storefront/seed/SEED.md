@@ -1,6 +1,6 @@
 # Storefront — seeding
 
-Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
+Seed a Wix Stores catalog by **calling `seed-store.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
 Pass only the connector token and catalog data. The module handles site configuration internally;
@@ -13,11 +13,7 @@ the `pricing-plans` vertical, not here.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
 const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
@@ -27,6 +23,7 @@ const ctx = { token: accessToken };
 // result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
+  currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
     // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -40,8 +37,22 @@ const result = await seed.setupStore(ctx, {
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
-// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached }
+// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   currency: { requested, actual, status, warnings } }
 ```
+
+The optional `currency` sets the site's payment currency before product creation. Pass it only when
+the user explicitly asked for a currency, or when it's obvious for the store — otherwise omit it. Do
+not infer a currency from the builder's country/region or the brief's language; when in doubt, leave
+it out and the current site currency is preserved. Product prices are numbers in that currency;
+changing currency does not convert existing amounts.
+Currency update or verification failures do not stop seeding: inspect `result.currency.status`
+and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
+unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
+Currency changes may take time to appear in existing product responses, even after carts and
+checkout use the new currency. If `result.currency.status` confirms the update succeeded, continue
+without waiting for or verifying the change in product responses or the preview.
+
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.

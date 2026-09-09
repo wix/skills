@@ -1,5 +1,5 @@
 // Rentals seed helpers — run at BUILD TIME via exec_tool (NOT shipped in the app).
-// A DELTA on seed-bookings.js: Wix Rentals has no APIs of its own, so a rental is a Bookings
+// A DELTA on seed-bookings.cjs: Wix Rentals has no APIs of its own, so a rental is a Bookings
 // service carrying rentals-specific field values. Everything about the transport, images and
 // error handling is the same; only the create order and the service payload differ.
 //
@@ -9,7 +9,7 @@
 // Usage (build-time exec_tool) — prefer `setupRentals`, which runs the whole flow in the one order
 // that works and threads the resource ids into each service for you:
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //   await seed.setupRentals(ctx, {
 //     resourceTypeName: "Meeting rooms",
@@ -27,7 +27,7 @@
 //   2. Resources created before the service, and their ids listed in `serviceResources[].resourceIds`.
 //   3. No category — a rental is surfaced by its `appId`, not by a Bookings category.
 //
-// Images are reused from seed-bookings.js — require both.
+// Images are reused from seed-bookings.cjs — require both.
 // Source recipe: wix-headless/references/inline-recipes/setup-rentals.md.
 
 const API = "https://www.wixapis.com";

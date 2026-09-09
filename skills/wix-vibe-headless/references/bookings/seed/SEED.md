@@ -1,6 +1,6 @@
 # Bookings — seeding
 
-Seed a Wix Bookings catalog by **calling `seed-bookings.js`** — don't hand-write the REST calls.
+Seed a Wix Bookings catalog by **calling `seed-bookings.cjs`** — don't hand-write the REST calls.
 It's a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix
 Bookings seed operation. Load it and call **`setupBookings` — the one-call path** — with plain data.
 
@@ -9,11 +9,7 @@ Bookings seed operation. Load it and call **`setupBookings` — the one-call pat
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // ONE call: install → resolve staff → categories → services → CLASS sessions → images, all in the
@@ -103,12 +99,12 @@ same body; don't loop and don't re-create the ones that already succeeded.
 
 ## Rentals
 
-`seed-rentals.js` is the rentals half — the same transport, a different create order and payload.
+`seed-rentals.cjs` is the rentals half — the same transport, a different create order and payload.
 Wix Rentals has no APIs of its own, so a rental is a Bookings service with rentals-specific
 field values.
 
 ```js
-const seed = require("…/references/bookings/seed/seed-rentals.js");
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.cjs");
 await seed.setupRentals(ctx, {
   resourceTypeName: "Meeting rooms",
   resources: ["Room A", "Room B"],              // parallel capacity = MORE RESOURCES

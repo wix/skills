@@ -30,13 +30,13 @@ Successful deployment verified these files are in place; use this map without ne
 | `rest/wix-store-catalog.js` | Product and category queries |
 | `rest/wix-store-cart.js` | Cart mutations and hosted checkout |
 
-**DO NOT READ SHIPPED SOURCE** except to resolve a specifically identified field/interface missing
-below or an observed runtime error; read only the relevant file.
+Build using the interfaces below without reading the shipped source. If you encounter an error
+after building the client, read or change whatever you need to diagnose and fix it.
 If deployment failed or files are missing, re-run the install/deploy step.
 
 ## Theme
-Use the existing Base44 theme in `src/index.css` for new components. The shipped client already
-uses it; don't add a parallel theme or restyle shipped components.
+Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
+share the same colors and typography.
 
 ## Presentation interfaces
 Build `pages/Shop.jsx`, `components/ProductGrid.jsx`, `components/ProductCard.jsx`, and
@@ -329,12 +329,13 @@ Line `quantityInfo.confirmedQuantity` is the current quantity; `availableQuantit
 when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, or
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
-## Routes and provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+## Routes and provider
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
-`App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
-replace it.
+When adding storefront routes and providers to `src/App.jsx`, preserve the existing platform
+authentication setup, including `AuthProvider`, `useAuth`, and their `@/lib/AuthContext` imports.
+Do not remove or replace that authentication logic.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
@@ -418,7 +419,6 @@ For a specifically missing field/interface or an observed runtime error, read on
 shipped file; catalog and cart helpers link their API references inline.
 
 ## Hard rules
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file. Everything you build (Shop, grid, card, PDP, variant controls, Home) draws from the same tokens.
 - Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — keep shared chrome out of individual pages.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
 - Render live Wix data or your empty state — never mock products.

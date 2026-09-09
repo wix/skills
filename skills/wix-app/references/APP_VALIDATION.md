@@ -46,41 +46,15 @@ pnpm install
 
 Run TypeScript compiler to check for type errors.
 
-**Full project check:**
 ```bash
-npx tsc --noEmit
+npx tsc --noEmit -p .
 ```
 
-**Targeted check (specific files/directories):**
-
-When validating after implementing a specific extension, you can run TypeScript checks on just those files:
-
-```bash
-# Check specific directory
-npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/dashboard/pages/survey/**/*.tsx
-
-# Check dashboard pages only
-npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
-
-# Check custom element widgets only
-npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
-
-# Check dashboard modals only
-npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
-
-# Check backend only
-npx tsc --noEmit src/extensions/backend/**/*.ts
-```
-
-**When to use targeted checks:**
-- After implementing a single extension (faster feedback)
-- When debugging type errors in a specific area
-- During iterative development
-
-**When to use full project check:**
-- Before final validation
-- When changes affect shared types
-- Before building/deploying
+Run it from the app root, and check the whole project rather than just the files you
+generated — a type error in generated code usually surfaces in the file that consumes
+it. `-p .` is what holds that line: adding a file path to it is an error, whereas adding
+one to a bare `npx tsc --noEmit` silently discards `tsconfig.json` (`strict`, `paths`,
+`jsx`) and checks against compiler defaults instead.
 
 **Success criteria:**
 - Exit code 0
@@ -162,7 +136,7 @@ Read: .wix/debug.log (with offset to the end)
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
-| TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit` output |
+| TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit -p .` output |
 | Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
 | Preview fails to start | Port conflict, config issue, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
 | Console errors in preview | Runtime exceptions | Check browser console output |

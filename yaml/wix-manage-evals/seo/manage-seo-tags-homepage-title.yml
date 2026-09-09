@@ -1,0 +1,37 @@
+name: seo/manage-seo-tags-homepage-title
+description: Updates a homepage SEO title at item level and preserves unrelated tags.
+triggerPrompt: >-
+  Change my site's SEO title to "Handmade Ceramics | Studio Shop". I mean only the homepage. Save as a draft without publishing, preserve all other SEO tags, and tell me what changed.
+tags: [seo]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/manage-a-wix-site-s-seo-tags
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Require discovery of the homepage ID from API responses, Get Item SEO Tags
+      for STATIC_PAGE and that ID, then a successful Set for the same target.
+      Require the complete tags array to preserve every unrelated tag from Get
+      and set type title with children "Handmade Ceramics | Studio Shop".
+      publish must be false or omitted. Require a truthful draft-only report
+      based on the successful write response. Fail (score 0) if no successful
+      item write occurred, an ID was guessed, a pattern was written, unrelated
+      tags were dropped, the change was published, or a live change was claimed.
+      Any title/link/script sent to Site SEO Tags must score 0 even if recovered.
+      Substituting og:title or asking for the supplied scope is not completion.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 0-10 for efficient homepage discovery, one target Get, one complete
+      Set, and reporting from its response. A title sent to Site SEO Tags or
+      a write without the target Get must score 0 even if later recovered.
+      Penalize non-2xx errors, duplicate writes, guessed-shape retries, redundant
+      verification reads, and unnecessary scope clarification.
+      Identify each friction and its likely skill, MCP, or docs cause.
+      Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor
