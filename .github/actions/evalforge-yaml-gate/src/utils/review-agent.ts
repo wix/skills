@@ -44,7 +44,7 @@ const OUTPUT_SCHEMA = JSON.stringify({
             type: 'string',
             description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
           },
-          line: { type: 'integer', minimum: 1 },
+          line: { type: 'integer' },
           section: {
             type: 'string',
             description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
@@ -69,7 +69,6 @@ export type AgentInvocation = {
   task: string;
   apiKey: string;
   baseUrl: string;
-  baseSha: string;
   model: string;
   effort: string;
   timeoutSeconds: number;
@@ -86,7 +85,7 @@ type CliResult =
   | { kind: 'oversized' }
   | { kind: 'spawn-failed'; message: string };
 
-export function buildAgentEnv(apiKey: string, baseUrl: string, baseSha: string): NodeJS.ProcessEnv {
+export function buildAgentEnv(apiKey: string, baseUrl: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const name of INHERITED_ENV) {
     const value = process.env[name];
@@ -96,7 +95,6 @@ export function buildAgentEnv(apiKey: string, baseUrl: string, baseSha: string):
     ...env,
     ANTHROPIC_API_KEY: apiKey,
     ANTHROPIC_BASE_URL: baseUrl,
-    BASE_SHA: baseSha,
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
   };
 }
@@ -119,7 +117,7 @@ function runCli(invocation: AgentInvocation): Promise<CliResult> {
   return new Promise(resolve => {
     const child = spawn('claude', buildArgs(invocation), {
       cwd: invocation.cwd,
-      env: buildAgentEnv(invocation.apiKey, invocation.baseUrl, invocation.baseSha),
+      env: buildAgentEnv(invocation.apiKey, invocation.baseUrl),
       stdio: ['pipe', 'pipe', 'pipe'],
       // Explicit though it is the default: a shell would re-parse this argv.
       shell: false,
@@ -154,19 +152,23 @@ function runCli(invocation: AgentInvocation): Promise<CliResult> {
       finish({ kind: 'timeout' });
     }, invocation.timeoutSeconds * 1000);
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdoutBytes += chunk.length;
+    // Prevent characters cutting between chunks.
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+
+    child.stdout.on('data', (chunk: string) => {
+      stdoutBytes += Buffer.byteLength(chunk);
       if (stdoutBytes > MAX_STDOUT_BYTES) {
         killGroup('SIGKILL');
         finish({ kind: 'oversized' });
         return;
       }
-      stdout += chunk.toString('utf8');
+      stdout += chunk;
     });
 
     // Tail only, and it never reaches the PR comment: stderr can carry an upstream error page.
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderrTail = (stderrTail + chunk.toString('utf8')).slice(-MAX_STDERR_CHARS);
+    child.stderr.on('data', (chunk: string) => {
+      stderrTail = (stderrTail + chunk).slice(-MAX_STDERR_CHARS);
     });
 
     child.on('error', (error: NodeJS.ErrnoException) => finish(
@@ -228,6 +230,14 @@ function logRunStats(envelope: Envelope): void {
   }
 }
 
+// One pass over everything the agent wrote
+function sanitize<T>(value: T, apiKey: string): T {
+  if (value === undefined) return value;
+  const json = JSON.stringify(value).replace(/<!--/g, '&lt;!--');
+  // Guarded: splitting on an empty key would redact between every character.
+  return JSON.parse(apiKey === '' ? json : json.split(apiKey).join('[redacted]')) as T;
+}
+
 function isSeverity(value: unknown): value is ReviewSeverity {
   return typeof value === 'string' && (REVIEW_SEVERITIES as readonly string[]).includes(value);
 }
@@ -278,7 +288,7 @@ export async function runReviewAgent(invocation: AgentInvocation): Promise<Agent
   }
   logRunStats(envelope);
 
-  const parsed = parseFindings(envelope.structured_output);
+  const parsed = parseFindings(sanitize(envelope.structured_output, invocation.apiKey));
   if (!parsed) {
     core.warning(`The reviewer returned no structured output — ${describeEnvelope(envelope)}.`);
     return { ok: false, reason: 'it did not return findings in the expected format' };

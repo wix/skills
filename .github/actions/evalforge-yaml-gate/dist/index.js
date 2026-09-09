@@ -68413,7 +68413,7 @@ const OUTPUT_SCHEMA = JSON.stringify({
                         type: 'string',
                         description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
                     },
-                    line: { type: 'integer', minimum: 1 },
+                    line: { type: 'integer' },
                     section: {
                         type: 'string',
                         description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
@@ -68431,7 +68431,7 @@ const OUTPUT_SCHEMA = JSON.stringify({
     required: ['findings'],
     additionalProperties: false,
 });
-function buildAgentEnv(apiKey, baseUrl, baseSha) {
+function buildAgentEnv(apiKey, baseUrl) {
     const env = {};
     for (const name of INHERITED_ENV) {
         const value = process.env[name];
@@ -68442,7 +68442,6 @@ function buildAgentEnv(apiKey, baseUrl, baseSha) {
         ...env,
         ANTHROPIC_API_KEY: apiKey,
         ANTHROPIC_BASE_URL: baseUrl,
-        BASE_SHA: baseSha,
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     };
 }
@@ -68463,7 +68462,7 @@ function runCli(invocation) {
     return new Promise(resolve => {
         const child = (0, node_child_process_1.spawn)('claude', buildArgs(invocation), {
             cwd: invocation.cwd,
-            env: buildAgentEnv(invocation.apiKey, invocation.baseUrl, invocation.baseSha),
+            env: buildAgentEnv(invocation.apiKey, invocation.baseUrl),
             stdio: ['pipe', 'pipe', 'pipe'],
             // Explicit though it is the default: a shell would re-parse this argv.
             shell: false,
@@ -68499,18 +68498,21 @@ function runCli(invocation) {
             setTimeout(() => killGroup('SIGKILL'), SIGKILL_GRACE_MS).unref();
             finish({ kind: 'timeout' });
         }, invocation.timeoutSeconds * 1000);
+        // Prevent characters cutting between chunks.
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
         child.stdout.on('data', (chunk) => {
-            stdoutBytes += chunk.length;
+            stdoutBytes += Buffer.byteLength(chunk);
             if (stdoutBytes > MAX_STDOUT_BYTES) {
                 killGroup('SIGKILL');
                 finish({ kind: 'oversized' });
                 return;
             }
-            stdout += chunk.toString('utf8');
+            stdout += chunk;
         });
         // Tail only, and it never reaches the PR comment: stderr can carry an upstream error page.
         child.stderr.on('data', (chunk) => {
-            stderrTail = (stderrTail + chunk.toString('utf8')).slice(-MAX_STDERR_CHARS);
+            stderrTail = (stderrTail + chunk).slice(-MAX_STDERR_CHARS);
         });
         child.on('error', (error) => finish(error.code === 'ENOENT'
             ? { kind: 'not-installed' }
@@ -68551,6 +68553,14 @@ function logRunStats(envelope) {
     if (denials.length > 0) {
         core.info(`The reviewer was denied ${denials.length} tool call(s) — check the allowlist: ${JSON.stringify(denials).slice(0, 500)}`);
     }
+}
+// One pass over everything the agent wrote
+function sanitize(value, apiKey) {
+    if (value === undefined)
+        return value;
+    const json = JSON.stringify(value).replace(/<!--/g, '&lt;!--');
+    // Guarded: splitting on an empty key would redact between every character.
+    return JSON.parse(apiKey === '' ? json : json.split(apiKey).join('[redacted]'));
 }
 function isSeverity(value) {
     return typeof value === 'string' && review_comment_1.REVIEW_SEVERITIES.includes(value);
@@ -68594,7 +68604,7 @@ async function runReviewAgent(invocation) {
         return { ok: false, reason: "the reviewer's output was not a JSON envelope" };
     }
     logRunStats(envelope);
-    const parsed = parseFindings(envelope.structured_output);
+    const parsed = parseFindings(sanitize(envelope.structured_output, invocation.apiKey));
     if (!parsed) {
         core.warning(`The reviewer returned no structured output — ${describeEnvelope(envelope)}.`);
         return { ok: false, reason: 'it did not return findings in the expected format' };
@@ -68643,10 +68653,6 @@ const MAX_RENDERED_FINDINGS = 40;
 function render(marker, status, detail, body) {
     return [marker, HEADING, '', jobLine(status, detail), '', ...body].join('\n');
 }
-/** A quoted line can carry the eval gate's marker, and the upsert finds a comment by `includes`. */
-function safe(text) {
-    return text.replace(/<!--/g, '&lt;!--');
-}
 function count(quantity, noun) {
     return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
 }
@@ -68668,14 +68674,14 @@ function location(finding, headSha) {
         : `[file](${href})`;
 }
 function findingLines(finding, headSha) {
-    const cite = finding.section ? ` · ${sectionRef(safe(finding.section))}` : '';
+    const cite = finding.section ? ` · ${sectionRef(finding.section)}` : '';
     const lines = [`- ${SEVERITY_ICON[finding.severity]} **${finding.severity}** — ${location(finding, headSha)}${cite}`];
-    const quote = safe(String(finding.quote ?? '')).replace(/\n/g, ' ');
+    const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
     if (quote !== '')
         lines.push(`  > ${quote}`);
-    lines.push('', `  ${safe(String(finding.consequence ?? ''))}`);
+    lines.push('', `  ${String(finding.consequence ?? '')}`);
     if (finding.suggestion) {
-        lines.push('', `  **Instead:** ${safe(finding.suggestion).replace(/\n/g, ' ')}`);
+        lines.push('', `  **Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
     }
     return lines;
 }
@@ -68717,7 +68723,8 @@ function completion(summary) {
         : ['partial', `${count(summary.discarded, 'finding')} could not be read`];
 }
 function formatReviewFindings(findings, summary) {
-    const shown = findings.slice(0, MAX_RENDERED_FINDINGS);
+    const ranked = [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
     const overflow = findings.length - shown.length;
     const body = [
         verdictLine(headline(findings), summary),
@@ -68838,8 +68845,8 @@ function inScope(files) {
 function buildTask(config, files) {
     return [
         `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
-        `Head commit ${config.headSha}. Base commit ${config.baseSha}, also in $BASE_SHA.`,
-        'The whole repository is checked out at the head commit.',
+        `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
+        'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
         '',
         'Changed files in review scope:',
         ...files.map(file => `- ${file.filename} (${file.status})`),
@@ -68853,12 +68860,8 @@ async function reportUnavailable(reason, pending, isBlocking) {
 async function runReview() {
     const config = (0, config_1.getReviewConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    // `core.setSecret` masks the key in the log but not in a comment we POST, so mask it in comments too.
-    const scrub = (body) => body.split(config.anthropicApiKey).join('[redacted]');
-    const postComment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
-    const postPending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
-    const comment = (body) => postComment(scrub(body));
-    const pending = { post: (body) => postPending.post(scrub(body)), clear: postPending.clear };
+    const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
     let files;
     try {
         files = inScope(await (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber));
@@ -68908,7 +68911,6 @@ async function runReview() {
         task: buildTask(config, files),
         apiKey: config.anthropicApiKey,
         baseUrl: config.anthropicBaseUrl,
-        baseSha: config.baseSha,
         model: config.model,
         effort: config.effort,
         timeoutSeconds: config.timeoutSeconds,

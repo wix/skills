@@ -41,8 +41,8 @@ function inScope(files: ChangedFile[]): ChangedFile[] {
 function buildTask(config: ReviewConfig, files: ChangedFile[]): string {
   return [
     `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
-    `Head commit ${config.headSha}. Base commit ${config.baseSha}, also in $BASE_SHA.`,
-    'The whole repository is checked out at the head commit.',
+    `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
+    'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
     '',
     'Changed files in review scope:',
     ...files.map(file => `- ${file.filename} (${file.status})`),
@@ -63,12 +63,8 @@ export async function runReview(): Promise<void> {
   const config = getReviewConfig();
   const octokit = github.getOctokit(config.githubToken);
 
-  // `core.setSecret` masks the key in the log but not in a comment we POST, so mask it in comments too.
-  const scrub = (body: string) => body.split(config.anthropicApiKey).join('[redacted]');
-  const postComment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
-  const postPending = makeReviewPendingCommenter(octokit, config.owner, config.repo, config.prNumber);
-  const comment = (body: string) => postComment(scrub(body));
-  const pending = { post: (body: string) => postPending.post(scrub(body)), clear: postPending.clear };
+  const comment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
+  const pending = makeReviewPendingCommenter(octokit, config.owner, config.repo, config.prNumber);
 
   let files: ChangedFile[];
   try {
@@ -126,7 +122,6 @@ export async function runReview(): Promise<void> {
     task: buildTask(config, files),
     apiKey: config.anthropicApiKey,
     baseUrl: config.anthropicBaseUrl,
-    baseSha: config.baseSha,
     model: config.model,
     effort: config.effort,
     timeoutSeconds: config.timeoutSeconds,

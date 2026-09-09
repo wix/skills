@@ -20,7 +20,7 @@ Never re-report them.
 
 Read `CONTRIBUTING.md` and `docs/eval-scenarios.md` in full before judging anything: the sections
 are the rules, and the material around them is what tells you whether a finding is right. Diff
-rather than assume — `git diff "$BASE_SHA" HEAD -- <path>`.
+rather than assume — `git diff HEAD^1 HEAD -- <path>`. The checkout is GitHub's merge commit.
 
 ## The written rules
 
@@ -59,6 +59,8 @@ Each finding carries the file as a path from the repository root, the line, the 
 section where one applies, the replacement wording where you have one, and one paragraph on the
 concrete consequence: what an agent or a user gets wrong because of this. Write the consequence for
 the contributor, not for us — name the failure, not the rule.
+
+Sort the findings by severity.
 
 Prefer a few findings that matter to a list that is thorough. An empty findings list is a common and
 correct answer.

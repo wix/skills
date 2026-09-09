@@ -5,19 +5,27 @@ import * as core from '@actions/core';
 const spawn = vi.fn();
 vi.mock('node:child_process', () => ({ spawn }));
 
+type FakeStream = EventEmitter & { setEncoding: ReturnType<typeof vi.fn> };
+
 type FakeChild = EventEmitter & {
   pid: number;
-  stdout: EventEmitter;
-  stderr: EventEmitter;
+  stdout: FakeStream;
+  stderr: FakeStream;
   stdin: EventEmitter & { end: ReturnType<typeof vi.fn> };
   kill: ReturnType<typeof vi.fn>;
 };
 
+function fakeStream(): FakeStream {
+  const stream = new EventEmitter() as FakeStream;
+  stream.setEncoding = vi.fn();
+  return stream;
+}
+
 function fakeChild(): FakeChild {
   const child = new EventEmitter() as FakeChild;
   child.pid = 4242;
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
+  child.stdout = fakeStream();
+  child.stderr = fakeStream();
   const stdin = new EventEmitter() as FakeChild['stdin'];
   stdin.end = vi.fn();
   child.stdin = stdin;
@@ -41,7 +49,6 @@ const invocation = {
   task: 'the task',
   apiKey: 'wix-sk-secret',
   baseUrl: GATEWAY,
-  baseSha: 'base1234',
   model: 'claude-sonnet-5[1m]',
   effort: 'medium',
   timeoutSeconds: 60,
@@ -87,7 +94,7 @@ describe('the agent environment', () => {
     process.env.ACTIONS_RUNTIME_TOKEN = 'runtime-secret-value';
 
     const { buildAgentEnv } = await import('../src/utils/review-agent');
-    const env = buildAgentEnv('wix-sk-secret', GATEWAY, 'base1234');
+    const env = buildAgentEnv('wix-sk-secret', GATEWAY);
 
     for (const value of Object.values(env)) {
       if (value === 'wix-sk-secret') continue;
@@ -104,7 +111,7 @@ describe('the agent environment', () => {
   it('is an allowlist, so a variable the runner adds later cannot leak by default', async () => {
     process.env.SOME_FUTURE_RUNNER_VARIABLE = 'x';
     const { buildAgentEnv } = await import('../src/utils/review-agent');
-    expect(Object.keys(buildAgentEnv('k', GATEWAY, 'base1234'))).not.toContain('SOME_FUTURE_RUNNER_VARIABLE');
+    expect(Object.keys(buildAgentEnv('k', GATEWAY))).not.toContain('SOME_FUTURE_RUNNER_VARIABLE');
     delete process.env.SOME_FUTURE_RUNNER_VARIABLE;
   });
 
@@ -114,11 +121,10 @@ describe('the agent environment', () => {
   it('hands the child the key and the gateway, whose default carries no version segment', async () => {
     const { buildAgentEnv } = await import('../src/utils/review-agent');
     const { DEFAULT_ANTHROPIC_BASE_URL } = await import('../src/utils/config');
-    const env = buildAgentEnv('wix-sk-secret', GATEWAY, 'base1234');
+    const env = buildAgentEnv('wix-sk-secret', GATEWAY);
 
     expect(env.ANTHROPIC_API_KEY).toBe('wix-sk-secret');
     expect(env.ANTHROPIC_BASE_URL).toBe(GATEWAY);
-    expect(env.BASE_SHA).toBe('base1234');
     expect(DEFAULT_ANTHROPIC_BASE_URL).not.toMatch(/\/v1\/?$/);
   });
 });
@@ -181,6 +187,62 @@ describe('reading the answer', () => {
     if (outcome.ok) expect(outcome.findings).toHaveLength(1);
   });
 
+  // Node hands over a pipe in byte buffers with no regard for character boundaries, so decoding
+  // each one alone turns a character split across two reads into U+FFFD inside a quoted line.
+  it('has the stream decode the output rather than decoding each chunk', async () => {
+    await runWith(envelope({ findings: [] }));
+    expect(child.stdout.setEncoding).toHaveBeenCalledWith('utf8');
+    expect(child.stderr.setEncoding).toHaveBeenCalledWith('utf8');
+  });
+
+  // Every comment on the PR is found by `includes(marker)`, so a finding carrying another gate's
+  // marker would make that gate's upsert overwrite this review. Neutralised once, here, because a
+  // render site that forgets is a hole — `file` was one.
+  it('neutralises another gate’s marker in every field a finding carries', async () => {
+    const marker = '<!-- evalforge-yaml-gate-action -->';
+    const outcome = await runWith(envelope({ findings: [{
+      ...good, file: `stores/a.md ${marker}`, quote: marker, consequence: marker, suggestion: marker,
+    }] }));
+
+    expect(outcome).toMatchObject({ ok: true });
+    if (!outcome.ok) return;
+    const fields = JSON.stringify(outcome.findings);
+    expect(fields).not.toContain(marker);
+    expect(fields).toContain('&lt;!-- evalforge-yaml-gate-action -->');
+  });
+
+  // `\u003c!--` is the same string to the model, and only a decoded value shows it. The escape has
+  // to sit inside the answer rather than in the envelope around it: an envelope-level one is
+  // decoded by `parseEnvelope` before anything reads it, so it would pass whichever field fed the
+  // neutralisation. This one fails if the source ever moves to `result`, the reviewer's own text.
+  it('neutralises a marker the reviewer wrote as a unicode escape', async () => {
+    const answer = JSON.stringify({ findings: [{ ...good, quote: 'PLACEHOLDER' }] })
+      .replace('PLACEHOLDER', '\\u003c!-- evalforge-yaml-gate-action --> tail');
+    const outcome = await runWith(JSON.stringify({
+      type: 'result', subtype: 'success', is_error: false,
+      result: answer, structured_output: JSON.parse(answer),
+    }));
+
+    expect(outcome).toMatchObject({ ok: true });
+    if (!outcome.ok) return;
+    expect(outcome.findings[0].quote).toBe('&lt;!-- evalforge-yaml-gate-action --> tail');
+  });
+
+  // The reviewer holds the key in its own environment and has Bash, so it can echo it back into a
+  // finding. `core.setSecret` masks a log but not a body we POST, so it is redacted at the same
+  // boundary as the markers rather than at each posting call site.
+  it('redacts the api key out of a finding that echoed it', async () => {
+    const outcome = await runWith(envelope({ findings: [{
+      ...good, quote: 'ANTHROPIC_API_KEY=wix-sk-secret', consequence: 'and again: wix-sk-secret',
+    }] }));
+
+    expect(outcome).toMatchObject({ ok: true });
+    if (!outcome.ok) return;
+    const fields = JSON.stringify(outcome.findings);
+    expect(fields).not.toContain('wix-sk-secret');
+    expect(fields).toContain('[redacted]');
+  });
+
   it('reports an answer with no structured output, without re-rolling it', async () => {
     const outcome = await runWith(JSON.stringify({
       type: 'result', subtype: 'success', is_error: false,
@@ -198,6 +260,9 @@ describe('reading the answer', () => {
     expect(finding.properties.severity.enum).toEqual(['blocking', 'fix-before-merge']);
     expect(finding.required).toContain('consequence');
     expect(finding.additionalProperties).toBe(false);
+    // Numerical constraints are not supported by structured outputs, and the CLI is not the SDK
+    // that strips them client-side.
+    expect(finding.properties.line).toEqual({ type: 'integer' });
   });
 
   it('reports a non-zero exit without echoing stderr onto the PR', async () => {

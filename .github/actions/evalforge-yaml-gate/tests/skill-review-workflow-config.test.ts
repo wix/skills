@@ -57,9 +57,11 @@ describe('EvalForge skill review workflow', () => {
     expect(actionStep.with?.blocking).toContain("|| 'false'");
   });
 
-  it('checks out enough history to diff against the base commit', () => {
+  // `HEAD^1` is the base branch side of the merge ref, and a depth-1 clone has no parents.
+  it('checks out enough history to diff against the merge ref\'s first parent', () => {
     const checkout = job.steps.find(step => step.uses?.startsWith('actions/checkout'));
     expect(checkout?.with?.['fetch-depth']).toBe(0);
+    expect(checkout?.with?.ref).toBeUndefined();
   });
 
   it('pins the reviewer CLI to an exact version', () => {

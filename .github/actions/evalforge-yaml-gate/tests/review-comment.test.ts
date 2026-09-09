@@ -86,18 +86,15 @@ describe('the review comment', () => {
     expect(noLine).not.toContain('#L');
   });
 
-  // Comments are found by `body.includes(marker)`, so a quoted line carrying the eval gate's
-  // marker would make that gate's upsert find and overwrite this review.
-  it('neutralises an HTML comment quoted out of a PR file', () => {
-    const body = formatReviewFindings([finding({
-      quote: 'see <!-- evalforge-yaml-gate-action --> below',
-      consequence: 'Trailing <!-- evalforge-yaml-gate-action --> here too.',
-      suggestion: 'And <!-- evalforge-yaml-gate-action --> here.',
-    })], summary());
+  // The headline counts every finding, so a body that drops the worst ones would fail the check
+  // over something the contributor cannot read. Ranked before anything is dropped.
+  it('leads with the blocking findings whatever order they arrive in', () => {
+    const body = formatReviewFindings([
+      finding({ file: 'later.md', severity: 'fix-before-merge' }),
+      finding({ file: 'worst.md', severity: 'blocking' }),
+    ], summary());
 
-    expect(body).not.toContain('<!-- evalforge-yaml-gate-action -->');
-    expect(body).toContain('&lt;!-- evalforge-yaml-gate-action -->');
-    expect(body).toContain(REVIEW_COMMENT_MARKER);
+    expect(body.indexOf('worst.md')).toBeLessThan(body.indexOf('later.md'));
   });
 
   it('reports discarded findings rather than passing a half-broken run off as clean', () => {

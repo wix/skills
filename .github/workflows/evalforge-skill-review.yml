@@ -39,8 +39,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      # One checkout: the tree the reviewer reads, its prompt, and the action source. fetch-depth: 0
-      # because it diffs against the base commit, which a depth-1 clone does not contain.
+      # Default `refs/pull/N/merge` — the tree as it will land, which is what's worth reviewing. Its
+      # first parent is the base, so the reviewer diffs `HEAD^1 HEAD`.
+      # fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
@@ -57,4 +58,5 @@ jobs:
           anthropic-base-url: ${{ vars.ANTHROPIC_BASE_URL }}
           review-model: ${{ vars.SKILL_REVIEW_MODEL }}
           review-effort: ${{ vars.SKILL_REVIEW_EFFORT }}
+          review-timeout-seconds: ${{ vars.SKILL_REVIEW_TIMEOUT_SECONDS }}
           blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}

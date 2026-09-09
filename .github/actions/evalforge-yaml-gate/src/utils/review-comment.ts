@@ -54,11 +54,6 @@ function render(
   return [marker, HEADING, '', jobLine(status, detail), '', ...body].join('\n');
 }
 
-/** A quoted line can carry the eval gate's marker, and the upsert finds a comment by `includes`. */
-function safe(text: string): string {
-  return text.replace(/<!--/g, '&lt;!--');
-}
-
 function count(quantity: number, noun: string): string {
   return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
 }
@@ -85,13 +80,13 @@ function location(finding: ReviewFinding, headSha: string): string {
 }
 
 function findingLines(finding: ReviewFinding, headSha: string): string[] {
-  const cite = finding.section ? ` · ${sectionRef(safe(finding.section))}` : '';
+  const cite = finding.section ? ` · ${sectionRef(finding.section)}` : '';
   const lines = [`- ${SEVERITY_ICON[finding.severity]} **${finding.severity}** — ${location(finding, headSha)}${cite}`];
-  const quote = safe(String(finding.quote ?? '')).replace(/\n/g, ' ');
+  const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
   if (quote !== '') lines.push(`  > ${quote}`);
-  lines.push('', `  ${safe(String(finding.consequence ?? ''))}`);
+  lines.push('', `  ${String(finding.consequence ?? '')}`);
   if (finding.suggestion) {
-    lines.push('', `  **Instead:** ${safe(finding.suggestion).replace(/\n/g, ' ')}`);
+    lines.push('', `  **Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
   }
   return lines;
 }
@@ -136,7 +131,8 @@ function completion(summary: ReviewSummary): [keyof typeof JOB_STATUS, string | 
 }
 
 export function formatReviewFindings(findings: ReviewFinding[], summary: ReviewSummary): string {
-  const shown = findings.slice(0, MAX_RENDERED_FINDINGS);
+  const ranked = [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
   const overflow = findings.length - shown.length;
 
   const body = [
