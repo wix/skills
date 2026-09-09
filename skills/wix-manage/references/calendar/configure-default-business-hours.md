@@ -148,19 +148,18 @@ Update fields:
 - `revision`: Current revision number (from Step 2 query)
 - `fieldmask`: `"start,end"`
 
-**Example**: Change Monday hours to 8 AM-4 PM (use a date that is today or in the future — a past `start` is rejected for recurring events):
+**Example**: Change Monday hours to 8 AM-4 PM (use a Monday that is today or in the future — a past `start` is rejected for recurring events):
 ```json
 {
   "events": [{
     "event": {
       "id": "existing-monday-event-id",
-      "start": {"localDate": "<NEXT_MONDAY>T08:00:00"},
-      "end": {"localDate": "<NEXT_MONDAY>T16:00:00"},
+      "start": {"localDate": "2027-03-01T08:00:00"},
+      "end": {"localDate": "2027-03-01T16:00:00"},
       "revision": "current-revision-number"
     }
   }],
-  "fieldmask": "start,end",
-  "returnEntity": true
+  "fieldmask": "start,end"
 }
 ```
 
@@ -185,13 +184,12 @@ Create `WORKING_HOURS` events for each day using `bulkCreateEvents` API (`POST h
       "event": {
         "type": "WORKING_HOURS",
         "scheduleId": "<BUSINESS_SCHEDULE_ID_FROM_STEP_1>",
-        "start": { "localDate": "<NEXT_MONDAY>T08:00:00" },
-        "end": { "localDate": "<NEXT_MONDAY>T16:00:00" },
+        "start": { "localDate": "2027-03-01T08:00:00" },
+        "end": { "localDate": "2027-03-01T16:00:00" },
         "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] }
       }
     }
-  ],
-  "returnEntity": true
+  ]
 }
 ```
 
