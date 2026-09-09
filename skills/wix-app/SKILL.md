@@ -422,7 +422,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 For each supported type, including HTTP endpoints, run `npx wix generate --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success.
 
-If the command fails because of unknown or invalid params, run `npx wix schema generate --type <extensionType>` to print the JSON Schema for that extension type, fix the `--params` payload, and retry. Do not fall back to manual scaffolding.
+If the command fails because of unknown or invalid params, run `npx wix schema generate --type <extensionType>` to print the JSON Schema for that extension type, fix the `--params` payload, and retry. Do not fall back to manual scaffolding. The one exception is `HTTP_ENDPOINT` on a CLI older than 1.1.243, which predates the generator but still supports the extension: create the endpoint file by hand as described in [BACKEND_API.md](references/BACKEND_API.md#generate-for-the-project-type).
 
 **What the CLI does automatically:**
 - Creates folders and stub files
