@@ -94,7 +94,7 @@ Free/RSVP events need neither.
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-events.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

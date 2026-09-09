@@ -19,7 +19,11 @@ inputs:
     description: 'EvalForge agent ID for eval runs (required for eval, run-all, and merge-tag-sweep modes)'
     required: false
   evalforge-mcp-id:
-    description: 'EvalForge MCP capability ID (required for eval, promote, cleanup modes)'
+    description: 'EvalForge MCP capability ID for per-PR MCP versions (required for eval, promote, cleanup modes)'
+    required: false
+    default: ''
+  evalforge-prod-mcp-id:
+    description: 'EvalForge MCP capability ID for the production MCP (required for merge-tag-sweep mode)'
     required: false
     default: ''
   evalforge-app-id:

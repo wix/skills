@@ -22,8 +22,12 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
   --data-raw '{"search_term":"<what you need, in natural language>","document_type":"WIX_HEADLESS","maximum_results":3}'
 ```
 
-`document_type`: `SDK` / `WIX_HEADLESS` for code-writing, `REST` / `BUSINESS_SOLUTIONS` for seeding
-(also `VELO` · `WDS` · `BUILD_APPS` · `CLI`). Drop `/markdown` for JSON hits.
+`document_type`: `SDK` / `WIX_HEADLESS` for code-writing, `REST` / `BUSINESS_SOLUTIONS` for seeding,
+and `SKILLS` for a **multi-step workflow no pinned recipe covers** — it searches the dedicated recipe
+corpus (step ordering, cross-step gotchas), which a `REST` search does not return (also `VELO` ·
+`WDS` · `BUILD_APPS` · `CLI` · `OVERVIEW`). Drop `/markdown` for JSON hits. Found a recipe → resolve
+its individual calls against `SDK`/`REST` docs; no recipe → assemble the flow from verified
+per-method contracts.
 
 **2. Read a page** — append `.md` to its docs URL. **For an SDK shape, append `.md?apiView=SDK`** —
 the SDK view shows `_id` (what the frontend calls), the bare view shows `id`.
@@ -32,6 +36,8 @@ the SDK view shows `_id` (what the frontend calls), the bare view shows `id`.
 with `getResourceSchemaByUrl(docsUrl)` (see `wix-docs`'s `API_SPEC_SEARCH.md`).
 
 **If the host has the Wix MCP**, its `SearchWix*` / `SearchWixAPISpec → getResourceSchemaByUrl`
-tools are richer (whole-resource schema in one payload) — prefer them, per `wix-docs` Lane 2.
+tools are the same backends without the `curl` boilerplate — prefer them when present, per `wix-docs`
+Lane 2. `getResourceSchemaByUrl` scopes to the URL: a method URL → that method's contract; a
+resource URL → the whole resource (fetch that for sibling operations).
 
 **A page that IS pinned → read it directly; don't re-search for it.**

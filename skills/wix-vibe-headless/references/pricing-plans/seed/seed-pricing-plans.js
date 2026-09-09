@@ -20,7 +20,7 @@
 //   // Then, per plan that covers bookings services (STEP 2; skip entirely with no bookings):
 //   await seed.attachBookingsCoverage(ctx, plans[0].id, plans[0].coveredServiceIds);
 //
-// If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
+// If any call fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-pricing-plans.md.
 

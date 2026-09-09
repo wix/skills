@@ -3,6 +3,8 @@
 Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
+Pass only the connector token and catalog data. The module handles site configuration internally;
+do not read the config or supply site/client IDs.
 
 **Match each product's type to what the buyer receives** (the example shows both). *Access* — a
 membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's
@@ -16,7 +18,7 @@ const fs = require("fs");
 const seed = (() => { const m = { exports: {} };
   new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
   return m.exports; })();
-const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
@@ -44,6 +46,20 @@ const result = await seed.setupStore(ctx, {
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
 
+## Stock
+
+```js
+{ name: "Limited Print", price: 25, quantity: 12 } // count stock: integer 0–99999
+{ name: "Made-to-order Print", price: 25, inStock: true } // available without a quantity counter
+{ name: "Unavailable Print", price: 25, inStock: false } // unavailable without a quantity counter
+```
+
+Supply `quantity` **or** `inStock`, never both. Use `inStock: true` for unlimited stock, not a
+large invented quantity. All expanded variants inherit the same setting. Omitting both defaults
+to quantity 0 for physical products and in-stock for downloads. Stock mode doesn't change the
+product type or remove the downloadable-file requirement.
+[Wix inventory tracking](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/inventory-item-object).
+
 ## How many, and exercising the UI
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the shape,
@@ -63,8 +79,12 @@ options: [
 
 - `type: "color"` → `SWATCH_CHOICES` with each choice's `colorCode`, which the PDP draws as a swatch.
   Any other `type` → text pills. Give every colour choice a `colorCode`.
+  Within a batch, reuse the same color code for the same option/choice name across products;
+  give different shades distinct names (for example, Forest Green and Light Green).
+- Choice names must be unique within each product option, for both text and color choices.
+  Reusing a choice name across different products is fine; color choices must follow the consistency rule above.
 - Variants are expanded for you: the full cross-product of the options, each carrying the product's
-  `price`, `compareAtPrice` and `quantity`. Two options with 2 and 3 choices means 6 variants — keep
+  `price`, `compareAtPrice` and stock setting (`quantity` or `inStock`). Two options with 2 and 3 choices means 6 variants — keep
   option counts small.
 - `compareAtPrice` (> `price`) is the "was" price: strikethrough on the PDP and a `−N%` badge on the
   tile, computed from the two amounts. It works with or without options.
@@ -92,6 +112,11 @@ Two things this module does **not** seed, so don't try:
   follows automatically — `choiceImage()` reads it back at `media.items[].mediaId`.
 
 ## Escape hatch — individual functions
+
+If seeding reports a partial failure, keep the reported successful product IDs and correct the
+failed inputs. Do not rerun the whole seed or wrap it in a retry loop: creation may already have
+succeeded for some products. Missing results mean unknown creation status; inspect before creating again.
+
 Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom
 ordering, mid-flow checks). `setupStore` is built from them, in this order:
 
@@ -118,7 +143,7 @@ await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: ima
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-online-store.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

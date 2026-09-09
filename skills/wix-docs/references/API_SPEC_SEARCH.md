@@ -7,12 +7,14 @@ the MCP `SearchWixAPISpec` / `getResourceSchemaByUrl` tools. It does two jobs:
   `operationId`, `httpMethod`, `menuPath`, `docsUrl`, `publicUrl`). Filter or enumerate it to locate
   methods programmatically — a third find-path alongside semantic search and `.md` browsing (`SKILL.md`).
 - **Read the schema** — `getResourceSchemaByUrl(docsUrl)` returns the **exact request/response shape,
-  field types, enums, and error codes** for a method (the markdown pages bury these in huge inline
-  schemas).
+  field types, enums, and error codes** (the markdown pages bury these in huge inline schemas),
+  **scoped to what you pass**: a **method URL** → a schema holding just that method; a **resource
+  URL** (or `getResourceSchema(resourceId)`) → the whole resource, every method.
 
 > **Endpoint:** `POST https://mcp.wix.com/api/code-mode/search` — body `{ "code": "<async function() {…}>" }`.
 > The `code` is a JS `async function()` that runs in a read-only sandbox and returns any
-> JSON-serializable value. Response envelope: `{ "result": <return value> }` (or `{ "error": "<msg>" }`).
+> JSON-serializable value. Response envelope: `{ "result": <return value> }` or `{ "error": "<msg>" }` —
+> **both with HTTP 200**, so check the body for `error`, never just the status.
 
 > Internal/undocumented and pre-GA — treat it as best-effort; the contract could change. For
 > reading a single known page, the `.md` twin in `SKILL.md` is simpler — reach here when you
@@ -51,7 +53,9 @@ A short function can go inline: `--data-raw '{"code":"async function(){ return l
 | `methods[]` | `{ operationId, summary, httpMethod, path, docsUrl, publicUrl, publicBaseUrl, description }` |
 
 **`getResourceSchemaByUrl(docsUrl)`** *(preferred when you have a URL)* and
-**`getResourceSchema(resourceId)`** — return the full resource schema:
+**`getResourceSchema(resourceId)`** — return the schema, **scoped to the input**: a method URL
+scopes `methods` to that one method (read it as `methods[0]`); a resource URL or `resourceId`
+returns every method. Shape:
 
 ```
 { title, description, fqdn, docsUrl,
@@ -61,9 +65,11 @@ A short function can go inline: `--data-raw '{"code":"async function(){ return l
   components: { schemas: { …every referenced type… } } }
 ```
 
-**`articles`** — array of doc articles `{ name, resourceId, docsUrl, menuPath, description }`;
+**`articles`** — array of the REST portal's **prose pages** (introductions, recipes, flow pages) as
+`{ name, resourceId, docsUrl, menuPath, description }`;
 **`getArticleContentByUrl(docsUrl)`** / **`getArticleContent(resourceId)`** — return an article's
-full markdown. Articles and resources share the same `menuPath` hierarchy.
+full markdown. This is the coverage `lightIndex` (methods only) doesn't have; articles and resources
+share the same `menuPath` hierarchy.
 
 ### Rules that matter
 
@@ -77,9 +83,15 @@ full markdown. Articles and resources share the same `menuPath` hierarchy.
 - **Filterable/sortable fields:** for query/search methods, `method.queryMethodData.queryFieldsCapabilitiesMap`
   lists which fields accept filters (and their operators) and sorting. A field absent from the map
   is rejected by the API — filter it client-side after fetching a bounded page.
+- **Never select a method by comparing `m.docsUrl` to the URL you passed in** — the reader
+  normalizes URLs (`.md`, query params, casing), so equality against your raw input can miss. On a
+  method-URL fetch the scoped result *is* the method: read `methods[0]`. Need siblings? Fetch the
+  resource URL.
 - `getResourceSchemaByUrl` resolves **API method/resource** URLs only — not `/skills/…` or article
-  pages (use `getArticleContentByUrl` for those). On a miss, search `lightIndex` by keyword instead
-  of retrying the URL.
+  pages (use `getArticleContentByUrl` for those). **Follow the error, don't retry it:** the `{error}`
+  message names the fix — an article URL points you to the article reader; an unknown URL means
+  search `lightIndex`/`articles` by keyword instead of re-sending the same lookup. If discovery
+  still fails, report the limitation — don't guess the contract.
 
 ## Examples
 
@@ -108,16 +120,15 @@ async function() {
 }
 ```
 
-**Inspect one method by exact docs URL** (request + response + query capabilities + curl examples):
+**Inspect one method by its docs URL** (request + response + query capabilities + curl examples).
+A method URL returns a schema scoped to that method — `methods[0]` is it; don't match on
+`m.docsUrl === methodUrl` (the reader normalizes URLs):
 
 ```javascript
 async function() {
   const methodUrl = "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products";
-  const schema = await getResourceSchemaByUrl(methodUrl);
-  const method = schema.methods.find(m => m.docsUrl === methodUrl);
-  if (!method) {
-    return { message: "No exact method match", methods: schema.methods.map(m => ({ title: m.summary, docsUrl: m.docsUrl, httpMethod: m.httpMethod.toUpperCase(), publicUrl: m.publicUrl })) };
-  }
+  const schema = await getResourceSchemaByUrl(methodUrl);   // scoped: one method
+  const method = schema.methods[0];
   return {
     title: method.summary,
     publicUrl: method.publicUrl,
@@ -133,11 +144,13 @@ async function() {
 }
 ```
 
-**Inspect a whole resource by its docs URL** (list its methods):
+**Inspect a whole resource by its docs URL** (the method URL minus its last segment) — use this when
+you need **sibling operations** or the shared object schema (a requirement is often documented on a
+sibling method, e.g. required on single-create but omitted from bulk-create):
 
 ```javascript
 async function() {
-  const schema = await getResourceSchemaByUrl("https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3");
+  const schema = await getResourceSchemaByUrl("https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3");  // resource URL → every method
   return {
     resource: schema.title,
     description: schema.description,
@@ -154,11 +167,10 @@ async function() {
   const resource = lightIndex.find(r =>
     r.docsUrl.includes(partial) || r.methods.some(m => m.docsUrl?.includes(partial)));
   if (!resource) return "No API resource found for this partial URL";
-  const schema = await getResourceSchemaByUrl(resource.methods.find(m => m.docsUrl?.includes(partial))?.docsUrl ?? resource.docsUrl);
-  const method = schema.methods.find(m => m.docsUrl?.includes(partial));
-  return method
-    ? { title: method.summary, publicUrl: method.publicUrl, httpMethod: method.httpMethod.toUpperCase(), requestBody: method.requestBody, responses: method.responses }
-    : { message: "Resource found, no exact method", methods: schema.methods.map(m => m.docsUrl) };
+  const methodDocsUrl = resource.methods.find(m => m.docsUrl?.includes(partial))?.docsUrl;
+  if (!methodDocsUrl) return { message: "Resource found, no matching method", methods: resource.methods.map(m => m.docsUrl) };
+  const method = (await getResourceSchemaByUrl(methodDocsUrl)).methods[0];  // canonical method URL → scoped
+  return { title: method.summary, publicUrl: method.publicUrl, httpMethod: method.httpMethod.toUpperCase(), requestBody: method.requestBody, responses: method.responses };
 }
 ```
 
@@ -168,7 +180,7 @@ async function() {
 async function() {
   const methodUrl = "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products";
   const schema = await getResourceSchemaByUrl(methodUrl);
-  const method = schema.methods.find(m => m.docsUrl === methodUrl);
+  const method = schema.methods[0];   // method URL → scoped result
   return {
     requestBody: method.requestBody,
     selectedNestedTypes: {
@@ -186,7 +198,7 @@ depth small, schemas balloon fast):
 async function() {
   const methodUrl = "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products";
   const schema = await getResourceSchemaByUrl(methodUrl);
-  const method = schema.methods.find(m => m.docsUrl === methodUrl);
+  const method = schema.methods[0];   // method URL → scoped result
   function expand(value, depth = 0, seen = []) {
     if (depth > 3) return value;
     if (Array.isArray(value)) return value.map(v => expand(v, depth, seen));

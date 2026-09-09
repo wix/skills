@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
-  MAX_SWEEP_SCENARIOS, tagsOfDirectlyAffected, resolveSweepSet, rowsToOutcomes,
+  MAX_SWEEP_SCENARIOS, tagsOfDirectlyAffected, resolveSweepSet, rowsToOutcomes, buildEvalRunInput,
 } from '../src/utils/merge-tag-sweep';
 import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '@wix/evalforge-core';
@@ -110,5 +112,37 @@ describe('rowsToOutcomes', () => {
       ],
     }]);
     expect(out).toEqual([{ scenarioId: '1', scenarioName: 'a', failed: true, reasons: ['actual_fail'] }]);
+  });
+});
+
+describe('buildEvalRunInput', () => {
+  const config = { projectId: 'proj-1', agentId: 'agent-1', prodMcpId: 'mcp-1' };
+
+  it('attaches the MCP capability, without which the agent runs with no tools', () => {
+    const input = buildEvalRunInput(config, 'merge-sweep-abc1234', 'for tags: blog', ['s-1', 's-2']);
+    expect(input.capabilityIds).toEqual(['mcp-1']);
+  });
+
+  it('pins no capability version, so the sweep evaluates what the capability resolves to now', () => {
+    const input = buildEvalRunInput(config, 'merge-sweep-abc1234', 'for tags: blog', ['s-1']);
+    expect(input.capabilityVersions).toBeUndefined();
+  });
+
+  // An inline payload at the call site would leave the other tests passing over the bug.
+  it('is what the sweep builds its eval runs with', () => {
+    const src = readFileSync(join(__dirname, '../src/utils/merge-tag-sweep.ts'), 'utf-8');
+    expect(src).toContain('buildEvalRunInput(config,');
+    expect(src).not.toMatch(/createAndRunEvalRun\([^)]*\{\s*\n\s*name,/);
+  });
+
+  it('carries the run name, description, agent and scenarios through', () => {
+    const input = buildEvalRunInput(config, 'merge-sweep-abc1234', 'for tags: blog', ['s-1', 's-2']);
+    expect(input).toMatchObject({
+      name: 'merge-sweep-abc1234',
+      description: 'for tags: blog',
+      projectId: 'proj-1',
+      agentId: 'agent-1',
+      scenarioIds: ['s-1', 's-2'],
+    });
   });
 });

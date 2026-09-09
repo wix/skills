@@ -20,6 +20,19 @@ Canonical example:
 - Assistant: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.”
 - Result: **Stop. Do not request structured product fields yet.**
 
+## Sections
+
+- [Preflight](#preflight-respond-and-return-before-mutation) — whether this turn may mutate at all, and what to answer when it may not
+- [Core flow](#core-flow) — the order the rest of this recipe runs in
+- [Choose the endpoint](#choose-the-endpoint) — single vs bulk, with or without inventory
+- [Build each product](#build-each-product) — the product object: type, media, options, variants, prices, SKUs
+- [Generated descriptions and SEO](#generated-descriptions-and-seo) — what copy written from an image may claim
+- [Add images](#add-images) — uploading a supplied image, or generating one
+- [Wrap the request](#wrap-the-request) — the envelope the chosen endpoint expects
+- [Request projected media](#request-projected-media-when-validating-images) — which fields to project so images are proven on create
+- [Validate before reporting success](#validate-before-reporting-success) — what counts as proof, and what may be claimed
+- [Failure guide](#failure-guide) — reading a rejection
+
 ## Preflight: respond and return before mutation
 
 Name and price are mandatory **workflow inputs for every product**, even when the API schema accepts an omitted price or initializes it to zero. Evaluate the cases below in order. When a case says **RETURN**, end the turn immediately: do not call a create endpoint, do not continue to examples, and do not create first and ask afterward.
@@ -180,7 +193,9 @@ With no file supplied, create the product and report it as not sellable until on
 
 ## Add images
 
-Skip this step when no image was supplied. Prefer the available dedicated Wix image-upload capability and upload all attachments and public image URLs together. Do not reconstruct that capability inside a general API-execution call. When no dedicated uploader is available, use `POST /site-media/v1/files/import` with the external URL in the body field named exactly `url`—not `importUrl`:
+Skip this step when no image was supplied — unless the user asked for one to be generated, in which case create it first with [Generate an Image with AI](../media/generate-image-with-ai.md) and continue below with the Media Manager file it returns. Do not offer generation unprompted, and never generate a substitute for a supplied image that failed to upload.
+
+Prefer the available dedicated Wix image-upload capability and upload all attachments and public image URLs together. Do not reconstruct that capability inside a general API-execution call. When no dedicated uploader is available, use `POST /site-media/v1/files/import` with the external URL in the body field named exactly `url`—not `importUrl`:
 
 ```json
 {"url":"https://example.com/product.jpg","mimeType":"image/jpeg","displayName":"Product.jpg","mediaType":"IMAGE"}
