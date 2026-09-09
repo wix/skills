@@ -37,9 +37,7 @@ needed (the first release with that default and the `./types` export); install a
 changed dependencies before validating. If `app()` in `src/extensions.ts` passes
 `apiDir`, that directory (under `src/`) is the one the runtime scans instead, and
 the generator does not read it: either remove `apiDir` to use the default, or move
-the generated file into `src/<apiDir>`. The route is `/<name>` either way. Leave
-existing `.use()` registrations unchanged; HTTP endpoints need no extension ID,
-builder, or `.use()` call and do not appear as registered extensions.
+the generated file into `src/<apiDir>`. The route is `/<name>` either way.
 
 If `wix generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
 generator (added in `@wix/cli` 1.1.243). Update the CLI, or create the file by hand:
@@ -86,10 +84,7 @@ export const GET: APIRoute = async ({ params }) => {
   const { id } = params; // From users/[id].ts in the endpoint directory
 
   if (!id) {
-    return Response.json({ error: "ID required" }, {
-      status: 400,
-      statusText: "Bad Request",
-    });
+    return Response.json({ error: "ID required" }, { status: 400 });
   }
 
   return Response.json({ id });
@@ -124,19 +119,13 @@ export const POST: APIRoute = async ({ request }) => {
     if (!title || !content) {
       return Response.json(
         { error: "Title and content required" },
-        {
-          status: 400,
-          statusText: "Bad Request",
-        }
+        { status: 400 }
       );
     }
 
     return Response.json({ title, content });
   } catch {
-    return Response.json({ error: "Invalid JSON" }, {
-      status: 400,
-      statusText: "Bad Request",
-    });
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 };
 ```
@@ -194,9 +183,6 @@ if (!res.ok) {
 const data = await res.json();
 ```
 
-With `--base=/studio-prefix/`, this calls `/studio-prefix/hello`; with `/`, an
-empty value, or a missing value, it calls `/hello`. The value is supplied by the
-runtime/bundler; do not add a production environment variable for it.
 Keep the module origin: passing only `${basePath}hello` can resolve against the
 hosting site's origin instead of the app server.
 
@@ -259,5 +245,3 @@ on the assumption that member authentication proves ownership.
 
 To delete an endpoint, remove its file from the appropriate directory and apply
 that change through the same deployment flow. No `.use()` cleanup is needed.
-
-Validate input parameters and request bodies before performing operations.
