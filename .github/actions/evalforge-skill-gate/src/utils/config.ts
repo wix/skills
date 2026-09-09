@@ -45,6 +45,8 @@ export type SyncConfig = {
   repo: string;
   githubToken: string;
   prNumber: number;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation?: string;
 };
 
 export function getSyncConfig(): SyncConfig {
@@ -57,6 +59,7 @@ export function getSyncConfig(): SyncConfig {
     repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
     githubToken: core.getInput('github-token', { required: true }),
     prNumber: getPrNumber(github.context.payload),
+    authorAssociation: getAuthorAssociation(),
   };
 }
 
@@ -328,7 +331,7 @@ export function getCleanupConfig(): CleanupConfig {
 }
 
 /** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
-export function getAuthorAssociation(): string | undefined {
+function getAuthorAssociation(): string | undefined {
   const pr = github.context.payload.pull_request as { author_association?: string } | undefined;
   return pr?.author_association;
 }

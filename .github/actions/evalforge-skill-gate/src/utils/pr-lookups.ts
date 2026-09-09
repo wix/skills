@@ -20,7 +20,7 @@ const AUTHOR_ALLOWED: AuthorCheck = { allowed: true };
  */
 export async function checkPrAuthor(
   octokit: ReturnType<typeof github.getOctokit>,
-  config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber'> & { authorAssociation?: string },
+  config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber' | 'authorAssociation'>,
 ): Promise<AuthorCheck> {
   try {
     // Org membership settles it with no API call; the current committer is the fallback.

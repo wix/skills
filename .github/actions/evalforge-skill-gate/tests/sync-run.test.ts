@@ -112,7 +112,38 @@ describe('runSync — author gate', () => {
     expect(EvalForgeClient).not.toHaveBeenCalled();
     expect(listTestScenarios).not.toHaveBeenCalled();
     expect(setFailedSpy).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith('Skipping wix-app sync — PR author is not a @wix.com address');
+    expect(infoSpy).toHaveBeenCalledWith('Skipping wix-app sync — PR author is not a Wix author');
+  });
+
+  it('proceeds for a wix org member without reading the PR commits', async () => {
+    const { getSyncConfig } = await import('../src/utils/config');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { loadScenarios } = await import('@wix/evalforge-core');
+    const { runSync } = await import('../src/utils/sync-run');
+
+    // A noreply commit email is exactly the case the org signal exists to clear.
+    vi.mocked(getSyncConfig).mockReturnValue({ ...baseConfig, authorAssociation: 'MEMBER' });
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('1+dev@users.noreply.github.com');
+
+    await runSync();
+
+    expect(loadScenarios).toHaveBeenCalledOnce();
+    expect(getHeadCommitAuthorEmail).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the commit email for an outside author association', async () => {
+    const { getSyncConfig } = await import('../src/utils/config');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { loadScenarios } = await import('@wix/evalforge-core');
+    const { runSync } = await import('../src/utils/sync-run');
+
+    vi.mocked(getSyncConfig).mockReturnValue({ ...baseConfig, authorAssociation: 'CONTRIBUTOR' });
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+
+    await runSync();
+
+    expect(getHeadCommitAuthorEmail).toHaveBeenCalledOnce();
+    expect(loadScenarios).toHaveBeenCalledOnce();
   });
 
   it('proceeds with the sync when the PR author is a @wix.com address', async () => {

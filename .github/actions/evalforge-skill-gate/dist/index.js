@@ -62888,7 +62888,6 @@ exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getAnalyzeConfig = getAnalyzeConfig;
 exports.getCleanupConfig = getCleanupConfig;
-exports.getAuthorAssociation = getAuthorAssociation;
 const node_crypto_1 = __nccwpck_require__(7598);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -62928,6 +62927,7 @@ function getSyncConfig() {
         repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
         githubToken: core.getInput('github-token', { required: true }),
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+        authorAssociation: getAuthorAssociation(),
     };
 }
 /** Newline-separated list input, falling back to `fallback` when blank. */
@@ -63889,7 +63889,7 @@ async function runSync() {
     const config = (0, config_1.getSyncConfig)();
     const octokit = github.getOctokit(config.githubToken);
     const [owner, repoName] = config.repo.split('/', 2);
-    const authorized = (0, evalforge_core_1.isWixOrgAuthor)((0, config_1.getAuthorAssociation)()) ||
+    const authorized = (0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation) ||
         (0, evalforge_core_1.isWixAuthorEmail)(await (0, evalforge_core_1.getHeadCommitAuthorEmail)(octokit, owner, repoName, config.prNumber));
     if (!authorized) {
         core.info('Skipping wix-app sync — PR author is not a Wix author');
