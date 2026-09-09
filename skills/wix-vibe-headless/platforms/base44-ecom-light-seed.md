@@ -49,9 +49,15 @@ need to diagnose and fix it.
 user-owned business, so never delete or overwrite existing content, even apparent sample data. If a
 cleanup truly seems needed, ask the user first.
 
-Seed by calling the storefront's ready-made seed module — read
-`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` and load its `seed-*.cjs` with
-`require()` as shown there (build-time exec_tool); call its functions with your data.
+Seed by calling the storefront's ready-made seed module, `seed-store.cjs` — `require()` it and use its
+one-call `setupStore` (build-time exec_tool). Read
+`.agents/skills/wix-vibe-headless/references/storefront/seed/SEED.md` for the full `setupStore`
+contract — the `ctx` and the product/category shapes.
+
+```js
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+const result = await seed.setupStore(ctx, { products, categories }); // one call: install → products → categories → images
+```
 
 For code or actions not covered by this skill, read and follow the installed connector skill at
 `.agents/skills/wix-base44-connector/SKILL.md` to find Wix documentation and APIs.

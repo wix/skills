@@ -42,6 +42,9 @@ Read and update SEO titles and tags at the right level. For "change my site's SE
 ### [Manage URL Redirects on a Wix Site](references/seo/manage-url-redirects.md)
 "Retrieve, create, and delete URL redirects on a Wix site using the public SEO Redirects API. Covers exact and group redirects, language-scoped redirects for multilingual sites, batches of up to 500, and the change flow for a redirect that already exists. This API has no query, search, or update method: List Redirects is the only read-many. Redirects do not chain, so creating one that points at a path another redirect starts from permanently deletes that other redirect; list and check before every write."
 
+### [Generate and Read a Wix Site's Content Plan](references/seo/manage-content-plan.md)
+Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow stuck at KEYWORD_RESEARCH while polling GetContentPlanFlow. Use this recipe for both generation and stalled-flow questions: it explains the intentional pause, the Create Content Plan release request, missing flow IDs, and the exact public API paths and response fields.
+
 ### [Manage Google Search Console for a Wix Site](references/seo/manage-google-search-console.md)
 "Connect a Wix site to Google Search Console and drive its setup through the public GSC Connection and Site Readiness APIs: check connection and readiness, start the Google authorization, verify ownership, add the property, submit the sitemap, request indexing, read search performance, run URL inspection, recover a stale connection, or disconnect. The site owner authorizes in their own browser via a single-use connect URL."
 

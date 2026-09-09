@@ -10,6 +10,10 @@ apiDoc:
       title: Manage a Wix Site's SEO Tags
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo
       tags: [seo]
+    - file: ../../../skills/wix-manage/references/seo/manage-content-plan.md
+      title: Generate and Read a Wix Site's Content Plan
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo
+      tags: [seo, content-plan]
     - file: ../../../skills/wix-manage/references/seo/manage-google-search-console.md
       title: Manage Google Search Console for a Wix Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/seo/google-search-console
