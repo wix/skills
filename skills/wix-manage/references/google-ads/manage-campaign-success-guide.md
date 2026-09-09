@@ -123,6 +123,8 @@ Reopen the same item by sending:
 
 The response wraps the updated guide as `{ "campaignSuccessGuide": { ... } }`. Treat that returned guide as the new source of truth: report the changed tracking status and summarize remaining `OPEN` suggestions in priority order. Do not claim the underlying recommendation was implemented. Do not update multiple items unless the user's wording clearly identifies all of them.
 
+This endpoint only moves a guide item's tracking status; it never edits the campaign. When the user then asks you to actually act on a recommendation that changes the campaign — search themes, assets, budget, targeting — do it through [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) § Update a campaign: read the campaign first and send the whole entity back, since an update drops what its payload omits.
+
 If a mutation times out with an unknown outcome, do not retry automatically. Retrieve the guide later to determine the current status first.
 
 ## Errors
