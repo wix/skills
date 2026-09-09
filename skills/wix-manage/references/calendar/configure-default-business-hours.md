@@ -26,7 +26,7 @@ Wix Bookings default business hours define the base availability for your bookin
 
 ### 🚨 CRITICAL: Default Hours Upon Installation
 
-**IMPORTANT**: When Wix Bookings is first installed on a site, it automatically creates DEFAULT business hours (typically 9 AM - 5 PM, Monday through Friday). You CANNOT simply create new hours without handling these existing default hours first.
+**IMPORTANT**: When Wix Bookings is first installed on a site, it automatically creates DEFAULT business hours — five Monday-through-Friday recurring events (exact times vary by site, e.g. 10 AM - 6 PM in the site's business time zone). You CANNOT simply create new hours without handling these existing default hours first.
 
 **You MUST either:**
 1. **Update the existing default hours** to your desired schedule, OR
@@ -63,7 +63,8 @@ This has been tested and confirmed on multiple different Wix sites:
 * **Default Hours Always Exist**: Every Wix Bookings installation creates default hours automatically
 * **Event Scheduling Flexibility**: Businesses can create multiple time slots per day or complex schedules as needed - there are no restrictions on number of events per day
 * **MASTER vs INSTANCE Events**: Based on observed behavior, MASTER events appear to generate INSTANCE events automatically, but always verify current event state when working with recurring events
-* **Query Patterns**: Use `"recurrenceType": ["MASTER"]` to focus on the primary recurring event definitions
+* **Query Patterns**: Use `"recurrenceType": ["MASTER"]` to focus on the primary recurring event definitions. ⚠️ It is a **top-level** request field, a sibling of `query` — placing it inside `query.filter` is **silently ignored** (the call succeeds and returns INSTANCE events), so a wrong placement produces confusing results rather than an error
+* **The universal external ID is a lookup key, not a schedule ID**: use `4e0579a5-491e-4e70-a872-d097eed6e520` only in the `externalId` filter of `querySchedules`. Passing it as an event's `scheduleId` fails with 404 `Schedule with 4e0579a5-... ID not found` (and as a `resources[].id`, with a similar `Resource ... not found`) — events take the schedule's real `id` returned by that query
 * **Revision Numbers**: Calendar events require current revision numbers for updates - always get fresh revision before bulk operations
 
 ---
@@ -104,7 +105,7 @@ Query pattern:
 
 **Important**: Always query for MASTER events specifically to see actual recurring schedules.
 
-**Expected Result**: You will typically find 5 existing MASTER events (Monday through Friday, 9 AM - 5 PM) from the default Bookings installation.
+**Expected Result**: You will typically find 5 existing MASTER events (Monday through Friday, one per weekday) from the default Bookings installation; their times vary by site.
 
 ### 3. Choose Your Strategy: Update OR Replace
 
@@ -127,18 +128,19 @@ Update fields:
 - `revision`: Current revision number (from Step 2 query)
 - `fieldmask`: `"start,end"`
 
-**Example**: Change Monday hours from 9 AM-5 PM to 12 AM-4 PM:
+**Example**: Change Monday hours to 8 AM-4 PM (use a date that is today or in the future — a past `start` is rejected for recurring events):
 ```json
 {
   "events": [{
     "event": {
       "id": "existing-monday-event-id",
-      "start": {"localDate": "2025-06-16T00:00:00"},
-      "end": {"localDate": "2025-06-16T16:00:00"},
+      "start": {"localDate": "<NEXT_MONDAY>T08:00:00"},
+      "end": {"localDate": "<NEXT_MONDAY>T16:00:00"},
       "revision": "current-revision-number"
     }
   }],
-  "fieldmask": "start,end"
+  "fieldmask": "start,end",
+  "returnEntity": true
 }
 ```
 
@@ -154,17 +156,29 @@ Cancel existing MASTER events using `bulkCancelEvents` API (`POST https://www.wi
 ```
 
 #### Step 4B.2: Create New Business Hours
-Create `WORKING_HOURS` events for each day using `bulkCreateEvents` API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)).
+Create `WORKING_HOURS` events for each day using `bulkCreateEvents` API (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)). Note the request envelope: each event is wrapped in an `event` object — a flat event fails with 400 `event must not be empty`.
 
-**Each event pattern**:
-- `type`: `"WORKING_HOURS"`
-- `scheduleId`: Business schedule ID from step 1
-- `scheduleOwnerId`: `"4e0579a5-491e-4e70-a872-d097eed6e520"`
-- `externalScheduleId`: `"4e0579a5-491e-4e70-a872-d097eed6e520"`
-- `recurrenceRule`: Weekly recurring with single day
-- `start`/`end`: Business hours times
+```json
+{
+  "events": [
+    {
+      "event": {
+        "type": "WORKING_HOURS",
+        "scheduleId": "<BUSINESS_SCHEDULE_ID_FROM_STEP_1>",
+        "start": { "localDate": "<NEXT_MONDAY>T08:00:00" },
+        "end": { "localDate": "<NEXT_MONDAY>T16:00:00" },
+        "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] }
+      }
+    }
+  ],
+  "returnEntity": true
+}
+```
 
-**Note**: Create separate events for each day of the week (Monday, Tuesday, etc.).
+- `scheduleId` is the business schedule's real `id` from Step 1 — **not** the universal external ID (that constant is only the `querySchedules` lookup key; used here it 404s).
+- `scheduleOwnerId`/`externalScheduleId` are derived by the server; you do not need to send them.
+- `recurrenceRule.days` takes exactly one full uppercase day name (`MONDAY`…`SUNDAY`); create a separate event per weekday, with `start`/`end` today or in the future.
+- Check each `results[i].itemMetadata.success` (and `bulkActionMetadata.totalFailures`) before reporting the hours as set.
 
 ### 5. Verify Final Configuration
 
