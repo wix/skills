@@ -19,7 +19,7 @@ First check whether the conversation or a prior response contains the actual
 
 - **Missing ID:** Explain the intentional pause and ask for the existing flow
   ID. End the turn without making a status or release call. You can name the
-  release endpoint, `POST https://www.wixapis.com/seo-content-plan-service/v1/create-content-plan`,
+  release endpoint, `POST https://www.wixapis.com/promote/seo/v1/create-content-plan`,
   but do not execute an example request. Placeholder text such as
   `<YOUR_FLOW_ID>` is never an API argument.
 - **Known ID:** Use that actual flow UUID in the step 3 request's
@@ -38,7 +38,7 @@ though both have UUID format.
 Do not guess a collection endpoint to discover the active flow.
 
 The complete status URL is
-`https://www.wixapis.com/seo-content-plan-service/v1/content-plan-flows/{contentPlanFlowId}`.
+`https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
 Use this exact public base path and substitute the known ID. Do not call
 `GET /content-plan-flows` without an ID or construct a URL from a service name.
 

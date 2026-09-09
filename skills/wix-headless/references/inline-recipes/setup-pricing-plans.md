@@ -106,7 +106,7 @@ This is the **pricing-plans ↔ bookings membership link**: making a plan *cover
 When a plan is created, the Pricing Plans app **automatically creates a matching "program definition"** in Benefit Programs. You **read** it (you never create it) by the plan id + namespace:
 
 ```bash
-curl -X GET 'https://www.wixapis.com/_api/benefit-programs/v1/program-definitions/by-namespace-and-external-id?externalId=<PLAN_ID>&namespace=@wix/pricing-plans' \
+curl -X GET 'https://www.wixapis.com/benefit-programs/v1/program-definitions/by-namespace-and-external-id?externalId=<PLAN_ID>&namespace=@wix/pricing-plans' \
   -H 'Authorization: <AUTH>'
 ```
 
@@ -129,7 +129,7 @@ Response — keep **`programDefinition.id`** (this is the "programDefinitionId" 
 Create **one** pool definition holding **exactly one** benefit that names the Bookings app as the provider:
 
 ```bash
-curl -X POST 'https://www.wixapis.com/_api/benefit-programs/v1/pool-definitions' \
+curl -X POST 'https://www.wixapis.com/benefit-programs/v1/pool-definitions' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{

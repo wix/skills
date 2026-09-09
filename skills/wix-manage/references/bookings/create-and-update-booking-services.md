@@ -306,11 +306,11 @@ After creation, use the `service.schedule.id` from the response to create class 
 
 ```bash
 # First, get current service to obtain revision
-curl -X GET 'https://www.wixapis.com/_api/bookings/v2/services/<SERVICE_ID>' \
+curl -X GET 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
   -H 'Authorization: <AUTH>'
 
 # Then update with revision inside service object
-curl -X PATCH 'https://www.wixapis.com/_api/bookings/v2/services/<SERVICE_ID>' \
+curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -329,10 +329,10 @@ When an existing service has `payment.rateType: "NO_FEE"` and the user asks to s
 
 ```bash
 # First, get current service to obtain revision and current payment settings
-curl -X GET 'https://www.wixapis.com/_api/bookings/v2/services/<SERVICE_ID>' \
+curl -X GET 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
   -H 'Authorization: <AUTH>'
 
-curl -X PATCH 'https://www.wixapis.com/_api/bookings/v2/services/<SERVICE_ID>' \
+curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{

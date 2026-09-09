@@ -52,7 +52,7 @@ apply to your case, and the REST contract or SDK signature you need? If yes, pro
 fetch. If not, make **one targeted follow-up**: read the method page (§2) or pull its schema (§C).
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/v1/docs/search/markdown' \
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}' \
   | jq -r '.content'      # no jq? → python3 -c 'import sys,json;print(json.load(sys.stdin)["content"])'
@@ -61,7 +61,7 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/v1/docs/search/mark
 For a workflow, hit the recipe corpus first, then resolve each step's call in `REST`/`SDK`:
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/v1/docs/search/markdown' \
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"end to end booking flow","document_type":"SKILLS","maximum_results":2}' \
   | jq -r '.content'
@@ -73,7 +73,7 @@ grab a hit's `url` to read that page (§2) or feed it to the schema query (§C).
 `url`; article hits keep their link inside `content`.)
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/v1/docs/search' \
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":5}' \
   | jq -r '.results[] | select(.url) | "\(.title)\t\(.url)"'

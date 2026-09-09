@@ -11,7 +11,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Restaurants
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many menus, which sections, how many items per section and their names/descriptions/prices — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities or which entities to create.
 
-> **API surfaces:** everything is the Restaurants **Menus V1** API, but each entity has its own base URL: menus on `https://www.wixapis.com/restaurants/menus-menu/v1/...`, sections on `https://www.wixapis.com/restaurants/menus-section/v1/...`, and items on `https://www.wixapis.com/restaurants/menus-item/v1/...` (modifiers and modifier groups use `restaurants/item-modifiers/v1` and `restaurants/item-modifier-group/v1`). This is the **new** Wix Restaurants Menus API; do not mix in any older `restaurants/v1beta` or ordering/reservations endpoints. Online ordering and table reservations are **separate apps** and out of scope for menu seeding.
+> **API surfaces:** everything is the Restaurants **Menus V1** API on `https://www.wixapis.com/restaurants/menus/v1/...` (menus, sections, items — all under this one service). This is the **new** Wix Restaurants Menus API; do not mix in any older `restaurants/v1beta` or ordering/reservations endpoints. Online ordering and table reservations are **separate apps** and out of scope for menu seeding.
 
 > **REST flattens the protobuf wrappers.** The raw method schemas show fields like `visible`, `id`, `description` as wrapper objects (`{"value": …}`). In the actual REST JSON they are **plain values** — send `"visible": true`, `"description": "text"`, and read back `"id": "<guid>"`. Never send `{"value": …}`.
 
@@ -26,15 +26,15 @@ A concise checklist for preparing any new Wix site that uses the Wix Restaurants
 
 **A freshly installed Wix Restaurants Menus app ships a fully populated default "Dinner Menu"** (roughly one menu, ~4 sections, ~21 items). **Only remove the menu when it's obviously the install's own default "Dinner Menu" on a fresh install.** Do **not** assume an existing menu is a sample: the site may already hold the owner's **real menu** (a connect/iterate run, or an owner-populated site). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When it clearly is the install's sample, remove it **before** creating yours so the storefront shows only the intended menu (children before parents: items → sections → menus):
 
-1. **Bulk-delete items** — `GET https://www.wixapis.com/restaurants/menus-item/v1/items` (collect every `items[].id`), then `DELETE https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/delete` with body `{"ids": ["<id>", …]}`.
-2. **Bulk-delete sections** — `GET https://www.wixapis.com/restaurants/menus-section/v1/sections` (collect every `sections[].id`), then `DELETE https://www.wixapis.com/restaurants/menus-section/v1/bulk/sections/delete` with body `{"ids": ["<id>", …]}`.
-3. **Delete menus** — `GET https://www.wixapis.com/restaurants/menus-menu/v1/menus` (collect every `menus[].id`), then delete each one with `DELETE https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menuId}` (**no bulk-delete endpoint for menus** — one DELETE per menu; there is normally just the single default menu). Single delete takes only the path id — **no `revision` needed**.
+1. **Bulk-delete items** — `GET https://www.wixapis.com/restaurants/menus/v1/items` (collect every `items[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/items/delete` with body `{"ids": ["<id>", …]}`.
+2. **Bulk-delete sections** — `GET https://www.wixapis.com/restaurants/menus/v1/sections` (collect every `sections[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/sections/delete` with body `{"ids": ["<id>", …]}`.
+3. **Delete menus** — `GET https://www.wixapis.com/restaurants/menus/v1/menus` (collect every `menus[].id`), then delete each one with `DELETE https://www.wixapis.com/restaurants/menus/v1/menus/{menuId}` (**no bulk-delete endpoint for menus** — one DELETE per menu; there is normally just the single default menu). Single delete takes only the path id — **no `revision` needed**.
 
 The bulk-delete responses carry per-id `results[].itemMetadata.success`; a menu delete returns `200 {}`. If the lists come back empty, this is a safe no-op — continue.
 
 ### STEP 1: Bulk-create the items
 
-Create all items in a **single bulk request** to `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/create`. **How many items, and their names/descriptions/prices, come from the request you're fulfilling — this step only gives the call and the required format.**
+Create all items in a **single bulk request** to `POST https://www.wixapis.com/restaurants/menus/v1/bulk/items/create`. **How many items, and their names/descriptions/prices, come from the request you're fulfilling — this step only gives the call and the required format.**
 
 **Request body shape** (one representative item shown — repeat item objects inside the `items` array):
 
@@ -73,7 +73,7 @@ Keep each item's **`id`** (from `results[].item.id`), grouped by the section it 
 
 ### STEP 2: Bulk-create the sections (referencing their item ids)
 
-Create all sections in a **single bulk request** to `POST https://www.wixapis.com/restaurants/menus-section/v1/bulk/sections/create`. Each section carries the **`itemIds`** array of the items (from STEP 1) that belong to it. **Which sections, and which items go in each, come from the request you're fulfilling.**
+Create all sections in a **single bulk request** to `POST https://www.wixapis.com/restaurants/menus/v1/bulk/sections/create`. Each section carries the **`itemIds`** array of the items (from STEP 1) that belong to it. **Which sections, and which items go in each, come from the request you're fulfilling.**
 
 **Request body shape** (repeat section objects inside the `sections` array):
 
@@ -99,7 +99,7 @@ Create all sections in a **single bulk request** to `POST https://www.wixapis.co
 
 ### STEP 3: Create the menu (referencing its section ids)
 
-Create the menu with `POST https://www.wixapis.com/restaurants/menus-menu/v1/menus`. The menu carries the **`sectionIds`** array of the sections (from STEP 2) it contains. There is normally **one** menu; if the request calls for several, use the bulk endpoint `POST https://www.wixapis.com/restaurants/menus-menu/v1/bulk/menus/create` with a `{"menus": [ … ], "returnEntity": true}` body (same envelope as items/sections).
+Create the menu with `POST https://www.wixapis.com/restaurants/menus/v1/menus`. The menu carries the **`sectionIds`** array of the sections (from STEP 2) it contains. There is normally **one** menu; if the request calls for several, use the bulk endpoint `POST https://www.wixapis.com/restaurants/menus/v1/bulk/menus/create` with a `{"menus": [ … ], "returnEntity": true}` body (same envelope as items/sections).
 
 **Request body shape** — the single-create wraps the menu in a **`menu`** object:
 
@@ -128,16 +128,16 @@ Create the menu with `POST https://www.wixapis.com/restaurants/menus-menu/v1/men
 
 **⚠️ On write, `image` is an OBJECT `{ id, url, height, width }`** (per the Create/Update Item docs) — even though the storefront SDK surfaces `item.image` as a bare *string* on **read** (`how-to-code-restaurants.md` § "Rendering images"; at the REST layer the read is an object too). Do **not** write a plain string. The binding field is the image **`id`** (the Wix Media file id); `url` + dimensions are descriptive.
 
-**⚠️ CRITICAL: Update Item is a FULL-ENTITY REPLACE with NO field mask — you MUST echo the item's existing `priceInfo` (and `priceVariants`, if the item is variant-priced) in the PATCH body, alongside `image`.** A body of just `{ id, revision, image }` drops the price and fails **`428 MISSING_ITEM_PRICING`** (`"Item must have either price or price variants"`) — the write does **not** apply. So first **`GET https://www.wixapis.com/restaurants/menus-item/v1/items/{itemId}`** for the item's current **`revision` + `priceInfo`** (or reuse the `item.revision` + `item.priceInfo` from STEP 1's `returnEntity` response), and echo both back:
+**⚠️ CRITICAL: Update Item is a FULL-ENTITY REPLACE with NO field mask — you MUST echo the item's existing `priceInfo` (and `priceVariants`, if the item is variant-priced) in the PATCH body, alongside `image`.** A body of just `{ id, revision, image }` drops the price and fails **`428 MISSING_ITEM_PRICING`** (`"Item must have either price or price variants"`) — the write does **not** apply. So first **`GET https://www.wixapis.com/restaurants/menus/v1/items/{itemId}`** for the item's current **`revision` + `priceInfo`** (or reuse the `item.revision` + `item.priceInfo` from STEP 1's `returnEntity` response), and echo both back:
 
 ```bash
-curl -X PATCH 'https://www.wixapis.com/restaurants/menus-item/v1/items/<itemId>' \
+curl -X PATCH 'https://www.wixapis.com/restaurants/menus/v1/items/<itemId>' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{ "item": { "id": "<itemId>", "revision": "<current revision>", "priceInfo": { "price": "<current price>" }, "image": { "id": "<file.id>", "url": "<file.url>", "height": 1024, "width": 1024 } } }'
 ```
 
-- **Bulk variant** — to image many items at once, `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/update` with `{"items": [ { "item": { "id", "revision", "priceInfo", "image": {…} } }, … ]}` (each item still needs its own `revision` **and** its `priceInfo` — the full-replace rule applies per item).
+- **Bulk variant** — to image many items at once, `POST https://www.wixapis.com/restaurants/menus/v1/bulk/items/update` with `{"items": [ { "item": { "id", "revision", "priceInfo", "image": {…} } }, … ]}` (each item still needs its own `revision` **and** its `priceInfo` — the full-replace rule applies per item).
 - A **stale or omitted `revision`** fails the update — fetch/echo the current one.
 - **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the item text-only.
 

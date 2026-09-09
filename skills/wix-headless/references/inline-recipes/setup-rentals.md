@@ -41,7 +41,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Re
 
 **⚠️ CRITICAL ORDER REQUIREMENT: resource type (STEP 1) → resources (STEP 2) → services (STEP 4).** (STEP 3 is intentionally empty — rental services use no category.) A rental service declares its resource type in `serviceResources` and points at it via `primaryResourceType`, and its availability is derived from the *resources* in that type — so both must exist before the service. A service created against a resource type that holds **no resources has permanently empty availability**: it is created successfully, appears in the catalog, and can never be booked.
 
-**Check for pre-existing services first** — same demo-data cleanup as bookings, same rules. List with `POST https://www.wixapis.com/_api/bookings/v2/services/query` (body `{"query": {"paging": {"limit": 100}}}`), and `DELETE https://www.wixapis.com/_api/bookings/v2/services/<serviceId>` the install's own samples. **Do not assume every existing service is a sample** — if it isn't obviously install demo data, **ask the user first**. Full rationale: `setup-bookings.md` § "Check for pre-existing services first".
+**Check for pre-existing services first** — same demo-data cleanup as bookings, same rules. List with `POST https://www.wixapis.com/bookings/v2/services/query` (body `{"query": {"paging": {"limit": 100}}}`), and `DELETE https://www.wixapis.com/bookings/v2/services/<serviceId>` the install's own samples. **Do not assume every existing service is a sample** — if it isn't obviously install demo data, **ask the user first**. Full rationale: `setup-bookings.md` § "Check for pre-existing services first".
 
 ### STEP 1: Create the resource type
 
@@ -93,7 +93,7 @@ On a Rentals-only site the categories API isn't reachable anyway — it belongs 
 
 ### STEP 4: Create the rental services
 
-Create the services **one at a time** with `POST https://www.wixapis.com/_api/bookings/v2/services` — one call per service, each with a top-level `service` object. A rental service is a normal **Services V2 `APPOINTMENT`** carrying the rentals-specific values.
+Create the services **one at a time** with `POST https://www.wixapis.com/bookings/v2/services` — one call per service, each with a top-level `service` object. A rental service is a normal **Services V2 `APPOINTMENT`** carrying the rentals-specific values.
 
 **⚠️ Do NOT use the bulk endpoint (`…/bookings/v2/bulk/services/create`) for rentals.** It creates the service correctly but attaches a **schedule tagged with the Wix Bookings app id instead of the Wix Rentals one**, and calendar events inherit their app id from the schedule — so every booking and every event on that service becomes invisible in the Rentals dashboard calendar. The service itself looks perfect, which is what makes this hard to spot. Verified on a live site: bulk-created schedules carry `13d21c63-b5ec-5912-8397-c3a5ddb27a97`; single-created ones carry the rentals app id. Use single create until that is fixed upstream. (Bulk is still fine for plain Wix Bookings services — see `setup-bookings.md`.)
 
@@ -189,7 +189,7 @@ Create the services **one at a time** with `POST https://www.wixapis.com/_api/bo
 
 Keep each service's **`service.id`** and **`service.mainSlug.name`** (the frontend links by slug; if absent, derive it: lowercase, non-alphanumerics → hyphens). A failed create returns a normal error — retry that one service **once** with the same body; don't loop, and don't re-create ones that already succeeded.
 
-**Verify the range actually landed.** `durationRange` is a newer field and a silently-dropped range yields a service that looks fine and books as a fixed slot. Re-read one created service (`GET https://www.wixapis.com/_api/bookings/v2/services/<serviceId>`) and confirm `schedule.availabilityConstraints.durationRange.unitType` is populated before moving on.
+**Verify the range actually landed.** `durationRange` is a newer field and a silently-dropped range yields a service that looks fine and books as a fixed slot. Re-read one created service (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`) and confirm `schedule.availabilityConstraints.durationRange.unitType` is populated before moving on.
 
 ### STEP 5: Resource attributes (only when the request wants filterable properties)
 
@@ -234,7 +234,7 @@ References: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/
 
 ### Attach images (imagery ON only — skip otherwise)
 
-Identical to the bookings flow, because it is the same Services V2 entity. Obtain the image per `references/IMAGE_GENERATION.md`, then `PATCH https://www.wixapis.com/_api/bookings/v2/services/<serviceId>` writing under **`media.mainMedia`** and **`media.coverMedia`**, each `{ "image": { "id", "url", "width", "height" } }`, echoing the current `revision`.
+Identical to the bookings flow, because it is the same Services V2 entity. Obtain the image per `references/IMAGE_GENERATION.md`, then `PATCH https://www.wixapis.com/bookings/v2/services/<serviceId>` writing under **`media.mainMedia`** and **`media.coverMedia`**, each `{ "image": { "id", "url", "width", "height" } }`, echoing the current `revision`.
 
 **⚠️ Writing the image under `media.image` returns `HTTP 200` but silently drops it** — confirm by re-querying the service and checking `media.mainMedia` is populated. Never block on image failure; leave the service text-only. Full shape and caveats: `setup-bookings.md` § "Attach images".
 

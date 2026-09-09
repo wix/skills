@@ -25,7 +25,7 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 
 ## Step 1: Query Available Services
 
-**Endpoint**: `POST https://www.wixapis.com/_api/bookings/v2/services/query`
+**Endpoint**: `POST https://www.wixapis.com/bookings/v2/services/query`
 
 ```json
 {

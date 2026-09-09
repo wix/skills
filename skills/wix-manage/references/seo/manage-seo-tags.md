@@ -241,7 +241,7 @@ Products with a `name` filter — `name` is not filterable and returns 400.
 **Step 2 — read the current tags.**
 
 ```
-GET https://www.wixapis.com/seo-metatags-server/v1/item-seo-tags/STORES_PRODUCT/{productId}
+GET https://www.wixapis.com/promote/seo/v1/item-seo-tags/STORES_PRODUCT/{productId}
 ```
 
 ```json

@@ -135,7 +135,7 @@ For events created with `"initialType": "TICKETING"`. One call per tier — ther
 bulk-create, and up to 100 tiers per event.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/events-ticket-definitions/v3/ticket-definitions' \
+curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
   -H 'Content-Type: application/json' -H 'Authorization: <AUTH>' \
   --data-binary '{
     "ticketDefinition": {

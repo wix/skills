@@ -17,7 +17,7 @@ version:
 **1. Find a page — semantic `curl` search (no MCP required):**
 
 ```bash
-curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/v1/docs/search/markdown' \
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"<what you need, in natural language>","document_type":"WIX_HEADLESS","maximum_results":3}'
 ```
