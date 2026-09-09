@@ -25,7 +25,7 @@ import type { A11y, Direction } from '@wix/editor-react-types';
 import { convertA11yKeysToHtmlFormat } from '@wix/react-component-utils';
 
 export type TabsProps = {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
