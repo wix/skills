@@ -76,7 +76,7 @@ Five steps, in order. Every one is a file read; none of them is a guess.
 
 `Read <pkgRoot>/dist/docs/index.json`. **Start here, not with the bundle index.** It carries an
 entry for every documented name *and* the library's own guides, and it is the larger of the
-two — 172 entries against the bundle index's 101.
+two — 172 entries against the bundle index's 103.
 
 Resolve a name against the keys **and** each entry's `symbols` aliases: the index is keyed by
 Storybook title, so `ExportButton` lives under `ExportTo` and `CollectionToolbarFilters` under
@@ -117,6 +117,34 @@ entry from step 1 tells you which exist before you open anything, so decide firs
 | How do I call it? Generics, what a callback receives and returns, how the pieces nest | the **example** | `examples` |
 | What props does it take, and which are optional? | the **`.d.ts`**, *or* the doc — never both | `bundle` present ⇒ read that `.d.ts`; absent ⇒ the doc's own table is the answer |
 | Is there a setup requirement or a gotcha? | the **doc's** prose | — |
+
+**Where each one lives.** The index hands you a value; the tree it belongs to is fixed. Prefix
+it, and never reconstruct a path from the symbol name:
+
+| Artifact | Read this path | Built from |
+| --- | --- | --- |
+| the doc | `<pkgRoot>/dist/docs/<file>` | the entry's `file` — e.g. `useEntityPage.md` |
+| an example | `<pkgRoot>/dist/docs/<examples[i]>` | each value in `examples` — e.g. `EntityPage/basic.tsx` |
+| the props `.d.ts` | `<pkgRoot>/dist/dts-bundle/<bundle>` | the entry's `bundle` — e.g. `hooks/useEntityPage.d.ts` |
+
+Worked through on one entry, exactly as step 1 hands it to you:
+
+```json
+"useEntityPage": {
+  "file": "useEntityPage.md",
+  "importPath": "@wix/patterns",
+  "bundle": "hooks/useEntityPage.d.ts",
+  "propsTypeName": "UseEntityPageParams"
+}
+```
+
+- **Where do I import it from?** `@wix/patterns`, straight off `importPath`. No read.
+- **How do I call it?** This entry has no `examples`, so check the component it pairs with —
+  `EntityPage`'s entry lists `EntityPage/basic.tsx`, so
+  `Read <pkgRoot>/dist/docs/EntityPage/basic.tsx`.
+- **What are its props?** `bundle` is present, so
+  `Read <pkgRoot>/dist/dts-bundle/hooks/useEntityPage.d.ts` — and not the page.
+- **Any setup requirement?** `Read <pkgRoot>/dist/docs/useEntityPage.md`.
 
 **`bundle` and an own props table are mutually exclusive.** 80 entries point at a bundle; 58
 carry their own table, and every one of those 58 marks a `Required` column. None do both. So if
@@ -183,9 +211,10 @@ set, collect them and read them together — after checking you still need them.
 
 ### Rules for the reads themselves
 
-- **Use the exact `file` value; never reconstruct a path from a name.** Bundles nest one
-  directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`), so `<Name>.d.ts` at the
-  top level is wrong by construction.
+- **Use the exact `file`, `bundle` and `examples` values, prefixed per the paths in step 4;
+  never reconstruct a path from a name.** Bundles nest one directory per kind
+  (`components/Table.d.ts`, `hooks/useForm.d.ts`), so `<Name>.d.ts` at the top level is wrong by
+  construction — and an example is a slug from a variation title, so it is not derivable either.
 - **Extract what you need.** Every bundle fits in one read and the index's `bytes` field says
   how large beforehand, so a whole-file `Read` is always safe — but inside `dist/docs/` and
   `dist/dts-bundle/` a targeted `grep`/`sed` for the one declaration you are after is fine, and
