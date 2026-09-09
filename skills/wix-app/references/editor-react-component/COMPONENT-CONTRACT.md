@@ -25,7 +25,7 @@ Use this shape:
 import type { A11y, Direction } from '@wix/editor-react-types';
 
 export type PlanCardProps = {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
@@ -158,7 +158,7 @@ import type { ActiveItemIndex } from '@wix/react-component-utils';
 export type Step = { name: string; body: string };
 
 export type StepsProps = {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
