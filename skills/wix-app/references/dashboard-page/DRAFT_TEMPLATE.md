@@ -15,6 +15,20 @@ Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts
 
 Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings or entity page unless the request needs one. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B.
 
+## Then: which data path?
+
+Case tells you how many pages. This tells you how they're built, and it is the other half of the
+decision — the two paths share almost no code:
+
+| The rows come from | Path |
+| --- | --- |
+| A vertical SDK (`@wix/bookings`, `@wix/ecom`, …) or any API you call yourself | **Hand-wired** — [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md), below |
+| A **CMS collection** — one your Data Collection extension ships, or an existing site collection | **Schema-driven** — [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) |
+
+A CMS collection built the hand-wired way compiles and runs while silently losing schema-driven
+columns, field management and the generated entity form. Decide this before writing the page, not
+after — converting means rewriting both the collection page and the entity page.
+
 **Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). The collection and settings files are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
 
 ## File layout

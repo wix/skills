@@ -39,12 +39,9 @@ async function req(method, url, body, token) {
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
   if (!r.ok) {
     const head = (await r.text()).slice(0, 300);
-    const guidance = r.status === 401 || r.status === 403
-      ? " — check the endpoint's required caller identity, token validity, and permissions"
-      : r.status >= 400 && r.status < 500
-        ? " — read the API error and endpoint contract before changing the call"
-        : "";
-    throw new Error(r.status + " " + head + guidance);
+    throw new Error(r.status + " " + head + (r.status < 500
+      ? " — a 4xx means wrong body or reference: read this endpoint's contract before changing the call"
+      : ""));
   }
   return r.json();
 }

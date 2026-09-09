@@ -33,7 +33,7 @@ try {
 "
 ```
 
-Run the whole snippet — a bare `require.resolve` throws in Yarn Berry without the PnP step.
+A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when installed — run the whole snippet, not a shortened version.
 
 Then confirm the installed version actually ships the bundle index:
 
@@ -41,13 +41,12 @@ Then confirm the installed version actually ships the bundle index:
 ls <pkgRoot>/dist/dts-bundle/index.json
 ```
 
-**If the file is missing, stop and upgrade** — the index ships from **1.458.0** on (prefer **1.465.0**+). That is different from a *name* missing from an index that exists (below).
+**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.465.0**+ — the lookups below assume it (`OffsetQuery`, `useEntityPage`'s create route, `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router paths). A missing *file* isn't the same as a name not being covered (see below).
 
-**Never browse `node_modules`** — no `ls`/`find`/`cat` of arbitrary paths, `dist/dts-bundle/` and `dist/docs/` included. Every lookup below names an exact file to `Read`.
-
+**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
 ### The index is not the list of what exists
 
-`dist/dts-bundle/` is docs; `tsc` resolves `dist/types/index.d.ts`. The index is a curated subset, so a name absent from it may still be exported and usable (`CollectionErrorState` is), and a stub type is abridged, not what you compile against. Check `dist/types/index.d.ts` before deciding a component this skill names is unavailable: [why](dashboard-page/PATTERNS_BUNDLE_READING.md#what-the-bundle-leaves-out).
+`dist/dts-bundle/` is docs; `tsc` resolves `dist/types/index.d.ts`, the path `package.json` names. The index is a curated subset of it, so a name absent from it may still be exported and usable (`CollectionErrorState` is), and a type it shows as an `[key: string]: unknown` stub is abridged, not what you compile against. `Read` `dist/types/index.d.ts` before deciding a component this skill names is unavailable: [why](dashboard-page/PATTERNS_BUNDLE_READING.md#what-the-bundle-leaves-out).
 
 ## Library Architecture
 
@@ -166,7 +165,7 @@ A collection page and its item form are **two patterns pages**, not a page plus 
 
 Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves. **Every `path` above is page-relative**: the router roots at `path="/"` even on a page scaffolded `route: "shifts"`, so never repeat that name in a `path`, `parentPath`, or `navigateToEntityPage` call — it fails silently. See [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 
-Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` first, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the call itself. `useCreateCollection` is **not** about creating items — it initializes collection state.
+Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself (generics, `onSave`, params). Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
 
 ## When Patterns Has No Equivalent
 

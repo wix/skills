@@ -94,9 +94,9 @@ Each starts from a case in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md)
 
 | Request | Case | Adapt |
 | --- | --- | --- |
-| "Dashboard page to manage blog posts" | B | Columns for the post fields named; edit/delete from the collection's own APIs; `{feature}-api.ts` calls `@wix/blog` |
-| "Settings page for notification preferences" | C | Form fields (`FormField`, `Input`, `ToggleSwitch`) per preference — no collection, no router |
-| "Admin panel for customer orders" | B | Status `Badge` in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); Dashboard Modal only for delete confirmation, never for view/edit (see [Entity create and edit](../SKILL.md#entity-create-and-edit)) |
+| "Dashboard page to manage blog posts" | B | Columns for the post fields named; search, row actions and empty state from the collection's own APIs; add/edit navigate to the `EntityPage`; `{feature}-api.ts` calls `@wix/blog` |
+| "Settings page for notification preferences" | C | `SettingsPage` shell with a WDS field per preference (`FormField`, `Input`, `ToggleSwitch`); save confirms with `dashboard.showToast()`, and `dashboard.onBeforeUnload()` warns on unsaved changes — no collection, no table hook, no router |
+| "Admin panel for customer orders" | B | Filters, sorting and row actions from the collection APIs — **not** a hand-built WDS filter bar; status `Badge` is leaf UI in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); viewing or editing opens the `EntityPage`, and a Dashboard Modal appears only for the delete confirmation (see [Entity create and edit](../SKILL.md#entity-create-and-edit)) |
 | "Settings page for the coupon popup embedded script" | C | Fields for headline, coupon code, min cart value, enable toggle; swap `fetch`/`onSave` for `embeddedScripts.getEmbeddedScript()`/`embedScript()`, string-converted both ways (see [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md)); use `withProviders` in place of the template's plain provider |
 | "Admin page to manage fees, with an app settings section" | D | One extension, not several — fee fields/calls into all four route components. Skipping the router's `location` plumbing here passes `tsc`/`wix build` silently and fails only in a browser |
 

@@ -1,8 +1,7 @@
 # Querying and paging a Wix API from a collection page
 
-> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) to stay under the 10,000-char reference limit —
-> `scripts/check-truncation.mjs` gates it in CI, because an agent fetching a longer file silently
-> loses the tail. That file finds the method and its fields; this one is about calling it.
+> Split out of [DATA_SOURCES.md](DATA_SOURCES.md) so each file covers one job: that one is about
+> finding the method and its fields, this one is about calling it.
 
 Filters are written in **WQL**, which is shared across the platform — the rules below come from
 [About the Wix API Query Language][wql], not from one endpoint's behaviour, so they hold for
@@ -141,13 +140,6 @@ has its own trap: [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
 
 Cursor mode also takes a separate `fetchTotal`, since a cursor-paged response carries no total.
 Build its filter exactly as the page's, or the count disagrees with the rows it counts.
-
-**Get that total from the endpoint's own count method** — `countExtendedBookings`, `countServices`,
-`countContacts` and their equivalents. The tempting shortcut is to re-run the query and read
-`pagingMetadata.total`, which compiles, runs, and always yields `undefined`: that field is
-documented as "returned if **offset** paging is used", so under cursor paging it is never
-populated. Wrapped in `?? 0` it becomes a confident zero, and a headline reading "0 bookings"
-above a full table is how it reaches the user.
 
 ## When a table will not settle
 

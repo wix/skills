@@ -28,7 +28,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with no drill-in and no working filters is what gets built when nobody states the requirement — the most common way a generated dashboard disappoints. The aggregate is the one of the three that is a judgment call; the other two are not.
-  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
+  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, **and which data path** — hand-wired ([DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)) for a vertical SDK, schema-driven ([DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md)) for a CMS collection — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/dts-bundle/index.json` for the component inventory, upgrading `@wix/patterns` if that file is missing. The patterns docs are only ever read directly from those two published files — never by hand from anywhere else in `node_modules`.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only, for whatever the template case didn't already show):** Printed the doc for every patterns component, hook, and state type the template doesn't already cover — `Read` its file from `dist/docs/index.json`, and `Read` its bundled `.d.ts` from `dist/dts-bundle/index.json` for any patterns type you name in your own code. The inventory gives the name; the doc gives the props and the import path. Name what you read before the first line of JSX beyond what the template already gave you. For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) rather than the bundle — the members are unobvious and several plausible ones don't exist. **A name absent from `dist/dts-bundle/index.json` is not a name that doesn't exist:** that index is a curated subset of the package's real exports (`CollectionErrorState` is exported and missing from it), so check `dist/types/index.d.ts` before substituting a different component.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
@@ -125,7 +125,8 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Filters, search, sorting, view presets/tabs | the collection's filter and view APIs |
 | Row actions, bulk actions, drag-and-drop | the collection's feature APIs |
 | Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` — worked skeleton (Cases B/D): [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
-| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
+| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form` (`useController`, never `register`). **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
+| **A collection whose fields the CMS owns** | `createCmsSchemaSource` (`@wix/patterns-cms`) + `tableSchemaSource` + `EntityPageFields` — the schema supplies fetch, filters, columns and the form. None of these names are in the docs bundle index; they are in `dist/types/index.d.ts`. See [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
 **Looking a component up is two direct file reads** — no script, never `node_modules` browsed by hand. Resolve the installed package root once per session ([Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites)), then reuse it. Start with what exists:
@@ -192,7 +193,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | App Tools (AI assistant tools) | Backend | `APP_TOOLS`, then `SERVICE_PLUGIN` with `pluginType: TOOLS_PROVIDER_CONFIG` | [APP_TOOLS.md](references/APP_TOOLS.md) |
 | Backend Event Extension | Backend | `EVENT` | [BACKEND_EVENT.md](references/BACKEND_EVENT.md) |
 | Backend API | Backend | — (manual, see banner below) | [BACKEND_API.md](references/BACKEND_API.md) |
-| Data Collection | Backend | `DATA_COLLECTION` | [DATA_COLLECTION.md](references/DATA_COLLECTION.md) (+ [SCHEMA](references/data-collection/SCHEMA.md), [LIFECYCLE](references/data-collection/LIFECYCLE.md)) |
+| Data Collection | Backend | `DATA_COLLECTION` | [DATA_COLLECTION.md](references/DATA_COLLECTION.md) |
 | Editor React component | Site | `EDITOR_REACT_COMPONENT` | [EDITOR_REACT_COMPONENT.md](references/EDITOR_REACT_COMPONENT.md) |
 | Custom element widget | Site | `CUSTOM_ELEMENT` | [CUSTOM_ELEMENT_WIDGET.md](references/CUSTOM_ELEMENT_WIDGET.md) |
 | Site Plugin | Site | `SITE_PLUGIN` | [SITE_PLUGIN.md](references/SITE_PLUGIN.md) |
@@ -227,6 +228,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Dashboard Collection Toolkit (which component per user need) | [COLLECTION_TOOLKIT.md](references/dashboard-page/COLLECTION_TOOLKIT.md) |
 | Draft template — start here for any dashboard page (Cases A/B/C/D) | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
 | Draft template — collection page for Cases A/B/D | [DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md) |
+| Draft template — CMS-backed collection + entity (schema-driven) | [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md) |
 | Draft template — router wiring for Cases B/D (Collection+Entity, or all three) | [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
 | Draft template — settings page for Cases C/D | [DRAFT_TEMPLATE_SETTINGS.md](references/dashboard-page/DRAFT_TEMPLATE_SETTINGS.md) |
 | The state object `useTableCollection()` returns | [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) |
@@ -457,21 +459,11 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 
 **Dashboard page UI only.** `tsc`, `wix build`, and `wix preview` all check that the code compiles and runs — none of them check that it's the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. A page with a bare, un-summarized, un-openable table compiles cleanly and still fails the requirement — that gap is exactly how a generated dashboard passes every technical check and still disappoints. Measured runs confirm it: a page can compile clean and still ship with none of the three items below, because the earlier checklist entries were a stated intention rather than something re-checked against the code that actually landed.
 
-**Run the check, don't recite it:**
-
-```bash
-node <skill-dir>/scripts/audit-dashboard-page.cjs src/extensions/dashboard/pages/<feature>
-```
-
-It exits non-zero on the findings below that can be checked mechanically, and it exists because
-the prose version passes by assertion. A measured page ticked every box here and still shipped a
-search that returned every row: the term was threaded through three call sites and never read by
-the filter builder. "Does `query.search` appear inside `fetchData`" was true; the filter was still
-unfiltered. Fix what it reports, then re-read the file for the judgment calls it can't make:
+Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
 
 - [ ] The aggregate decision from Step 2 is what actually landed. If the page has a `SummaryBar`, every metric earns its place and the headline counts what **matches the filters** (`state.collection.total`, fed by `fetchTotal`), not what has been paged in — any metric derived from `keyedItems` is labelled as such. If it has none, that was a decision you can state, not an omission.
 - [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
-- [ ] Every filter name declared in the toolbar, **and the search term**, is read inside the function that builds the query filter — not merely passed into `fetchData` or forwarded as an unused parameter. Reaching the api module is not reaching the query.
+- [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
 - [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
 - [ ] Every `@wix/*` vertical imported by the page's api module is a declared dependency, and each one's scope is listed under Manual Steps. Any call to a **secondary** vertical (an enrichment lookup, a filter's options, a search term resolved to ids) is wrapped so its failure degrades that feature instead of failing the page.
 

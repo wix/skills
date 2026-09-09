@@ -34,31 +34,38 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | A fixed in-memory option list for a filter | `useStaticListFilterCollection` |
 | Sorting | `Sortable Columns`, `MultiLevelSorting` |
 
-**A factory or hook's doc is often empty where its signature should be**, because props tables only exist for components. Look the name up in `dist/dts-bundle/index.json` instead — that gives the signature, e.g. `idNameArrayFilter: <T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. True of every `use…` hook and `…Filter` factory above.
+**Read the index once, then go straight to files.** `dist/dts-bundle/index.json` answers every name in this table in a single read — resolve it once per session and keep it, rather than re-reading it per lookup. Each entry names the exact file to open next.
 
-**Read the index once, then go straight to files.** `dist/dts-bundle/index.json` answers every name in this table in one read — resolve it once per session and keep it, rather than re-reading per component.
+**A factory or hook's doc is often empty where its signature should be** — the props table is generated for components, so `idNameArrayFilter`'s doc shows an `## API` heading with nothing under it. Its bundle has the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That holds for every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing a name and being able to call it — so for these, read the bundle the index names, not the doc.
 
 **The search box renders whether or not you wire one.** `search` defaults to ON, so a page that
 never mentions it still ships a search input that reaches no query and silently does nothing. Wire
 it (`search={<CollectionSearch />}`) *and* read `query.search` inside `fetchData`.
 
 **When the API has no free-text filter, resolve the term into every identity field it does have.**
-Deleting the box is wrong — the user asked for search — and picking one field is barely better: an
-exact email match finds nothing unless someone pastes a whole address. Read the *Supported Filters*
-page and enumerate, then `$or` over all of them, matched against lists you already fetched for the
+Deleting the box is the wrong fix — the user asked for search — and picking one field is barely
+better: an exact `contactDetails.email` match finds nothing unless someone pastes a whole address.
+Read the *Supported Filters* page and enumerate. Query Extended Bookings accepts service ids and the
+staff `resource.id` on both `bookedEntity` branches, plus `contactDetails.contactId` and `.email`, so
+a term becomes an `$or` over all of them, matched against the lists you already fetched for the
 filters. Give the no-match case an id nothing can reference, so "nothing found" means no rows.
 
-**A term only another vertical can resolve is optional, not required.** Matching a client name means asking Contacts for ids — a second vertical, a second scope, a second thing that can 403. Wrap it so failure costs one branch, not the page: [DATA_SOURCES.md](DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
+**A term only another vertical can resolve is optional, not required.** Client *name* isn't
+filterable on a booking, so matching it means asking Contacts for ids — a second vertical, a second
+scope, a second thing that can 403. Wrap it so failure costs one branch, not the page:
+[DATA_SOURCES.md](DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
 
-**Confirm the filter's field path before wiring it** — a path that reads correctly in the endpoint's prose can still be rejected, and its *Supported Filters* page settles it: [QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint).
+**Confirm the filter's field path before wiring it.** A path that reads correctly in the endpoint's
+prose can still be rejected, and the endpoint's *Supported Filters* page settles it — see
+[QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint).
 
 **A filter must narrow the result.** Declare it in the collection hook's `filters` map and read it inside `fetchData`, so the value reaches the query. Filter UI that renders but never changes the rows is a defect that looks like a feature — and it is the failure mode these components exist to prevent.
 
-**A column must show what its header promises.** Treat a generic-sounding field (`.title`, `.name`, `.summary`) as unverified until you've read its declaration. An `Extended*`/`*WithDetails` response shape usually exists precisely to attach the real related entity alongside the base record, so a generic summary field on the base item is not a substitute — and the mistake reads as correct until someone opens a record where the two disagree. Check every column, not just the uncertain ones.
+**A column must show what its header promises.** When mapping an API item to a row, treat a generic-sounding field (`.title`, `.name`, `.label`, `.summary`) as unverified until you've read its type declaration — `dist/dts-bundle/index.json` for a patterns type, the SDK's own bundled `.d.ts` for a Wix SDK response. An `Extended*`/`*WithDetails` response shape usually exists specifically to attach the real related entity (the service, the product, the contact) alongside the base record; a generic summary field on the base item is not a substitute for it, and the mistake reads as correct until someone opens a record where the two disagree. Do this for every column, not just the ones that look uncertain — the wrong-but-plausible field is the one nobody double-checks.
 
-**A `@deprecated` field is a wrong-column defect waiting to happen** — it and its replacement both compile and render, and the deprecated one is usually the rawer value. Grep for `@deprecated` around every field you map: [DATA_SOURCES.md](DATA_SOURCES.md#confirming-a-field--the-part-that-ships-bugs).
+**A field the SDK marks `@deprecated` is a wrong-column defect waiting to happen** — both it and its replacement compile and render, and the deprecated one is usually the rawer value. Grep the declaration for `@deprecated` around every field you map: [DATA_SOURCES.md](DATA_SOURCES.md#confirming-a-field--the-part-that-ships-bugs).
 
-**Row-mapping must cover every shape the API returns, not just the one your test data has.** A oneof field (Bookings' `bookedEntity` is `slot` or `schedule`) read one-variant-only renders blank cells for every row of the other kind, passes `tsc`, and looks right against whatever sample data was on hand. Find the oneof in the declaration first, and handle each branch.
+**Row-mapping must cover every shape the API returns, not just the one your test data has.** A Wix SDK response often carries a oneof for entities that take more than one form — Bookings' `bookedEntity` is `slot` for an appointment, `schedule` for a class or course. A mapper reading one variant renders blank cells for every row of the other, passes `tsc`, and looks right against whatever sample data was on hand. Find the oneof in the declaration before writing the mapper, and handle each branch.
 
 ## Investigate — opening one record
 
@@ -69,9 +76,9 @@ filters. Give the no-match case an id nothing can reference, so "nothing found" 
 | **Expanded row** | A couple of extra fields, no separate workspace needed. | The collection's own row expansion |
 | **Picker / bulk confirm** | Choosing records, or confirming an action on many. | `PickerModal` + `usePickerModal`, `bulkActionModal` |
 
-A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md); for the create route itself — registering it, and the four params that differ from the edit call — [ENTITY_PAGE_TOOLKIT.md § Create route](ENTITY_PAGE_TOOLKIT.md#create-route).
+A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md); for the create route itself — registering it, and the four params that differ from the edit call — [ENTITY_PAGE_TOOLKIT.md § Create route](ENTITY_PAGE_TOOLKIT.md#create-route). A row the user cannot open is the second most common failure after the missing aggregate.
 
-**Form state on an entity page** comes from `@wix/patterns/form` (`useForm`, `useController`), which re-exports `@wix/bex-core/form` wrapping `react-hook-form` — so that API is documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` for what the subpath gives you.
+**Form state on an entity page** comes from `@wix/patterns/form` — `useForm` for the form, `useController` for a single field. That subpath re-exports `@wix/bex-core/form`, which wraps `react-hook-form`, so its API is react-hook-form's and only a handful of its names appear in the patterns docs: `FieldValues`, `ControllerProps` and most of the rest are documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` to see what the subpath actually gives you.
 
 ## Act and confirm
 

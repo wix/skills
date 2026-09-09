@@ -1,8 +1,11 @@
 # Draft Template — Collection page (Cases A, B and D)
 
-> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) to keep both files under the 10,000-char
-> reference limit that `scripts/check-truncation.mjs` enforces. Pick your case there first.
-> This page is shared by A, B and D.
+> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) so the case chooser stays short. Pick your
+> case there first. This page is shared by A, B and D.
+
+> **This is the hand-wired path — you write `fetchData`, the filters and the columns.** If the rows
+> are a CMS collection, its schema already knows all three: use
+> [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) instead.
 
 ## The collection page
 
