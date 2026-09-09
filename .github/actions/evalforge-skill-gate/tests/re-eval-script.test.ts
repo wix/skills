@@ -60,7 +60,15 @@ const MANAGE_RUN: WorkflowRun = {
   html_url: 'https://github.com/wix/skills/actions/runs/901',
 };
 
+const REVIEW_RUN: WorkflowRun = {
+  id: 902,
+  status: 'completed',
+  conclusion: 'failure',
+  html_url: 'https://github.com/wix/skills/actions/runs/902',
+};
+
 const YAML_GATE = 'evalforge-yaml-gate.yml';
+const SKILL_REVIEW = 'evalforge-skill-review.yml';
 
 const run = (overrides: Partial<WorkflowRun>): WorkflowRun => ({ ...FAILED_RUN, ...overrides });
 
@@ -74,6 +82,8 @@ function harness(options: {
   runs?: WorkflowRun[];
   /** The wix-manage gate's runs — none by default, so a PR touching one skill is the base case. */
   manageRuns?: WorkflowRun[];
+  /** The skill reviewer's runs — none by default, for the same reason. */
+  reviewRuns?: WorkflowRun[];
   rerunError?: Error;
 } = {}) {
   const comments: string[] = [];
@@ -89,9 +99,13 @@ function harness(options: {
   });
   const listWorkflowRuns = vi.fn(async (query: Record<string, unknown>) => {
     runQueries.push(query);
-    const workflowRuns = query.workflow_id === YAML_GATE
-      ? options.manageRuns ?? []
-      : options.runs ?? [FAILED_RUN];
+    // Each gate gets its own fixture: routing every unrecognised id to the wix-app runs would
+    // make a newly added gate silently re-run someone else's workflow.
+    const byWorkflow: Record<string, WorkflowRun[] | undefined> = {
+      [YAML_GATE]: options.manageRuns ?? [],
+      [SKILL_REVIEW]: options.reviewRuns ?? [],
+    };
+    const workflowRuns = byWorkflow[String(query.workflow_id)] ?? options.runs ?? [FAILED_RUN];
     return { data: { workflow_runs: workflowRuns } };
   });
   const reRunWorkflow = vi.fn(async ({ run_id }: { run_id: number }) => {
@@ -133,8 +147,8 @@ function harness(options: {
   };
 }
 
-describe('the /re-eval command parse', () => {
-  // The `if:` on the job is a loose `contains`, so every comment naming the command reaches this
+describe('the command parse', () => {
+  // The `if:` on the job is a loose `contains`, so every comment naming a command reaches this
   // script. It is the strict parse that decides whether a live agent build gets paid for.
   it.each([
     ['the bare command', '/re-eval'],
@@ -150,11 +164,23 @@ describe('the /re-eval command parse', () => {
   });
 
   it.each([
+    ['the bare command', '/review'],
+    ['any case', '/Review'],
+    ['trailing words', '/review the new bundle skill'],
+  ])('acts on %s for the skill review', async (_label, body) => {
+    const test = harness({ body, reviewRuns: [REVIEW_RUN] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([REVIEW_RUN.id]);
+  });
+
+  it.each([
     ['mid-sentence use', 'I think we should /re-eval this one'],
-    ['a quoted retry note', '> Comment `/re-eval` to run the gate again, or push a new commit.'],
+    ['a quoted retry note', '> Comment `/review` to run the gate again, or push a new commit.'],
     ['a longer token', '/re-evaluate the scenario'],
+    ['a token that only starts like a command', '/reviewer please look at this'],
     ['an empty body', ''],
-    ['the command on a later line', 'context first\n/re-eval'],
+    ['the command on a later line', 'context first\n/review'],
   ])('ignores %s without touching the API', async (_label, body) => {
     const test = harness({ body });
     await test.execute();
@@ -254,7 +280,7 @@ describe('who may spend', () => {
 });
 
 describe('finding the run to re-run', () => {
-  it('asks for both gates, the PR trigger, and this head sha', async () => {
+  it('asks for both eval gates, the PR trigger, and this head sha', async () => {
     const test = harness();
     await test.execute();
 
@@ -272,6 +298,22 @@ describe('finding the run to re-run', () => {
         per_page: 1,
       }),
     ]);
+  });
+
+  // The point of the split: each command touches only its own workflows, so neither can spend on
+  // the other's behalf.
+  it('asks only for the reviewer on /review, and only for the gates on /re-eval', async () => {
+    const review = harness({ body: '/review', reviewRuns: [REVIEW_RUN] });
+    await review.execute();
+
+    expect(review.runQueries.map(query => query.workflow_id)).toEqual([SKILL_REVIEW]);
+    expect(review.rerunIds).toEqual([REVIEW_RUN.id]);
+    expect(review.comments[0]).toContain(SKILL_REVIEW);
+
+    const gates = harness();
+    await gates.execute();
+
+    expect(gates.runQueries.map(query => query.workflow_id)).not.toContain(SKILL_REVIEW);
   });
 
   it('re-runs the wix-manage gate on a PR that only touches that skill', async () => {
@@ -297,6 +339,17 @@ describe('finding the run to re-run', () => {
     expect(test.comments[0]).toContain('no eval gate run exists');
     expect(test.comments[0]).toContain('skills/wix-app');
     expect(test.comments[0]).toContain('yaml/wix-manage-evals');
+    expect(test.rerunIds).toEqual([]);
+  });
+
+  // The reviewer has no paths filter, so the gates' path list would name a cause that cannot apply.
+  it('declines a /review with a reason of its own, not the gates’ path list', async () => {
+    const test = harness({ body: '/review' });
+    await test.execute();
+
+    expect(test.comments[0]).toContain('no skill review run exists');
+    expect(test.comments[0]).toContain('cannot re-run the skill review');
+    expect(test.comments[0]).not.toContain('skills/wix-app');
     expect(test.rerunIds).toEqual([]);
   });
 });
