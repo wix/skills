@@ -8,8 +8,13 @@ triggerPrompt: >-
   Is my Wix site connected to Google Search Console and fully set up there? If something is
   missing, tell me what's blocking and what you'd do next, but don't change anything yet.
 tags: [seo]
-# Runs against the shared test site on purpose: the scenario is read-only and must hold for any
-# real state (not connected, pending, valid, invalid), so it needs no seeded data.
+# A fresh site is required, not optional: on the shared multi-site account the agent correctly
+# stops to ask which site to act on, and no status read happens. The scenario is read-only and
+# must hold for any real state (not connected, pending, valid, invalid), so it needs no seeded
+# data; a blank template site is simply NOT_CONNECTED.
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
