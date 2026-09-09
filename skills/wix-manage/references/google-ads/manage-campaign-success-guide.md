@@ -16,11 +16,10 @@ Base URL: `https://www.wixapis.com/pa-platform/suggestions/v1`. `<AUTH>` is the 
 
 ## Resolve the campaign
 
-The guide endpoints require a campaign UUID and site context, but users often provide only a campaign name or say "my campaign." Follow this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation.
+The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign." Google Ads calls operate on the current Wix site from the call context; the site is not a request-body field. Use an already-selected site context without asking the user to repeat it. If there is no unambiguous current site, ask which site to use instead of probing several sites. Follow the rest of this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation.
 
-1. Resolve the Wix site from the conversation or available site context. If no site is identifiable, ask which Wix site to use before calling a site-scoped campaign or guide endpoint. Do not guess or probe every accessible site.
-2. If the selected site and campaign UUID are both known, use them.
-3. If the site is known but the campaign UUID is not, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
+1. If the campaign UUID is known, use it in the current site context.
+2. Otherwise, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and list campaigns once for the current site:
 
    ```bash
    curl -X GET 'https://www.wixapis.com/google-ads/v1/campaigns' \
@@ -28,8 +27,8 @@ The guide endpoints require a campaign UUID and site context, but users often pr
    ```
 
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
-4. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.
-5. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
+3. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.
+4. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
 
 The common flow always sends `platformType: "GOOGLE"`; do not ask the user to provide it.
 
@@ -80,7 +79,7 @@ Do not return a bare list of task labels. Turn the returned suggestions into a c
 4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
 5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.
 
-The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. If no selected site is in context, list accessible sites. When exactly one Wix site is accessible, use it for navigation; when several are accessible, present the action plan immediately and ask which site's CTAs to add. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
+The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. Resolving navigation is read-only and does not require approval, including when the user says not to change anything yet. Use the selected site's `id` and `editUrl` from available site context. If those fields are absent, use the available site-listing capability once; its site result supplies `id`, `displayName`, `editUrl`, and `editorType`. When exactly one site is available, use it for navigation. When several sites are available and none is selected, present the action plan immediately and ask which site's CTAs to add. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
 
 ### Which action to offer
 
@@ -105,7 +104,7 @@ Read `account.id`, `account.merchantCenterAccountId`, and `account.merchantCente
 
 ### Build destination-specific CTAs
 
-- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the selected site's exact `editUrl` from available site context. If it is not available, list the accessible sites and read the selected site's `editUrl`; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
+- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the exact `editUrl` from the selected site context or the single site-listing result described above; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
 - **Google Ads:** When a returned item belongs in Google Ads, use the verified route from [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md): `https://manage.wix.com/dashboard/{metaSiteId}/google-ads`. Label the CTA **Go to Google Ads** or name the specific campaign action.
 - **Other destinations:** Name the destination or action in the CTA, such as **Open Forms dashboard**, **Review site speed**, or **Connect Google Business Profile**. Never make several unrelated links look like the same generic action.
 - Include only relevant destinations and list each URL once. Authorization URLs created by a later connection flow are task-specific; return one only after the user accepts that offer and the flow creates it.
@@ -160,7 +159,7 @@ The update endpoint identifies the suggestion by its **`type`**, not its suggest
 
 Before executing an update:
 
-1. Identify the campaign and a suggestion `type` currently present in its latest guide. If the conversation and available context contain no site or campaign identity, stop before using any site-listing, campaign, or guide capability and ask which Wix site or campaign the update is for. Scanning accessible sites cannot establish the user's intent because the same recommendation type can exist on multiple campaigns.
+1. Identify the campaign and a suggestion `type` currently present in its latest guide. Use an unambiguous current site context and the campaign-resolution flow above; listing that site's campaigns once is valid context resolution. Ask one focused site or campaign question only when the current context or campaign results leave more than one plausible target. Do not probe several sites or guess, because the same recommendation type can exist on multiple campaigns.
 2. Match the user's wording to one returned suggestion and infer the requested status only when it is clear: a statement that they completed the recommendation means `COMPLETED`; a request to reopen it means `OPEN`.
 3. Execute immediately when the campaign, suggestion, and status are unambiguous. The completion statement is approval for this tracking-status update; do not ask a redundant confirmation question. Ask one targeted clarification only when identity, suggestion, or intended status is unclear; never guess.
 
@@ -215,7 +214,7 @@ If a mutation times out with an unknown outcome, do not retry automatically. Ret
 | `PLATFORM_NOT_SUPPORTED` | Use `GOOGLE`; do not substitute another platform value. |
 | `CAMPAIGN_TYPE_NOT_SUPPORTED` | Explain that success guides currently support Google Ads Performance Max Leads campaigns only. |
 | `SUGGESTION_NOT_FOUND` | Retrieve the latest guide and choose a `type` actually present; do not keep retrying stale data. |
-| Authentication or permission error | Stop after the first rejected campaign or guide call. If no Wix site was selected, ask one targeted site-selection question rather than diagnosing the account or trying another endpoint. If a site was selected, explain that the current collaborator cannot access or modify it. Do not try alternate base URLs, infer that Google Ads is not installed, or probe other endpoints to bypass authorization. |
+| Authentication or permission error | Stop after the first rejected campaign or guide call and explain that the current collaborator cannot access or modify it. Do not try alternate base URLs, infer that Google Ads is not installed, or probe other sites or endpoints to bypass authorization. |
 
 ## References
 

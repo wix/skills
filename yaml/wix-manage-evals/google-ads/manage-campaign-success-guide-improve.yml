@@ -19,18 +19,16 @@ assertions:
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
       - explains that the guide is the next step for prioritized improvements;
-      - because the request provides no site or campaign identity, asks one
-        focused question to identify the Wix site or campaign before making any
-        site-scoped campaign or guide API call; and
+      - uses an unambiguous current site context when available and may list
+        that site's campaigns once to identify the target; if the current site
+        or campaign remains ambiguous, asks one focused selection question
+        rather than guessing or probing other sites; and
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
-      This scenario evaluates routing and guidance; it does not require a live
-      guide retrieval against the shared test site.
-
       Fail if it gives only generic optimization advice, routes only to analytics
       or pre-campaign suggestions, tells the user to wait for metrics, probes
-      sites or campaigns before resolving identity, or claims recommendations
+      several sites, guesses an ambiguous campaign, or claims recommendations
       are automatically implemented.
   - type: llm_judge
     minScore: 7
@@ -38,11 +36,12 @@ assertions:
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
       trace. Score 0-10, where 10 is a direct path to the campaign success guide
-      documentation followed by concise guidance and one targeted site/campaign
-      selection question. No live API call is needed because the prompt omits
-      the site and campaign identity. Penalize querying analytics first, routing
-      through pre-campaign suggestions, listing or probing sites, guessing a
-      campaign or installation state, non-2xx calls, redundant documentation,
-      and internal service or tool names in the user-facing answer.
+      documentation followed by concise guidance and efficient target
+      resolution: use the current site context, list its campaigns at most once
+      if needed, and ask one focused question only if ambiguity remains.
+      Penalize querying analytics first, routing through pre-campaign
+      suggestions, probing multiple sites, guessing a campaign or installation
+      state, repeated non-2xx calls, redundant documentation, and internal
+      service or tool names in the user-facing answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
