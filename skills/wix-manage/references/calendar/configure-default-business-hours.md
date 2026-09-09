@@ -105,7 +105,27 @@ Query pattern:
 
 **Important**: Always query for MASTER events specifically to see actual recurring schedules.
 
-**Expected Result**: You will typically find 5 existing MASTER events (Monday through Friday, one per weekday) from the default Bookings installation; their times vary by site.
+**Expected Result**: You will typically find 5 existing MASTER events (Monday through Friday, one per weekday) from the default Bookings installation; their times vary by site. The response fields this flow reads (trimmed — real responses carry more):
+
+```json
+{
+  "events": [
+    {
+      "id": "cc4d5588...e3a373",
+      "scheduleId": "<BUSINESS_SCHEDULE_ID>",
+      "type": "WORKING_HOURS",
+      "recurrenceType": "MASTER",
+      "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] },
+      "start": { "localDate": "2026-08-31T10:00:00", "timeZone": "America/New_York" },
+      "end": { "localDate": "2026-08-31T18:00:00", "timeZone": "America/New_York" },
+      "revision": "1"
+    }
+  ]
+}
+```
+
+- Update and cancel calls target `events[].id`; updates also need that event's current `revision`.
+- `recurrenceRule.days` tells you which weekday each event covers; `start`/`end` `localDate` carry the current hours in the schedule's `timeZone`.
 
 ### 3. Choose Your Strategy: Update OR Replace
 
