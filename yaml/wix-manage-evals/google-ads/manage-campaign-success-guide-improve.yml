@@ -4,7 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  How can I get more out of my existing Google Ads campaign on this Wix site?
+  What should I fix next in my existing Wix Google Ads campaign on this site?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
