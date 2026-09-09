@@ -39,7 +39,9 @@ paths).
 
 A missing *file* is not the same as a name not being covered — see below.
 
-**Patterns API facts come only from the three published trees — `dist/docs/` (the pages), `dist/dts-bundle/` (the types) and `dist/examples/` (the worked calls).** Never source a component, prop or type from `src/`, `dist/types/`, `dist/esm/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
+**Patterns API facts come only from the three published trees — `dist/docs/` (the pages), `dist/dts-bundle/` (the types) and `dist/examples/` (the worked calls).** Never source a component, prop or type from `src/`, `dist/esm/`, `dist/cjs/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
+
+`dist/types/` is the one exception, and a narrow one: `package.json` points `types` at it, so it is the declaration `tsc` itself enforces. Reach for it only in the case step 5 names — a prop declaration the bundle stubbed away.
 
 Inside those three trees, read however is cheapest. `grep`/`sed` to pull one declaration out of a bundle is fine and usually better than a whole-file read — the ban is on *crawling elsewhere* for an answer these three trees already hold, not on being economical within them.
 
@@ -50,9 +52,12 @@ open — none of them is a guess.
 
 ### 1 — The index
 
-`Read <pkgRoot>/dist/docs/index.json`. **Start here, not with the bundle index.** It carries an
-entry for every documented name *and* the library's own guides, and it is the larger of the
-two.
+**Probe `<pkgRoot>/dist/docs/index.json` — do not read it whole.** At ~80 KB a `Read` truncates
+part-way through and reports nothing, so the tail goes silently missing. Pull what you need with
+one `grep`/`python3` call, resolving every symbol you plan to write in that same call.
+
+Start here, not with the bundle index: it carries an entry for every documented name *and* the
+library's own guides, and it is the larger of the two.
 
 **Read each entry's `summary` before deciding to open anything.** It is the opening paragraph
 of that page's description — what the symbol is and how it wires into your code — so for most
@@ -71,6 +76,13 @@ another package, whose real declaration it inlines. That index carries `importPa
 too, so step 4 still applies; there is simply no page to read. Which names those are is the
 library's answer and changes with it, so resolve the one you want against the index rather
 than against a list here.
+
+**To see that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB,
+one read, every curated name with its `kind`, `importPath` and file, tab-separated. Newer
+builds add `bytes`, `props` (`5/63` — what the file declares against what the symbol has) and
+`stubs`, which is step 5's triage for the whole namespace in a single read. Resolve names
+against the `.txt`; drop to the `.json` for `readWith` itself, `readWithBytes`, and the status
+prose.
 
 An entry's `status: "deprecated"` means use what its `statusMessage` names instead. Nothing
 else in this chain will stop you: a deprecated component still compiles and still renders.
@@ -104,8 +116,8 @@ from step 1 says which of them exist, so decide before you open anything:
 | --- | --- | --- |
 | What is it, and how does it wire into my code? | **nothing** — the entry says | `summary` |
 | Where do I import it from? | **nothing** — the entry says | `importPath` |
-| How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example** | `<pkgRoot>/dist/examples/<examples[i]>` |
-| What props does it take, and which are optional? | the **`.d.ts`** *or* the doc — never both | `bundle` present: `<pkgRoot>/dist/dts-bundle/<bundle>` · absent: `<pkgRoot>/dist/docs/<file>` |
+| How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example**, or a call in a guide's prose | `<pkgRoot>/dist/examples/<examples[i]>` · `<pkgRoot>/dist/docs/<guide>.md` |
+| What props does it take, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `<pkgRoot>/dist/dts-bundle/<bundle>` · absent: `<pkgRoot>/dist/docs/<file>` |
 | Is there a setup requirement or a gotcha? | the **doc's** prose | `<pkgRoot>/dist/docs/<file>` |
 
 The index hands you a bare value and the tree it belongs to is fixed — one tree per kind of
@@ -113,6 +125,18 @@ answer: `file` is relative to `dist/docs/`, `examples` to `dist/examples/`, `bun
 `dist/dts-bundle/`. Prefix them, and never reconstruct a path from the symbol name. (Examples
 moved out of `dist/docs/` into their own tree; on an install predating that, the same relative
 path resolves under `dist/docs/`, and the page's own "Example code: read" line says which.)
+
+**Those two middle rows are one question in practice.** You ask "how do I call it", start
+writing, and the question turns prop-shaped mid-call — at which point the second row sends you
+to a `.d.ts` that may be stubbed (step 5). So take the props off the example first: it shows
+them in use, correctly typed, in a real call. Go to the `.d.ts` for what an example cannot
+show — whether a prop is optional, the members of a union, an exact callback signature.
+
+**A guide's prose often holds the call you need, matched to your use case.** `PrimaryActions`
+earned this line: its bundle stubs its own props type to `Record<string, unknown>`, while
+`usePatternsNavigate.md` carries `<PrimaryActions label="Add shift" onClick={…} />` verbatim,
+for exactly the add-button-on-a-collection-page case. When a step 3 guide named the component,
+the call is often already in something you have read — check that before opening anything.
 
 **`bundle` and a doc props table are mutually exclusive.** An entry with `bundle` has no table
 on its page — its `### Props` is only a pointer, so reading the page for props is a wasted hop.
@@ -157,7 +181,7 @@ Worked through on one entry, exactly as step 1 hands it to you:
 - **The entry offers nothing at all?** It is a guide, or a state object you receive rather than
   construct. Its doc is the only source — read it.
 
-### 5 — Two traps that make a read wrong
+### 5 — Traps that make a read wrong
 
 **Search inside the file an index named, never across the tree.** A shared shape is re-stubbed
 in every bundle that references it, and a stub is a pointer, not a declaration — some types
@@ -165,11 +189,42 @@ appear as a stub in dozens of files and are declared for real in exactly one. A 
 `grep` for a type name therefore returns mostly pointers, and the first hit is usually not the
 answer. Resolve the name to one file first, then search *that* file.
 
-**A `…Params` type is often a `Pick<>` or `Omit<>` of a type declared in another file**, so no
-single file states the resolved shape — resolving it means intersecting a key list here with a
-declaration there. Before starting that, check the bundle entry's `readWith`: it names the
-files this one stubs, so you learn whether the answer is one file or ten. When it names more
-than a couple, **read the example instead** and use the types only to confirm what you saw.
+**Most bundles stub the parent that holds the props — 70 of the 105 curated entries do** — and
+the index says so per entry, before you open anything. A symbol's props usually live on a type
+it extends, and that parent arrives as `{[key: string]: unknown}` under a "cut here because it
+has its own bundle" comment, so the file can declare almost none of them.
+
+**`dist/dts-bundle/index.json` is the triage surface, not merely a fallback for names the docs
+index lacks.** A component entry there carries `ownProps` / `inheritedProps` — what that file
+declares against what the symbol has — beside `bytes` and `readWith`. So "is this file the
+whole answer" is a lookup, never an inspection:
+
+- `Table` → `ownProps: 5, inheritedProps: 58`, `readWith` naming 3 files. Five of sixty-three.
+- `PrimaryActions` → `ownProps: 0, inheritedProps: 12`. A 470-byte file declaring none of them.
+- No `ownProps` on a component entry means no split: that file *is* the whole answer.
+
+Builds that ship it carry the same two in `index.txt` as `props` (`5/63`) and `stubs`, so one
+cheap read triages every symbol at once. A `…Params` type built from `Pick<>`/`Omit<>` is the
+same trap in another shape.
+
+A split is not a dead end. The parent is a real file, `readWith` names it, and a stub in the
+file names it too — so **read that one file; it is one hop, not N.** The rest of `readWith` is
+types referenced *inside* it, which you open only if you need them. Judge by the entry's own
+`bytes`, never `readWithBytes`: `Table`'s are 5,277 and 31,731, and `CollectionTableBaseProps`'s
+are 20,802 and 78,171 — of which 37 KB is one file irrelevant to the props. The combined number
+talks you out of a read you should just do.
+
+**When you do need several of the `readWith` files, read them in one call** — one `Read` per
+file in a single message. Reads measure ~21 ms each, so ten of them is a fifth of a second and
+one round trip. Deciding is what costs; decide once, then batch. Never hop one file per turn.
+
+**If the parent is genuinely large, take the declaration `tsc` uses.** `dist/types/` is the
+enforced contract (per `package.json` `types`), carries JSDoc, and marks optionality — and here
+it is *smaller* than the doc tree's version:
+`dist/types/components/CollectionTable/CollectionTable.d.ts` is 5,919 B against the bundle's
+20,802 B and states `columns: TableColumn<T>[]` (required) outright. Use it for this only — a
+prop declaration the bundle stubbed. Nothing there is stubbed, so unlike the bundle tree a
+tree-wide `grep` for a prop name is reliable.
 
 What the generated files' conventions mean — which one-line stubs are answers rather than
 truncation, what a bare `import` implies, how entry-point files are scoped — is the library's
@@ -190,14 +245,16 @@ so a large defensive batch is slow before it is useful. A few deliberate reads b
 just-in-case ones.
 
 ```
-call 1   Read <pkgRoot>/dist/docs/index.json          <- names, importPath, bundle, examples
-         Read <pkgRoot>/dist/docs/Collection Toolkit.md   <- a guide, from step 3
+call 1   probe <pkgRoot>/dist/docs/index.json       <- names, importPath, bundle, examples
+         Read  <pkgRoot>/dist/docs/Collection Toolkit.md   <- a guide, from step 3
 
          then, per symbol, from the entry you now hold:
            importPath present            -> read nothing
            need the call shape           -> read the one example
-           need props, `bundle` present  -> read that one .d.ts
-           need props, no `bundle`       -> read the doc
+           need props                    -> the example first
+           props the example can't show,
+             `bundle` present            -> that one .d.ts, unless it stubs (step 5)
+             no `bundle`                 -> the doc
            need a setup requirement      -> read the doc
 
 call 2   Read <the files that survived>
@@ -223,8 +280,10 @@ set, collect them and read them together — after checking you still need them.
   skill; do not open WDS files, and do not follow a deep `@wix/design-system/dist/...` path a
   bundle mentions.
 - **If a name you genuinely need isn't in either index, stop and say so** — name the file and
-  the exact path that dead-ended. Do not guess a shape, and do not fall back to `node_modules`:
-  a wrong guess compiles and breaks at runtime, which is worse than a missing type.
+  the exact path that dead-ended. Do not guess a shape, and do not go hunting elsewhere in
+  `node_modules` — the `dist/types/` fallback in step 5 is the only sanctioned one, and it
+  applies to a stubbed prop declaration, not to a missing name. A wrong guess compiles and
+  breaks at runtime, which is worse than a missing type.
 
 ## When Patterns Has No Equivalent
 

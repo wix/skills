@@ -27,11 +27,11 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with neither of the two is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/docs/index.json` — the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/types/`, or any other path inside the package.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have, and read that one — not all three:
     - **Where do I import it from?** → the entry's `importPath`. No file read at all.
     - **How do I call it?** (generics, what a callback receives and returns, how the pieces nest) → the **example** named in `examples`. One worked example beats reconstructing a call from a chain of type files; a hook's example is often filed under the component it pairs with.
-    - **What props, and which are optional?** → entry has `bundle` ⇒ read that `.d.ts`; entry has no `bundle` ⇒ the doc's own table is complete and marks `Required`, so read the doc. The two are mutually exclusive — reading both is always one hop too many.
+    - **What props, and which are optional?** → **the example first** — it shows the props in use, correctly typed. For what an example cannot show (optionality, union members, an exact callback signature): entry has `bundle` ⇒ read that `.d.ts`; entry has no `bundle` ⇒ the doc's own table is complete and marks `Required`, so read the doc. The two are mutually exclusive — reading both is always one hop too many. **Two thirds of bundles stub the parent that holds the props** (`propsTotal` far above what the file declares is the tell); when that happens, read the parent the index names — one hop — batch any `readWith` files you still need into a single call, and fall back to `dist/types/` for the declaration `tsc` enforces. WIX_PATTERNS_DOCS.md step 5 has the procedure.
     - **Any setup requirement or gotcha?** → the doc's prose. Rare, but load-bearing where present (routers, providers).
 
     State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
@@ -123,7 +123,8 @@ up rather than assembling it from WDS parts.
 that answer as guides inside the installed package, with every component name in them checked
 against the real package at build time. Walk them: [The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
-The short version — `Read <pkgRoot>/dist/docs/index.json` first, then the guides it lists. From
+The short version — probe `<pkgRoot>/dist/docs/index.json` first (`grep`/`python3`, not a
+whole-file `Read`), then the guides it lists. From
 there the index answers per symbol: `importPath` is the import line (no read needed), `examples`
 names the worked call, and `bundle` says whether props live in a `.d.ts` or in the doc's own
 table. Read the one artifact your open question needs. Resolve `<pkgRoot>` once per session
