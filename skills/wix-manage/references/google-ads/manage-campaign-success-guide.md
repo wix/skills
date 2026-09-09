@@ -16,7 +16,7 @@ Base URL: `https://www.wixapis.com/pa-platform/suggestions/v1`. `<AUTH>` is the 
 
 ## Resolve the campaign
 
-The guide endpoints require a campaign UUID and site context, but users often provide only a campaign name or say "my campaign."
+The guide endpoints require a campaign UUID and site context, but users often provide only a campaign name or say "my campaign." Follow this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation.
 
 1. Resolve the Wix site from the conversation or available site context. If no site is identifiable, ask which Wix site to use before calling a site-scoped campaign or guide endpoint. Do not guess or probe every accessible site.
 2. If the selected site and campaign UUID are both known, use them.
@@ -35,7 +35,7 @@ The common flow always sends `platformType: "GOOGLE"`; do not ask the user to pr
 
 ## Retrieve or create the guide
 
-Skip this call when the conversation already contains a retrieved guide or its recommendations; present the supplied result using the next section instead of retrieving it again. When the user paraphrases recommendation labels, map them to the closest unambiguous suggestion types in the translation table. Wording such as "still need to" or "still to do" means those items are `OPEN`.
+Skip this call when the conversation already contains a retrieved guide or its recommendations; immediately present the supplied result using the next section instead of retrieving it again or asking for campaign identity. When the user paraphrases recommendation labels, map them to the closest unambiguous suggestion types in the translation table. Wording such as "still need to" or "still to do" means those items are `OPEN`.
 
 ```bash
 curl -X POST \
@@ -80,7 +80,7 @@ Do not return a bare list of task labels. Turn the returned suggestions into a c
 4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
 5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.
 
-The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
+The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. If no selected site is in context, list accessible sites. When exactly one Wix site is accessible, use it for navigation; when several are accessible, present the action plan immediately and ask which site's CTAs to add. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
 
 ### Which action to offer
 
