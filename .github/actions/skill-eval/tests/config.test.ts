@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@actions/core', () => ({ getInput: vi.fn(), setSecret: vi.fn(), warning: vi.fn() }));
+/** Mutable so the author-association cases can vary it; reset in beforeEach. */
+const basePullRequest = {
+  number: 42,
+  base: { sha: 'base-sha-123' },
+  head: { sha: 'head-sha-456' },
+  author_association: 'MEMBER',
+};
+const payload: { pull_request: Record<string, unknown> } = { pull_request: { ...basePullRequest } };
+
 vi.mock('@actions/github', () => ({
   context: {
-    payload: {
-      pull_request: {
-        number: 42,
-        base: { sha: 'base-sha-123' },
-        head: { sha: 'head-sha-456' },
-      },
-    },
+    get payload() { return payload; },
     repo: { owner: 'wix', repo: 'skills' },
   },
 }));
@@ -30,6 +33,7 @@ const ALL_INPUTS: Record<string, string> = {
 
 beforeEach(() => {
   vi.mocked(core.getInput).mockImplementation((name: string) => ALL_INPUTS[name] ?? '');
+  payload.pull_request = { ...basePullRequest };
 });
 
 describe('getEvalConfig', () => {
@@ -47,6 +51,15 @@ describe('getEvalConfig', () => {
     expect(config.headSha).toBe('head-sha-456');
     expect(config.owner).toBe('wix');
     expect(config.repo).toBe('skills');
+    expect(config.authorAssociation).toBe('MEMBER');
+  });
+
+  // The author gate falls back to an API lookup on undefined, so this must not
+  // become an empty string or the fallback is skipped for a payload that has none.
+  it('leaves the author association undefined when the payload carries none', () => {
+    const { author_association: _dropped, ...rest } = basePullRequest;
+    payload.pull_request = rest;
+    expect(getEvalConfig().authorAssociation).toBeUndefined();
   });
 
   it('masks all secret inputs', () => {

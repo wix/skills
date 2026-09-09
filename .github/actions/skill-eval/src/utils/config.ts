@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { readAuthorAssociation } from '@wix/evalforge-core';
 
 export type Config = {
   githubToken: string;
@@ -14,6 +15,8 @@ export type Config = {
   headSha: string;
   owner: string;
   repo: string;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation?: string;
   blocking: boolean;
 };
 
@@ -52,6 +55,7 @@ export function getEvalConfig(): Config {
     headSha,
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+    authorAssociation: readAuthorAssociation(github.context.payload),
     blocking: core.getInput('blocking') !== 'false',
   };
 }
