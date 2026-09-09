@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { getFirstCommitAuthorEmail, isWixAuthorEmail } from '@wix/evalforge-core';
+import { isSameRepoBranch } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
@@ -80,16 +80,10 @@ export async function runReview(): Promise<void> {
     return;
   }
 
-  // Not `assertWixAuthor`: it throws, which would turn a lookup blip into a red check.
-  let authorEmail: string | undefined;
-  try {
-    authorEmail = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-  } catch (error) {
-    await reportUnavailable(`the PR author could not be resolved (${String(error)})`, pending, config.isBlocking);
-    return;
-  }
-  if (!isWixAuthorEmail(authorEmail)) {
-    const reason = 'the PR author is not a wix author';
+  // Not `assertSameRepoBranch`: this mode skips rather than throwing. The head repo is on
+  // the payload, so the answer is always available and there is nothing here that can fail.
+  if (!isSameRepoBranch(config.headRepoFullName, config.owner, config.repo)) {
+    const reason = 'the PR branch is not in this repository, so its author has no write access';
     core.info(`Skipping the skill review — ${reason}`);
     await comment(formatReviewSkipped(reason));
     await pending.clear();
