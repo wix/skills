@@ -67,7 +67,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@wix/evalforge-core')>();
   return {
     ...actual,
-    getFirstCommitAuthorEmail: vi.fn(),
+    getHeadCommitAuthorEmail: vi.fn(),
     loadScenarios: vi.fn().mockReturnValue({ scenarios: new Map(), errors: [] }),
     EvalForgeClient: vi.fn().mockImplementation(() => ({
       listTestScenarios,
@@ -96,13 +96,13 @@ describe('runSync — author gate', () => {
 
   it('skips the sync (no EvalForge calls, no setFailed) when the PR author is not a @wix.com address', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
-    const { getFirstCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
     const core = await import('@actions/core');
     const { loadScenarios, EvalForgeClient } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
 
     vi.mocked(getSyncConfig).mockReturnValue(baseConfig);
-    vi.mocked(getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
     const setFailedSpy = vi.spyOn(core, 'setFailed');
     const infoSpy = vi.spyOn(core, 'info');
 
@@ -117,13 +117,13 @@ describe('runSync — author gate', () => {
 
   it('proceeds with the sync when the PR author is a @wix.com address', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
-    const { getFirstCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
     const core = await import('@actions/core');
     const { loadScenarios, EvalForgeClient } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
 
     vi.mocked(getSyncConfig).mockReturnValue(baseConfig);
-    vi.mocked(getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
     await runSync();
@@ -136,7 +136,7 @@ describe('runSync — author gate', () => {
 
   it('drives create/update/delete end to end against a non-empty remote', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
-    const { getFirstCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
     const core = await import('@actions/core');
     const { loadScenarios, repoTagFor } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
@@ -150,7 +150,7 @@ describe('runSync — author gate', () => {
     });
 
     vi.mocked(getSyncConfig).mockReturnValue(baseConfig);
-    vi.mocked(getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
     vi.mocked(loadScenarios).mockReturnValue({
       scenarios: new Map([
         ['kept', { path: 'yaml/wix-app-evals/kept.yml', scenario: scenario('kept') }],
@@ -178,13 +178,13 @@ describe('runSync — author gate', () => {
 
   it('fails the run on YAML load errors without touching EvalForge', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
-    const { getFirstCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
     const core = await import('@actions/core');
     const { loadScenarios, EvalForgeClient } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
 
     vi.mocked(getSyncConfig).mockReturnValue(baseConfig);
-    vi.mocked(getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
     vi.mocked(loadScenarios).mockReturnValue({
       scenarios: new Map(),
       errors: [{ path: 'yaml/wix-app-evals/bad.yml', message: 'duplicate name "x"' }],
@@ -201,13 +201,13 @@ describe('runSync — author gate', () => {
 
   it('fails the run when an EvalForge action throws', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
-    const { getFirstCommitAuthorEmail } = await import('@wix/evalforge-core');
+    const { getHeadCommitAuthorEmail } = await import('@wix/evalforge-core');
     const core = await import('@actions/core');
     const { loadScenarios, repoTagFor } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
 
     vi.mocked(getSyncConfig).mockReturnValue(baseConfig);
-    vi.mocked(getFirstCommitAuthorEmail).mockResolvedValue('dev@wix.com');
+    vi.mocked(getHeadCommitAuthorEmail).mockResolvedValue('dev@wix.com');
     vi.mocked(loadScenarios).mockReturnValue({ scenarios: new Map(), errors: [] });
     listTestScenarios.mockResolvedValueOnce([
       { id: 'r2', name: 'gone', tags: [repoTagFor(baseConfig.repo)] },

@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { EvalForgeClient, getFirstCommitAuthorEmail, isWixAuthorEmail, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
-import { getSyncConfig } from './config';
+import { EvalForgeClient, getHeadCommitAuthorEmail, isWixAuthorEmail, isWixOrgAuthor, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
+import { getAuthorAssociation, getSyncConfig } from './config';
 import { workspaceRoot } from './workspace';
 
 export type ApplyPlanResult = { hasFailures: boolean };
@@ -44,9 +44,11 @@ export async function runSync(): Promise<void> {
 
   const octokit = github.getOctokit(config.githubToken);
   const [owner, repoName] = config.repo.split('/', 2);
-  const authorEmail = await getFirstCommitAuthorEmail(octokit, owner, repoName, config.prNumber);
-  if (!isWixAuthorEmail(authorEmail)) {
-    core.info('Skipping wix-app sync — PR author is not a @wix.com address');
+  const authorized =
+    isWixOrgAuthor(getAuthorAssociation()) ||
+    isWixAuthorEmail(await getHeadCommitAuthorEmail(octokit, owner, repoName, config.prNumber));
+  if (!authorized) {
+    core.info('Skipping wix-app sync — PR author is not a Wix author');
     return;
   }
 
