@@ -26,7 +26,7 @@ Wix Bookings default business hours define the base availability for your bookin
 
 ### 🚨 CRITICAL: Default Hours Upon Installation
 
-**IMPORTANT**: When Wix Bookings is first installed on a site, it automatically creates DEFAULT business hours — five Monday-through-Friday recurring events (exact times vary by site, e.g. 10 AM - 6 PM in the site's business time zone). You CANNOT simply create new hours without handling these existing default hours first.
+**IMPORTANT**: When Wix Bookings is first installed on a site, it automatically creates DEFAULT business hours — one recurring event per default working day. The exact days and times vary by site and template: a bare install creates Monday–Friday 10 AM–6 PM (per [About Business Schedules](https://dev.wix.com/docs/api-reference/business-management/calendar/about-business-schedules)), but template-created sites can differ (e.g. include Saturday). You CANNOT simply create new hours without handling these existing default hours first.
 
 **You MUST either:**
 1. **Update the existing default hours** to your desired schedule, OR
@@ -49,9 +49,9 @@ Wix Bookings default business hours define the base availability for your bookin
 
 ### Key Discovery: Universal Business Schedule External ID
 
-**VERIFIED**: The business schedule external ID `"4e0579a5-491e-4e70-a872-d097eed6e520"` is **universal across all Wix sites**.
+**VERIFIED**: The business schedule external ID `"4e0579a5-491e-4e70-a872-d097eed6e520"` is **universal across all Wix sites** — documented in [About Business Schedules](https://dev.wix.com/docs/api-reference/business-management/calendar/about-business-schedules) ("The business schedule always uses the `externalId` value `4e0579a5-491e-4e70-a872-d097eed6e520`").
 
-This has been tested and confirmed on multiple different Wix sites:
+This has also been tested and confirmed on multiple different Wix sites:
 - All sites have a business schedule with this exact external ID
 - The schedule name is consistently `"business"`
 - While the internal schedule `id` varies per site, the `externalId` is constant
@@ -105,7 +105,7 @@ Query pattern:
 
 **Important**: Always query for MASTER events specifically to see actual recurring schedules.
 
-**Expected Result**: You will typically find 5 existing MASTER events (Monday through Friday, one per weekday) from the default Bookings installation; their times vary by site. The response fields this flow reads (trimmed — real responses carry more):
+**Expected Result**: One MASTER event per default working day. Don't assume which days: a bare Bookings install has Monday–Friday, but template-created sites can carry a different set (e.g. Monday–Saturday), and times vary by site — this query is what tells you what's actually there. The response fields this flow reads (trimmed — real responses carry more):
 
 ```json
 {
@@ -250,6 +250,7 @@ Query the business schedule events again to confirm:
 
 ## API Documentation References
 
+* [About Business Schedules](https://dev.wix.com/docs/api-reference/business-management/calendar/about-business-schedules)
 * [Query Schedules](https://dev.wix.com/docs/api-reference/business-management/calendar/schedules-v3/query-schedules)
 * [Query Events](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/query-events)
 * [Bulk Create Events](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)
