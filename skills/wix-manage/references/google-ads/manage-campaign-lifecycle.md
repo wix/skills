@@ -12,7 +12,7 @@ Operate on campaigns that already exist. Base URL: `https://www.wixapis.com/goog
 
 ## Read
 
-- **List:** `GET /v1/campaigns` → `{ "campaigns": [ … ] }` — every campaign on the site (max 1,000), with no filter or paging parameters. Each entry is a **complete `Campaign`**, the same shape Get returns: `locations`, `adSchedule` and the `smartCampaign` / `performanceMaxCampaign` block included, not a trimmed summary.
+- **List:** `GET /v1/campaigns` → `{ "campaigns": [ … ] }` — every campaign on the site, with no filter or paging parameters. Each entry is a **complete `Campaign`**, the same shape Get returns: `locations`, `adSchedule` and the `smartCampaign` / `performanceMaxCampaign` block included, not a trimmed summary.
 - **Get one:** `GET /v1/campaigns/{campaignId}` — takes a campaign id only; resolve a name to an id with the list call first. `status` and `budget` are synced live from Google on each read.
 
 `status` (read-only, can change on its own via policy/billing): `DRAFT`, `LIVE`, `PAUSED`, `LEARNING` (PMAX Leads, ~28d post-launch), `IN_REVIEW`, `DISAPPROVED`, `NOT_SERVING` (budget), `ENDED`, `ERROR`.
