@@ -63095,7 +63095,6 @@ function getCleanupConfig() {
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
     };
 }
-/** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
 
 
 /***/ }),

@@ -55,7 +55,6 @@ export function getSimpleConfig(): SimpleConfig {
   };
 }
 
-/** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */
 export type ScheduleConfig = {
   evalforgeUrl: string;
   projectId: string;

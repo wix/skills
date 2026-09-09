@@ -344,4 +344,3 @@ export function getCleanupConfig(): CleanupConfig {
   };
 }
 
-/** `author_association` off the pull_request payload, absent on replayed/dispatched runs. */

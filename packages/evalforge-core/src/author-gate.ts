@@ -1,11 +1,17 @@
 /**
- * The values GitHub documents for `author_association`.
+ * The values GitHub defines for `author_association`, copied from its published payload
+ * schema (`octokit/webhooks`, `payload-schemas/api.github.com/common/author_association.schema.json`).
  *
- * Written out rather than imported: `@actions/github` types the payload's `pull_request`
- * as an open bag of `any` with no `author_association` on it, and `@octokit/webhooks-types`
- * — which does declare this union — is in none of these projects' dependency trees. Adding
- * it would mean a new entry in four separate lockfiles, each behind the 14-day cooldown, to
- * type eight string literals.
+ * That schema also settles the question this gate rests on: `author_association` is in the
+ * **required** list of `common/pull-request.schema.json`, and the recorded payloads for both
+ * `opened` and `closed` carry it. So a `pull_request` event always has one, which is why
+ * `requireAuthorAssociation` treats its absence as a wiring error rather than a normal state.
+ *
+ * Written out rather than imported: `@actions/github` types the payload's `pull_request` as an
+ * open bag of `any` with no `author_association` on it, and `@octokit/webhooks-types` — which
+ * does declare this union — is in none of these projects' dependency trees. Adding it would
+ * mean an entry in four separate lockfiles, each behind the 14-day cooldown, to type eight
+ * string literals.
  *
  * Its only job is to catch a typo in `ORG_ASSOCIATIONS` below. Values arriving at runtime are
  * deliberately **not** narrowed to it: GitHub can add a value, and an unrecognised one should
