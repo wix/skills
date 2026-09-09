@@ -10,9 +10,9 @@
 | --- | --- | --- |
 | Use when | The rows come from a **vertical SDK** (`@wix/bookings`, `@wix/ecom`, …) or any API you call yourself | The rows are a **CMS collection** — one your Data Collection extension ships, or an existing site collection |
 | You write | `fetchData`, every filter, every column | A `SchemaSource`. The schema supplies fetch, filters, columns and form fields |
-| `columns` | One entry per field you name | `columns={[]}` — the schema renders them |
-| Entity form | `useController` + WDS per field | `<EntityPageFields />` renders the whole form |
-| Extra dependency | none | `npm install @wix/patterns-cms` |
+| `columns` | One entry per field you name | no `columns` prop at all — the schema renders them |
+| Entity form | `useController` + WDS per field | `<EntityPageFieldsCard />` renders the whole form |
+| Extra dependency | none | `@wix/patterns-cms`, and `@wix/patterns` >= 1.465.0 |
 
 **The tell is where the field list lives.** If the page's columns are decided by a schema the CMS
 owns, the schema-driven path already knows them and hand-writing them throws that away — including
@@ -24,154 +24,100 @@ compiles, runs, and silently loses schema-driven columns, field management and t
 
 ## None of these names are in the docs bundle index
 
-`createCmsSchemaSource`, `tableSchemaSource`, `EntityPageFields`, `useEntity` and
-`useWixPatternsContainer` are all exported and usable, and **none appear in
-`dist/dts-bundle/index.json`**. Looking them up there and concluding they don't exist is how this
+`useCmsSchemaSource`, and the schema-aware `useTableCollection` / `useEntityPage` / `Table` /
+`EntityPage` / `EntityPageFieldsCard` behind `@wix/patterns/schema`, are all exported and usable,
+and **none appear in `dist/dts-bundle/index.json`**. Looking them up there and concluding they don't exist is how this
 whole path gets missed — check `dist/types/index.d.ts`, which is what `tsc` resolves. See
 [PATTERNS_BUNDLE_READING.md](PATTERNS_BUNDLE_READING.md#what-the-bundle-leaves-out).
 
 ## 1. The schema source
 
-One source backs both pages. Build it once per page with `useMemo` — rebuilding it re-loads the
-schema on every render.
+One source backs both pages, and it is a **hook** — no manual httpClient, no `useMemo` plumbing:
 
 ```tsx
-import { useWixPatternsContainer } from '@wix/patterns';
-import { createCmsSchemaSource } from '@wix/patterns-cms';
+import { useCmsSchemaSource } from '@wix/patterns-cms';
 
 // A CMS row always has _id; every other field comes from the schema.
 interface CmsItem extends Record<string, unknown> {
   _id: string;
 }
 
-const { httpClient } = useWixPatternsContainer();
-
-const source = useMemo(
-  () => createCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID, httpClient }),
-  [httpClient],
-);
+const source = useCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID });
 ```
 
 `COLLECTION_ID` is the full scoped id — `<app-namespace>/<idSuffix>` for a collection your extension
 ships. See [DATA_COLLECTION.md](../DATA_COLLECTION.md).
 
-**In a Wix CLI app the httpClient comes from `useWixPatternsContainer()`.** Cairo's own examples use
-`useHttpClient` from `@wix/yoshi-flow-bm`, which does not exist here — copying that import is a
-compile error. The schema itself loads through `@wix/data`; `httpClient` is only used for the
-optional extras below.
+**`httpClient` defaults to the patterns container's client**, so a Wix CLI app passes nothing. The
+optional `includeUserPermissions` fetches ABAC permissions for field management and needs a
+`metasiteId`; leave it off unless you want that UI.
 
-**Leave `includeUserPermissions` off unless you need field management.** It fetches ABAC permissions
-and needs a `metasiteId` you would have to plumb in; without it the flag is a wasted round trip that
-silently does nothing.
+**Install both, and mind the floor:** `npm install @wix/patterns-cms`, and `@wix/patterns` at
+**1.465.0 or newer** — `@wix/patterns/schema` is where the schema-aware components live.
 
 ## 2. Collection page
 
+Import the collection hook and `Table` from **`@wix/patterns/schema`**, not from the root — the
+root exports are the hand-wired versions and will not read a schema.
+
 ```tsx
 import { CollectionPage } from '@wix/patterns/page';
-import { PrimaryActions, Table, tableSchemaSource, useTableCollection } from '@wix/patterns';
+import { PrimaryActions } from '@wix/patterns';
+import { Table, useTableCollection } from '@wix/patterns/schema';
 import { usePatternsNavigate } from '@wix/patterns/router';
+import { useCmsSchemaSource } from '@wix/patterns-cms';
 
-export const {Feature}CollectionPage: FC = () => {
-  const { httpClient } = useWixPatternsContainer();
+export const FeatureCollectionPage: FC = () => {
   const { navigateToEntityPage } = usePatternsNavigate<CmsItem>();
+  const source = useCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID });
 
-  const schemaSource = useMemo(
-    () => tableSchemaSource(createCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID, httpClient })),
-    [httpClient],
-  );
-
-  // No fetchData, no filters, no itemKey/itemName — collectionConfig carries all of it.
-  const state = useTableCollection<CmsItem>({
-    ...schemaSource.collectionConfig,
-    persistQueryToUrl: true,
-  });
+  // The source carries fetch, filters, itemKey and itemName — you write none of them.
+  const state = useTableCollection(source, { persistQueryToUrl: true });
 
   return (
     <CollectionPage>
       <CollectionPage.Header
-        title={{ text: '{Page Title}' }}
+        title={{ text: 'Page Title' }}
         primaryAction={
-          <PrimaryActions label="Create new" onClick={() => navigateToEntityPage({ path: '/new', entity: null })} />
+          <PrimaryActions label="Add item" onClick={() => navigateToEntityPage({ path: '/new' })} />
         }
       />
       <CollectionPage.Content>
-        <Table
-          horizontalScroll
-          state={state}
-          fieldsSource={schemaSource}
-          onRowClick={(item) => navigateToEntityPage({ path: `/${item._id}`, entity: item })}
-          columns={[]}   {/* the schema renders the columns */}
-        />
+        {/* No `columns` prop: the schema renders one column per field. */}
+        <Table state={state} onRowClick={(item) => navigateToEntityPage({ path: '/' + item._id })} />
       </CollectionPage.Content>
     </CollectionPage>
   );
 };
 ```
 
-`tableSchemaSource()` wraps the source so the table and any import/field-management UI read the same
-live schema. Spread `collectionConfig` **first** so your own options can still override it.
-
-The aggregate rule from [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md) is unchanged here: add a
+The aggregate rule from [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md) is unchanged: add a
 `SummaryBar` only when the page answers a "how many / how much" question its rows don't.
 
 ## 3. Entity page — the same source drives the form
 
 ```tsx
-import { EntityPage, EntityPageFields, useEntity, useEntityPage, type EntityPageState } from '@wix/patterns';
+import { EntityPage, EntityPageFieldsCard, useEntityPage } from '@wix/patterns/schema';
 import { useForm } from '@wix/patterns/form';
-import { Card } from '@wix/design-system';
+import { useCmsSchemaSource } from '@wix/patterns-cms';
 import { useParams } from 'react-router-dom';
 
-type CmsFormFields = Record<string, unknown>;
-
-export const {Feature}EntityPage: FC = () => {
+export const FeatureEntityPage: FC = () => {
   const { id } = useParams<{ id?: string }>();
-  const { httpClient } = useWixPatternsContainer();
-  const source = useMemo(
-    () => createCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID, httpClient }),
-    [httpClient],
-  );
+  const source = useCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID });
+  const form = useForm<Record<string, unknown>>();
 
-  const form = useForm<CmsFormFields>();
-  const state: EntityPageState<CmsItem, CmsFormFields> = useEntityPage<CmsItem, CmsFormFields>({
-    parentPath: '/',
-    form,
-    schemaSource: source,
-    // Reads and writes go through the source's backend — no data-access wiring of your own.
-    fetch: async () => {
-      if (!id) return { entity: undefined };
-      const { backend } = await source.loadSchema();
-      return { entity: await backend.get(id) };
-    },
-    onSave: async () => {
-      const { backend } = await source.loadSchema();
-      const values = form.getValues() as Partial<CmsItem>;
-      const updatedEntity = state.entity
-        ? await backend.update({ ...state.entity, ...values } as CmsItem)
-        : await backend.create(values);
-      return { updatedEntity };
-    },
-    saveSuccessToast: 'Saved',
-    saveErrorToast: () => 'Failed to save',
-  });
-
-  const entity = useEntity(state);
-  const displayField = state.schema?.displayField;
-  const title = (displayField && (entity?.[displayField] as string)) || 'New {Entity}';
+  // Source first, options second. Reads and writes go through the source's
+  // backend, so the page needs no data-access wiring of its own.
+  const state = useEntityPage(source, { entityId: id, form, parentPath: '/' });
 
   return (
     <EntityPage state={state}>
-      <EntityPage.Header title={{ text: title }} />
+      <EntityPage.Header title={{ text: id ? 'Edit item' : 'New item' }} />
       <EntityPage.Content>
         <EntityPage.MainContent>
-          {/* EntityPage.Card extends WDS CardProps — no `title` prop; the heading is content. */}
-          <EntityPage.Card minHeight="204px">
-            <Card.Header title="Fields" />
-            <Card.Divider />
-            <Card.Content>
-              <EntityPageFields />
-            </Card.Content>
-          </EntityPage.Card>
+          {/* Renders every schema field with the right control and validation. */}
+          <EntityPageFieldsCard />
         </EntityPage.MainContent>
       </EntityPage.Content>
     </EntityPage>
@@ -179,9 +125,9 @@ export const {Feature}EntityPage: FC = () => {
 };
 ```
 
-`<EntityPageFields />` renders every schema field with the right control and validation. Reach for
-hand-written `useController` + WDS fields only for something the schema genuinely cannot express —
-and then keep them alongside it, not instead of it.
+`entityId: undefined` is what makes it a create page, so one component serves `/new` and `/:id`.
+Reach for hand-written `useController` + WDS fields only for something the schema genuinely cannot
+express, and keep them alongside `EntityPageFieldsCard` rather than instead of it.
 
 ## 4. Routing
 
