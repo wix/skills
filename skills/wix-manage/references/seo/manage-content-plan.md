@@ -21,6 +21,16 @@ Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
 requested generation or explicitly confirmed it.
 
+Retain the site ID supplied with the request. A missing site-context result is
+missing descriptive information, not proof that the site ID is invalid or that
+the caller lacks access. Do not replace the selected site with one from a site
+list. When the user requested generation and the API client can scope requests
+to that site, proceed with step 1 using its existing authorization. Let an
+actual API authorization error determine whether access is blocked; never
+switch credentials or sites to get around one. If the client cannot scope a
+request to the selected site, report that specific limitation without claiming
+the site belongs to another account.
+
 ## Choose the request path before calling an API
 
 For a request to **generate a new plan**, follow the generation sequence below.
@@ -37,7 +47,9 @@ conversation or a previous trigger/status response:
   request to continue. Please send the flow ID from your trigger or status
   response so I can release that flow.” A site ID is not a flow ID, even though
   both are UUIDs. Never submit a placeholder or guess a collection endpoint to
-  find the parked flow.
+  find the parked flow. Ask only for the actual flow ID; do not offer a fresh
+  flow or a different site as an alternative to recovering it. Missing site
+  metadata does not change this troubleshooting answer.
 - **Known ID:** Check that flow with the single GET in step 2. At
   `KEYWORD_RESEARCH`, release it once when completion is requested, then follow
   steps 4–5. At `SUCCESS`, go directly to step 5; do not release it again just
@@ -54,10 +66,9 @@ change the site's business profile, name, description, categories, or publicatio
 state to accelerate it. Those are separate tasks requiring real user data and
 authorization. `CREATED` can mean queued work, not missing setup.
 
-Keep every call scoped to the selected site. If its context cannot be retrieved,
-report that lookup failure and ask for clarification. Do not claim the ID is
-invalid or belongs to another account, substitute another site, or invent
-business information to satisfy prerequisites.
+Keep every call scoped to the selected site. Do not invent business information
+to satisfy prerequisites. Missing descriptive site context alone is not a
+generation prerequisite and does not require the user to choose another site.
 
 ## Polling without losing progress
 
