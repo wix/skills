@@ -76,7 +76,7 @@ Present only the suggestions the API returns and preserve their order; `suggesti
 Do not return a bare list of task labels. Turn the returned suggestions into a compact action plan while preserving the API's order:
 
 1. Name the campaign and link `campaignSuccessGuide.url` as the analyzed landing page when present.
-2. For every returned suggestion, show its user-facing label, tracking status (`Pending` for `OPEN`, `Marked complete` for `COMPLETED`), and one concrete next step. The visible word **Pending** must appear on every `OPEN` item, including items the user paraphrased as things they "still need to" do. Do not show enum values unless they help resolve an ambiguity.
+2. For every returned suggestion, show its user-facing label, tracking status (`Pending` for `OPEN`, `Marked complete` for `COMPLETED`), and one concrete next step. Do not show enum values unless they help resolve an ambiguity.
 3. For each `OPEN` item, distinguish work the agent can help perform from work the user must finish in Wix. Prefer an offer to do supported work over instructions that make the user do the same operation manually.
 4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
 5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.

@@ -28,10 +28,17 @@ assertions:
       - does not claim that marking the item COMPLETED changed the campaign,
         landing page, or call-to-action itself.
 
+      This scenario runs against a shared site and does not seed a Google Ads
+      campaign or guide. Treat the shared current site as selected. If one
+      current-site campaign or guide call returns a permission or not-found
+      response, pass when the agent stops, preserves the CLEAR_CTA_COPY / COMPLETED
+      mapping, and explains what access or campaign context is still needed.
+
       Fail if it treats the statement as an FYI, asks whether to perform the
       update or which recommendation the user means, maps to a different or
       multiple suggestions, probes several sites, guesses an ambiguous campaign
-      or guide item, or claims the underlying recommendation was implemented.
+      or guide item, retries a rejected call, or claims the underlying
+      recommendation was implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -47,6 +54,7 @@ assertions:
       guessing identity, wrong endpoints, repeated calls, and internal service
       or tool names in the user-facing answer. Reading the campaign-lifecycle
       recipe once to list the current site's campaigns is a relevant step, not
-      a detour.
+      a detour. One rejected current-site call followed by a concise access
+      explanation is also a clean outcome in this shared fixture.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
