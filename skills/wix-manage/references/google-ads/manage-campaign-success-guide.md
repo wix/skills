@@ -1,6 +1,6 @@
 ---
 name: "Manage a Campaign Success Guide"
-description: "Retrieves and manages the campaign success guide for an existing Wix Google Ads Performance Max Leads campaign. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval before retrieval. A direct request to improve a campaign, see what to fix next, or show the guide is already approval to retrieve it. Also use when a user reports completing or wants to reopen a guide item. Treat a clear completion report as an actionable update request even when phrased as a statement. Covers campaign selection, prioritized guide retrieval presented as an actionable plan with deduplicated Editor and dashboard links, proactive offers for supported work, and suggestion status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
+description: "Use for any request to improve an existing Wix Google Ads campaign, see what to fix next, view its Campaign Success Guide, or mark or reopen a guide item. The guide supports Performance Max Leads campaigns. Offer it after creating a supported campaign, even while it is learning or has no metrics; that proactive offer requires approval, while a direct improvement or guide request is already approval. If site or campaign identity is absent, ask one targeted selection question before any site-scoped API call. Present prioritized suggestions as an actionable plan with deduplicated Editor and dashboard links, destination-specific CTAs, proactive offers for supported work, and status updates without redundant confirmation. REST base https://www.wixapis.com/pa-platform/suggestions/v1."
 ---
 # RECIPE: Manage a Campaign Success Guide
 
@@ -9,6 +9,8 @@ A campaign success guide is a prioritized list of improvements for an **existing
 Also use this recipe for requests such as "How can I improve my campaign?", "What should I fix next?", "Show my campaign success guide", "I made the call-to-action button clearer as the success guide recommended", "Mark this recommendation complete", or "Reopen that guide item."
 
 A direct request to improve a campaign, see what to fix next, or show its success guide is itself approval to retrieve the guide once the campaign is identified. Do not ask whether the user wants the guide after they have already made one of those requests. Separate approval is needed only when you proactively offer the guide after campaign creation.
+
+Treat a broad request such as "How can I improve my Google Ads campaign?" as a Campaign Success Guide request for an existing campaign. Route here before offering generic optimization advice, querying analytics, or generating the pre-campaign inputs covered by Get AI Campaign Suggestions. If the conversation does not identify a Wix site or campaign, explain that you will use the guide and ask one focused question that resolves the missing identity; do not probe site-scoped APIs first.
 
 This differs from [Get AI Campaign Suggestions](get-campaign-suggestions.md), which generates keywords, budgets, locations, copy, images, and other inputs used while **building** a campaign. Do not route pre-campaign keyword, budget, creative, or targeting generation here.
 
@@ -19,7 +21,8 @@ Base URL: `https://www.wixapis.com/pa-platform/suggestions/v1`. `<AUTH>` is the 
 The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign."
 
 1. If the user provides a campaign UUID, use it.
-2. Otherwise follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
+2. If neither the Wix site nor the campaign can be identified from the conversation or available context, ask one targeted question such as "Which Wix site or Google Ads campaign should I use?" Do this before calling any site-scoped campaign or guide endpoint. Do not guess a site, campaign, or installation state.
+3. Once the Wix site is selected, if the campaign UUID is still unknown, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
 
    ```bash
    curl -X GET 'https://www.wixapis.com/google-ads/v1/campaigns' \
@@ -27,8 +30,8 @@ The guide endpoints require a campaign UUID, but users often provide only a camp
    ```
 
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
-3. Select a campaign only when one result clearly matches the user's wording. If none or multiple plausibly match, show concise choices and ask the user to choose; never guess.
-4. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
+4. Select a campaign only when one result clearly matches the user's wording. If none or multiple plausibly match, show concise choices and ask the user to choose; never guess.
+5. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
 
 The common flow always sends `platformType: "GOOGLE"`; do not ask the user to provide it.
 
@@ -146,9 +149,9 @@ The update endpoint identifies the suggestion by its **`type`**, not its suggest
 
 Before executing an update:
 
-1. Identify the campaign and a suggestion `type` currently present in its latest guide.
+1. Identify the campaign and a suggestion `type` currently present in its latest guide. If the conversation and available context contain no site or campaign identity, ask one targeted site-or-campaign selection question before making a read or update call. Do not probe multiple sites, endpoints, or installations to discover context.
 2. Match the user's wording to one returned suggestion and infer the requested status only when it is clear: a statement that they completed the recommendation means `COMPLETED`; a request to reopen it means `OPEN`.
-3. Execute immediately when the campaign, suggestion, and status are unambiguous. Ask one targeted clarification only when any of them is unclear; never guess.
+3. Execute immediately when the campaign, suggestion, and status are unambiguous. The completion statement is approval for this tracking-status update; do not ask a redundant confirmation question. Ask one targeted clarification only when identity, suggestion, or intended status is unclear; never guess.
 
 Mark an item completed:
 
@@ -183,7 +186,7 @@ If a mutation times out with an unknown outcome, do not retry automatically. Ret
 | `PLATFORM_NOT_SUPPORTED` | Use `GOOGLE`; do not substitute another platform value. |
 | `CAMPAIGN_TYPE_NOT_SUPPORTED` | Explain that success guides currently support Google Ads Performance Max Leads campaigns only. |
 | `SUGGESTION_NOT_FOUND` | Retrieve the latest guide and choose a `type` actually present; do not keep retrying stale data. |
-| Authentication or permission error | Stop after the first rejected campaign or guide call and explain that the current collaborator cannot access or modify it. Do not try alternate base URLs, infer that Google Ads is not installed, or probe other endpoints to bypass authorization. |
+| Authentication or permission error | Stop after the first rejected campaign or guide call. If no Wix site was selected, ask one targeted site-selection question rather than diagnosing the account or trying another endpoint. If a site was selected, explain that the current collaborator cannot access or modify it. Do not try alternate base URLs, infer that Google Ads is not installed, or probe other endpoints to bypass authorization. |
 
 ## References
 
