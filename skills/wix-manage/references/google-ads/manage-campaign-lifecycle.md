@@ -98,7 +98,9 @@ The entire asset group rides along — every headline, description, image and ex
 
 Budget is in **micros** (`30000000` = $30.00/day). Over the account max → `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` (check `GET /v1/campaign/daily-budget-boundaries`, returns min/max in micros).
 
-**`campaignType` always travels in the payload, and never changes.** Send back exactly the value the read returned — `SMART`, `PERFORMANCE_MAX` or `PERFORMANCE_MAX_LEADS`. It is required on every update and is fixed at creation: a mismatched value is rejected, and there is no conversion between types — a campaign of a different type has to be created fresh. It also decides which block the payload carries (`smartCampaign` for `SMART`, `performanceMaxCampaign` for the two PMAX types); sending the block that doesn't match the type is the same mistake.
+**`id`, `accountId` and `campaignType` are required on every update** — they ride along automatically when you send the entity as read, but a hand-built body that omits one is rejected.
+
+**`campaignType` never changes.** Send back exactly the value the read returned — `SMART`, `PERFORMANCE_MAX` or `PERFORMANCE_MAX_LEADS`. It is fixed at creation: a mismatched value is rejected, and there is no conversion between types — a campaign of a different type has to be created fresh. It also decides which block the payload carries (`smartCampaign` for `SMART`, `performanceMaxCampaign` for the two PMAX types); sending the block that doesn't match the type is the same mistake.
 
 `id`, `status`, `resourceName`, `createdDate`, `updatedDate`, `actionDate` and `reportingKey` are read-only. Echo them back as read — they are ignored on write. Only if the API rejects one by name, drop that single named field and resend; never drop anything else to make a call pass. `status` in particular is not editable here: use Launch / Pause / Resume above.
 
