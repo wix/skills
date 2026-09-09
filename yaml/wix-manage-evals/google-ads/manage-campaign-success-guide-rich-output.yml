@@ -8,8 +8,8 @@ triggerPrompt: |-
   I opened the campaign success guide for this Wix site's Google Ads lead
   campaign. It says I still need to clarify the main call-to-action button,
   move that action above the fold, configure Google Ads search themes, and
-  connect Merchant Center, in that order. What should I do next? Don't change
-  anything until I approve it.
+  connect Merchant Center, in that order. What should I do next? Include links
+  to the places I need to go, but don't change anything until I approve it.
 tags: [marketing]
 siteSetup:
   mode: template
@@ -24,8 +24,9 @@ assertions:
     prompt: |
       Pass if the response:
       - presents exactly the four supplied suggestions in their priority order,
-        with clear user-facing labels, pending status, and a concrete next step
-        for each rather than returning a bare list of enum values;
+        with clear user-facing labels, clearly communicates that the supplied
+        items are pending, and gives a concrete next step for each rather than
+        returning a bare list of enum values;
       - gives the two landing-page tasks one shared Editor CTA after the task
         list when the exact Editor URL resolves from the provisioned site
         context. If that read-only lookup cannot return an exact URL, it clearly
@@ -45,8 +46,9 @@ assertions:
       changes anything despite the user's instruction, labels navigation URLs
       generically as "Open in Wix", repeats the Editor link beside multiple
       tasks, guesses an Editor URL, tells the user to perform agent-supported
-      Google Ads work manually without offering help, or claims that marking a
-      guide item complete implements its underlying change.
+      Google Ads work manually without offering help, presents a supplied item
+      as completed, or claims that marking a guide item complete implements its
+      underlying change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
