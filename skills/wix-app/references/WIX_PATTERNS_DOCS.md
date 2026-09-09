@@ -2,38 +2,13 @@
 
 ## Prerequisites
 
-Lookups here are direct file reads — no script. Resolve the installed package root once per session and reuse it:
+Lookups here are direct file reads. Resolve the installed package root once per session and reuse it:
 
 ```bash
-node -e "
-const fs = require('fs'), path = require('path');
-function tryEnablePnp() {
-  let dir = process.cwd();
-  for (;;) {
-    const pnp = path.join(dir, '.pnp.cjs');
-    if (fs.existsSync(pnp)) { try { require(pnp).setup(); } catch {} return; }
-    const parent = path.dirname(dir);
-    if (parent === dir) return;
-    dir = parent;
-  }
-}
-tryEnablePnp();
-try {
-  console.log(path.dirname(require.resolve('@wix/patterns/package.json', { paths: [process.cwd()] })));
-} catch {
-  let dir = process.cwd();
-  for (;;) {
-    const candidate = path.join(dir, 'node_modules', '@wix', 'patterns');
-    if (fs.existsSync(path.join(candidate, 'package.json'))) { console.log(candidate); process.exit(0); }
-    const parent = path.dirname(dir);
-    if (parent === dir) { console.error('@wix/patterns not found'); process.exit(1); }
-    dir = parent;
-  }
-}
-"
+node <this-skill-dir>/scripts/pkg-root.cjs @wix/patterns
 ```
 
-A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when installed — run the whole snippet, not a shortened version.
+It handles Yarn PnP, npm, pnpm and workspace layouts — a bare `require.resolve` throws in a Yarn Berry project even when the package is installed, so resolve through the script rather than inline.
 
 Then confirm the install is new enough, in two checks.
 
