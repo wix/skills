@@ -111,7 +111,7 @@ Query pattern:
 {
   "events": [
     {
-      "id": "cc4d5588...e3a373",
+      "id": "<EVENT_ID>",
       "scheduleId": "<BUSINESS_SCHEDULE_ID>",
       "type": "WORKING_HOURS",
       "recurrenceType": "MASTER",
@@ -166,6 +166,9 @@ Update fields:
 ### 4B. Replace All Business Hours (Strategy B)
 
 #### Step 4B.1: Delete Existing Hours
+
+Cancelling is irreversible — a cancelled event can only be replaced by creating a new one. When the user names their complete desired schedule (e.g. "Monday through Friday, 8-4"), replacing all existing hours — including days outside that set — is part of the request. If it's ambiguous whether hours on other days should be kept, ask the user instead of assuming.
+
 Cancel existing MASTER events using `bulkCancelEvents` API (`POST https://www.wixapis.com/calendar/v3/bulk/events/cancel`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-cancel-event)):
 
 ```json
