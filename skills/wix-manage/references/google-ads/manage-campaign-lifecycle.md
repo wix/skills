@@ -77,7 +77,7 @@ jq '{ campaign: (.campaign | .smartCampaign.excludedSearchTerms += [
      ]) }' campaign.json > update.json
 ```
 
-A Smart campaign's update is also hard-gated server-side: `smartCampaign.adGroups` (each with its `ads`), `smartCampaign.url`, `smartCampaign.languageCode` and `smartCampaign.businessName` must be present on **every** update — plus `smartCampaign.phone` when the campaign runs call ads. Omitting them fails with a 5xx and no actionable message rather than a validation error, so this is one place where a partial payload doesn't silently corrupt, it just breaks. Sending the whole entity satisfies it either way.
+A Smart campaign's update is also hard-gated server-side: `smartCampaign.adGroups` (one ad group, holding one ad), `smartCampaign.url`, `smartCampaign.languageCode` and `smartCampaign.businessName` must be present on **every** update — plus `smartCampaign.phone` when the campaign runs call ads. Omitting them fails with a 5xx and no actionable message rather than a validation error, so this is one place where a partial payload doesn't silently corrupt, it just breaks. Sending the whole entity satisfies it either way.
 
 **PMAX Leads — add a search theme signal.** The follow-through for a `GOOGLE_ADS_SEARCH_THEMES` item in the [campaign success guide](manage-campaign-success-guide.md).
 
@@ -87,7 +87,7 @@ jq '{ campaign: (.campaign | .performanceMaxCampaign.assetGroups[0].assetGroupSi
      ]) }' campaign.json > update.json
 ```
 
-The entire asset group rides along — every headline, description, image and existing signal — because an asset missing from the array it is sent in is dropped or rejected, not left alone. `[0]` assumes a single asset group; with more than one, select the intended group by its `resourceName` instead of by index. `performanceMaxCampaign.excludedKeywords` takes the same `{ freeFormKeywordTheme, displayName }` shape as a Smart campaign's excluded search terms.
+The entire asset group rides along — every headline, description, image and existing signal — because an asset missing from the array it is sent in is dropped or rejected, not left alone. A campaign has exactly one asset group, so `[0]` always addresses it. `performanceMaxCampaign.excludedKeywords` takes the same `{ freeFormKeywordTheme, displayName }` shape as a Smart campaign's excluded search terms.
 
 | What the user asks for | What the payload must still carry |
 | --- | --- |
