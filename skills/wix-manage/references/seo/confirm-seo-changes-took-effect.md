@@ -15,8 +15,8 @@ checks. Confirm the change before saying it is done.
    match what you sent, stop and report the difference rather than retrying.
 2. Ask the user to confirm before publishing — publishing pushes every unpublished
    change on the site, not only this one.
-3. As mentioned above, re-read the value once more after publishing. Report the
-   value you read, not the value you sent.
+3. After publishing, re-read the value once more. Report the value you read, not
+   the value you sent.
 
 ## Finding the right endpoint
 
