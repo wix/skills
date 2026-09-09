@@ -17,24 +17,24 @@ beforeEach(() => {
 });
 
 describe('checkPrAuthor', () => {
-  it('allows an org member', async () => {
+  it('allows a branch pushed to this repository', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-    expect(checkPrAuthor({ authorAssociation: 'MEMBER' })).toEqual({ allowed: true });
+    expect(checkPrAuthor({ owner: 'wix', repo: 'skills', headRepoFullName: 'wix/skills' })).toEqual({ allowed: true });
   });
 
-  it('denies an outside author, with the reason the gate comments on the PR', async () => {
+  it('denies a fork, with the reason the gate comments on the PR', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-    expect(checkPrAuthor({ authorAssociation: 'NONE' })).toEqual({
+    expect(checkPrAuthor({ owner: 'wix', repo: 'skills', headRepoFullName: 'outsider/skills' })).toEqual({
       allowed: false,
-      reason: 'the PR author is not a wix author',
+      reason: 'the PR branch is not in this repository, so its author has no write access',
     });
   });
 
   // A missing return here would open the gate rather than close it, which is why the result is a
   // discriminated union rather than an optional value.
-  it('denies a collaborator, who has push access but no org membership', async () => {
+  it('denies a PR whose head repository has been deleted', async () => {
     const { checkPrAuthor } = await import('../src/utils/pr-lookups');
-    expect(checkPrAuthor({ authorAssociation: 'COLLABORATOR' }).allowed).toBe(false);
+    expect(checkPrAuthor({ owner: 'wix', repo: 'skills', headRepoFullName: null }).allowed).toBe(false);
   });
 });
 

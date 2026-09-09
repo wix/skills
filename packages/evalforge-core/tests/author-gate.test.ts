@@ -1,74 +1,71 @@
 import { describe, it, expect } from 'vitest';
-import { isWixOrgAuthor, requireAuthorAssociation, assertWixAuthor } from '../src/author-gate';
+import { readHeadRepoFullName, isSameRepoBranch, assertSameRepoBranch } from '../src/author-gate';
 
-describe('isWixOrgAuthor', () => {
-  it('accepts org members and owners', () => {
-    expect(isWixOrgAuthor('MEMBER')).toBe(true);
-    expect(isWixOrgAuthor('OWNER')).toBe(true);
-    expect(isWixOrgAuthor('  member  ')).toBe(true);
-  });
-
-  // Push access on the repo is not org membership: an outside collaborator can hold it
-  // without being in the organization, so it must not open the gate.
-  it('rejects a direct collaborator', () => {
-    expect(isWixOrgAuthor('COLLABORATOR')).toBe(false);
-  });
-
-  it('rejects outside authors and missing associations', () => {
-    expect(isWixOrgAuthor('CONTRIBUTOR')).toBe(false);
-    expect(isWixOrgAuthor('FIRST_TIME_CONTRIBUTOR')).toBe(false);
-    expect(isWixOrgAuthor('NONE')).toBe(false);
-    expect(isWixOrgAuthor('')).toBe(false);
-    expect(isWixOrgAuthor(undefined)).toBe(false);
-    expect(isWixOrgAuthor(null)).toBe(false);
-  });
-});
-
-describe('requireAuthorAssociation', () => {
-  it('reads the association off a pull_request payload', () => {
-    expect(requireAuthorAssociation({ pull_request: { author_association: 'MEMBER' } })).toBe('MEMBER');
+describe('readHeadRepoFullName', () => {
+  it('reads the head repository off a pull_request payload', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: 'wix/skills' } } } }))
+      .toBe('wix/skills');
   });
 
   /**
-   * A gate that cannot identify the author must fail loudly. Returning a default here
-   * would make a malformed payload look like an ordinary refusal, or worse a pass.
+   * `head.repo` is `oneOf: [repository, null]` in GitHub's payload schema — it goes null once
+   * the source fork is deleted. That is a reachable state, not a malformed payload, and it is
+   * certainly not this repository, so it reads as a refusal rather than an error.
    */
-  it('throws for a payload from any other event', () => {
-    expect(() => requireAuthorAssociation({})).toThrow(/must be triggered by a pull_request event/);
-    expect(() => requireAuthorAssociation({ pull_request: null })).toThrow(/pull_request event/);
+  it('returns null when GitHub reports no head repository', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: null } } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: { head: null } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: {} })).toBeNull();
+    expect(readHeadRepoFullName({})).toBeNull();
   });
 
-  it('throws when the PR object carries no usable association', () => {
-    expect(() => requireAuthorAssociation({ pull_request: { number: 7 } }))
-      .toThrow(/missing author_association/);
-    expect(() => requireAuthorAssociation({ pull_request: { author_association: null } }))
-      .toThrow(/missing author_association/);
-    expect(() => requireAuthorAssociation({ pull_request: { author_association: 42 } }))
-      .toThrow(/missing author_association/);
-    expect(() => requireAuthorAssociation({ pull_request: { author_association: '  ' } }))
-      .toThrow(/missing author_association/);
+  it('ignores a non-string or empty full name rather than passing it on', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: 42 } } } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: '  ' } } } })).toBeNull();
   });
 });
 
-describe('assertWixAuthor', () => {
-  it('passes an org member and logs the association', () => {
+describe('isSameRepoBranch', () => {
+  it('accepts a branch pushed to this repository', () => {
+    expect(isSameRepoBranch('wix/skills', 'wix', 'skills')).toBe(true);
+  });
+
+  // GitHub treats owner and repo names case-insensitively; a gate should not turn on casing.
+  it('accepts it regardless of casing or surrounding space', () => {
+    expect(isSameRepoBranch('Wix/Skills', 'wix', 'skills')).toBe(true);
+    expect(isSameRepoBranch('  wix/skills  ', 'wix', 'skills')).toBe(true);
+  });
+
+  /**
+   * The case the gate exists for: an outside contributor has no push access here, so their
+   * branch lives in their own fork.
+   */
+  it('refuses a fork', () => {
+    expect(isSameRepoBranch('outsider/skills', 'wix', 'skills')).toBe(false);
+  });
+
+  it('refuses a deleted head repository and a look-alike name', () => {
+    expect(isSameRepoBranch(null, 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('wix/skills-evil', 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('notwix/skills', 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('', 'wix', 'skills')).toBe(false);
+  });
+});
+
+describe('assertSameRepoBranch', () => {
+  it('passes a same-repo branch and logs why', () => {
     const lines: string[] = [];
-    expect(() => assertWixAuthor('MEMBER', 'wix', m => lines.push(m))).not.toThrow();
-    expect(lines).toEqual(['Author gate passed — PR author association: MEMBER']);
+    expect(() => assertSameRepoBranch('wix/skills', 'wix', 'skills', m => lines.push(m))).not.toThrow();
+    expect(lines[0]).toContain('has write access');
   });
 
-  it('throws for an outside author, naming the association and the org', () => {
-    expect(() => assertWixAuthor('CONTRIBUTOR', 'wix')).toThrow(
-      /not a member of the wix organization \(author_association: CONTRIBUTOR\)/,
-    );
+  it('throws for a fork, naming both repositories', () => {
+    expect(() => assertSameRepoBranch('outsider/skills', 'wix', 'skills'))
+      .toThrow(/head branch is in outsider\/skills, not wix\/skills/);
   });
 
-  /**
-   * The gate reads no commit data at all, so there is nothing an author can set to
-   * clear it — a commit author email is free text copied from `user.email`.
-   */
-  it('cannot be cleared by anything the author controls', () => {
-    expect(() => assertWixAuthor('NONE', 'wix')).toThrow();
-    expect(() => assertWixAuthor('ceo@wix.com', 'wix')).toThrow();
+  it('throws for a deleted head repository', () => {
+    expect(() => assertSameRepoBranch(null, 'wix', 'skills'))
+      .toThrow(/no longer exists/);
   });
 });

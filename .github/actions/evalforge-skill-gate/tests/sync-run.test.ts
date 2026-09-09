@@ -87,20 +87,20 @@ describe('runSync — author gate', () => {
     repo: 'wix/skills',
     githubToken: 'gh-token',
     prNumber: 42,
-    authorAssociation: 'MEMBER',
+    headRepoFullName: 'wix/skills',
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('skips the sync (no EvalForge calls, no setFailed) when the PR author is not a Wix author', async () => {
+  it('skips the sync (no EvalForge calls, no setFailed) when the PR branch is a fork', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
     const core = await import('@actions/core');
     const { loadScenarios, EvalForgeClient } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
 
-    vi.mocked(getSyncConfig).mockReturnValue({ ...baseConfig, authorAssociation: 'NONE' });
+    vi.mocked(getSyncConfig).mockReturnValue({ ...baseConfig, headRepoFullName: 'outsider/skills' });
     const setFailedSpy = vi.spyOn(core, 'setFailed');
     const infoSpy = vi.spyOn(core, 'info');
 
@@ -110,10 +110,10 @@ describe('runSync — author gate', () => {
     expect(EvalForgeClient).not.toHaveBeenCalled();
     expect(listTestScenarios).not.toHaveBeenCalled();
     expect(setFailedSpy).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith('Skipping wix-app sync — PR author is not a Wix author');
+    expect(infoSpy).toHaveBeenCalledWith('Skipping wix-app sync — the PR branch is not in this repository');
   });
 
-  it('proceeds for an org member', async () => {
+  it('proceeds for a branch in this repository', async () => {
     const { getSyncConfig } = await import('../src/utils/config');
     const { loadScenarios } = await import('@wix/evalforge-core');
     const { runSync } = await import('../src/utils/sync-run');
