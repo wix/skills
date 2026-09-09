@@ -149,15 +149,17 @@ For structured objects with a defined schema, list the nested fields inside `obj
 
 ## Indexes
 
-An index is `{ fields: [{ path, order? }], unique? }` — and **nothing else**. There is no `name`:
+**Most collections need no index at all — ship `indexes: []` unless you can name the query that
+needs one.** `_id` and `_createdDate` are indexed automatically, and the budget is small: **3 regular
+indexes, 1 unique, 4 total** (the collection reports its own `capabilities.indexLimits`). "Index the
+field the table sorts by" is not a reason — it spends a slot for a page that would page fine without
+it.
 
-```ts
-indexes: [{ fields: [{ path: 'date', order: 'DESC' }], unique: false }]
-```
-
-`order` is `'ASC' | 'DESC'`. Read `DevCenterDataCollectionIndex` in the builders package if in doubt;
-a stray key is a compile error on the `satisfies DataCollection` literal.
-
+When you do add one, it is `{ fields: [{ path, order? }], unique? }` — and **nothing else**. In
+particular there is **no `name`**: the runtime Create Index API takes one, but the extension builder
+does not and the platform derives it (a `date` DESC index arrives as `date_DESC`). Read
+`DevCenterDataCollectionIndex` in the builders package if in doubt; a stray key is a compile error on
+the `satisfies DataCollection` literal.
 
 The `indexes` array on the collection accepts entries shaped like:
 
