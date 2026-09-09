@@ -49,7 +49,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories/query' \
 ### 1c. Query Existing Services (Duplicate Check)
 
 ```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/services/query' \
+curl -X POST 'https://www.wixapis.com/_api/bookings/v2/services/query' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{ "query": { "paging": { "limit": 100 } } }'

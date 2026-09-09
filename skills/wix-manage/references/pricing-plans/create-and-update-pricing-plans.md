@@ -121,7 +121,7 @@ Use [Get Program Definition By External Id And Namespace](https://dev.wix.com/do
 Example the request in curl:
 ```bash
 curl --request GET \
-  "https://www.wixapis.com/benefit-programs/v1/program-definitions/by-namespace-and-external-id?externalId=00000000-0000-0000-0000-000000000001&namespace=@wix/pricing-plans" \
+  "https://www.wixapis.com/_api/benefit-programs/v1/program-definitions/by-namespace-and-external-id?externalId=00000000-0000-0000-0000-000000000001&namespace=@wix/pricing-plans" \
   -H 'Authorization: <AUTH>' \
   -H "Content-Type: application/json"
 ```

@@ -137,7 +137,7 @@ The bulk call returns `200` **even if some items fail** — check each `results[
 Only create categories or tags **if the request explicitly groups the posts** (e.g. "a blog with Recipes and Brewing-Tips sections"). If it doesn't, **create none** — skip this step entirely (skill policy; overrides any docs default).
 
 - **Categories:** `POST https://www.wixapis.com/blog/v3/categories` per category; keep each returned category `id`.
-- **Tags:** `POST https://www.wixapis.com/blog/v3/tags` per tag; keep each returned tag `id`.
+- **Tags:** `POST https://www.wixapis.com/v3/tags` per tag; keep each returned tag `id`.
 - **Assign:** include the resolved ids in each post's `categoryIds` / `tagIds` array — set them **in the Step-2 create body** when you already know the grouping, or PATCH the post afterward via **`PATCH https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}`** (body wrapped in `draftPost`). **⚠️ NOT `POST …/draft-posts/{id}/update`** — that path 404s for a single post; `/update` exists only as the bulk method.
 
 **⚠️ CRITICAL: re-publish after any PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` — the live site keeps showing the old version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Seeding categoryIds/tagIds directly in the Step-2 create body avoids this round-trip.)

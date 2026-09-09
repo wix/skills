@@ -206,8 +206,8 @@ is an array of **objects carrying an `id`**, not bare ID strings.
 ```
 
 To create modifier groups in bulk, use
-`POST https://www.wixapis.com/restaurants/menus/v1/bulk/modifier-groups/create` and
-`POST https://www.wixapis.com/restaurants/menus/v1/bulk/modifiers/create`; the per-entity body
+`POST https://www.wixapis.com/restaurants/item-modifier-group/v1/bulk/modifier-groups/create` and
+`POST https://www.wixapis.com/restaurants/item-modifiers/v1/bulk/modifiers/create`; the per-entity body
 shape is the same.
 
 ## Step 6: Set Menu Structure (Attach Sections to Menu)

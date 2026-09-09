@@ -11,7 +11,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Ev
 
 > **This recipe is the *how*, not the *what*.** What to seed — how many events, which are ticketed vs free (RSVP), their dates/locations, and which ticket tiers and prices a ticketed event has — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities, types, or which events to create.
 
-> **API surfaces:** events, ticket definitions, and publish all use **Events V3** on the **public** host `https://www.wixapis.com/events/v3/...`. The Wix Events **app id** (needed only by the frontend, kept here for reference) is `140603ad-af8d-84a5-2c80-a0f60cb47351`. The app is **pre-installed** by setup — do **not** reinstall it; if a create call returns `403`/app-not-installed, **fail loudly** with the response verbatim rather than trying to install it.
+> **API surfaces:** events and publish use **Events V3** on the **public** host `https://www.wixapis.com/events/v3/...`; ticket definitions live on their own base, `https://www.wixapis.com/events-ticket-definitions/v3/...`. The Wix Events **app id** (needed only by the frontend, kept here for reference) is `140603ad-af8d-84a5-2c80-a0f60cb47351`. The app is **pre-installed** by setup — do **not** reinstall it; if a create call returns `403`/app-not-installed, **fail loudly** with the response verbatim rather than trying to install it.
 
 ---
 
@@ -94,10 +94,10 @@ Keep each event's **`event.id`** (the GUID — needed for STEP 2 and STEP 3) and
 
 ### STEP 2: Create ticket definitions (TICKETING events only — skip for RSVP)
 
-A ticketed event needs at least one **ticket definition** (a purchasable tier) or there's nothing to buy. Create **one tier per ticket tier in the request** (default a single `"General Admission"` tier if none named) against `POST https://www.wixapis.com/events/v3/ticket-definitions`. The tier-creates for one event are independent — they may be fired as one parallel batch.
+A ticketed event needs at least one **ticket definition** (a purchasable tier) or there's nothing to buy. Create **one tier per ticket tier in the request** (default a single `"General Admission"` tier if none named) against `POST https://www.wixapis.com/events-ticket-definitions/v3/ticket-definitions`. The tier-creates for one event are independent — they may be fired as one parallel batch.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
+curl -X POST 'https://www.wixapis.com/events-ticket-definitions/v3/ticket-definitions' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
