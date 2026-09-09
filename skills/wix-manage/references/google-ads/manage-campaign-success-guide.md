@@ -35,7 +35,7 @@ The common flow always sends `platformType: "GOOGLE"`; do not ask the user to pr
 
 ## Retrieve or create the guide
 
-Skip this call when the conversation already contains a retrieved guide or its recommendations; present the supplied result using the next section instead of retrieving it again.
+Skip this call when the conversation already contains a retrieved guide or its recommendations; present the supplied result using the next section instead of retrieving it again. When the user paraphrases recommendation labels, map them to the closest unambiguous suggestion types in the translation table. Wording such as "still need to" or "still to do" means those items are `OPEN`.
 
 ```bash
 curl -X POST \
@@ -79,6 +79,8 @@ Do not return a bare list of task labels. Turn the returned suggestions into a c
 3. For each `OPEN` item, distinguish work the agent can help perform from work the user must finish in Wix. Prefer an offer to do supported work over instructions that make the user do the same operation manually.
 4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
 5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.
+
+The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
 
 ### Which action to offer
 
@@ -158,7 +160,7 @@ The update endpoint identifies the suggestion by its **`type`**, not its suggest
 
 Before executing an update:
 
-1. Identify the campaign and a suggestion `type` currently present in its latest guide. If the conversation and available context contain no site or campaign identity, ask one targeted site-or-campaign selection question before making a read or update call. Do not probe multiple sites, endpoints, or installations to discover context.
+1. Identify the campaign and a suggestion `type` currently present in its latest guide. If the conversation and available context contain no site or campaign identity, stop before using any site-listing, campaign, or guide capability and ask which Wix site or campaign the update is for. Scanning accessible sites cannot establish the user's intent because the same recommendation type can exist on multiple campaigns.
 2. Match the user's wording to one returned suggestion and infer the requested status only when it is clear: a statement that they completed the recommendation means `COMPLETED`; a request to reopen it means `OPEN`.
 3. Execute immediately when the campaign, suggestion, and status are unambiguous. The completion statement is approval for this tracking-status update; do not ask a redundant confirmation question. Ask one targeted clarification only when identity, suggestion, or intended status is unclear; never guess.
 
