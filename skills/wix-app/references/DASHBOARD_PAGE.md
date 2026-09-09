@@ -31,7 +31,7 @@ The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `s
 
 **Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
-**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell — re-set the path variable in every call.
+**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/docs/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites) — that index carries each symbol's `importPath`, `examples` and `bundle`, which is what decides whether you need to open anything else at all. Each Bash call is a fresh shell — re-set the path variable in every call.
 
 ## Capabilities
 

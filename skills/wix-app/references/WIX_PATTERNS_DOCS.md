@@ -64,7 +64,9 @@ paths).
 
 A missing *file* is not the same as a name not being covered — see below.
 
-**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
+**Patterns API facts come only from the two published trees — `dist/docs/` and `dist/dts-bundle/`.** Never source a component, prop or type from `src/`, `dist/types/`, `dist/esm/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
+
+Inside those two trees, read however is cheapest. `grep`/`sed` to pull one declaration out of a bundle is fine and usually better than a whole-file read — the ban is on *crawling elsewhere* for an answer these two trees already hold, not on being economical within them.
 
 ## The Discovery Chain
 
@@ -104,62 +106,92 @@ Each guide's index entry carries `relatedComponents` — the list of names it re
 name in it resolves, because `@wix/patterns` fails its own build otherwise. That list is the
 closest thing to a guarantee in this chain; prefer a name from it over one you recall.
 
-### 4 — The component's doc
+### 4 — Pick the artifact that answers the question you actually have
 
-Resolve the name through step 1 to its `file`, then `Read <pkgRoot>/dist/docs/<file>`.
+Each symbol ships up to three artifacts, and they answer **different** questions. The index
+entry from step 1 tells you which exist before you open anything, so decide first and read one:
 
-**Always take the import line from the doc.** Patterns is 31 entry points, not one namespace —
-`@wix/patterns`, `/page`, `/provider`, `/form`, `/essentials` — so an import from memory is a
-guess, and the two page components do not live together.
+| Your question | What to read | The index field that tells you |
+| --- | --- | --- |
+| Where do I import it from? | **nothing** — the index already says | `importPath` |
+| How do I call it? Generics, what a callback receives and returns, how the pieces nest | the **example** | `examples` |
+| What props does it take, and which are optional? | the **`.d.ts`**, *or* the doc — never both | `bundle` present ⇒ read that `.d.ts`; absent ⇒ the doc's own table is the answer |
+| Is there a setup requirement or a gotcha? | the **doc's** prose | — |
 
-An entry with a `bundle` field has no props table: its `### Props` points at that bundle on
-purpose. One without the field carries its own table.
+**`bundle` and an own props table are mutually exclusive.** 80 entries point at a bundle; 58
+carry their own table, and every one of those 58 marks a `Required` column. None do both. So if
+the entry has no `bundle`, the doc is complete on props and the types add nothing; if it has
+one, the doc's `### Props` is only a pointer and reading the page for props is a wasted hop.
 
-### 5 — The example, then the types
+**Import paths are data, not prose.** Patterns is 31 entry points — `@wix/patterns`, `/page`,
+`/provider`, `/router`, `/form`, `/essentials` — so an import from memory is a guess, and the
+two page components do not live together. Take `importPath` from the index; open the doc only
+if the entry has none.
 
-The doc lists its variations by name; pick the one closest to the case at hand and read the
-file it points at. Heavy examples live beside the doc and the entry's `examples` field lists
-them.
+### 5 — The example is usually the cheapest answer
+
+**When the question is "how do I call this", read the example before the types.** A worked
+example states the whole call — both generics, the params object, what `onSave` returns — in one
+file. The same answer assembled from a type chain can cost five files and a reconstruction,
+because `…Params` types are often a `Pick<>` of a type declared elsewhere and no file states the
+resolved shape.
+
+Two things to know about finding them: coverage is partial (39 of 172 entries have `examples`),
+and a hook's usage is often filed under the **component** it belongs to — `useEntityPage`'s call
+appears in `EntityPage`'s examples, not its own. If a hook's entry has no `examples`, check the
+component it pairs with before falling back to the type chain.
 
 For a type rather than a component — `Filter<T>`, `RangeItem<T>`, `OffsetQuery`, a `…Props`
 interface — `Read <pkgRoot>/dist/dts-bundle/index.json` and then the `.d.ts` at exactly the
-`file` path it gives.
+`file` path it gives. Check that entry's `readWith` first: it names the bundles this one stubs,
+so you learn whether the answer is one file or five *before* committing to the chase.
 
 What the generated files' conventions mean — which one-line stubs are answers rather than
 truncation, what a bare `import` implies, how entry-point files are scoped — is the library's
 own `Read <pkgRoot>/dist/docs/Reading the Doc Indices.md`. Read it before your first
 `dist/dts-bundle/*.d.ts` of the session.
 
-### Batch the reads
+### Decide first, then batch what survives
 
-One index read covers the whole page. So name every symbol you plan to write — components,
-hooks, state types, prop types — look them all up in the index you now hold, and open what it
-named in a single call with one `Read` per file:
+One index read covers the whole page, so list every symbol you plan to write — components,
+hooks, state types, prop types — and resolve each one against the index. Then, **per symbol**,
+apply step 4: take `importPath` as data, and pick the *one* artifact that answers your open
+question. Only what survives that filter gets read.
+
+Batch whatever does survive into a single call — files opened one per call re-send the whole
+conversation each time, which is where a lookup session's token cost goes. But batching is not
+a licence to skip the filter: **every file in a batch costs about half a second of dispatch
+regardless of its size**, so a 38-file batch spends ~20s before a single byte is understood.
+Twelve deliberate reads beat forty defensive ones.
 
 ```
-call 1   Read <pkgRoot>/dist/docs/index.json
-         Read <pkgRoot>/dist/dts-bundle/index.json
+call 1   Read <pkgRoot>/dist/docs/index.json          <- names, importPath, bundle, examples
+         Read <pkgRoot>/dist/docs/Collection Toolkit.md   <- a guide, from step 3
 
-call 2   Read <pkgRoot>/dist/docs/Collection Toolkit.md            <- a guide, from step 3
-         Read <pkgRoot>/dist/docs/Table.md                         <- docs entry's `file`
-         Read <pkgRoot>/dist/docs/useTableCollection.md
-         Read <pkgRoot>/dist/dts-bundle/components/Table.d.ts      <- its `bundle`
-         Read <pkgRoot>/dist/dts-bundle/types/TableState.d.ts      <- bundle entry's `file`
+         then, per symbol, from the entry you now hold:
+           importPath present            -> read nothing
+           need the call shape           -> read the one example
+           need props, `bundle` present  -> read that one .d.ts
+           need props, no `bundle`       -> read the doc
+           need a setup requirement      -> read the doc
+
+call 2   Read <the files that survived>
 ```
 
-Two calls, not twenty-two — and nothing is lost by batching, because there is nothing to learn
-between the files: every path came out of the same index, and `bytes` already told you each
-size. The same files opened one per call re-send the whole conversation once per file, which is
-where a lookup session's token cost actually goes. Batch the follow-ups the same way: when a
-doc names an example file, or a stub names another bundle, collect them and read them together.
+Batch the follow-ups the same way: when a stub names another bundle, or a `readWith` names a
+set, collect them and read them together — after checking you still need them.
 
 ### Rules for the reads themselves
 
 - **Use the exact `file` value; never reconstruct a path from a name.** Bundles nest one
   directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`), so `<Name>.d.ts` at the
   top level is wrong by construction.
-- **Read the whole file**, not piped through `head`. Every bundle fits in one read, and the
-  index's `bytes` field says how large beforehand — so nothing here is ever truncated on you.
+- **Extract what you need.** Every bundle fits in one read and the index's `bytes` field says
+  how large beforehand, so a whole-file `Read` is always safe — but inside `dist/docs/` and
+  `dist/dts-bundle/` a targeted `grep`/`sed` for the one declaration you are after is fine, and
+  cheaper. What you must not do is go looking for that declaration anywhere else in the package.
+  If a targeted extraction comes back empty or ambiguous, read the whole file rather than
+  guessing from a partial match.
 - **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system`
   skill; do not open WDS files, and do not follow a deep `@wix/design-system/dist/...` path a
   bundle mentions.
