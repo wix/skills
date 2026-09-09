@@ -1,11 +1,11 @@
 # Blog — seeding
 
-Seed a Wix Blog (Blog V3) by **calling `seed-blog.js`** — don't hand-write the REST calls. It's
+Seed a Wix Blog (Blog V3) by **calling `seed-blog.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Blog
 seed operation. `require` it and call the functions with plain data.
 
 > **NOT yet live-verified — transcribed from `setup-blog.md`.** Endpoints/fields mirror the recipe
-> exactly; if a call returns an unexpected shape, use the **`wix-docs`** skill (never guess).
+> exactly; if a call returns an unexpected shape, use the documentation skill available in your environment (never guess).
 
 **DEFAULT — one call.** `setupBlog(ctx, plan)` runs the whole flow (memberId → categories/tags →
 posts → covers), keeping every id in memory. Pass category/tag **names** and it resolves them to
@@ -15,11 +15,7 @@ for you (Blog binds the cover by the Wix Media file id, not a url).
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs");
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const result = await seed.setupBlog(ctx, {
@@ -88,7 +84,7 @@ first** (`installBlogApp`, idempotent), so seeding works even if the site doesn'
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix Blog API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix Blog API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-blog.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

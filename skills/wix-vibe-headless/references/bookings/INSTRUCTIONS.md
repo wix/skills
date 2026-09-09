@@ -51,16 +51,9 @@ the end). (Files missing? the install's `deploy` result lists what it wrote; re-
 `references/bookings/app/` → `src/`.)
 
 
-## STEP 2 — Theme (nothing to style on the shipped components)
-The shipped components carry **no palette of their own** — they render from base44's design tokens
-in `src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`,
-`--muted`, `--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`,
-`text-foreground`, `bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`,
-`font-display`). Those tokens are **already set to the brand by the design phase**, so the shipped
-pages are themed with zero work here. To adjust the palette, edit `index.css` (`:root` **and**
-`.dark`) — the base44 way; **never add a parallel theme file (e.g. a `theme.css`) or restyle the
-shipped JSX.** Build the Home/Header you add (STEP 3) from the **same** base44 tokens/classes so it
-matches automatically. A dark brand is just base44's dark palette in `index.css` — no per-component work.
+## STEP 2 — Theme
+Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
+share the same colors and typography.
 
 ## STEP 3 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
@@ -207,7 +200,7 @@ window.location.href = checkoutUrl;   // hosted checkout; on return the booking 
 ## Extending the client
 The shipped flow covers **APPOINTMENT and CLASS** services (`listSlotsForService` routes by
 `service.type`). For anything beyond that, add a helper on `wixApiRequest`, looking the endpoint up
-in the **`wix-docs`** skill first (never guess):
+using the documentation skill available in your environment first (never guess):
 - **COURSE** enrollment — a course is enrolled as a *whole*, not per session; `listEventTimeSlots`
   returns no slots for it, so the slot-picker flow doesn't apply (course-specific flow).
 - **Service variants / participants** (duration- or person-based pricing), **add-ons**, and
@@ -217,7 +210,7 @@ in the **`wix-docs`** skill first (never guess):
   them see their own appointments.
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped
-file under `src/`, or look it up via the **`wix-docs`** skill. Each helper in
+file under `src/`, or look it up via the documentation skill available in your environment. Each helper in
 `wix-bookings-services.js` / `wix-bookings-checkout.js` links its own reference page inline; these are
 the areas they sit in:
 - Bookings (services, categories, bookings): https://dev.wix.com/docs/api-reference/business-solutions/bookings.md
@@ -269,7 +262,6 @@ identical.
 - **One unit type per service.** A room rented by the hour *and* by the day is two services.
 
 ## Hard rules
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped
   `Services`/`ServiceDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your
@@ -297,7 +289,6 @@ build; run in parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
 - [ ] **Opened `/services` and a service detail page** (not just the home page) and confirmed the shipped cards render themed (surface, text, brand color) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all
       routes; shipped `Services`/`ServiceDetail` untouched; content clears the fixed chrome.

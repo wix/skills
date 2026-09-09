@@ -6,7 +6,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   const collections = await seed.createCollections(ctx, [{ title, description }]);        // STEP 1
@@ -19,7 +19,7 @@
 //   await seed.createProjectItems(ctx, [{ projectId: projects[0].id, sortOrder: 1, title, imageId: files[0].id, height:1024, width:1024 }]);
 //
 // **NOT yet live-verified — transcribed from setup-portfolio.md.** If any call fails with a
-// shape the caller didn't expect, fall back to the wix-docs skill (search + read the live Wix
+// shape the caller didn't expect, fall back to the documentation skill available in your environment (search + read the live Wix
 // API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-portfolio.md.
 

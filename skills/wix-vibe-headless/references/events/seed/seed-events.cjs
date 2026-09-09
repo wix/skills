@@ -8,7 +8,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44 (generic: use $TOKEN)
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/events/seed/seed-events.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/events/seed/seed-events.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   // setupEvents installs the Wix Events app first (installEventsApp) — base44 sites may not have it.
@@ -31,7 +31,7 @@
 //   const file = await seed.importImage(ctx, imageUrl);   // → { id, url } (Wix Media file id + wixstatic url)
 //   await seed.setEventMainImage(ctx, { eventId: ev.id, id: file.id, url: file.url, height: 1024, width: 1024, altText: ev.slug });
 //
-// If any call fails with a shape the caller didn't expect, fall back to the wix-docs skill
+// If any call fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment
 // (search + read the live Wix API reference) — never guess. Source recipe (authoritative):
 // wix-headless/references/inline-recipes/setup-events.md.
 

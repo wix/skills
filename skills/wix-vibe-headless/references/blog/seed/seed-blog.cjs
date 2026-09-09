@@ -6,7 +6,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //   const memberId = await seed.getAuthorMemberId(ctx);                    // STEP 1 — required for every post
 //   const cats = await seed.createCategories(ctx, ["Recipes", "Brewing"]); // STEP 3 — only if the brief groups posts
@@ -22,8 +22,7 @@
 //   await seed.attachPostCovers(ctx, posts.map((p, i) => ({ postId: p.id, fileId: files[i].id })));
 //
 // Live-verified end-to-end (members author, categories, posts single+bulk, tags, covers, idempotent
-// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the wix-docs
-// skill (search + read the live Wix Blog API reference) — never guess. Source recipe:
+// re-runs). If any call ever fails with a shape the caller didn't expect, fall back to the documentation skill available in your environment (search + read the live Wix Blog API reference) — never guess. Source recipe:
 // wix-headless/references/inline-recipes/setup-blog.md.
 
 const API = "https://www.wixapis.com";

@@ -117,7 +117,7 @@ Patterns owns the page shell and everything collection-shaped. These concepts ar
 | Filters, search, sorting, view presets/tabs | the collection's filter and view APIs |
 | Row actions, bulk actions, drag-and-drop | the collection's feature APIs |
 | Multiple pages inside one extension | `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
-| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form`. **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
+| **Add / edit / view one item from a collection** | `EntityPage` + `useEntityPage` (fetch + save + validation), reached with `usePatternsNavigate().navigateToEntityPage`. Form state via `useForm` / `useController` from `@wix/patterns/form` (`useController`, never `register`). **Not** a dashboard modal — see [Entity create and edit](#entity-create-and-edit) |
 | Overlays tied to a collection (item picker, bulk-action confirm) | `PickerModal` / `usePickerModal`, `bulkActionModal` |
 
 **Looking a component up is two direct file reads** — no script, never `node_modules` browsed by hand. Resolve the installed package root once per session ([Prerequisites](references/WIX_PATTERNS_DOCS.md#prerequisites)), then reuse it. Start with what exists:
@@ -163,7 +163,7 @@ This is the most common place the selection order gets dropped: the collection g
 
 The documented flow:
 
-1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.)
+1. From the collection page's action cell or primary action, call `navigateToEntityPage({ path, entity })` from `usePatternsNavigate()`. (The patterns docs give this exact use case — "navigate to an entity page on an action cell click on a collection page" — and it renders the entity header immediately, before the fetch resolves.) On the **create** route there is no record to pass: omit `entity` and see [ENTITY_PAGE_TOOLKIT.md § Create route](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md#create-route), which is what the whole "add new" flow turns on.
 2. Register the route with `PatternsReactRoute` inside `PatternsReactRouter`.
 3. In the entity page, `useEntityPage({ fetch, onSave })` owns fetching, saving, validation, dirty state, loading skeletons, and error states. Form state comes from `useForm` / `useController` in `@wix/patterns/form`. The call itself — both generics, what `onSave` receives, which params exist — is in [ENTITY_PAGE_TOOLKIT.md](references/dashboard-page/ENTITY_PAGE_TOOLKIT.md).
 4. Compose the body from `EntityPage.Header`, `EntityPage.MainContent`, `EntityPage.AdditionalContent`, and `EntityPage.Card`. **WDS goes inside those cards** — `FormField`, `Input`, `Text` for the individual fields.
@@ -443,7 +443,7 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
 
 1. Package installation (detect package manager, run install)
-2. TypeScript compilation check (`npx tsc --noEmit`)
+2. TypeScript compilation check (`npx tsc --noEmit -p .`)
 3. Build validation (`npx wix build`)
 4. Preview deployment (`npx wix preview`)
 
@@ -506,7 +506,7 @@ The following actions need to be done manually by you:
 Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide.
 
 1. **Package Installation** — Detect package manager, run install
-2. **TypeScript Compilation** — `npx tsc --noEmit`
+2. **TypeScript Compilation** — `npx tsc --noEmit -p .`
 3. **Build** — `npx wix build`
 4. **Preview** — `npx wix preview`
 

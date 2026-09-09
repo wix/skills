@@ -1,32 +1,26 @@
 # Wix Editor React Component Builder
 
-Build Editor React Components for Harmony Editor and Studio2 in Wix CLI
-applications. These components are not supported in other Wix editors.
-
-## Before You Start
-
-Determine whether the request creates a component or edits an existing one.
-Inspect the existing component before changing it.
+Build Editor React Components for Harmony/Studio2 Wix CLI apps only. First
+determine **create vs edit**; for edits, inspect the existing component and
+never re-scaffold.
 
 ## File Contract
 
 Use the Wix CLI scaffold as the source of truth. Do not replace it with a custom
-layout or a hand-written manifest. After applying this workflow, preserve these
-file responsibilities:
+layout or a hand-written manifest. Preserve these file responsibilities:
 
 | File | Ownership | Purpose |
 | --- | --- | --- |
-| `<component-name>.props.ts` | Edit | Export the props type and `defaultProps` from one shared source. |
-| `<component-name>.tsx` | Edit | Implement the component UI and behavior. |
-| `<component-name>.module.css` | Edit | Define scoped component styles. |
-| `component.tsx` | Keep generated | Wire the component and `defaultProps` with `withDefaults`. |
-| `component.preview.tsx` | Edit narrowly | Keep generated wrappers; sync the preview adapter, one crucial data field, and root class. |
-| `<component-name>.generated.ts` | NEVER edit | Generated manifest consumed by the editor. |
-| `<component-name>.extension.ts` | Edit narrowly | Apply supported partial manifest overrides. |
+| `<component-name>.props.ts` | Edit | Props type + `defaultProps` |
+| `<component-name>.tsx` | Edit | Component UI and behavior |
+| `<component-name>.module.css` | Edit | Scoped component styles |
+| `component.tsx` | Keep generated | Wire component and `defaultProps` with `withDefaults` |
+| `component.preview.tsx` | Edit narrowly | Sync preview adapter, one crucial data field, root class |
+| `<component-name>.generated.ts` | NEVER edit | Generated manifest — do not edit |
+| `<component-name>.extension.ts` | Edit narrowly | Supported partial manifest overrides |
 
-Supplementary files such as `constants.ts`, hooks, or internal sub-components
-are allowed when the implementation needs them. Keep the scaffolded files and
-their responsibilities intact.
+Supplementary files (constants, hooks, sub-components) are allowed; keep scaffold
+roles intact.
 
 ## Workflow
 
@@ -36,9 +30,8 @@ their responsibilities intact.
    npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description"}'
    ```
 
-   The command creates `src/extensions/site/components/<component-name>/` and
-   registers the extension in `src/extensions.ts`. Do not rerun it for an
-   existing component.
+   Creates `src/extensions/site/components/<component-name>/` and registers the
+   extension in `src/extensions.ts`. Do not rerun for an existing component.
 
 2. **Run the dependency preflight.** Verify that all component creation and
    accessibility-review dependencies are installed:
@@ -47,25 +40,23 @@ their responsibilities intact.
    node -e "const fs=require('fs'),path=require('path'),ps=['@wix/react-component-schema','@wix/react-component-utils','@wix/editor-react-types','@babel/parser','@babel/traverse','@babel/types','eslint','eslint-plugin-jsx-a11y','@typescript-eslint/parser','typescript','@types/eslint-plugin-jsx-a11y'];const missing=ps.filter(p=>!(require.resolve.paths(p)||[]).some(d=>fs.existsSync(path.join(d,p,'package.json'))));if(missing.length){console.error('Missing dependencies: '+missing.join(', '));process.exit(1)}" || { d="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/yarn.lock" ]; do d="${d%/*}"; done; if [ -f "$d/yarn.lock" ]; then yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && yarn add -D @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y; else npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && npm install --save-dev @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y; fi; }
    ```
 
-3. **Plan the contract and structure.** Identify content and behavior props,
-   elect the semantic root, identify named inner parts, and decide which design
-   states each part supports. Read the relevant references from the routing
-   table below before writing code.
+3. **Plan the contract and structure.** Identify props, semantic root, named
+   parts, and design states; read routed references below before writing code.
 
-4. **Implement the editable sources.** Preserve the scaffold contract. Keep
-   props/defaults in the props file, component logic in the main TSX file, and
-   static styling in the CSS Module. Do not edit `*.generated.ts`.
+4. **Implement the editable sources.** Preserve the scaffold contract: props in
+   the props file, logic in TSX, styles in the CSS Module. Do not edit
+   `*.generated.ts`.
 
 5. **Run the accessibility review.** Follow
-   [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md): run both bundled
-   scanners, triage their output, complete the manual semantic checklist, fix
-   confirmed issues, and rerun the scanners on changed JSX files.
+   [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md): run scanners,
+   triage output, complete the manual checklist, fix issues, rerun on changed
+   JSX.
 
 6. **Configure the editor extension when required.** For a new component or a
    requested sizing, installation, or manifest change, apply
    [`editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
    to `<component-name>.extension.ts`. Otherwise leave the file unchanged.
-   Finally, synchronize `requiredDataFields` and `rootClassName` in
+   Synchronize `requiredDataFields` and `rootClassName` in
    `component.preview.tsx`.
 
 7. **Generate and validate.** Run:
@@ -75,82 +66,71 @@ their responsibilities intact.
    npx tsc --noEmit
    ```
 
-   Run relevant project tests and lint commands when available. Inspect the
-   regenerated manifest; never repair it by hand. Design-state generation needs
-   `@wix/cli` 1.1.210 or newer, and prop-triggered `ElementState` generation
-   needs 1.1.215 or newer. If expected states are absent on an older CLI, report
-   the version constraint and let the user decide whether to upgrade. If the
-   build or manifest command exits with an error, diagnose it with
-   [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md), apply the
-   matching fix, and rerun both commands.
+   Run relevant tests and lint when available. Inspect the regenerated manifest;
+   never repair it by hand. On failure, diagnose with
+   [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
 
 8. **Report the result.** Summarize edited files and checks. Call out any
-   unresolved instruction conflict, missing dependency, unsupported CLI
-   version, or check that could not run.
+   unresolved conflict, missing dependency, unsupported CLI version, or check
+   that could not run.
 
 ## Reference Policy
 
-Read every reference required for the current scope. Read an optional reference
-only when its trigger applies; when it does, that reference becomes required.
-Apply every matching row; do not load the entire reference set by default.
+- Read **only** matching required + triggered optional rows; optional triggers
+  become required when they match.
+- References refine the active step; they do not restart workflow or expand scope.
+- Never re-scaffold an existing component or edit `*.generated.ts`.
 
-References refine the active workflow step; they do not restart the workflow or
-expand the user's requested scope. `SKILL.md` is the only reference router;
-reference files are self-contained leaves and do not route to other references.
-For an existing component, preserve out-of-scope public props, styling,
-extension configuration, and supporting files. Never re-scaffold an existing
-component or edit `*.generated.ts` as a reference-driven fix.
+`SKILL.md` is the only reference router; reference files are self-contained
+leaves. For existing components, preserve out-of-scope public props, styling,
+extension configuration, and supporting files.
 
 ### Required References
 
 | Scope | Required references |
 | --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), and [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
-| Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md) and [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
-| Changing the public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), and [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
-| Changing public data props or the elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
-| Creating or changing an item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), and [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+| Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
+| Changing public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
+| Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
+| Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
-| Changing the root direction contract, direction-sensitive behavior, or a `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
-| Changing sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+| Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
+| Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
 
 ### Optional References
 
 | Trigger | Read |
 | --- | --- |
-| An interactive or selectable part is created or changed—for example a button, link, input, tab, accordion trigger, or carousel control—or a custom state is added | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
-| Public event callbacks are added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
-| Browser APIs, effects, or time-dependent output are introduced | [`SSR.md`](editor-react-component/SSR.md) |
-| A CSS feature or DOM API that is not clearly long-established is introduced, or the user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
+| Interactive/selectable part or custom state | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
+| Public event callbacks added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
+| Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
+| Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
-| Primary content is playable, looped, or autoplaying | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) and [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
-| Runtime site pages, URLs, JavaScript direction, or reduced-motion context is needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) |
-| Non-animation behavior must differ in editor design mode | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) and [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
-| The prompt explicitly requests a branded, themed, or brand-aware component | [`BRANDED-COMPONENTS.md`](editor-react-component/BRANDED-COMPONENTS.md) |
+| Animation, video, carousel, or other playable/looped/autoplaying content | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
+| Site/runtime/editor context hooks needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) (+ [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) when design-mode behavior differs) |
+| Branded, themed, or brand-aware component requested | [`BRANDED-COMPONENTS.md`](editor-react-component/BRANDED-COMPONENTS.md) |
 
-## Core Invariants
+## Non-Negotiables
 
-- Use React 18-compatible APIs; do not assume React 19 runtime features.
+- React 18 only; do not assume React 19 runtime features.
 - Include typed `id`, `className`, `direction`, and `a11y` support.
-- Apply `dir={direction}` and the unconditional fallback-direction class to the
-  elected root. Use logical CSS properties for direction-sensitive layout.
-- Keep render output deterministic and avoid browser globals during render.
-- Use only Baseline Widely Available CSS features and DOM APIs, or ones that
-  fall back to them. When a design needs a feature that is not, build the
-  supported alternative.
-- Route ARIA through the typed `a11y` contract; do not add one-off ARIA props.
-- Give every named inner part a global class, a CSS Module class, and a matching
-  `elementProps` entry. The elected root uses top-level props instead.
-- Pair each eligible native editor design-state selector with its
-  editor-injected global modifier. Keep a non-input control's keyboard-only
-  `:focus-visible` indicator standalone unless editable focus styling is
-  explicitly requested. Toggle custom global state classes from data.
-- For an item array where only one body is visible, give every item a `name`,
-  use `ActiveItemIndex<'arrayPropName'>`, render every body, and hide inactive
-  bodies accessibly.
-- If primary content autoplays or loops, provide an accessible play/pause
-  control, honor reduced motion, and suppress autoplay in editor design mode.
-- In `component.preview.tsx`, keep `withDefaults` and `withFallbackPlaceholder`,
-  wrap the preview adapter when present, normally put
-  only the one data prop crucial to meaningful rendering in
-  `requiredDataFields`, and match `rootClassName` to the root global class.
+- Elected root: `dir={direction}`, fallback-direction class, logical CSS for
+  direction-sensitive layout.
+- Deterministic render; no browser globals during render.
+- Explicit foreground colors need a known contrasting background; transparent
+  roots inherit from the host.
+- Baseline Widely Available CSS/DOM only, or supported fallbacks.
+- Route ARIA through `a11y`; no one-off ARIA props.
+- Named parts: global class, module class, and `elementProps` (root uses
+  top-level props).
+- Native design states: pair selectors with injected modifiers; keep non-input
+  `:focus-visible` standalone unless editable focus is requested; toggle custom
+  state classes from data.
+- Single-visible-body arrays: `name` per item, `ActiveItemIndex<'prop'>`, render
+  all bodies, hide inactive accessibly.
+- Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
+  editor design mode.
+- `component.preview.tsx`: keep `withDefaults` and `withFallbackPlaceholder`,
+  wrap the preview adapter when present, one crucial `requiredDataFields`
+  entry, and `rootClassName` matching the root global class.

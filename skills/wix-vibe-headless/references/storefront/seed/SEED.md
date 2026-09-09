@@ -1,8 +1,10 @@
 # Storefront — seeding
 
-Seed a Wix Stores catalog by **calling `seed-store.js`** — don't hand-write the REST calls. It's
+Seed a Wix Stores catalog by **calling `seed-store.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Stores
 seed operation. Load it and call **`setupStore` — the one-call path** — with plain data.
+Pass only the connector token and catalog data. The module handles site configuration internally;
+do not read the config or supply site/client IDs.
 
 **Match each product's type to what the buyer receives** (the example shows both). *Access* — a
 membership, or an online course/program the buyer enrolls in — isn't a store product at all; that's
@@ -11,12 +13,8 @@ the `pricing-plans` vertical, not here.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
-const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
+const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
@@ -25,6 +23,7 @@ const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 // result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
 // generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
+  currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
     // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -38,11 +37,39 @@ const result = await seed.setupStore(ctx, {
   ],
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
-// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached }
+// result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   currency: { requested, actual, status, warnings } }
 ```
+
+The optional `currency` sets the site's payment currency before product creation. Pass it only when
+the user explicitly asked for a currency, or when it's obvious for the store — otherwise omit it. Do
+not infer a currency from the builder's country/region or the brief's language; when in doubt, leave
+it out and the current site currency is preserved. Product prices are numbers in that currency;
+changing currency does not convert existing amounts.
+Currency update or verification failures do not stop seeding: inspect `result.currency.status`
+and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
+unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
+Currency changes may take time to appear in existing product responses, even after carts and
+checkout use the new currency. If `result.currency.status` confirms the update succeeded, continue
+without waiting for or verifying the change in product responses or the preview.
+
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
 "sample" data, don't reset. Just add.
+
+## Stock
+
+```js
+{ name: "Limited Print", price: 25, quantity: 12 } // count stock: integer 0–99999
+{ name: "Made-to-order Print", price: 25, inStock: true } // available without a quantity counter
+{ name: "Unavailable Print", price: 25, inStock: false } // unavailable without a quantity counter
+```
+
+Supply `quantity` **or** `inStock`, never both. Use `inStock: true` for unlimited stock, not a
+large invented quantity. All expanded variants inherit the same setting. Omitting both defaults
+to quantity 0 for physical products and in-stock for downloads. Stock mode doesn't change the
+product type or remove the downloadable-file requirement.
+[Wix inventory tracking](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/inventory-item-object).
 
 ## How many, and exercising the UI
 
@@ -63,8 +90,12 @@ options: [
 
 - `type: "color"` → `SWATCH_CHOICES` with each choice's `colorCode`, which the PDP draws as a swatch.
   Any other `type` → text pills. Give every colour choice a `colorCode`.
+  Within a batch, reuse the same color code for the same option/choice name across products;
+  give different shades distinct names (for example, Forest Green and Light Green).
+- Choice names must be unique within each product option, for both text and color choices.
+  Reusing a choice name across different products is fine; color choices must follow the consistency rule above.
 - Variants are expanded for you: the full cross-product of the options, each carrying the product's
-  `price`, `compareAtPrice` and `quantity`. Two options with 2 and 3 choices means 6 variants — keep
+  `price`, `compareAtPrice` and stock setting (`quantity` or `inStock`). Two options with 2 and 3 choices means 6 variants — keep
   option counts small.
 - `compareAtPrice` (> `price`) is the "was" price: strikethrough on the PDP and a `−N%` badge on the
   tile, computed from the two amounts. It works with or without options.
@@ -92,6 +123,11 @@ Two things this module does **not** seed, so don't try:
   follows automatically — `choiceImage()` reads it back at `media.items[].mediaId`.
 
 ## Escape hatch — individual functions
+
+If seeding reports a partial failure, keep the reported successful product IDs and correct the
+failed inputs. Do not rerun the whole seed or wrap it in a retry loop: creation may already have
+succeeded for some products. Missing results mean unknown creation status; inspect before creating again.
+
 Reach for the functions below only when the one-call `setupStore` doesn't fit (partial re-seed, custom
 ordering, mid-flow checks). `setupStore` is built from them, in this order:
 
@@ -118,7 +154,7 @@ await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: ima
 
 ## Reference
 If a call returns a shape you didn't expect, or you need an operation this module doesn't cover,
-use the **`wix-docs`** skill to search + read the live Wix API reference — never guess. The
+use the documentation skill available in your environment to search + read the live Wix API reference — never guess. The
 authoritative source recipe is `wix-headless/references/inline-recipes/setup-online-store.md`.
 
 Read a method's page before writing its call: it carries the exact body shape, the required

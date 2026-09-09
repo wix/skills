@@ -45,6 +45,15 @@ describe('EvalForge Merge-Tag Sweep Workflow', () => {
     expect(workflowContent).toContain('changed-files:');
   });
 
+  // Without this the action attaches no MCP and evaluates a tool-less agent.
+  it('passes the production MCP capability id so the eval runs are not agent-only', () => {
+    expect(workflowContent).toContain('evalforge-prod-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROD_MCP_ID }}');
+  });
+
+  it('does not attach the per-PR MCP capability', () => {
+    expect(workflowContent).not.toContain('evalforge-mcp-id:');
+  });
+
   it('guards the confirmed-failure Slack step on a confirmed failure', () => {
     expect(workflowContent).toContain('confirmed-failed-count');
   });

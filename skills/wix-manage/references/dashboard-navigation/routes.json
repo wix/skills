@@ -1,5 +1,5 @@
 {
- "$comment": "Live dashboard page routes per Wix app. Site pages: https://manage.wix.com/dashboard/{metaSiteId}/{path}. Pages with accountLevel=true instead live at https://manage.wix.com/account/{path} (no metaSiteId). legacyAliases redirect to path. Where a page shows a single entity, deepLink gives the path with the entity-ID placeholder appended; pages without deepLink take no ID segment or the pattern is undocumented. Generated from the app registrations, enriched from the per-solution recipes.",
+ "$comment": "Live dashboard page routes per Wix app. Site pages: https://manage.wix.com/dashboard/{metaSiteId}/{path}. Pages with accountLevel=true instead live at https://manage.wix.com/account/{path} (no metaSiteId). legacyAliases redirect to path. Where a page shows a single entity, deepLink gives the path with the entity-ID placeholder appended, optionally followed by a sub-page segment (e.g. wix-forms/form/{formId}/submissions); pages without deepLink take no ID segment or the pattern is undocumented. Generated from the app registrations, enriched from the per-solution recipes.",
  "apps": [
   {
    "app": "Analytics",
@@ -1107,6 +1107,12 @@
    "slug": "wix-forms",
    "pages": [
     {
+     "path": "wix-forms",
+     "inSidebar": true,
+     "title": "menu.wix-forms",
+     "legacyAliases": []
+    },
+    {
      "path": "wix-forms/form",
      "inSidebar": false,
      "title": "menu.wix-forms",
@@ -1117,62 +1123,16 @@
      "deepLink": "wix-forms/form/{formId}"
     },
     {
+     "path": "wix-forms/form",
+     "inSidebar": false,
+     "title": "submissions",
+     "legacyAliases": [],
+     "deepLink": "wix-forms/form/{formId}/submissions"
+    },
+    {
      "path": "wix-forms/standalone-form",
      "inSidebar": false,
      "title": "menu.wix-forms",
-     "legacyAliases": []
-    }
-   ]
-  },
-  {
-   "app": "Wix Forms (management pages)",
-   "appDefinitionId": "14ce1214-b278-a7e4-1373-00cebd1bef7c",
-   "slug": "wix-forms-and-payments",
-   "pages": [
-    {
-     "path": "wix-forms-and-payments",
-     "inSidebar": true,
-     "title": "menu.wix-forms",
-     "legacyAliases": [
-      "wix-forms",
-      "app/14ce1214-b278-a7e4-1373-00cebd1bef7c",
-      "wix-forms-and-payments"
-     ]
-    },
-    {
-     "path": "wix-forms-and-payments/edit",
-     "inSidebar": false,
-     "title": "edit",
-     "legacyAliases": []
-    },
-    {
-     "path": "wix-forms-and-payments/removed",
-     "inSidebar": false,
-     "title": "removed",
-     "legacyAliases": []
-    },
-    {
-     "path": "wix-forms-and-payments/settings",
-     "inSidebar": false,
-     "title": "settings",
-     "legacyAliases": []
-    },
-    {
-     "path": "wix-forms-and-payments/submission-pdf",
-     "inSidebar": false,
-     "title": "submission-id",
-     "legacyAliases": []
-    },
-    {
-     "path": "wix-forms-and-payments/submissions",
-     "inSidebar": false,
-     "title": "submissions",
-     "legacyAliases": []
-    },
-    {
-     "path": "wix-forms-and-payments/templates",
-     "inSidebar": false,
-     "title": "templates",
      "legacyAliases": []
     }
    ]

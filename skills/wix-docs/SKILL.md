@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) **or by browsing** the docs tree as a menu — a structured, typed, counted browse of the REST API reference (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any portal — then read the page by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`, incl. the SKILLS recipe corpus for multi-step workflows) **or by browsing** a docs portal as a menu — a structured, typed, counted browse of the REST, SDK, CLI, Build Apps, and Headless portals (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any surface — then read the page by appending `.md` to its URL; (2) the Wix MCP doc tools when present. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -11,7 +11,17 @@ here first. That includes the example endpoints in this skill: they illustrate t
 go stale like any snapshot — discover the real contract before you rely on one.
 
 A lookup is a short flow: **find the right page, then read it.** Do it with `curl` (default, below)
-or the Wix MCP doc tools if your agent has them (Lane 2).
+or the Wix MCP doc tools if your agent has them (Lane 2). Either way, route by what you already
+know:
+
+- **You have a docs URL** → just read it (§2). Don't re-search for a page you can already name.
+- **A multi-step workflow** ("take a booking from service setup to payment") → look for a **recipe**
+  first: semantic search with `document_type: "SKILLS"` (§1A). A recipe carries step ordering,
+  cross-step gotchas, and the one bundled endpoint that does the whole job — things no single
+  method page states. No relevant recipe → search the relevant API corpus and assemble the workflow
+  from verified per-method contracts.
+- **One specific operation, field, or enum** → search its API corpus (`REST` / `SDK`), then read or
+  schema-check what you land on.
 
 ## Lane 1 — `curl` (default)
 
@@ -24,22 +34,37 @@ Three ways to reach the right page — use whichever fits.
 
 **A. Semantic search.** Describe what you want in natural language ("let a customer book an
 appointment"), not just keywords; hits come back ranked by relevance. Same `POST` body for both
-variants: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` · `WIX_HEADLESS` ·
-`BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI`), `maximum_results` (1–20, def 15),
-`lines_in_each_result` (1–200, def 20). Two variants — pick by what you're doing:
+variants: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` · `SKILLS` ·
+`WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI` · `OVERVIEW`),
+`maximum_results` (1–20, def 15), `lines_in_each_result` (0–200, def 20; `0` = no per-hit line cap).
+`SKILLS` is the dedicated **recipe corpus** — multi-step workflow pages that a `REST` search does
+not return; `OVERVIEW` is platform orientation (which development approach, which API family). Two
+variants — pick by what you're doing:
 
 **`/docs/search/markdown` → read it (start here).** Returns JSON with a single `content` field
 holding one LLM-ready markdown string (extract it with `jq -r '.content'`) where each hit is a
 **condensed method doc**: the API **endpoint**, **real request code examples**, the **response
-shape**, and the **method description** (with its gotchas) — each truncated to `lines_in_each_result`
-with a "read more" link. For *"how do I call X?"* this is usually all you need in **one call** — hand
-it straight to the model; no page fetch, no schema dig.
+shape**, and the **method description** (with its gotchas). Hits are **previews, not full pages**:
+the condensed format has fixed per-section limits, so raising `lines_in_each_result` does not expand
+every section, and `0` only removes the per-hit line cap — it never reproduces the whole source page.
+Before building on a hit, check sufficiency: do you have the required inputs, the conditions that
+apply to your case, and the REST contract or SDK signature you need? If yes, proceed — no extra
+fetch. If not, make **one targeted follow-up**: read the method page (§2) or pull its schema (§C).
 
 ```bash
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}' \
   | jq -r '.content'      # no jq? → python3 -c 'import sys,json;print(json.load(sys.stdin)["content"])'
+```
+
+For a workflow, hit the recipe corpus first, then resolve each step's call in `REST`/`SDK`:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"search_term":"end to end booking flow","document_type":"SKILLS","maximum_results":2}' \
+  | jq -r '.content'
 ```
 
 **`/docs/search` (JSON) → route on it.** Returns `{ results: [ { title, url, content,
@@ -55,19 +80,37 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
 # no jq? → python3 -c 'import sys,json;[print(r["title"],r["url"]) for r in json.load(sys.stdin)["results"] if r.get("url")]'
 ```
 
-**B. Browse the docs tree as a menu.** Two ways: the **structured browse endpoint** for the REST
-API reference (preferred there — typed, counted, filterable), and the **`.md` menu tree** for every
-portal and for reading pages.
+**B. Browse the docs tree as a menu.** Two ways: the **structured browse endpoint** for the
+supported portals (preferred there — typed, counted, filterable), and the **`.md` menu tree** for
+any surface and for reading pages.
 
-**B1. Structured browse — REST API reference (`api-reference`).** `POST
-/mcp-docs-search/v1/docs/menu/browse` walks the tree and returns each child with its **kind**, its
-**HTTP verb** (for methods), and **subtree counts** ("Catalog V3 — 121 methods, 32 articles"), so
-you pick the right area by shape — in ~2 KB, not a ~40 KB menu page you have to `grep`. `include`,
-`name_filter`, and `depth` jump straight to what you want. Body: `menu_url?` (absolute docs URL;
-omit for the portal root — the top-level verticals), `document_type?` (`REST`, default), `depth?`
-(1, max 6), `include?` (`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`),
-`deprecated?` (`HIDE` default·`SHOW`·`ONLY`), `name_filter?`, `format?` (`MARKDOWN` default →
-`content` string; `STRUCTURED` → JSON tree with `url`/`http_method`/`resource_id`/`child_counts`).
+**B1. Structured browse — the supported portals.** `POST /mcp-docs-search/v1/docs/menu/browse`
+walks a portal's tree and returns each child with its **kind**, its **HTTP verb** (for methods), and
+**subtree counts** ("Catalog V3 — 121 methods, 32 articles"), so you pick the right area by shape —
+in ~2 KB, not a ~40 KB menu page you have to `grep`. `include`, `name_filter`, and `depth` jump
+straight to what you want.
+
+Portals (`document_type`): `REST` (default — the `api-reference` portal) · `FRONTEND_SDK` (`sdk`) ·
+`CLI` (`wix-cli`) · `BUILD_APPS` (`build-apps`) · `WIX_HEADLESS` (`go-headless`). In **browse only**,
+`SDK` is an alias for `REST` (the API reference documents both views on every page) — it does **not**
+select `FRONTEND_SDK`, and the alias doesn't apply to semantic search. To discover a portal's areas,
+omit `menu_url` — you get the portal root; passing a supported portal's URL as `menu_url` also infers
+the portal for you.
+
+Body: `menu_url?` (absolute docs URL; omit for the portal root), `document_type?`, `depth?` (1, max
+6), `include?` (`CATEGORY`·`RESOURCE`·`METHOD`·`ARTICLE`·`WEBHOOK`·`OBJECT`·`SKILL`), `deprecated?`
+(`HIDE` default·`SHOW`·`ONLY`), `name_filter?`, `max_nodes?`, `format?` (`MARKDOWN` default →
+`content` string; `STRUCTURED` → JSON tree with `url`/`http_method`/`resource_id`/`child_counts`,
+plus `counts_by_type`, `truncated`, `deprecated_counts_by_type`).
+
+Two response signals to act on, not ignore:
+
+- **`truncated: true`** — the node cap cut the listing. Narrow instead of re-reading: browse a
+  deeper `menu_url`, tighten `include`/`name_filter`, or lower `depth`.
+- **Deprecation filtering** — deprecated entries are **hidden by default**;
+  `deprecated_counts_by_type` reports how many were filtered out. An API missing from a browse may
+  be deprecated, not nonexistent — re-browse with `deprecated: "SHOW"` (or `"ONLY"`) to inspect it,
+  and follow its replacement pointer where one is documented.
 
 ```bash
 # a vertical's structure, with per-child subtree counts
@@ -81,14 +124,19 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse' \
   -H 'Content-Type: application/json' \
   --data-raw '{"menu_url":"https://dev.wix.com/docs/api-reference/business-solutions/bookings","include":["METHOD"],"name_filter":"cancel","depth":4}' \
   | jq -r '.content'
+
+# a non-REST portal: the CLI docs, from the portal root
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/menu/browse' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"document_type":"CLI","depth":2}' | jq -r '.content'
 ```
 
-REST (`api-reference`) only, and browse-only: it hands you the page **URL** — read it by appending
-`.md` (§2), and get the exact schema from §C.
+Browse-only: it hands you the page **URL** — read it by appending `.md` (§2), and get the exact
+schema from §C.
 
-**B2. `.md` menu tree — every portal, and how you read pages.** Every docs path has a `.md` twin, so
-you can navigate any portal with zero dependencies; use it for the **non-REST portals** (SDK, Velo,
-Headless, CLI) and to read leaves. `curl https://dev.wix.com/docs/llms.txt` is the
+**B2. `.md` menu tree — any surface, and how you read pages.** Every docs path has a `.md` twin, so
+you can navigate any surface with zero dependencies; use it for surfaces structured browse doesn't
+cover (e.g. Velo) and to read leaves. `curl https://dev.wix.com/docs/llms.txt` is the
 top-level map; the portals under it:
 
 | Portal | Start here for |
@@ -127,9 +175,13 @@ curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: ap
 ```
 
 **Filter narrowly and return only the fields you need** — the index is large, so an unfiltered dump
-is huge. Scope: **REST API methods only** (not concept/guide articles, headless prose, or SDK-only
-surfaces — use A/B for those). More examples (browse a whole vertical, `menuPath` walk,
-whole-resource schema) and the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
+is huge. Scope: the **REST surface**. `lightIndex` indexes REST **methods**; a sibling `articles`
+index plus `getArticleContentByUrl(docsUrl)` / `getArticleContent(resourceId)` cover the REST
+portal's **prose** (introductions, recipes, flow pages). SDK-only surfaces and the other portals
+aren't here — use A/B for those, and note the schemas returned are REST contracts, not SDK
+signatures (the SDK view of the same method lives on its docs page, §2). More examples (browse a
+vertical, `menuPath` walk, resource schema) and the schema/article readers →
+**`references/API_SPEC_SEARCH.md`**.
 
 If the Wix MCP is present, it exposes these same capabilities as native tools (no `curl`/JSON
 boilerplate) — Lane 2.
@@ -169,17 +221,29 @@ handle it accordingly:
   For the exact **structured** schema and enum values, don't hand-slice the markdown — query the API
   spec with a `curl` `POST` to `https://mcp.wix.com/api/code-mode/search` (the no-MCP equivalent of
   the MCP `SearchWixAPISpec`). The `code` is a JS function with `lightIndex` and
-  `getResourceSchemaByUrl(docsUrl)` in scope; return only what you need:
+  `getResourceSchemaByUrl(docsUrl)` in scope; return only what you need.
+
+  `getResourceSchemaByUrl` scopes to the URL you pass: a **method URL** returns a schema whose
+  `methods` array holds just that method — read it as `methods[0]`, and don't select it by comparing
+  `m.docsUrl` to your input (the reader normalizes URLs). A **resource URL** (the method URL minus
+  its last segment) returns the **whole resource** — fetch that when you need sibling operations or
+  shared resource context.
 
   ```bash
   # find a method by keyword → its docsUrl + executable publicUrl
   curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
     --data-raw '{"code":"async function(){ return lightIndex.flatMap(r=>r.methods).filter(m=>/createBooking$/i.test(m.operationId)).map(m=>({op:m.operationId, httpMethod:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
 
-  # pull one method's request/response schema by its docsUrl (resolve $circular refs via s.components.schemas)
+  # a METHOD URL → that one method's contract (resolve $circular refs via s.components.schemas)
   curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
-    --data-raw '{"code":"async function(){ const u=\"https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking\"; const s=await getResourceSchemaByUrl(u); const m=s.methods.find(x=>x.docsUrl===u); return { publicUrl:m.publicUrl, requestBody:m.requestBody, responses:m.responses }; }"}'
+    --data-raw '{"code":"async function(){ const s=await getResourceSchemaByUrl(\"https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking\"); const m=s.methods[0]; return { publicUrl:m.publicUrl, requestBody:m.requestBody, responses:m.responses }; }"}'
   ```
+
+  The envelope is `{ "result": … }` or `{ "error": "<message>" }` — **both arrive as HTTP 200**, so
+  check the body, not the status. The error text names the fix: an article URL → switch to
+  `getArticleContentByUrl`; an unknown URL → search `lightIndex` by keyword. Don't re-send an
+  identical failed lookup — change something based on the error, and if discovery still fails,
+  report the limitation instead of guessing the contract.
 
   Full example set (resource listing, partial-URL resolution, enum/nested-ref expansion) →
   `references/API_SPEC_SEARCH.md`.
@@ -195,18 +259,17 @@ when present, fall back to Lane 1 when not. Optional — skip this lane if the t
 |---|---|
 | `SearchWixRESTDocumentation` | Find a REST method/recipe by keyword |
 | `SearchWixSDKDocumentation` | Find an SDK method (surfaces runtime functions a module menu hides) |
-| `SearchWixAPISpec` → `getResourceSchemaByUrl` | The **whole resource** — every method + shared object schema in one payload |
+| `SearchWixAPISpec` → `getResourceSchemaByUrl` | Structured schema — a **method URL** for that method's contract, a **resource URL** for the whole resource |
 | `ReadFullDocsArticle` | Read a recipe/flow/article page in full |
 | `BrowseWixRESTDocsMenu` | Walk the menu tree to drill to a method |
 
-- **Prefer the whole-resource view** (`getResourceSchemaByUrl`) over a single method page: a
-  requirement is often documented on a *sibling* method (e.g. a `memberId` required on
-  single-create but omitted from the bulk-create page). The resource view carries both.
-- **Look for the vertical's recipe/flow page first** — many verticals publish opinionated,
-  multi-step recipes under a `…/business-solutions/<vertical>/skills` node (search
-  `"<vertical> setup recipe"` or browse the menu). A recipe gives correct ordering,
-  cross-step gotchas, and the one bundled endpoint that does the whole job — which a
-  per-method schema won't flag.
+- **Fetch the method for its contract; fetch the resource for context.** A method URL gives exactly
+  that method. When a requirement may live on a *sibling* method (e.g. a `memberId` required on
+  single-create but omitted from the bulk-create page), fetch the **resource** URL instead — the
+  resource view carries every method plus the shared object schema.
+- The **recipe-first routing** at the top of this skill applies here too: for a multi-step workflow,
+  search the recipe corpus (many verticals publish recipes under a
+  `…/business-solutions/<vertical>/skills` node) before assembling per-method calls.
 
 ## The `.md` suffix
 
@@ -215,76 +278,11 @@ plain docs URL **without** `.md` — never feed a `.md` URL to an MCP tool.
 
 ## From docs to calls
 
-The contract you just read runs under one of two identities — and which one a call wants is part
-of what you read:
-
-| identity | token | for |
-|---|---|---|
-| **admin** | an admin token (API key, connector, or OAuth-app admin grant) | managing the site — ad hoc calls, or the same fetch inside an app's backend function |
-| **visitor** | minted from the site's OAuth app, in frontend code | everything the site's end user does — storefront reads, cart, checkout |
-
-**Admin** — any management or read call, straight from its docs contract:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/contacts/v5/contacts/query' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  --data-raw '{"query": {"cursorPaging": {"limit": 10}}}'
-```
-
-In a Wix CLI project, the CLI mints `$ADMIN_TOKEN` — at either scope:
-
-```bash
-TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")   # site-scoped: this one site's APIs
-TOKEN=$(npx @wix/cli@latest token)                     # account-scoped: account-level APIs (list sites, …)
-```
-
-Mint once per run and cache it — within a run the CLI returns a byte-identical token, so re-minting
-only spends startup time.
-
-**Visitor — minted from the OAuth app's client id.** The client id is a public value, and it is
-usually already on disk before it is in any API: in a managed headless project it is the `appId`
-field of `wix.config.json` — **the OAuth app id and the client id are the same value** — so read it
-from the project's config instead of querying the OAuth-apps API for it. The mint is one
-unauthenticated call, so it belongs in the site's own frontend code:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/oauth2/token' \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"clientId": "<oauth app client id>", "grantType": "anonymous"}'
-# → { "access_token": "OauthNG.JWS.…", … } — bearer for products, cart, checkout
-```
-
-The cart and checkout APIs act on the *caller's* identity, so they want the visitor token — the
-admin token is for managing the site, the visitor token is for being on it.
-
-The authentication docs (append `.md` to read):
-
-- [`about-identities`](https://dev.wix.com/docs/api-reference/articles/authentication/about-identities) — the identity model
-- [`rest-api-authentication`](https://dev.wix.com/docs/api-reference/articles/authentication/rest-api-authentication) — headers, token kinds
-- [`retrieve-tokens`](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens) — the `/oauth2/token` contract, all grant types
-- [`about-authentication`](https://dev.wix.com/docs/go-headless/authentication/about-authentication) — visitor vs member sessions
-- [`create-an-oauth-app-for-visitors-and-members`](https://dev.wix.com/docs/go-headless/getting-started/setup/authentication/create-an-oauth-app-for-visitors-and-members) — where the client id comes from
-- [`set-up-a-headless-client`](https://dev.wix.com/docs/go-headless/authentication/setup/set-up-a-headless-client) — wiring the client
-
-## Special APIs worth knowing
-
-**Dynamic Site Context — "what IS this site?"** One admin call returns a markdown report of the
-whole site — installed apps, status, URL, locale, CMS collections — the same output the Wix MCP's
-site-context tool renders:
-
-```bash
-curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  --data-raw '{"siteId": "<metasite id>"}' | jq -r '.markdown'
-```
-
-A `200` with `"markdown": ""` means the token or `siteId` is wrong — the endpoint reports an empty
-context instead of an auth error, so treat empty as "check auth", never as "empty site".
-
-For site management, the **`wix-manage`** skill carries per-area recipes. It may already be
-installed at
-`.agents/skills/wix-manage/`; install it with `npx -y skills add wix/skills/skills/wix-manage`,
-or read it straight off the registry: `https://www.wix.com/skills/wix-manage`.
+Understanding the contract is this skill's job; executing it needs an identity. Which identities a
+method accepts is part of what you read — check the method page's permissions and identity notes
+before calling, and confirm your token's site/account scope matches. Token minting (CLI admin
+tokens, visitor tokens), the identity model, and the dynamic site-context report →
+**`references/CALLING.md`**.
 
 ## Before you write the code
 

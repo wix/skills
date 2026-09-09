@@ -47,16 +47,9 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 `references/events/app/` → `src/`.)
 
 
-## STEP 2 — Theme (nothing to style on the shipped components)
-The shipped components carry **no palette of their own** — they render from base44's design tokens in
-`src/index.css` (`:root`/`.dark`: `--background`, `--foreground`, `--card`, `--primary`, `--muted`,
-`--border`, `--radius`, `--font-*`) via shadcn Tailwind classes (`bg-card`, `text-foreground`,
-`bg-primary`, `text-muted-foreground`, `border-border`, `rounded-lg`, `font-display`). Those tokens
-are **already set to the brand by the design phase**, so the shipped pages are themed with zero work
-here. To adjust the palette, edit `index.css` (`:root` **and** `.dark`) — the base44 way; **never add
-a parallel theme file (e.g. a `theme.css`) or restyle the shipped JSX.** Build the Home/Header you add
-(STEP 3) from the **same** base44 tokens/classes so it matches automatically. A dark brand is just
-base44's dark palette in `index.css` — no per-component work.
+## STEP 2 — Theme
+Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
+share the same colors and typography.
 
 ## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
@@ -206,10 +199,9 @@ official Wix Events API reference first, never guess:
 - Member login + "my registrations" → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 
 Fallback only — when you hit an error or need something not shown here: read the relevant shipped file
-under `src/`, or look it up via the **`wix-docs`** skill.
+under `src/`, or look it up via the documentation skill available in your environment.
 
 ## Hard rules
-- Style via base44 design tokens (`index.css` / shadcn Tailwind classes), never by rewriting the shipped components or adding a parallel theme file.
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Events`/`EventDetail` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
 - Paid ticket checkout goes through the shipped reserve → `getTicketCheckoutUrl` redirect (the Wix-hosted ticket form) — never a hand-built registration/ticket/payment URL.
@@ -225,7 +217,6 @@ parallel.
 
 ## Verify (before declaring done)
 - [ ] Client files copied into `src/`; `WIX_CLIENT_ID` set (not the placeholder).
-- [ ] Brand palette lives in `index.css` (`:root`/`.dark`); no parallel theme file; shipped components/pages not restyled or rewritten.
 - [ ] Opened the vertical's data route(s) (not just the home page) and confirmed the shipped components render themed (surface, text, brand) with images.
 - [ ] `Layout` (fixed `<WixManageBanner/>` + `<Header/>` region, then `<Outlet/>` + Footer) wraps all routes; shipped `Events`/`EventDetail` untouched; content clears the fixed chrome.
 - [ ] Event grid renders live events; clicking a card opens the detail page by `slug`; visitor token persists across reload.
