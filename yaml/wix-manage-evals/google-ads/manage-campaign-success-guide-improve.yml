@@ -4,7 +4,9 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  How can I improve my Google Ads campaign?
+  How can I improve my existing Wix Google Ads campaign? I manage more than
+  one Wix site and haven't said which site or campaign I mean yet. What should
+  I do next?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
