@@ -6,42 +6,27 @@ initial prompt, and the Wix connector is already configured.
 The shipped client is already configured. Use its documented hooks and components; no ID lookup
 or configuration changes are needed.
 
-> **The Wix skills installed below are the complete build path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).** **This flow builds the client only — there is no seeding step.**
+> **The installed Wix skills are the complete build path for this app.** **Do NOT use the Base44 commerce kit (or any Base44 solution kit).** **This flow builds the client only — there is no seeding step.**
 
 **Banner disabled for this entry flow:** do not add `<WixManageBanner/>`; skip the shared
 storefront instructions' optional banner integration.
 
-Follow STEPs 1–3 below exactly.
+## STEP 0 — Setup already completed by Base44
 
-## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
-
-Install three skills — they land under `.agents/skills/`:
+These skills are already installed under `.agents/skills/`:
 - **`wix-vibe-headless`** — storefront build instructions, hook/component contracts, and seeding modules.
 - **`wix-manage`** — REST recipes for managing and configuring the Wix site.
 - **`wix-base44-connector`** — Wix connector usage, API contracts, and documentation discovery.
 
+Base44 has also deployed the storefront hooks, cart components/context, image helpers, and REST
+scaffolds into `src/`, configured the Wix connector/client, and added the Wix note to `AGENTS.md`.
+No installation, deployment, or AGENTS.md update is needed.
+The deployed implementation and configuration files do not need to be read; use the build guides
+below for their contracts and usage. Continue with STEP 1.
 
-Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
+Follow STEPs 1–2 below exactly.
 
-```js
-const { execSync } = require('child_process');
-const { existsSync, readdirSync } = require('fs');
-const results = {};
-for (const skill of ['wix-vibe-headless', 'wix-manage', 'wix-base44-connector']) {
-  if (existsSync(`/app/.agents/skills/${skill}/SKILL.md`)) { results[skill] = 'already_installed'; continue; }
-  try {
-    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`,
-      { cwd: '/app', timeout: 60000, shell: '/bin/bash' }).toString().replace(/\x1b\[[0-9;]*m/g, '');
-    results[skill] = /installed 1 skill|found 1 skill/i.test(out) ? 'success'
-      : out.includes('No valid skills') ? 'not_found' : 'unknown';
-  } catch (e) { results[skill] = 'error: ' + e.message; }
-}
-const deploy = execSync(`node /app/.agents/skills/wix-vibe-headless/install/deploy.cjs storefront`, { cwd: '/app' }).toString();
-const agentsMd = execSync(`node /app/.agents/skills/wix-vibe-headless/install/pin-agents-md.cjs`, { cwd: '/app' }).toString();
-return { results, installed: readdirSync('/app/.agents/skills'), deploy: JSON.parse(deploy), agentsMd: JSON.parse(agentsMd) };
-```
-
-## STEP 2 — Build the client
+## STEP 1 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/references/storefront/INSTRUCTIONS.md` and follow it **EXACTLY** — the single source of truth for how the storefront client is built.
 
@@ -58,7 +43,7 @@ The shipped files are already deployed and configured; you do not need to read t
 rebuild them. If you encounter an error after building the client, read or change whatever you
 need to diagnose and fix it.
 
-## STEP 3 — Wrap up
+## STEP 2 — Wrap up
 
 **No seeding in this flow** — the client is the only deliverable. Do not seed, populate, or write data to Wix.
 
