@@ -4,8 +4,9 @@ description: >-
   success guide recommendation as sufficient information to perform the correct
   status update without another confirmation step.
 triggerPrompt: >-
-  I made the call-to-action button clearer as my Google Ads campaign success
-  guide recommended. Mark that recommendation as done.
+  I made the call-to-action button clearer as my Wix Google Ads campaign
+  success guide recommended. Mark that recommendation as done. I manage more
+  than one Wix site and haven't said which site or campaign this is for yet.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
