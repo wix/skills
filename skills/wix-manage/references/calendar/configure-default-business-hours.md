@@ -111,8 +111,8 @@ Query pattern:
 {
   "events": [
     {
-      "id": "<EVENT_ID>",
-      "scheduleId": "<BUSINESS_SCHEDULE_ID>",
+      "id": "9f1e2d3c4b5a69788766554433221100aabbccddeeff00112233445566778899",
+      "scheduleId": "f3b9c2d1-7a4e-4b8c-9d2f-6e1a5c8b0d47",
       "type": "WORKING_HOURS",
       "recurrenceType": "MASTER",
       "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"] },
