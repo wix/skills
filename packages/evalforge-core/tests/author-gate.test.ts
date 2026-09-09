@@ -38,10 +38,10 @@ describe('isSameRepoBranch', () => {
 
   /**
    * The case the gate exists for: an outside contributor has no push access here, so their
-   * branch lives in their own fork. wix/skills#1163 is exactly this.
+   * branch lives in their own fork.
    */
   it('refuses a fork', () => {
-    expect(isSameRepoBranch('anupamme/skills', 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('outsider/skills', 'wix', 'skills')).toBe(false);
   });
 
   it('refuses a deleted head repository and a look-alike name', () => {
