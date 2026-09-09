@@ -67,6 +67,28 @@ Building the body by hand instead of piping? Copy the `campaign` object out of t
 
 **A nested array is replaced wholesale, not merged.** To add a keyword theme, send the existing themes *plus* the new one. To reword one headline, send the asset group with every other headline, description, image and signal unchanged. To add a city, send the existing `locations` plus the new entry.
 
+Both worked updates below start from the same `campaign.json` the read in step 1 produced, and append to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry deletes everything already there.
+
+**Smart campaign — exclude a search term.** Traffic-quality tuning; this is the only way to set `excludedSearchTerms`.
+
+```bash
+jq '{ campaign: (.campaign | .smartCampaign.excludedSearchTerms += [
+       { "freeFormKeywordTheme": "diy", "displayName": "diy" }
+     ]) }' campaign.json > update.json
+```
+
+A Smart campaign's update is also hard-gated server-side: `smartCampaign.adGroups` (each with its `ads`), `smartCampaign.url`, `smartCampaign.languageCode` and `smartCampaign.businessName` must be present on **every** update — plus `smartCampaign.phone` when the campaign runs call ads. Omitting them fails with a 5xx and no actionable message rather than a validation error, so this is one place where a partial payload doesn't silently corrupt, it just breaks. Sending the whole entity satisfies it either way.
+
+**PMAX Leads — add a search theme signal.** The follow-through for a `GOOGLE_ADS_SEARCH_THEMES` item in the [campaign success guide](manage-campaign-success-guide.md).
+
+```bash
+jq '{ campaign: (.campaign | .performanceMaxCampaign.assetGroups[0].assetGroupSignals.signals += [
+       { "searchTheme": { "text": "emergency plumber near me" } }
+     ]) }' campaign.json > update.json
+```
+
+The entire asset group rides along — every headline, description, image and existing signal — because `assetGroups` is replaced wholesale, not merged. `[0]` assumes a single asset group; with more than one, select the intended group by its `resourceName` instead of by index. `performanceMaxCampaign.excludedKeywords` takes the same `{ freeFormKeywordTheme, displayName }` shape as a Smart campaign's excluded search terms.
+
 | What the user asks for | What the payload must still carry |
 | --- | --- |
 | Change the daily budget | `name`, `locations`, `adSchedule`, and the whole `smartCampaign` / `performanceMaxCampaign` block |
@@ -94,6 +116,7 @@ Budget is in **micros** (`30000000` = $30.00/day). Over the account max → `CAM
 | `MAXIMUM_NUMBER_OF_CAMPAIGNS_REACHED` | 5 live already — pause one, then Launch/Resume |
 | `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` | Budget over account max — lower within daily-budget-boundaries |
 | Fields vanished after an update (targeting, assets, name) | The `PATCH` body was partial — it replaced what it named and dropped the rest. Re-`GET`, rebuild the full entity, `PATCH` it back, and verify by reading again |
+| 5xx with no actionable message on a `SMART` update | A field the Smart handler hard-requires was omitted — `smartCampaign.adGroups` / `url` / `languageCode` / `businessName` (and `phone` for call ads). Re-`GET` and resend the full entity |
 | An update was rejected for a read-only field | Drop only the field the error names (`status`, `resourceName`, `createdDate`, `updatedDate`, `actionDate`, `reportingKey`) and resend the rest of the entity |
 | `CUSTOM_CHARGES_SUBSCRIPTION_EXPIRED` / `…_AUTO_RENEWAL_OFF` | Renew / re-enable auto-renewal (Resume accepts `turnAutoRenewOn`) |
 
