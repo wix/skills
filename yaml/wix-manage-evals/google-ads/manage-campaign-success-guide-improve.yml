@@ -4,7 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  How can I improve my Wix Google Ads campaign?
+  How can I improve my Wix Google Ads campaign on this site?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -40,8 +40,11 @@ assertions:
       resolution: use the current site context, list its campaigns at most once
       if needed, and ask one focused question only if ambiguity remains.
       Penalize querying analytics first, routing through pre-campaign
-      suggestions, probing multiple sites, guessing a campaign or installation
-      state, repeated non-2xx calls, redundant documentation, and internal
-      service or tool names in the user-facing answer.
+      suggestions, using account-wide site listing, probing multiple sites,
+      guessing a campaign or installation
+      state, repeated non-2xx calls, unrelated or repeated documentation, and
+      internal service or tool names in the user-facing answer. Reading the
+      campaign-lifecycle recipe once to list the current site's campaigns is a
+      relevant step, not a detour.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

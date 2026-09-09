@@ -5,11 +5,11 @@ description: >-
   destination-specific CTA, and offers to perform supported campaign and
   account work after approval.
 triggerPrompt: |-
-  I opened the campaign success guide for my Wix Google Ads lead campaign. It
-  says I still need to clarify the main call-to-action button, move that action
-  above the fold, add an FAQ section, configure Google Ads search themes, and
-  connect Merchant Center, in that order. What should I do next? Don't change
-  anything until I approve it.
+  I opened the campaign success guide for this Wix site's Google Ads lead
+  campaign. It says I still need to clarify the main call-to-action button,
+  move that action above the fold, add an FAQ section, configure Google Ads
+  search themes, and connect Merchant Center, in that order. What should I do
+  next? Don't change anything until I approve it.
 tags: [marketing]
 siteSetup:
   mode: template
