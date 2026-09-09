@@ -172,7 +172,8 @@ export type ReviewConfig = {
   effort: string;
   timeoutSeconds: number;
   isBlocking: boolean;
-  authorAssociation?: string;
+  /** GitHub's server-side view of the PR author's relationship to this repo. */
+  authorAssociation: string;
 };
 
 export function getReviewConfig(): ReviewConfig {
