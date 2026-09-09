@@ -23,11 +23,10 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and the installed package's own `Collection Toolkit.md` guide for which component serves each need ([The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain)).
-    - [ ] **The page shows aggregate numbers, not only rows** (`SummaryBar`) — unless the prompt asks for a single record. "How many, and which ones need me" is why someone opens a dashboard.
     - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
-    A filtered table with none of the three is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
+    A filtered table with neither of the two is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then `Read` `dist/docs/index.json` — the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/types/`, or any other path inside the package.
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have, and read that one — not all three:
     - **Where do I import it from?** → the entry's `importPath`. No file read at all.

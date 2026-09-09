@@ -112,7 +112,6 @@ Presentation success applies across all five stages. Choose both the right **rep
 | **Kanban** | Work moves through meaningful stages. | Stage, workload, and valid movement are understandable. |
 | **Timeline or calendar** | Time, sequence, or scheduling matters. | Upcoming activity, conflicts, and timing are clear. |
 | **Chart** | The user needs to understand a trend or relationship. | The visualization answers a specific business question. |
-| **Summary metrics** | The user needs a quick health signal. | Metrics clarify current conditions and where to focus. |
 
 - Choose the default view that best supports the primary task.
 - Offer another view only when it provides distinct value.
