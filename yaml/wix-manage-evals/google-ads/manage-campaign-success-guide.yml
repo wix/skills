@@ -18,10 +18,10 @@ assertions:
     prompt: |
       Pass if the response:
       - offers the guide as a valid immediate next step after campaign creation,
-        waits for the user's approval before retrieving it, and does not wait for
+        does not retrieve it without the user's approval, and does not wait for
         LEARNING to end or for performance metrics;
-      - distinguishes this existing-campaign guide from pre-campaign asset,
-        keyword, budget, or targeting suggestions; and
+      - identifies it as a guide for improving the existing campaign rather than
+        generating a new campaign's inputs; and
       - briefly explains that the guide can prioritize improvements using the
         campaign setup, landing page, and site connections before performance
         data exists.
