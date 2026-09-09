@@ -13,10 +13,6 @@ before choosing the directory, handler type, or frontend URL.
 - Existing `@wix/astro` apps retain Astro routing. Do not add
   `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
   imports, or introduce `WIX_SERVER_BASE_PATH` to apply the Studio 2 recipe.
-- **Headless sites:** follow the [wix-headless skill](../../wix-headless/SKILL.md).
-  Preserve framework routing, site authentication, browser fetch, and deployment.
-  Native Astro endpoints need no app generator, standalone package minimum, or CLI
-  upgrade; the app-extension client and identity rules below do not apply.
 
 ## Generate for the Project Type
 

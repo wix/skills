@@ -1,12 +1,11 @@
 
 # Extension Registration
 
-`src/extensions.ts` registers extensions through `.use()` calls. HTTP endpoints are file-based routes and do not use this registration mechanism.
+`src/extensions.ts` is the single entry point that tells the build system which extensions exist. Without a `.use()` call for an extension, it does not load. HTTP endpoints are file-based routes and do not use this registration mechanism.
 
 ## Registration is automatic via the CLI
 
-For registered extension types, `wix generate --params` updates `src/extensions.ts`
-for you. Verify the generated import and `.use()` call; do not write them by hand.
+For every CLI-supported extension type, `wix generate --params` updates `src/extensions.ts` for you — you do NOT need to write the import or the `.use()` call by hand. Verify the file was updated after each `wix generate` invocation. The one exception is `HTTP_ENDPOINT`: it is file-based, `wix generate` does not touch `src/extensions.ts` for it, and an unchanged file after generating an endpoint is expected (see below).
 
 ## HTTP endpoints: no registration
 

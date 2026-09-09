@@ -10,7 +10,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 **Scope:** These are app-extension workflows. Wix CLI headless sites retain their framework routing and authentication; use the [wix-headless skill](../wix-headless/SKILL.md). Using the Wix CLI alone does not make a project standalone or Studio 2.
 
-**Scaffolding is owned by the Wix CLI.** Use `wix generate --params` for every supported type, including `HTTP_ENDPOINT`. It generates files and, where applicable, builder boilerplate, UUIDs, and `src/extensions.ts` registration. HTTP endpoints are discovered from files and need no registration. This skill provides the decision logic, API guidance, configuration semantics, and business-logic patterns that fill in the generated stubs.
+**Scaffolding is owned by the Wix CLI.** Use `wix generate --params` for every supported type. It generates files and, where applicable, builder boilerplate, UUIDs, and `src/extensions.ts` registration. HTTP endpoints are discovered from files and need no registration. This skill provides the decision logic, API guidance, configuration semantics, and business-logic patterns that fill in the generated stubs.
 
 ## ⚠️ MANDATORY WORKFLOW CHECKLIST ⚠️
 
