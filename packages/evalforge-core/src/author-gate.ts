@@ -1,4 +1,38 @@
 /**
+ * The values GitHub documents for `author_association`.
+ *
+ * Written out rather than imported: `@actions/github` types the payload's `pull_request`
+ * as an open bag of `any` with no `author_association` on it, and `@octokit/webhooks-types`
+ * — which does declare this union — is in none of these projects' dependency trees. Adding
+ * it would mean a new entry in four separate lockfiles, each behind the 14-day cooldown, to
+ * type eight string literals.
+ *
+ * Its only job is to catch a typo in `ORG_ASSOCIATIONS` below. Values arriving at runtime are
+ * deliberately **not** narrowed to it: GitHub can add a value, and an unrecognised one should
+ * read as "not a member" rather than crash the gate.
+ */
+export type AuthorAssociation =
+  | 'COLLABORATOR'
+  | 'CONTRIBUTOR'
+  | 'FIRST_TIMER'
+  | 'FIRST_TIME_CONTRIBUTOR'
+  | 'MANNEQUIN'
+  | 'MEMBER'
+  | 'NONE'
+  | 'OWNER';
+
+/**
+ * Raised when the payload carries no usable association. Typed so a caller that skips rather
+ * than fails can recognise it, and let every other config error keep failing the check.
+ */
+export class AuthorAssociationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthorAssociationError';
+  }
+}
+
+/**
  * `author_association` values GitHub reports for someone who belongs to the
  * organization that owns the repo.
  *
@@ -11,7 +45,7 @@
  * accepting it would gate on repo permissions rather than on org membership. Push
  * access is not the question this gate asks.
  */
-const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
+const ORG_ASSOCIATIONS: ReadonlySet<string> = new Set<AuthorAssociation>(['OWNER', 'MEMBER']);
 
 /**
  * The shape of the webhook payload this module reads. Declared structurally so the
@@ -36,10 +70,14 @@ export type AuthorAssociationPayload = {
  */
 export function requireAuthorAssociation(payload: AuthorAssociationPayload): string {
   const pr = payload.pull_request;
-  if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+  if (!pr) {
+    throw new AuthorAssociationError(
+      'No pull_request payload — action must be triggered by a pull_request event',
+    );
+  }
   const association = pr.author_association;
   if (typeof association !== 'string' || association.trim() === '') {
-    throw new Error('PR payload missing author_association');
+    throw new AuthorAssociationError('PR payload missing author_association');
   }
   return association;
 }

@@ -34203,9 +34203,21 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AuthorAssociationError = void 0;
 exports.requireAuthorAssociation = requireAuthorAssociation;
 exports.isWixOrgAuthor = isWixOrgAuthor;
 exports.assertWixAuthor = assertWixAuthor;
+/**
+ * Raised when the payload carries no usable association. Typed so a caller that skips rather
+ * than fails can recognise it, and let every other config error keep failing the check.
+ */
+class AuthorAssociationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthorAssociationError';
+    }
+}
+exports.AuthorAssociationError = AuthorAssociationError;
 /**
  * `author_association` values GitHub reports for someone who belongs to the
  * organization that owns the repo.
@@ -34231,11 +34243,12 @@ const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
  */
 function requireAuthorAssociation(payload) {
     const pr = payload.pull_request;
-    if (!pr)
-        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    if (!pr) {
+        throw new AuthorAssociationError('No pull_request payload — action must be triggered by a pull_request event');
+    }
     const association = pr.author_association;
     if (typeof association !== 'string' || association.trim() === '') {
-        throw new Error('PR payload missing author_association');
+        throw new AuthorAssociationError('PR payload missing author_association');
     }
     return association;
 }
@@ -68888,7 +68901,19 @@ async function reportUnavailable(reason, pending, isBlocking) {
     (0, github_1.fail)(`The skill review did not complete: ${reason}`, isBlocking);
 }
 async function runReview() {
-    const config = (0, config_1.getReviewConfig)();
+    // An unresolvable author skips rather than failing, the same as one who is simply not a
+    // Wix author. Every other config error still fails: a missing input is a misconfiguration,
+    // not a question about who opened the PR.
+    let config;
+    try {
+        config = (0, config_1.getReviewConfig)();
+    }
+    catch (error) {
+        if (!(error instanceof evalforge_core_1.AuthorAssociationError))
+            throw error;
+        core.info(`Skipping the skill review — could not resolve the PR author: ${error.message}`);
+        return;
+    }
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);

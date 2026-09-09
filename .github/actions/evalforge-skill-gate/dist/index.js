@@ -30089,9 +30089,21 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AuthorAssociationError = void 0;
 exports.requireAuthorAssociation = requireAuthorAssociation;
 exports.isWixOrgAuthor = isWixOrgAuthor;
 exports.assertWixAuthor = assertWixAuthor;
+/**
+ * Raised when the payload carries no usable association. Typed so a caller that skips rather
+ * than fails can recognise it, and let every other config error keep failing the check.
+ */
+class AuthorAssociationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthorAssociationError';
+    }
+}
+exports.AuthorAssociationError = AuthorAssociationError;
 /**
  * `author_association` values GitHub reports for someone who belongs to the
  * organization that owns the repo.
@@ -30117,11 +30129,12 @@ const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
  */
 function requireAuthorAssociation(payload) {
     const pr = payload.pull_request;
-    if (!pr)
-        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    if (!pr) {
+        throw new AuthorAssociationError('No pull_request payload — action must be triggered by a pull_request event');
+    }
     const association = pr.author_association;
     if (typeof association !== 'string' || association.trim() === '') {
-        throw new Error('PR payload missing author_association');
+        throw new AuthorAssociationError('PR payload missing author_association');
     }
     return association;
 }
@@ -62838,6 +62851,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MAX_TOTAL_SCENARIO_EXECUTIONS = exports.MAX_BASE_ARM_GRACE_SECONDS = exports.MAX_RUNS_PER_SCENARIO = exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
+exports.getCommentTarget = getCommentTarget;
 exports.getGateConfig = getGateConfig;
 exports.getAnalyzeConfig = getAnalyzeConfig;
 exports.getCleanupConfig = getCleanupConfig;
@@ -63000,6 +63014,18 @@ function getEvaluatedSha() {
         + '`evaluated-sha: ${{ steps.<checkout-step>.outputs.sha }}` from `git rev-parse HEAD`.');
     return sha;
 }
+/**
+ * The minimum needed to comment on the PR: everything here is read straight from the action
+ * inputs and the event context, so it stays available when building a full config throws.
+ */
+function getCommentTarget() {
+    return {
+        githubToken: core.getInput('github-token', { required: true }),
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+    };
+}
 function getGateConfig() {
     const owner = github.context.repo.owner;
     const repo = github.context.repo.repo;
@@ -63124,8 +63150,28 @@ const pr_lookups_1 = __nccwpck_require__(1661);
 const gate_scope_1 = __nccwpck_require__(355);
 const sync_draft_scenarios_1 = __nccwpck_require__(9542);
 const run_and_report_1 = __nccwpck_require__(7535);
+/** Comments on the PR without a `GateConfig`, for the path where building one failed. */
+async function commentWithoutConfig(body) {
+    const target = (0, config_1.getCommentTarget)();
+    await (0, report_1.makeGateCommenter)(github.getOctokit(target.githubToken), target)(body);
+}
 async function runGate() {
-    const config = (0, config_1.getGateConfig)();
+    // The author gate must never redden a check, so an unresolvable author is recovered here
+    // rather than escaping to `index.ts`, which turns any throw into `setFailed` — and does so
+    // regardless of `blocking`, which is the guarantee the soak period depends on. Every other
+    // config error still fails, because a missing input is a real misconfiguration.
+    let config;
+    try {
+        config = (0, config_1.getGateConfig)();
+    }
+    catch (error) {
+        if (!(error instanceof evalforge_core_1.AuthorAssociationError))
+            throw error;
+        const reason = `could not resolve the PR author: ${error.message}`;
+        core.warning(`Skipping wix-app eval gate — ${reason}`);
+        await commentWithoutConfig((0, evalforge_core_1.formatGateSkipped)(reason));
+        return;
+    }
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, report_1.makeGateCommenter)(octokit, config);
     // First, so a fork PR costs nothing. Skips rather than fails, and says so on the PR,
@@ -63821,7 +63867,18 @@ async function applyPlan(client, projectId, plan) {
     return { hasFailures };
 }
 async function runSync() {
-    const config = (0, config_1.getSyncConfig)();
+    // Same recovery as the gate: an unresolvable author skips, it does not fail the check.
+    // This mode posts no comment, so the log line is the whole report.
+    let config;
+    try {
+        config = (0, config_1.getSyncConfig)();
+    }
+    catch (error) {
+        if (!(error instanceof evalforge_core_1.AuthorAssociationError))
+            throw error;
+        core.warning(`Skipping wix-app sync — could not resolve the PR author: ${error.message}`);
+        return;
+    }
     if (!(0, evalforge_core_1.isWixOrgAuthor)(config.authorAssociation)) {
         core.info('Skipping wix-app sync — PR author is not a Wix author');
         return;

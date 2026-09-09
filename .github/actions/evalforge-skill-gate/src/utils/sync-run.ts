@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
-import { EvalForgeClient, isWixOrgAuthor, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
-import { getSyncConfig } from './config';
+import { AuthorAssociationError, EvalForgeClient, isWixOrgAuthor, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
+import { getSyncConfig, type SyncConfig } from './config';
 import { workspaceRoot } from './workspace';
 
 export type ApplyPlanResult = { hasFailures: boolean };
@@ -39,7 +39,16 @@ export async function applyPlan(
 }
 
 export async function runSync(): Promise<void> {
-  const config = getSyncConfig();
+  // Same recovery as the gate: an unresolvable author skips, it does not fail the check.
+  // This mode posts no comment, so the log line is the whole report.
+  let config: SyncConfig;
+  try {
+    config = getSyncConfig();
+  } catch (error) {
+    if (!(error instanceof AuthorAssociationError)) throw error;
+    core.warning(`Skipping wix-app sync — could not resolve the PR author: ${error.message}`);
+    return;
+  }
 
   if (!isWixOrgAuthor(config.authorAssociation)) {
     core.info('Skipping wix-app sync — PR author is not a Wix author');

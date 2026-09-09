@@ -34203,9 +34203,21 @@ exports.TokenProvider = TokenProvider;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AuthorAssociationError = void 0;
 exports.requireAuthorAssociation = requireAuthorAssociation;
 exports.isWixOrgAuthor = isWixOrgAuthor;
 exports.assertWixAuthor = assertWixAuthor;
+/**
+ * Raised when the payload carries no usable association. Typed so a caller that skips rather
+ * than fails can recognise it, and let every other config error keep failing the check.
+ */
+class AuthorAssociationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthorAssociationError';
+    }
+}
+exports.AuthorAssociationError = AuthorAssociationError;
 /**
  * `author_association` values GitHub reports for someone who belongs to the
  * organization that owns the repo.
@@ -34231,11 +34243,12 @@ const ORG_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
  */
 function requireAuthorAssociation(payload) {
     const pr = payload.pull_request;
-    if (!pr)
-        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    if (!pr) {
+        throw new AuthorAssociationError('No pull_request payload — action must be triggered by a pull_request event');
+    }
     const association = pr.author_association;
     if (typeof association !== 'string' || association.trim() === '') {
-        throw new Error('PR payload missing author_association');
+        throw new AuthorAssociationError('PR payload missing author_association');
     }
     return association;
 }

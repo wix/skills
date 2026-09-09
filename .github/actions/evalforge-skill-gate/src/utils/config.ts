@@ -243,6 +243,19 @@ function getEvaluatedSha(): string {
   return sha;
 }
 
+/**
+ * The minimum needed to comment on the PR: everything here is read straight from the action
+ * inputs and the event context, so it stays available when building a full config throws.
+ */
+export function getCommentTarget(): { githubToken: string; owner: string; repo: string; prNumber: number } {
+  return {
+    githubToken: core.getInput('github-token', { required: true }),
+    owner: github.context.repo.owner,
+    repo: github.context.repo.repo,
+    prNumber: getPrNumber(github.context.payload),
+  };
+}
+
 export function getGateConfig(): GateConfig {
   const owner = github.context.repo.owner;
   const repo = github.context.repo.repo;
