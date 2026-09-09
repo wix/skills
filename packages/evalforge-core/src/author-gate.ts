@@ -1,115 +1,74 @@
 /**
- * The values GitHub defines for `author_association`, copied from its published payload
- * schema (`octokit/webhooks`, `payload-schemas/api.github.com/common/author_association.schema.json`).
+ * Whether a PR's author may spend an eval run.
  *
- * That schema also settles the question this gate rests on: `author_association` is in the
- * **required** list of `common/pull-request.schema.json`, and the recorded payloads for both
- * `opened` and `closed` carry it. So a `pull_request` event always has one, which is why
- * `requireAuthorAssociation` treats its absence as a wiring error rather than a normal state.
+ * The question this asks is "did the author have push access to this repository",
+ * answered by where the PR's head branch lives. Only someone with push access can
+ * create a branch in the repo itself; everyone else must fork, and a fork's head
+ * lives in their own namespace. The author cannot forge that — unlike a commit
+ * author email, which is free text copied from `user.email`.
  *
- * Written out rather than imported: `@actions/github` types the payload's `pull_request` as an
- * open bag of `any` with no `author_association` on it, and `@octokit/webhooks-types` — which
- * does declare this union — is in none of these projects' dependency trees. Adding it would
- * mean an entry in four separate lockfiles, each behind the 14-day cooldown, to type eight
- * string literals.
+ * **`author_association` does not work for this**, which is worth recording because it
+ * looks like it should. That field is viewer-relative: GitHub computes the copy in an
+ * Actions webhook payload without visibility into private org membership, so a member
+ * whose membership is private is reported as `CONTRIBUTOR`. Measured on wix/skills, every
+ * recent PR author reads `MEMBER` to an authenticated viewer and `CONTRIBUTOR` to the
+ * payload, because none of them is a *public* org member. A gate on that field refuses
+ * everybody.
  *
- * Its only job is to catch a typo in `ORG_ASSOCIATIONS` below. Values arriving at runtime are
- * deliberately **not** narrowed to it: GitHub can add a value, and an unrecognised one should
- * read as "not a member" rather than crash the gate.
+ * This check is the same one the workflows already apply at the job level
+ * (`github.event.pull_request.head.repo.full_name == github.repository`), so the action
+ * agrees with its own trigger rather than inventing a second notion of trust.
  */
-export type AuthorAssociation =
-  | 'COLLABORATOR'
-  | 'CONTRIBUTOR'
-  | 'FIRST_TIMER'
-  | 'FIRST_TIME_CONTRIBUTOR'
-  | 'MANNEQUIN'
-  | 'MEMBER'
-  | 'NONE'
-  | 'OWNER';
 
-/**
- * Raised when the payload carries no usable association. Typed so a caller that skips rather
- * than fails can recognise it, and let every other config error keep failing the check.
- */
-export class AuthorAssociationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthorAssociationError';
-  }
-}
-
-/**
- * `author_association` values GitHub reports for someone who belongs to the
- * organization that owns the repo.
- *
- * GitHub computes this server-side from the account that opened the pull request, so
- * it is the only signal about the author that the author cannot set. A commit's author
- * email is free text copied from `user.email`, which is why none is consulted here.
- *
- * `COLLABORATOR` is deliberately **not** here. It means push access on this repo,
- * which an outside collaborator can hold without being in the organization — so
- * accepting it would gate on repo permissions rather than on org membership. Push
- * access is not the question this gate asks.
- */
-const ORG_ASSOCIATIONS: ReadonlySet<string> = new Set<AuthorAssociation>(['OWNER', 'MEMBER']);
-
-/**
- * The shape of the webhook payload this module reads. Declared structurally so the
- * package takes no dependency on `@actions/github`.
- *
- * `author_association` is `unknown` because `@actions/github` types the payload's
- * `pull_request` as an open bag of `any`. Narrowing it here would be a claim about
- * data this module does not control, so it is checked at runtime instead.
- */
-export type AuthorAssociationPayload = {
-  pull_request?: { author_association?: unknown; [key: string]: unknown } | null;
+/** The slice of the webhook payload this needs, declared structurally. */
+export type PullRequestSourcePayload = {
+  pull_request?: {
+    head?: { repo?: { full_name?: unknown } | null } | null;
+    [key: string]: unknown;
+  } | null;
 };
 
 /**
- * The PR author's association, from a `pull_request` webhook payload.
+ * The full name (`owner/repo`) of the repository holding the PR's head branch.
  *
- * Throws rather than returning `undefined`, for the same reason `getPrNumber` does:
- * every gated mode is triggered by a `pull_request` event, and GitHub always puts
- * `author_association` on that payload's PR object. An absent one means the action was
- * wired to the wrong trigger or the payload is malformed — and a security gate that
- * cannot identify the author must fail loudly, not quietly pick a branch.
+ * `null` when GitHub reports no head repository. Per its payload schema `head.repo` is
+ * `oneOf: [repository, null]`, and it goes null when the source fork has been deleted.
+ * That is a real, reachable state rather than a malformed payload — and it is emphatically
+ * not this repository, so it reads as a refusal rather than an error.
  */
-export function requireAuthorAssociation(payload: AuthorAssociationPayload): string {
-  const pr = payload.pull_request;
-  if (!pr) {
-    throw new AuthorAssociationError(
-      'No pull_request payload — action must be triggered by a pull_request event',
-    );
-  }
-  const association = pr.author_association;
-  if (typeof association !== 'string' || association.trim() === '') {
-    throw new AuthorAssociationError('PR payload missing author_association');
-  }
-  return association;
-}
-
-/** True when the PR author belongs to the organization that owns the repo. */
-export function isWixOrgAuthor(association: string | undefined | null): boolean {
-  return typeof association === 'string' && ORG_ASSOCIATIONS.has(association.trim().toUpperCase());
+export function readHeadRepoFullName(payload: PullRequestSourcePayload): string | null {
+  const fullName = payload.pull_request?.head?.repo?.full_name;
+  return typeof fullName === 'string' && fullName.trim() !== '' ? fullName : null;
 }
 
 /**
- * Throw unless the PR author is a member of the organization that owns the repo.
+ * True when the PR's head branch lives in this repository, which means its author had
+ * push access here.
  *
- * Takes the association rather than a client: the value is already on the payload
- * every gated mode receives, so deciding costs no API call, no token scope, and
- * nothing that can fail in transit.
+ * Compared case-insensitively: GitHub treats owner and repository names that way, and a
+ * gate should not turn on the casing of a string it did not choose.
  */
-export function assertWixAuthor(
-  association: string,
+export function isSameRepoBranch(
+  headRepoFullName: string | null,
   owner: string,
+  repo: string,
+): boolean {
+  if (headRepoFullName === null) return false;
+  return headRepoFullName.trim().toLowerCase() === `${owner}/${repo}`.toLowerCase();
+}
+
+export function assertSameRepoBranch(
+  headRepoFullName: string | null,
+  owner: string,
+  repo: string,
   log?: (message: string) => void,
 ): void {
-  if (!isWixOrgAuthor(association)) {
+  if (!isSameRepoBranch(headRepoFullName, owner, repo)) {
     throw new Error(
-      `PR author gate failed: the PR author is not a member of the ${owner} organization ` +
-        `(author_association: ${association}). This gate is restricted to Wix authors.`,
+      `PR author gate failed: this pull request's head branch is in ` +
+        `${headRepoFullName ?? 'a repository that no longer exists'}, not ${owner}/${repo}. ` +
+        `This gate is restricted to branches pushed to ${owner}/${repo}, which requires write access.`,
     );
   }
-  log?.(`Author gate passed — PR author association: ${association}`);
+  log?.(`Author gate passed — head branch is in ${owner}/${repo}, so its author has write access.`);
 }

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { AuthorAssociationError, isWixOrgAuthor } from '@wix/evalforge-core';
+import { isSameRepoBranch } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
@@ -60,18 +60,7 @@ async function reportUnavailable(
 }
 
 export async function runReview(): Promise<void> {
-  // An unresolvable author skips rather than failing, the same as one who is simply not a
-  // Wix author. Every other config error still fails: a missing input is a misconfiguration,
-  // not a question about who opened the PR.
-  let config: ReviewConfig;
-  try {
-    config = getReviewConfig();
-  } catch (error) {
-    if (!(error instanceof AuthorAssociationError)) throw error;
-    core.info(`Skipping the skill review — could not resolve the PR author: ${error.message}`);
-    return;
-  }
-
+  const config = getReviewConfig();
   const octokit = github.getOctokit(config.githubToken);
 
   const comment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
@@ -91,10 +80,10 @@ export async function runReview(): Promise<void> {
     return;
   }
 
-  // Not `assertWixAuthor`: this mode skips rather than throwing for a non-Wix author.
-  // The association is already on the payload, so there is nothing here that can fail.
-  if (!isWixOrgAuthor(config.authorAssociation)) {
-    const reason = 'the PR author is not a wix author';
+  // Not `assertSameRepoBranch`: this mode skips rather than throwing. The head repo is on
+  // the payload, so the answer is always available and there is nothing here that can fail.
+  if (!isSameRepoBranch(config.headRepoFullName, config.owner, config.repo)) {
+    const reason = 'the PR branch is not in this repository, so its author has no write access';
     core.info(`Skipping the skill review — ${reason}`);
     await comment(formatReviewSkipped(reason));
     await pending.clear();

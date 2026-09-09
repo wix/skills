@@ -32,12 +32,11 @@ vi.mock('../src/utils/review-agent', () => ({ runReviewAgent }));
 
 vi.mock('node:fs', () => ({ existsSync }));
 
-/** An org member's PR, which is how every real PR from this org arrives. */
+/** A branch pushed to this repository, which is how every non-fork PR arrives. */
 const basePullRequest = {
   number: 42,
-  head: { sha: 'abcdef1234' },
+  head: { sha: 'abcdef1234', repo: { full_name: 'wix/skills' } },
   base: { sha: 'base5678' },
-  author_association: 'MEMBER',
 };
 
 const payload: { action: string; pull_request: Record<string, unknown> } = {
@@ -70,7 +69,12 @@ const finding = (over: Partial<ReviewFinding> = {}): ReviewFinding => ({
 });
 
 /** GitHub's own verdict that the author is an outsider. */
-const asOutsideAuthor = () => { payload.pull_request = { ...basePullRequest, author_association: 'NONE' }; };
+const asOutsideAuthor = () => {
+  payload.pull_request = {
+    ...basePullRequest,
+    head: { sha: 'abcdef1234', repo: { full_name: 'outsider/skills' } },
+  };
+};
 
 let setFailed: ReturnType<typeof vi.spyOn>;
 

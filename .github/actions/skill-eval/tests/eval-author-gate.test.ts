@@ -27,7 +27,7 @@ const CONFIG = {
   headSha: 'head-sha',
   owner: 'wix',
   repo: 'skills',
-  authorAssociation: 'MEMBER',
+  headRepoFullName: 'wix/skills',
   blocking: true,
 } satisfies Config;
 
@@ -49,14 +49,14 @@ beforeEach(() => {
  * was the one entry point that spent without asking who the author was.
  */
 describe('runEval — author gate', () => {
-  it('refuses an outside author before reading a single changed file', async () => {
-    const runEval = await runWith({ authorAssociation: 'NONE' });
+  it('refuses a fork before reading a single changed file', async () => {
+    const runEval = await runWith({ headRepoFullName: 'outsider/skills' });
 
-    await expect(runEval()).rejects.toThrow(/not a member of the wix organization/);
+    await expect(runEval()).rejects.toThrow(/head branch is in outsider\/skills, not wix\/skills/);
     expect(getChangedFiles).not.toHaveBeenCalled();
   });
 
-  it('lets an org member through to the changed-file lookup', async () => {
+  it('lets a branch in this repository through to the changed-file lookup', async () => {
     const runEval = await runWith();
 
     await runEval();
