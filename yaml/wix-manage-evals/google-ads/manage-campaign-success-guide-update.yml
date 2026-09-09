@@ -4,8 +4,8 @@ description: >-
   success guide recommendation as sufficient information to perform the correct
   status update without another confirmation step.
 triggerPrompt: >-
-  I made the call-to-action button clearer as my Wix Google Ads campaign
-  success guide recommended. Mark that recommendation as done.
+  I made the call-to-action button clearer as this Wix site's Google Ads
+  campaign success guide recommended. Mark that recommendation as done.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -43,8 +43,10 @@ assertions:
       one concise question only if ambiguity remains. Once campaign and guide
       item are unambiguous, the completion statement itself authorizes the
       status update. Penalize treating the report as an FYI, asking for redundant
-      confirmation, probing multiple sites, guessing identity, wrong endpoints,
-      repeated calls, and internal service or tool names in the user-facing
-      answer.
+      confirmation, using account-wide site listing, probing multiple sites,
+      guessing identity, wrong endpoints, repeated calls, and internal service
+      or tool names in the user-facing answer. Reading the campaign-lifecycle
+      recipe once to list the current site's campaigns is a relevant step, not
+      a detour.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
