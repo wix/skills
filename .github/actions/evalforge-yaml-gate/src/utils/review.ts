@@ -62,8 +62,13 @@ async function reportUnavailable(
 export async function runReview(): Promise<void> {
   const config = getReviewConfig();
   const octokit = github.getOctokit(config.githubToken);
-  const comment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
-  const pending = makeReviewPendingCommenter(octokit, config.owner, config.repo, config.prNumber);
+
+  // `core.setSecret` masks the key in the log but not in a comment we POST, so mask it in comments too.
+  const scrub = (body: string) => body.split(config.anthropicApiKey).join('[redacted]');
+  const postComment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
+  const postPending = makeReviewPendingCommenter(octokit, config.owner, config.repo, config.prNumber);
+  const comment = (body: string) => postComment(scrub(body));
+  const pending = { post: (body: string) => postPending.post(scrub(body)), clear: postPending.clear };
 
   let files: ChangedFile[];
   try {

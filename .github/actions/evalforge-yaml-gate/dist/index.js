@@ -68853,8 +68853,12 @@ async function reportUnavailable(reason, pending, isBlocking) {
 async function runReview() {
     const config = (0, config_1.getReviewConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
-    const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    // `core.setSecret` masks the key in the log but not in a comment we POST, so mask it in comments too.
+    const scrub = (body) => body.split(config.anthropicApiKey).join('[redacted]');
+    const postComment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    const postPending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    const comment = (body) => postComment(scrub(body));
+    const pending = { post: (body) => postPending.post(scrub(body)), clear: postPending.clear };
     let files;
     try {
         files = inScope(await (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber));
