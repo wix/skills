@@ -166,14 +166,14 @@ jobs:
               }
 
               // A re-run replays the original event, so a run whose gate job was skipped by its own
-              // `if:` — the PR was a draft then, or the author is not an @wix.com address — skips
-              // again and evaluates nothing. Say so rather than acknowledging a re-run that cannot
+              // `if:` — the PR was a draft then, or the author is not in the wix org — skips again
+              // and evaluates nothing. Say so rather than acknowledging a re-run that cannot
               // produce a verdict.
               if (run.conclusion === 'skipped') {
                 notes.push(
                   `- \`${workflowId}\`: the gate did not run for this commit (it was skipped — draft `
-                  + `at the time, or a non-Wix author), and a re-run would skip again. Push a commit `
-                  + `to run it ([view run](${run.html_url}))`
+                  + `at the time, or an author outside the wix org), and a re-run would skip again. `
+                  + `Push a commit to run it ([view run](${run.html_url}))`
                 );
                 continue;
               }
