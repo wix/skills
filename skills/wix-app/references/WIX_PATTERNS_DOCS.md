@@ -64,9 +64,9 @@ paths).
 
 A missing *file* is not the same as a name not being covered — see below.
 
-**Patterns API facts come only from the two published trees — `dist/docs/` and `dist/dts-bundle/`.** Never source a component, prop or type from `src/`, `dist/types/`, `dist/esm/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
+**Patterns API facts come only from the three published trees — `dist/docs/` (the pages), `dist/dts-bundle/` (the types) and `dist/examples/` (the worked calls).** Never source a component, prop or type from `src/`, `dist/types/`, `dist/esm/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
 
-Inside those two trees, read however is cheapest. `grep`/`sed` to pull one declaration out of a bundle is fine and usually better than a whole-file read — the ban is on *crawling elsewhere* for an answer these two trees already hold, not on being economical within them.
+Inside those three trees, read however is cheapest. `grep`/`sed` to pull one declaration out of a bundle is fine and usually better than a whole-file read — the ban is on *crawling elsewhere* for an answer these three trees already hold, not on being economical within them.
 
 ## The Discovery Chain
 
@@ -121,13 +121,15 @@ from step 1 says which of them exist, so decide before you open anything:
 | Your question | Read | Path |
 | --- | --- | --- |
 | Where do I import it from? | **nothing** — the entry says | `importPath` |
-| How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example** | `<pkgRoot>/dist/docs/<examples[i]>` |
+| How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example** | `<pkgRoot>/dist/examples/<examples[i]>` |
 | What props does it take, and which are optional? | the **`.d.ts`** *or* the doc — never both | `bundle` present: `<pkgRoot>/dist/dts-bundle/<bundle>` · absent: `<pkgRoot>/dist/docs/<file>` |
 | Is there a setup requirement or a gotcha? | the **doc's** prose | `<pkgRoot>/dist/docs/<file>` |
 
-The index hands you a bare value and the tree it belongs to is fixed: `file` and `examples` are
-relative to `dist/docs/`, `bundle` to `dist/dts-bundle/`. Prefix them, and never reconstruct a
-path from the symbol name.
+The index hands you a bare value and the tree it belongs to is fixed — one tree per kind of
+answer: `file` is relative to `dist/docs/`, `examples` to `dist/examples/`, `bundle` to
+`dist/dts-bundle/`. Prefix them, and never reconstruct a path from the symbol name. (Examples
+moved out of `dist/docs/` into their own tree; on an install predating that, the same relative
+path resolves under `dist/docs/`, and the page's own "Example code: read" line says which.)
 
 **`bundle` and a doc props table are mutually exclusive.** An entry with `bundle` has no table
 on its page — its `### Props` is only a pointer, so reading the page for props is a wasted hop.
@@ -148,7 +150,7 @@ Worked through on one entry, exactly as step 1 hands it to you:
 - **Where do I import it from?** `@wix/patterns`, straight off `importPath`. No read.
 - **How do I call it?** No `examples` on this entry, so check the component it pairs with —
   `EntityPage`'s entry lists `EntityPage/basic.tsx`, so
-  `Read <pkgRoot>/dist/docs/EntityPage/basic.tsx`.
+  `Read <pkgRoot>/dist/examples/EntityPage/basic.tsx`.
 - **What are its props?** `bundle` is present, so
   `Read <pkgRoot>/dist/dts-bundle/hooks/useEntityPage.d.ts` — not the page.
 - **Any setup requirement?** `Read <pkgRoot>/dist/docs/useEntityPage.md`.
@@ -220,7 +222,8 @@ set, collect them and read them together — after checking you still need them.
   either.
 - **Extract what you need, from the file the index named.** A whole-file `Read` is always safe
   — the index's `bytes` says the size beforehand — and a targeted `grep`/`sed` inside
-  `dist/docs/` or `dist/dts-bundle/` is fine and cheaper. Scope it to that one file, per step 5.
+  `dist/docs/`, `dist/examples/` or `dist/dts-bundle/` is fine and cheaper. Scope it to that
+  one file, per step 5.
   If an extraction comes back empty or ambiguous, read the whole file rather than guessing from
   a partial match.
 - **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system`
