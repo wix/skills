@@ -21,27 +21,30 @@ assertions:
         which recommendation they mean;
       - maps it to type CLEAR_CTA_COPY and status COMPLETED, identifying the
         suggestion by type rather than by suggestion id;
-      - because the request does not provide a site or campaign identity, asks
-        one targeted question to resolve that identity before making any
-        campaign or guide API call; and
+      - uses an unambiguous current site context when available and may list
+        that site's campaigns once to identify the target; if the current site,
+        campaign, or current guide remains ambiguous, asks one targeted
+        question rather than guessing or probing other sites; and
       - does not claim that marking the item COMPLETED changed the campaign,
         landing page, or call-to-action itself.
 
       Fail if it treats the statement as an FYI, asks whether to perform the
       update or which recommendation the user means, maps to a different or
-      multiple suggestions, probes sites or campaigns, makes the update without
-      identity, or claims the underlying recommendation was implemented.
+      multiple suggestions, probes several sites, guesses an ambiguous campaign
+      or guide item, or claims the underlying recommendation was implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
       trace. Score 0-10, where 10 is a direct path to the correct skill and
-      public documentation followed by one concise site or campaign selection
-      question and no site-scoped API call. Penalize treating the report as an
-      FYI, asking for confirmation despite the unambiguous completion statement,
-      listing or probing sites, attempting a mutation without identity, guessed
-      request shapes, wrong endpoints, repeated calls, and internal service or
-      tool names in the user-facing answer.
+      public documentation followed by efficient target resolution: use the
+      current site context, list its campaigns at most once if needed, and ask
+      one concise question only if ambiguity remains. Once campaign and guide
+      item are unambiguous, the completion statement itself authorizes the
+      status update. Penalize treating the report as an FYI, asking for redundant
+      confirmation, probing multiple sites, guessing identity, wrong endpoints,
+      repeated calls, and internal service or tool names in the user-facing
+      answer.
       Name the likely recipe/docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
