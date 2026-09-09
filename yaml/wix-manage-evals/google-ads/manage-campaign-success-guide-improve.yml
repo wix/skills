@@ -4,8 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  Can you use the campaign success guide to tell me how to improve my Wix
-  Google Ads campaign on this site?
+  How can I get more out of my existing Google Ads campaign on this Wix site?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
