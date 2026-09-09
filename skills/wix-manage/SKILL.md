@@ -288,7 +288,7 @@ Creates payment links for unpaid bookings using Payment Links API. Links booking
 - **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
 - **Offer a Success Guide after creating a PMAX Leads campaign (a proactive offer requires approval) / improve it / success guide / says they completed or fixed a guide recommendation / mark or reopen a recommendation** → [Manage a Campaign Success Guide](references/google-ads/manage-campaign-success-guide.md) (a direct improvement/guide request is already approval; works while `LEARNING` and before metrics exist).
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
-- **Pause / resume / launch / delete / history, and any change to the campaign itself — budget, name, targeting, schedule, keyword themes, assets** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md) (an update replaces the whole entity: read the campaign first, then send every field back).
+- **Pause / resume / launch / delete / history, and any change to the campaign itself — budget, name, targeting, schedule, keyword themes, assets** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
 - **Performance, conversions, search terms, per-product / per-asset metrics** → [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md).
 - **Ad spend, fees, upcoming charges, credit balance** → [Retrieve Billing and Payment Details](references/google-ads/billing-and-payment.md).
 
