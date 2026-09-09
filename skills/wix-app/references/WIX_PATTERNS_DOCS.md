@@ -81,8 +81,8 @@ two.
 
 **Read each entry's `summary` before deciding to open anything.** It is the opening paragraph
 of that page's description — what the symbol is and how it wires into your code — so for most
-questions the index *is* the answer, and step 4 resolves to no read at all. 169 of the 172
-entries carry one.
+questions the index *is* the answer, and step 4 resolves to no read at all. Nearly every entry
+carries one; an entry without it just sends you on to step 4.
 
 Resolve a name against the keys **and** each entry's `symbols` aliases: the index is keyed by
 Storybook title, so `ExportButton` lives under `ExportTo` and `CollectionToolbarFilters` under
@@ -90,10 +90,12 @@ Storybook title, so `ExportButton` lives under `ExportTo` and `CollectionToolbar
 index you already hold for something close before concluding the name isn't covered.
 
 **Not in the docs index? Check `dist/dts-bundle/index.json` before concluding it does not
-exist.** Some names you will write are curated there and documented nowhere else — `useForm`
-and `useController` (from `@wix/patterns/form`), `OffsetQuery`, `Filter`, `Column`,
-`UseEntityPageParams`. That index carries `importPath` and `file` too, so step 4 still applies;
-there is simply no page to read.
+exist.** It curates names that have no page of their own — hooks, prop types and query types
+you write without there being prose to read about them, including names re-exported from
+another package, whose real declaration it inlines. That index carries `importPath` and `file`
+too, so step 4 still applies; there is simply no page to read. Which names those are is the
+library's answer and changes with it, so resolve the one you want against the index rather
+than against a list here.
 
 An entry's `status: "deprecated"` means use what its `statusMessage` names instead. Nothing
 else in this chain will stop you: a deprecated component still compiles and still renders.
