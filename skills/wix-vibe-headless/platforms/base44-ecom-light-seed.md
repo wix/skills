@@ -26,6 +26,7 @@ guides below for their contracts and usage. Continue with STEP 1.
 
 Follow STEPs 1–3 below exactly. Fire product image generations first, then build the client
 (STEP 1), and seed (STEP 2) **after** the client is built — generation finishes while you build.
+Verify **once, after the seed**: home, shop, and a product page against the populated catalog.
 
 ## STEP 1 — Build the client
 

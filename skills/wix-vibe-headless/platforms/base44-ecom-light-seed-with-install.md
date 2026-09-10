@@ -13,6 +13,7 @@ storefront instructions' optional banner integration.
 
 Follow STEPs 1–4 below exactly. Fire product image generations first, then build the client
 (STEP 2), and seed (STEP 3) **after** the client is built — generation finishes while you build.
+Verify **once, after the seed**: home, shop, and a product page against the populated catalog.
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
