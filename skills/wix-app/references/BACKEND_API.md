@@ -6,13 +6,13 @@ before choosing the directory, handler type, or frontend URL.
 
 ## Scope and Runtime Detection
 
-- The CLI selects standalone mode when the project's own `package.json` declares
-  `@wix/custom-extensions` in `dependencies` or `devDependencies`. A transitive
-  installation under `node_modules` is not enough. Do not infer standalone mode
-  from using `wix dev`, `wix build`, or the Wix CLI alone.
+- The CLI uses the `@wix/custom-extensions` runtime when the project's own
+  `package.json` declares that package in `dependencies` or `devDependencies`. A
+  transitive installation under `node_modules` is not enough. Do not infer the
+  runtime from using `wix dev`, `wix build`, or the Wix CLI alone.
 - Existing `@wix/astro` apps retain Astro routing. Do not add
   `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
-  imports, or introduce `WIX_SERVER_BASE_PATH` to apply the Studio 2 recipe.
+  imports, or introduce `WIX_SERVER_BASE_PATH` to apply the other runtime's recipe.
 
 ## Generate for the Project Type
 
@@ -28,10 +28,10 @@ For Wix app projects, the generator preserves the selected runtime:
 
 | Project | Generated file | Route before any server base path | `APIRoute` import |
 | --- | --- | --- | --- |
-| Standalone `@wix/custom-extensions` (Studio 2) | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
+| `@wix/custom-extensions` | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
 | `@wix/astro` | `src/pages/api/hello.ts` | `/api/hello` | `astro` |
 
-For standalone projects, endpoints live in `src/endpoints` by default and require
+In `@wix/custom-extensions` projects, endpoints live in `src/endpoints` by default and require
 `@wix/custom-extensions@^0.2.14`; older releases neither scan that directory by
 default nor export `./types`, and the build passes without serving anything. The
 generator upgrades the package; when creating the file by hand, upgrade it
@@ -45,15 +45,15 @@ If `wix generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
 generator (added in `@wix/cli` 1.1.243). Update the CLI, or create the file by hand:
 put it in the directory from the table above, export the handlers shown in
 [HTTP Methods](#http-methods), and import `APIRoute` from
-`@wix/custom-extensions/types` in a standalone project or from `astro` in an Astro
-app. Do not add `astro` to a standalone project to make an Astro-style import
+`@wix/custom-extensions/types` or from `astro`, matching the project's runtime. Do
+not add `astro` to a `@wix/custom-extensions` project to make an Astro-style import
 resolve. No registration step is needed.
 
 ## File Structure and Naming
 
 Nested paths are relative to the runtime's endpoint directory:
 
-| Standalone file | Route | Astro equivalent |
+| `@wix/custom-extensions` file | Route | Astro equivalent |
 | --- | --- | --- |
 | `src/endpoints/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
 | `src/endpoints/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
@@ -61,7 +61,7 @@ Nested paths are relative to the runtime's endpoint directory:
 ## HTTP Methods
 
 Export a named handler for each requested HTTP method. Preserve the generated
-`APIRoute` import for the project's runtime. For standalone projects:
+`APIRoute` import for the project's runtime. For `@wix/custom-extensions` projects:
 
 ```typescript
 import type { APIRoute } from "@wix/custom-extensions/types";
@@ -160,15 +160,15 @@ For example: `Response.json({ error: "Not found" }, { status: 404 })`.
 For app extensions, use `httpClient.fetchWithAuth()` from `@wix/essentials`.
 Build the URL from the extension module's origin, not the host page's origin.
 
-### Standalone / Studio 2
+### `@wix/custom-extensions` Projects
 
-Studio 2 runs `wix dev` with `--base`, so the request must preserve
-`import.meta.env.WIX_SERVER_BASE_PATH`. The standalone runtime defaults this
-value to `/` without a configured base, including the normal production build.
+`wix dev` may run with `--base`, so the request must preserve
+`import.meta.env.WIX_SERVER_BASE_PATH`. The runtime defaults this value to `/`
+without a configured base, including the normal production build.
 During dev, the injected value is Vite's resolved base, which already has a
 trailing slash even when `--base` omits it. Concatenate the endpoint name
 directly, with `/` as a fallback for a missing/empty value.
-Do not hardcode the sandbox prefix or add `/api` to a standalone route.
+Do not hardcode the base prefix or add `/api` to a `@wix/custom-extensions` route.
 
 ```typescript
 import { httpClient } from "@wix/essentials";
@@ -190,8 +190,8 @@ hosting site's origin instead of the app server.
 
 ### Astro App Extensions
 
-For a standard Astro app endpoint, use its `/api` route without the standalone
-base-path variable. If the existing Astro configuration has its own base path,
+For a standard Astro app endpoint, use its `/api` route without the
+`WIX_SERVER_BASE_PATH` variable. If the existing Astro configuration has its own base path,
 preserve that project's URL handling instead of applying the root-only example:
 
 ```typescript
@@ -238,14 +238,13 @@ on the assumption that member authentication proves ownership.
 2. If a dev site is configured (`wix dev-site`), run `wix dev` and request the
    URL; also exercise the frontend caller when one was requested. `wix preview`
    uploads a version and exits; it is not a server.
-3. Follow the host's deployment flow. Studio 2 manages its companion app's
-   deployment; for a standalone CLI workflow use the normal build/preview/release
-   commands when deployment is requested.
+3. When deployment is requested, use the normal build/preview/release commands,
+   unless the environment hosting the project manages deployment itself.
 
 To delete an endpoint, remove its file from the appropriate directory and apply
 that change through the same deployment flow. No `.use()` cleanup is needed.
 
 If a route 404s, or the file was created by hand, confirm it was discovered: in a
-standalone build `grep 'pattern:' dist/server/index.mjs` lists every route (a
+`@wix/custom-extensions` build `grep 'pattern:' dist/server/index.mjs` lists every route (a
 dynamic segment prints as `:"id"`); in an Astro build the route string appears
 under `dist/`. A missing entry means the file is outside the scanned directory.

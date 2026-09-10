@@ -14,7 +14,7 @@ creates the endpoint file without changing `src/extensions.ts`:
 
 | Project | Discovery directory | Example route |
 | --- | --- | --- |
-| Standalone `@wix/custom-extensions` (default `apiDir: "endpoints"`) | `src/endpoints/` | `hello.ts` → `/hello` |
+| `@wix/custom-extensions` (default `apiDir: "endpoints"`) | `src/endpoints/` | `hello.ts` → `/hello` |
 | `@wix/astro` | `src/pages/api/` | `hello.ts` → `/api/hello` |
 
 Leave `app()` unchanged. Do not add endpoint imports, `.use()` calls, or IDs.
