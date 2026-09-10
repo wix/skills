@@ -22,7 +22,7 @@ The guide endpoints require a campaign UUID, but users often provide only a camp
 2. Otherwise follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and call:
 
    ```bash
-   curl -X GET 'https://www.wixapis.com/google-ads/v1/campaigns' \
+   curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
      -H 'Authorization: <AUTH>'
    ```
 
