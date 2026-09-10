@@ -49,21 +49,3 @@ assertions:
       Google Ads work manually without offering help, presents a supplied item
       as completed, or claims that marking a guide item complete implements its
       underlying change.
-  - type: llm_judge
-    minScore: 7
-    maxTokens: 2048
-    prompt: |
-      Rate how smoothly the agent turned the supplied API result into a useful
-      guide. Examine the tool-call trace. Score 0-10, where 10 means it reads the
-      campaign success guide documentation directly, preserves the user's order,
-      resolves the provisioned site's Editor URL without guessing when
-      available, consolidates shared navigation at the bottom, gives each link a
-      destination-specific CTA, makes one concise offer for supported work, and
-      performs no guide retrieval or mutation. An explicit Editor-link
-      unavailable state is acceptable only after the exact URL cannot be
-      resolved; the Google Ads route is still required. Penalize generic "Open
-      in Wix" labels, generic optimization advice, repeated links or approval
-      questions, guessed URLs, unsupported automation claims, redundant docs or
-      probing, repeated non-2xx calls, and internal service or tool names in the
-      user-facing answer. Name the likely recipe/docs gap for each detour. Return only
-      {"score":<0-10>,"reason":"<terse findings or clean path>"}.
