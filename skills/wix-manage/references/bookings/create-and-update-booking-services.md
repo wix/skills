@@ -363,6 +363,7 @@ Once the service and staff member are available, you can define when the service
 **Event requirements**:
 
 - `event.resources` array **must include at least one resource** (a staff member/room/etc.) using the `resourceId`. CLASS and COURSE events will fail with a 400 error if no resources are provided.
+- **`event.resources[].permissionRole` must be set to `"WRITER"`** (or `"COMMENTER"`) for CLASS and COURSE events. It's omitted from every example above for brevity, but it's not optional in practice: leaving it unset defaults to `UNKNOWN_ROLE`, which the API rejects with a 400 error (see Troubleshooting below).
 - `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE.
 - `event.type` — set to `WORKING_HOURS` for staff availability, `CLASS` for class sessions, or `COURSE` for course sessions.
 
@@ -398,6 +399,12 @@ Once the service and staff member are available, you can define when the service
 - **Root Cause**: Many UI implementations filter by `category.id` existence or specific category values
 - **Solution**: Query all services, identify those missing categories, and update them using bulk update operations
 - **Prevention**: Always assign categories during service creation (Step 0)
+
+**Class/Course Event Creation Fails (permissionRole required):**
+
+- **Error**: `"resources.permissionRole must not be UNKNOWN_ROLE"`
+- **Cause**: `event.resources[].permissionRole` was omitted. It defaults to `UNKNOWN_ROLE`, which `bulkCreateEvents`/`bulkUpdateEvents` reject for CLASS and COURSE events
+- **Solution**: Set `"permissionRole": "WRITER"` on every item in `event.resources`
 
 **Staff Assignment Not Working for CLASS/COURSE Services:**
 
