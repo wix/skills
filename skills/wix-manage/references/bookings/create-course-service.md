@@ -172,7 +172,7 @@ If the user specified session dates, times, or a session count, create the cours
 4. For each event, set:
    - `event.scheduleId` to the course service's `service.schedule.id`
    - `event.type` to `COURSE`
-   - `event.resources` to at least one resource object using a valid `resourceId`
+   - `event.resources` to at least one resource object with both `id` (the staff member's `resourceId`, not their staff member `id`) and `permissionRole` set to `WRITER` or `COMMENTER` — omitting `permissionRole` fails with a 400
    - start/end fields for the session time
 5. Query the service/calendar events afterward to confirm future events exist before saying the course is bookable.
 
