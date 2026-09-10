@@ -19,14 +19,6 @@ const ctx = { token: accessToken };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
-// imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
-// result — not a still-generating /__generating__/<id>.png placeholder (Wix fetches the image
-// bytes at attach time and can't reach a placeholder). generate_image runs in the background
-// while you build, and each pending tool result UPDATES IN PLACE once its image completes: by
-// seed time, the same result that returned "pending" reads status "completed" with the permanent
-// url. Read each imageUrl from the result as it reads NOW, not from what it said when called.
-// One still pending at seed time → seed that product without imageUrl and attach it afterwards
-// with attachProductImages, once its result shows the final url.
 const result = await seed.setupStore(ctx, {
   currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
@@ -144,8 +136,6 @@ const products = await seed.bulkCreateProducts(ctx, [                 // → [{i
 ]);
 const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
 await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
-// images: read each url from its generate_image result as it reads NOW — a completed result
-// carries the FINAL https://media.base44.com/... url (never pass a /__generating__/ placeholder)
 await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
 ```
 
