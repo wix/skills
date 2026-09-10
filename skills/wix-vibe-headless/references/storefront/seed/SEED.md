@@ -36,7 +36,7 @@ const result = await seed.setupStore(ctx, {
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
-//   imagesSkippedPending (product names whose imageUrl was not yet fetchable — attach those afterwards),
+//   imagesSkipped (product names whose imageUrl was not an absolute https:// url — attach those afterwards),
 //   productsWithoutImages (product names seeded with no imageUrl — attach afterwards once urls exist),
 //   currency: { requested, actual, status, warnings } }
 ```
