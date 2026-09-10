@@ -110,6 +110,8 @@ enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded he
 download — uploaded and created with both the file and stock, which is what the cart requires
 (`quantity` is ignored). It's also the only way in: a file-less digital product is created
 successfully, reads back healthy, and is then rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
+No real, fetchable file in hand → seed the product as **physical** with `inStock: true` and tell the
+user; swap it to a digital download once a real file exists.
 
 Two things this module does **not** seed, so don't try:
 
