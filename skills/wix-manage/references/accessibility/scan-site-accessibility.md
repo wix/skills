@@ -60,6 +60,13 @@ Lead with the scan status and aggregate totals. Then:
 
 - Report failed pages separately. A failed page with zero findings is
   **unknown**, not clean.
+- A page reported as scanned and clear only means it passed the scan's WCAG
+  rule checks against whatever DOM the scan captured. It is **not** proof
+  that every widget/element rendered correctly for a real visitor: a
+  component that fails to load (e.g. an "Element Didn't Load" state) can
+  still be accessible on its own terms and pass every rule. Don't tell the
+  user a page "looks fine" or "is fully working" based on scan results
+  alone — that requires actually loading the live page.
 - Prioritize findings by severity, then page and rule.
 - For each useful finding, include the affected page and element reference,
   what failed, why it matters, WCAG criteria, remediation summary, and the
