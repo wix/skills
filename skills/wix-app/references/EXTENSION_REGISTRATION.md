@@ -26,7 +26,7 @@ Edit `src/extensions.ts` directly only when:
 Each extension file is a default export from `<folder>/<folder>.extension.ts`. In `src/extensions.ts`, import it as a default import using the camelCase of the folder name, then chain `.use(...)`:
 
 ```typescript
-import { app } from '@wix/astro/builders';
+import { app } from '@wix/custom-extensions';
 import myPage from './extensions/dashboard/pages/my-page/my-page.extension.ts';
 import contactCreated from './extensions/backend/events/contact-created/contact-created.extension.ts';
 
