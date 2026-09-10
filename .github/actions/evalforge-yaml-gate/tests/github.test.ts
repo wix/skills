@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { classifyChanges, parseChangedFiles } from '../src/utils/github';
+import { describe, it, expect, vi } from 'vitest';
+import { classifyChanges, makeReviewPendingCommenter, parseChangedFiles } from '../src/utils/github';
+import { REVIEW_PENDING_MARKER } from '../src/utils/review-comment';
 
 const f = (filename: string, status: 'added' | 'modified' | 'removed' | 'renamed') => ({ filename, status });
 
@@ -79,5 +80,61 @@ describe('parseChangedFiles', () => {
 
   it('returns an empty array for empty input', () => {
     expect(parseChangedFiles('')).toEqual([]);
+  });
+});
+
+describe('makeReviewPendingCommenter', () => {
+  const octokitWith = (comments: { id: number; body: string }[]) => {
+    const createComment = vi.fn().mockResolvedValue({ data: { id: 99 } });
+    const updateComment = vi.fn().mockResolvedValue({});
+    const deleteComment = vi.fn().mockResolvedValue({});
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      octokit: {
+        paginate: { iterator: () => [{ data: comments }] },
+        rest: { issues: { listComments: {}, createComment, updateComment, deleteComment } },
+      } as any,
+      createComment,
+      updateComment,
+      deleteComment,
+    };
+  };
+  const reminder = (id: number) => ({ id, body: `${REVIEW_PENDING_MARKER}\nawaiting review` });
+
+  it('rewrites the standing reminder instead of adding another', async () => {
+    const { octokit, createComment, updateComment } = octokitWith([reminder(7)]);
+    await makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).post('awaiting review');
+    expect(updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
+    expect(createComment).not.toHaveBeenCalled();
+  });
+
+  it('introduces itself when there is no reminder yet', async () => {
+    const { octokit, createComment } = octokitWith([]);
+    await makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).post('awaiting review');
+    expect(createComment).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the verdict comment alone', async () => {
+    const { octokit, updateComment, deleteComment } = octokitWith([
+      { id: 3, body: '<!-- evalforge-skill-review-action -->\n1 blocking' },
+    ]);
+    const pending = makeReviewPendingCommenter(octokit, 'wix', 'skills', 42);
+    await pending.post('awaiting review');
+    await pending.clear();
+    expect(updateComment).not.toHaveBeenCalled();
+    expect(deleteComment).not.toHaveBeenCalled();
+  });
+
+  it('deletes the reminder once a verdict lands', async () => {
+    const { octokit, deleteComment } = octokitWith([reminder(7)]);
+    await makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).clear();
+    expect(deleteComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
+  });
+
+  it('warns rather than throwing when the reminder cannot be deleted', async () => {
+    const { octokit, deleteComment } = octokitWith([reminder(7)]);
+    deleteComment.mockRejectedValue(new Error('403'));
+    await expect(makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).clear())
+      .resolves.toBeUndefined();
   });
 });

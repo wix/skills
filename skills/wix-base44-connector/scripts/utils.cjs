@@ -3,17 +3,16 @@
 // back as { path, bytes, lines, outline } with the read tools pre-pointed at it.
 //
 // Load per exec (execs share no state) — from disk, network only as first-touch fallback:
-//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.js";
+//   const fs = require("fs"), P = ".agents/skills/wix-base44-connector/utils.cjs";
 //   if (!fs.existsSync(P)) { fs.mkdirSync(".agents/skills/wix-base44-connector", { recursive: true });
-//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.js")).text()); }
-//   const wx = (() => { const m = { exports: {} };
-//     new Function("module", "exports", "require", fs.readFileSync(P, "utf8"))(m, m.exports, require); return m.exports; })();
+//     fs.writeFileSync(P, await (await fetch("https://www.wix.com/skills/wix-base44-connector/scripts/utils.cjs")).text()); }
+//   const wx = require(require("path").resolve(P));
 //
 // Read a saved file the way you already know how: wx.bash("grep -n 'term' <path> | head -40")
 // to find, read_file(<path>) with offset/limit to window (numbered lines, 45K cap — no exec
 // round needed), pipelines for the rest (GNU grep/sed; awk is mawk; no rg).
 //
-// API responses are site data and never saved — post() projects them to facts.
+// API transports return data directly; oversized context reports are saved for reading.
 
 const fs = require("fs");
 const path = require("path");
@@ -40,9 +39,12 @@ async function req(method, url, body, token) {
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
   if (!r.ok) {
     const head = (await r.text()).slice(0, 300);
-    throw new Error(r.status + " " + head + (r.status < 500
-      ? " — a 4xx means wrong body or reference: read this endpoint's contract before changing the call"
-      : ""));
+    const guidance = r.status === 401 || r.status === 403
+      ? " — check the endpoint's required caller identity, token validity, and permissions"
+      : r.status >= 400 && r.status < 500
+        ? " — read the API error and endpoint contract before changing the call"
+        : "";
+    throw new Error(r.status + " " + head + guidance);
   }
   return r.json();
 }
@@ -87,19 +89,14 @@ async function resolveRef(ref) {
 
 // ── gather context ────────────────────────────────────────────────────────────
 
-// The dynamic context report — site data, never saved. No section → the whole report
-// when it fits, else its header outline; with one → that section's text. Empty
-// report = bad token, never an empty site.
-async function context(token, section) {
+// Return the full dynamic context report inline when it fits. Larger reports use the
+// same saved-file and heading-outline format as documentation pages.
+async function context(token) {
   const { markdown } = await post(
     "https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {}, token);
-  if (!section) {
-    if (markdown.length <= BUDGET) return markdown;   // most sites: the whole report, one round
-    return { truncated: true, total: markdown.length, head: markdown.slice(0, BUDGET),
-             note: "site data — never saved (no path); narrow: wx.context(token, '<section name>')" };
-  }
-  const m = markdown.match(new RegExp("^#{1,3} .*" + section + "[\\s\\S]*?(?=\\n#{1,3} |$)", "im"));
-  return clip({ total: markdown.length, section: m ? m[0] : "not found — call context(token) for the outline" });
+  if (markdown.length <= BUDGET) return markdown;
+  const saved = save("site-context-" + require("crypto").randomUUID() + ".md", markdown);
+  return { ...saved, ...outlineOf(markdown.split("\n")) };
 }
 
 // The wix-manage skill, when it is installed in the sandbox, is these same recipes on disk —
@@ -153,28 +150,22 @@ async function browse(menuUrl, { include, filter, depth } = {}) {
 // Semantic search — ranks, never says "no match". The reduced hits come back inline AND the full
 // raw content is saved for grep/window follow-ups. { type } picks the corpus, one per request:
 // REST (default) · SKILLS · WIX_HEADLESS · SDK · VELO · CLI · WDS · BUILD_APPS · OVERVIEW ·
-// BUSINESS_SOLUTIONS. A REST search also runs SKILLS — the management recipes rank as their own
-// hits, ahead of the methods, and land in the saved file whole. Each method hit lists the worked
+// BUSINESS_SOLUTIONS. A REST search also runs SKILLS and WIX_HEADLESS — the management recipes appear as recipe hits
+// alongside methods and articles, and land in the saved file whole. Each method hit lists the worked
 // requests the docs publish for it; every line number reads with read_file(path, offset: <line>).
-async function search(term, { type = "REST", max = 5, lines = 0, recipes = type === "REST" } = {}) {
-  const ask = (document_type, maximum_results) =>
-    post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
-      // lines_in_each_result 0 skips the server's per-section budget, which otherwise cuts every
-      // code example after the first 30 lines and the rest after 5, and every recipe at 20 —
-      // the saved file would carry stubs instead of the requests and flows the hits point at
-      { search_term: term, document_type, maximum_results, lines_in_each_result: lines });
-  const [main, skills] = await Promise.all([ask(type, max),
-    recipes ? ask("SKILLS", 3).catch(() => null) : null]);   // a recipe corpus miss must not fail the search
-  const recipeText = skills?.content ? skills.content.trimEnd() + "\n" : "";
-  const content = recipeText + main.content;
+async function search(term, { type = "REST", max = 15, lines = 0, recipes = type === "REST", headless = type === "REST" } = {}) {
+  const document_types = [...new Set([type, ...(recipes ? ["SKILLS"] : []), ...(headless ? ["WIX_HEADLESS"] : [])])];
+  // Keep full documentation in the saved file; compact only the inline index.
+  const { content } = await post("https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown",
+    { search_term: term, document_types, maximum_results: max, lines_in_each_result: lines });
   const nl = [];   // newline offsets — a match's char offset becomes its line in the saved file
   for (let i = content.indexOf("\n"); i >= 0; i = content.indexOf("\n", i + 1)) nl.push(i);
   const lineAt = (off) => { let lo = 0, hi = nl.length; while (lo < hi) { const m = (lo + hi) >> 1; nl[m] < off ? lo = m + 1 : hi = m; } return lo + 1; };
   // recipes are articles — no "# Method:" header, no code-example delimiters, and no fixed body
   // shape. Two things every one of them has: headings, and the endpoints it calls. Those are the
   // outline — enough to tell whether this is the recipe for the task without reading 400 lines.
-  const recipeHits = !recipeText ? [] : recipeText.split(/\n---\n+(?=#### )/).map(b => {
-    const at = content.indexOf(b), rows = b.split("\n");
+  const parseRecipe = (b, at) => {
+    const rows = b.split("\n");
     const steps = [], calls = [];
     let verb = null;
     for (const t of rows) {
@@ -196,43 +187,73 @@ async function search(term, { type = "REST", max = 5, lines = 0, recipes = type 
              line: at < 0 ? 1 : lineAt(at), lines: rows.length,
              ...(steps.length && { steps: steps.slice(0, 6) }),
              ...(calls.length && { calls: calls.slice(0, 4) }) };
-  }).filter(h => h.docsUrl && h.recipe);
-  let cursor = recipeText.length;
-  const hits = main.content.split(/\n---\n+(?=#### )/).map(b => {
+  };
+  const articleOutline = (block, start) => {
+    const outline = [];
+    let fenced = false, offset = 0;
+    for (const row of block.split("\n")) {
+      if (/^\s*(```|~~~)/.test(row)) fenced = !fenced;
+      const heading = !fenced && row.match(/^#{2,3} (.+)$/);
+      if (heading && !/^(Resource|Article|Article Link|Article Content):/.test(heading[1])) {
+        outline.push({ title: heading[1].slice(0, 64), line: lineAt(start + offset) });
+        if (outline.length === 3) break;
+      }
+      offset += row.length + 1;
+    }
+    return outline;
+  };
+  let cursor = 0;
+  const hits = content.split(/\n---\n+(?=#### )/).map(b => {
     const start = content.indexOf(b, cursor); cursor = start + b.length;
     const examples = [...b.matchAll(/--- Code Example: (.+?) ---/g)]
       .map(m => ({ title: m[1].trim(), line: lineAt(start + m.index) }));
     const docsUrl = (b.match(/#### \[[^\]]+\]\((https:[^)]+)\)/) || [])[1];
     const method = (b.match(/^# Method: (.+)$/m) || [])[1];
+    if (!method && docsUrl && new URL(docsUrl).pathname.includes("/skills/")) return parseRecipe(b, start);
     // the REST corpus mixes guides in with the methods — an article has no method header, so
     // name it from its own title rather than returning a row of nulls
     if (!method) return { article: (b.match(/^## (?:Resource|Article): (.+)$/m) || [])[1], docsUrl,
-                          line: start < 0 ? 1 : lineAt(start) };
+                          line: start < 0 ? 1 : lineAt(start),
+                          outline: articleOutline(b, start) };
     return {
     method,
     endpoint: (b.match(/^# Method API Endpoint: (.+)$/m) || [])[1],   // "VERB url" — read the verb + url; call wx.<verb>(url, body, token)
     docsUrl,
-    gist: ((b.match(/## Method Description:\s*\n([\s\S]{0,400})/) || [])[1] || "")
-      .trim().replace(/\s+/g, " ").slice(0, 220),
+    gist: (() => {
+      const description = ((b.match(/## Method Description:\s*\n([\s\S]*?)(?=\n## |$)/) || [])[1] || "")
+        .trim().replace(/\s+/g, " ");
+      return description.length > 160 ? description.slice(0, 159).trimEnd() + "…" : description;
+    })(),
     ...(examples.length && { examples }),
   }; }).filter(h => h.docsUrl);
   const saved = save("search-" + term.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + ".md", content);
-  if (!hits.length && !recipeHits.length) return clip({ ...saved, head: content.slice(0, 1200),
-    note: `no method blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
-  // one URL, one row: a long article is indexed in chunks that rank separately, and a stray skills
-  // page sits in the REST corpus, so the same page can rank two or three times
+  if (!hits.length) return clip({ ...saved, head: content.slice(0, 1200),
+    note: `no result blocks parsed — raw head above; wx.bash("grep -in 'term' ${saved.path}") for the rest` });
+  // Keep the service's combined ranking/interleave; retain the first occurrence of each URL.
   const seen = new Set();
-  const recipeRows = recipeHits.filter(r => !seen.has(r.docsUrl) && seen.add(r.docsUrl));
-  const uniq = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
-  const out = { ...saved, ...(recipeRows.length && { recipes: recipeRows }), hits: uniq };
+  const ordered = hits.filter(h => !seen.has(h.docsUrl) && seen.add(h.docsUrl));
+  const recipeRows = ordered.filter(h => h.recipe);
+  const uniq = ordered.filter(h => !h.recipe);
+  const out = { ...saved, hits: ordered };
   // over budget, shed enrichment rather than structure — clip would drop the whole shape, and
   // every title, URL and line number stays useful with the outlines gone
   for (const shed of [() => recipeRows.forEach(r => delete r.calls),
                       () => recipeRows.forEach(r => delete r.steps),
                       () => uniq.forEach(h => { if (h.examples) h.examples = h.examples.slice(0, 3); }),
-                      () => uniq.forEach(h => delete h.examples)]) {
+                      () => uniq.forEach(h => delete h.examples),
+                      () => uniq.forEach(h => delete h.gist),
+                      () => uniq.forEach(h => delete h.outline)]) {
     if (JSON.stringify(out).length <= BUDGET) break;
     shed();
+  }
+  // Preserve at least one result of each kind when the inline index needs trimming.
+  while (JSON.stringify(out).length > BUDGET) {
+    const kind = h => h.recipe ? "recipe" : h.method ? "method" : "article";
+    const counts = out.hits.reduce((n, h) => (n[kind(h)] = (n[kind(h)] || 0) + 1, n), {});
+    const index = out.hits.findLastIndex(h => counts[kind(h)] > 1);
+    if (index < 0) break;
+    out.hits.splice(index, 1);
+    out.note = "Additional results are in the saved file.";
   }
   return clip(out);
 }

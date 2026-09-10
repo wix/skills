@@ -1,38 +1,32 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { getFirstCommitAuthorEmail, isWixAuthorEmail, parseDraftTag } from '@wix/evalforge-core';
+import { isSameRepoBranch, parseDraftTag } from '@wix/evalforge-core';
 import { describeError } from './report';
 import type { GateConfig } from './config';
 
-// Both lookups swallow their errors and return the safe answer. A GitHub blip must not fail a
-// PR's check — least of all during the soak period, when the gate promises it cannot.
+// isDraftTagActive swallows its errors and returns the safe answer. A GitHub blip must not
+// fail a PR's check — least of all during the soak period, when the gate promises it cannot.
 
-/** `isUnexpected` separates a routine non-Wix author from a lookup that actually broke. */
 export type AuthorCheck =
   | { allowed: true }
-  | { allowed: false; reason: string; isUnexpected: boolean };
+  | { allowed: false; reason: string };
 
 const AUTHOR_ALLOWED: AuthorCheck = { allowed: true };
 
 /**
- * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
- * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ * Whether the gate may run for this PR's author.
+ *
+ * Synchronous and client-free: the association is already on the payload the workflow was
+ * triggered by, so there is no lookup here to blip, and no "could not resolve" case.
  */
-export async function checkPrAuthor(
-  octokit: ReturnType<typeof github.getOctokit>,
-  config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber'>,
-): Promise<AuthorCheck> {
-  try {
-    const email = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-    if (isWixAuthorEmail(email)) return AUTHOR_ALLOWED;
-    return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
-  } catch (error) {
-    return {
-      allowed: false,
-      reason: `could not resolve the PR author: ${describeError(error)}`,
-      isUnexpected: true,
-    };
-  }
+export function checkPrAuthor(
+  config: Pick<GateConfig, 'owner' | 'repo' | 'headRepoFullName'>,
+): AuthorCheck {
+  if (isSameRepoBranch(config.headRepoFullName, config.owner, config.repo)) return AUTHOR_ALLOWED;
+  return {
+    allowed: false,
+    reason: 'the PR branch is not in this repository, so its author has no write access',
+  };
 }
 
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */

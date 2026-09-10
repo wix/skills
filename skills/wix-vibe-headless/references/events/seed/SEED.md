@@ -1,6 +1,6 @@
 # Events — seeding
 
-Seed Wix Events (Events V3) by **calling `seed-events.js`** — don't hand-write the REST calls. It's
+Seed Wix Events (Events V3) by **calling `seed-events.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Events
 seed operation. `require` it and call the functions with plain data.
 
@@ -14,11 +14,7 @@ after create, and **publishing is one-way**. So per event: create DRAFT → (tic
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/events/seed/seed-events.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/events/seed/seed-events.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // DEFAULT — one call runs the whole flow per event (create DRAFT → tiers → publish), then resolves

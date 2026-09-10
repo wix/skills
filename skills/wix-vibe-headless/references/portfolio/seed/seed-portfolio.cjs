@@ -6,7 +6,7 @@
 //
 // Usage (build-time exec_tool):
 //   const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");  // Base44
-//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.js");
+//   const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.cjs");
 //   const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 //
 //   const collections = await seed.createCollections(ctx, [{ title, description }]);        // STEP 1

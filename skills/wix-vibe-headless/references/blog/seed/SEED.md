@@ -1,6 +1,6 @@
 # Blog — seeding
 
-Seed a Wix Blog (Blog V3) by **calling `seed-blog.js`** — don't hand-write the REST calls. It's
+Seed a Wix Blog (Blog V3) by **calling `seed-blog.cjs`** — don't hand-write the REST calls. It's
 a build-time module (run via `exec_tool`, not shipped in the app) that abstracts every Wix Blog
 seed operation. `require` it and call the functions with plain data.
 
@@ -15,11 +15,7 @@ for you (Blog binds the cover by the Wix Media file id, not a url).
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const fs = require("fs");
-// exec_tool's require can return EMPTY exports for these build-time modules — load the file itself:
-const seed = (() => { const m = { exports: {} };
-  new Function("module", "exports", "require", fs.readFileSync("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.js", "utf8"))(m, m.exports, require);
-  return m.exports; })();
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const result = await seed.setupBlog(ctx, {
