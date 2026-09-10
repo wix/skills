@@ -11,3 +11,8 @@ apiDoc:
       title: Restaurants Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
+
+    - file: ../../../skills/wix-manage/references/restaurants/restaurants-reservations-setup.md
+      title: Restaurants Reservations Setup
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
