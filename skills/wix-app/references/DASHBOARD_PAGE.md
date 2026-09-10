@@ -6,17 +6,13 @@ Dashboard pages appear in the site owner's Wix dashboard, where admins manage da
 
 A dashboard page is a workflow, not a screen. The site owner has to understand the situation, focus on what needs attention, investigate one record, act, and see the result confirmed — so translate the prompt into those needs before choosing any component.
 
-Do this first because a bare filtered table answers "what are all the records" and none of "how many", "which one needs my attention", or "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done. Which component serves each need: [Collection Toolkit](dashboard-page/COLLECTION_TOOLKIT.md).
+Do this first because a bare filtered table answers "what are all the records" and none of "how many", "which one needs my attention", or "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done. Which component serves each need is the installed package's own answer — see [The Discovery Chain](WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
 ## UI Libraries — Read Before Writing Any JSX
 
-At Wix, dashboard pages are built from `@wix/patterns` and `@wix/design-system`, in that order of preference:
+`@wix/patterns` first, `@wix/design-system` for the leaf UI inside its shell, custom React only when neither has it. Do not hand-write React for anything either library provides, and do not decide a component is missing without checking.
 
-1. **`@wix/patterns` first** — page shells (`CollectionPage`, `EntityPage`, `SettingsPage`), tables/grids, collection state hooks, filters, sorting, row and bulk actions, in-extension routing. Look every name up directly in `dist/dts-bundle/index.json` and `dist/docs/index.json` (start with the inventory). See [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
-2. **`@wix/design-system` second** — the leaf UI inside that shell (inputs, buttons, form fields, text, layout, cards, badges, icons). Choose components via the `wix-design-system` skill.
-3. **Custom React last** — only when neither library has it.
-
-Do not hand-write React for anything either library already provides, and do not decide a component is missing without checking. Full rule: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
+The order, what each library owns, and how to look a name up are stated once: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
 
 ## Scaffold
 
@@ -33,9 +29,9 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+**Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
-**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/dts-bundle/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). Each Bash call is a fresh shell — re-set the path variable in every call.
+**Then, before writing UI:** resolve the package root and `Read <pkgRoot>/dist/docs/index.json` once, per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites) — that index carries each symbol's `importPath`, `examples` and `bundle`, which is what decides whether you need to open anything else at all. Each Bash call is a fresh shell — re-set the path variable in every call.
 
 ## Capabilities
 
@@ -74,7 +70,7 @@ Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** u
 >
 > **If this page lists nothing** (settings, config) the rule doesn't apply. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
 >
-> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, [Entity Page Toolkit](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
+> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, `<pkgRoot>/dist/docs/useEntityPage.md`.
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 

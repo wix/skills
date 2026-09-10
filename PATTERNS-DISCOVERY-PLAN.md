@@ -2,10 +2,46 @@
 
 **Design doc:** [Patterns Discovery Flow](https://docs.google.com/document/d/1oStRU34x-ziiJffpiSGnrA_-KLr5xgKadv1E81rBsQI/edit)
 **Scope:** the `@wix/patterns` discovery chain only — trigger → composition → guide → doc → example → API.
-**Verified against** `cairo@1.461.0` (`packages/cairo`, branch `docs-type-fetchdata-params`) and
-`wix/skills` at `fix/collection-toolkit-stale-cli` (`f8cf34ee`). Every line number below was read, not recalled.
+**Verified against** `cairo@1.465.0` (`origin/master` `629a6b4044`) and `wix/skills` `origin/main`
+(`8e1cc200`), re-checked 2026-09-07 after both repos moved. Every line number below was read, not
+recalled — and they drift fast: `generate-component-docs.ts` grew 1161 → 1436 lines in six days.
 
 Two repos, three phases, strictly ordered: **cairo ships → cairo releases → skill follows.**
+
+---
+
+## Status — 2026-09-08 (re-synced)
+
+Both PRs are open. Implemented as one PR per repo, split by commit.
+
+| | PR | Commits |
+| --- | --- | --- |
+| cairo | **#5869** `feat/patterns-discovery-guides` | 8 — A1, A2, A3, A4, field binding, + 3 from review |
+| skills | **#1279** (draft) `feat/patterns-discovery-chain` | 7 — C1…C5, this plan, + the floor bump |
+| merged earlier | cairo **#5843** | A5, cut to one section |
+
+Both branches rebased 2026-09-08: cairo onto `master` at **1.467.0**, skills onto `main` at
+`2d9d319e`. **1.466.0 and 1.467.0 were both cut without the guides**, which is why the floor
+text now says 1.468.0 at the earliest and why the key probe, not the number, is authoritative.
+
+Three conflicts on the skills rebase, all expected and all resolved toward the move:
+skills#1280 corrected `useOptimisticActions` in `COLLECTION_TOOLKIT.md` (carried into the cairo
+guide, in words) and skills#1281 added read-batching guidance to `PATTERNS_BUNDLE_READING.md`
+(kept in the skill — it is instruction about how to read, not what the format means, so the
+moving test puts it on this side).
+
+Review on cairo#5869 found two real defects, both fixed: the provider entry points were wrong,
+and the validator's alias guard disabled the whole check. See §0.6 and §0.7.
+
+**The skills PR must not merge before cairo #5869 is released.** Its floor check is a key
+probe, so no version number is baked in and nothing needs editing at merge time — but until a
+release carries the guides, every install fails that probe and the skill correctly refuses to
+proceed.
+
+Two items were dropped during implementation, both recorded in place: **A6** (FAQ wiring — a
+Storybook migration, not an addition) and **C5's negative scenario** (needs an EvalForge
+template pinned below the version floor). Two were discovered: `symbols` silently depends on
+`dist/types/index.d.ts`, and the field-binding trap had no cairo home until A4 grew one.
 
 ---
 
@@ -27,13 +63,15 @@ hand-written tables use resolve only through the entry's optional `symbols` alia
 and two more are storyNames with spaces that are not exports at all — `More Actions`,
 `Sortable Columns`. A key-only validator fails the build on four names that are correct today.
 
-**The validator must resolve against `keys ∪ symbols`.** Measured: of the 58 patterns names named
-across `COLLECTION_TOOLKIT.md`, `WIX_PATTERNS_DOCS.md` and `ENTITY_PAGE_TOOLKIT.md`, **57 resolve**
-in `dist/docs/index.json` under that rule — which is the evidence that the field is buildable at all.
+**The validator must resolve against `keys ∪ symbols`.** All four cases above re-confirmed against
+`1.465.0`'s freshly built index: `CollectionToolbarFilters` → `ToolbarFilters`, `ExportButton` →
+`ExportTo`, and `More Actions` / `Sortable Columns` as bare keys. The index now holds 168 entries.
 
 ### 0.2 The two indices disagree, and the guides live in the one the skill reads *second*
 
-`bulkActionModal` is in `dist/docs/index.json` and **not** in `dist/dts-bundle/index.json`. More
+`bulkActionModal` is in `dist/docs/index.json` and **not** in `dist/dts-bundle/index.json` — and it
+is not a lone exception: at `1.465.0` the docs index holds **168** entries against the bundle index's
+**101**, because the bundle index is curated and the docs index is everything documented. More
 importantly: guides are entries in `dist/docs/index.json`, but the skill today opens
 `dist/dts-bundle/index.json` first and calls it "the inventory" (`SKILL.md:123-131`,
 `WIX_PATTERNS_DOCS.md:135`). An agent following the current order never sees a guide.
@@ -46,12 +84,12 @@ content with pointers".
 
 Guides are CommonJS story modules — `module.exports = { category, storyName, hideImport,
 hideHeaderLinks, story: { tabs, content } }` (see `docs/Guides/nextjs/nextjs.story.ts`). No TypeScript
-interface describes them. `processStory()` (`scripts/generate-component-docs.ts:382-427`) reads that
+interface describes them. `processStory()` (`scripts/generate-component-docs.ts:383-428`) reads that
 object field by field and returns a **fixed five-field shape** — `name`, `category`, `importStr`,
 `componentPath`, `tabs`.
 
 So "add an optional field to the guide contract" is **two edits, not one**: the return shape at
-`:421-427` and the index entry at `:1131-1140`. The design doc names only the second.
+`:422-428` and the index entry at `:1389-1409`. The design doc names only the second.
 
 ### 0.4 The version-floor check cannot reuse the existing pattern
 
@@ -60,18 +98,57 @@ Today's floor is a *file-existence* probe: `ls <pkgRoot>/dist/dts-bundle/index.j
 land as new **entries inside an index.json that already exists**, so existence proves nothing.
 
 **Probe for the guide key instead** — an agent that reads `dist/docs/index.json` and finds no
-`category` beginning `Guides/Discovery` (or no `Collection Toolkit` key) is on an old version. This
-is strictly better than a version compare: no semver parsing, and it tests the thing actually needed.
+`Collection Toolkit` key is on an old version. Strictly better than a version compare: no semver
+parsing, and it tests the thing actually needed. **Shipped this way** (skills `b24a20f2`).
 
 ### 0.5 The eval gate cannot see a file read out of `node_modules`
 
 `wix-app` scenarios assert coverage with `skill_was_called` + `referenceFiles`, which only observes
 files under `skills/wix-app/` (`docs/eval-scenarios.md:154-190`). Once the need→component table lives
-in `@wix/patterns`, **no `referenceFiles` assertion can prove the agent read it.** Three scenarios
-currently assert `references/WIX_PATTERNS_DOCS.md`
-(`employee-shift-dashboard.yml`, `refunds-dashboard-sdk-not-cms.yml`,
-`dashboard-page/admin-call-routed-and-elevated.yml`) — those survive, because that file remains and is
-still read. But proving the *new* chain is `llm_judge`-only. Phase C plans for that explicitly.
+in `@wix/patterns`, **no `referenceFiles` assertion can prove the agent read it.** Proving the *new*
+chain is `llm_judge`-only. Phase C plans for that explicitly.
+
+**Re-checked 2026-09-07, and one assertion has become a blocker.** Two scenarios assert
+`references/WIX_PATTERNS_DOCS.md` — `employee-shift-dashboard.yml` and
+`dashboard-page/admin-call-routed-and-elevated.yml`; `refunds-dashboard-sdk-not-cms.yml` no longer
+does. Those survive, because that file remains and is still read. But `employee-shift-dashboard.yml`
+now *also* asserts **`references/dashboard-page/ENTITY_PAGE_TOOLKIT.md`**, which Phase C deletes. So
+C2's deletion breaks a merged eval on `main`: the scenario edit is not optional cleanup, it belongs in
+the deletion commit alongside C4. Re-check this list before writing Phase C — it changed twice in six
+days.
+
+### 0.6 cairo doc prose does not carry code — the guides had to be rewritten for it
+
+`cairo/packages/cairo/docs/**` prose describes what to pass and why in words; the runnable
+examples carry the code. These guides were drafted from skill references, where the opposite
+holds — an agent reads those, so exact signatures are the point — so they arrived full of
+inline calls and one entire type signature.
+
+Out of the prose on the second pass: the filter factory's generic signature, the navigate call
+with its argument object, the `useEntityPage` call with its parameter object, the two `register`
+misuses spelled as JSX, and the form methods written as calls. Component **names** stay — a
+guide about which component serves which need cannot avoid naming components — and code blocks
+stay, since that is where code belongs.
+
+**Applies to anything else moved into cairo.** The direction of travel is not neutral: content
+that was correct as skill prose needs rewriting, not relocating.
+
+### 0.7 Moving prose is where inherited errors surface
+
+Both review bots on cairo#5869 caught the composition guide pointing `WixPatternsBMProvider`
+and `WixPatternsGizaProvider` at `@wix/patterns/provider`, which exports only
+`WixPatternsProvider`; BM is `/bm` and Giza is `/giza`. The guide also described the default as
+detecting its environment, which it does not — it lives in `src/dashboard/` and requires the
+`@wix/dashboard` peer.
+
+The auto-detection claim came straight from the skill file, which had said the default
+"auto-detects the environment (BM, Essentials, Giza)" for as long as the file has existed. The
+wrong import mapping was then generalised on top of it while moving.
+
+**So verify every claim against source as it moves, not just the ones that look uncertain** —
+the four guides carried roughly a hundred assertions across, and the two that were wrong were
+both inherited rather than invented. This is also, precisely, the argument for the whole
+design: the claim was wrong in a place nothing could check it.
 
 ---
 
@@ -84,7 +161,7 @@ Six changes. A1–A3 are the mechanism; A4–A5 are the content; A6 is optional 
 `scripts/generate-component-docs.ts`, two sites:
 
 ```ts
-// :382-427 — processStory() return type and value
+// :383-428 — processStory() return type and value
 function processStory(filePath: string): {
   name: string;
   category: string;
@@ -105,7 +182,7 @@ function processStory(filePath: string): {
 ```
 
 ```ts
-// :1131-1140 — the index entry, same spread convention as bundle/symbols
+// :1389-1409 — the index entry, same spread convention as bundle/symbols/examples
 index[data.name] = {
   file: outName,
   category: data.category,
@@ -117,27 +194,33 @@ index[data.name] = {
 };
 ```
 
-Also widen the `index` declaration at `:1006`
-(`Record<string, { file; category; bundle?; symbols? }>`).
+Also widen the `index` declaration at `:1226`, which now reads
+`{ file; category; bundle?; status?; statusMessage?; symbols?; examples? }`.
 
-**The collision this plan warned about is gone, and a harder question replaces it.** The
-`config.status` work (P1 in `CODEGEN-INVESTIGATION-376f82f2.md`) was PR **#5804** on branch
-`fix/docs-gen-carry-component-status`, editing `processStory()` at `:382` and `:416-418` — cairo 2's
-exact sites. It was **closed unmerged by Kobi on 2026-09-06**, CI green, bot reviews only, no closing
-comment. So nothing is in flight on those lines and there is no rebase to coordinate.
+**Both worries about this change are now settled, in its favour.**
 
-But #5804 and cairo 2 are the *same shape of change*: add an optional field to
-`dist/docs/index.json` so a machine consumer stops making a choice it currently gets wrong. If #5804
-was closed because that shape is unwanted in cairo, cairo 2 does not survive review either and the
-design needs a different mechanism. **Resolve this before writing cairo 2** — it is the load-bearing
-PR of the whole plan.
+*No collision.* The `config.status` work (P1 in `CODEGEN-INVESTIGATION-376f82f2.md`) was PR **#5804**,
+editing these exact sites. It was closed unmerged — **superseded, not rejected**: #5836 solved the
+same problem from the other direction, populating the already-declared `status`/`statusMessage` on
+`dist/dts-bundle/index.json` from the `@deprecated` JSDoc in the built bundle.
+
+*No novelty either.* When this plan was drafted the index entry had two optional fields. At `1.465.0`
+it has five — `bundle` (79 entries), `symbols` (4), `status`/`statusMessage` (1, `PrimaryPageButton`)
+and **`examples: string[]` (39)**, added by #5855. `examples` is `relatedComponents`' exact shape and
+exact rationale: a list whose paths are not reconstructible from the name, put in the index because
+"without this the index gives no sign a doc has asides at all". `relatedComponents` is the sixth field
+of an established kind, not a precedent to argue for.
+
+*And the drift is being paid for by hand meanwhile.* `PrimaryPageButton` now carries
+`status: "deprecated"` in cairo, and skills PR #1273 separately removed it from
+`COLLECTION_TOOLKIT.md`. Two repos, two commits, one fact — the cost this design removes.
 
 ### A2 — emit the list into the generated markdown, not only the index
 
-`generateMarkdown()` (`:891`) should append a `## Related components` section listing each name with
+`generateMarkdown()` (`:1095`) should append a `## Related components` section listing each name with
 the doc file it resolves to. Rationale: an agent that has opened the guide should not have to go back
 to `index.json` to follow it, and the emitted text becomes checkable by the same in-doc regex
-convention `validateDocReferences()` already uses (`validate-bundles.ts:305-330`).
+convention `validateDocReferences()` already uses (`validate-bundles.ts:306-331`).
 
 Use the existing sentinel wording so no new regex is needed per reference:
 `Example code: read \`dist/docs/<file>\`` already has a checker; emit related components as
@@ -147,8 +230,12 @@ Use the existing sentinel wording so no new regex is needed per reference:
 ### A3 — the build-time validator
 
 New function in `scripts/dts-bundle/validate-bundles.ts`, alongside `validateDocReferences()`
-(`:275-336`), wired into `main()` next to the existing `docProblems` block (`:410-421`) — same
-`problems: string[]` → `console.error` → `process.exit(1)` convention.
+(`:276-337`), wired into `main()` (`:522`) next to the existing `docProblems` block (`:561-576`) —
+same `problems: string[]` → `console.error` → `process.exit(1)` convention.
+
+**Pick the hard-fail convention deliberately.** cairo now has two: `validate-bundles.ts` exits 1,
+while the newer reporting added to `scripts/dts-bundle/generate-index.ts` (#5854, #5862) only
+`console.warn`s. A warning does not close a trust gap — an agent never sees cairo's build log. Exit 1.
 
 ```ts
 function validateRelatedComponents(): string[] {
@@ -198,8 +285,8 @@ Each guide is `docs/Guides/<slug>/<slug>.story.ts` (a thin module) plus its mark
 | Guide dir | `storyName` | Source content | `relatedComponents` |
 | --- | --- | --- | --- |
 | `Guides/composition-and-providers/` | `Composition and Providers` | `WIX_PATTERNS_DOCS.md:48-127` | the 5 providers, `CollectionPage`, `EntityPage`, `SettingsPage`, the 5 collection triads, `PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate` |
-| `Guides/collection-toolkit/` | `Collection Toolkit` | `dashboard-page/COLLECTION_TOOLKIT.md` (all of it) — **source it from `fix/collection-toolkit-stale-cli`**, not from whatever branch is checked out; other branches still carry the removed-CLI text at `:37` and `:39` | the ~40 names in its tables |
-| `Guides/collection-entity-flow/` | `Collection to Entity Flow` | `WIX_PATTERNS_DOCS.md:151-170` | `EntityPage`, `useEntityPage`, `usePatternsNavigate`, `PatternsReactRoute`, `PatternsReactRouter` |
+| `Guides/collection-toolkit/` | `Collection Toolkit` | `dashboard-page/COLLECTION_TOOLKIT.md` (all of it) — source it from `origin/main`, which now carries the fixed text; feature branches may still hold the removed-CLI wording | the ~40 names in its tables |
+| `Guides/collection-entity-flow/` | `Collection to Entity Flow` | `WIX_PATTERNS_DOCS.md:150-166` | `EntityPage`, `useEntityPage`, `usePatternsNavigate`, `PatternsReactRoute`, `PatternsReactRouter` |
 | `Guides/reading-the-doc-indices/` | `Reading the Doc Indices` | `dashboard-page/PATTERNS_BUNDLE_READING.md` | — (format conventions, no names) |
 
 Two authoring notes from reading the existing output:
@@ -210,9 +297,14 @@ Two authoring notes from reading the existing output:
   Spaces in filenames are already normal here (`Working with Cache.md`); keep the storyName stable,
   because the skill's version-floor probe (§0.4, C4) will key on it.
 
-Use `category: 'Guides/Discovery'` for all four, so the skill can select them with one prefix test
-rather than a hardcoded name list. Today's guides sit at bare `Guides` and `Guides/<X>`; the prefix
-convention already holds.
+**Decided against a `Guides/Discovery` category during implementation.** All four ship at
+`category: 'Guides'`, matching the five existing guides, and the skill names them explicitly instead
+of selecting by prefix. Two reasons: `Discovery` is a label about machine consumption, not about
+content, and it reads oddly in the Storybook nav a human browses; and an explicit list decouples the
+two repos — cairo can add a guide without silently changing what the skill reads. The skill needs
+specific guides at specific points in its procedure anyway (composition once per session, the toolkit
+when building a collection), so a blanket "read every discovery guide" was never the right
+instruction.
 
 ### A5 — the gotchas move onto `useEntityPage`'s doc — **shipped, see PR 1**
 
@@ -248,30 +340,50 @@ pass it easily — they are library knowledge and they get build-time validation
 `PATTERNS_BUNDLE_READING.md` may not: content about *how an agent should read a file* stays in the
 skill; content about *what the format means* moves.
 
-**Two skill-side corrections fall out of this, both independent of the migration:**
+**Two skill-side corrections fell out of this. One is already fixed; the other is still open:**
 
-1. `ENTITY_PAGE_TOOLKIT.md:59` claims "the hook's doc has an empty API section". No longer true —
-   `useEntityPage.md` has Overview, a full Example that already names both generics, Returns, and a
-   Props bundle pointer.
-2. **`dist/dts-bundle/exports/<subpath>.d.ts` is a curated subset, not a mirror of the entry point.**
-   `exports/page.d.ts` lists two exports; `src/exports/page.ts` also exports
+1. ~~`ENTITY_PAGE_TOOLKIT.md:59` claims "the hook's doc has an empty API section".~~ **Fixed on
+   `main`** — the line now reads "the hook's doc ends by pointing at the bundle rather than tabulating
+   props" (`:78`). Nothing to do.
+2. **Fixed in this PR, but still wrong on `main` until it merges:
+   `dist/dts-bundle/exports/<subpath>.d.ts` is a curated subset, not a mirror of the entry point.** `exports/page.d.ts` lists two exports; `src/exports/page.ts` also exports
    `CollectionPageHeaderBadge`, `CollectionPageHeaderProps` and all of `CollectionPageNew`. Both
-   `ENTITY_PAGE_TOOLKIT.md:33` and `COLLECTION_TOOLKIT.md:54` tell an agent to read those files "to see
+   `ENTITY_PAGE_TOOLKIT.md:52` and `COLLECTION_TOOLKIT.md:54` tell an agent to read those files "to see
    what that subpath actually gives you" — which is not what they show. Found the hard way: PR 1's
    first draft asserted the subset as an inventory and both review bots caught it. This belongs in the
-   `reading-the-doc-indices` guide (A4) as a stated limit of the format, and the two skill lines need
-   rewording either way.
+   `reading-the-doc-indices` guide (A4) as a stated limit of the format — where it now is — and the
+   two skill lines go with the files this PR deletes. **But both still say it on `main` today**, and
+   this PR is blocked on cairo's release, so the wrong claim outlives the fix. It is two lines and
+   independent of everything else here: worth a standalone PR rather than waiting.
+
+**Phase C is also happening organically, one commit at a time.** `ENTITY_PAGE_TOOLKIT.md:47` and
+`:89` now send the reader to `dist/docs/useEntityPage.md`'s **Create route** section — a section cairo
+grew in the same week. That is precisely the plan's direction, arrived at by hand. It is evidence the
+design is right and an argument for landing the mechanism before the hand-migration diverges from it.
 
 Authoring note: `description({ title })` already emits `### <title>`, so headings *inside* the
 markdown must start at `####` or they render as siblings of their own section.
 
-### A6 — optional: ship the four orphaned FAQ files
+### A6 — dropped: shipping the four orphaned FAQ files
 
-`docs/FAQ/{detect-cairo-component,inline-refetch,read-state,state-change-re-render}.md` are wired only
-into the internal Storybook. The generator's glob is
-`['docs/**/*.story.tsx', 'docs/**/*.story.ts']` (`:993-994`), so a single
-`docs/FAQ/faq.story.ts` with `category: 'Guides'` ships all four. ~15 lines. Independent of everything
-else here — take it or drop it without affecting the rest.
+**Not the ~15-line addition this plan assumed. Dropped from the cairo PR, deliberately.**
+
+The four write-ups at `docs/FAQ/*.md` are already registered in Storybook — `docs/docs.tsx`
+does `storiesOf('Getting Started', module).add('FAQ', …)` over the `sections` export of
+`docs/faq.sections.tsx`. And Storybook's own glob (`.storybook/main.js`) is
+`../docs/**/*.story.ts*`, the same shape `docs:gen` reads. So adding a story module does not
+*add* the FAQ anywhere — it **duplicates** it, giving Storybook two FAQ entries over the same
+content.
+
+Doing it properly is a migration, not an addition: move the `storiesOf` block into a story
+module so one registration feeds both Storybook and `dist/docs`. Two things make that
+unverifiable from here — the existing story renders through `View` with its own
+`header({ title })` and `hideHeaderLinks`, so visual parity in Storybook needs Storybook run;
+and `faq.sections.tsx` opens with `mdx(<List …/>)`, an interactive table of contents whose
+markdown rendering is unknown.
+
+Worth doing, worth its own PR with a Storybook screenshot. It is the smallest prize in this
+plan and the only item that touches how the internal Storybook is assembled.
 
 ---
 
@@ -284,9 +396,11 @@ time: Phase C's floor text needs it.
 no release can carry the guides. Checked against the published tarballs of both versions cut on
 2026-09-07: `1.463.0` (docs fixes, from `4a9c0c6ed0`) and `1.464.0` (cairo#5852 alone — the
 `navigateToEntityPage` create-route fix, unrelated to this plan). In each, `dist/docs/index.json` has
-no `category` under `Guides/Discovery` — its `Guides*` entries are `InMemoryBackend`,
+no `Collection Toolkit` key — its `Guides*` entries are `InMemoryBackend`,
 `Working with Cache`, `Next.js`, `Component Tests`, `Sled Tests` — and not one of its 167 entries
 carries `relatedComponents`. C4's key probe would correctly reject both, and Phase C stays blocked.
+`1.465.0` (current `master`, `629a6b4044`) is the same story at 168 entries — `withDashboard` gained a
+doc in #5862, nothing else relevant moved.
 
 ---
 
@@ -308,7 +422,8 @@ two become pointers:
 1. Resolve `<pkgRoot>` (`Prerequisites`, unchanged — the PnP snippet at `:5-36` stays).
 2. `Read <pkgRoot>/dist/docs/index.json` **first**. It is the superset (§0.2) and the only index that
    carries guides.
-3. Read every `category: "Guides/Discovery"` entry whose subject matches the task — once per session.
+3. Read the guides by name — `Composition and Providers.md` once per session, then
+   `Collection Toolkit.md` or `Collection to Entity Flow.md` for the task at hand.
 4. Follow the guide's `relatedComponents` to each component's doc.
 5. Read the doc's chosen example file.
 6. `dist/dts-bundle/index.json` → the `.d.ts` for props and any type you name.
@@ -320,14 +435,14 @@ Content to **delete** from the skill (now in the package):
 | File | Lines | Becomes |
 | --- | --- | --- |
 | `WIX_PATTERNS_DOCS.md` | 48-127 (Library Architecture) | pointer to the composition guide |
-| `WIX_PATTERNS_DOCS.md` | 151-170 (Collection→Entity Flow) | pointer to the entity-flow guide |
+| `WIX_PATTERNS_DOCS.md` | 150-166 (Collection→Entity Flow) | pointer to the entity-flow guide |
 | `dashboard-page/COLLECTION_TOOLKIT.md` | whole file | deleted; pointers retarget to the guide |
 | `dashboard-page/ENTITY_PAGE_TOOLKIT.md` | whole file | deleted; pointers retarget to `EntityPage.md` |
 | `dashboard-page/PATTERNS_BUNDLE_READING.md` | whole file | deleted; pointer to the indices guide |
 
 Content that **stays in the skill** — it is not about `@wix/patterns` internals and has no home in the
 library: the patterns-before-WDS ordering rule, the "never browse `node_modules` by hand" rule
-(`WIX_PATTERNS_DOCS.md:46`), the "when patterns has no equivalent" fallback (`:172-180`), the
+(`WIX_PATTERNS_DOCS.md:46`), the "when patterns has no equivalent" fallback (`:167-175`), the
 `SidePanel`-is-WDS fact, and `UX_SUCCESS_MODEL.md` in full.
 
 ### C3 — retarget the eight cross-links
@@ -335,12 +450,18 @@ library: the patterns-before-WDS ordering rule, the "never browse `node_modules`
 Verified inbound references to the four files being emptied or deleted:
 
 ```
-SKILL.md:25, :31, :62, :123, :133, :135, :168, :217, :219, :220
-references/DASHBOARD_PAGE.md:9, :15, :36, :73
+SKILL.md:25, :31, :62, :123, :133, :135, :166, :168, :217, :219, :220
+references/DASHBOARD_PAGE.md:9, :15, :36, :38, :77
 references/DASHBOARD_MODAL.md:14
+references/dashboard-page/COLLECTION_TOOLKIT.md:48, :52
+references/dashboard-page/ENTITY_PAGE_TOOLKIT.md:3
+references/dashboard-page/PATTERNS_BUNDLE_READING.md:7
 references/dashboard-page/WDS_LAYOUT.md:5
 references/dashboard-page/UX_SUCCESS_MODEL.md:133
 ```
+
+Re-derived from `origin/main` on 2026-09-07; it gained three sites in six days (`SKILL.md:166`,
+`DASHBOARD_PAGE.md:38`, `:77`). Re-run the grep rather than trusting this block.
 
 `SKILL.md:217-220` is the reference index table — two rows are deleted, one is rewritten.
 
@@ -383,9 +504,10 @@ cd packages/cairo
 yarn docs:gen && yarn dts:bundle
 ```
 
-- `dist/docs/index.json` has four `Guides/Discovery` entries, each with a `relatedComponents` array.
+- `dist/docs/index.json` has four new `Guides` entries; three carry a `relatedComponents` array
+  (`Reading the Doc Indices` deliberately does not — it is about the format, not any component).
 - Each generated guide `.md` carries its `## Related components` section (A2).
-- `dist/docs/EntityPage.md` carries the Gotchas section.
+- `dist/docs/useEntityPage.md` carries the **Typing the call** section (shipped in #5843).
 
 **The validator must be proven to fire, not just to pass.** Deliberate-break test:
 
@@ -396,9 +518,33 @@ yarn docs:gen && ts-node -T --project tsconfig.scripts.json scripts/dts-bundle/v
 ```
 
 Run the validator directly rather than the whole `dts:bundle` chain while iterating — it is one of
-seven chained steps and only needs `dist/` to exist. Second break test: rename a real component's
-story and confirm the guide referencing it fails. That is the drift case this whole design exists for;
-if it does not fail, the design did not ship.
+seven chained steps and only needs `dist/` to exist.
+
+**But verify against a tree that has never been built.** This PR produced two local passes that CI
+disagreed with, and both were stale artifacts in `dist/`:
+
+| Stale file | What it hid |
+| --- | --- |
+| `dist/types/index.d.ts` | the `symbols` alias whitelist. Present locally, absent on a clean tree — so the alias channel silently vanishes and the related-component check sees half its input. |
+| `dist/dts-bundle/index.json` | `generate-index.ts` writes it as **step 7** of `dts:bundle`; the in-doc path check is **step 6**. A doc naming the index therefore passes on a warm tree and fails on a clean one. |
+
+Neither is reachable by re-running the chain — a re-run leaves both files in place. Delete the
+artifact the check reads, or build from scratch. The second one had been latent since the in-doc
+check was written, because no doc in the package had ever named that index.
+
+**The drift test is three cases, not one, and the first one passing is correct.** Measured
+2026-09-08 against `SummaryBar`, which `Collection Toolkit` recommends:
+
+| Change | Expected | Why |
+| --- | --- | --- |
+| Story title renamed, export unchanged | **exit 0** | `SummaryBar` becomes a `symbols` alias on the renamed entry, so the guide's name still resolves *and* still imports. Nothing is broken, so nothing should fail. |
+| Component removed from the docs (`docs/SummaryBar/` gone) | exit 1, naming the guide and the name | |
+| Name no longer root-importable — a real rename or removal | exit 1, naming the guide and the name | The alias cannot form without the export in `dist/types/index.d.ts`, so the last channel closes. |
+
+An earlier version of this section prescribed only the first case and called it "the drift case this
+design exists for". That was wrong, and following it would read as the design having failed. **What
+the check catches is a name a reader can no longer resolve or import** — not every edit that moves a
+name around.
 
 **skill** — run `wix-app` against a project on the new version with the employee-shifts prompt
 (`yaml/wix-app-evals/employee-shift-dashboard.yml`) and confirm the read order is
@@ -464,11 +610,21 @@ review conversation is preferable to two.
 
 ## Open questions — recommended answers
 
+**Declare the list; do not derive it from the prose.** The tempting alternative — no new field at
+all, with the validator scanning each guide's markdown for backticked names — was measured on the
+three current skill files and does not work. Of **128** identifier-shaped backticked tokens, only
+**65** resolve in the docs index. The other 63 are almost all legitimate: prop names (`fetch`,
+`onSave`, `filters`, `fetchData`), WDS components patterns does not own (`Input`, `FormField`, `Box`,
+`Card`, `Text`, `SidePanel`), types (`FieldValues`, `Pick`, `any`), index field names (`bundle`,
+`category`, `symbols`), and shell commands (`ls`, `cat`, `find`). A 49% false-positive rate needs an
+ignore list about as long as the thing being validated, and every new prop name in a guide would break
+the build. An explicit list is the one that can actually fail correctly.
+
 **`relatedComponents` shape → flat `string[]`.** The "why" already exists as prose in the guide's own
-`Need | Component` tables, which is where a reader looks anyway; a paired
-`{ component, for }` duplicates it in a place the validator still cannot check, since nothing
-cross-checks the `for` string against the prose. The flat list is also forward-compatible: a richer
-shape can be accepted later as a union without breaking any published guide. Take the simple one.
+`Need | Component` tables, which is where a reader looks anyway; a paired `{ component, for }`
+duplicates it where the validator still cannot check it. The flat list also matches `examples` and
+`symbols`, the two fields it sits beside, and a richer shape can be accepted later as a union without
+breaking any published guide.
 
 **Guide granularity → one `collection-toolkit` guide.** It matches today's file, it is ~6 KB (well
 under any read limit — the largest shipped guide is 4.3 KB), and the agent's actual access pattern is
