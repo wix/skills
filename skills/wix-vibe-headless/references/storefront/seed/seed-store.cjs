@@ -257,7 +257,8 @@ async function uploadDigitalFile(ctx, url, fileName) {
   if (!mimeType) throw new Error(`digitalFileName needs one of these extensions (${Object.keys(FILE_MIME).join(", ")}): ${fileName}`);
   const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
   const src = await fetch(url);
-  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}`);
+  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}. A digital product needs a real, ` +
+    `fetchable file — with none at hand, seed this product as physical with inStock: true and tell the user.`);
   const res = await fetch(uploadUrl, {
     method: "PUT", headers: { "Content-Type": mimeType }, body: Buffer.from(await src.arrayBuffer()),
   });
