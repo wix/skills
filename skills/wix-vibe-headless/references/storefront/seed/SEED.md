@@ -19,6 +19,10 @@ const ctx = { token: accessToken };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
+// imageUrl: your generate_image results update in place once generation completes — re-read each
+// result AS IT READS NOW, right when you write this call: a completed one carries the final
+// https://media.base44.com/... url to pass here. One still pending → seed that product without
+// imageUrl and attach it afterwards with attachProductImages.
 const result = await seed.setupStore(ctx, {
   currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
@@ -36,6 +40,7 @@ const result = await seed.setupStore(ctx, {
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
 //   imagesSkippedPending (product names whose image was still generating — attach those afterwards),
+//   productsWithoutImages (product names seeded with no imageUrl — attach afterwards if images exist),
 //   currency: { requested, actual, status, warnings } }
 ```
 

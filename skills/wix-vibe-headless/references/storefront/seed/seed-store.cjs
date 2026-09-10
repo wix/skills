@@ -516,12 +516,19 @@ async function setupStore(ctx, { products = [], categories = {}, currency } = {}
   const skippedPending = imageItems.filter((it) => isPendingPlaceholder(it.url)).map((it) => it.name);
   if (readyItems.length) await attachProductImages(ctx, readyItems);
 
+  const withoutImages = withNames.filter((p, i) => !products[i]?.imageUrl).map((p) => p.name);
   return {
     products: withNames, categories: cats, imagesAttached: readyItems.length,
     ...(skippedPending.length && {
       imagesSkippedPending: skippedPending,
       note: "these images were still generating at seed time — re-read their generate_image results " +
         "(they update in place to status 'completed' with the final url) and attach with attachProductImages",
+    }),
+    ...(withoutImages.length && !skippedPending.length && {
+      productsWithoutImages: withoutImages,
+      note: "these products were seeded without an image — if you generated images for them, your " +
+        "generate_image results have updated in place and now carry final urls: attach them with " +
+        "attachProductImages",
     }),
     currency: currencyResult,
   };
