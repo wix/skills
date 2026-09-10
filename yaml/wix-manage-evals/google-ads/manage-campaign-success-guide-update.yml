@@ -7,6 +7,9 @@ triggerPrompt: >-
   I made the call-to-action button clearer as this Wix site's Google Ads
   campaign success guide recommended. Mark that recommendation as done.
 tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

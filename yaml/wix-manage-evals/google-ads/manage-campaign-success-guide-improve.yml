@@ -6,6 +6,9 @@ description: >-
 triggerPrompt: >-
   What should I fix next in my existing Wix Google Ads campaign on this site?
 tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

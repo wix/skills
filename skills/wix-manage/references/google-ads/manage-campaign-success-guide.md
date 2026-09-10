@@ -28,6 +28,8 @@ Site listing is for resolving navigation metadata only. Never use account-wide s
      -H 'Authorization: <AUTH>'
    ```
 
+   Use this full URL exactly once. Do not retry it with a relative path, a different service prefix, or another site when it returns a permission or not-found response.
+
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
 3. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.
 4. Continue only for `campaignType: "PERFORMANCE_MAX_LEADS"`. If the selected campaign has another type, explain that campaign success guides currently support Google Ads Performance Max Leads campaigns only. For a supported campaign, do not gate guide retrieval on `status` or query analytics first: `LEARNING` and missing performance metrics are not reasons to wait.
@@ -74,6 +76,14 @@ Present only the suggestions the API returns and preserve their order; `suggesti
 ## Present the guide as an actionable plan
 
 Do not return a bare list of task labels. Turn the returned suggestions into a compact action plan while preserving the API's order:
+
+Use this output structure:
+
+1. A numbered suggestion list with no navigation URLs or Markdown links inside the suggestion items.
+2. One grouped offer for the supported work the agent can perform after approval.
+3. A **Next actions** block after the complete suggestion list and offer, containing each relevant destination link exactly once.
+
+This structure is mandatory even when only one suggestion uses a destination. Never put the Editor, Google Ads, or another shared navigation link inline with a suggestion.
 
 1. Name the campaign and link `campaignSuccessGuide.url` as the analyzed landing page when present.
 2. For every returned suggestion, show its user-facing label, tracking status (`Pending` for `OPEN`, `Marked complete` for `COMPLETED`), and one concrete next step. Do not show enum values unless they help resolve an ambiguity.
