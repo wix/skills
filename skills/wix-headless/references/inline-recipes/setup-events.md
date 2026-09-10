@@ -175,6 +175,7 @@ curl -X PATCH 'https://www.wixapis.com/events/v3/events/<eventId>' \
 
 - **`mainImage` reads back only under the `DETAILS` fieldset** — pass `"fields": ["DETAILS"]` (as above, and on any confirming `getEvent`/`queryEvents`) or the response omits it and a confirm check looks empty.
 - **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the event text-only.
+- **⚠️ This OBJECT shape is the write/REST-confirm shape only — the frontend SDK read is a different shape.** `wixEventsV2.getEventBySlug`/`queryEvents` (`@wix/events`) run this same field through the SDK's generic media-ref transform, so `event.mainImage` comes back as a plain `wix:image://v1/<id>/<altText>#originWidth=…&originHeight=…` **string**, not this `{ id, url, height, width, altText }` object — `event.mainImage.url` is `undefined` there. Coding the frontend against this write shape reproduces a silent "every image missing" bug. The correct read-side shape + render helper is in `how-to-code-events.md` ("Rendering & mounting" → **Image**) — read it before building any image-rendering frontend code, not just this seed step.
 
 ### Paid-ticket precondition — record it, do NOT block
 
