@@ -4,7 +4,7 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 ---
 # Pricing: Create Coupon
 
-> **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file. If the WixREADME index surfaces it, ignore it.
+> **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file.
 
 ## Prerequisites
 
@@ -12,10 +12,10 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 
 ## Required APIs
 
-- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /v2/coupons`
-- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /v2/coupons/{id}`
-- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /v2/coupons/query`
-- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /v2/coupons/{id}`
+- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /stores/v2/coupons`
+- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /stores/v2/coupons/{id}`
+- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /stores/v2/coupons/query`
+- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /stores/v2/coupons/{id}`
 
 ---
 
@@ -47,13 +47,10 @@ Before creating a coupon, check for code conflicts and existing promotions on th
         "code": "SUMMER20",
         "percentOffRate": 20,
         "scope": {
-          "namespace": "stores",
-          "group": {
-            "name": "product"
-          }
+          "namespace": "stores"
         },
-        "startTime": 1717200000000,
-        "expirationTime": 1719792000000,
+        "startTime": "1717200000000",
+        "expirationTime": "1719792000000",
         "usageLimit": 100,
         "limitPerCustomer": 1,
         "active": true
@@ -91,12 +88,9 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SPRING15",
     "percentOffRate": 15,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
-    "startTime": 1714521600000,
+    "startTime": "1714521600000",
     "usageLimit": 200,
     "limitPerCustomer": 1,
     "active": true
@@ -125,8 +119,8 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
         "entityId": "collection-uuid-here"
       }
     },
-    "startTime": 1714521600000,
-    "expirationTime": 1717200000000,
+    "startTime": "1714521600000",
+    "expirationTime": "1717200000000",
     "usageLimit": 50,
     "limitPerCustomer": 1,
     "active": true
@@ -148,7 +142,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
         "entityId": "product-uuid-here"
       }
     },
-    "startTime": 1714521600000,
+    "startTime": "1714521600000",
     "limitPerCustomer": 1,
     "active": true
   }
@@ -167,12 +161,9 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SAVE10",
     "moneyOffAmount": 10,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
-    "startTime": 1714521600000,
+    "startTime": "1714521600000",
     "active": true
   }
 }
@@ -192,7 +183,7 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
     "code": "SPEND100",
     "percentOffRate": 15,
     "minimumSubtotal": 100,
-    "startTime": 1714521600000,
+    "startTime": "1714521600000",
     "usageLimit": 500,
     "limitPerCustomer": 1,
     "active": true
@@ -202,14 +193,22 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 ---
 
+## Step 5: Delete a coupon
+
+**Confirm with the merchant before deleting** — this permanently removes the coupon and its usage history. If the goal is just to stop it from applying, use Update Coupon instead (`PATCH /stores/v2/coupons/{id}` with `"specification": { "active": false }`) so it can be re-activated later.
+
+**Endpoint**: `DELETE https://www.wixapis.com/stores/v2/coupons/{id}`
+
+---
+
 ## Key field rules
 
 | Field | Required | Notes |
 |---|---|---|
 | `name` | Yes | Display name shown to customers |
 | `code` | Yes | Unique coupon code. Max 20 characters. Case-insensitive at checkout. |
-| `startTime` | Yes | UNIX epoch in **milliseconds** (not seconds). E.g., `1714521600000` for 2024-05-01T00:00:00Z |
-| `expirationTime` | No | UNIX epoch in milliseconds. Omit for no expiration. |
+| `startTime` | Yes | UNIX epoch in **milliseconds**, sent as a **string** (not a number, not seconds). E.g., `"1714521600000"` for 2024-05-01T00:00:00Z. If the merchant gives no start date, default to the current time. |
+| `expirationTime` | No | UNIX epoch in milliseconds, sent as a **string**. Omit for no expiration. |
 | `scope` OR `minimumSubtotal` | One required | **OneOf** — set scope to target items, OR minimumSubtotal for cart threshold. Cannot set both. Exception: freeShipping type ignores scope. |
 | `usageLimit` | No | Total uses across all customers. Omit for unlimited. |
 | `limitPerCustomer` | No | Max uses per customer. Omit for unlimited. |
@@ -232,7 +231,7 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 | Scope target | `namespace` | `group.name` | `group.entityId` |
 |---|---|---|---|
-| All store products | `"stores"` | `"product"` | Omit (applies to all) |
+| All store products | `"stores"` | Omit — sending `group` without `entityId` is rejected | Omit |
 | Specific product | `"stores"` | `"product"` | Product UUID |
 | Specific collection | `"stores"` | `"collection"` | Collection UUID |
 
@@ -246,7 +245,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Recommendation `scope` | Coupon `scope` |
 |---|---|
-| `SITE` | `{ "namespace": "stores", "group": { "name": "product" } }` (all products, no entityId) |
+| `SITE` | `{ "namespace": "stores" }` (all products — omit `group` entirely) |
 | `CATEGORY` | `{ "namespace": "stores", "group": { "name": "collection", "entityId": "<first categoryId>" } }` |
 | `ITEMS` | `{ "namespace": "stores", "group": { "name": "product", "entityId": "<first productId>" } }` |
 
@@ -268,8 +267,8 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 |---|---|
 | `minSubTotal > 0` | Use `minimumSubtotal` instead of `scope` (they are oneOf — cannot use both) |
 | `minItemQuantity > 0` | **Not natively supported by Coupons API**. Mention in the coupon name (e.g., "Buy 3+, use code BUNDLE15") but the API cannot enforce item quantity. |
-| `startDate` | Convert to UNIX epoch milliseconds: `Date.parse("2026-06-01") → 1748736000000`. Set as `startTime`. |
-| `endDate` | Convert to UNIX epoch milliseconds. Set as `expirationTime`. |
+| `startDate` | Convert to UNIX epoch milliseconds, as a **string**: `Date.parse("2026-06-01") → "1748736000000"`. Set as `startTime`. |
+| `endDate` | Convert to UNIX epoch milliseconds, as a **string**. Set as `expirationTime`. |
 
 ### Code generation
 
@@ -314,8 +313,8 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
         "entityId": "electronics-collection-uuid"
       }
     },
-    "startTime": 1748736000000,
-    "expirationTime": 1751328000000,
+    "startTime": "1748736000000",
+    "expirationTime": "1751328000000",
     "usageLimit": 100,
     "limitPerCustomer": 1,
     "active": true
@@ -340,9 +339,10 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Error | Cause | Fix |
 |---|---|---|
-| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores", "group": { "name": "product" } }` for site-wide, or set `minimumSubtotal` |
+| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores" }` for site-wide, or set `minimumSubtotal` |
+| `"The provided combination of scope and coupon type is invalid."` (reports `group=product, entityId=empty`) | `group` was sent without an `entityId` — valid only for `buyXGetY` | For all products send `scope: { "namespace": "stores" }`; supply `group` only together with its `entityId` |
 | Duplicate code | Another coupon uses the same code | Generate a different code |
-| Invalid startTime | Value too low (must be epoch ms, not seconds) | Multiply by 1000 if in seconds |
+| Invalid/missing startTime | Sent as a JSON number instead of a string, or value too low (must be epoch ms, not seconds) | Send `startTime` as a quoted string, e.g. `"1714521600000"`; multiply by 1000 first if you have seconds |
 | Both scope and minimumSubtotal set | These are oneOf — cannot use both | Choose scope OR minimumSubtotal |
 | Code exceeds 20 characters | Code is too long | Shorten the code |
 
