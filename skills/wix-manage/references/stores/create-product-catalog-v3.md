@@ -84,7 +84,17 @@ If any product is missing a price, **do not call the API**. Ask for the missing 
 ## Build each product
 
 > [!WARNING]
-> **Hard requirement before every create call:** If `productType` is `"PHYSICAL"`, the request MUST include `physicalProperties: {}` on the product and `physicalProperties: {}` on every variant. Include both fields even when no dimensions or weight were supplied. Never execute or retry a physical-product request when either field is absent.
+> **Hard requirement before every create call:** If `productType` is `"PHYSICAL"`, the request MUST include `physicalProperties` on the product and on every variant:
+>
+> ```json
+> {
+>   "productType": "PHYSICAL",
+>   "physicalProperties": {},
+>   "variantsInfo": {"variants": [{"physicalProperties": {}}]}
+> }
+> ```
+>
+> Put supplied physical fields such as weight or dimensions inside those objects; use `{}` when none were supplied. Never invent them, and never execute or retry a physical-product request when either object is absent.
 
 | Concern | Rule |
 |---|---|
