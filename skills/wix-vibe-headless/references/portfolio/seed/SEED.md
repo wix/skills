@@ -17,7 +17,7 @@ first, then thread their real ids into each project.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/portfolio/seed/seed-portfolio.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const summary = await seed.setupPortfolio(ctx, {

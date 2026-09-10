@@ -19,7 +19,7 @@ This action reads inputs, calls core, comments, and sets the check status.
 
 ```mermaid
 flowchart TD
-    PR([PR touches the skill dir<br/>or the scenario glob]) --> AUTH{First-commit<br/>author @wix.com?}
+    PR([PR touches the skill dir<br/>or the scenario glob]) --> AUTH{Author in the<br/>wix org?}
     AUTH -->|no| SKIP([exit 0 — external fork])
     AUTH -->|yes| LOAD[loadScenarios head YAML]
     LOAD --> YAMLOK{YAML valid?}

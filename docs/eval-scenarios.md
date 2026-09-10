@@ -9,7 +9,9 @@ format itself. For what the automated checks do and how to read a failing one, s
 
 ### Test behavior, not skill text
 
-A scenario tests what the agent *does*, not what the skill *says*. Give it a task-shaped `triggerPrompt` — *"create a product called 'Handmade Ceramic Mug' priced at $24"*, not *"how do I create a product?"* — and assert on the behavior: which APIs it called, what it asked before mutating data, whether the result is correct. Judge the decision the skill exists to drive; if the skill says to ask rather than invent a missing mandatory value, withhold that value and assert the agent asked.
+A scenario is not a test that the skill works. It tests that a real user's intention gets resolved, and that it gets resolved because the skill was there.
+
+So it tests what the agent *does*, not what the skill *says*. Give it a task-shaped `triggerPrompt` — *"create a product called 'Handmade Ceramic Mug' priced at $24"*, not *"how do I create a product?"* — and assert on the behavior: which APIs it called, what it asked before mutating data, whether the result is correct. Judge the decision the skill exists to drive; if the skill says to ask rather than invent a missing mandatory value, withhold that value and assert the agent asked.
 
 ### Assert correctness *and* quality
 

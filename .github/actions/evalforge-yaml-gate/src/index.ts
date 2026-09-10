@@ -4,6 +4,7 @@ import { runPromote } from './utils/promote';
 import { runCleanup } from './utils/cleanup';
 import { runSchedule } from './utils/schedule';
 import { runMergeTagSweep } from './utils/merge-tag-sweep';
+import { runReview } from './utils/review';
 
 const modes: Record<string, () => Promise<void>> = {
   eval: runGate,
@@ -11,6 +12,7 @@ const modes: Record<string, () => Promise<void>> = {
   cleanup: runCleanup,
   'run-all': runSchedule,
   'merge-tag-sweep': runMergeTagSweep,
+  review: runReview,
 };
 
 const mode = core.getInput('mode') || 'eval';

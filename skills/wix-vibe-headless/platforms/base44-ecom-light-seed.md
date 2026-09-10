@@ -55,7 +55,7 @@ one-call `setupStore` (build-time exec_tool). Read
 contract — the `ctx` and the product/category shapes.
 
 ```js
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs"));
 const result = await seed.setupStore(ctx, { products, categories }); // one call: install → products → categories → images
 ```
 
