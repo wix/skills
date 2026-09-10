@@ -1,0 +1,52 @@
+name: bookings/external-calendar-connect-google
+description: >-
+  Verifies the external-calendar recipe is used for a Google Calendar sync request.
+  The OAuth flow needs interactive user consent and a premium plan, so this scenario is
+  deliberately explain-level: it checks the agent describes the correct connection flow
+  and constraints instead of attempting an impossible automated connection.
+triggerPrompt: >-
+  I want my staff's Google Calendars connected to Wix Bookings so their personal events
+  block their booking availability. What exactly needs to happen to set this up, and
+  what should I watch out for?
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/external-calendar-integration
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to connect staff members' Google Calendars to Wix Bookings so
+      personal events block availability.
+      Intent: explain the external-calendars connection flow accurately, including its
+      hard constraints.
+
+      Pass if the response:
+      - describes connecting via the Bookings External Calendars API (list the providers,
+        then connect with OAuth), AND
+      - says the Google OAuth consent step requires the staff member / user to interact
+        (it cannot be fully automated by the agent), AND
+      - says each staff member's calendar should be connected to that staff member's OWN
+        schedule (per-staff connections, not everyone onto one shared/business schedule), AND
+      - mentions at least one real operational constraint from the integration — e.g. it
+        is a premium feature (a 403 premium error if not enabled), or that Google syncs
+        the primary calendar, or that sync settings should be reviewed after connecting.
+
+      Fail if the response:
+      - claims the agent can complete the Google connection end-to-end without user
+        interaction, OR
+      - invents endpoints or a different mechanism (e.g. manual event copying, iCal-feed
+        polling as the primary answer, or a "calendar/v3/external-calendars" namespace), OR
+      - connects/recommends connecting one Google calendar to multiple schedules, OR
+      - is generic advice with no Wix External Calendars specifics.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer. Examine the tool-call trace.
+      Score 0-10 (10 = read the relevant doc(s) once and answered; no failed or wasted
+      calls). Penalize and LIST any of: attempted mutations for a question that requires
+      interactive OAuth; a non-2xx error even if recovered; redundant doc reads or
+      probing calls clearer docs would avoid. For each friction, name the likely
+      recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

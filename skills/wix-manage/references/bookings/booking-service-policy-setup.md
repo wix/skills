@@ -1,6 +1,6 @@
 ---
 name: "Booking Service Policy Setup"
-description: Sets up booking policies, cancellation rules, and waitlist configuration using the Services API policy fields. Covers bookingPolicy, cancellationPolicy, and waitlist settings.
+description: Sets up booking policies, cancellation rules, and waitlist configuration using the Booking Policies API (query, then PATCH the bookingPolicy entity with its revision). Covers cancellationPolicy, reschedulePolicy, booking-notice limits, waitlistPolicy, and participants limits — e.g. "customers can cancel up to 24 hours before".
 ---
 
 # Technical Step-by-Step Instructions: Configuring Wix Bookings Service Policies (Real-World, API-First)
@@ -20,72 +20,98 @@ Wix Bookings policy configuration allows businesses to set rules for:
 - **Waitlist policies**: When waitlists are enabled, capacity handling
 - **Group booking policies**: Maximum participants per booking
 
-Policies can be configured at two levels:
+Policies are **standalone entities** managed by the Booking Policies API (`/bookings/v1/booking-policies`), not fields nested on the service:
 
-- **Site-wide (business) policies**: Default rules that apply to all services
-- **Service-specific policies**: Override rules for individual services
+- Installing Wix Bookings creates a **"Default policy"** (`default: true`) that every new service references.
+- Each service points at exactly one policy via its `bookingPolicy` field; many services can share a policy.
+- To change rules site-wide, update the default policy. To give one service different rules, create a separate policy and reference it from that service.
 
 ### IMPORTANT NOTES
 
-- Services inherit from site-wide booking policies by default
-- Service policies only override fields you explicitly specify - unspecified fields keep site defaults
-- Policy options available may vary based on service type (APPOINTMENT, CLASS, COURSE)
-- All policy configurations support the same core features across service types
+- A default policy exists on any site with Wix Bookings installed — **even before any service exists**. "Set a cancellation window" is always actionable by updating the default policy.
+- Policy updates are PATCH-style: send only the sub-policies you want to change, plus the current `revision` (fetched via query/get) inside the `bookingPolicy` object.
+- Policy options are the same across service types (APPOINTMENT, CLASS, COURSE).
 
 ---
 
 ## Steps
 
-### 1. Configure Site-Wide Business Policy (Optional)
+### 1. Find the Policy to Change
 
-Set default policies that will apply to all services unless overridden. Use the Business Policy API to configure booking deadlines, cancellation rules, waitlist settings, and group booking limits.
+Query existing policies (`POST https://www.wixapis.com/bookings/v1/booking-policies/query`):
 
-### 2. Create or Update Service with Policy Overrides
+```json
+{ "query": { "cursorPaging": { "limit": 100 } } }
+```
 
-When creating or updating a service, specify policy fields that should differ from business defaults. Only include the policy fields you want to override - unspecified fields will inherit from business defaults.
+For a site-wide change, pick the policy with `"default": true`. For a specific service, read the service first — its embedded `bookingPolicy.id` names the policy it uses. Save the policy's `id` and `revision`.
 
-### 3. Configure Course-Specific Policies
+### 2. Update the Policy
 
-Courses may have additional policy options such as `bookUntilXMinutesAfterStart` which allows customers to join courses even after they've started.
+`PATCH https://www.wixapis.com/bookings/v1/booking-policies/<POLICY_ID>` with the current `revision` inside the `bookingPolicy` object and only the sub-policies you're changing. Example — cancellations allowed up to 24 hours before the session:
+
+```json
+{
+  "bookingPolicy": {
+    "id": "<POLICY_ID>",
+    "revision": "<CURRENT_REVISION>",
+    "cancellationPolicy": {
+      "enabled": true,
+      "limitLatestCancellation": true,
+      "latestCancellationInMinutes": 1440
+    }
+  }
+}
+```
+
+**Field map (business rule → policy field):**
+
+| Business rule | Sub-policy fields |
+|---|---|
+| Cancellation deadline | `cancellationPolicy.{enabled, limitLatestCancellation, latestCancellationInMinutes}` |
+| Reschedule deadline | `reschedulePolicy.{enabled, limitLatestReschedule, latestRescheduleInMinutes}` |
+| How far ahead customers can book | `limitEarlyBookingPolicy.{enabled, earliestBookingInMinutes}` |
+| Booking notice / last-minute cutoff | `limitLateBookingPolicy.{enabled, latestBookingInMinutes}` |
+| Booking after session start (courses/classes) | `bookAfterStartPolicy.enabled` |
+| Waitlist | `waitlistPolicy.{enabled, capacity, reservationTimeInMinutes}` |
+| Participants per booking | `participantsPolicy.{enabled, maxParticipantsPerBooking}` |
+
+### 3. Per-Service Policies (Optional)
+
+To give one service different rules, create a new policy (`POST https://www.wixapis.com/bookings/v1/booking-policies`) and point the service at it by updating the service's `bookingPolicy` reference (see [Update Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service)).
 
 ### 4. Verify Policy Application
 
-Query the service to confirm policies are applied correctly. The service should show explicitly set policy fields with your specified values and unspecified fields inheriting from business defaults.
+Read the service (`GET /bookings/v2/services/<SERVICE_ID>`) — the response embeds the full resolved `bookingPolicy`, so you can confirm the effective rules exactly as customers will experience them.
 
 ### IMPORTANT NOTES
 
-- **Policy inheritance**: Only specify fields you want to override - leave others undefined to inherit business defaults
-- **Partial updates**: When updating service policies, only include fields you want to change
-- **Capacity requirements**: Waitlist policies require service capacity settings to be configured
-- **Group booking considerations**: `maxParticipantsPerBooking` works with all service types
-- **Time calculations**: Policy deadlines are calculated from booking start time in business timezone
-- **Course flexibility**: Course services support additional policy options like `bookUntilXMinutesAfterStart`
+- **Revision required**: Every policy update needs the current `revision` inside `bookingPolicy`; fetch it first, or the PATCH fails.
+- **Partial updates**: Send only the sub-policies you're changing; the rest keep their values.
+- **Enabled flags matter**: Each sub-policy has an `enabled` (and often a `limit*`) boolean — setting only the minutes value without enabling the limit has no effect.
+- **Time calculations**: Policy deadlines are calculated from the booking's start time, in minutes (24 hours = 1440).
 
 ### Troubleshooting Common Issues
 
 **Policies not applying:**
 
-- Verify you're setting policies on the service object, not as separate policy entities
-- Check that policy fields are properly nested under `service.policy`
-- Ensure you're updating the correct service ID
+- Policies are separate entities — verify you PATCHed `/bookings/v1/booking-policies/<id>`, not fields on the service object (there is no `service.policy` field)
+- Confirm the service actually references the policy you changed (`service.bookingPolicy.id`)
+- Check the `revision` was current — a stale revision fails the update
 
 **Waitlist not working:**
 
-- Confirm service has `maxParticipants` capacity set
-- Verify `waitingListPolicy.enabled` is `true`
-- Check that `waitingListPolicy.capacity` is set if you want limited waitlist size
+- Verify `waitlistPolicy.enabled` is `true` and `waitlistPolicy.capacity` is set
+- Confirm the service has capacity configured (`defaultCapacity` for CLASS/COURSE)
 
 **Cancellation policies not enforced:**
 
-- Ensure `cancelRescheduleUpToInMinutes` is set to appropriate value
-- Verify `cancelationAllowed` is `true` if cancellations should be permitted
-- Check that payment and booking flow supports the configured policy
+- Set all three fields together: `cancellationPolicy.enabled: true`, `limitLatestCancellation: true`, and `latestCancellationInMinutes` — the minutes value alone has no effect without the booleans
 
 **Group booking limits not working:**
 
-- Confirm `maxParticipantsPerBooking` is set to desired limit
-- Verify service type supports group bookings (all types do)
-- Check that booking UI respects the participant limit
+- Confirm `participantsPolicy.enabled` is `true` and `participantsPolicy.maxParticipantsPerBooking` is set
+- Check that the booking UI respects the participant limit
 
 ## API Documentation References
 
