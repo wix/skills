@@ -19,6 +19,7 @@ If it's non-zero, **log in yourself** — don't punt to the user and stop:
 2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`.
 3. Surface it to the user in plain prose: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login.**
 4. Wait for the harness `task-notification` with `<status>completed</status>` (not a sleep loop). On exit 0, run `whoami` once to confirm, then proceed.
+5. **If the background task exits non-zero, or the user reports they approved the code but `whoami` still shows logged out** — don't loop with a fresh code; `wix login` (with or without `--api-key`) needs outbound access to `manage.wix.com` for every login method, so a repeat attempt fails the same way. Stop and tell the user this looks like a network-policy block in the current execution environment, and that authenticating the Wix CLI here requires `manage.wix.com` (and `www.wixapis.com` for calls after login) to be reachable.
 
 ## 2 · Mint the token
 
