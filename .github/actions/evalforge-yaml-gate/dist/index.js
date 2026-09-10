@@ -34202,32 +34202,62 @@ exports.TokenProvider = TokenProvider;
 
 "use strict";
 
+/**
+ * Whether a PR's author may spend an eval run.
+ *
+ * The question this asks is "did the author have push access to this repository",
+ * answered by where the PR's head branch lives. Only someone with push access can
+ * create a branch in the repo itself; everyone else must fork, and a fork's head
+ * lives in their own namespace. The author cannot forge that — unlike a commit
+ * author email, which is free text copied from `user.email`.
+ *
+ * **`author_association` does not work for this**, which is worth recording because it
+ * looks like it should. That field is viewer-relative: GitHub computes the copy in an
+ * Actions webhook payload without visibility into private org membership, so a member
+ * whose membership is private is reported as `CONTRIBUTOR`. Measured on wix/skills, every
+ * recent PR author reads `MEMBER` to an authenticated viewer and `CONTRIBUTOR` to the
+ * payload, because none of them is a *public* org member. A gate on that field refuses
+ * everybody.
+ *
+ * This check is the same one the workflows already apply at the job level
+ * (`github.event.pull_request.head.repo.full_name == github.repository`), so the action
+ * agrees with its own trigger rather than inventing a second notion of trust.
+ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isWixAuthorEmail = isWixAuthorEmail;
-exports.getFirstCommitAuthorEmail = getFirstCommitAuthorEmail;
-exports.assertWixAuthor = assertWixAuthor;
-const WIX_EMAIL_RE = /@wix\.com$/i;
-function isWixAuthorEmail(email) {
-    return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
+exports.readHeadRepoFullName = readHeadRepoFullName;
+exports.isSameRepoBranch = isSameRepoBranch;
+exports.assertSameRepoBranch = assertSameRepoBranch;
+/**
+ * The full name (`owner/repo`) of the repository holding the PR's head branch.
+ *
+ * `null` when GitHub reports no head repository. Per its payload schema `head.repo` is
+ * `oneOf: [repository, null]`, and it goes null when the source fork has been deleted.
+ * That is a real, reachable state rather than a malformed payload — and it is emphatically
+ * not this repository, so it reads as a refusal rather than an error.
+ */
+function readHeadRepoFullName(payload) {
+    const fullName = payload.pull_request?.head?.repo?.full_name;
+    return typeof fullName === 'string' && fullName.trim() !== '' ? fullName : null;
 }
-async function getFirstCommitAuthorEmail(octokit, owner, repo, prNumber) {
-    // listCommits returns the PR's commits oldest-first; we only need the first,
-    // so ask for a single-item page rather than paginating the whole PR.
-    const { data } = await octokit.rest.pulls.listCommits({
-        owner,
-        repo,
-        pull_number: prNumber,
-        per_page: 1,
-    });
-    return data[0]?.commit?.author?.email ?? undefined;
+/**
+ * True when the PR's head branch lives in this repository, which means its author had
+ * push access here.
+ *
+ * Compared case-insensitively: GitHub treats owner and repository names that way, and a
+ * gate should not turn on the casing of a string it did not choose.
+ */
+function isSameRepoBranch(headRepoFullName, owner, repo) {
+    if (headRepoFullName === null)
+        return false;
+    return headRepoFullName.trim().toLowerCase() === `${owner}/${repo}`.toLowerCase();
 }
-async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
-    const email = await getFirstCommitAuthorEmail(octokit, owner, repo, prNumber);
-    if (!isWixAuthorEmail(email)) {
-        throw new Error(`PR author gate failed: the PR's first-commit author email (${email ?? 'unknown'}) ` +
-            `is not a @wix.com address. This gate is restricted to Wix authors.`);
+function assertSameRepoBranch(headRepoFullName, owner, repo, log) {
+    if (!isSameRepoBranch(headRepoFullName, owner, repo)) {
+        throw new Error(`PR author gate failed: this pull request's head branch is in ` +
+            `${headRepoFullName ?? 'a repository that no longer exists'}, not ${owner}/${repo}. ` +
+            `This gate is restricted to branches pushed to ${owner}/${repo}, which requires write access.`);
     }
-    log?.(`Author gate passed — first-commit author email: ${email}`);
+    log?.(`Author gate passed — head branch is in ${owner}/${repo}, so its author has write access.`);
 }
 
 
@@ -66307,12 +66337,14 @@ const promote_1 = __nccwpck_require__(2245);
 const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
 const merge_tag_sweep_1 = __nccwpck_require__(3821);
+const review_1 = __nccwpck_require__(5253);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
     'merge-tag-sweep': merge_tag_sweep_1.runMergeTagSweep,
+    review: review_1.runReview,
 };
 const mode = core.getInput('mode') || 'eval';
 const handler = modes[mode];
@@ -66679,10 +66711,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_EFFORT = exports.DEFAULT_REVIEW_MODEL = exports.DEFAULT_ANTHROPIC_BASE_URL = exports.DEFAULT_REVIEW_PROMPT_PATH = void 0;
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
 exports.getMergeSweepConfig = getMergeSweepConfig;
 exports.getEvalConfig = getEvalConfig;
+exports.getReviewConfig = getReviewConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -66705,6 +66739,7 @@ function getSimpleConfig() {
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
+        headRepoFullName: (0, evalforge_core_1.readHeadRepoFullName)(github.context.payload),
     };
 }
 function getScheduleConfig() {
@@ -66752,6 +66787,71 @@ function getEvalConfig() {
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
         maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
+}
+/**
+ * The prompt as the PR has it, not the base copy, so a prompt change is testable in the PR that
+ * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
+ */
+exports.DEFAULT_REVIEW_PROMPT_PATH = '.github/prompts/skill-review.md';
+/**
+ * The Wix AI Gateway, which is Anthropic-API-compatible. Not optional in practice: direct
+ * api.anthropic.com egress is IP-allowlisted at the Wix org level, so a native key from a
+ * GitHub-hosted runner gets a 403 whatever its value.
+ *
+ * No trailing `/v1` — the CLI appends `/v1/messages` itself, and `…/anthropic/v1` here would
+ * request `…/v1/v1/messages` and 404. Public, documented for third-party developers, so it lives in
+ * a variable rather than a secret.
+ */
+exports.DEFAULT_ANTHROPIC_BASE_URL = 'https://www.wixapis.com/anthropic';
+/**
+ * The `[1m]` suffix is load-bearing against the gateway: it always serves the 1M context window,
+ * while the SDK assumes 200K and fails with `Prompt is too long` without it.
+ */
+exports.DEFAULT_REVIEW_MODEL = 'claude-sonnet-5[1m]';
+exports.DEFAULT_REVIEW_EFFORT = 'medium';
+exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = 600;
+/** The job's own timeout is 20 minutes; leave room for checkout, install, and reporting. */
+exports.MAX_REVIEW_TIMEOUT_SECONDS = 900;
+function getReviewConfig() {
+    const pr = github.context.payload.pull_request;
+    const headSha = pr?.head?.sha;
+    if (!headSha)
+        throw new Error('PR payload missing head.sha');
+    const baseSha = pr?.base?.sha;
+    if (!baseSha)
+        throw new Error('PR payload missing base.sha');
+    return {
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+        headSha,
+        baseSha,
+        anthropicApiKey: (0, evalforge_core_1.safeGetSecret)(core, 'anthropic-api-key'),
+        anthropicBaseUrl: core.getInput('anthropic-base-url') || exports.DEFAULT_ANTHROPIC_BASE_URL,
+        promptPath: core.getInput('prompt-path') || exports.DEFAULT_REVIEW_PROMPT_PATH,
+        model: core.getInput('review-model') || exports.DEFAULT_REVIEW_MODEL,
+        effort: core.getInput('review-effort') || exports.DEFAULT_REVIEW_EFFORT,
+        // Clamped rather than thrown: config loads before `isBlocking` is known, so a typo'd repo
+        // variable must not fail a check that promises it cannot fail during soak.
+        timeoutSeconds: getClampedReviewTimeout(),
+        isBlocking: core.getInput('blocking') === 'true',
+        headRepoFullName: (0, evalforge_core_1.readHeadRepoFullName)(github.context.payload),
+    };
+}
+function getClampedReviewTimeout() {
+    const raw = core.getInput('review-timeout-seconds');
+    if (raw === '')
+        return exports.DEFAULT_REVIEW_TIMEOUT_SECONDS;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 60) {
+        core.warning(`review-timeout-seconds: "${raw}" is not an integer >= 60, using ${exports.DEFAULT_REVIEW_TIMEOUT_SECONDS}.`);
+        return exports.DEFAULT_REVIEW_TIMEOUT_SECONDS;
+    }
+    if (value <= exports.MAX_REVIEW_TIMEOUT_SECONDS)
+        return value;
+    core.warning(`review-timeout-seconds: ${value} exceeds the ceiling of ${exports.MAX_REVIEW_TIMEOUT_SECONDS}, using ${exports.MAX_REVIEW_TIMEOUT_SECONDS}.`);
+    return exports.MAX_REVIEW_TIMEOUT_SECONDS;
 }
 
 
@@ -67466,7 +67566,7 @@ async function isDraftTagActive(octokit, tag) {
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    await (0, evalforge_core_1.assertWixAuthor)(octokit, config.owner, config.repo, config.prNumber, core.info);
+    (0, evalforge_core_1.assertSameRepoBranch)(config.headRepoFullName, config.owner, config.repo, core.info);
     const comment = (0, github_1.makeCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     const baseWorkspace = node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
@@ -67689,10 +67789,13 @@ exports.classifyChanges = classifyChanges;
 exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
 exports.makeCommenter = makeCommenter;
+exports.makeReviewPendingCommenter = makeReviewPendingCommenter;
+exports.makeReviewCommenter = makeReviewCommenter;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
+const review_comment_1 = __nccwpck_require__(8333);
 const GIT_STATUS_MAP = {
     A: 'added',
     M: 'modified',
@@ -67755,6 +67858,42 @@ function fail(message, blocking) {
 }
 function makeCommenter(octokit, owner, repo, prNumber) {
     return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: comment_1.COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+}
+/** Edited rather than re-posted: a new comment on every push notifies everyone watching the PR. */
+function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
+    const post = (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: review_comment_1.REVIEW_PENDING_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+    return {
+        post,
+        async clear() {
+            try {
+                const stale = [];
+                for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+                    owner, repo, issue_number: prNumber, per_page: 100,
+                })) {
+                    for (const comment of page.data) {
+                        if (comment.body?.includes(review_comment_1.REVIEW_PENDING_MARKER))
+                            stale.push(comment.id);
+                    }
+                }
+                for (const comment_id of stale) {
+                    await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
+                }
+            }
+            catch (error) {
+                core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+            }
+        },
+    };
+}
+/** Its own marker: the upsert finds a comment by marker alone, so a shared one would collide. */
+function makeReviewCommenter(octokit, owner, repo, prNumber) {
+    return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: review_comment_1.REVIEW_COMMENT_MARKER }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
@@ -68223,6 +68362,612 @@ function loadEvalsWithWarnings(root) {
 
 /***/ }),
 
+/***/ 2969:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.testables = void 0;
+exports.buildAgentEnv = buildAgentEnv;
+exports.runReviewAgent = runReviewAgent;
+const node_child_process_1 = __nccwpck_require__(1421);
+const core = __importStar(__nccwpck_require__(7484));
+const review_comment_1 = __nccwpck_require__(8333);
+/**
+ * `--tools` is the closed set. Bash is wider than the grant below, though: `ls`, `cat`, `grep` and
+ * read-only `git` run unprompted in every mode, and that set is not configurable.
+ */
+const TOOLS = 'Read,Grep,Glob,Bash';
+const ALLOWED_TOOLS = 'Read,Grep,Glob,Bash(git diff:*)';
+/**
+ * The working directory is the PR's own tree, which holds `.mcp.json`, `.claude/` and `AGENTS.md`.
+ *
+ * `--bare` is load-bearing: without it a `-p` run connects that `.mcp.json`'s servers and runs its
+ * hooks with no trust dialog, and reads its CLAUDE.md — so a PR could hand itself network access
+ * and write instructions to the agent reviewing it. `--restricted` confines the file tools to the
+ * working directory and refuses bypassPermissions.
+ */
+const SANDBOX_ARGS = ['--bare', '--restricted', '--permission-prompts', 'none'];
+/**
+ * Built up, never filtered down. Actions materialises every input as `INPUT_<NAME>` — including
+ * `INPUT_GITHUB-TOKEN` and `INPUT_EVALFORGE-APP-SECRET` — alongside `ACTIONS_RUNTIME_TOKEN`, and
+ * inheriting `process.env` would put all of it inside a process whose job is to read text an
+ * outside contributor wrote. A denylist would have to track every variable the runner adds.
+ */
+const INHERITED_ENV = ['PATH', 'HOME', 'SHELL', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR'];
+const MAX_STDERR_CHARS = 2000;
+const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
+const SIGKILL_GRACE_MS = 5000;
+/** Built from `REVIEW_SEVERITIES`, so a new severity cannot be accepted here and rejected there. */
+const OUTPUT_SCHEMA = JSON.stringify({
+    type: 'object',
+    properties: {
+        findings: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    file: {
+                        type: 'string',
+                        description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
+                    },
+                    line: { type: 'integer' },
+                    section: {
+                        type: 'string',
+                        description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
+                    },
+                    severity: { enum: [...review_comment_1.REVIEW_SEVERITIES] },
+                    quote: { type: 'string', description: 'The offending line' },
+                    consequence: { type: 'string', description: 'What an agent or user gets wrong because of this' },
+                    suggestion: { type: 'string', description: 'The wording that should replace the quoted line' },
+                },
+                required: ['file', 'severity', 'consequence'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['findings'],
+    additionalProperties: false,
+});
+function buildAgentEnv(apiKey, baseUrl) {
+    const env = {};
+    for (const name of INHERITED_ENV) {
+        const value = process.env[name];
+        if (value !== undefined)
+            env[name] = value;
+    }
+    return {
+        ...env,
+        ANTHROPIC_API_KEY: apiKey,
+        ANTHROPIC_BASE_URL: baseUrl,
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    };
+}
+function buildArgs(invocation) {
+    return [
+        '-p',
+        ...SANDBOX_ARGS,
+        '--tools', TOOLS,
+        '--append-system-prompt-file', invocation.promptPath,
+        '--allowedTools', ALLOWED_TOOLS,
+        '--json-schema', OUTPUT_SCHEMA,
+        '--output-format', 'json',
+        '--model', invocation.model,
+        '--effort', invocation.effort,
+    ];
+}
+function runCli(invocation) {
+    return new Promise(resolve => {
+        const child = (0, node_child_process_1.spawn)('claude', buildArgs(invocation), {
+            cwd: invocation.cwd,
+            env: buildAgentEnv(invocation.apiKey, invocation.baseUrl),
+            stdio: ['pipe', 'pipe', 'pipe'],
+            // Explicit though it is the default: a shell would re-parse this argv.
+            shell: false,
+            // Its own process group, so the timeout kill reaches grandchildren. Otherwise a stuck one
+            // holds the stdout pipe open, `close` never fires, and the job hangs to its own timeout.
+            detached: true,
+        });
+        let settled = false;
+        let stdout = '';
+        let stdoutBytes = 0;
+        let stderrTail = '';
+        const killGroup = (signal) => {
+            try {
+                if (child.pid)
+                    process.kill(-child.pid, signal);
+            }
+            catch {
+                try {
+                    child.kill(signal);
+                }
+                catch { /* already gone */ }
+            }
+        };
+        const finish = (result) => {
+            if (settled)
+                return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(result);
+        };
+        const timer = setTimeout(() => {
+            killGroup('SIGTERM');
+            setTimeout(() => killGroup('SIGKILL'), SIGKILL_GRACE_MS).unref();
+            finish({ kind: 'timeout' });
+        }, invocation.timeoutSeconds * 1000);
+        // Prevent characters cutting between chunks.
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdout.on('data', (chunk) => {
+            stdoutBytes += Buffer.byteLength(chunk);
+            if (stdoutBytes > MAX_STDOUT_BYTES) {
+                killGroup('SIGKILL');
+                finish({ kind: 'oversized' });
+                return;
+            }
+            stdout += chunk;
+        });
+        // Tail only, and it never reaches the PR comment: stderr can carry an upstream error page.
+        child.stderr.on('data', (chunk) => {
+            stderrTail = (stderrTail + chunk).slice(-MAX_STDERR_CHARS);
+        });
+        child.on('error', (error) => finish(error.code === 'ENOENT'
+            ? { kind: 'not-installed' }
+            : { kind: 'spawn-failed', message: error.message }));
+        child.on('close', code => finish({ kind: 'completed', code: code ?? -1, stdout, stderrTail }));
+        // stdin, not argv: argv has a length ceiling and is readable through /proc. EPIPE is swallowed
+        // because the child may exit before it finishes reading.
+        child.stdin.on('error', () => { });
+        child.stdin.end(invocation.task, 'utf8');
+    });
+}
+/** `result` holds the text on most failures, but a turn-limit stop carries `errors` instead. */
+function describeEnvelope(envelope) {
+    const detail = typeof envelope.result === 'string' ? envelope.result
+        : Array.isArray(envelope.errors) ? envelope.errors.join('; ')
+            : '';
+    const reason = String(envelope.terminal_reason ?? 'unknown');
+    return detail === '' ? reason : `${reason}: ${detail}`;
+}
+function parseEnvelope(stdout) {
+    try {
+        return JSON.parse(stdout);
+    }
+    catch {
+        return undefined;
+    }
+}
+/**
+ * Denials are why this exists: a refused tool is not an error in `-p` mode — the model is told no
+ * and carries on — so a mis-scoped allowlist quietly produces a thinner review behind a green check.
+ */
+function logRunStats(envelope) {
+    const turns = typeof envelope.num_turns === 'number' ? envelope.num_turns : '?';
+    const cost = typeof envelope.total_cost_usd === 'number' ? envelope.total_cost_usd : '?';
+    const took = typeof envelope.duration_ms === 'number' ? envelope.duration_ms : '?';
+    core.info(`Reviewer run: took ${took} ms, cost ${cost} usd, ${turns} turns.`);
+    const denials = Array.isArray(envelope.permission_denials) ? envelope.permission_denials : [];
+    if (denials.length > 0) {
+        core.info(`The reviewer was denied ${denials.length} tool call(s) — check the allowlist: ${JSON.stringify(denials).slice(0, 500)}`);
+    }
+}
+// One pass over everything the agent wrote
+function sanitize(value, apiKey) {
+    if (value === undefined)
+        return value;
+    const json = JSON.stringify(value).replace(/<!--/g, '&lt;!--');
+    // Guarded: splitting on an empty key would redact between every character.
+    return JSON.parse(apiKey === '' ? json : json.split(apiKey).join('[redacted]'));
+}
+function isSeverity(value) {
+    return typeof value === 'string' && review_comment_1.REVIEW_SEVERITIES.includes(value);
+}
+function isReportable(finding) {
+    return isSeverity(finding.severity);
+}
+function parseFindings(output) {
+    const list = output?.findings;
+    if (!Array.isArray(list))
+        return undefined;
+    const findings = list.filter(isReportable);
+    return { findings, discarded: list.length - findings.length };
+}
+function describeFailure(result) {
+    switch (result.kind) {
+        case 'timeout': return 'it exceeded its time limit and was stopped';
+        case 'not-installed': return 'the reviewer is not installed on this runner';
+        case 'oversized': return 'it returned an unreadable amount of output';
+        case 'spawn-failed': return 'the reviewer could not be started';
+        case 'completed': return `the reviewer exited with code ${result.code}`;
+    }
+}
+/** No retry here: the CLI already re-rolls a schema failure five times by default. */
+async function runReviewAgent(invocation) {
+    const result = await runCli(invocation);
+    if (result.kind !== 'completed' || result.code !== 0) {
+        if (result.kind === 'completed') {
+            // A failure inside the run is reported as the result on stdout; stderr is startup only.
+            const envelope = parseEnvelope(result.stdout);
+            if (envelope !== undefined) {
+                core.info(`Reviewer failure — ${describeEnvelope(envelope).slice(0, 500)}`);
+            }
+            if (result.stderrTail !== '')
+                core.info(`Reviewer stderr (tail): ${result.stderrTail}`);
+        }
+        return { ok: false, reason: describeFailure(result) };
+    }
+    const envelope = parseEnvelope(result.stdout);
+    if (envelope === undefined) {
+        return { ok: false, reason: "the reviewer's output was not a JSON envelope" };
+    }
+    logRunStats(envelope);
+    const parsed = parseFindings(sanitize(envelope.structured_output, invocation.apiKey));
+    if (!parsed) {
+        core.warning(`The reviewer returned no structured output — ${describeEnvelope(envelope)}.`);
+        return { ok: false, reason: 'it did not return findings in the expected format' };
+    }
+    return { ok: true, ...parsed };
+}
+exports.testables = { buildArgs };
+
+
+/***/ }),
+
+/***/ 8333:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.REVIEW_SEVERITIES = exports.REVIEW_PENDING_MARKER = exports.REVIEW_COMMENT_MARKER = void 0;
+exports.formatReviewFindings = formatReviewFindings;
+exports.formatReviewClean = formatReviewClean;
+exports.formatReviewSkipped = formatReviewSkipped;
+exports.formatReviewPending = formatReviewPending;
+exports.formatReviewServiceError = formatReviewServiceError;
+exports.REVIEW_COMMENT_MARKER = '<!-- evalforge-skill-review-action -->';
+/** Neither marker may contain the other: the upsert finds a comment by `includes`. */
+exports.REVIEW_PENDING_MARKER = '<!-- evalforge-skill-review-pending -->';
+const HEADING = '## 🤖 Skill Review';
+const JOB_STATUS = {
+    completed: '✅ Review job completed',
+    partial: '⚠️ Review job partly completed',
+    failed: '❌ Review job failed',
+    skipped: '⏭ Review job skipped',
+};
+function jobLine(status, detail) {
+    const line = detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`;
+    return status === 'completed' ? `<sub>${line}</sub>` : line;
+}
+/** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
+exports.REVIEW_SEVERITIES = ['blocking', 'fix-before-merge'];
+const SEVERITY_ICON = {
+    blocking: '🔴',
+    'fix-before-merge': '🟡',
+};
+/** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
+const MAX_RENDERED_FINDINGS = 40;
+function render(marker, status, detail, body) {
+    return [marker, HEADING, '', jobLine(status, detail), '', ...body].join('\n');
+}
+function count(quantity, noun) {
+    return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+function severityRank(severity) {
+    return exports.REVIEW_SEVERITIES.indexOf(severity);
+}
+function retryNote() {
+    return ['', '_Comment `/review` to review the current commit again._'];
+}
+/** Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404. */
+function sectionRef(section) {
+    const match = /^([\w./-]+\.md)#([\w-]+)$/.exec(section.trim());
+    return match ? `[${match[2]}](../blob/main/${match[1]}#${match[2]})` : `\`${section}\``;
+}
+function location(finding, headSha) {
+    const href = `../blob/${headSha}/${finding.file}`;
+    return finding.line
+        ? `[line ${finding.line}](${href}#L${finding.line})`
+        : `[file](${href})`;
+}
+function findingLines(finding, headSha) {
+    const cite = finding.section ? ` · ${sectionRef(finding.section)}` : '';
+    const lines = [`- ${SEVERITY_ICON[finding.severity]} **${finding.severity}** — ${location(finding, headSha)}${cite}`];
+    const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
+    if (quote !== '')
+        lines.push(`  > ${quote}`);
+    lines.push('', `  ${String(finding.consequence ?? '')}`);
+    if (finding.suggestion) {
+        lines.push('', `  **Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
+    }
+    return lines;
+}
+function groupByFile(findings, headSha) {
+    const byFile = new Map();
+    for (const finding of findings) {
+        const bucket = byFile.get(finding.file);
+        if (bucket)
+            bucket.push(finding);
+        else
+            byFile.set(finding.file, [finding]);
+    }
+    const lines = [];
+    for (const [file, group] of byFile) {
+        lines.push('', `### \`${file}\``, '');
+        const sorted = group.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+        sorted.forEach((finding, index) => {
+            if (index > 0)
+                lines.push('');
+            lines.push(...findingLines(finding, headSha));
+        });
+    }
+    return lines;
+}
+function headline(findings) {
+    const tally = exports.REVIEW_SEVERITIES
+        .map(severity => ({ severity, n: findings.filter(f => f.severity === severity).length }))
+        .filter(entry => entry.n > 0)
+        .map(entry => `${entry.n} ${entry.severity}`);
+    return tally.join(', ');
+}
+/** Without the SHA, a comment left by an earlier push reads as a verdict on the current commit. */
+function verdictLine(verdict, summary) {
+    return `**${verdict}** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
+}
+function completion(summary) {
+    return summary.discarded === 0
+        ? ['completed', undefined]
+        : ['partial', `${count(summary.discarded, 'finding')} could not be read`];
+}
+function formatReviewFindings(findings, summary) {
+    const ranked = [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
+    const overflow = findings.length - shown.length;
+    const body = [
+        verdictLine(headline(findings), summary),
+        ...groupByFile(shown, summary.headSha),
+    ];
+    if (overflow > 0) {
+        body.push('', `_${count(overflow, 'further finding')} not shown._`);
+    }
+    return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
+        ...body,
+        ...retryNote(),
+    ]);
+}
+function formatReviewClean(summary) {
+    return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
+        verdictLine('No findings', summary),
+        '',
+        'Nothing to raise against the reviewed sections of the contribution guide.',
+        ...retryNote(),
+    ]);
+}
+function formatReviewSkipped(reason) {
+    return render(exports.REVIEW_COMMENT_MARKER, 'skipped', reason, [
+        'The check is green because the reviewer did not run, not because the change passed.',
+    ]);
+}
+function formatReviewPending(headSha) {
+    return [
+        exports.REVIEW_PENDING_MARKER,
+        `⏳ **Awaiting skill review** — commit \`${headSha.slice(0, 7)}\``,
+        '',
+        'The review runs automatically when a PR is opened, and on request after that.',
+        '',
+        'Comment `/review` to review this commit.',
+    ].join('\n');
+}
+function formatReviewServiceError(reason) {
+    return render(exports.REVIEW_PENDING_MARKER, 'failed', reason, [
+        'This commit has not been reviewed.',
+        '',
+        'Comment `/review` to try again.',
+    ]);
+}
+
+
+/***/ }),
+
+/***/ 5253:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runReview = runReview;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const github_1 = __nccwpck_require__(6246);
+const workspace_1 = __nccwpck_require__(9620);
+const review_comment_1 = __nccwpck_require__(8333);
+const review_agent_1 = __nccwpck_require__(2969);
+/**
+ * `synchronize` is absent because a push must not spend, but it still has to trigger the workflow:
+ * a required check has to be reported on every head commit, and `/review` re-runs the head's own
+ * run, so there has to be one. See evalforge-skill-review.yml.
+ */
+const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
+/**
+ * A re-run replays the original payload, so `action` alone cannot tell "someone asked again" from
+ * the push that produced it. The attempt number can.
+ */
+function shouldReview() {
+    const action = github.context.payload.action ?? '';
+    if (FIRST_LOOK_EVENTS.includes(action))
+        return true;
+    return Number(process.env.GITHUB_RUN_ATTEMPT ?? '1') > 1;
+}
+function inScope(files) {
+    const { mdFiles, evalsAdded, evalsModified } = (0, github_1.classifyChanges)(files);
+    return [...mdFiles, ...evalsAdded, ...evalsModified];
+}
+function buildTask(config, files) {
+    return [
+        `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
+        `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
+        'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
+        '',
+        'Changed files in review scope:',
+        ...files.map(file => `- ${file.filename} (${file.status})`),
+    ].join('\n');
+}
+/** A commit nobody could review is not a reviewed commit, so this fails like a push does. */
+async function reportUnavailable(reason, pending, isBlocking) {
+    await pending.post((0, review_comment_1.formatReviewServiceError)(reason));
+    (0, github_1.fail)(`The skill review did not complete: ${reason}`, isBlocking);
+}
+async function runReview() {
+    const config = (0, config_1.getReviewConfig)();
+    const octokit = github.getOctokit(config.githubToken);
+    const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
+    let files;
+    try {
+        files = inScope(await (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber));
+    }
+    catch (error) {
+        await reportUnavailable(`the changed-file list could not be read (${String(error)})`, pending, config.isBlocking);
+        return;
+    }
+    if (files.length === 0) {
+        core.info('Skipping the skill review — no reviewed content changed in this PR.');
+        await pending.clear();
+        return;
+    }
+    // Not `assertSameRepoBranch`: this mode skips rather than throwing. The head repo is on
+    // the payload, so the answer is always available and there is nothing here that can fail.
+    if (!(0, evalforge_core_1.isSameRepoBranch)(config.headRepoFullName, config.owner, config.repo)) {
+        const reason = 'the PR branch is not in this repository, so its author has no write access';
+        core.info(`Skipping the skill review — ${reason}`);
+        await comment((0, review_comment_1.formatReviewSkipped)(reason));
+        await pending.clear();
+        return;
+    }
+    // The verdict comment is left untouched: overwriting it would lose findings worth acting on.
+    if (!shouldReview()) {
+        core.info('The skill review is manual after the first look. Comment `/review` to review this commit.');
+        await pending.post((0, review_comment_1.formatReviewPending)(config.headSha));
+        (0, github_1.fail)(`Commit ${config.headSha.slice(0, 7)} has not been reviewed. Comment \`/review\` on the PR to review it.`, config.isBlocking);
+        return;
+    }
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const promptPath = (0, node_path_1.join)(workspace, config.promptPath);
+    if (!(0, node_fs_1.existsSync)(promptPath)) {
+        await reportUnavailable(`the review prompt was not found at \`${config.promptPath}\``, pending, config.isBlocking);
+        return;
+    }
+    core.info(`Reviewing ${files.length} file(s) at ${config.headSha.slice(0, 7)} with ${config.model} at ${config.effort} effort.`);
+    const outcome = await (0, review_agent_1.runReviewAgent)({
+        cwd: workspace,
+        promptPath,
+        task: buildTask(config, files),
+        apiKey: config.anthropicApiKey,
+        baseUrl: config.anthropicBaseUrl,
+        model: config.model,
+        effort: config.effort,
+        timeoutSeconds: config.timeoutSeconds,
+    });
+    if (!outcome.ok) {
+        await reportUnavailable(outcome.reason, pending, config.isBlocking);
+        return;
+    }
+    const summary = {
+        headSha: config.headSha,
+        filesReviewed: files.length,
+        discarded: outcome.discarded,
+    };
+    const findings = outcome.findings;
+    await comment(findings.length === 0
+        ? (0, review_comment_1.formatReviewClean)(summary)
+        : (0, review_comment_1.formatReviewFindings)(findings, summary));
+    await pending.clear();
+    const blocking = findings.filter(finding => finding.severity === 'blocking').length;
+    const reasons = [];
+    if (blocking > 0)
+        reasons.push(`${blocking} blocking finding(s)`);
+    if (outcome.discarded > 0)
+        reasons.push(`${outcome.discarded} malformed finding(s)`);
+    if (reasons.length > 0) {
+        (0, github_1.fail)(`The skill review reported ${reasons.join(' and ')}. See the PR comment.`, config.isBlocking);
+    }
+}
+
+
+/***/ }),
+
 /***/ 6004:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -68501,6 +69246,14 @@ module.exports = require("https");
 
 "use strict";
 module.exports = require("net");
+
+/***/ }),
+
+/***/ 1421:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:child_process");
 
 /***/ }),
 

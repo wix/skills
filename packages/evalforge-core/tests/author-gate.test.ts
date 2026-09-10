@@ -1,55 +1,71 @@
 import { describe, it, expect } from 'vitest';
-import { isWixAuthorEmail, getFirstCommitAuthorEmail, assertWixAuthor } from '../src/author-gate';
+import { readHeadRepoFullName, isSameRepoBranch, assertSameRepoBranch } from '../src/author-gate';
 
-describe('isWixAuthorEmail', () => {
-  it('accepts @wix.com addresses (case-insensitive)', () => {
-    expect(isWixAuthorEmail('orgold@wix.com')).toBe(true);
-    expect(isWixAuthorEmail('Some.Person@Wix.com')).toBe(true);
-    expect(isWixAuthorEmail('  dev@wix.com  ')).toBe(true);
+describe('readHeadRepoFullName', () => {
+  it('reads the head repository off a pull_request payload', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: 'wix/skills' } } } }))
+      .toBe('wix/skills');
   });
 
-  it('rejects non-wix, spoofed, bot, and empty addresses', () => {
-    expect(isWixAuthorEmail('attacker@gmail.com')).toBe(false);
-    expect(isWixAuthorEmail('evil@wix.com.attacker.io')).toBe(false);
-    expect(isWixAuthorEmail('wix.com@gmail.com')).toBe(false);
-    expect(isWixAuthorEmail('123+bot@users.noreply.github.com')).toBe(false);
-    expect(isWixAuthorEmail('')).toBe(false);
-    expect(isWixAuthorEmail(undefined)).toBe(false);
-    expect(isWixAuthorEmail(null)).toBe(false);
-  });
-});
-
-type CommitStub = { commit: { author: { email: string } | null } };
-
-function fakeOctokit(commits: CommitStub[]) {
-  return {
-    rest: { pulls: { listCommits: async () => ({ data: commits }) } },
-  } as unknown as Parameters<typeof getFirstCommitAuthorEmail>[0];
-}
-
-describe('getFirstCommitAuthorEmail', () => {
-  it('returns the first (oldest) commit author email', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'first@wix.com' } } }]);
-    expect(await getFirstCommitAuthorEmail(octokit, 'wix', 'skills', 1)).toBe('first@wix.com');
+  /**
+   * `head.repo` is `oneOf: [repository, null]` in GitHub's payload schema — it goes null once
+   * the source fork is deleted. That is a reachable state, not a malformed payload, and it is
+   * certainly not this repository, so it reads as a refusal rather than an error.
+   */
+  it('returns null when GitHub reports no head repository', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: null } } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: { head: null } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: {} })).toBeNull();
+    expect(readHeadRepoFullName({})).toBeNull();
   });
 
-  it('returns undefined when there are no commits', async () => {
-    expect(await getFirstCommitAuthorEmail(fakeOctokit([]), 'wix', 'skills', 1)).toBeUndefined();
+  it('ignores a non-string or empty full name rather than passing it on', () => {
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: 42 } } } })).toBeNull();
+    expect(readHeadRepoFullName({ pull_request: { head: { repo: { full_name: '  ' } } } })).toBeNull();
   });
 });
 
-describe('assertWixAuthor', () => {
-  it('resolves when the first commit is a @wix.com author', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'dev@wix.com' } } }]);
-    await expect(assertWixAuthor(octokit, 'wix', 'skills', 1)).resolves.toBeUndefined();
+describe('isSameRepoBranch', () => {
+  it('accepts a branch pushed to this repository', () => {
+    expect(isSameRepoBranch('wix/skills', 'wix', 'skills')).toBe(true);
   });
 
-  it('throws when the first commit is not a @wix.com author', async () => {
-    const octokit = fakeOctokit([{ commit: { author: { email: 'outsider@gmail.com' } } }]);
-    await expect(assertWixAuthor(octokit, 'wix', 'skills', 1)).rejects.toThrow(/not a @wix\.com address/);
+  // GitHub treats owner and repo names case-insensitively; a gate should not turn on casing.
+  it('accepts it regardless of casing or surrounding space', () => {
+    expect(isSameRepoBranch('Wix/Skills', 'wix', 'skills')).toBe(true);
+    expect(isSameRepoBranch('  wix/skills  ', 'wix', 'skills')).toBe(true);
   });
 
-  it('throws when the PR has no commits', async () => {
-    await expect(assertWixAuthor(fakeOctokit([]), 'wix', 'skills', 1)).rejects.toThrow(/author gate failed/i);
+  /**
+   * The case the gate exists for: an outside contributor has no push access here, so their
+   * branch lives in their own fork.
+   */
+  it('refuses a fork', () => {
+    expect(isSameRepoBranch('outsider/skills', 'wix', 'skills')).toBe(false);
+  });
+
+  it('refuses a deleted head repository and a look-alike name', () => {
+    expect(isSameRepoBranch(null, 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('wix/skills-evil', 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('notwix/skills', 'wix', 'skills')).toBe(false);
+    expect(isSameRepoBranch('', 'wix', 'skills')).toBe(false);
+  });
+});
+
+describe('assertSameRepoBranch', () => {
+  it('passes a same-repo branch and logs why', () => {
+    const lines: string[] = [];
+    expect(() => assertSameRepoBranch('wix/skills', 'wix', 'skills', m => lines.push(m))).not.toThrow();
+    expect(lines[0]).toContain('has write access');
+  });
+
+  it('throws for a fork, naming both repositories', () => {
+    expect(() => assertSameRepoBranch('outsider/skills', 'wix', 'skills'))
+      .toThrow(/head branch is in outsider\/skills, not wix\/skills/);
+  });
+
+  it('throws for a deleted head repository', () => {
+    expect(() => assertSameRepoBranch(null, 'wix', 'skills'))
+      .toThrow(/no longer exists/);
   });
 });
