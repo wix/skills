@@ -11,64 +11,56 @@ the asynchronous job that generates those briefs. Its `contentPlanFlowId` is
 a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
-For a new plan, the workflow is: **trigger → check status → release → check
-status → read briefs**. `KEYWORD_RESEARCH` means keyword research is complete
-and the job is waiting for Create Content Plan to generate the briefs.
-Polling alone does not release that pause.
+`KEYWORD_RESEARCH` means keyword research is complete and the job is waiting
+for the **Create Content Plan** request to generate the briefs. This request
+releases the intentional pause; polling alone does not advance it.
 
-All paths below are relative to `https://www.wixapis.com/promote/seo/v1`.
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
 requested generation or explicitly confirmed it.
 
-Retain the site ID supplied with the request. A missing site-context result is
-missing descriptive information, not proof that the site ID is invalid or that
-the caller lacks access. Do not replace the selected site with one from a site
-list. When the user requested generation and the API client can scope requests
-to that site, proceed with step 1 using its existing authorization. Let an
-actual API authorization error determine whether access is blocked; never
-switch credentials or sites to get around one. If the client cannot scope a
-request to the selected site, report that specific limitation without claiming
-the site belongs to another account.
+## Resume or read an existing flow
 
-## Choose the request path before calling an API
+An existing flow is a job already started by a previous trigger, including one
+discussed earlier in the conversation. To finish it or read its results:
 
-For a request to **generate a new plan**, follow the generation sequence below.
-An **existing flow** is a job already started by a previous trigger, including
-one discussed earlier in the conversation. To resume it or read its results,
-reuse its ID instead of triggering a replacement.
+1. Find its actual `contentPlanFlowId` in the conversation or a previous
+   trigger/status response. A site ID is not a flow ID, even though both are
+   UUIDs. If the ID is missing, explain the intentional pause when the user
+   reports `KEYWORD_RESEARCH`, ask for the flow ID, and end the turn without an
+   API call. Never submit a placeholder. Do not offer a new flow or a different
+   site as an alternative to recovering the ID.
+2. Read that flow with
+   `GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
+   Read `contentPlanFlow.status`; see the response and status table in
+   [Check the flow status](#2-poll-until-keyword_research).
+3. At `SUCCESS`, go directly to [Read the briefs](#5-read-the-briefs).
+   At `KEYWORD_RESEARCH`, when completion is requested, call
+   [Create Content Plan](#3-release-the-flow) once with this flow ID.
+   For an earlier in-progress status, continue checking this same flow until
+   it reaches the pause. If already at `CONTENT_PLAN`, continue to step 4
+   without calling Create Content Plan again. For a terminal or unmet-requirement
+   status, follow the status table and stop.
+4. After Create Content Plan succeeds, retain its returned flow ID and
+   [check until SUCCESS](#4-poll-until-success), then
+   [read the briefs](#5-read-the-briefs). Do not trigger a replacement or release
+   a successful flow just to retrieve its results.
 
-For an existing flow, first look for its actual `contentPlanFlowId` in the
-conversation or a previous trigger/status response:
+## Generate a new plan
 
-- **Missing ID:** If the user reports `KEYWORD_RESEARCH`, explain the intentional
-  pause and ask for the flow ID. End the turn without an API call. For example:
-  “Keyword research is complete, but generation needs a Create Content Plan
-  request to continue. Please send the flow ID from your trigger or status
-  response so I can release that flow.” A site ID is not a flow ID, even though
-  both are UUIDs. Never submit a placeholder or guess a collection endpoint to
-  find the parked flow. Ask only for the actual flow ID; do not offer a fresh
-  flow or a different site as an alternative to recovering it. Missing site
-  metadata does not change this troubleshooting answer.
-- **Known ID:** Check that flow with the single GET in step 2. At
-  `KEYWORD_RESEARCH`, release it once when completion is requested, then follow
-  steps 4–5. At `SUCCESS`, go directly to step 5; do not release it again just
-  to read results. For an in-progress status, continue separate checks.
+When the user requests a new plan, follow these steps in order. The request and
+response examples for each step are in [API steps](#api-steps).
 
-The exact status URL is
-`https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
-Do not use `GET /content-plan-flows` without an ID or build URLs from service
-names. Omitted-ID retrieval selects a previous successful flow, not the parked
-flow; it cannot recover a missing active flow ID.
+1. [Trigger](#1-trigger) once and retain the returned flow ID.
+2. [Check the flow status](#2-poll-until-keyword_research) until `KEYWORD_RESEARCH`.
+3. [Call Create Content Plan](#3-release-the-flow) once to continue generation.
+4. [Check until SUCCESS](#4-poll-until-success).
+5. [Read the briefs](#5-read-the-briefs) and report the actual returned topics.
 
 Only Trigger and Create Content Plan write data in the generation path. Do not
 change the site's business profile, name, description, categories, or publication
 state to accelerate it. Those are separate tasks requiring real user data and
 authorization. `CREATED` can mean queued work, not missing setup.
-
-Keep every call scoped to the selected site. Do not invent business information
-to satisfy prerequisites. Missing descriptive site context alone is not a
-generation prerequisite and does not require the user to choose another site.
 
 ## Polling without losing progress
 
@@ -86,12 +78,12 @@ flow ID and last observed status as incomplete; do not claim success or merely
 promise to finish later. Identify trigger and release as writes if asked
 whether an execution changes data.
 
-## The exact call sequence
+## API steps
 
 ### 1. Trigger
 
 ```
-POST /content-plan-flows/trigger
+POST https://www.wixapis.com/promote/seo/v1/content-plan-flows/trigger
 {}
 ```
 
@@ -110,7 +102,7 @@ See [Trigger Content Plan Generation Flow](https://dev.wix.com/docs/api-referenc
 ### 2. Poll until KEYWORD_RESEARCH
 
 ```
-GET /content-plan-flows/{contentPlanFlowId}
+GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}
 ```
 
 Execute this GET once and return its response. This execution contains no
@@ -142,7 +134,7 @@ See [Get Content Plan Flow](https://dev.wix.com/docs/api-reference/business-mana
 `contentPlanFlow.status` is a string enum. Status checks may skip intermediate
 states; decide from the returned value rather than requiring every transition.
 Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`
-→ (release) → `CONTENT_PLAN` → `SUCCESS`.
+→ **call Create Content Plan** → `CONTENT_PLAN` → `SUCCESS`.
 
 | Status | Meaning and next action |
 | --- | --- |
@@ -162,7 +154,7 @@ Check every few seconds using separate calls. Completion time varies.
 ### 3. Release the flow
 
 ```
-POST /create-content-plan
+POST https://www.wixapis.com/promote/seo/v1/create-content-plan
 { "contentPlanFlowId": "<flow-uuid>" }
 ```
 
@@ -205,7 +197,7 @@ observing `SUCCESS`.
 ### 5. Read the briefs
 
 ```
-GET /content-plan-flows/{contentPlanFlowId}/blog-post-candidates
+GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}/blog-post-candidates
 ```
 
 Example response showing the fields needed to display one topic:
@@ -274,13 +266,13 @@ would help assess or refine them, without modifying the site's settings.
 After step 2, before or after step 3, read the keywords:
 
 ```
-GET /content-plan-keyword-research-items
+GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
 ```
 
 Edit one keyword (field-masked, only `keyword` and `main_keyword` writable):
 
 ```
-PATCH /keyword-research-items/{itemId}
+PATCH https://www.wixapis.com/promote/seo/v1/keyword-research-items/{itemId}
 {
   "keywordResearchId": "...",
   "item": { "id": "...", "keyword": "new keyword" },
