@@ -16,9 +16,11 @@ npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 If it's non-zero, **log in yourself** — don't punt to the user and stop:
 
 1. Run `npx @wix/cli@latest login` with **`run_in_background: true`** (no shell `&`, no redirect of your own — the harness captures stdout to its task-output file and returns the path).
-2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`.
+2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…","expiresInSeconds":…}`.
 3. Surface it to the user in plain prose: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login.**
-4. Wait for the harness `task-notification` with `<status>completed</status>` (not a sleep loop). On exit 0, run `whoami` once to confirm, then proceed.
+4. Wait for completion. **If your harness pushes an explicit background-task-completed notification, wait for that; otherwise re-read the same output file on a bounded interval (a few seconds, with backoff) for the terminal `{"event":"logged_in"}` / `{"event":"success"}` line** — don't assume a push notification exists, and don't sleep-loop tightly. The device code stays valid for `expiresInSeconds` (typically ~900s), so a quiet file while the user is still in the browser is expected, not a stall. Once you see the terminal event (or the process exits 0), run `whoami` once to confirm, then proceed.
+
+**⚠️ Never kill and re-run `login` because the first attempt "looks stuck."** The device code from step 1 belongs to that one process; killing it abandons the poll even if the user is mid-flow (or already done) in the browser, forcing a brand-new device code and making the user redo step 3. Only start a new `login` if the process actually exited non-zero, emitted `login_failed`, or the full `expiresInSeconds` window elapsed.
 
 ## 2 · Mint the token
 
