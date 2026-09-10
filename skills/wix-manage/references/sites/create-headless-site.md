@@ -45,6 +45,8 @@ Headless sites are not created from templates. One account-level call creates th
 
 To provision headless onto an existing site, pass `"existingMetasite": {}` instead of `newMetasite`. This is a site-level call in the context of that site.
 
+> **Warning:** On a live, published site (e.g. Studio or Classic Editor) this silently changes the site's canonical/serving URL to an internal `wix-site-host.com` host — even if the site only uses its default Wix subdomain, and even more visibly if it has a connected custom domain. Every page published after the call 302-redirects from the site's real URL to the internal host; pages published before the call keep serving on the original URL until republished. **There is no self-service revert**: uninstalling the returned `appId`'s app instance and republishing the site do NOT restore the original canonical URL — this requires Wix support. Before calling this on a site with real traffic or a connected domain, warn the user of this side effect explicitly and confirm they want to proceed.
+
 ## Next Steps
 
 After creating the site:
