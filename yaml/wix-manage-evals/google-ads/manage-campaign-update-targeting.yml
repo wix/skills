@@ -1,0 +1,53 @@
+name: google-ads/manage-campaign-update-targeting
+description: >-
+  Verifies the agent sends complete arrays on update: adding one geo target
+  means reading the campaign and sending the existing locations plus the new
+  one, not a locations array holding a single entry.
+triggerPrompt: >-
+  Add Brooklyn, NY to the locations my Google Ads campaign targets — it already
+  targets Manhattan and Queens. Which Wix Google Ads API calls do I make, and
+  what exactly goes in the request body?
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-campaign-lifecycle
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants one more geo target added to an existing campaign that
+      already targets two others.
+
+      Pass if the response:
+      - reads the campaign first (GET /v1/campaigns/{campaignId}, resolving the
+        id via GET /v1/campaigns if needed) to obtain the current locations; AND
+      - sends PATCH /v1/campaigns/{campaignId} with a locations array holding
+        the existing entries AND the new one — explicitly stating that an array
+        sent partially loses the entries left out of it; AND
+      - carries the campaign's other fields (name, budget, and the
+        smartCampaign / performanceMaxCampaign block) through the update
+        unchanged; AND
+      - may resolve the new location's geoTargetConstant via the suggestions
+        geo-options endpoint before updating.
+
+      Fail if the response:
+      - sends locations containing only the new entry, or otherwise implies the
+        API merges arrays; OR
+      - sends a payload built only from the requested change; OR
+      - skips the campaign read; OR
+      - hallucinates an add-location or remove-location endpoint.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path: the lifecycle recipe loaded
+      from public documentation, the campaign read once, the geo target resolved
+      if needed, one full-entity update, one read-back to verify. Do not
+      penalize one confirmation of the change before the update. Penalize
+      guessed request shapes, a locations array rebuilt from the user's words
+      rather than the read response, redundant probing calls, any non-2xx
+      response even if recovered, and internal service or tool names in the
+      user-facing answer. Name the likely recipe/docs gap behind each detour.
+      Return only {"score":<0-10>,"reason":"<terse findings or clean path>"}.
