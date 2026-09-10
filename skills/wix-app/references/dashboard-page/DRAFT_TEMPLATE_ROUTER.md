@@ -1,6 +1,8 @@
-# Draft Template — Case B and D (router-wired)
+# Draft Template — Cases A, B and D (router-wired)
 
-**Applies only to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Case B (Collection + Entity) and Case D (Collection + Entity + Settings)** — both need `PatternsReactRouter` because they route between more than one `@wix/patterns` page type behind a single extension. The Collection page and Settings page components themselves are in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) — this file covers only what's different when a router sits above them: the entry file, the app shell, and the Entity page.
+**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Case A (Collection + read-only detail), Case B (Collection + Entity) and Case D (Collection + Entity + Settings).** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md)). Case A's detail route is read-only and is §4 below; B and D route to a full `EntityPage`. The Collection page and Settings page components themselves are in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) — this file covers only what's different when a router sits above them: the entry file, the app shell, and the detail/entity page.
+
+**Case A takes §1, §2 and §4 — not §3.** Its rows open a read-only page; it has no create route, no form and no `useEntityPage` call.
 
 Every snippet below is copied from the installed `dist/docs/*.md` this session read, not written from memory.
 
@@ -9,7 +11,7 @@ Every snippet below is copied from the installed `dist/docs/*.md` this session r
 `PatternsReactRouter` reads the page location through `container.usePageLocation()`, which only `withDashboard`'s `location` prop feeds — nothing supplies it automatically in a Wix CLI app the way Yoshi BM flow does:
 
 ```tsx
-// {feature}.tsx — Case B or D
+// {feature}.tsx — Case A, B or D
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { WixDesignSystemProvider } from '@wix/design-system';
@@ -56,7 +58,11 @@ export const {Feature}App = withDashboard(() => (
   <WixPatternsProvider>
     <PatternsReactRouter>
       <PatternsReactRoute type="collection" path="/" element={<{Feature}CollectionPage />} />
+      {/* Case B/D — editable record. Case A registers this ONE route instead, with
+          {Feature}DetailPage as the element and no /new route at all (§4). Either
+          way the type is `editEntity`: it wires the back-navigation to the collection. */}
       <PatternsReactRoute type="editEntity" path="/:id" element={<{Feature}EntityPage />} />
+      {/* Case B/D only — Case A has nothing to create: */}
       <PatternsReactRoute type="createEntity" path="/new" element={<{Feature}EntityPage />} />
       {/* Case D only: */}
       <PatternsReactRoute type="other" path="/settings" element={<{Feature}SettingsPage />} />
@@ -67,7 +73,7 @@ export const {Feature}App = withDashboard(() => (
 
 `PatternsReactRoute`'s `type` is one of exactly `"collection" | "createEntity" | "editEntity" | "other"` — no dedicated settings value, so a settings route is `"other"`. Case B: delete the `/settings` route and the import above it — nothing else changes.
 
-`{Feature}CollectionPage` here is the same component shown in [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) — include the `usePatternsNavigate`/"Open full record" parts marked Case B/D there. `{Feature}SettingsPage` (Case D) is [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md), unchanged.
+`{Feature}CollectionPage` is [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md)'s component, unchanged; `{Feature}SettingsPage` (Case D) is [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md).
 
 ## 2b. The collection side of the handoff
 
@@ -134,3 +140,66 @@ export const {Feature}EntityPage = () => {
 ```
 
 `useEntityPage`'s own docs are explicit about both details above: `parentPath` "Must be passed if using Patterns Router" (`parentPageId` is the non-router alternative — irrelevant here, since Case B/D always uses the router), and `isNewEntity` should be "a getter when the route can change while the page stays mounted" — exactly this component's case, since a successful create typically navigates `/new` → `/:newId`.
+
+## 4. Read-only detail route — Case A
+
+A display-only collection still opens its rows into a page — but not an `EntityPage`:
+**`EntityPage` has no read-only mode.** `useEntityPageHeader` composes its header with
+`EntityPageActionsBar` unconditionally, that bar always renders Save and Cancel, and
+`ActionsBarConfig` only customises the save CTA's *text*. So it would ship two buttons that either
+do nothing or save a form the user was never offered.
+
+Render the route as a WDS `Page` instead — what `example-bm`'s own read-only route does
+(`DataExtensionEntityViewPage`): back button, cards of `Text`, no form, no actions bar.
+
+```tsx
+// {Feature}DetailPage.tsx — Case A
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, Cell, Layout, Loader, Page, Text } from '@wix/design-system';
+import { usePatternsNavigate } from '@wix/patterns/router';
+import { fetch{Entity}, type {Entity} } from './{feature}-api';
+
+export const {Feature}DetailPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const { navigateToCollectionPage } = usePatternsNavigate();
+  const [entity, setEntity] = useState<{Entity} | undefined>();
+
+  useEffect(() => {
+    if (id) {
+      fetch{Entity}(id).then(setEntity);
+    }
+  }, [id]);
+
+  return (
+    <Page>
+      {/* The way back is the header's back button — a read-only page has no Cancel. */}
+      <Page.Header
+        title={entity?.name ?? '{Entity}'}
+        showBackButton
+        onBackClicked={() => navigateToCollectionPage({ path: '/' })}
+      />
+      <Page.Content>
+        {entity ? (
+          <Layout>
+            <Cell span={8}>
+              <Card>
+                <Card.Header title="Details" />
+                <Card.Divider />
+                <Card.Content>
+                  <Text>{entity.name}</Text>
+                </Card.Content>
+              </Card>
+            </Cell>
+          </Layout>
+        ) : (
+          <Loader />
+        )}
+      </Page.Content>
+    </Page>
+  );
+};
+```
+
+If the request later grows an edit form, this becomes §3's `EntityPage`, with the route type and
+`onRowClick` unchanged — which is why Case A registers `editEntity`, not `other`.

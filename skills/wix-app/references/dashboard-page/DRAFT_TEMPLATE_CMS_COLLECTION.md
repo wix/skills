@@ -45,6 +45,10 @@ interface CmsItem extends Record<string, unknown> {
 const source = useCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID });
 ```
 
+Call it on **both** pages — the collection and the entity page each build their own source from the
+same `collectionId`, as `example-bm`'s `SchemaSourceExample` and `CmsSourceEntityPage` do. It is a
+hook, not a value to thread through props.
+
 `COLLECTION_ID` is the full scoped id — `<app-namespace>/<idSuffix>` for a collection your extension
 ships. See [DATA_COLLECTION.md](../DATA_COLLECTION.md).
 
@@ -53,14 +57,20 @@ optional `includeUserPermissions` fetches ABAC permissions for field management 
 `metasiteId`; leave it off unless you want that UI.
 
 **Install both, and match the pin — a floor is not enough.** `@wix/patterns-cms` depends on an
-**exact** `@wix/patterns` version (no caret). Install that same version, or npm keeps a second copy
-of `@wix/patterns` and the two halves of the page end up on different React contexts:
+**exact** `@wix/patterns` version (no caret): `patterns-cms@1.51.0` requires
+`@wix/patterns@1.467.0`, precisely that. Install the pinned version, or npm keeps a second copy of
+`@wix/patterns` and the two halves of the page end up on different React contexts. Don't hardcode
+that pair — the pin moves every release, so read it out of the package you just installed:
 
 ```bash
 npm install @wix/patterns-cms
 npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
 npm dedupe
 ```
+
+`@wix/patterns-fields` is pinned exactly too, but it is `patterns-cms`'s own dependency and nothing
+here imports it — let npm install it and don't add it to `package.json` yourself. Its peers,
+`@wix/design-system` and `@wix/essentials`, a Wix CLI app already has.
 
 Then confirm exactly one copy survives — more than one line here is a bug that `tsc` and
 `wix build` both pass:
@@ -107,8 +117,10 @@ export const FeatureCollectionPage: FC = () => {
 };
 ```
 
-The aggregate rule from [COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md) is unchanged: add a
-`SummaryBar` only when the page answers a "how many / how much" question its rows don't.
+Two rules carry over unchanged from the hand-wired path, and both are about what is *not* here:
+**no `SummaryBar`** unless the request asked for one, and **the row opens a page** —
+`navigateToEntityPage`, never a `SidePanel`
+([COLLECTION_TOOLKIT.md](COLLECTION_TOOLKIT.md#summarybar--only-when-the-request-asked-for-one)).
 
 ## 3. Entity page — the same source drives the form
 
@@ -125,11 +137,22 @@ export const FeatureEntityPage: FC = () => {
 
   // Source first, options second. Reads and writes go through the source's
   // backend, so the page needs no data-access wiring of its own.
-  const state = useEntityPage(source, { entityId: id, form, parentPath: '/' });
+  const state = useEntityPage(source, {
+    entityId: id,
+    form,
+    parentPath: '/',
+    saveSuccessToast: 'Successfully saved',
+    saveErrorToast: () => 'Failed to save',
+  });
+
+  // The schema knows which field titles the record: read it rather than hardcoding a field name.
+  const entity = useEntity(state); // from '@wix/patterns'
+  const displayField = state.schema?.displayField;
+  const title = (displayField && (entity?.[displayField] as string)) || 'New item';
 
   return (
     <EntityPage state={state}>
-      <EntityPage.Header title={{ text: id ? 'Edit item' : 'New item' }} />
+      <EntityPage.Header title={{ text: title }} />
       <EntityPage.Content>
         <EntityPage.MainContent>
           {/* Renders every schema field with the right control and validation.
@@ -152,10 +175,12 @@ Take **only §1 (entry) and §2 (app shell + routes)** from
 [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) — those are identical for both data paths,
 including the manual `location` plumbing that `tsc` and `wix build` cannot catch.
 
-**Do not take that file's §3.** Its entity page is the *hand-wired* one —
+**Do not take that file's §3 or §4.** Its entity page is the *hand-wired* one —
 `useEntityPage({ fetch, onSave, isNewEntity })` — which is a different API from the schema-driven
 `useEntityPage(source, { entityId, form, parentPath })` in §3 above. Reading "unchanged" to include
-the entity page is how a CMS page ends up with the wrong one.
+the entity page is how a CMS page ends up with the wrong one. §4 (the read-only detail route) is
+likewise for the hand-wired Case A — a display-only CMS collection keeps this file's entity page
+and simply has nothing that writes.
 
 ## What still applies from the hand-wired template
 

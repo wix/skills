@@ -6,17 +6,24 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 
 > **A page that renders a filtered table and nothing else is the most common failure of a generated dashboard** — it answers "what are all the records" and nothing about which one needs attention or why. Measured runs produce exactly that page unless the requirement is stated. So:
 >
-> 1. **A dashboard whose rows are real business records lets the user open one** — required, unless the prompt is explicitly a report or an export.
-> 2. **A dashboard that reports on records usually shows aggregate numbers too** — a judgment call, not a rule. Add a `SummaryBar` when the page answers a "how many / how much" question its rows don't answer at a glance; leave it out of a short CRUD list or a rota, where the rows are the answer and a row of totals is just clutter. Be able to say which call you made.
+> 1. **A dashboard whose rows are real business records lets the user open one** — required, unless the prompt is explicitly a report or an export. It opens as a **page**, never a panel: see [Investigate](#investigate--opening-one-record).
+> 2. **Aggregate numbers are not part of that requirement.** A `SummaryBar` goes on the page when the request asked for one, and not otherwise.
 
 ## Understand — the aggregate
 
-| Need | Component |
-| --- | --- |
-| Totals, counts, status breakdown above the table | `SummaryBar` |
-| Which subset the numbers describe | wire each metric to the collection's filter state so the count follows the filters |
+### `SummaryBar` — only when the request asked for one
 
-`SummaryBar` sits inside the page shell, above the collection. Compute the values from the same query the table uses, or a count query alongside it — a metric that disagrees with the visible rows is worse than no metric, and so is a metric nobody asked for: three tiles that restate what the table already shows cost a reader more than they give.
+Add one when the prompt named a total, a count, or a "how many / how much" figure — otherwise
+leave it out, and don't re-litigate that per page. An uninvited bar pushes the rows down and
+commits you to a number nobody asked to see.
+
+When the request did ask: it goes in the `Table`'s `summaryBar` prop, and three things have to be
+right — the number comes from something that counts
+([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#what-fetchtotal-is-allowed-to-call)), it is read through
+`useSelector` because the state is MobX
+([TABLE_STATE.md](TABLE_STATE.md#reading-state-outside-the-table-it-is-mobx)), and `status` is
+`state.showErrorState ? 'error' : 'success'` — never `showLoadingState`, which sticks on skeleton
+pills at zero rows.
 
 ## Focus — narrowing
 
@@ -35,6 +42,14 @@ Everything below is a real name in the installed `@wix/patterns`. Confirm the pr
 | Sorting | `Sortable Columns`, `MultiLevelSorting` |
 
 **Read the index once, then go straight to files.** `dist/dts-bundle/index.json` answers every name in this table in a single read — resolve it once per session and keep it, rather than re-reading it per lookup. Each entry names the exact file to open next.
+
+### Naming a filter
+
+A filter's visible title comes from its label props, not from the factory's `name`, and which
+surface shows which prop is not guessable — pass `toolbarItemProps.label` **and**
+`accordionItemProps.label` with the same string on every filter, and never pass
+`accordionItemProps.title`. The full resolution model, and why an inline label vanishes as you add
+filters, is in [FILTERS.md](FILTERS.md).
 
 **A factory or hook's doc is often empty where its signature should be** — the props table is generated for components, so `idNameArrayFilter`'s doc shows an `## API` heading with nothing under it. Its bundle has the signature: `<T extends { id: string; name: string }>(params?) => ArrayFilterState<T>`. That holds for every `use…` hook and every `…Filter` factory in the table above, and it is the difference between knowing a name and being able to call it — so for these, read the bundle the index names, not the doc.
 
@@ -71,12 +86,16 @@ prose can still be rejected, and the endpoint's *Supported Filters* page settles
 
 | Surface | Use when | Built from |
 | --- | --- | --- |
-| **Side panel** | Inspect or lightly edit one record while keeping the filtered list on screen. The V1 default for review dashboards. | WDS `SidePanel` — patterns has no side panel |
-| **Entity page** | Multi-section detail, editing, history, or a link someone can share. | `EntityPage` + `useEntityPage`, reached with `usePatternsNavigate().navigateToEntityPage`, form state from `@wix/patterns/form`. The call itself: [ENTITY_PAGE_TOOLKIT.md](ENTITY_PAGE_TOOLKIT.md) |
-| **Expanded row** | A couple of extra fields, no separate workspace needed. | The collection's own row expansion |
+| **Entity page** | The record is editable — the default, and the only drill-in for a row that can be changed. | `EntityPage` + `useEntityPage`, reached with `usePatternsNavigate().navigateToEntityPage`, form state from `@wix/patterns/form`. The call itself: [ENTITY_PAGE_TOOLKIT.md](ENTITY_PAGE_TOOLKIT.md) |
+| **Read-only detail page** | The collection is display-only. A route of its own, on a WDS `Page` — `EntityPage` has no read-only mode and would render Save/Cancel over a record nobody can edit. | [DRAFT_TEMPLATE_ROUTER.md § 4](DRAFT_TEMPLATE_ROUTER.md#4-read-only-detail-route--case-a) |
+| **Expanded row** | A couple of extra fields *in addition to* the drill-in, not instead of it. | The collection's own row expansion |
 | **Picker / bulk confirm** | Choosing records, or confirming an action on many. | `PickerModal` + `usePickerModal`, `bulkActionModal` |
 
-A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md); for the create route itself — registering it, and the four params that differ from the edit call — [ENTITY_PAGE_TOOLKIT.md § Create route](ENTITY_PAGE_TOOLKIT.md#create-route). A row the user cannot open is the second most common failure after the missing aggregate.
+**A WDS `SidePanel` is not on this list.** In Cairo it hosts a page's own panels — the fields card's
+"Manage fields", a table's column panel — and no `example-bm` collection opens a row into one. A row
+opens a route, so the detail is linkable, back-navigable and survives a reload.
+
+A dialog that creates, updates or displays one listed record is **not** a dashboard modal — a create / "add new" form included, since it writes the record. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md); for the create route itself — registering it, and the four params that differ from the edit call — [ENTITY_PAGE_TOOLKIT.md § Create route](ENTITY_PAGE_TOOLKIT.md#create-route). A row the user cannot open is one of the two most common failures in a generated page.
 
 **Form state on an entity page** comes from `@wix/patterns/form` — `useForm` for the form, `useController` for a single field. That subpath re-exports `@wix/bex-core/form`, which wraps `react-hook-form`, so its API is react-hook-form's and only a handful of its names appear in the patterns docs: `FieldValues`, `ControllerProps` and most of the rest are documented by react-hook-form, not here. `Read <pkgRoot>/dist/dts-bundle/exports/form.d.ts` to see what the subpath actually gives you.
 
