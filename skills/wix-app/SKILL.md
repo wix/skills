@@ -430,7 +430,7 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 - For HTTP endpoints, creates the route file without changing `src/extensions.ts`
 - Enforces naming rules (kebab-case, hyphen-required custom elements, etc.)
 
-**HTTP endpoints:** Run `npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'`, then implement the handler in the returned file. Follow [BACKEND_API.md](references/BACKEND_API.md) and verify the route responds; a passing build alone does not prove endpoint discovery.
+**HTTP endpoints:** Run `npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'`, then implement the handler in the returned file. Follow [BACKEND_API.md](references/BACKEND_API.md) and confirm the route in the build output (and against `wix dev` when a dev site is available); a passing build alone does not prove endpoint discovery.
 
 ### Step 4b: Fill in business logic
 
