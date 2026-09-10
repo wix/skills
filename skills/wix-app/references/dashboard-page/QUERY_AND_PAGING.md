@@ -141,6 +141,38 @@ has its own trap: [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
 Cursor mode also takes a separate `fetchTotal`, since a cursor-paged response carries no total.
 Build its filter exactly as the page's, or the count disagrees with the rows it counts.
 
+## What `fetchTotal` is allowed to call
+
+`fetchTotal: (query) => Promise<number>`. It has to resolve **a number from something that
+counts** — and the obvious-looking source is not one. A cursor-paged response carries no total,
+so `pagingMetadata.total` is `undefined` — and `undefined` reaches the collection as `0`.
+`@wix/data` spells the rule out on `PagingMetadataV2.total`: "Returned if offset paging is used,
+`returnTotalCount` is `true` in the request, and `tooManyToCount` is false." Read the field's own
+doc comment in the SDK you are calling rather than assuming it is populated. That is the whole of the
+"`SummaryBar` reads 0 while the table under it is full of rows" bug, and it survives review
+because nothing throws and nothing fails to compile.
+
+Use a real count, in this order:
+
+```ts
+// 1. A CMS collection: `items.query(id)` returns a builder whose `.count()` is
+//    `Promise<number>` and honours the filter you put on it. Apply the page's
+//    filter with the same function fetchData uses, so the two cannot drift.
+//    (The standalone `items.count(id)` is marked @internal and takes no filter.)
+const count{Feature} = (q: {Feature}Query): Promise<number> =>
+  apply{Feature}Filter(items.query(COLLECTION_ID), q).count();
+
+// 2. A vertical SDK with its own count endpoint: call that — it already returns a number.
+
+// 3. Offset paging only — ask for the count, then read it back:
+const { pagingMetadata } = await ns.query({ paging: { limit, offset }, returnTotalCount: true });
+return pagingMetadata?.total ?? 0; // `?? 0` is honest HERE: you asked for the count
+```
+
+**If the API offers no count at all, omit `fetchTotal`.** `collection.total` then falls back to the
+rows loaded so far, which is a real number you can label ("50 shown") instead of a confident `0`.
+Never paper over the gap with `?? 0` on a field that is simply absent.
+
 ## When a table will not settle
 
 An extension runs in a cross-origin iframe whose console you cannot read, but its own `SummaryBar`

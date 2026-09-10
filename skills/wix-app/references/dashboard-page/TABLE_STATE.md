@@ -32,7 +32,7 @@ table's own view of the collection.
 | --- | --- | --- |
 | The loaded rows | `state.keyedItems` | `KeyedItem<T>[]` — `.map((k) => k.item)` for the items |
 | Rows paged in so far | `state.keyedItems.length` | What the table currently renders — **not** the result size |
-| Rows matching the filters | `state.collection.total` | Getter; in cursor mode it is what `fetchTotal` returned |
+| Rows matching the filters | `state.collection.total` | Getter. With `fetchTotal` configured it is **only** what that resolved; without it, the last page's `total`, falling back to the loaded rows' count |
 | Is the query failing | `state.showErrorState` | Boolean; pairs with `state.errorStatus` |
 | Retry after a failure | `state.retryErrorState()` | Method, not a property |
 | Nothing matched / nothing exists | `state.showEmptyState`, `state.hasAvailableItems` | Drives which placeholder to show |
@@ -40,7 +40,7 @@ table's own view of the collection.
 | The visible columns | `state.visibleColumns` | |
 | The toolbar (filters live here) | `state.toolbar` | **Not** `state.filters` — that does not exist |
 
-## Three that bite in practice
+## Four that bite in practice
 
 **`state.filters` does not exist.** Filter state lives on the filter objects you created with
 `stringsArrayFilter()` / `dateRangeFilter()` and passed into `filters`. Keep those in module-level
@@ -54,6 +54,32 @@ an empty collection — which reads as a hung network rather than an empty resul
 
 **`collection.isLoading` and `collection.refresh()` are not members.** They look plausible, they
 compile against the index signature, and neither exists at runtime.
+
+### A `fetchTotal` that resolves undefined shows 0, not the rows
+
+This is the "`SummaryBar` says 0 while the table under it is full" report, and it is worth tracing
+once because every step is silent. `FetchTotalState` wraps your function in a second, one-item
+collection whose page is literally `{ items: [], total: await fetchTotal(query) }`. That page then
+goes through `CollectionState.updateResult`, which computes
+`lastPage.total ?? lastPage.items.length` — so a `total` of `undefined` becomes `0`, because the
+synthetic page has no items to fall back on. And `QueryResultState.total` reads
+`fetchTotal ? fetchTotal.total : this._totals.processed`: **the moment `fetchTotal` exists it wins,
+and the loaded-rows fallback is gone.**
+
+Two consequences worth keeping in mind:
+
+- **A wrong `fetchTotal` is worse than no `fetchTotal`.** Omit it and `total` degrades to the rows
+  you have; wire it to something that resolves `undefined` and a page with 4,000 matching rows
+  reports `0`. Nothing throws, nothing fails `tsc`, and the table beside it is correct.
+- **`pagingMetadata.total` is not a count.** A cursor-paged response carries no total, and
+  `@wix/data` documents the field as returned only under *offset* paging with
+  `returnTotalCount: true`. Under the cursor paging these pages default to, expect `undefined`.
+  Call something that counts —
+  [QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#what-fetchtotal-is-allowed-to-call).
+
+To tell the two apart in a running page, show `state.collection.totalStatus` next to the number:
+it is the totals collection's own status, so a `success` beside a `0` means your function resolved
+nothing, not that the query failed.
 
 ## Reading state outside the table: it is MobX
 

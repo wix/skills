@@ -55,6 +55,14 @@ export const {Feature}CollectionPage: FC = () => {
       }),
     // Cursor mode: this is what fills `collection.total`, and its filter must match
     // fetchData's or the headline number disagrees with the rows under it.
+    // It must RESOLVE A NUMBER, from an endpoint that counts. Returning a paging
+    // field instead is the "SummaryBar says 0 next to a full table" bug: a
+    // cursor-paged response carries no total, so `pagingMetadata.total` is
+    // undefined, and the collection reads undefined as 0 — see
+    // TABLE_STATE.md, "A fetchTotal that resolves undefined shows 0, not the rows".
+    // Once fetchTotal exists it OVERRIDES the fallback to the loaded-rows count, so
+    // a broken one is worse than none. No count endpoint? Delete this line and
+    // label the metric as loaded rows.
     fetchTotal: async (query) => count{Feature}({ search: query.search, filters: query.filters }),
     fetchErrorMessage: ({ err }) => (err instanceof Error ? err.message : 'Failed to load {feature}'),
   });
