@@ -336,6 +336,10 @@ wire these exactly as shown below.
 When adding storefront routes and providers to `src/App.jsx`, preserve the existing platform
 authentication setup, including `AuthProvider`, `useAuth`, and their `@/lib/AuthContext` imports.
 Do not remove or replace that authentication logic.
+The shipped commerce flow needs no login: shoppers browse, cart, and check out on the Wix visitor
+session, which is separate from platform user auth. Whether the storefront is public or members-only
+is the brief's call — default to public, and gate routes behind platform auth only when the brief
+asks for it. Neither choice affects the commerce flow.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
