@@ -18,3 +18,7 @@ apiDoc:
       title: Get Paid Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid]
+    - file: ../../../skills/wix-manage/references/get-paid/diagnose-checkout-payment-failures.md
+      title: Diagnose Checkout Payment Failures
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/payments/site-payment-method-types
+      tags: [get-paid, stores]
