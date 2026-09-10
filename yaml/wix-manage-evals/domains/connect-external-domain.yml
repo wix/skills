@@ -1,0 +1,36 @@
+name: domains/connect-external-domain
+description: Verifies the agent reads the connect-external-domain recipe and correctly advises against trusting DNS Propagation "SUCCEEDED" alone or reassigning primary before the new domain is confirmed live.
+triggerPrompt: >-
+  I'm migrating my Wix site from oldsite.com to newsite.com. I just connected newsite.com to the site by pointing, and calling the DNS Propagation API for newsite.com now returns status SUCCEEDED. Should I go ahead and set newsite.com as the primary domain now, replacing oldsite.com?
+tags: [domains]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/connected-domains/skills/connect-an-external-domain
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "I'm migrating my Wix site from oldsite.com to newsite.com. I just connected newsite.com to the site by pointing, and calling the DNS Propagation API for newsite.com now returns status SUCCEEDED. Should I go ahead and set newsite.com as the primary domain now, replacing oldsite.com?"
+
+      Pass if the response:
+      - does NOT simply say "yes, go ahead" on the basis of DNS Propagation status alone, AND
+      - explains that DNS Propagation SUCCEEDED confirms DNS records are correct but does not confirm the site is actually being served yet (the domain can still show a placeholder page), AND
+      - recommends the user open newsite.com directly in a browser and confirm it shows the real site (not a placeholder) BEFORE reassigning primary, AND
+      - warns that reassigning primary while newsite.com isn't confirmed live risks taking the site offline on both domains (since the old primary gets demoted to a redirect immediately).
+
+      Fail if the response:
+      - tells the user to reassign primary immediately because DNS propagation succeeded, OR
+      - never mentions the risk of the site going offline during the swap, OR
+      - never suggests visually confirming the new domain is live before making it primary.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any
+      of: a non-2xx error even if recovered; guessing at a domain-status API instead of using the
+      documented DNS Propagation API; redundant/probing calls clearer docs would avoid; failing to
+      surface the primary-reassignment risk without being told to look for it.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
