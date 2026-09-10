@@ -1,0 +1,51 @@
+name: google-ads/manage-campaign-success-guide-rich-output
+description: >-
+  Verifies the agent presents returned campaign success guide suggestions as an
+  actionable plan, consolidates repeated Editor navigation into one
+  destination-specific CTA, and offers to perform supported campaign and
+  account work after approval.
+triggerPrompt: |-
+  I opened the campaign success guide for this Wix site's Google Ads lead
+  campaign. It says I still need to clarify the main call-to-action button,
+  move that action above the fold, configure Google Ads search themes, and
+  connect Merchant Center, in that order. What should I do next? Include links
+  to the places I need to go, but don't change anything until I approve it.
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-a-campaign-success-guide
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response:
+      - presents exactly the four supplied suggestions in their priority order,
+        with clear user-facing labels, clearly communicates that the supplied
+        items are pending, and gives a concrete next step for each rather than
+        returning a bare list of enum values;
+      - gives the two landing-page tasks one shared Editor CTA after the task
+        list when the exact Editor URL resolves from the provisioned site
+        context. If that read-only lookup cannot return an exact URL, it clearly
+        says the Editor link is unavailable instead of guessing one. It never
+        repeats an Editor link per task or labels it "Open in Wix";
+      - includes one Google Ads dashboard link for the provisioned site after
+        the task list, using the route
+        https://manage.wix.com/dashboard/{provisioned-site-id}/google-ads and CTA
+        text that names Google Ads or the campaign action rather than "Open in
+        Wix";
+      - offers to generate and apply search themes only after the user reviews
+        and approves the proposed set; and
+      - offers to link Merchant Center after the account ID and update are
+        approved, noting that Google-side owner approval may still be required.
+
+      Fail if it invents suggestions, retrieves the already-supplied guide or
+      changes anything despite the user's instruction, labels navigation URLs
+      generically as "Open in Wix", repeats the Editor link beside multiple
+      tasks, guesses an Editor URL, tells the user to perform agent-supported
+      Google Ads work manually without offering help, presents a supplied item
+      as completed, or claims that marking a guide item complete implements its
+      underlying change.
