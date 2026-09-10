@@ -10,7 +10,7 @@ plain data.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/pricing-plans/seed/seed-pricing-plans.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/pricing-plans/seed/seed-pricing-plans.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // setupPricingPlans installs the Wix Pricing Plans app first (idempotent) — base44 sites may not have it.

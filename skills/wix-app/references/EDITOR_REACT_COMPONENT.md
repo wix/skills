@@ -131,6 +131,9 @@ extension configuration, and supporting files.
   all bodies, hide inactive accessibly.
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
-- `component.preview.tsx`: keep `withDefaults` and `withFallbackPlaceholder`,
-  wrap the preview adapter when present, one crucial `requiredDataFields`
-  entry, and `rootClassName` matching the root global class.
+- `component.preview.tsx`: preserve this outer-to-inner composition, inline or
+  through component variables:
+  `withDefaults(withFallbackPlaceholder(PreviewOrComponent, options), defaultProps)`.
+  Keep `withDefaults` outermost, wrap the preview adapter when present, use one
+  crucial `requiredDataFields` entry, and match `rootClassName` to the root
+  global class.

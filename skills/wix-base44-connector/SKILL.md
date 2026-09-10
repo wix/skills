@@ -21,6 +21,23 @@ actually writes, and the order two calls have to go in — from the schemas alon
 several errors at a time. `wx.search` ranks the matching recipes too (recipe entries in `hits`), so
 they also surface from a search that began at the methods.
 
+In this skill:
+
+- **What are you building?** — route each feature to its identity: visitor token, admin token
+  in a backend function, or admin ad hoc in exec_tool
+- **The helpers** — the `wx.*` loader every exec opens with
+- **Gather context** — `wx.context`, the report of what the site actually has
+- **Learn Wix** — find the APIs, learn their contracts
+  - **Management recipes** — first stop for an admin task (`wx.mgmtRecipes`)
+  - **Search and browse** — `wx.search` across methods, recipes and articles
+  - **Read a doc page** — `wx.page` for a located doc URL
+  - **The spec index** — `wx.spec`, a located method's exact schema
+- **Write the code**
+  - **Admin ops while building** — you, in exec_tool
+  - **Backend functions** — the app, as the owner
+  - **Visitor authentication and Wix-hosted flows** — the visitor client, redirect sessions,
+    the headless OAuth app — and bootstrapping a whole vertical with `wix-vibe-headless`
+
 ## What are you building?
 
 Choose the token by who the code acts for. A headless app can serve visitors, provide admin
@@ -308,14 +325,28 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, visitorTok
 // that opts INTO heavier parts (formatted prices, media); read the contract for it
 ```
 
-**Create redirect sessions with a visitor token minted for the headless OAuth app.**
-Use the OAuth app's `clientId` from `wx.context()`. If the report doesn't include an OAuth app
-and you need redirect sessions, create one with the admin connector token as shown below,
-then mint a visitor token from its `clientId`. Anonymous visitors do not need to log in.
+**Any Wix-hosted flow that returns the visitor to your app needs the headless OAuth app's
+redirect config set.** This covers redirect sessions *and* sending a buyer to the Wix-hosted
+checkout `checkoutUrl` and back — any flow where Wix redirects to a URL on your app. Use the
+OAuth app's `clientId` from `wx.context()`; if the report has no OAuth app, create one with the
+admin connector token as shown below, then mint a visitor token from its `clientId` (anonymous
+visitors do not need to log in). **Always set `allowedRedirectUris` and `allowedRedirectDomains`
+when you create it** — an OAuth app created with a name only cannot complete any return, and the
+break is silent (create-checkout and the anonymous token still succeed) until a real buyer is
+redirected and stranded on Wix.
 
 ```js
-// Use your app's actual destinations, including preview when supported.
-const appOrigins = ["https://my-app.example.com", "https://my-preview.example.com"];
+// Register BOTH of this app's own URLs — its preview URL and its published URL — so returns work
+// before AND after publish. Both are built from the Base44 app id (NOT the Wix OAuth client_id /
+// appId used above):
+//   preview:   https://preview-sandbox--<base44-app-id>.base44.app
+//   published: https://<app-name-slug>-<last 8 of the base44-app-id>.base44.app
+//              where <app-name-slug> is the app's name (the brand name) slugified — e.g.
+//              "Flash Sale Spark" -> flash-sale-spark-a4615088.base44.app.
+// A custom domain the owner connects overrides the published one; the app name (hence the slug)
+// can also change. So prefer the app's real current published URL when you have it, and update
+// this same OAuth app whenever the name or domain changes — never create another.
+const appOrigins = [previewUrl, publishedUrl]; // this app's actual preview + published URLs
 const loginCallbacks = appOrigins.map(origin => new URL("/login-callback", origin).href);
 const returnDomains = appOrigins.map(origin => new URL(origin).hostname);
 
@@ -364,3 +395,17 @@ export async function redirectToWix(intent, returnPath = "/") {
   window.location.assign(redirectSession.fullUrl);
 }
 ```
+
+**Building a whole vertical? Bootstrap it with `wix-vibe-headless`.** When the build is a
+visitor-facing site on a Wix vertical it supports — a storefront, bookings, pricing plans,
+events, restaurants, rentals, a blog and more — the `wix-vibe-headless` skill stands the
+vertical up fast: it is built entirely on the same Wix APIs as this skill, but ships working
+code (REST transport, scaffolds, UI) plus management-API abstractions (seeding,
+configuration), so the vertical bootstraps on Base44 in a fraction of the calls.
+Read the entry point at
+[`www.wix.com/skills/wix-vibe-headless/platforms/base44.md`](https://www.wix.com/skills/wix-vibe-headless/platforms/base44.md).
+Its STEP 1 carries the install itself — the verbatim `npx skills add` call to run through
+exec_tool, the companion skills, the vertical table and the scaffold deploy — after which the
+guide lives at `.agents/skills/wix-vibe-headless/platforms/base44.md`. Reading it as
+reference alone is fine, but when you do install, go through its flow end to end — the
+shipped scaffolds and seed path are most of its value.

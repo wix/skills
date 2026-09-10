@@ -257,7 +257,8 @@ async function uploadDigitalFile(ctx, url, fileName) {
   if (!mimeType) throw new Error(`digitalFileName needs one of these extensions (${Object.keys(FILE_MIME).join(", ")}): ${fileName}`);
   const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
   const src = await fetch(url);
-  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}`);
+  if (!src.ok) throw new Error(`digitalFileUrl ${url} -> ${src.status}. A digital product needs a real, ` +
+    `fetchable file — with none at hand, seed this product as physical with inStock: true and tell the user.`);
   const res = await fetch(uploadUrl, {
     method: "PUT", headers: { "Content-Type": mimeType }, body: Buffer.from(await src.arrayBuffer()),
   });
@@ -416,9 +417,17 @@ async function addProductsToCategories(ctx, mapping) {
 // caller never manages a revision token — attach any number of times, in any pass. Wix re-hosts the
 // image from the url server-side; the re-hosted media can take a little while to appear on read-back
 // (propagation) — that's normal, not a failure, so we don't block on it.
+const isPendingPlaceholder = (url) => typeof url === "string" && url.includes("/__generating__/");
+
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
   if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
+  const pending = items.filter((it) => isPendingPlaceholder(it.url));
+  if (pending.length) throw new Error(
+    `Image url(s) for [${pending.map((it) => it.altText || it.id).join(", ")}] are /__generating__/ placeholders — ` +
+    `still generating, and Wix cannot fetch them. generate_image results update in place: re-read them, and a ` +
+    `completed one carries the final https://media.base44.com/... url. Re-call attachProductImages with final ` +
+    `urls. No image request was sent; products are unaffected.`);
   const ids = items.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
@@ -475,7 +484,8 @@ async function configureCurrency(ctx, requested) {
  *                digitalFileUrl?, digitalFileName? }],
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
- * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number, currency: {requested,actual,status,warnings} }
+ * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number,
+ *             imagesSkippedPending?: string[], note?: string, currency: {requested,actual,status,warnings} }
  */
 async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
   validateProducts(products);
@@ -498,11 +508,23 @@ async function setupStore(ctx, { products = [], categories = {}, currency } = {}
   }
 
   const imageItems = withNames
-    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug }))
+    .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug, name: p.name }))
     .filter((it) => it.url);
-  if (imageItems.length) await attachProductImages(ctx, imageItems);
+  // A /__generating__/ url is a generate_image result read too early: seed the product imageless
+  // and report it, so the caller re-reads the (in-place updated) result and attaches afterwards.
+  const readyItems = imageItems.filter((it) => !isPendingPlaceholder(it.url));
+  const skippedPending = imageItems.filter((it) => isPendingPlaceholder(it.url)).map((it) => it.name);
+  if (readyItems.length) await attachProductImages(ctx, readyItems);
 
-  return { products: withNames, categories: cats, imagesAttached: imageItems.length, currency: currencyResult };
+  return {
+    products: withNames, categories: cats, imagesAttached: readyItems.length,
+    ...(skippedPending.length && {
+      imagesSkippedPending: skippedPending,
+      note: "these images were still generating at seed time — re-read their generate_image results " +
+        "(they update in place to status 'completed' with the final url) and attach with attachProductImages",
+    }),
+    currency: currencyResult,
+  };
 }
 
 module.exports = {
