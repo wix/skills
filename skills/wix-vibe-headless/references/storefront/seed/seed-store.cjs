@@ -424,10 +424,9 @@ async function attachProductImages(ctx, items) {
   if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
   const pending = items.filter((it) => isPendingPlaceholder(it.url));
   if (pending.length) throw new Error(
-    `Image url(s) for [${pending.map((it) => it.altText || it.id).join(", ")}] are /__generating__/ placeholders — ` +
-    `still generating, and Wix cannot fetch them. generate_image results update in place: re-read them, and a ` +
-    `completed one carries the final https://media.base44.com/... url. Re-call attachProductImages with final ` +
-    `urls. No image request was sent; products are unaffected.`);
+    `Image url(s) for [${pending.map((it) => it.altText || it.id).join(", ")}] are not public, fetchable ` +
+    `https:// urls, and Wix copies the image bytes at attach time. Re-call attachProductImages once each ` +
+    `image has its final url. No image request was sent; products are unaffected.`);
   const ids = items.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
@@ -510,8 +509,8 @@ async function setupStore(ctx, { products = [], categories = {}, currency } = {}
   const imageItems = withNames
     .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug, name: p.name }))
     .filter((it) => it.url);
-  // A /__generating__/ url is a generate_image result read too early: seed the product imageless
-  // and report it, so the caller re-reads the (in-place updated) result and attaches afterwards.
+  // A url Wix cannot fetch (e.g. a still-generating placeholder) would fail the attach: seed the
+  // product imageless and report it, so the caller attaches once the final url exists.
   const readyItems = imageItems.filter((it) => !isPendingPlaceholder(it.url));
   const skippedPending = imageItems.filter((it) => isPendingPlaceholder(it.url)).map((it) => it.name);
   if (readyItems.length) await attachProductImages(ctx, readyItems);
@@ -521,14 +520,13 @@ async function setupStore(ctx, { products = [], categories = {}, currency } = {}
     products: withNames, categories: cats, imagesAttached: readyItems.length,
     ...(skippedPending.length && {
       imagesSkippedPending: skippedPending,
-      note: "these images were still generating at seed time — re-read their generate_image results " +
-        "(they update in place to status 'completed' with the final url) and attach with attachProductImages",
+      note: "these products' image urls were not yet fetchable at seed time — attach them with " +
+        "attachProductImages once each image has its final url",
     }),
     ...(withoutImages.length && !skippedPending.length && {
       productsWithoutImages: withoutImages,
-      note: "these products were seeded without an image — if you generated images for them, your " +
-        "generate_image results have updated in place and now carry final urls: attach them with " +
-        "attachProductImages",
+      note: "these products were seeded without an image — once their images have final urls, " +
+        "attach them with attachProductImages",
     }),
     currency: currencyResult,
   };
