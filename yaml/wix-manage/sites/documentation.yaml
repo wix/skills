@@ -30,3 +30,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/diagnosing-live-site-not-updating-after-successful-write.md
+      title: "Diagnosing: Live Site Not Updating After a Successful Write"
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/site-actions/publish-site
+      tags: [sites]
