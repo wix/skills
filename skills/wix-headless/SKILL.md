@@ -7,6 +7,7 @@ allowed-tools:
   - Bash(npx @wix/cli *)
   - Bash(npm create @wix/new@latest *)
   - Bash(npm install *)
+  - Bash(npm ci *)
   - Bash(npm run *)
   - Bash(node *)
   - Bash(bash *)
