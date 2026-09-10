@@ -89,11 +89,12 @@ rejects that combination with `400 FREE_PRICING_VARIANT_IS_NOT_RECURRING`.
 
 Same required fields; only `billingTerms` and the `flatRate.amount` change.
 
-| Plan type | `billingTerms` |
+| Plan type | `billingTerms` — copy as-is; `period` is `DAY`, `WEEK`, `MONTH` or `YEAR` |
 | --- | --- |
-| Free, open-ended | Omit `billingCycle`; `endType: "UNTIL_CANCELLED"`. `flatRate.amount: "0"`. |
-| One-time payment, fixed duration | `billingCycle` = the duration (e.g. `{ period: 'MONTH', count: 1 }`), `endType: "CYCLES_COMPLETED"`, `cyclesCompletedDetails.billingCycleCount: 1`. |
-| Recurring, until cancelled | `billingCycle` = the recurrence (e.g. `{ period: 'MONTH', count: 1 }`), `endType: "UNTIL_CANCELLED"`. |
+| Free, open-ended | `{ startType: 'ON_PURCHASE', endType: 'UNTIL_CANCELLED' }` — no `billingCycle`; `flatRate.amount: '0'`. |
+| One-time payment, fixed duration | `{ startType: 'ON_PURCHASE', endType: 'CYCLES_COMPLETED', billingCycle: { period: 'MONTH', count: 1 }, cyclesCompletedDetails: { billingCycleCount: 1 } }` — charges once; `billingCycle` is the duration the plan lasts. |
+| Recurring, until cancelled | `{ startType: 'ON_PURCHASE', endType: 'UNTIL_CANCELLED', billingCycle: { period: 'MONTH', count: 1 } }` — charges every month until cancelled. |
+| Recurring, ends after N charges | `{ startType: 'ON_PURCHASE', endType: 'CYCLES_COMPLETED', billingCycle: { period: 'MONTH', count: 1 }, cyclesCompletedDetails: { billingCycleCount: 3 } }` — "$50 a month, ends after 3 months": `billingCycle` is the recurrence, `billingCycleCount` is how many times it charges. |
 
 A `billingCycle` can't be shorter than 7 days, and total plan duration can't exceed 10 years
 (`400 VALID_BILLING_CYCLE` / `400 VALID_PLAN_DURATION`).
