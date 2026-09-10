@@ -39,8 +39,14 @@ CI=1 npm create @wix/new@latest -- headless \
 - The `--` separator is required. Bare `--site-template` (no value) keeps it on the **blank** starter —
   the model owns design, so don't adopt a business template; a value, or omitting the flag, would
   prompt and abort in a non-interactive shell.
-- The command provisions the Wix site + private app and writes `wix.config.json`. It requires a
-  logged-in CLI session (step 2 handles login if needed).
+- The command provisions the Wix site + private app and writes `wix.config.json`. **If the CLI session
+  isn't already authenticated, it embeds the same device-code login wait as `login`** — it blocks on an
+  `{"event":"awaiting_user",...}` line before continuing. Run it the way `AUTHENTICATION.md` §1
+  prescribes for `login`: **`run_in_background: true`, no pipe/redirect of your own** — in particular,
+  never pipe it through `tail -N` (without `-f`), which shows **nothing at all** until the process
+  exits (it can't know "the last N lines" of a non-seekable pipe until EOF), making an actively-working
+  login wait indistinguishable from a hang. Poll the captured output for the `awaiting_user` line and
+  relay it per `AUTHENTICATION.md` §1.
 - It creates the project in a **subdirectory named `<folder-name>`** — there is no in-place option, so
   **`cd <folder-name>`** and run the rest of the flow from inside it (it's the project root, with the
   single `.wix/`).
@@ -66,7 +72,8 @@ CI=1 npm create @wix/new@latest init
 - `npm create @wix/new@latest init` runs **in place** (no new subdirectory, no Astro files added): it
   signs you in, provisions the Wix site + private app, and writes `wix.config.json`
   (`siteId`, `appId`, `site.outputDirectory: "./dist"`). It takes no flags. Run it **from inside**
-  `<folder-name>` *after* the framework scaffold exists.
+  `<folder-name>` *after* the framework scaffold exists. **Same login-wait caveat as the Astro command
+  above** — `run_in_background: true`, no pipe/redirect of your own (never `| tail -N`).
 - A static (no-build) frontend builds to no `dist` — fix `site.outputDirectory` per
   `managed/DEPLOYMENT.md` ("Static frontends") before release.
 
