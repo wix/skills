@@ -40,6 +40,8 @@ The common flow always sends `platformType: "GOOGLE"`; do not ask the user to pr
 
 Skip this call when the conversation already contains a retrieved guide or its recommendations; immediately present the supplied result using the next section instead of retrieving it again or asking for campaign identity. When the user paraphrases recommendation labels, map them to the closest unambiguous suggestion types in the translation table. Wording such as "still need to" or "still to do" means those items are `OPEN`.
 
+When the user only wants a supplied guide presented, this article already contains the response behavior. Do not read the linked action recipes until the user accepts an offer to perform that action; unnecessary recipe reads delay the answer and can prevent the navigation block from being returned.
+
 ```bash
 curl -X POST \
   'https://www.wixapis.com/pa-platform/suggestions/v1/campaign-success-guides/get-or-create' \
