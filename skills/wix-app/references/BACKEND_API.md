@@ -233,26 +233,17 @@ on the assumption that member authentication proves ownership.
 ## Validate, Deploy, and Delete
 
 1. Install changed dependencies, typecheck, and run `wix build`.
-2. Confirm the route was discovered by reading the build output. A passing build
-   alone does not prove discovery; the route table does, because it is generated
-   from the filesystem scan.
-
-   ```bash
-   # Standalone: expect pattern: "/hello"
-   grep 'pattern:' dist/server/index.mjs
-   # Astro: expect hits in the generated manifest under dist/
-   grep -r '/api/hello' dist/
-   ```
-
-   A standalone dynamic segment prints as `/users/:"id"`; that is the expected
-   form, not corruption.
-3. If a dev site is configured (`wix dev-site`), run `wix dev` and request the
-   URL, checking status and body; Also exercise the frontend caller when one was
-   requested. `wix preview` uploads a version and exits; it is not a server. Report
-   any runtime check that could not run instead of assuming it passed.
-4. Follow the host's deployment flow. Studio 2 manages its companion app's
+2. If a dev site is configured (`wix dev-site`), run `wix dev` and request the
+   URL; also exercise the frontend caller when one was requested. `wix preview`
+   uploads a version and exits; it is not a server.
+3. Follow the host's deployment flow. Studio 2 manages its companion app's
    deployment; for a standalone CLI workflow use the normal build/preview/release
    commands when deployment is requested.
 
 To delete an endpoint, remove its file from the appropriate directory and apply
 that change through the same deployment flow. No `.use()` cleanup is needed.
+
+If a route 404s, or the file was created by hand, confirm it was discovered: in a
+standalone build `grep 'pattern:' dist/server/index.mjs` lists every route (a
+dynamic segment prints as `:"id"`); in an Astro build the route string appears
+under `dist/`. A missing entry means the file is outside the scanned directory.
