@@ -1,19 +1,24 @@
 
 # Extension Registration
 
-`src/extensions.ts` is the single entry point that tells the build system which extensions exist. Without a `.use()` call for an extension, it does not load.
+`src/extensions.ts` is the single entry point that tells the build system which extensions exist. Without a `.use()` call for an extension, it does not load. HTTP endpoints are file-based routes and do not use this registration mechanism.
 
 ## Registration is automatic via the CLI
 
-For every CLI-supported extension type, `wix generate --params` updates `src/extensions.ts` for you — you do NOT need to write the import or the `.use()` call by hand. Verify the file was updated after each `wix generate` invocation.
+For every CLI-supported extension type, `wix generate --params` updates `src/extensions.ts` for you — you do NOT need to write the import or the `.use()` call by hand. Verify the file was updated after each `wix generate` invocation. The one exception is `HTTP_ENDPOINT`: it is file-based, `wix generate` does not touch `src/extensions.ts` for it, and an unchanged file after generating an endpoint is expected (see below).
 
-## Extension types that require manual registration
+## HTTP endpoints: no registration
 
-| Type | Why manual |
-| --- | --- |
-| **Backend API** | Astro endpoints under `src/pages/api/` are auto-discovered by the runtime. They do not need to be added to `src/extensions.ts`. |
+`wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'`
+creates the endpoint file without changing `src/extensions.ts`:
 
-Every other extension type is wired up automatically by the CLI.
+| Project | Discovery directory | Example route |
+| --- | --- | --- |
+| `@wix/custom-extensions` (default `apiDir: "endpoints"`) | `src/endpoints/` | `hello.ts` → `/hello` |
+| `@wix/astro` | `src/pages/api/` | `hello.ts` → `/api/hello` |
+
+Leave `app()` unchanged. Do not add endpoint imports, `.use()` calls, or IDs.
+See [BACKEND_API.md](BACKEND_API.md) for supported versions and frontend URLs.
 
 ## Manual recovery (when the CLI output drifts)
 
@@ -21,7 +26,6 @@ Edit `src/extensions.ts` directly only when:
 
 - The CLI failed mid-run and left the file out of sync
 - A user hand-edited the file and broke the chain
-- You're adding a Backend API helper (uncommon)
 
 Each extension file is a default export from `<folder>/<folder>.extension.ts`. In `src/extensions.ts`, import it as a default import using the camelCase of the folder name, then chain `.use(...)`:
 
