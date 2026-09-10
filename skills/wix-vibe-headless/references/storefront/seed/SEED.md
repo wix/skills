@@ -19,9 +19,6 @@ const ctx = { token: accessToken };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
-// imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
-// result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
-// generate_image runs in the background while you build, so the urls are ready by seed time.
 const result = await seed.setupStore(ctx, {
   currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
@@ -38,6 +35,7 @@ const result = await seed.setupStore(ctx, {
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   imagesSkippedPending (product names whose image was still generating — attach those afterwards),
 //   currency: { requested, actual, status, warnings } }
 ```
 
@@ -138,7 +136,6 @@ const products = await seed.bulkCreateProducts(ctx, [                 // → [{i
 ]);
 const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
 await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
-// images: use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
 await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
 ```
 
