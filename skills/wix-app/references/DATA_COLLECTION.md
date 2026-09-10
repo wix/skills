@@ -33,10 +33,15 @@ The CLI manages a shared aggregator file (`data-collections.extension.ts`) that 
 
 ## Collection File Shape
 
-The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per the [Context-Based Permission Rules](#context-based-permission-rules) before shipping.
+The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per [Permissions](#permissions) before shipping.
+
+**Import `DataCollection` from the package this project actually uses.** A standalone
+`@wix/custom-extensions` project — what `wix generate` scaffolds today — emits
+`from '@wix/custom-extensions'`; only an Astro project uses `'@wix/astro/builders'`. The scaffolded
+file already has the right one: keep the import the CLI wrote and replace the body around it.
 
 ```typescript
-import type { DataCollection } from '@wix/astro/builders';
+import type { DataCollection } from '@wix/custom-extensions'; // or '@wix/astro/builders' in an Astro project
 
 export const collectionIdSuffix = '<CollectionName>';
 
@@ -143,6 +148,18 @@ For structured objects with a defined schema, list the nested fields inside `obj
 - **Uniqueness:** Declare a unique index in the collection's `indexes` array (see [Indexes](#indexes)). Uniqueness is an index-level concern, not a field-level one.
 
 ## Indexes
+
+**Most collections need no index at all — ship `indexes: []` unless you can name the query that
+needs one.** `_id` and `_createdDate` are indexed automatically, and the budget is small: **3 regular
+indexes, 1 unique, 4 total** (the collection reports its own `capabilities.indexLimits`). "Index the
+field the table sorts by" is not a reason — it spends a slot for a page that would page fine without
+it.
+
+When you do add one, it is `{ fields: [{ path, order? }], unique? }` — and **nothing else**. In
+particular there is **no `name`**: the runtime Create Index API takes one, but the extension builder
+does not and the platform derives it (a `date` DESC index arrives as `date_DESC`). Read
+`DevCenterDataCollectionIndex` in the builders package if in doubt; a stray key is a compile error on
+the `satisfies DataCollection` literal.
 
 The `indexes` array on the collection accepts entries shaped like:
 
@@ -258,6 +275,58 @@ Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only
 - The `referencedCollectionId` MUST be the `idSuffix` of another collection in the same plan
 - **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
 - Use Wix SDK APIs to access Wix business entities instead
+
+## Item access and collection management are different scopes
+
+The data-collections extension gives your app read/write access to the **items** in its own
+collections — `items.query/insert/update` work with no extra scope. It does **not** grant the
+collection-*management* API: `collections.listDataCollections()` and friends answer 403 unless the
+app holds a Data Collections management scope.
+
+That asymmetry is worth knowing before you debug: a page whose table loads rows has proved its
+collection exists, because Wix Data errors on a missing collection rather than returning empty. If
+that same page cannot list collections, the app is missing a management scope — a separate fact
+about tooling, not evidence about the collection.
+
+## Reading the collection from a dashboard page
+
+A page over a CMS collection uses the **schema-driven** template, not the hand-wired one — the CMS
+already owns the field list, so `createCmsSchemaSource` supplies fetch, filters, columns and the
+entity form from it. See
+[DRAFT_TEMPLATE_CMS_COLLECTION.md](dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md). Wiring
+`items.query()` and hand-written columns by hand still compiles, and quietly gives up everything the
+schema would have provided.
+
+## The site must have CMS, or nothing is created at all
+
+**The installing site needs the CMS (Content Manager) app.** Per the extension's own docs:
+"Without it, collections added by the extension won't appear after installation." Nothing warns
+you — the release succeeds, the update succeeds, and the collection silently never exists. Bundle
+CMS as an [app dependency](https://dev.wix.com/docs/build-apps/launch-your-app/market-listing/add-app-dependencies)
+so installing your app brings it, and list "add CMS to the site" under
+[Manual Steps Required](../SKILL.md#-manual-steps-required) for any site that may not have it.
+
+This is the first thing to check when a collection is missing after a correct release and update.
+
+## The extension does not create the collection
+
+Scaffolding the extension, compiling, and even releasing all leave the site's CMS unchanged.
+A collection appears only when the app is **installed or updated on the site** with a version that
+contains the extension — and any change under `data-collections/` needs a **major** version:
+
+```bash
+npx wix release --version-type major -c "<what changed>"
+```
+
+Releasing is only half of it. **Report both remaining browser steps under
+[Manual Steps Required](../SKILL.md#-manual-steps-required)** — they are the difference between a
+page that works and one that shows an empty table:
+
+1. Update the app on the site to the new version.
+2. Wait up to 5 minutes for propagation.
+
+A dev server running a version override does not create collections either, so "I ran `wix dev` and
+the collection isn't in the CMS" is this step, not a bug.
 
 ## App Version Updates
 
