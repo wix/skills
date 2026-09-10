@@ -11,7 +11,8 @@ or configuration changes are needed.
 **Banner disabled for this entry flow:** do not add `<WixManageBanner/>`; skip the shared
 storefront instructions' optional banner integration.
 
-Follow STEPs 1–4 below exactly (run STEP 3 in parallel with STEP 2).
+Follow STEPs 1–4 below exactly. Fire product image generations first, then build the client
+(STEP 2), and seed (STEP 3) **after** the client is built — generation finishes while you build.
 
 ## STEP 1 — Install the Wix skills and deploy the storefront vertical to the app
 
@@ -89,13 +90,13 @@ Inline via exec_tool, `base44` is already declared — use it directly; do **not
 `@base44/sdk`, re-declare it, or call `createClient()` (that's for standalone `.js` files only;
 inline it throws *"Identifier 'base44' has already been declared."*).
 
-**Product images.** Generate with **Base44's built-in image generation**, then attach via the
-storefront seed module's image-attach step.
-
-**Seed images with the FINAL url, in one call.** Use the real `https://media.base44.com/...` url
-from the **completed** `generate_image` result and pass it straight into your single `setupStore`
-call (images included). `generate_image` runs in the background while you build the client, so the
-urls are ready by the time you seed.
+**Product images.** Fire every `generate_image` **before you build the client**, and seed **after**
+it — generation finishes while you build, so by the time you write the seed call your images are
+ready: each finished result now reads `status: "completed"` with its final
+`https://media.base44.com/...` url. Read every `imageUrl` from the results **as they read at that
+moment** — not from what they said when you called the tool — and pass them in the single
+`setupStore` call. A result without a final url by then (still running, or failed) → seed that
+product **without** `imageUrl` and attach it afterwards with `attachProductImages`.
 
 ## STEP 4 — Wrap up
 
