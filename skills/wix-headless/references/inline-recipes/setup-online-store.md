@@ -16,9 +16,21 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
+**YOU MUST** complete the following steps **in the given order** (0-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. STEP 0 (readiness) and products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
+
+### STEP 0: Wait for the Catalog V3 provisioning to settle
+
+**Installing Stores does not mean Catalog V3 is ready to accept calls immediately.** Catalog provisioning finishes asynchronously in the background after the install call returns 200. Calling `GET https://www.wixapis.com/stores/v3/provision/version` right after install can report `{"catalogVersion":"V1_CATALOG"}` — and a V1-shaped read can even succeed — before the site flips (permanently) to `V3_CATALOG`. This window is **not a fixed delay**: it has been observed anywhere from a few seconds to several minutes after install. Firing STEP 1's `products/query` while the site still reports V1 fails with `400` ("Endpoint belongs to CATALOG_V1, but your site is using CATALOG_V3").
+
+Before STEP 1, poll for readiness:
+
+```bash
+curl -sS -X GET "https://www.wixapis.com/stores/v3/provision/version" -H <AUTH>
+```
+
+Retry every ~3 seconds until the response is exactly `{"catalogVersion":"V3_CATALOG"}`, capping at ~60 attempts (~3 minutes total). **A brand-new Headless install always lands on V3** — a `V1_CATALOG` answer here is a "still provisioning" signal, not a legacy site, so never branch to V1 endpoints based on it. If the cap is reached without seeing `V3_CATALOG`, stop and surface the last raw response — this recipe supports V3 only, so don't silently fall back to V1-shaped calls.
 
 ### STEP 1: Clean the store — remove the default sample products
 
