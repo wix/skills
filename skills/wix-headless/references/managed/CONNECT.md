@@ -55,6 +55,22 @@ then, with **additive** edits:
 - add the connected feature the intent implies where it's missing (e.g. a contact/RSVP form, a cart);
 - always guard SDK calls (try/catch + fallback) so a failed call never blanks the page.
 
+> **Remove any pre-existing manual Wix client before wiring — don't just add to it.** A brought-in project
+> may already contain its own `createClient({ auth: OAuthStrategy({ clientId }) })` (or an env var like
+> `PUBLIC_WIX_CLIENT_ID`/`NEXT_PUBLIC_WIX_CLIENT_ID`) from an earlier, non-managed build. `init` (§1) only
+> **adds** the new managed `WIX_CLIENT_*` vars to `.env` — it never removes or overrides a
+> differently-named pre-existing var, so both can sit side by side after connecting. If the app code still
+> reads the old one, it authenticates as a **visitor of whatever site that old `clientId` belongs to** —
+> not the site you just connected — and that is almost always a *different, valid* site. There is no
+> mismatch error for this: a visitor query against the wrong-but-valid site returns a normal `200` with
+> whatever that site's catalog actually holds (often `0` items), which is indistinguishable from a
+> genuinely empty store. Grep the brought-in project for `OAuthStrategy(`, `createClient(`, and any
+> `*CLIENT_ID*`/`*clientId*` before wiring; delete that manual client and its env var, and switch reads to
+> **auto-auth, no client** per `astro.md` (Astro) or repoint the surviving client's `clientId` at this
+> flow's `appId` (`wix.config.json`) per `non-astro.md` (non-Astro). If a "0 results" ever looks
+> suspicious after connecting, cross-check identity per `managed/AUTHENTICATION.md` § "Verify which site a
+> token/client is bound to" before assuming the catalog is really empty.
+
 A run must end with the site actually reading from / writing to Wix — `init` + `release` with nothing
 wired is not an acceptable outcome. If `imagery` is on and a surface needs an image, generate it per
 **`references/IMAGE_GENERATION.md`** (up to the per-run `imageCap`, Discovery §4); for any slot not
