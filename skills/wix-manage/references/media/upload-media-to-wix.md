@@ -1,6 +1,6 @@
 ---
 name: "Upload Media to Wix"
-description: Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+description: Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs (single and bulk), checking file status, and using the returned wixstatic.com URL in other APIs.
 ---
 # RECIPE: Upload Media to Wix Media Manager
 
@@ -85,6 +85,54 @@ curl -X POST 'https://www.wixapis.com/site-media/v1/files/import' \
 > - You want guaranteed consistency for critical operations
 >
 > **Practical approach:** Try using the URL immediately. If it fails, poll until `operationStatus: "READY"`.
+
+---
+
+## Method: Bulk Import Files from External URLs (Multiple Files)
+
+Importing more than one file? Use the bulk endpoint instead of calling Import File once per file — this is the common case when you need to attach N distinct images to N distinct items (e.g. a photo per CMS collection item, product, or destination).
+
+### API Endpoint
+
+```
+POST https://www.wixapis.com/site-media/v1/bulk/files/import-v2
+```
+
+### Request Example
+
+```bash
+curl -X POST 'https://www.wixapis.com/site-media/v1/bulk/files/import-v2' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+    "importFileRequests": [
+      { "url": "https://images.unsplash.com/photo-eiffel-tower.jpg", "displayName": "Paris.jpg" },
+      { "url": "https://images.unsplash.com/photo-colosseum.jpg", "displayName": "Rome.jpg" }
+    ]
+}'
+```
+
+`importFileRequests` accepts 1-100 items per call.
+
+### Response Example
+
+```json
+{
+  "results": [
+    {
+      "itemMetadata": { "originalIndex": 0, "success": true },
+      "item": { "id": "...", "displayName": "Paris.jpg", "url": "https://static.wixstatic.com/..." }
+    },
+    {
+      "itemMetadata": { "originalIndex": 1, "success": true },
+      "item": { "id": "...", "displayName": "Rome.jpg", "url": "https://static.wixstatic.com/..." }
+    }
+  ],
+  "bulkActionMetadata": { "totalSuccesses": 2, "totalFailures": 0 }
+}
+```
+
+> **Correlating results back to your inputs:** always match by `results[].itemMetadata.originalIndex` (the index of the request in `importFileRequests`), not by the position of the item in the `results` array — a partial failure can make the two diverge. See [CMS Data Items CRUD](../cms/cms-data-items-crud.md#assign-n-distinct-images-to-n-cms-items-by-key) for the full pattern of importing N images and writing each to a different CMS item.
 
 ---
 
