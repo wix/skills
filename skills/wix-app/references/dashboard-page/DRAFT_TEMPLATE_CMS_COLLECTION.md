@@ -12,7 +12,7 @@
 | You write | `fetchData`, every filter, every column | A `SchemaSource`. The schema supplies fetch, filters, columns and form fields |
 | `columns` | One entry per field you name | no `columns` prop at all — the schema renders them |
 | Entity form | `useController` + WDS per field | `<EntityPageFieldsCard />` renders the whole form |
-| Extra dependency | none | `@wix/patterns-cms`, and `@wix/patterns` >= 1.465.0 |
+| Extra dependency | none | `@wix/patterns-cms`, plus `@wix/patterns` at the **exact** version it pins |
 
 **The tell is where the field list lives.** If the page's columns are decided by a schema the CMS
 owns, the schema-driven path already knows them and hand-writing them throws that away — including
@@ -52,8 +52,24 @@ ships. See [DATA_COLLECTION.md](../DATA_COLLECTION.md).
 optional `includeUserPermissions` fetches ABAC permissions for field management and needs a
 `metasiteId`; leave it off unless you want that UI.
 
-**Install both, and mind the floor:** `npm install @wix/patterns-cms`, and `@wix/patterns` at
-**1.465.0 or newer** — `@wix/patterns/schema` is where the schema-aware components live.
+**Install both, and match the pin — a floor is not enough.** `@wix/patterns-cms` depends on an
+**exact** `@wix/patterns` version (no caret). Install that same version, or npm keeps a second copy
+of `@wix/patterns` and the two halves of the page end up on different React contexts:
+
+```bash
+npm install @wix/patterns-cms
+npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
+npm dedupe
+```
+
+Then confirm exactly one copy survives — more than one line here is a bug that `tsc` and
+`wix build` both pass:
+
+```bash
+find node_modules -path '*@wix/patterns/package.json' -not -path '*/dist/*'
+```
+
+`@wix/patterns/schema` is where the schema-aware components live.
 
 ## 2. Collection page
 
@@ -116,8 +132,9 @@ export const FeatureEntityPage: FC = () => {
       <EntityPage.Header title={{ text: id ? 'Edit item' : 'New item' }} />
       <EntityPage.Content>
         <EntityPage.MainContent>
-          {/* Renders every schema field with the right control and validation. */}
-          <EntityPageFieldsCard />
+          {/* Renders every schema field with the right control and validation.
+              `title` is REQUIRED — see dist/types/schema/EntityPageFieldsCard.d.ts. */}
+          <EntityPageFieldsCard title="Details" />
         </EntityPage.MainContent>
       </EntityPage.Content>
     </EntityPage>
@@ -131,9 +148,14 @@ express, and keep them alongside `EntityPageFieldsCard` rather than instead of i
 
 ## 4. Routing
 
-Identical to the hand-wired case: this is Case B, so the entry file, app shell and routes come from
-[DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) unchanged, including the manual `location`
-plumbing that `tsc` and `wix build` cannot catch.
+Take **only §1 (entry) and §2 (app shell + routes)** from
+[DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) — those are identical for both data paths,
+including the manual `location` plumbing that `tsc` and `wix build` cannot catch.
+
+**Do not take that file's §3.** Its entity page is the *hand-wired* one —
+`useEntityPage({ fetch, onSave, isNewEntity })` — which is a different API from the schema-driven
+`useEntityPage(source, { entityId, form, parentPath })` in §3 above. Reading "unchanged" to include
+the entity page is how a CMS page ends up with the wrong one.
 
 ## What still applies from the hand-wired template
 

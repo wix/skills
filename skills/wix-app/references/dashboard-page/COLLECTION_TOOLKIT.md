@@ -102,6 +102,20 @@ A dialog that creates, updates or displays one listed record is **not** a dashbo
 
 **`errorState` is a render function, not a node** — `(err, { retry }) => ReactElement`, so `errorState={<CollectionErrorState />}` does not type-check. Wire it on every collection: a table with no `errorState` renders a failed query and a slow one identically, as skeleton rows that never resolve, and that is indistinguishable from an empty result.
 
+**`CollectionErrorState` takes the retry as `action`, not `onRetry`.** It extends `ErrorCardProps`, so the shape is `action?: { text: string; onClick: () => void }` — guessing `onRetry` is a compile error that has actually happened in a measured run:
+
+```tsx
+errorState={(err, { retry }) => (
+  <CollectionErrorState
+    title="Couldn't load shifts"
+    subtitle={err instanceof Error ? err.message : String(err)}
+    action={{ text: 'Retry', onClick: retry }}
+  />
+)}
+```
+
+Both `title` and `subtitle` are optional; `action` is optional but omitting it leaves the user with no way out. Read `dist/types/components/ErrorCard/ErrorCard.d.ts` for the rest.
+
 Empty and no-results are different messages: one means "add your first record", the other means "loosen the filters". Shipping only the first makes a working filter look broken.
 
 ## Export

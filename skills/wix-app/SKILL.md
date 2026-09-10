@@ -42,7 +42,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
   - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
-- [ ] **Step 4c (dashboard page UI only):** Re-opened and read the page file(s) just written — not recalled intent — and confirmed against the actual code: `SummaryBar` present (or prompt is explicitly single-record/report/export-only), a drill-in (`SidePanel` or `navigateToEntityPage`/`EntityPage`) present for every row (or prompt is explicitly report/export-only), and every declared filter name also appears inside `fetchData`. See [UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit).
+- [ ] **Step 4c (dashboard page UI only):** Re-opened and read the page file(s) just written — not recalled intent — and confirmed against the actual code: the Step 2 aggregate decision is what landed (a `SummaryBar`, **or** an absence you can state — the rows are the answer, as in a short CRUD list, a rota or a lookup table), a drill-in (`SidePanel` or `navigateToEntityPage`/`EntityPage`) present for every row (or prompt is explicitly report/export-only), every declared filter name also appears inside `fetchData`, and — for Case B/D — the entry file both passes and guards `location`. See [UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit).
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -151,6 +151,19 @@ The leaf-level UI patterns does not own: inputs, buttons, form fields, text, lay
 node <wix-design-system-skill-dir>/scripts/wds.cjs search <keyword>
 node <wix-design-system-skill-dir>/scripts/wds.cjs component <Name>
 ```
+
+**If that skill is not installed** — it is a separate skill, and some hosts ship `wix-app` without
+it — do **not** fall through to writing WDS from memory, and do not treat the missing skill as
+permission to hand-roll the component. Read the installed package instead, which is where the skill
+would have read from anyway:
+
+```bash
+ls node_modules/@wix/design-system/dist/types/            # the component inventory
+cat node_modules/@wix/design-system/dist/types/<Name>/<Name>.d.ts   # its real props
+```
+
+Name the file you read before using the component, exactly as the Component Docs Gate requires for
+patterns. A missing skill lowers the convenience, not the bar.
 
 ### 3. Custom React — only after both came back empty
 
@@ -465,6 +478,13 @@ Before moving to Step 5, re-open every page file you just wrote and check the ac
 - [ ] Every row has a drill-in: `SidePanel` or a `navigateToEntityPage`/`EntityPage` call literally appears — unless the prompt is explicitly a report or export-only view.
 - [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
 - [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
+- [ ] **Case B/D only — the entry file both passes and guards `location`.** `PatternsReactRouter` throws at open when `location` is missing *or* still `undefined` on the first render, and `tsc`, `wix build` and even a green build all pass regardless. Both halves are required — the `location={location}` prop **and** the `location ? … : null` guard around it, since `observeState` has not fired yet on the first render. Grep the entry file rather than trusting recall:
+
+  ```bash
+  grep -n "observeState\|location={location}\|location ?" src/extensions/dashboard/pages/<page>/<page>.tsx
+  ```
+
+  Three hits is correct. A missing guard is the failure mode that has actually shipped: a measured run produced a page whose plumbing looked present and still crashed on open, while a re-run of the same prompt produced a working one — so this is intermittent, and re-running is not a check.
 - [ ] Every `@wix/*` vertical imported by the page's api module is a declared dependency, and each one's scope is listed under Manual Steps. Any call to a **secondary** vertical (an enrichment lookup, a filter's options, a search term resolved to ids) is wrapped so its failure degrades that feature instead of failing the page.
 
 If a box fails and no exception applies, add the missing piece now. Do not let "it compiles" stand in for "it satisfies the checklist" — Step 5 checks the former, this step checks the latter, and they are independent.
