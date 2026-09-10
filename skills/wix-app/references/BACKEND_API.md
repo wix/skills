@@ -31,13 +31,15 @@ For Wix app projects, the generator preserves the selected runtime:
 | Standalone `@wix/custom-extensions` (Studio 2) | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
 | `@wix/astro` | `src/pages/api/hello.ts` | `/api/hello` | `astro` |
 
-For standalone projects, endpoints live in `src/endpoints` by default. The
-generator writes there and upgrades `@wix/custom-extensions` to `^0.2.14` if
-needed (the first release with that default and the `./types` export); install any
-changed dependencies before validating. If `app()` in `src/extensions.ts` passes
-`apiDir`, that directory (under `src/`) is the one the runtime scans instead, and
-the generator does not read it: either remove `apiDir` to use the default, or move
-the generated file into `src/<apiDir>`. The route is `/<name>` either way.
+For standalone projects, endpoints live in `src/endpoints` by default and require
+`@wix/custom-extensions@^0.2.14`; older releases neither scan that directory by
+default nor export `./types`, and the build passes without serving anything. The
+generator upgrades the package; when creating the file by hand, upgrade it
+yourself. Install changed dependencies before validating. If `app()` in
+`src/extensions.ts` passes `apiDir`, that directory (under `src/`) is the one the
+runtime scans instead, and the generator does not read it: either remove `apiDir`
+to use the default, or move the generated file into `src/<apiDir>`. The route is
+`/<name>` either way.
 
 If `wix generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
 generator (added in `@wix/cli` 1.1.243). Update the CLI, or create the file by hand:
