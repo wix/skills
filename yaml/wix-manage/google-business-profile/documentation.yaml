@@ -10,3 +10,12 @@ apiDoc:
       title: Manage Google Business Profile Locations for a Wix Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
       tags: [seo]
+    # Portal resource ID: 7904c177-abeb-4b9d-b21b-01cabd01b500
+    - file: ../../../skills/wix-manage/references/google-business-profile/dummy-skill-alpha.md
+      title: "Dummy Skill Alpha - Publishing Race Test"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
+      tags: [seo]
+    - file: ../../../skills/wix-manage/references/google-business-profile/dummy-skill-beta.md
+      title: "Dummy Skill Beta - Publishing Race Test"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
+      tags: [seo]

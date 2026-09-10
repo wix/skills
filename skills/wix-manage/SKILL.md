@@ -328,6 +328,12 @@ Connect the authenticated Wix site to a Google Business Profile account, check w
 ### [Manage Google Business Profile Locations for a Wix Site](references/google-business-profile/manage-google-business-profile-locations.md)
 Import Google Business Profile locations into the authenticated Wix site, list and query them with or without live Google data, update Wix-side and Google-side details through the correct method for each, create a new Google listing, check whether a profile is actually live on Google, and remove a location from Wix or delete its Google listing. Checks the site's Google connection first and reports a missing one as a setup step, warns before destructive or Google-visible writes, and respects Google's shared rate budget.
 
+### [Dummy Skill Alpha — Publishing Race Test](references/google-business-profile/dummy-skill-alpha.md)
+**Test fixture:** Returns a fixed marker for validating concurrent draft-skill publishing. Contains no product guidance and makes no API calls.
+
+### [Dummy Skill Beta — Publishing Race Test](references/google-business-profile/dummy-skill-beta.md)
+**Test fixture:** Returns a second fixed marker for validating concurrent draft-skill publishing. Contains no product guidance and makes no API calls.
+
 ---
 
 ## Marketing
