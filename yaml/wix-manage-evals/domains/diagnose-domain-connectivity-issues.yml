@@ -1,0 +1,49 @@
+name: domains/diagnose-domain-connectivity-issues
+description: >-
+  Verifies the agent reads the diagnose-domain-connectivity-issues recipe when a
+  site owner reports their domain is down/NXDOMAIN despite DNS records looking
+  correct, and that it distinguishes DNS misconfiguration from registry-level
+  causes that need Wix support rather than more DNS troubleshooting.
+triggerPrompt: >-
+  My domain isn't loading at all -- it looks like NXDOMAIN. My DNS A and CNAME
+  records match exactly what Wix's dashboard told me to set, and the domain
+  isn't expired. The dashboard shows a banner saying my domain is set to point
+  away from Wix, but I'm pretty sure that's wrong since the records are correct.
+  What's actually going on and what should I do?
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/diagnose-domain-connectivity-issues
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a Wix site owner whose domain returns NXDOMAIN even though they
+      believe their DNS records are correctly configured, and who doubts the
+      dashboard's "point away from Wix" banner.
+      Intent: check DNS propagation status first, then explain that if DNS is
+      actually fine the real cause is likely something DNS checks and the
+      dashboard banner can't see -- a registry-level status hold
+      (clientHold/serverHold), a pending/expired ICANN contact verification, or
+      an expired/redemption-period domain -- and that a registry-level hold has
+      no self-serve or API fix and needs Wix Domains support.
+
+      Pass if the response:
+      - recommends checking DNS propagation status as the first step, AND
+      - explains that if DNS propagation/records are confirmed correct, the cause
+        is likely outside DNS -- naming at least one of: a registry-level status
+        hold (clientHold/serverHold), pending/expired ICANN contact verification,
+        or an expired/redemption-period domain, AND
+      - is clear that a registry-level hold cannot be fixed by re-checking or
+        re-saving DNS records, and that it requires contacting Wix support (no
+        self-serve/API fix exists for it), AND
+      - does not just repeat "your DNS must be misconfigured, keep checking it"
+        as the only answer.
+
+      Fail if the response:
+      - only tells the user to fix their DNS records with no acknowledgment that
+        DNS may already be correct and the cause may lie elsewhere, OR
+      - claims there's a self-serve dashboard/API action that lifts a registry
+        hold, OR
+      - invents unrelated causes or fixes.
