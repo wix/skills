@@ -11,7 +11,8 @@ only), safe in the frontend; use it directly for the Wix client setup.
 **Banner enabled for this entry flow:** mount `<WixManageBanner/>` once in the Layout, above
 the header in the fixed top region, per the vertical instructions. It is preview-only.
 
-Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see STEP 3).
+Follow STEPs 1–5 below exactly (run STEP 4 in parallel with STEP 3 — **except `forms`**, see
+STEP 3, and **except a seed that attaches entity images**, which runs after the build; see STEP 4).
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -98,8 +99,15 @@ rejects the write. Wire routes/imports in with `find_replace`, leave the rest as
 
 Seed by calling your vertical's ready-made seed module — read
 `.agents/skills/wix-vibe-headless/references/<vertical>/seed/SEED.md` and follow it (the loader
-snippet, admin connector token, entity images with the final `media.base44.com` url, and every field
-shape are there). Gaps or an unexpected shape → the documentation skill available in your environment.
+snippet, admin connector token, and every field shape are there). Gaps or an unexpected shape → the
+documentation skill available in your environment.
+
+**Entity images:** fire every image generation **before you build the client**, and run an
+image-carrying seed **after** the build — generation finishes while you build, and each finished
+result then reads `status: "completed"` with its final `https://media.base44.com/...` url. Read
+every image url from the results **as they read at that moment**, not from what they said when you
+called the tool. No final url by then (still running, or failed) → seed without that image and
+attach it afterwards per the vertical's `SEED.md`.
 Seeding is **admin-only** — not part of the client, which is built solely per the `wix-vibe-headless` skill.
 
 - **Additive only:** never delete or overwrite the user's content, even apparent sample data; ask first if a cleanup truly seems needed.
