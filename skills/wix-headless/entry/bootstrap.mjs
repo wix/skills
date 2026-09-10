@@ -33,7 +33,13 @@ function capture(cmd, args, opts = {}) {
 // ── 1. CLI reachable (via npx — no install) ──────────────────────────────────
 function checkCli() {
   const r = capture(WIX[0], [...WIX.slice(1), '--version']);
-  if (r.status !== 0) fail('cli_unreachable', { detail: r.out.trim().slice(0, 400) });
+  // r.out is empty whenever the child never ran at all (ENOENT, EINVAL, a
+  // sandboxed spawn denial, ...) — fall back to r.error so the failure is
+  // still diagnosable instead of shipping an empty detail string.
+  if (r.status !== 0)
+    fail('cli_unreachable', {
+      detail: (r.out.trim() || r.error?.message || '').slice(0, 400),
+    });
   // npx interleaves "npm notice …" lines with the version, so don't just take the
   // last line — pick the first semver-looking token, falling back to the last line.
   const version = (r.out.match(/\d+\.\d+\.\d+[^\s]*/) || [])[0] || r.out.trim().split('\n').pop();
