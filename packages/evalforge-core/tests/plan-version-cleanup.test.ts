@@ -27,6 +27,23 @@ describe('deletePrCapabilityVersions', () => {
     expect(deleteCapabilityVersion.mock.calls.map(call => call[2])).toEqual(['v1', 'v2']);
   });
 
+  it('spares the kept version and deletes the PR\'s other versions', async () => {
+    const listCapabilityVersions = vi.fn().mockResolvedValue([
+      version('v1', 'pr-42-old1111'),
+      version('v2', 'pr-42-current'),
+      version('v3', 'pr-7-aaaaaaa'),
+    ]);
+    const deleteCapabilityVersion = vi.fn().mockResolvedValue(undefined);
+    const { io } = recorder();
+
+    await deletePrCapabilityVersions(
+      { listCapabilityVersions, deleteCapabilityVersion }, 'C', 'P', 42, io,
+      { keepVersionId: 'v2' },
+    );
+
+    expect(deleteCapabilityVersion.mock.calls.map(call => call[2])).toEqual(['v1']);
+  });
+
   it('does not delete pr-4 versions when sweeping PR 42', async () => {
     const listCapabilityVersions = vi.fn().mockResolvedValue([version('v1', 'pr-4-abc1234')]);
     const deleteCapabilityVersion = vi.fn().mockResolvedValue(undefined);
