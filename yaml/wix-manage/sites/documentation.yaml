@@ -30,3 +30,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/manage-custom-embeds.md
+      title: Manage Custom Embeds — Sitewide HTML/JS Injection (Head/Body)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/custom-embeds/introduction
+      tags: [sites]
