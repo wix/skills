@@ -171,7 +171,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `schedule.availabilityConstraints.sessionDurations` sets the appointment length
 - Availability is based on the assigned staff member's working hours schedule
 
-Save the `serviceId` from the response: `results[0].item.service.id`
+Save the `serviceId` from the response: `results[0].item.id` (the created service is directly under `item` — there is no `item.service`). This requires `returnEntity: true` on the request; without it the response carries only `results[0].itemMetadata.id`.
 
 ---
 
