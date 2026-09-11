@@ -164,7 +164,7 @@ For a color option, use `SWATCH_CHOICES`; each choice uses `choiceType: ONE_COLO
 ]}
 ```
 
-The image must be in the product gallery first, and the id/ordering has a trap — assign per-choice media via **[Update Product with Options](update-product-with-options.md) → Choice & variant fields** (also the full choice-vs-variant field split: choice `media`/`colorCode`; variant `price`/`sku`/`barcode`/stock).
+The image must be in the product gallery first, and the id/ordering has a trap — assign per-choice media via **[Update Product (Catalog V3)](update-product-catalog-v3.md) → Choice & variant fields** (also the full choice-vs-variant field split: choice `media`/`colorCode`; variant `price`/`sku`/`barcode`/stock).
 
 A digital variant is **sellable** only when it carries both a digital file and stock; miss either and the product reads back healthy and is rejected at add-to-cart. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes) and send the returned `file.id` to `POST /stores/v3/products-with-inventory`:
 
@@ -182,7 +182,7 @@ A digital variant is **sellable** only when it carries both a digital file and s
 }
 ```
 
-With no file supplied, create the product and report it as not sellable until one is attached — [Update Product with Options](update-product-with-options.md) → Attach a digital file.
+With no file supplied, create the product and report it as not sellable until one is attached — [Update Product (Catalog V3)](update-product-catalog-v3.md) → Attach a digital file.
 
 ### Generated descriptions and SEO
 

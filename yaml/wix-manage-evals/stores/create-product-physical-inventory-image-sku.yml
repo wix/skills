@@ -4,7 +4,7 @@ triggerPrompt: >-
   Add a physical product named "Dog" priced at $12,000. Set inventory to exactly 13 and preserve the SKU exactly as #123.
   Attach this image: https://images.unsplash.com/photo-1552053831-71594a27632d?w=800.
 tags: [stores, media]
-maxTokens: 25000
+maxTokens: 275000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

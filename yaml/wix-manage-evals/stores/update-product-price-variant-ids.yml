@@ -1,7 +1,7 @@
 name: stores/update-product-price-variant-ids
 description: >
   A store owner asks to change an existing Catalog V3 product's price. Verifies the agent
-  loads the Update Product with Options (Catalog V3) recipe and re-reads the product with
+  loads the Update Product (Catalog V3) recipe and re-reads the product with
   Get Product before the Update Product PATCH, because Search Products and Query Products
   responses do not carry `variantsInfo.variants` — assembling the variants array from a
   search result sends an empty array and the update is rejected.
@@ -11,7 +11,7 @@ tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-catalog-v3
   - type: llm_judge          # correctness — the user's outcome
     minScore: 7
     maxTokens: 2048

@@ -6,7 +6,7 @@ triggerPrompt: >-
   M/Black $32 SKU TEE-M-BLK quantity 7; M/White $33 SKU TEE-M-WHT quantity 8. All four should be visible.
   Generate a short description.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 275000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

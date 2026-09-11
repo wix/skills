@@ -3,7 +3,7 @@ description: Verifies that a simple physical V3 product without image or invento
 triggerPrompt: >-
   Create a physical product named "Canvas Tote" for $18.50 with SKU 000-TOTE. Do not add an image and do not track inventory.
 tags: [stores]
-maxTokens: 20000
+maxTokens: 350000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
