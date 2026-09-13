@@ -13,12 +13,18 @@ Never emit them to stdout, stderr, logs, prompts, or tool results.
 npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 ```
 
-If it's non-zero, **log in yourself** — don't punt to the user and stop:
+If it's non-zero, **log in yourself** — don't punt to the user and stop. Run the entry bootstrap, an ordinary foreground command that exits within seconds:
 
-1. Run `npx @wix/cli@latest login` with **`run_in_background: true`** (no shell `&`, no redirect of your own — the harness captures stdout to its task-output file and returns the path).
-2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`.
-3. Surface it to the user in plain prose: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login.**
-4. Wait for the harness `task-notification` with `<status>completed</status>` (not a sleep loop). On exit 0, run `whoami` once to confirm, then proceed.
+```bash
+node .agents/skills/wix-headless/entry/bootstrap.mjs
+# not installed locally? curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs
+```
+
+It prints one JSON event per line and exits:
+
+- `logged_in` — a session already exists; continue.
+- `awaiting_user` — it has started a device login and handed the next step to the user. Send them the event's `message` as-is (it carries the URL and code). The login keeps running on its own, so once they say they're done, run the script again: it reports `logged_in` and you proceed. Re-running early returns the same code instead of issuing a new one.
+- `cli_unreachable` / `login_failed` — show the user the `detail` and stop; don't improvise a login by hand.
 
 ## 2 · Mint the token
 
