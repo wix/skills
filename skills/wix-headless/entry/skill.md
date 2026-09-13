@@ -76,5 +76,3 @@ Then **open `wix-headless/SKILL.md` and follow it.** That skill owns the rest of
 
 - **Don't** scaffold, install apps, or release by hand here — the skill does all of that (`SETUP.md`, `references/managed/CREATE.md`, etc.). This entry stops at *logged in*.
 - You're already authenticated from Phase 1, so the skill's managed auth step (`references/managed/AUTHENTICATION.md` §1 `whoami`) will pass without prompting again.
-
-<!-- skill-version: FORCED-180023Z -->
