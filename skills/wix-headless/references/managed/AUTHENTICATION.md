@@ -13,18 +13,32 @@ Never emit them to stdout, stderr, logs, prompts, or tool results.
 npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 ```
 
-If it's non-zero, **log in yourself** — don't punt to the user and stop. Run the entry bootstrap, an ordinary foreground command that exits within seconds:
+If it's non-zero, **log in yourself** — don't punt to the user and stop. A foreground command that exits in seconds, one JSON event per line:
 
 ```bash
-node .agents/skills/wix-headless/entry/bootstrap.mjs
-# not installed locally? curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs
+node ../../entry/bootstrap.mjs   # path relative to this file
 ```
 
-It prints one JSON event per line and exits:
+| Event | Do |
+|---|---|
+| `logged_in` | Session exists — continue. |
+| `awaiting_user` (`verificationUri`, `userCode`, `message`) | Send `message` verbatim, then stop. Re-run the script when the user says they're done → `logged_in`. Re-running early returns the **same** code, not a new one. |
+| `cli_unreachable` / `login_failed` (`detail`) | Show `detail` and stop. |
 
-- `logged_in` — a session already exists; continue.
-- `awaiting_user` — it has started a device login and handed the next step to the user. Send them the event's `message` as-is (it carries the URL and code). The login keeps running on its own, so once they say they're done, run the script again: it reports `logged_in` and you proceed. Re-running early returns the same code instead of issuing a new one.
-- `cli_unreachable` / `login_failed` — show the user the `detail` and stop; don't improvise a login by hand.
+### If you'd rather not execute it
+
+Read `../../entry/bootstrap.mjs` and do the same thing yourself. What matters:
+
+```bash
+# AI_AGENT must be set, or the CLI renders an interactive Ink TUI and emits no JSON.
+# Detach, redirecting to a FILE — a pipe dies with your process and the CLI gets EPIPE.
+AI_AGENT=my-agent nohup npx -y @wix/cli@latest login > /tmp/wix-login.log 2>&1 &
+
+grep -m1 awaiting_user /tmp/wix-login.log
+# {"event":"awaiting_user","expiresInSeconds":600,"userCode":"…","verificationUri":"…"}
+```
+
+Then send the user that URL + code and **stop**: `awaiting_user` is a terminal yield to the user, not progress on a running task — polling it to "completion" is the standard way this flow fails. The detached login lands the session by itself; resume with `whoami` (exit 0). Codes last ~10 min; after that, start a new login and surface the new code.
 
 ## 2 · Mint the token
 
