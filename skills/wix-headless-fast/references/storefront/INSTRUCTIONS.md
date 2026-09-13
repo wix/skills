@@ -84,6 +84,9 @@ flipped token values; add brand fonts as extra tokens) and the **chrome** (heade
 // { cart: { lines, itemCount, subtotal, currency }|null, busy, error, open,
 //   addToCart(productId, variantId?, qty?, extras?), updateQuantity(lineItemId, qty),
 //   removeLine(lineItemId), checkout(), openCart(), closeCart(), refresh() }
+// addToCart rejects on refusal (out of stock, digital product with no file) AND records
+// .error, opening the drawer either way — so render .error in whatever surface you build for
+// the cart, and never chain checkout() onto an add without awaiting it successfully.
 ```
 
 ### Wiring — Astro (default)
@@ -119,6 +122,17 @@ client id into `wix/config.ts`; nothing else to configure.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
 - Keep the PDP page's SEO pieces (`wixMetadata` + `loadSEOTagsServiceConfig` + `<SEO.Tags>`)
   exactly as shipped — owners edit those tags in their dashboard.
+- **Browsing, cart and checkout need no login.** They run on the Wix visitor session the
+  shipped SDK client already holds. Don't gate the shop, the PDP or the cart behind sign-in,
+  and don't add a members/auth flow unless the brief actually asks for accounts.
+- **Call every hook before any conditional return.** A PDP that returns early for
+  `notFound`/loading above its `useState`/`useEffect` changes hook order between renders and
+  React throws. Hooks first, branches after.
+- **Sort and filter at the source, not on a loaded page.** Pass the criteria to the
+  `wix/storefront/` exports so Wix applies them across the whole catalog; re-ordering the array
+  a hook already returned only sorts the slice you happen to have. Note the shipped listing
+  fetches up to 100 products in one call and does not page — for a catalog larger than that,
+  add cursor paging in `wix/storefront/` rather than raising the limit.
 
 ## Point the user to their dashboard
 
