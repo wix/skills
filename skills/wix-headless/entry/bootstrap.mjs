@@ -129,9 +129,8 @@ async function waitForCode(timeoutMs = 60000) {
   });
 }
 
-// awaiting_user is terminal: the next move is the user's, so hand the code back
-// and exit rather than holding the caller open for a browser round-trip. `message`
-// is the exact sentence to relay, so surfacing it costs no composition.
+// The next move is the user's, so hand the code back and exit rather than holding
+// the caller open for a browser round-trip. `message` is the sentence to relay.
 function surrenderTo(ev) {
   emit('awaiting_user', {
     ...ev,

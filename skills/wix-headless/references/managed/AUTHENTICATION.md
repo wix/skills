@@ -38,7 +38,7 @@ grep -m1 awaiting_user /tmp/wix-login.log
 # {"event":"awaiting_user","expiresInSeconds":600,"userCode":"…","verificationUri":"…"}
 ```
 
-Then send the user that URL + code and **stop**: `awaiting_user` is a terminal yield to the user, not progress on a running task — polling it to "completion" is the standard way this flow fails. The detached login lands the session by itself; resume with `whoami` (exit 0). Codes last ~10 min; after that, start a new login and surface the new code.
+Send the user that URL + code, then stop — nothing moves until they act. The detached login lands the session on its own; resume with `whoami` (exit 0). Codes last ~10 min; after that, start a new login and surface the new code.
 
 ## 2 · Mint the token
 
