@@ -34,7 +34,9 @@ Response:
 { "deviceCode": "…", "userCode": "XXXXXXXX", "verificationUri": "https://users.wix.com/login/device-login", "expiresIn": 600 }
 ```
 
-## Step 2 — Ask the user to authorize
+## Step 2 — Ask the user to authorize (hard stop)
+
+**Stop all other work.** The user cannot see tool output, so they never get the code unless you send a user-visible message in the **same turn** you receive `userCode`.
 
 Show the user this URL and code:
 
@@ -43,7 +45,11 @@ URL:  {verificationUri}?color=developer&studio=true
 Code: {userCode}
 ```
 
+Template: *Open `<URL>` and enter the code `<Code>` — I'll continue once you've logged in.*
+
 Make sure the user has copied or noted the code **before** opening the link — they'll need to enter it on the page. Present the URL as a clickable link that opens in a new tab if your interface supports it.
+
+Do **not** start polling (Step 3) as a reason to skip the message. Send the message first, then poll. Do not read files, scaffold, or continue the original task until Step 3 returns tokens. Codes expire in about `expiresIn` seconds; if that window lapses, restart from Step 1 and surface the **new** code immediately.
 
 ## Step 3 — Poll for the token
 

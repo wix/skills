@@ -15,10 +15,14 @@ npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 
 If it's non-zero, **log in yourself** — don't punt to the user and stop:
 
+> **Hard stop on `awaiting_user`.** The user cannot see tool output. The moment that event appears, send a user-visible message with the URL and code **in this turn**, then wait. Do **not** read files, scaffold, seed, plan, or start any other work until login completes.
+
 1. Run `npx @wix/cli@latest login` with **`run_in_background: true`** (no shell `&`, no redirect of your own — the harness captures stdout to its task-output file and returns the path).
 2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`.
-3. Surface it to the user in plain prose: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login.**
+3. **STOP.** Send this message to the user immediately: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login; do not continue the recipe; do not call other tools in the same turn.**
 4. Wait for the harness `task-notification` with `<status>completed</status>` (not a sleep loop). On exit 0, run `whoami` once to confirm, then proceed.
+
+Codes expire in about 10 minutes. If login exits non-zero after expiry, re-run step 1 **once** and surface the **new** code immediately.
 
 ## 2 · Mint the token
 

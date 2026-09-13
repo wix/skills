@@ -24,6 +24,11 @@ const WIX = [bin('npx'), '-y', '@wix/cli@latest']; // run the CLI via npx — no
 // Respect an existing value so a known runner (claude, cursor, …) keeps its name.
 const AGENT_ENV = { ...process.env, AI_AGENT: process.env.AI_AGENT || 'wix-headless-skill' };
 
+// Injected into the awaiting_user event so an agent that skims the JSON (and never
+// read the skill doc) still sees the hard-stop rule right next to the code it must relay.
+const AWAITING_USER_INSTRUCTION =
+  'HARD STOP. Send a user-visible message NOW with verificationUri and userCode. Do not read files, scaffold, or continue the build until logged_in/success.';
+
 // run a command, capture stdout+stderr (combined), return {status, out}
 function capture(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: 'utf8', shell: isWin, env: AGENT_ENV, ...opts });
@@ -70,7 +75,12 @@ function login() {
       try {
         const ev = JSON.parse(t);
         if (ev && ev.event) {
-          process.stdout.write(t + '\n');
+          if (ev.event === 'awaiting_user') {
+            const { event: _event, ...rest } = ev;
+            emit('awaiting_user', { ...rest, instruction: AWAITING_USER_INSTRUCTION });
+          } else {
+            process.stdout.write(t + '\n');
+          }
           if (ev.event === 'success' || ev.event === 'logged_in') {
             loggedIn = true;
             resolve();

@@ -53,8 +53,8 @@ version, install or upgrade Node first — do **not** work around it:
 Download and run the shared bootstrap script. It verifies the Wix CLI and handles login,
 emitting **one JSON event per line** on stdout. **Run it and relay its events** — it exits on
 its own once the CLI is verified and a session exists (seconds, when already logged in). Only
-when a login is actually needed does it pause on `awaiting_user`; surface the URL + code and
-let it keep running until the login completes.
+when a login is actually needed does it pause on `awaiting_user`; that event is a **hard stop**
+(see below).
 
 The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives
 `wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first
@@ -74,9 +74,20 @@ node bootstrap.mjs
 | Event | What to do |
 |---|---|
 | `cli_ok` | Wix CLI reachable — continue. |
-| `awaiting_user` (`verificationUri`, `userCode`) | Show the URL and code in plain prose; wait for the user to finish the login in their browser. |
+| `awaiting_user` (`verificationUri`, `userCode`) | **HARD STOP** — see below. Send the URL and code in a user-visible message in this turn; wait. |
 | `logged_in` / `success` | Login done — continue. |
 | `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
+
+### `awaiting_user` is a hard stop
+
+The user cannot see tool output. If you keep working after this event, they never get the code and login stalls until they ask.
+
+The moment `awaiting_user` appears:
+
+1. **Send a user-visible message in this turn.** Template: *Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in.* Present the URL as a clickable link if the interface supports it.
+2. **Do not continue the build.** No other tool calls in this turn: do not read files, install skills, scaffold, seed, plan, or poll anything except the bootstrap process.
+3. **Keep the bootstrap running.** Do not re-invoke login. Wait for `logged_in` / `success`.
+4. Codes expire in about 10 minutes (`expiresInSeconds`). If `login_failed` after expiry, re-run bootstrap **once** and surface the **new** code immediately.
 
 ## Phase 2 — Install the skill and hand off
 
