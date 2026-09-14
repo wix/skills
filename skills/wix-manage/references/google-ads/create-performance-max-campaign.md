@@ -1,6 +1,6 @@
 ---
 name: "Create and Launch a Performance Max Campaign"
-description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
+description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Create and Launch a Performance Max Campaign
 
@@ -10,7 +10,7 @@ A **Performance Max (PMAX)** campaign runs across every Google channel from a si
 - **`PERFORMANCE_MAX_LEADS`** — lead-gen variant (phone/form conversions, search-theme signals, negative keywords, a ~28-day learning phase). **Requires** at least one asset group with headlines, descriptions, and images; assets are validated synchronously, so bad assets fail the create call immediately.
 - **Retail / Shopping** — a `PERFORMANCE_MAX` campaign linked to a Google Merchant Center feed (set `merchantCenterAccountId` on the account first — see [install-and-create-account](install-and-create-account.md) — and use `feedLabel`). Retail campaigns don't require a hand-built asset group.
 
-Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. The bidding strategy is server-enforced to `MAXIMIZE_CONVERSIONS` — never set it yourself.
+Base URL: `https://www.wixapis.com/_serverless/pa-google/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. The bidding strategy is server-enforced to `MAXIMIZE_CONVERSIONS` — never set it yourself.
 
 > **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 5). Create in `PAUSED` first — nothing serves until Launch.
 
@@ -25,7 +25,7 @@ Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorizatio
 `suggestionInfo.landingPageUrl` and `textSuggestionInfo.languageCode` are both required. Response may take up to 60s.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/text-asset-suggestions' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/text-asset-suggestions' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "suggestionInfo": { "landingPageUrl": "https://www.example.com", "assetTypes": ["HEADLINE", "DESCRIPTION"] },
@@ -46,7 +46,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/text-asset-suggestions' \
 Images are generated with AI and **automatically uploaded to the site's Wix Media Manager** — the returned `url` is a `static.wixstatic.com` link you can use directly in the asset group. `suggestionInfo.landingPageUrl` is required.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/image-asset-suggestions' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/image-asset-suggestions' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "suggestionInfo": { "landingPageUrl": "https://www.example.com", "assetTypes": ["MARKETING_IMAGE", "SQUARE_MARKETING_IMAGE"] } }'
 ```
@@ -63,7 +63,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/image-asset-suggestions' \
 Search themes are the targeting signals for a leads campaign's asset group. `textSuggestionInfo.languageCode` is required.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/search-theme-suggestions' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/search-theme-suggestions' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "landingPageUrl": "https://www.example.com", "textSuggestionInfo": { "languageCode": "en" } }'
 ```
@@ -79,7 +79,7 @@ Each string becomes a `{ "searchTheme": { "text": "…" } }` signal in the asset
 PMAX uses **Generate Budget Recommendation** (not the Smart-campaign budget-suggestions endpoint). `campaignType`, `assetGroupInfo` (with a `finalUrl`), and `currency` are required.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/budget-recommendation' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/budget-recommendation' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaignType": "PERFORMANCE_MAX",
@@ -129,7 +129,7 @@ Image `url` must be a Wix Media Manager URL (`static.wixstatic.com`) — the STE
 **Create a PMAX Leads campaign** (status required; create `PAUSED`):
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaign": {
@@ -178,7 +178,7 @@ Save the returned `campaign.id` and `resourceName`. `status` is read-only and sy
 ## STEP 5: Launch the campaign
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/launch' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campaignId}/launch' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' -d '{}'
 ```
 
