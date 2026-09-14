@@ -45,9 +45,10 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
   owns it and confirm the contract with `wix-docs`; never infer one from generated SDK types,
   package files, or `node_modules`. A normal caller-permitted operation belongs in a new
   data-layer function. A privileged operation belongs in a validated server endpoint — see
-  `references/shared/CUSTOM_OPERATIONS.md`. The presentation components ship only as
-  **references**: the vertical's INSTRUCTIONS names the surfaces you design and implement
-  yourself on the shipped hooks (for storefront: card, grid, shop + PDP surfaces, home).
+  `references/shared/CUSTOM_OPERATIONS.md`. The presentation **doesn't ship**: the vertical's
+  INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
+  with a skeleton carrying each surface's contract (for storefront: the shop + PDP islands,
+  home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
