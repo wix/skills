@@ -1,14 +1,12 @@
 name: google-ads/manage-campaign-success-guide-update
 description: >-
-  Verifies the agent finds the campaign success guide update endpoint and
-  constructs the correct request for a completed recommendation without
-  executing the mutation.
+  Verifies the agent treats an unambiguous statement that the user completed a
+  success guide recommendation as sufficient information to mark the matching
+  item completed without another confirmation step.
 triggerPrompt: >-
   I made the call-to-action button clearer as the Google Ads campaign success
   guide recommended for my Wix site (MSID:
-  b342a30b-616e-40ce-ad26-52a83397e08e). Show me the exact Wix REST API request
-  you would use to mark that recommendation as done, but do not call the update
-  API or change the guide.
+  b342a30b-616e-40ce-ad26-52a83397e08e). Mark that recommendation as done.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -19,37 +17,45 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - identifies POST
+      - treats the user's completion statement as sufficient approval and does
+        not ask whether to mark the recommendation complete or which
+        recommendation they mean;
+      - uses site b342a30b-616e-40ce-ad26-52a83397e08e, identifies its campaign,
+        retrieves the current guide, and maps the user's wording to suggestion
+        type CLEAR_CTA_COPY and desired status COMPLETED;
+      - when the item is OPEN, successfully calls POST
         https://www.wixapis.com/pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
-        as the update endpoint, with a campaign ID placeholder or a clearly
-        identified campaign ID in the path;
-      - constructs the request body with exactly the intended mapping:
-        type CLEAR_CTA_COPY and status COMPLETED, identifying the suggestion by
-        type rather than by suggestion ID;
-      - explains that site b342a30b-616e-40ce-ad26-52a83397e08e supplies the
-        site context and is not a field in this request body; and
-      - honors the dry-run instruction: it does not call the campaign, guide,
-        or update APIs and does not claim the guide was changed.
+        with type CLEAR_CTA_COPY and status COMPLETED; and
+      - when the item is already COMPLETED, either successfully sends that same
+        desired-state update or reports that no change is needed. Both are
+        acceptable because the requested end state is already satisfied.
 
-      Fail if it uses a suggestion ID in the URL, uses a different endpoint,
-      method, type, or status, adds the site ID to the request body, omits the
-      payload, performs any operational API call, claims the update happened,
-      or claims this tracking update implements the underlying landing-page
-      change.
+      In either case, it must identify the suggestion by type rather than by
+      suggestion ID and must not claim that the tracking-status update changed
+      the campaign, landing page, or call-to-action itself.
+
+      Fail if it asks for redundant confirmation, maps to a different or
+      multiple suggestions, uses a suggestion ID instead of the type, sends a
+      different endpoint, method, type, or status, modifies another guide item,
+      receives a non-2xx response, claims success without either a successful
+      update or an already-COMPLETED guide item, or claims the underlying
+      landing-page change was implemented by this status update.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct dry-run path: read the campaign
-      success guide documentation, find the update-suggestion-status endpoint,
-      and construct the correct CLEAR_CTA_COPY / COMPLETED request without
-      calling any campaign or guide API.
+      trace. Score 0-10, where 10 is a direct path: read the campaign success
+      guide documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e,
+      identify its campaign, retrieve the current guide once, and either update
+      CLEAR_CTA_COPY to COMPLETED once or stop cleanly after verifying it is
+      already COMPLETED.
 
-      Score below 7 if the agent makes any operational site, campaign, guide, or
-      update call, because this scenario must not mutate or depend on the static
-      fixture. Also penalize redundant documentation, a wrong endpoint or
-      request shape, a suggestion ID in place of the type, or internal service
-      or tool names in the user-facing answer. Name the likely recipe, MCP, or
-      docs gap for each detour. Return only
+      Do not penalize one successful same-state COMPLETED update. Penalize
+      redundant confirmation, probing other sites, repeated guide retrieval or
+      update calls, changing any other suggestion, a wrong endpoint or request
+      shape, a suggestion ID in place of the type, any non-2xx call even if
+      recovered, unrelated documentation, or internal service or tool names in
+      the user-facing answer. Name the likely recipe, MCP, or docs gap for each
+      detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
