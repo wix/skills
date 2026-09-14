@@ -72,8 +72,14 @@ export async function addLine(
   quantity = 1,
   extras?: AddToCartExtras,
 ): Promise<void> {
-  await run(() => apiAdd(productId, variantId, quantity, extras));
-  setState({ open: true });
+  try {
+    await run(() => apiAdd(productId, variantId, quantity, extras));
+  } finally {
+    // Open either way. On success this shows the new line; on refusal it's the only thing that
+    // makes .error visible — the drawer renders it, and a drawer that stays shut on failure
+    // turns a refused add (out of stock, a digital product with no file) into silence.
+    setState({ open: true });
+  }
 }
 
 export async function updateLineQuantity(lineItemId: string, quantity: number): Promise<void> {

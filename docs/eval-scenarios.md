@@ -13,6 +13,24 @@ A scenario is not a test that the skill works. It tests that a real user's inten
 
 So it tests what the agent *does*, not what the skill *says*. Give it a task-shaped `triggerPrompt` — *"create a product called 'Handmade Ceramic Mug' priced at $24"*, not *"how do I create a product?"* — and assert on the behavior: which APIs it called, what it asked before mutating data, whether the result is correct. Judge the decision the skill exists to drive; if the skill says to ask rather than invent a missing mandatory value, withhold that value and assert the agent asked.
 
+### Cover what the skill is for
+
+A scenario is the strongest evidence we have that a skill is worth having. It puts a real request to an agent, and shows that the request got resolved *because the skill was there*. Once merged it keeps running, so it is also the thing that tells us when a later change breaks the skill. A skill whose scenarios would pass without it has neither.
+
+So aim the coverage at what the skill exists to settle:
+
+- **Start from an intention, not a feature.** Write the `triggerPrompt` as the request a user would actually send — the outcome they want, in their words, with the details they would have to hand. Not the API name, not the steps, not the skill's own vocabulary.
+- **Reach the parts that would hurt if they broke.** One scenario per skill is the floor, not the target. Where the skill carries a decision — a branch, a precondition, an order that matters, a value the agent must ask for rather than invent — a scenario that never reaches that decision leaves it unproven, and a regression there will merge green.
+- **Make the skill the reason it passes.** Ask what a run without the skill would look like. If a capable agent would land in the same place anyway, the scenario is measuring the platform, not the skill. Point the assertions at what the skill is the only source of: the order, the wrapper, the precondition, the question it asks before mutating data.
+
+### Test a real user conversation
+
+A scenario is a single request with no conversation around it. The agent gets the `triggerPrompt`, runs once, and the assertions judge the result — there is no follow-up turn to answer a clarifying question with, and nothing the user said earlier.
+
+Prefer prompts that need none of that. But a real request is sometimes one a user would only send *after* something the run cannot reproduce: an identifier they are holding, a choice they already made, a value from a system outside Wix. Where that is the case, put that context in the prompt the way the earlier turn would have delivered it — the least that makes the request answerable, phrased as the user would phrase it. The prompt must still read as something a user sent, not as a briefing written for the agent.
+
+**This is not a way around provisioning the site.** The apps, the content, and the state the task operates on belong in [`siteSetup`](#site-provisioning-optional) and its `bootstrap` steps, which stand up a real site for the agent to work against. Describing that state in the prompt instead — *"assume the store already has three products"*, or an ID for a product nothing created — leaves the agent with nothing to call and the judge grading a run against a site that does not exist. Provision the state; put only the conversation in the prompt.
+
 ### Assert correctness *and* quality
 
 Assert three things: **coverage** (the agent reached the skill — the assertion is skill-specific, see *Assertions to include* below), **correctness** (an `llm_judge` on the outcome), and **quality** (a second `llm_judge` on the path). Correctness alone hides friction — an agent can reach the right end state after a wrong-shaped call, a recovered 4xx, or a run of probing calls. Point the quality judge at the tool-call trace and have it name the MCP/docs gap behind each stumble:

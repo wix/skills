@@ -100,7 +100,9 @@ product **without** `imageUrl` and attach it afterwards with `attachProductImage
 
 ## STEP 4 — Wrap up
 
-### Preview
+### Verify
+
+Verify **once, after the seed** — home, shop, and a product page against the populated catalog.
 
 Images that are still generating may show `/__generating__/…` placeholders;
 the platform replaces these automatically at turn end, with a stock fallback if generation
