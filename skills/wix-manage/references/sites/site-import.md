@@ -27,22 +27,14 @@ and report the final result.
 Base URL: `https://www.wixapis.com/site-import`. A full import typically takes
 15–60 minutes.
 
-**Destination — new site vs. an existing site.** There is no destination field
-in the request body. The destination is decided entirely by which scope you
-call with, resolved from your own request context:
-- **Account-level scope** (no site context) → the import always **creates a
-  brand-new site**. This is the default and the right choice when the user has
-  no Wix site yet, or explicitly wants a fresh one.
-- **Site-level scope** (called with a specific `siteId`) → the import **writes
-  into that existing site** instead of creating a new one.
-
-**Ask the user which they want before calling Start** — it can't be changed
-after the migration starts. If the user already created (or named) a Wix site
-they want this content imported into — including one they just set up to
-prepare for this import — call Start (and every subsequent call for that
-`importId`) scoped to that site's id, not account-level. Calling account-level
-when the user actually meant an existing site silently creates a second,
-unwanted site and leaves their existing one untouched.
+**Destination: new site vs. an existing site — decided by call scope, not a
+body field.** Account-level (no site context) always creates a brand-new
+site — the default when the user has no site yet or wants a fresh one.
+Site-level (called with a specific `siteId`) writes into that existing site
+instead. Ask the user which they want before calling Start — it can't change
+after the migration starts. If they already have (or just created) a
+destination site, scope every call for that `importId` to its `siteId`;
+calling account-level instead silently creates an unwanted second site.
 
 ## Calling the API
 
@@ -63,28 +55,17 @@ page, or any client-side code — those fail with CORS. The entire experience
 is plain chat — API calls plus short messages.
 
 Use the Wix REST API tool available in your environment with the **full
-URL**, scoped per the Destination section above: the account-level tool to
-create a new site, or the site-scoped tool (passing the target `siteId`) to
-import into a site the user already has. Start, Send-a-message, and Cancel
-are mutating (POST); Poll is read-only (GET).
+URL**, scoped per the Destination section above (account-level or site-scoped
+with the target `siteId`). Start, Send-a-message, and Cancel are mutating
+(POST); Poll is read-only (GET).
 
-Example — Start, creating a new site (account-level call):
+Example — Start (same body for account-level or site-scoped — only the call's
+scope changes, per the Destination section above):
 
 ```
 POST https://www.wixapis.com/site-import/v1/imports
 Body: {
   "request": "Import https://example-store.com into a new Wix site",
-  "source_url": "https://example-store.com"
-}
-```
-
-Example — Start, importing into the user's existing site (site-scoped call,
-`siteId` set to that site's id):
-
-```
-POST https://www.wixapis.com/site-import/v1/imports
-Body: {
-  "request": "Import https://example-store.com into my site",
   "source_url": "https://example-store.com"
 }
 ```
