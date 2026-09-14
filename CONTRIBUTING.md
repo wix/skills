@@ -59,6 +59,14 @@ The best source for a skill is often a real agent conversation where the agent s
 
 Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill only when those sources are correct but still do not connect the dots for an agent. Keep the skill minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
 
+### Keep the description high level
+
+A skill's frontmatter `description` is the only part of it an agent sees before deciding whether to open the file. Everything else in the skill is still unread at that moment.
+
+Write it as a high-level summary of what the skill covers — the capability, the entities it works with, the kind of work it does, the requests it serves. A summary that does that well is one an agent can judge against: it will recognize the skill as the one for the request in front of it, and pass it by for an unrelated one. That recognition is what a good summary earns, not something the description has to spell out.
+
+Keep the flow out of it. The order of the calls, the field names, the decisions between steps, and the product's own rules belong in the body, where the agent reads them once it has decided to open the skill.
+
 ### Orchestration and worked examples
 
 A skill starts with orchestration: which APIs to call, in what order, what to decide between calls, and what to confirm with the user — *"create the product first, then add options and choices to it; variants are generated from those, not passed in"*.
@@ -83,9 +91,15 @@ For mutating flows, ask for user confirmation before changing site or account da
 
 ## PR Checklist
 
-Before opening a PR, confirm the following. The first group is checked automatically and a failing
-check names the item that broke; the other two are what the skill review looks at, so they are worth
-reading before you write rather than after.
+Before opening a PR, confirm the following.
+
+Three things look at a PR, and they answer different questions. The **wiring** group is checked
+automatically, and a failing check names the item that broke. The **eval run** answers whether the
+skill actually works — it runs your scenarios against your PR's own skill content, which is the only
+thing that can. The **skill review** reads what you wrote: whether the content is complete and
+followable, and whether the scenarios would prove anything. The two content groups below are what it
+starts from, so they are worth reading before you write rather than after — but they are the points
+worth emphasizing, not the whole of what a reviewer may raise about the writing.
 
 **Wiring**
 
@@ -100,6 +114,7 @@ reading before you write rather than after.
 
 **Skill content** — see [Writing Wix API Skills](#writing-wix-api-skills)
 
+- The `description` is [high level](#keep-the-description-high-level): a summary of what the skill covers, with the flow and the product's rules left to the body.
 - The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
 - The common path is completable [without leaving the skill](#orchestration-and-worked-examples): the reference page is linked for the full contract, not pasted in and not standing in for what the task needs.
 - Wix API details were [verified](#verify-the-api-details) against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
@@ -110,6 +125,8 @@ reading before you write rather than after.
 **Eval scenario content** — see [What a Scenario Must Test](docs/eval-scenarios.md#what-a-scenario-must-test)
 
 - Every eval scenario starts from a real user's intent.
+- The scenarios [cover what the skill is for](docs/eval-scenarios.md#cover-what-the-skill-is-for): they reach the decisions the skill exists to settle, and the skill is the reason they pass.
+- The `triggerPrompt` is [a real user's request](docs/eval-scenarios.md#test-a-real-user-conversation) — context added only where an earlier turn would have carried it, never in place of site state that belongs in `siteSetup`.
 - Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
 - Each judge is [written so that a plausible-but-wrong run fails it](docs/eval-scenarios.md#assert-correctness-and-quality).
 
