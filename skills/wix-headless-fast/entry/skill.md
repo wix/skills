@@ -14,7 +14,7 @@ already reading the raw text, don't fetch it again.
 ## The whole cold start (details in the phases below)
 
 ```bash
-curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs && node bootstrap.mjs
+curl -fsSL -O https://www.wix.com/skills/headless-fast/entry/bootstrap.mjs && node bootstrap.mjs
 CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
 # then open and follow: .agents/skills/wix-headless-fast/SKILL.md
 ```
@@ -23,8 +23,8 @@ Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks and gui
 
 This entry gets a cold environment to the point where the real skill can run, then hands off:
 
-1. **Bootstrap (deterministic, scripted).** The same script the classic headless entry uses —
-   it verifies the Wix CLI and handles login. You just run it and relay its events.
+1. **Bootstrap (deterministic, scripted).** A single script verifies the Wix CLI and handles
+   login. You just run it and relay its events.
 2. **Hand off (agentic).** Install the skills, then open `wix-headless-fast/SKILL.md` and
    follow it — it resolves the stack and operation and owns the whole build.
 
@@ -48,9 +48,9 @@ version, install or upgrade Node first — do **not** work around it:
 - **Linux:** `nvm install 20 && nvm use 20` (or your distro's Node 20+ package)
 - **Windows:** `winget install OpenJS.NodeJS.LTS` (or download from nodejs.org)
 
-## Phase 1 — Run the bootstrap (deterministic, shared)
+## Phase 1 — Run the bootstrap (deterministic)
 
-Download and run the shared bootstrap script — an ordinary foreground command that exits on
+Download and run this skill's bootstrap script — an ordinary foreground command that exits on
 its own within seconds. It verifies the Wix CLI and handles login, emitting **one JSON event
 per line** on stdout. **Run it and relay its events.**
 
@@ -61,9 +61,9 @@ externally-downloaded code.
 
 ```bash
 # macOS/Linux:
-curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs
+curl -fsSL -O https://www.wix.com/skills/headless-fast/entry/bootstrap.mjs
 # Windows PowerShell:
-iwr https://www.wix.com/skills/headless/entry/bootstrap.mjs -OutFile bootstrap.mjs
+iwr https://www.wix.com/skills/headless-fast/entry/bootstrap.mjs -OutFile bootstrap.mjs
 
 node bootstrap.mjs
 ```
