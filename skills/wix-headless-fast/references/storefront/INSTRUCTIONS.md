@@ -112,7 +112,7 @@ client id into `wix/config.ts`; nothing else to configure.
 
 - **Data and commerce logic only through the shipped exports** — never rewrite their
   internals or re-derive a request shape. Extend by calling the exports or adding a new
-  function in `wix/storefront/` for a genuine gap (API contracts: the `wix-docs` skill).
+  function in `wix/storefront/` for what they don't cover (API contracts: the `wix-docs` skill).
 - **Selection→cart goes through `useProductDetail`** — never add a product with options by
   picking `variants[0]`, and never gate `canAdd` yourself.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.

@@ -17,9 +17,9 @@ custom business write, or a third-party service.
 
 ## The research rule
 
-Read the relevant shipped playbook first. For a genuine gap, use `wix-docs` to read the
-official method or feature guide, then implement that contract. One documentation lookup and
-one type check are enough before coding. Investigate further only after a concrete error.
+Read the relevant shipped playbook first. For anything it doesn't cover, use `wix-docs` to
+read the official method or feature guide, then implement that contract. One documentation
+lookup and one type check are enough before coding. Investigate further only after a concrete error.
 
 ## User-created public content
 
