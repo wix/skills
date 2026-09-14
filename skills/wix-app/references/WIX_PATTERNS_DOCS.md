@@ -37,6 +37,11 @@ assumes **1.465.0**+ (`OffsetQuery`, `useEntityPage`'s create route and typing r
 `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router
 paths).
 
+Step 5's triage degrades by version rather than breaking: `ownProps`/`inheritedProps` on a
+bundle-index entry ship from **1.466.0**, and `index.txt`'s `props`/`stubs` columns plus
+path-naming stubs from **1.469.0**. Below those, the split is still there to be found — it just
+costs the hop this chain exists to save.
+
 A missing *file* is not the same as a name not being covered — see below.
 
 **Patterns API facts come only from the three published trees — `dist/docs/` (the pages), `dist/dts-bundle/` (the types) and `dist/examples/` (the worked calls).** Never source a component, prop or type from `src/`, `dist/esm/`, `dist/cjs/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
@@ -78,9 +83,10 @@ library's answer and changes with it, so resolve the one you want against the in
 than against a list here.
 
 **To see that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB,
-one read, every curated name with its `kind`, `importPath` and file, tab-separated. Newer
-builds add `bytes`, `props` (`5/63` — what the file declares against what the symbol has) and
-`stubs`, which is step 5's triage for the whole namespace in a single read. Resolve names
+one read, every curated name with its `kind`, `importPath` and file, tab-separated. From
+**1.469.0** it also carries `bytes`, `props` (`5/63` — what the file declares against what the
+symbol has) and `stubs`, which is step 5's triage for the whole namespace in a single read. The
+header names the columns, so a glance at it tells you which build you have. Resolve names
 against the `.txt`; drop to the `.json` for `readWith` itself, `readWithBytes`, and the status
 prose.
 
@@ -203,12 +209,14 @@ whole answer" is a lookup, never an inspection:
 - `PrimaryActions` → `ownProps: 0, inheritedProps: 12`. A 470-byte file declaring none of them.
 - No `ownProps` on a component entry means no split: that file *is* the whole answer.
 
-Builds that ship it carry the same two in `index.txt` as `props` (`5/63`) and `stubs`, so one
+From **1.469.0** `index.txt` carries the same two as `props` (`5/63`) and `stubs`, so one
 cheap read triages every symbol at once. A `…Params` type built from `Pick<>`/`Omit<>` is the
 same trap in another shape.
 
-A split is not a dead end. The parent is a real file, `readWith` names it, and a stub in the
-file names it too — so **read that one file; it is one hop, not N.** The rest of `readWith` is
+A split is not a dead end. The parent is a real file, `readWith` names it, and from
+**1.469.0** the stub inside the file names it too (`Full shape: types/Filter.d.ts`; older
+builds say to look the name up in the index) — so **read that one file; it is one hop, not
+N.** The rest of `readWith` is
 types referenced *inside* it, which you open only if you need them. Judge by the entry's own
 `bytes`, never `readWithBytes`: `Table`'s are 5,277 and 31,731, and `CollectionTableBaseProps`'s
 are 20,802 and 78,171 — of which 37 KB is one file irrelevant to the props. The combined number
