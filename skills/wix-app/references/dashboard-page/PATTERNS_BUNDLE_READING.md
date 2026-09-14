@@ -46,6 +46,27 @@ than treating the doc as incomplete. The bundle is the better source anyway: it 
 `extends` clause with its exclusions, so `Omit<PopoverMenuItemProps, 'text' | 'prefixIcon' | 'onClick'>` tells
 you what you do *not* inherit, which the old doc link did not.
 
+## What the bundle leaves out
+
+The bundle exists to be read, and is abridged in two ways that mislead if you treat
+`dist/dts-bundle/index.json` as the list of what exists.
+
+**It omits names.** One measured install: 94 entries in the index, 212 names reachable from
+`dist/types/index.d.ts` — the path `package.json` actually points `tsc` at. `CollectionErrorState`,
+`ActionCell`, `BulkActionToolbar` and about a hundred more are exported and usable while absent from
+the index. A measured run lost a compile round to exactly this: the index had no
+`CollectionErrorState`, so the page substituted `CollectionEmptyState`, whose props differ.
+
+**It abridges types.** Some classes are published as stubs with an `[key: string]: unknown` index
+signature — `CollectionState`, `RangeFilterState`, `Filter`, `RangeItem` in some files. The stub is a
+docs convenience meaning "you receive this, you don't construct it". The real declaration is fully
+typed: `CollectionState` re-exports from `@wix/bex-core` with no index signature, so
+`state.collection.…` is properly typed and a wrong member is a compile error at the access.
+
+So the index tells you **which doc to read**. `dist/types/index.d.ts` and the compiler tell you
+whether something exists and what its type really is. Reach for the second only when the first comes
+up empty on a name you have reason to believe in — not as a browsing habit.
+
 ## Types the docs don't cover
 
 The same bundles also hold the types those props use — `Filter<T>`, `RangeItem<T>`, `CursorQuery`, a `...Props` interface. `Read <pkgRoot>/dist/dts-bundle/index.json`, look up the type name, then `Read <pkgRoot>/dist/dts-bundle/<entry.file>` using exactly the `file` path the index gives — **never reconstruct the path from the name**; bundles are nested one directory per kind (`components/Table.d.ts`, `hooks/useForm.d.ts`, `types/RangeItem.d.ts`, …), so guessing `<Name>.d.ts` at the top level is wrong by construction.

@@ -112,7 +112,7 @@ Presentation success applies across all five stages. Choose both the right **rep
 | **Kanban** | Work moves through meaningful stages. | Stage, workload, and valid movement are understandable. |
 | **Timeline or calendar** | Time, sequence, or scheduling matters. | Upcoming activity, conflicts, and timing are clear. |
 | **Chart** | The user needs to understand a trend or relationship. | The visualization answers a specific business question. |
-| **Summary metrics** | The user needs a quick health signal. | Metrics clarify current conditions and where to focus. |
+| **Summary metrics** | The request asked for a total, count, or "how many" figure. | Metrics clarify conditions and where to focus; uninvited, they just push the rows down. |
 
 - Choose the default view that best supports the primary task.
 - Offer another view only when it provides distinct value.
@@ -125,12 +125,15 @@ Choose the smallest interface that gives users enough context and room to comple
 
 | Interface | Use when… | Success looks like… |
 |---|---|---|
-| **Side panel** | The user should review or update one item while keeping the dashboard visible. | Context is preserved while deeper work remains focused. |
-| **Modal** | The user needs to complete a focused, bounded task or decision. | Attention stays on one task and the user can return cleanly. |
-| **Entity page** | The task involves complex details, multi-section editing, history, or related information. | The user has enough space and structure to complete deeper work. |
-| **Inline or expanded row** | The user needs a quick inspection or simple action. | Detail appears without creating a separate workspace. |
+| **Entity page** | The item is editable — the default for a business record. | Enough space and structure to complete deeper work. |
+| **Read-only detail page** | The collection is display-only. | Fully readable, linkable, one back-click from the list. |
+| **Modal** | A focused, bounded task that is not "open this record". | Attention stays on one task; the user returns cleanly. |
+| **Inline or expanded row** | A quick look *alongside* the drill-in, not instead of it. | Detail appears without a separate workspace. |
 
-Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in [Collection Toolkit](COLLECTION_TOOLKIT.md). Patterns has no side panel; that one is WDS.
+Opening an item is a **route**; a side panel is not one of the choices — in Cairo it hosts a page's
+own panels. A constraint, not a preference, and it outranks "smallest interface".
+
+Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in [Collection Toolkit](COLLECTION_TOOLKIT.md).
 
 
 ## Data Success
