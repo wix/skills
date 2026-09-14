@@ -4,11 +4,9 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  What should I fix next in my existing Wix Google Ads campaign on this site?
+  What should I fix next in my existing Wix Google Ads campaign on my site
+  (MSID: b342a30b-616e-40ce-ad26-52a83397e08e)?
 tags: [marketing]
-siteSetup:
-  mode: template
-  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -21,20 +19,34 @@ assertions:
       - routes the request to the campaign success guide for an existing Google
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
-      - explains that the guide is the next step for prioritized improvements;
-      - uses an unambiguous current site context when available and may list
-        that site's campaigns once to identify the target; if the current site
-        or campaign remains ambiguous, asks one focused selection question
-        rather than guessing or probing other sites; and
+      - uses site b342a30b-616e-40ce-ad26-52a83397e08e, lists that site's
+        campaigns at most once to identify the draft campaign, retrieves or
+        creates its campaign success guide, and presents the returned
+        suggestions as prioritized improvements;
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
-      This scenario runs against a shared site that may not have an accessible
-      Google Ads campaign. If one current-site campaign or guide call returns a
-      permission or not-found response, pass when the agent stops, explains the
-      limitation briefly, and asks for the missing campaign or access context.
-
       Fail if it gives only generic optimization advice, routes only to analytics
-      or pre-campaign suggestions, tells the user to wait for metrics, probes
-      several sites, retries a rejected call, guesses an ambiguous campaign, or
-      claims recommendations are automatically implemented.
+      or pre-campaign suggestions, does not retrieve the guide, uses a different
+      site, tells the user to wait for metrics, probes several sites, receives a
+      non-2xx response, guesses between multiple campaigns, or claims
+      recommendations are automatically implemented.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path to the campaign success guide
+      documentation followed by successful target resolution and guide
+      retrieval on site b342a30b-616e-40ce-ad26-52a83397e08e: select that site,
+      list its campaigns at most once if needed, retrieve or create the guide
+      once, and present its actual suggestions.
+
+      Penalize querying analytics first, routing through pre-campaign
+      suggestions, using a different site, probing multiple sites, guessing
+      between campaigns, any non-2xx call even if recovered, repeated calls,
+      unrelated or repeated documentation, and internal service or tool names
+      in the user-facing answer. Reading the campaign-lifecycle recipe once to
+      list the site's campaigns is relevant, not a detour. Name the likely
+      recipe, MCP, or docs gap for each detour. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.

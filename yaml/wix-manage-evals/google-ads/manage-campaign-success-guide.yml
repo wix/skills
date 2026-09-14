@@ -4,9 +4,10 @@ description: >-
   campaign creation without waiting for metrics, distinguishes it from
   pre-campaign suggestions, and waits for approval before retrieving it.
 triggerPrompt: >-
-  I just created my Google Ads lead campaign on Wix and it's still learning, so
-  I don't see any results yet. Can I use its campaign success guide now, or
-  should I wait?
+  I just created my Google Ads lead campaign on my Wix site (MSID:
+  b342a30b-616e-40ce-ad26-52a83397e08e), and it's still learning, so I don't
+  see any results yet. Can I use its campaign success guide now, or should I
+  wait?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
