@@ -2,18 +2,17 @@
 
 The commerce machinery ships as files — data layer, hooks, cart, checkout, SEO plumbing,
 typed end-to-end. **The presentation doesn't ship — you build it** on the shipped hooks/DTOs:
-the shop surface, the product (PDP) surface, the home page, and the brand. The skeletons
-below carry each surface's contract. You never write commerce code; you never skip designing
-the store.
+the shop and product (PDP) pages with their islands, the home page, and the brand. The
+skeletons below carry each page's contract — including the SSR and SEO machinery, which must
+be exact. You never write commerce code; you never skip designing the store.
 
 ## The file map (deployed into `src/`)
 
 **Don't read the shipped files** — this table and the contracts below are everything you
 need. Open a shipped file's source **only** on a real fallback: a runtime error, or a field
 this playbook doesn't cover. Files you edit: `SiteLayout.astro` and `styles/global.css`.
-Files you **create**: `components/storefront/ShopView.tsx` and
-`components/storefront/ProductDetailView.tsx` — the two islands the shipped pages import
-(skeletons below) — plus your home page.
+Files you **create** (skeletons below): the shop and PDP pages with their island components,
+plus your home page.
 
 | file | what it is |
 |---|---|
@@ -26,8 +25,7 @@ Files you **create**: `components/storefront/ShopView.tsx` and
 | `hooks/storefront/useShop.ts` | listing + live category filter — contract below |
 | `hooks/storefront/useProductDetail.ts` | option selection → variant resolution → add-to-cart — contract below |
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
-| `components/storefront/ShopView.tsx` | **doesn't ship — YOU create it** (skeleton below): the shop island `pages/shop.astro` imports |
-| `components/storefront/ProductDetailView.tsx` | **doesn't ship — YOU create it** (skeleton below): the PDP island `pages/products/[slug].astro` imports |
+| `components/storefront/ShopView.tsx` · `ProductDetailView.tsx` | **don't ship — YOU create them** (skeletons below): the client islands your shop and PDP pages mount |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — same token family as the official Wix templates). Everything, shipped and yours, styles from these tokens |
 
 Astro stack additionally gets:
@@ -35,21 +33,21 @@ Astro stack additionally gets:
 | file | what it is |
 |---|---|
 | `layouts/SiteLayout.astro` | the site chrome — **yours to brand**: header, footer, nav. Keep the `<slot name="seo-tags" />`, the global.css import, and the CartButton/CartDrawer mounts |
-| `pages/shop.astro` | SSR listing page — **keep it as shipped** (it fetches server-side and mounts your `ShopView`) |
-| `pages/products/[slug].astro` | SSR PDP with owner-editable SEO — **keep it as shipped**, including the SEO pieces (`wixMetadata`, `loadSEOTagsServiceConfig`, `<SEO.Tags>`); it mounts your `ProductDetailView` |
+| `pages/shop.astro` · `pages/products/[slug].astro` | **don't ship — YOU create them** (skeletons below): thin SSR pages that fetch server-side and mount your islands; the PDP page carries the owner-editable SEO machinery, exactly as its skeleton shows |
 
 ## What you build — this is the design job, not optional polish
 
-You implement **four surfaces yourself**, styled with Tailwind utilities on the `@theme`
-tokens, designed to fit the brief (the business, the tone, the audience — a toy brand and a
-jewelry house should not get the same store):
+You implement **three surfaces yourself** — each an SSR page plus its island, per the
+skeletons below — styled with Tailwind utilities on the `@theme` tokens, designed to fit the
+brief (the business, the tone, the audience — a toy brand and a jewelry house should not get
+the same store):
 
-1. **`ShopView`** (the shop island — skeleton below) — category filter + your grid of your
+1. **The shop page + `ShopView`** (skeletons below) — category filter + your grid of your
    tiles: image treatment, badges, price/sale presentation, hover behavior, grid rhythm
    (columns, density, maybe an editorial featured tile). `products === null` → skeleton tiles,
    `[]` → an honest empty state. Decompose into `ProductCard`/`ProductGrid` files if you like —
    your call, nothing prescribes it.
-2. **`ProductDetailView`** (the PDP island — skeleton below) — gallery, price/sale,
+2. **The PDP page + `ProductDetailView`** (skeletons below) — gallery, price/sale,
    description, your option-selection UI (color options = real swatches), quantity,
    add-to-cart — on `useProductDetail`, which owns ALL selection/variant logic; you own how it
    looks. This is the surface that most often looks generic — make the layout the brand's: an
@@ -94,20 +92,101 @@ flipped token values; add brand fonts as extra tokens) and the **chrome** (heade
 // the cart, and never chain checkout() onto an add without awaiting it successfully.
 ```
 
-### The two islands you create — skeletons
+### The pages and islands you create — skeletons
 
-The shipped pages already import these exact paths; create the files and the pages light up.
-Until both exist the Astro build fails on the missing imports — that's the gate working, not a
-defect. Data logic stays in the hooks — these are thin views. Hooks first, branches after (an early
-return above a hook changes hook order between renders and React throws).
+Nothing renders until you write these — the store IS your work. Each page is a thin SSR shell
+(fetch → DTO props → island); each island is a thin view over a hook. The pages' frontmatter
+is **machinery, not design** — reproduce it as the skeletons show, exactly. Hooks first,
+branches after (an early return above a hook changes hook order between renders and React
+throws).
+
+```astro
+---
+// src/pages/shop.astro — YOU create it. Products and categories are fetched SERVER-SIDE
+// (SEO: view-source shows product names) and handed to the island as serialized DTO props;
+// category switches then filter live on the client.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import ShopView from "../components/storefront/ShopView";
+import { fetchProducts, fetchCategories } from "../wix/storefront/catalog";
+import type { Category, ProductSummary } from "../wix/storefront/types";
+
+let products: ProductSummary[] = [];
+let categories: Category[] = [];
+try {
+  [products, categories] = await Promise.all([fetchProducts(), fetchCategories()]);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream; the island
+  // renders your empty state instead.
+}
+---
+<SiteLayout title="Shop">
+  <!-- your page heading / intro, then: -->
+  <ShopView client:load initialProducts={products} initialCategories={categories} />
+</SiteLayout>
+```
+
+```astro
+---
+// src/pages/products/[slug].astro — YOU create it. This is a Wix ITEM PAGE: the wixMetadata
+// export + <SEO.Tags> are what let the site owner edit this page's title/description/OG in
+// the dashboard and register the route in the sitemap. All three SEO pieces are REQUIRED,
+// exactly as here.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import ProductDetailView from "../../components/storefront/ProductDetailView";
+import { fetchProductBySlug } from "../../wix/storefront/catalog";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.checkoutAndOrders.id,
+  pageIdentifier: WIX_APPS.checkoutAndOrders.productPageMetadata.pageIdentifier,
+  identifiers: { slug: WIX_APPS.checkoutAndOrders.productPageMetadata.identifiers.handle },
+};
+
+const slug = Astro.params.slug!;
+
+// Behind Wix's proxy the request URL is the internal one — the real public page URL arrives
+// on x-wix-forwarded-url, and the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let product = null;
+let seoTagsServiceConfig = null;
+try {
+  [product, seoTagsServiceConfig] = await Promise.all([
+    fetchProductBySlug(slug),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.STORES_PRODUCT,
+      itemData: { slug },
+    }),
+  ]);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!product) {
+  return new Response(null, { status: 404 });
+}
+---
+<SiteLayout title={product.name}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+  <ProductDetailView client:load initial={product} />
+</SiteLayout>
+```
 
 ```tsx
-// src/components/storefront/ShopView.tsx — YOU build it; pages/shop.astro mounts it.
+// src/components/storefront/ShopView.tsx — YOU build it; your shop.astro mounts it.
 import { useShop } from "../../hooks/storefront/useShop";
 import type { Category, ProductSummary } from "../../wix/storefront/types";
 
 export default function ShopView(props: {
-  initialProducts?: ProductSummary[];   // SSR props from shop.astro — pass straight
+  initialProducts?: ProductSummary[];   // SSR props from your shop.astro — pass straight
   initialCategories?: Category[];       // to useShop; omitted in a SPA (client fetch)
 }) {
   const { products, categories, activeCategoryId, setActiveCategoryId, loading, error } =
@@ -125,7 +204,7 @@ export default function ShopView(props: {
 
 ```tsx
 // src/components/storefront/ProductDetailView.tsx — YOU build the whole PDP surface;
-// pages/products/[slug].astro mounts it with the server-fetched product.
+// your [slug].astro mounts it with the server-fetched product.
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
 import type { ProductDetail } from "../../wix/storefront/types";
 
@@ -153,10 +232,9 @@ export default function ProductDetailView(props: {
 ### Wiring — Astro (default)
 
 1. Set the `@theme` tokens (one edit); brand `SiteLayout.astro` (one pass).
-2. Create the two islands (skeletons above) at the exact paths the shipped pages import —
-   the pages themselves stay as shipped (frontmatter, SEO pieces, mounts). Primary-content
-   islands mount `client:load` with the SSR props; browser-state widgets (cart) are
-   `client:only="react"` — the shipped mounts show this.
+2. Create the shop and PDP pages and their islands per the skeletons above — frontmatter
+   machinery exact, presentation yours. Primary-content islands mount `client:load` with the
+   SSR props; browser-state widgets (cart) are `client:only="react"`.
 3. Write `pages/index.astro` (home) on `SiteLayout`.
 
 ### Wiring — React SPA (Vite etc.)
@@ -180,8 +258,8 @@ client id into `wix/config.ts`; nothing else to configure.
   parallel theme files, no hardcoded palette values in components.
 - Checkout only through the shipped cart (`checkout()`) — never a hand-built checkout URL.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
-- Keep the PDP page's SEO pieces (`wixMetadata` + `loadSEOTagsServiceConfig` + `<SEO.Tags>`)
-  exactly as shipped — owners edit those tags in their dashboard.
+- Your PDP page carries the SEO pieces (`wixMetadata` + `loadSEOTagsServiceConfig` +
+  `<SEO.Tags>`) exactly as the skeleton shows — owners edit those tags in their dashboard.
 - **Browsing, cart and checkout need no login.** They run on the Wix visitor session the
   shipped SDK client already holds. Don't gate the shop, the PDP or the cart behind sign-in,
   and don't add a members/auth flow unless the brief actually asks for accounts.

@@ -47,8 +47,8 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
   data-layer function. A privileged operation belongs in a validated server endpoint — see
   `references/shared/CUSTOM_OPERATIONS.md`. The presentation **doesn't ship**: the vertical's
   INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
-  with a skeleton carrying each surface's contract (for storefront: the shop + PDP islands,
-  home).
+  with a skeleton carrying each surface's contract (for storefront: the shop and PDP pages
+  with their islands, and home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -162,6 +162,7 @@ references/<vertical>/
   app-astro/           # Astro overlay importing ONLY from the core:
     pages/…            #   SSR fetch → DTO props → client:load islands; item pages carry
                        #   wixMetadata + <SEO.Tags>; chrome islands are client:only
+                       #   (storefront ships no pages — its INSTRUCTIONS carries their skeletons)
     layouts/…          #   (reuse SiteLayout when it fits)
   seed/                # seed-<vertical>.mjs (REST, mints its own CLI token) + SEED.md
 ```
