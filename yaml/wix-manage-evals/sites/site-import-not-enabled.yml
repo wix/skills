@@ -5,7 +5,7 @@ description: >-
   "contact Wix support", and a warm message pointing the user to the beta request form.
 triggerPrompt: >-
   Using the Wix Site Import API, start importing my store at
-  https://eval-scenario-8f2c14.example.com into a new Wix site.
+  https://harborview-outfitters.example.com into a new Wix site.
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
