@@ -1,15 +1,15 @@
 name: google-ads/manage-campaign-success-guide-update
 description: >-
-  Verifies the agent treats an unambiguous statement that the user completed a
-  success guide recommendation as sufficient information to perform the correct
-  status update without another confirmation step.
+  Verifies the agent finds the campaign success guide update endpoint and
+  constructs the correct request for a completed recommendation without
+  executing the mutation.
 triggerPrompt: >-
-  I made the call-to-action button clearer as this Wix site's Google Ads
-  campaign success guide recommended. Mark that recommendation as done.
+  I made the call-to-action button clearer as the Google Ads campaign success
+  guide recommended for my Wix site (MSID:
+  b342a30b-616e-40ce-ad26-52a83397e08e). Show me the exact Wix REST API request
+  you would use to mark that recommendation as done, but do not call the update
+  API or change the guide.
 tags: [marketing]
-siteSetup:
-  mode: template
-  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -19,26 +19,37 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - treats the user's completion statement as sufficient information and
-        does not ask whether they want to mark the recommendation complete or
-        which recommendation they mean;
-      - maps it to type CLEAR_CTA_COPY and status COMPLETED, identifying the
-        suggestion by type rather than by suggestion id;
-      - uses an unambiguous current site context when available and may list
-        that site's campaigns once to identify the target; if the current site,
-        campaign, or current guide remains ambiguous, asks one targeted
-        question rather than guessing or probing other sites; and
-      - does not claim that marking the item COMPLETED changed the campaign,
-        landing page, or call-to-action itself.
+      - identifies POST
+        https://www.wixapis.com/pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
+        as the update endpoint, with a campaign ID placeholder or a clearly
+        identified campaign ID in the path;
+      - constructs the request body with exactly the intended mapping:
+        type CLEAR_CTA_COPY and status COMPLETED, identifying the suggestion by
+        type rather than by suggestion ID;
+      - explains that site b342a30b-616e-40ce-ad26-52a83397e08e supplies the
+        site context and is not a field in this request body; and
+      - honors the dry-run instruction: it does not call the campaign, guide,
+        or update APIs and does not claim the guide was changed.
 
-      This scenario runs against a shared site and does not seed a Google Ads
-      campaign or guide. Treat the shared current site as selected. If one
-      current-site campaign or guide call returns a permission or not-found
-      response, pass when the agent stops, preserves the CLEAR_CTA_COPY / COMPLETED
-      mapping, and explains what access or campaign context is still needed.
+      Fail if it uses a suggestion ID in the URL, uses a different endpoint,
+      method, type, or status, adds the site ID to the request body, omits the
+      payload, performs any operational API call, claims the update happened,
+      or claims this tracking update implements the underlying landing-page
+      change.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct dry-run path: read the campaign
+      success guide documentation, find the update-suggestion-status endpoint,
+      and construct the correct CLEAR_CTA_COPY / COMPLETED request without
+      calling any campaign or guide API.
 
-      Fail if it treats the statement as an FYI, asks whether to perform the
-      update or which recommendation the user means, maps to a different or
-      multiple suggestions, probes several sites, guesses an ambiguous campaign
-      or guide item, retries a rejected call, or claims the underlying
-      recommendation was implemented.
+      Score below 7 if the agent makes any operational site, campaign, guide, or
+      update call, because this scenario must not mutate or depend on the static
+      fixture. Also penalize redundant documentation, a wrong endpoint or
+      request shape, a suggestion ID in place of the type, or internal service
+      or tool names in the user-facing answer. Name the likely recipe, MCP, or
+      docs gap for each detour. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.
