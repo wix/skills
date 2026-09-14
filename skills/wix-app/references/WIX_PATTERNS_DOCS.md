@@ -2,303 +2,96 @@
 
 ## Prerequisites
 
-Lookups here are direct file reads. Resolve the installed package root once per session and reuse it:
+Resolve the package root once per session and reuse it — a bare `require.resolve` throws under Yarn PnP:
 
 ```bash
 node <this-skill-dir>/scripts/pkg-root.cjs @wix/patterns
 ```
 
-It handles Yarn PnP, npm, pnpm and workspace layouts — a bare `require.resolve` throws in a Yarn Berry project even when the package is installed, so resolve through the script rather than inline.
+Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and — the one that matters — look for a **`Collection Toolkit`** key once step 1 has the docs index. The guides are *entries inside* that index rather than a directory, so no missing file reveals their absence.
 
-Then confirm the install is new enough, in two checks.
+**If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
-**The file check.** The type bundles ship from **1.458.0**:
-
-```bash
-ls <pkgRoot>/dist/dts-bundle/index.json
-```
-
-**The guide check — this is the one that matters.** The chain below reads the library's own
-guides, and they arrive as *entries inside* `dist/docs/index.json`, not as a new directory, so
-their absence cannot be seen by looking for a file. After step 1 reads that index, look for a
-**`Collection Toolkit`** key in what you already hold.
-
-**If either check fails, stop and upgrade `@wix/patterns` — do not work around it.** On an
-install without the guides, the answer to "which component serves this need" is in neither
-place: it used to live in this skill and now lives in the package, so proceeding means
-guessing component names, which is exactly the failure this chain exists to prevent. Do not
-look elsewhere in `node_modules` for a substitute.
-
-The guides ship from **1.468.0** at the earliest; the key probe, not that number, is what
-decides — and it has already earned that framing, since 1.466.0 and 1.467.0 were both cut
-before the guides landed. A later first release only moves the number; the probe stays
-correct. The rest of the chain also
-assumes **1.465.0**+ (`OffsetQuery`, `useEntityPage`'s create route and typing rule,
-`withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router
-paths).
-
-Step 5's triage degrades by version rather than breaking: `ownProps`/`inheritedProps` on a
-bundle-index entry ship from **1.466.0**, and `index.txt`'s `props`/`stubs` columns plus
-path-naming stubs from **1.469.0**. Below those, the split is still there to be found — it just
-costs the hop this chain exists to save.
-
-A missing *file* is not the same as a name not being covered — see below.
-
-**Patterns API facts come only from the three published trees — `dist/docs/` (the pages), `dist/dts-bundle/` (the types) and `dist/examples/` (the worked calls).** Never source a component, prop or type from `src/`, `dist/esm/`, `dist/cjs/`, or any other path inside the package, and never from a deep path a bundle happens to mention. Those are internals: they change without notice, they carry unresolved generics the bundles have already resolved, and a shape read from them compiles and then breaks at runtime.
-
-`dist/types/` is the one exception, and a narrow one: `package.json` points `types` at it, so it is the declaration `tsc` itself enforces. Reach for it only in the case step 5 names — a prop declaration the bundle stubbed away.
-
-Inside those three trees, read however is cheapest. `grep`/`sed` to pull one declaration out of a bundle is fine and usually better than a whole-file read — the ban is on *crawling elsewhere* for an answer these three trees already hold, not on being economical within them.
+**Patterns API facts come from three published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where step 5 says: `package.json` points `types` at it, so it is what `tsc` enforces. Within those trees, `grep`/`sed` for one declaration usually beats a whole-file read.
 
 ## The Discovery Chain
 
-Five steps, in order. Each one either answers from the index or names the exact file to
-open — none of them is a guess.
-
 ### 1 — The index
 
-**Probe `<pkgRoot>/dist/docs/index.json` — do not read it whole.** At ~80 KB a `Read` truncates
-part-way through and reports nothing, so the tail goes silently missing. Pull what you need with
-one `grep`/`python3` call, resolving every symbol you plan to write in that same call.
+**Probe `<pkgRoot>/dist/docs/index.json`; do not read it whole.** At ~80 KB a `Read` truncates part-way and reports nothing, so the tail goes silently missing. Pull what you need with one `grep`/`python3` call, resolving every symbol you plan to write in it.
 
-Start here, not with the bundle index: it carries an entry for every documented name *and* the
-library's own guides, and it is the larger of the two.
+Start here rather than the bundle index: it carries every documented name *and* the guides.
 
-**Read each entry's `summary` before deciding to open anything.** It is the opening paragraph
-of that page's description — what the symbol is and how it wires into your code — so for most
-questions the index *is* the answer, and step 4 resolves to no read at all. Nearly every entry
-carries one; an entry without it just sends you on to step 4.
+- **Read each entry's `summary` before opening anything.** It is that page's opening paragraph, so for most questions the index *is* the answer and step 4 becomes no read.
+- **Resolve against the keys *and* each entry's `symbols` aliases.** The index is keyed by Storybook title: `ExportButton` lives under `ExportTo`, `CollectionToolbarFilters` under `ToolbarFilters`. Matching is exact — scan for something close before concluding a name isn't covered.
+- **`status: "deprecated"`** means use what `statusMessage` names. A deprecated component still renders, so nothing else stops you.
 
-Resolve a name against the keys **and** each entry's `symbols` aliases: the index is keyed by
-Storybook title, so `ExportButton` lives under `ExportTo` and `CollectionToolbarFilters` under
-`ToolbarFilters`. Lookup is exact-match — no fuzzy matching — so if a key isn't there, scan the
-index you already hold for something close before concluding the name isn't covered.
+**Not in the docs index? Check `dist/dts-bundle/index.json` before concluding it does not exist.** It curates names with no page of their own — hooks, prop and query types, names re-exported from another package — and carries `importPath` and `file`, so step 4 still applies with no page to read.
 
-**Not in the docs index? Check `dist/dts-bundle/index.json` before concluding it does not
-exist.** It curates names that have no page of their own — hooks, prop types and query types
-you write without there being prose to read about them, including names re-exported from
-another package, whose real declaration it inlines. That index carries `importPath` and `file`
-too, so step 4 still applies; there is simply no page to read. Which names those are is the
-library's answer and changes with it, so resolve the one you want against the index rather
-than against a list here.
-
-**To see that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB,
-one read, every curated name with its `kind`, `importPath` and file, tab-separated. From
-**1.469.0** it also carries `bytes`, `props` (`5/63` — what the file declares against what the
-symbol has) and `stubs`, which is step 5's triage for the whole namespace in a single read. The
-header names the columns, so a glance at it tells you which build you have. Resolve names
-against the `.txt`; drop to the `.json` for `readWith` itself, `readWithBytes`, and the status
-prose.
-
-An entry's `status: "deprecated"` means use what its `statusMessage` names instead. Nothing
-else in this chain will stop you: a deprecated component still compiles and still renders.
+**For that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB, one read, every curated name with `kind`, `importPath` and file. From 1.469.0 it adds `bytes`, `props` (`5/63` — what the file declares against what the symbol has) and `stubs`: step 5's triage for every symbol at once, with the columns named in its header. Drop to the `.json` for `readWith`, `readWithBytes` and status prose.
 
 ### 2 — Composition, once per session
 
-`Read <pkgRoot>/dist/docs/Composition and Providers.md` before writing any patterns JSX.
-Which provider, the four nesting layers, the collection triad, and why the provider has to be
-a parent component rather than a sibling — the one that throws at runtime while the JSX looks
-right.
-
-Structural, so it is one read per session rather than one per component.
+`Read <pkgRoot>/dist/docs/Composition and Providers.md` before writing any patterns JSX: which provider, the four nesting layers, the collection triad, and why the provider must be a parent component rather than a sibling — the mistake that throws at runtime while the JSX looks right.
 
 ### 3 — Which component serves this need
 
 | Building | Guide |
 | --- | --- |
-| Anything collection-shaped — tables, filters, search, aggregates, row and bulk actions, empty states | `Read <pkgRoot>/dist/docs/Collection Toolkit.md` |
-| The path from a listed row to one record, and its form | `Read <pkgRoot>/dist/docs/Collection to Entity Flow.md` |
+| Anything collection-shaped — tables, filters, search, aggregates, row and bulk actions, empty states | `dist/docs/Collection Toolkit.md` |
+| The path from a listed row to one record, and its form | `dist/docs/Collection to Entity Flow.md` |
 
-Each guide's index entry carries `relatedComponents` — the list of names it recommends. Every
-name in it resolves, because `@wix/patterns` fails its own build otherwise. That list is the
-closest thing to a guarantee in this chain; prefer a name from it over one you recall.
+Each guide's index entry carries `relatedComponents`; every name in it resolves, because `@wix/patterns` fails its own build otherwise. Prefer one of those over a name you recall.
 
 ### 4 — Read only what answers your question, then stop
 
-Each symbol ships up to three artifacts, and they answer **different** questions. The entry
-from step 1 says which of them exist, so decide before you open anything:
-
 | Your question | Read | Path |
 | --- | --- | --- |
-| What is it, and how does it wire into my code? | **nothing** — the entry says | `summary` |
+| What is it, and how does it wire in? | **nothing** — the entry says | `summary` |
 | Where do I import it from? | **nothing** — the entry says | `importPath` |
-| How do I call it? Generics, what a callback receives and returns, how the pieces nest | one **example**, or a call in a guide's prose | `<pkgRoot>/dist/examples/<examples[i]>` · `<pkgRoot>/dist/docs/<guide>.md` |
-| What props does it take, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `<pkgRoot>/dist/dts-bundle/<bundle>` · absent: `<pkgRoot>/dist/docs/<file>` |
-| Is there a setup requirement or a gotcha? | the **doc's** prose | `<pkgRoot>/dist/docs/<file>` |
+| How do I call it? | one **example**, or a call in a guide's prose | `dist/examples/<examples[i]>` · `dist/docs/<guide>.md` |
+| What props, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `dist/dts-bundle/<bundle>` · absent: `dist/docs/<file>` |
+| A setup requirement or gotcha? | the **doc's** prose | `dist/docs/<file>` |
 
-The index hands you a bare value and the tree it belongs to is fixed — one tree per kind of
-answer: `file` is relative to `dist/docs/`, `examples` to `dist/examples/`, `bundle` to
-`dist/dts-bundle/`. Prefix them, and never reconstruct a path from the symbol name. (Examples
-moved out of `dist/docs/` into their own tree; on an install predating that, the same relative
-path resolves under `dist/docs/`, and the page's own "Example code: read" line says which.)
+Prefix the index's bare values with their tree — `file` → `dist/docs/`, `examples` → `dist/examples/`, `bundle` → `dist/dts-bundle/` — and never rebuild a path from a symbol name.
 
-**Those two middle rows are one question in practice.** You ask "how do I call it", start
-writing, and the question turns prop-shaped mid-call — at which point the second row sends you
-to a `.d.ts` that may be stubbed (step 5). So take the props off the example first: it shows
-them in use, correctly typed, in a real call. Go to the `.d.ts` for what an example cannot
-show — whether a prop is optional, the members of a union, an exact callback signature.
+**Those two middle rows are one question in practice.** You ask how to call it, start writing, and the question turns prop-shaped mid-call — where the second row sends you to a `.d.ts` that may be stubbed (step 5). Take the props off the example first; go to the `.d.ts` only for what it cannot show — optionality, union members, an exact callback signature.
 
-**A guide's prose often holds the call you need, matched to your use case.** `PrimaryActions`
-earned this line: its bundle stubs its own props type to `Record<string, unknown>`, while
-`usePatternsNavigate.md` carries `<PrimaryActions label="Add shift" onClick={…} />` verbatim,
-for exactly the add-button-on-a-collection-page case. When a step 3 guide named the component,
-the call is often already in something you have read — check that before opening anything.
+**A guide's prose often holds the call.** `PrimaryActions`' bundle stubs its own props type, while `usePatternsNavigate.md` carries `<PrimaryActions label="Add shift" onClick={…} />` verbatim. Check what you have already read before opening anything.
 
-**`bundle` and a doc props table are mutually exclusive.** An entry with `bundle` has no table
-on its page — its `### Props` is only a pointer, so reading the page for props is a wasted hop.
-An entry without `bundle` carries its own table, and that table marks which props are required,
-so the types add nothing.
+**`bundle` and a doc props table are mutually exclusive.** With `bundle`, the page's `### Props` is only a pointer; without it, that table marks what is required. Reading both is one hop too many.
 
-**A `.d.ts` names props; it never says what they do.** The rule above is about *props*, and it
-is easy to over-read as "this symbol is now answered" — it is not. Wiring, defaults and the
-contract between a prop and your own callbacks live in prose, and a `bundle` entry's page is
-where that prose is. `CollectionSearch` is the case that earned this paragraph: its bundle
-lists four optional props and no behaviour, while its page opens with "the search term is
-passed to your `fetchData` function via `query.search`" — the entire answer to *how do I wire
-a search box to my query*. Reading the bundle and stopping cost 54 seconds of reconstructing
-that from `ComputedQuery.d.ts`. That opening line is now the entry's `summary`, so the index
-settles it; when a behaviour question outlives the summary, open the page.
+**A `.d.ts` names props; it never says what they do.** Wiring and defaults live in prose: `CollectionSearch`'s bundle lists four optional props and no behaviour, while its page says the search term reaches your `fetchData` via `query.search`. When a behaviour question outlives the `summary`, open the page.
 
-Worked through on one entry, exactly as step 1 hands it to you:
-
-```json
-"useEntityPage": {
-  "file": "useEntityPage.md",
-  "importPath": "@wix/patterns",
-  "bundle": "hooks/useEntityPage.d.ts",
-  "propsTypeName": "UseEntityPageParams"
-}
-```
-
-- **Where do I import it from?** `@wix/patterns`, straight off `importPath`. No read.
-- **How do I call it?** No `examples` on this entry, so check the component it pairs with —
-  `EntityPage`'s entry lists `EntityPage/basic.tsx`, so
-  `Read <pkgRoot>/dist/examples/EntityPage/basic.tsx`.
-- **What are its props?** `bundle` is present, so
-  `Read <pkgRoot>/dist/dts-bundle/hooks/useEntityPage.d.ts` — not the page.
-- **Any setup requirement?** `Read <pkgRoot>/dist/docs/useEntityPage.md`.
-
-**When the artifact you want is not listed:**
-
-- **No `examples`?** A hook's usage is often filed under the component it belongs to rather
-  than under itself. Try that entry's examples before falling back to the types.
-- **No `importPath`?** It is a guide, or a name that is documented but not exported. There is
-  no import to take.
-- **The entry offers nothing at all?** It is a guide, or a state object you receive rather than
-  construct. Its doc is the only source — read it.
+**Artifact not listed?** No `examples` — a hook's usage is usually filed under the component it pairs with (`useEntityPage` → `EntityPage/basic.tsx`). No `importPath` — a guide, or documented but not exported. Nothing at all — a state object you receive rather than construct; its doc is the only source.
 
 ### 5 — Traps that make a read wrong
 
-**Search inside the file an index named, never across the tree.** A shared shape is re-stubbed
-in every bundle that references it, and a stub is a pointer, not a declaration — some types
-appear as a stub in dozens of files and are declared for real in exactly one. A tree-wide
-`grep` for a type name therefore returns mostly pointers, and the first hit is usually not the
-answer. Resolve the name to one file first, then search *that* file.
+**Search inside the file an index named, never across the tree.** A shared shape is re-stubbed in every bundle referencing it, so a tree-wide `grep` returns mostly pointers, and the first hit is rarely the declaration.
 
-**Most bundles stub the parent that holds the props — 70 of the 105 curated entries do** — and
-the index says so per entry, before you open anything. A symbol's props usually live on a type
-it extends, and that parent arrives as `{[key: string]: unknown}` under a "cut here because it
-has its own bundle" comment, so the file can declare almost none of them.
-
-**`dist/dts-bundle/index.json` is the triage surface, not merely a fallback for names the docs
-index lacks.** A component entry there carries `ownProps` / `inheritedProps` — what that file
-declares against what the symbol has — beside `bytes` and `readWith`. So "is this file the
-whole answer" is a lookup, never an inspection:
+**Most bundles stub the parent holding the props — 70 of the 105 curated entries do** — and the index says so per entry. **`dist/dts-bundle/index.json` is the triage surface, not merely a fallback for names the docs index lacks:** a component entry carries `ownProps` / `inheritedProps` beside `bytes` and `readWith`, so "is this file the whole answer" is a lookup, not an inspection.
 
 - `Table` → `ownProps: 5, inheritedProps: 58`, `readWith` naming 3 files. Five of sixty-three.
 - `PrimaryActions` → `ownProps: 0, inheritedProps: 12`. A 470-byte file declaring none of them.
-- No `ownProps` on a component entry means no split: that file *is* the whole answer.
+- No `ownProps` on a component entry means no split — that file *is* the whole answer.
 
-From **1.469.0** `index.txt` carries the same two as `props` (`5/63`) and `stubs`, so one
-cheap read triages every symbol at once. A `…Params` type built from `Pick<>`/`Omit<>` is the
-same trap in another shape.
+A split is not a dead end: the parent is a real file, `readWith` names it, and from 1.469.0 so does the stub inside the file (`Full shape: types/Filter.d.ts`). **Read that one file — one hop, not N.** The rest of `readWith` is types referenced *inside* it, opened only if needed. Judge by the entry's own `bytes`, never `readWithBytes` — `Table`'s are 5,277 against 31,731 — since the combined figure talks you out of a read you should just do. A `…Params` type built from `Pick<>`/`Omit<>` is the same trap in another shape.
 
-A split is not a dead end. The parent is a real file, `readWith` names it, and from
-**1.469.0** the stub inside the file names it too (`Full shape: types/Filter.d.ts`; older
-builds say to look the name up in the index) — so **read that one file; it is one hop, not
-N.** The rest of `readWith` is
-types referenced *inside* it, which you open only if you need them. Judge by the entry's own
-`bytes`, never `readWithBytes`: `Table`'s are 5,277 and 31,731, and `CollectionTableBaseProps`'s
-are 20,802 and 78,171 — of which 37 KB is one file irrelevant to the props. The combined number
-talks you out of a read you should just do.
+**When you do need several `readWith` files, read them in one call** — one `Read` per file in a single message. Reads measure ~21 ms each, so ten is a fifth of a second and one round trip. Deciding is what costs: decide once, then batch, and never hop one file per turn. Batching is not a licence to skip the filter, though — a few deliberate reads beat dozens of just-in-case ones.
 
-**When you do need several of the `readWith` files, read them in one call** — one `Read` per
-file in a single message. Reads measure ~21 ms each, so ten of them is a fifth of a second and
-one round trip. Deciding is what costs; decide once, then batch. Never hop one file per turn.
+**If the parent is large, take the declaration `tsc` uses.** `dist/types/components/CollectionTable/CollectionTable.d.ts` is 5,919 B against the bundle's 20,802 B, carries JSDoc, and states `columns: TableColumn<T>[]` (required) outright. Nothing there is stubbed, so a `grep` for a prop name is reliable. This case only.
 
-**If the parent is genuinely large, take the declaration `tsc` uses.** `dist/types/` is the
-enforced contract (per `package.json` `types`), carries JSDoc, and marks optionality — and here
-it is *smaller* than the doc tree's version:
-`dist/types/components/CollectionTable/CollectionTable.d.ts` is 5,919 B against the bundle's
-20,802 B and states `columns: TableColumn<T>[]` (required) outright. Use it for this only — a
-prop declaration the bundle stubbed. Nothing there is stubbed, so unlike the bundle tree a
-tree-wide `grep` for a prop name is reliable.
-
-What the generated files' conventions mean — which one-line stubs are answers rather than
-truncation, what a bare `import` implies, how entry-point files are scoped — is the library's
-own `Read <pkgRoot>/dist/docs/Reading the Doc Indices.md`. Read it before your first
-`dist/dts-bundle/*.d.ts` of the session.
-
-### Decide first, then batch what survives
-
-One index read covers the whole page, so list every symbol you plan to write — components,
-hooks, state types, prop types — and resolve each one against the index. Then, **per symbol**,
-apply step 4: take `importPath` as data, and open only the one artifact that answers your open
-question.
-
-Batch whatever survives into a single call — files opened one per call re-send the whole
-conversation each time, which is where a lookup session's token cost goes. But batching is not
-a licence to skip the filter: every file in a batch costs dispatch time regardless of its size,
-so a large defensive batch is slow before it is useful. A few deliberate reads beat dozens of
-just-in-case ones.
-
-```
-call 1   probe <pkgRoot>/dist/docs/index.json       <- names, importPath, bundle, examples
-         Read  <pkgRoot>/dist/docs/Collection Toolkit.md   <- a guide, from step 3
-
-         then, per symbol, from the entry you now hold:
-           importPath present            -> read nothing
-           need the call shape           -> read the one example
-           need props                    -> the example first
-           props the example can't show,
-             `bundle` present            -> that one .d.ts, unless it stubs (step 5)
-             no `bundle`                 -> the doc
-           need a setup requirement      -> read the doc
-
-call 2   Read <the files that survived>
-```
-
-Batch the follow-ups the same way: when a stub names another bundle, or a `readWith` names a
-set, collect them and read them together — after checking you still need them.
+The generated files' conventions — which one-line stubs are answers rather than truncation, how entry-point files are scoped — are in `dist/docs/Reading the Doc Indices.md`, worth reading before your first `dist/dts-bundle/*.d.ts` of the session.
 
 ### Rules for the reads themselves
 
-- **Use the exact `file`, `bundle` and `examples` values, prefixed per step 4; never
-  reconstruct a path from a name.** Bundles nest one directory per kind
-  (`components/Table.d.ts`, `hooks/useForm.d.ts`), so `<Name>.d.ts` at the top level is wrong
-  by construction — and an example is a slug from a variation title, so it is not derivable
-  either.
-- **Extract what you need, from the file the index named.** A whole-file `Read` is always safe
-  — the index's `bytes` says the size beforehand — and a targeted `grep`/`sed` inside
-  `dist/docs/`, `dist/examples/` or `dist/dts-bundle/` is fine and cheaper. Scope it to that
-  one file, per step 5.
-  If an extraction comes back empty or ambiguous, read the whole file rather than guessing from
-  a partial match.
-- **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system`
-  skill; do not open WDS files, and do not follow a deep `@wix/design-system/dist/...` path a
-  bundle mentions.
-- **If a name you genuinely need isn't in either index, stop and say so** — name the file and
-  the exact path that dead-ended. Do not guess a shape, and do not go hunting elsewhere in
-  `node_modules` — the `dist/types/` fallback in step 5 is the only sanctioned one, and it
-  applies to a stubbed prop declaration, not to a missing name. A wrong guess compiles and
-  breaks at runtime, which is worse than a missing type.
+- **Use the exact `file`, `bundle` and `examples` values, prefixed per step 4.** Bundles nest one directory per kind, so `<Name>.d.ts` at the top level is wrong by construction, and an example slug is not derivable from a title.
+- **Extract from the file the index named.** A whole-file `Read` is safe (`bytes` gives the size first); a scoped `grep`/`sed` is cheaper. If an extraction is empty or ambiguous, read the whole file rather than guess.
+- **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system` skill; never follow a deep `@wix/design-system/dist/...` path a bundle mentions.
+- **If a name is in neither index, stop and say so**, naming the path that dead-ended. A wrong guess compiles and breaks at runtime.
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then:
+A concept is only "missing" after you have checked both indices **and** searched by keyword in what you have read. Then look it up via the `wix-design-system` skill and render it *inside* the patterns page shell rather than in place of it; if WDS lacks it too, compose from `Box`, `Card` and `Text`. Never restyle patterns internals, and never add another UI library.
 
-1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
-2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
-3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals, never add another UI library.
-
-Anything page- or collection-shaped (shell, header, table, grid, filters, sorting, paging, row/bulk actions) is patterns' territory. Building one from WDS parts means a skipped lookup.
+Anything page- or collection-shaped is patterns' territory; building one from WDS parts means a skipped lookup.
