@@ -1,0 +1,53 @@
+name: sites/site-import-not-enabled
+description: >-
+  Verifies the agent handles a Start failure that means the account isn't part of the Site Import
+  closed beta: no probing other endpoints, no falling back to another site-creation tool, no
+  "contact Wix support", and a warm message pointing the user to the beta request form.
+triggerPrompt: >-
+  Using the Wix Site Import API, start importing my store at https://my-old-store.example.com into
+  a new Wix site.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to start a Site Import migration. Site Import is in closed beta and this
+      account is not enrolled, so calling Start (POST /v1/imports) fails (a 404/403, with or
+      without a NOT_ENABLED code, or some other non-success response).
+
+      Intent: apply the skill's closed-beta handling — recognize the failure means the account
+      isn't in the beta yet, and respond accordingly rather than treating it as a generic outage
+      or working around it.
+
+      Pass if the response:
+      - tells the user, in plain and friendly language, that Site Import is currently in a closed
+        beta and their account doesn't have access yet, AND
+      - points them to request access by filling out the form at
+        https://forms.gle/RfZqVRtGCsPv7U7M6, AND
+      - does NOT tell the user to "contact Wix support" or point them at the public
+        "importing a site created outside of Wix" help-center article, AND
+      - does NOT fall back to building the site with a different Wix site-creation tool
+        (e.g. WixSiteBuilder, CreateSiteFromTemplate) to compensate, AND
+      - does NOT show raw JSON, HTTP status codes, or invented ids as the primary answer.
+
+      Fail if the response:
+      - claims the import started successfully or shows a fabricated importId/deployUrl, OR
+      - tells the user to contact Wix support, OR
+      - silently switches to a different site-creation tool without telling the user, OR
+      - never mentions the closed beta or the request form, OR
+      - keeps retrying Start or probes unrelated endpoints instead of stopping and explaining.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled this from a tool-call/process perspective. Examine the
+      tool-call trace. Score 0-10 (10 = direct: recognized the closed-beta failure right away, gave
+      the user the form link, and stopped). Penalize and LIST any of: probing other endpoints
+      (site-properties, site-list, etc.) to "verify" the error; retrying Start repeatedly; calling
+      an unrelated site-creation tool after the failure; multiple back-and-forth turns before
+      reaching the form-link message. Return ONLY
+      {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.

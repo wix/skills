@@ -269,26 +269,31 @@ the user has no way to open a file.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
   errors.
-- **Site Import is in limited rollout, with no self-service enablement path.**
-  If Start returns `404` or `403` with `"code": "NOT_ENABLED"`, tell the user
-  plainly that site import isn't available on their account yet — then stop.
+- **Site Import is in closed beta, with no self-service enablement path.**
+  Start fails for any account that isn't in the beta — this shows up as a
+  `404` or `403` (with or without `"code": "NOT_ENABLED"`), or any other
+  error/exception raised while calling Start that isn't one of the specific,
+  recognizable cases below (bad request, `IMPORT_IN_PROGRESS`,
+  `SITE_UNIDENTIFIED`, `INVALID_FILE_URL`). Treat all of those the same way:
+  don't probe other endpoints to diagnose it, don't retry, and don't fall back
+  to another site-creation tool. Tell the user plainly and warmly that Site
+  Import is currently in a closed beta, that you'd be happy to help once
+  they're in, and that they can request access by filling out this short
+  form: https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up. Then
+  stop.
   **Do not tell them to "contact Wix support"**: this API is unlisted and
   ALPHA, Wix Support has no visibility into it or way to grant access, and the
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
-  dead end. If a Wix feedback tool is available in your environment, you may
-  offer to send feedback noting their interest; that is the only channel that
-  reaches the team. Do not retry or fall back to another site-creation tool.
-- Any other `403` on Start means the caller is not authorized — tell the user
-  and stop. Do not probe other endpoints to diagnose this. A `400` means a
-  required field is missing (`request`/`message` must be 1–20000 chars),
-  `source_url` exceeds 2048 chars, or `fileUrls` has more than 20 entries or
-  one over 2048 chars. A request with no identifiable site (no `source_url`
-  and no URL in `request`) and no `fileUrls` is rejected with
-  `SITE_UNIDENTIFIED` — ask the user for the store URL or export file(s) and
-  retry. A `fileUrls` entry that isn't a reachable http/https URL rejects the
-  whole call with `INVALID_FILE_URL` — tell the user which link failed and ask
-  for a working one.
+  dead end. The form above is the only channel that reaches the team.
+- A `400` on Start means a required field is missing (`request`/`message`
+  must be 1–20000 chars), `source_url` exceeds 2048 chars, or `fileUrls` has
+  more than 20 entries or one over 2048 chars. A request with no identifiable
+  site (no `source_url` and no URL in `request`) and no `fileUrls` is rejected
+  with `SITE_UNIDENTIFIED` — ask the user for the store URL or export file(s)
+  and retry. A `fileUrls` entry that isn't a reachable http/https URL rejects
+  the whole call with `INVALID_FILE_URL` — tell the user which link failed and
+  ask for a working one.
 - Requesting an unknown id in `artifactIds` is silently ignored — not an error.
   A document simply may not exist yet on an earlier turn.
 - **The user cannot open files.** If a message mentions a document by filename,
