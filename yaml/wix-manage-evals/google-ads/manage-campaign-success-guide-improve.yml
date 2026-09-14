@@ -20,7 +20,7 @@ assertions:
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
       - uses site b342a30b-616e-40ce-ad26-52a83397e08e, lists that site's
-        campaigns at most once to identify the draft campaign, retrieves or
+        campaigns at most once to identify the campaign, retrieves or
         creates its campaign success guide, and presents the returned
         suggestions as prioritized improvements;
       - does not require the campaign to leave LEARNING or have performance
