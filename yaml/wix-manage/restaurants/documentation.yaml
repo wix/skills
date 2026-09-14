@@ -7,6 +7,11 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
 
+    - file: ../../../skills/wix-manage/references/restaurants/create-and-manage-restaurant-menus.md
+      title: Create and Manage Restaurant Menus
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]
+
     - file: ../../../skills/wix-manage/references/restaurants/restaurants-dashboard-navigation.md
       title: Restaurants Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants

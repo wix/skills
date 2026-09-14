@@ -371,6 +371,9 @@ Links Pricing Plans to Bookings services using the Benefit Programs API. Enables
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
 Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
 
+### [Create and Manage Restaurant Menus](references/restaurants/create-and-manage-restaurant-menus.md)
+Grab the site ID first, then create, update, list, hide, and delete Wix Restaurants menus with the Menus API. Use the correct menu wrapper, section IDs, revisions, and visibility settings, and confirm the finished menu with the user.
+
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
