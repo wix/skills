@@ -9,8 +9,7 @@ triggerPrompt: |-
   Wix site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e). It says I still need
   to clarify the main call-to-action button, move that action above the fold,
   configure Google Ads search themes, and connect Merchant Center, in that
-  order. What should I do next? Include links to the places I need to go, but
-  don't change anything until I approve it.
+  order. What should I do next? Don't change anything until I approve it.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
