@@ -30088,32 +30088,62 @@ exports.TokenProvider = TokenProvider;
 
 "use strict";
 
+/**
+ * Whether a PR's author may spend an eval run.
+ *
+ * The question this asks is "did the author have push access to this repository",
+ * answered by where the PR's head branch lives. Only someone with push access can
+ * create a branch in the repo itself; everyone else must fork, and a fork's head
+ * lives in their own namespace. The author cannot forge that — unlike a commit
+ * author email, which is free text copied from `user.email`.
+ *
+ * **`author_association` does not work for this**, which is worth recording because it
+ * looks like it should. That field is viewer-relative: GitHub computes the copy in an
+ * Actions webhook payload without visibility into private org membership, so a member
+ * whose membership is private is reported as `CONTRIBUTOR`. Measured on wix/skills, every
+ * recent PR author reads `MEMBER` to an authenticated viewer and `CONTRIBUTOR` to the
+ * payload, because none of them is a *public* org member. A gate on that field refuses
+ * everybody.
+ *
+ * This check is the same one the workflows already apply at the job level
+ * (`github.event.pull_request.head.repo.full_name == github.repository`), so the action
+ * agrees with its own trigger rather than inventing a second notion of trust.
+ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isWixAuthorEmail = isWixAuthorEmail;
-exports.getFirstCommitAuthorEmail = getFirstCommitAuthorEmail;
-exports.assertWixAuthor = assertWixAuthor;
-const WIX_EMAIL_RE = /@wix\.com$/i;
-function isWixAuthorEmail(email) {
-    return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
+exports.readHeadRepoFullName = readHeadRepoFullName;
+exports.isSameRepoBranch = isSameRepoBranch;
+exports.assertSameRepoBranch = assertSameRepoBranch;
+/**
+ * The full name (`owner/repo`) of the repository holding the PR's head branch.
+ *
+ * `null` when GitHub reports no head repository. Per its payload schema `head.repo` is
+ * `oneOf: [repository, null]`, and it goes null when the source fork has been deleted.
+ * That is a real, reachable state rather than a malformed payload — and it is emphatically
+ * not this repository, so it reads as a refusal rather than an error.
+ */
+function readHeadRepoFullName(payload) {
+    const fullName = payload.pull_request?.head?.repo?.full_name;
+    return typeof fullName === 'string' && fullName.trim() !== '' ? fullName : null;
 }
-async function getFirstCommitAuthorEmail(octokit, owner, repo, prNumber) {
-    // listCommits returns the PR's commits oldest-first; we only need the first,
-    // so ask for a single-item page rather than paginating the whole PR.
-    const { data } = await octokit.rest.pulls.listCommits({
-        owner,
-        repo,
-        pull_number: prNumber,
-        per_page: 1,
-    });
-    return data[0]?.commit?.author?.email ?? undefined;
+/**
+ * True when the PR's head branch lives in this repository, which means its author had
+ * push access here.
+ *
+ * Compared case-insensitively: GitHub treats owner and repository names that way, and a
+ * gate should not turn on the casing of a string it did not choose.
+ */
+function isSameRepoBranch(headRepoFullName, owner, repo) {
+    if (headRepoFullName === null)
+        return false;
+    return headRepoFullName.trim().toLowerCase() === `${owner}/${repo}`.toLowerCase();
 }
-async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
-    const email = await getFirstCommitAuthorEmail(octokit, owner, repo, prNumber);
-    if (!isWixAuthorEmail(email)) {
-        throw new Error(`PR author gate failed: the PR's first-commit author email (${email ?? 'unknown'}) ` +
-            `is not a @wix.com address. This gate is restricted to Wix authors.`);
+function assertSameRepoBranch(headRepoFullName, owner, repo, log) {
+    if (!isSameRepoBranch(headRepoFullName, owner, repo)) {
+        throw new Error(`PR author gate failed: this pull request's head branch is in ` +
+            `${headRepoFullName ?? 'a repository that no longer exists'}, not ${owner}/${repo}. ` +
+            `This gate is restricted to branches pushed to ${owner}/${repo}, which requires write access.`);
     }
-    log?.(`Author gate passed — first-commit author email: ${email}`);
+    log?.(`Author gate passed — head branch is in ${owner}/${repo}, so its author has write access.`);
 }
 
 
@@ -62852,6 +62882,7 @@ function getSyncConfig() {
         repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
         githubToken: core.getInput('github-token', { required: true }),
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+        headRepoFullName: (0, evalforge_core_1.readHeadRepoFullName)(github.context.payload),
     };
 }
 /** Newline-separated list input, falling back to `fallback` when blank. */
@@ -63008,6 +63039,7 @@ function getGateConfig() {
         comparisonGroupId: (0, node_crypto_1.randomUUID)(),
         runsPerScenario,
         baseArmGraceMs: getBaseArmGraceSeconds() * 1_000,
+        headRepoFullName: (0, evalforge_core_1.readHeadRepoFullName)(github.context.payload),
     };
 }
 function getAnalyzeConfig() {
@@ -63094,16 +63126,16 @@ const gate_scope_1 = __nccwpck_require__(355);
 const sync_draft_scenarios_1 = __nccwpck_require__(9542);
 const run_and_report_1 = __nccwpck_require__(7535);
 async function runGate() {
+    // No recovery path here any more: the head repository is on the payload, so the gate always
+    // has an answer. There is no lookup to fail and nothing for a `blocking` run to trip over.
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, report_1.makeGateCommenter)(octokit, config);
-    // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
-    // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
-    // a green check would look like a pass.
-    const author = await (0, pr_lookups_1.checkPrAuthor)(octokit, config);
+    // First, so a fork PR costs nothing. Skips rather than fails, and says so on the PR,
+    // since otherwise a green check would look like a pass.
+    const author = (0, pr_lookups_1.checkPrAuthor)(config);
     if (!author.allowed) {
-        const log = author.isUnexpected ? core.warning : core.info;
-        log(`Skipping wix-app eval gate — ${author.reason}`);
+        core.info(`Skipping wix-app eval gate — ${author.reason}`);
         await comment((0, evalforge_core_1.formatGateSkipped)(author.reason));
         return;
     }
@@ -63297,23 +63329,18 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
 const AUTHOR_ALLOWED = { allowed: true };
 /**
- * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
- * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ * Whether the gate may run for this PR's author.
+ *
+ * Synchronous and client-free: the association is already on the payload the workflow was
+ * triggered by, so there is no lookup here to blip, and no "could not resolve" case.
  */
-async function checkPrAuthor(octokit, config) {
-    try {
-        const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
-        if ((0, evalforge_core_1.isWixAuthorEmail)(email))
-            return AUTHOR_ALLOWED;
-        return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
-    }
-    catch (error) {
-        return {
-            allowed: false,
-            reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`,
-            isUnexpected: true,
-        };
-    }
+function checkPrAuthor(config) {
+    if ((0, evalforge_core_1.isSameRepoBranch)(config.headRepoFullName, config.owner, config.repo))
+        return AUTHOR_ALLOWED;
+    return {
+        allowed: false,
+        reason: 'the PR branch is not in this repository, so its author has no write access',
+    };
 }
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */
 async function isDraftTagActive(octokit, tag) {
@@ -63767,7 +63794,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.applyPlan = applyPlan;
 exports.runSync = runSync;
 const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const workspace_1 = __nccwpck_require__(9620);
@@ -63802,11 +63828,9 @@ async function applyPlan(client, projectId, plan) {
 }
 async function runSync() {
     const config = (0, config_1.getSyncConfig)();
-    const octokit = github.getOctokit(config.githubToken);
     const [owner, repoName] = config.repo.split('/', 2);
-    const authorEmail = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, owner, repoName, config.prNumber);
-    if (!(0, evalforge_core_1.isWixAuthorEmail)(authorEmail)) {
-        core.info('Skipping wix-app sync — PR author is not a @wix.com address');
+    if (!(0, evalforge_core_1.isSameRepoBranch)(config.headRepoFullName, owner, repoName)) {
+        core.info('Skipping wix-app sync — the PR branch is not in this repository');
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();

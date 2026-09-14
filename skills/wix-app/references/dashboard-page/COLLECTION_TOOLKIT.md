@@ -57,10 +57,11 @@ A dialog that creates, updates or displays one listed record is **not** a dashbo
 
 | Need | Component |
 | --- | --- |
-| Row actions | `PrimaryActions`, `SecondaryActions`, `More Actions`, `deleteSecondaryAction` |
-| Page-level button | `PrimaryPageButton`, `PrimaryActionButton` |
+| Page header actions | `PrimaryActions`, `SecondaryActions`, `More Actions` — passed to the page header's `primaryAction`, `secondaryActions` and `moreActions` slots |
+| Table toolbar button | `PrimaryActionButton` — the table's own `primaryActionButton` prop |
+| Row actions | `deleteSecondaryAction`, in the row's `actionCell` |
 | Acting on a multi-row selection | `MultiBulkActionToolbar`, `bulkActionModal` |
-| Immediate feedback, then reconcile | `useOptimisticActions`, `CollectionOptimisticActions` |
+| Immediate feedback, then reconcile | `useOptimisticActions(state.collection)` ✅ — not `useOptimisticActions(state)` ❌: `useTableCollection()` returns `TableState<T, F>`, and the hook takes the `CollectionState<T, F>` that state exposes as `state.collection`. Returns `CollectionOptimisticActions` |
 | A banner above the table | `TableTopNotification` |
 
 ## The states that are not the happy path

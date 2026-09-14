@@ -1,0 +1,69 @@
+name: seo/manage-content-plan-happy-path
+description: >-
+  Requires the full generation workflow on an isolated site with business data:
+  trigger, reach KEYWORD_RESEARCH, release, reach SUCCESS, and read candidates.
+triggerPrompt: >-
+  Generate an SEO content plan for my Wix site and show me the resulting blog
+  post topics. Continue until the plan is ready; I want the actual results.
+tags: [seo, content-plan]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-and-read-a-wix-site-s-content-plan
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Require evidence of ALL steps in order for the same flow:
+      1. POST /content-plan-flows/trigger and capture the returned contentPlanFlowId.
+      2. GET /content-plan-flows/{id} until contentPlanFlow.status is KEYWORD_RESEARCH.
+      3. POST /create-content-plan with that ID and confirm success.
+      4. GET the same flow until status SUCCESS.
+      5. GET /content-plan-flows/{id}/blog-post-candidates and report actual returned topics.
+      Score 0 if any step is missing, if only an explanation/promise is given,
+      or if results are fabricated. PENDING_REQUIREMENTS, FAIL, or a timeout
+      must be reported honestly but do not pass this happy-path scenario.
+      Reading docs and triggering/polling alone are not completion.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 0-10 for a clean completed generation: one trigger, bounded status
+      checks, one successful release at KEYWORD_RESEARCH, then SUCCESS and
+      reading the actual candidates. Routine necessary polling is not friction.
+      Score 0 for polling the parked state without releasing, missing the release,
+      no API execution, or claiming completion without reading candidates.
+      Penalize guessed shapes, repeated triggers, non-2xx errors, and unnecessary
+      discovery after the recipe already supplies the needed request shape.
+      Identify likely skill, MCP, API, or provisioning causes for each friction.
+      Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      # Fixture provisioning only: general site properties do not populate the
+      # SEO location prerequisite. Keep this internal setup out of the public skill.
+      - label: seed online SEO business location
+        method: post
+        url: https://manage.wix.com/_api/seo-business-location-service/v1/upsert-business-location
+        body:
+          businessLocation:
+            id: "{{siteId}}"
+            physicalLocations: []
+            serviceLocations: []
+            online: true
+      # Keyword research requires a primaryBaseUrl; template copies are drafts.
+      - label: publish disposable content plan fixture
+        method: post
+        url: https://www.wixapis.com/site-publisher/v1/site/publish
+        body: {}
+      - label: set business context for content plan generation
+        method: patch
+        url: https://www.wixapis.com/site-properties/v4/properties
+        body:
+          properties:
+            categories:
+              primary: "Online Store"
+            description: "A store selling handmade ceramic products and home goods."
+          fieldMask: "categories,description"

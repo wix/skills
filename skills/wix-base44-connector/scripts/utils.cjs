@@ -39,9 +39,12 @@ async function req(method, url, body, token) {
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) } });
   if (!r.ok) {
     const head = (await r.text()).slice(0, 300);
-    throw new Error(r.status + " " + head + (r.status < 500
-      ? " — a 4xx means wrong body or reference: read this endpoint's contract before changing the call"
-      : ""));
+    const guidance = r.status === 401 || r.status === 403
+      ? " — check the endpoint's required caller identity, token validity, and permissions"
+      : r.status >= 400 && r.status < 500
+        ? " — read the API error and endpoint contract before changing the call"
+        : "";
+    throw new Error(r.status + " " + head + guidance);
   }
   return r.json();
 }
@@ -350,9 +353,13 @@ async function spec(arg) {
   const code = /^async function/.test(s) ? s
     : /^https:\/\/dev\.wix\.com\/docs\//.test(s) ? "async function(){ return await getResourceSchemaByUrl(" + JSON.stringify(s) + "); }"
     : "async function(){ " + s + " }";
-  const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  const { result, error } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  // The envelope is 200 even when the query throws — the cause is in `error`, not the status.
+  // Surfacing it matters: swallowing it turns "your code threw" into "nothing matched".
+  if (error)
+    return { error, note: "the query threw — read the message and fix the code; don't re-send it unchanged" };
   if (result == null || (Array.isArray(result) && !result.length))
-    return { result, note: "empty — the query missed the shape; match your docsUrl against s.methods[].docsUrl" };
+    return { result, note: "the query ran but matched nothing — widen it, or check the url resolves" };
   const text = JSON.stringify(result, null, 1);
   if (text.length <= BUDGET) return result;
   let h = 5381;

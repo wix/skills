@@ -1,7 +1,6 @@
 import * as core from '@actions/core';
-import * as github from '@actions/github';
-import { EvalForgeClient, getFirstCommitAuthorEmail, isWixAuthorEmail, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
-import { getSyncConfig } from './config';
+import { EvalForgeClient, isSameRepoBranch, loadScenarios, planScenarioSync, type ScenarioSyncAction, type ScenarioSyncSkip } from '@wix/evalforge-core';
+import { getSyncConfig, type SyncConfig } from './config';
 import { workspaceRoot } from './workspace';
 
 export type ApplyPlanResult = { hasFailures: boolean };
@@ -41,12 +40,9 @@ export async function applyPlan(
 
 export async function runSync(): Promise<void> {
   const config = getSyncConfig();
-
-  const octokit = github.getOctokit(config.githubToken);
   const [owner, repoName] = config.repo.split('/', 2);
-  const authorEmail = await getFirstCommitAuthorEmail(octokit, owner, repoName, config.prNumber);
-  if (!isWixAuthorEmail(authorEmail)) {
-    core.info('Skipping wix-app sync — PR author is not a @wix.com address');
+  if (!isSameRepoBranch(config.headRepoFullName, owner, repoName)) {
+    core.info('Skipping wix-app sync — the PR branch is not in this repository');
     return;
   }
 

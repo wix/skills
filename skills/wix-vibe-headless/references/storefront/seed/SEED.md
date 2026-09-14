@@ -13,17 +13,15 @@ the `pricing-plans` vertical, not here.
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/storefront/seed/seed-store.cjs"));
 const ctx = { token: accessToken };
 
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
-// imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
-// result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
-// generate_image runs in the background while you build, so the urls are ready by seed time.
+// imageUrl: a public, fetchable https:// url — Wix copies the image bytes at attach time.
 const result = await seed.setupStore(ctx, {
-  currency: "EUR", // Use the user's requested currency; omit when none was specified.
+  currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
     // physical — a shipped item: carries `quantity` (the default type)
     { name: "The Glam Rocker", description: "Sequin-studded velvet legend…", price: 49.99, quantity: 12, imageUrl: imageUrls[0] },
@@ -38,17 +36,22 @@ const result = await seed.setupStore(ctx, {
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   imagesSkipped (product names whose imageUrl was not an absolute https:// url — attach those afterwards),
+//   productsWithoutImages (product names seeded with no imageUrl — attach afterwards once urls exist),
 //   currency: { requested, actual, status, warnings } }
 ```
 
-The optional `currency` sets the site's payment currency before product creation. Product prices
-are numbers in that currency; changing currency does not convert existing amounts. When omitted,
-the current site currency is preserved.
+The optional `currency` sets the site's payment currency before product creation. Pass it only when
+the user explicitly asked for a currency, or when it's obvious for the store — otherwise omit it. Do
+not infer a currency from the builder's country/region or the brief's language; when in doubt, leave
+it out and the current site currency is preserved. Product prices are numbers in that currency;
+changing currency does not convert existing amounts.
 Currency update or verification failures do not stop seeding: inspect `result.currency.status`
 and `warnings`, report the unresolved setting, and use the connector skill to resolve it. An
 unknown actual currency is `null`; do not replace currency symbols to simulate a successful update.
 Currency changes may take time to appear in existing product responses, even after carts and
-checkout use the new currency. Allow time for the change to propagate, then recheck the catalog.
+checkout use the new currency. If `result.currency.status` confirms the update succeeded, continue
+without waiting for or verifying the change in product responses or the preview.
 
 
 **Seeding is additive — never delete or overwrite existing content.** Don't clean up, don't remove
@@ -109,6 +112,8 @@ enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded he
 download — uploaded and created with both the file and stock, which is what the cart requires
 (`quantity` is ignored). It's also the only way in: a file-less digital product is created
 successfully, reads back healthy, and is then rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
+No real, fetchable file in hand → seed the product as **physical** with `inStock: true` and tell the
+user; swap it to a digital download once a real file exists.
 
 Two things this module does **not** seed, so don't try:
 
@@ -135,7 +140,6 @@ const products = await seed.bulkCreateProducts(ctx, [                 // → [{i
 ]);
 const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
 await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
-// images: use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
 await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
 ```
 

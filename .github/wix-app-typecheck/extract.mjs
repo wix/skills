@@ -125,7 +125,7 @@ if (filesWithStructuralErrors.size) {
 const pass2TsconfigPath = join(__dirname, '__pass2_tsconfig.json');
 writeFileSync(pass2TsconfigPath, JSON.stringify({
   compilerOptions: BASE_COMPILER_OPTIONS,
-  include: ['__generated__/**/*.tsx'],
+  include: ['env.d.ts', '__generated__/**/*.tsx'],
   exclude: [...filesWithStructuralErrors],
 }));
 

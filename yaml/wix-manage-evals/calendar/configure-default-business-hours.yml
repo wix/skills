@@ -1,0 +1,56 @@
+name: calendar/configure-default-business-hours
+description: >-
+  Verifies the business-hours recipe on a real task: change the default booking hours to
+  Mon-Fri 8am-4pm by updating the WORKING_HOURS events on the business calendar schedule
+  (not the Site Properties business schedule), without leaving duplicate hours behind.
+triggerPrompt: >-
+  Change my business's default booking hours on my Wix site to Monday through Friday,
+  8am to 4pm.
+tags: [bookings, calendar]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/calendar/skills/configure-default-business-hours
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to set the business's default booking hours to Monday-Friday,
+      8am-4pm. On a Wix Bookings site these hours are the recurring WORKING_HOURS events
+      on the business calendar schedule, and a fresh site already has default
+      working-hours events that must be updated or replaced — not duplicated.
+      Evaluate the final response and the Wix API calls made.
+
+      Pass if the agent:
+      - locates the business calendar schedule and its existing recurring WORKING_HOURS
+        events before changing anything, AND
+      - ends with the business schedule having Monday-Friday working hours of
+        08:00-16:00 — by updating the existing events, or by cancelling them and
+        creating replacements (one recurring event per weekday), with 2xx responses, AND
+      - does not leave both the old default hours and the new hours active on the same
+        days (no duplicate working-hours slots), AND
+      - reports the change based on successful responses.
+
+      Fail if the agent:
+      - sets the hours through the Site Properties business-schedule fields instead of
+        calendar events, OR
+      - creates new working-hours events without updating or removing the existing
+        defaults, leaving duplicate hours, OR
+      - changes a staff member's personal schedule instead of the business schedule, OR
+      - reports the hours as changed without the corresponding successful calls in the
+        trace, OR
+      - only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: find the schedule, query existing
+      MASTER working-hours events, one bulk update or cancel+create, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; querying events with
+      filters that silently return the wrong recurrence type; a request-body shape
+      guessed wrong then corrected; redundant or probing calls clearer docs would avoid.
+      For each friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

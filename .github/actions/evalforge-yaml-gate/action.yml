@@ -2,7 +2,7 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge; "review" runs the AI content review of a PR'
     required: false
     default: 'eval'
   github-token:
@@ -68,6 +68,31 @@ inputs:
     description: 'Raw `git diff --name-status` output for this push (required for merge-tag-sweep mode)'
     required: false
     default: ''
+  anthropic-api-key:
+    description: 'Anthropic API key for the AI reviewer (review mode). Never reaches a fork PR — GitHub withholds secrets from those'
+    required: false
+    default: ''
+  prompt-path:
+    description: 'Workspace-relative path to the review prompt. Defaults to the PR head, so a PR that improves the prompt is reviewed by the improved prompt'
+    required: false
+    default: '.github/prompts/skill-review.md'
+  anthropic-base-url:
+    description: 'Anthropic-compatible endpoint, without a trailing /v1 — the CLI appends /v1/messages itself. Defaults to the Wix AI Gateway; direct api.anthropic.com egress is IP-allowlisted at the org level, so a GitHub-hosted runner cannot reach it'
+    required: false
+    default: 'https://www.wixapis.com/anthropic'
+  review-model:
+    description: 'Model the reviewer runs on. The [1m] suffix matters against the gateway, which always serves the 1M context window while the SDK assumes 200K'
+    required: false
+    default: 'claude-sonnet-5[1m]'
+  review-effort:
+    description: 'Reasoning effort: low, medium, high, xhigh or max. The CLI defaults to xhigh, which this deliberately undercuts'
+    required: false
+    default: 'medium'
+  review-timeout-seconds:
+    description: 'Wall-clock ceiling for one review. Clamped rather than rejected, so a typo cannot fail a soaking check'
+    required: false
+    default: '600'
+
 outputs:
   status:
     description: 'Eval run terminal status: completed, failed, cancelled, timeout, or skipped (run-all mode only)'

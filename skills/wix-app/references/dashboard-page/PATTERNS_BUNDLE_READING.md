@@ -1,10 +1,34 @@
 # Reading `@wix/patterns` Bundles and Docs
 
-> **Scope.** You are here because a lookup in `dist/dts-bundle/index.json` or
-> `dist/docs/index.json` gave you an entry and you are about to open the file it names. Getting to that index in the first
-> place — resolving the package root, the version floor, the docs lookup, and the rule
+> **Precondition: an index entry.** Every path below is the `file` (or `bundle`) field of an entry
+> in `<pkgRoot>/dist/dts-bundle/index.json` or `<pkgRoot>/dist/docs/index.json`. If you haven't
+> read that index this session, you have no path to open — read it before anything else here.
+> Getting to it — resolving the package root, the version floor, the docs lookup, and the rule
 > against browsing `node_modules` by hand — is in
 > [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md). Nothing here replaces those steps.
+
+## Read the index once, then open its files in one call
+
+One index read covers the whole page. So name every symbol you plan to write — components, hooks,
+state types, prop types — look them all up in the index you now hold, and open what it named in a
+single call with one `Read` per file:
+
+```
+call 1   Read <pkgRoot>/dist/docs/index.json
+         Read <pkgRoot>/dist/dts-bundle/index.json
+
+call 2   Read <pkgRoot>/dist/docs/Table.md                            <- docs entry's `file`
+         Read <pkgRoot>/dist/docs/useTableCollection.md
+         Read <pkgRoot>/dist/dts-bundle/components/Table.d.ts         <- its `bundle`
+         Read <pkgRoot>/dist/dts-bundle/hooks/useTableCollection.d.ts
+         Read <pkgRoot>/dist/dts-bundle/types/TableState.d.ts         <- bundle entry's `file`
+```
+
+Two calls, not twenty-two — and nothing is lost by batching, because there is nothing to learn
+between the files: every path came out of the same index and `bytes` already told you each size.
+The same files opened one per call re-send the whole conversation once per file, which is where a
+lookup session's token cost actually goes. Batch the follow-ups the same way: when a doc names an
+example file, or a stub names another bundle (below), collect them and read them together.
 
 ## Where props live
 
@@ -63,7 +87,9 @@ A plain `import { X } from '<module>'` at the top of a bundle, with no note atta
 
 If a name you genuinely need stays unresolved after that, stop and say so, and name the bundle and the exact import path that dead-ended. Do not guess a shape and do not go spelunking in `node_modules` — a wrong guess compiles here and breaks at runtime, which is worse than the missing type.
 
-A handful of names carry `"status": "unreachable"` with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
+A handful of names carry `"status": "unreachable"` — plus `"unexported": true` from **1.465.0** — with a message saying not to import them (the `...BaseProps` interfaces a component's props `extends`). Read those for the props they contribute; don't write an import for them.
+
+`status` also carries `"deprecated"`, and there the `statusMessage` names the replacement — `PrimaryPageButton` says *"Use `PrimaryActions` component instead."* Check it before you commit to a name — nothing else in the lookup path will stop you, since a deprecated component still compiles and still renders. If the index calls a name deprecated, use what its message names instead.
 
 ## Subpath entry points
 

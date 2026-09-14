@@ -9,7 +9,7 @@ Bookings seed operation. Load it and call **`setupBookings` — the one-call pat
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/bookings/seed/seed-bookings.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 // ONE call: install → resolve staff → categories → services → CLASS sessions → images, all in the
@@ -104,7 +104,7 @@ Wix Rentals has no APIs of its own, so a rental is a Bookings service with renta
 field values.
 
 ```js
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/bookings/seed/seed-rentals.cjs"));
 await seed.setupRentals(ctx, {
   resourceTypeName: "Meeting rooms",
   resources: ["Room A", "Room B"],              // parallel capacity = MORE RESOURCES

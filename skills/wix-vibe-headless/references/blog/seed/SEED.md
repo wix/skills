@@ -15,7 +15,7 @@ for you (Blog binds the cover by the Wix Media file id, not a url).
 ```js
 // build-time exec_tool
 const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
-const seed = require("/app/.agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs");
+const seed = require(require("path").resolve(".agents/skills/wix-vibe-headless/references/blog/seed/seed-blog.cjs"));
 const ctx = { token: accessToken, siteId: WIX_METASITE_ID };
 
 const result = await seed.setupBlog(ctx, {

@@ -1,8 +1,7 @@
 # Animated Components
 
-Use this reference when the component's primary content is a **playable
-animation**—a Lottie/JSON animation, an animated GIF/SVG, a canvas/WebGL loop,
-or a video-like surface.
+Use this reference when the component's primary content **auto-advances or plays**
+— a slideshow/carousel/slider; a Lottie/JSON animation; an animated GIF/SVG, a canvas/WebGL loop, a video-like surface; or similar content a visitor should be able to start or stop.
 
 Every such component must ship an on-stage **play/pause button**.
 
@@ -22,7 +21,7 @@ Apply automatically — without being asked — whenever the component has an
 `autoPlay` prop **or** its primary content is a **startable / loopable**
 animation a visitor would reasonably want to start or stop:
 
-- Any component with an `autoPlay` prop (gallery, slider, carousel, etc.)
+- Slideshow, carousel, slider, or gallery that advances slides/cards
 - Lottie / JSON vector animations
 - Animated GIFs or animated SVGs
 - Canvas / WebGL animation loops
@@ -40,6 +39,8 @@ implementation detail.
    automatically, `loop` only when repeat behavior is supported, and
    `pauseButtonVisibility` for the on-stage control. When editing, preserve
    existing playback prop names and add only the missing safety contract.
+   Carousels, sliders, slideshows, and galleries **must** define `autoPlay`
+   (default `true`).
 2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
 3. **Play/pause button** — overlay `<button>` with inline SVG icon and CSS
    positioning; it must be a named part with `elementProps` wiring, a hover
@@ -57,7 +58,7 @@ able to force the safety control visible.
 import type { A11y, Direction } from '@wix/editor-react-types';
 
 export interface MyAnimationProps {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
@@ -215,7 +216,9 @@ Add `useIsEditMode` to the existing `@wix/react-component-utils` import. Then
 edit only the body of the existing `ComponentNamePreview` function — add the
 `isEditMode` check and gate the autoplay props. Do not touch the
 `withFallbackPlaceholder` call, the `withDefaults` export, or any other part
-of the file.
+of the file. The composition must keep `withDefaults` outside
+`withFallbackPlaceholder`, whether the calls are nested inline or assigned to
+component variables.
 
 ```tsx
 const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
