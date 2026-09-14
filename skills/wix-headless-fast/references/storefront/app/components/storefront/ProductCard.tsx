@@ -89,7 +89,7 @@ export default function ProductCard({
         <button
           type="button"
           disabled={busy}
-          onClick={() => addToCart(product.id).catch(() => {})}
+          onClick={() => void addToCart(product.id).catch(() => {})}
           className="mt-2 rounded-full border border-border px-4 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
         >
           Add to cart

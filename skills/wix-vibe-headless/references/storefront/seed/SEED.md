@@ -19,9 +19,7 @@ const ctx = { token: accessToken };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
-// imageUrl must be the FINAL https://media.base44.com/... url from the COMPLETED generate_image
-// result — not a still-generating /__generating__/<id>.png placeholder (Wix can't fetch that).
-// generate_image runs in the background while you build, so the urls are ready by seed time.
+// imageUrl: a public, fetchable https:// url — Wix copies the image bytes at attach time.
 const result = await seed.setupStore(ctx, {
   currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
@@ -38,6 +36,8 @@ const result = await seed.setupStore(ctx, {
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
+//   imagesSkipped (product names whose imageUrl was not an absolute https:// url — attach those afterwards),
+//   productsWithoutImages (product names seeded with no imageUrl — attach afterwards once urls exist),
 //   currency: { requested, actual, status, warnings } }
 ```
 
@@ -112,6 +112,8 @@ enrolls in — is **Pricing Plans**, not a Stores product, so it isn't seeded he
 download — uploaded and created with both the file and stock, which is what the cart requires
 (`quantity` is ignored). It's also the only way in: a file-less digital product is created
 successfully, reads back healthy, and is then rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
+No real, fetchable file in hand → seed the product as **physical** with `inStock: true` and tell the
+user; swap it to a digital download once a real file exists.
 
 Two things this module does **not** seed, so don't try:
 
@@ -138,7 +140,6 @@ const products = await seed.bulkCreateProducts(ctx, [                 // → [{i
 ]);
 const cats = await seed.createCategories(ctx, ["Legends"]);           // sequential → [{id,name}]
 await seed.addProductsToCategories(ctx, { [cats[0].id]: [products[0].id] });
-// images: use the FINAL https://media.base44.com/... url only (never a /__generating__/ placeholder)
 await seed.attachProductImages(ctx, products.map((p, i) => ({ id: p.id, url: imageUrls[i], altText: p.slug })));
 ```
 
