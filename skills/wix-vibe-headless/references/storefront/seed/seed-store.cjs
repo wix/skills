@@ -417,17 +417,17 @@ async function addProductsToCategories(ctx, mapping) {
 // caller never manages a revision token — attach any number of times, in any pass. Wix re-hosts the
 // image from the url server-side; the re-hosted media can take a little while to appear on read-back
 // (propagation) — that's normal, not a failure, so we don't block on it.
-const isPendingPlaceholder = (url) => typeof url === "string" && url.includes("/__generating__/");
+// Wix imports the image bytes server-side, so an attach needs an absolute, publicly fetchable url.
+const isFetchableImageUrl = (url) => typeof url === "string" && /^https:\/\//.test(url);
 
 async function attachProductImages(ctx, items) {
   if (!items?.length) return;
   if (items.some((it) => !it.id)) throw new Error("Image attachment requires a product ID for every item; no image request was sent.");
-  const pending = items.filter((it) => isPendingPlaceholder(it.url));
-  if (pending.length) throw new Error(
-    `Image url(s) for [${pending.map((it) => it.altText || it.id).join(", ")}] are /__generating__/ placeholders — ` +
-    `still generating, and Wix cannot fetch them. generate_image results update in place: re-read them, and a ` +
-    `completed one carries the final https://media.base44.com/... url. Re-call attachProductImages with final ` +
-    `urls. No image request was sent; products are unaffected.`);
+  const unfetchable = items.filter((it) => !isFetchableImageUrl(it.url));
+  if (unfetchable.length) throw new Error(
+    `Image url(s) for [${unfetchable.map((it) => it.altText || it.id).join(", ")}] are not absolute ` +
+    `https:// urls, and Wix copies the image bytes at attach time. Re-call attachProductImages once each ` +
+    `image has its final url. No image request was sent; products are unaffected.`);
   const ids = items.map((it) => it.id);
   const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
   const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
@@ -485,7 +485,7 @@ async function configureCurrency(ctx, requested) {
  *   categories?: { [categoryName]: string[] },   // map of category name -> product NAMES in it
  * }}
  * @returns { products: [{id,slug,revision,name}], categories: [{id,name}], imagesAttached: number,
- *             imagesSkippedPending?: string[], note?: string, currency: {requested,actual,status,warnings} }
+ *             imagesSkipped?: string[], note?: string, currency: {requested,actual,status,warnings} }
  */
 async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
   validateProducts(products);
@@ -510,18 +510,24 @@ async function setupStore(ctx, { products = [], categories = {}, currency } = {}
   const imageItems = withNames
     .map((p, i) => ({ id: p.id, url: products[i]?.imageUrl, altText: products[i]?.altText ?? p.slug, name: p.name }))
     .filter((it) => it.url);
-  // A /__generating__/ url is a generate_image result read too early: seed the product imageless
-  // and report it, so the caller re-reads the (in-place updated) result and attaches afterwards.
-  const readyItems = imageItems.filter((it) => !isPendingPlaceholder(it.url));
-  const skippedPending = imageItems.filter((it) => isPendingPlaceholder(it.url)).map((it) => it.name);
+  // A url Wix cannot fetch would fail the attach: seed the product imageless and report it,
+  // so the caller attaches once the final url exists.
+  const readyItems = imageItems.filter((it) => isFetchableImageUrl(it.url));
+  const skipped = imageItems.filter((it) => !isFetchableImageUrl(it.url)).map((it) => it.name);
   if (readyItems.length) await attachProductImages(ctx, readyItems);
 
+  const withoutImages = withNames.filter((p, i) => !products[i]?.imageUrl).map((p) => p.name);
   return {
     products: withNames, categories: cats, imagesAttached: readyItems.length,
-    ...(skippedPending.length && {
-      imagesSkippedPending: skippedPending,
-      note: "these images were still generating at seed time — re-read their generate_image results " +
-        "(they update in place to status 'completed' with the final url) and attach with attachProductImages",
+    ...(skipped.length && {
+      imagesSkipped: skipped,
+      note: "these products' image urls were not absolute https:// urls — attach them with " +
+        "attachProductImages once each image has its final url",
+    }),
+    ...(withoutImages.length && !skipped.length && {
+      productsWithoutImages: withoutImages,
+      note: "these products were seeded without an image — once their images have final urls, " +
+        "attach them with attachProductImages",
     }),
     currency: currencyResult,
   };

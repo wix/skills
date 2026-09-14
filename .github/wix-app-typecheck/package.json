@@ -17,6 +17,7 @@
     "@wix/bookings": "*",
     "@wix/categories": "*",
     "@wix/crm": "^1.0.1534",
+    "@wix/custom-extensions": "^0.2.14",
     "@wix/dashboard": "^1.3.43",
     "@wix/data": "^1.0.461",
     "@wix/design-system": "^1.285.0",

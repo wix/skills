@@ -19,6 +19,7 @@ const ctx = { token: accessToken };
 // ONE call: install (+ wait for V3) → create products → categories → attach images, ids kept
 // in memory (no hand-threading). Categories map name -> product NAMES. Pass an imageUrl per product
 // to attach its image; omit it to skip images.
+// imageUrl: a public, fetchable https:// url — Wix copies the image bytes at attach time.
 const result = await seed.setupStore(ctx, {
   currency: "EUR", // Pass only if the user asked for a currency or it's obvious for the store; else omit this line.
   products: [
@@ -35,7 +36,8 @@ const result = await seed.setupStore(ctx, {
   categories: { "Legends": ["The Glam Rocker"], "Rising Stars": [] },   // omit if the brief names none
 });
 // result: { products:[{id,slug,revision,name}], categories:[{id,name}], imagesAttached,
-//   imagesSkippedPending (product names whose image was still generating — attach those afterwards),
+//   imagesSkipped (product names whose imageUrl was not an absolute https:// url — attach those afterwards),
+//   productsWithoutImages (product names seeded with no imageUrl — attach afterwards once urls exist),
 //   currency: { requested, actual, status, warnings } }
 ```
 
