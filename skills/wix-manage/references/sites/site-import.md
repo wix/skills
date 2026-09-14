@@ -270,22 +270,23 @@ the user has no way to open a file.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
   errors.
 - **Site Import is in closed beta, with no self-service enablement path.**
-  Start fails for any account that isn't in the beta — this shows up as a
-  `404` or `403` (with or without `"code": "NOT_ENABLED"`), or any other
-  error/exception raised while calling Start that isn't one of the specific,
-  recognizable cases below (bad request, `IMPORT_IN_PROGRESS`,
-  `SITE_UNIDENTIFIED`, `INVALID_FILE_URL`). Treat all of those the same way:
-  don't probe other endpoints to diagnose it, don't retry, and don't fall back
-  to another site-creation tool. Tell the user plainly and warmly that Site
-  Import is currently in a closed beta, that you'd be happy to help once
-  they're in, and that they can request access by filling out this short
-  form: https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up. Then
-  stop.
+  A `404` or `403` on Start — with or without `"code": "NOT_ENABLED"` — means
+  this account isn't in the beta. Don't probe other endpoints to diagnose it,
+  don't retry, and don't fall back to another site-creation tool. Tell the
+  user plainly and warmly that Site Import is currently in a closed beta,
+  that you'd be happy to help once they're in, and that they can request
+  access by filling out this short form: https://forms.gle/RfZqVRtGCsPv7U7M6 —
+  the team will follow up. Then stop.
   **Do not tell them to "contact Wix support"**: this API is unlisted and
   ALPHA, Wix Support has no visibility into it or way to grant access, and the
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
+- For any other unrecognized error or exception on Start — a transient server
+  error, a timeout, a rate limit, or anything that isn't the closed-beta case
+  above or one of the specific cases below — don't guess that it's a
+  beta-enrollment issue and don't retry silently. Tell the user the import
+  couldn't be started, share what went wrong in plain language, and stop.
 - A `400` on Start means a required field is missing (`request`/`message`
   must be 1–20000 chars), `source_url` exceeds 2048 chars, or `fileUrls` has
   more than 20 entries or one over 2048 chars. A request with no identifiable

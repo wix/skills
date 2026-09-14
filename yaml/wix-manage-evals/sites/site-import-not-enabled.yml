@@ -16,8 +16,8 @@ assertions:
     maxTokens: 2048
     prompt: |
       The user asked to start a Site Import migration. Site Import is in closed beta and this
-      account is not enrolled, so calling Start (POST /v1/imports) fails (a 404/403, with or
-      without a NOT_ENABLED code, or some other non-success response).
+      account is not enrolled, so calling Start (POST /v1/imports) fails with a 404 or 403
+      (with or without a NOT_ENABLED code).
 
       Intent: apply the skill's closed-beta handling — recognize the failure means the account
       isn't in the beta yet, and respond accordingly rather than treating it as a generic outage
