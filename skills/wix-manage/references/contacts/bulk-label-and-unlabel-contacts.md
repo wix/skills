@@ -1,11 +1,28 @@
 ---
 name: "Bulk Label and Unlabel Contacts"
-description: Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
+description: Creates contact label definitions or adds/removes labels from matching contacts. Use Find or Create Label for label creation alone; use bulk labeling only when the user requests contact assignments.
 ---
 # Bulk Label And Unlabel Contacts
 
 ## Description
 Adds and removes labels from multiple contacts using the Wix Contacts REST API.
+
+## Create labels or assign labels?
+
+If the user asks to **create a label** (for example, "Create VIP, Wholesale, and Newsletter labels"), use [Find or Create Label](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/labels/find-or-create-label) directly. Creating a label definition does not require finding contacts or starting a bulk labeling job.
+
+```http
+POST https://www.wixapis.com/contacts/v4/labels
+Content-Type: application/json
+
+{"displayName":"VIP"}
+```
+
+Use the returned `label` and its `key`; `newLabel` distinguishes a newly created label from an existing one. For several names, make one call per name and check each result. Stop here when the request is only to create labels: do not assign them to contacts.
+
+If the user asks to **label or unlabel contacts**, resolve the requested label keys first, then follow the bulk assignment flow below. Create a missing label only when that is part of the authorized request. An explicit request to create labels or apply them to a specified set of contacts authorizes that operation; otherwise confirm the target and intended change before mutating.
+
+## Bulk assignment flow
 
 Labels are added to and removed from all contacts that meet the specified `filter` and `search` criteria.
 The request should specify a `filter` value, a `search` value, or both.

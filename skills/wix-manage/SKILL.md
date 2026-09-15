@@ -126,7 +126,7 @@ Creates resource types and individual resources using Resources API. Enables ser
 ## Calendar
 
 ### [Configure Default Business Hours](references/calendar/configure-default-business-hours.md)
-Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
+Configures Wix Bookings default availability with Calendar WORKING_HOURS events. For general site opening hours, use the Site Properties business schedule instead; choose the intended surface before querying or installing Bookings.
 
 > Dashboard links for calendar surfaces (availability, default business hours) are in [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md).
 
@@ -163,7 +163,7 @@ Create and modify CMS collection structures. Covers listing collections, creatin
 Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
 
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
-Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
+Creates contact label definitions or adds/removes labels from matching contacts. Use Find or Create Label for label creation alone; use bulk labeling only when the user requests contact assignments.
 
 ### [Create a Contact](references/contacts/create-a-contact.md)
 Creates a contact with the Contacts API. Covers the minimum identifying fields, the single-object shape of `email` and `phone`, and adding a physical address with the ISO 3166-2 subdivision format required for state, region, and province codes.
@@ -211,7 +211,7 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 **Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping + gift cards), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling), shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup), AND selling gift cards (denominations sized from the site's own AOV and catalog prices). Use this for business improvement requests about earning more from existing visitors. **Traffic acquisition (SEO, ads, social, content) is out of scope** — route "grow my traffic" to marketing.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
-**Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
+Routes discounts, coupons, sales and bundles to promotion recipes, and visual product ribbons to the Catalog Ribbons API. Load this dispatcher for mixed pricing/refund/payment/product-price/shipping requests to choose the appropriate APIs.
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
