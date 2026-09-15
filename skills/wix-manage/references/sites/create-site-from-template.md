@@ -63,6 +63,7 @@ curl -X GET \
 - Template name and description
 - Color scheme
 
+
 ### Present Templates to User
 
 For each relevant template, show:
@@ -72,6 +73,13 @@ For each relevant template, show:
 - Color scheme
 - Preview link: `https://www.wix.com/website-template/view/html/{templateSlug}`
 
+### Critical Notes: Do NOT Auto-Select Templates
+
+- **NEVER** pick a template on behalf of the user — even if only one result matches.
+- **ALWAYS** present the search results as a list and **STOP and WAIT** for the user to choose.
+- Template search and site creation **MUST be separate tool calls** — never combine them into a single `ExecuteWixAPI` code block.
+- Only proceed to Step 3 **after the user has explicitly selected a template** by name or number.
+- If the search returns no results, tell the user and suggest refining the search — do NOT fall back to a default template silently.
 ---
 
 ## Step 3: Create the Site
