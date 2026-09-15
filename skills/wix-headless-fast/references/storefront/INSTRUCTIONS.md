@@ -73,9 +73,11 @@ flipped token values; add brand fonts as extra tokens) and the **chrome** (heade
 //   sort: keyof SORTS, setSort(sort), filters, setFilters({ minPrice?, maxPrice?, inStockOnly?, search? }),
 //   loading, error, retry(), hasMore, loadMore(), loadingMore }
 // Category = { id, slug, name }. Render the filter bar only when categories.length > 1.
-// Sort/filter/search/paging run on Wix across the WHOLE catalog (a change restarts the list);
-// SORTS (exported next to useShop) maps sort keys to display labels. hasMore → render a
-// "load more" control calling loadMore() (disabled while loadingMore).
+// Sort/filter/search/paging run on Wix across the WHOLE catalog (a change restarts the list).
+// SORTS (exported next to useShop) is Record<sortKey, { label: string }> — the value is an
+// OBJECT, so render entry.label, never the entry itself:
+//   Object.entries(SORTS).map(([key, { label }]) => <option value={key}>{label}</option>)
+// hasMore → render a "load more" control calling loadMore() (disabled while loadingMore).
 
 // useProductDetail({ initial? /* SSR */, slug? /* SPA */ }) →
 // { product: ProductDetail|null, notFound,
@@ -103,7 +105,10 @@ Nothing renders until you write these — the store IS your work. Each page is a
 (fetch → DTO props → island); each island is a thin view over a hook. The pages' frontmatter
 is **machinery, not design** — reproduce it as the skeletons show, exactly. Hooks first,
 branches after (an early return above a hook changes hook order between renders and React
-throws).
+throws). The islands render on the server too (`client:load` SSRs), and by then the 200 and
+headers are already sent — a render throw truncates the body mid-stream and surfaces to the
+visitor as `ERR_HTTP2_PROTOCOL_ERROR`, not an error page. Render every state totally; nothing
+in a render path may throw.
 
 ```astro
 ---
