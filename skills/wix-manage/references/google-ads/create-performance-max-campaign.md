@@ -184,6 +184,8 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/campaigns/{campaignId}/launc
 
 Returns the campaign with an updated `status`. Ads begin serving across Google channels; see [Query Campaign Performance Analytics](query-campaign-analytics.md) — PMAX Leads supports per-asset metrics.
 
+**Editing the campaign afterwards** — a new headline, another search theme, a different budget or geo target — goes through [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) § Update a campaign. Read the campaign back and send the whole entity, asset group included — assets missing from an update payload are rejected or dropped, not left alone.
+
 ---
 
 ## Error handling
