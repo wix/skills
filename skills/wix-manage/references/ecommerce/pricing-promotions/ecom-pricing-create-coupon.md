@@ -203,16 +203,21 @@ alternative when the goal is just to stop it from applying.
   it, that request is already the confirmation — proceed, but mention that it's permanent and that
   deactivating is the reversible option, in case they meant that instead.
 - If the request is **ambiguous** — "clean up my old coupons," "get rid of unused ones," no
-  code/ID given, or more than one coupon could match — this is a two-turn flow, not one:
-  1. Query coupons, decide which one(s) look like candidates (expired, inactive, unused), and
-     **stop there.** List the candidate coupon(s) — name, code, why each qualifies — and ask the
-     merchant which to delete.
-  2. Do **not** call Delete Coupon in that same turn. Wait for the merchant's reply naming which
-     coupon(s) to remove, THEN delete only those.
+  code/ID given, or more than one coupon could match — which coupon(s) to delete is a decision
+  only the merchant can make, not something to resolve in code. Treat it exactly like any other
+  input you can't get from a prior tool result or the user's own message:
+  1. Query coupons and identify which one(s) look like candidates (expired, inactive, unused).
+  2. Stop. Your response for this turn is the candidate list — name, code, why each qualifies —
+     and the question "which of these should I delete?" **No Delete Coupon call belongs in this
+     turn, at all, for any candidate — not even a conditional one that only fires if a candidate
+     matches your filter.** A delete call constructed and executed in the same run as the query,
+     including inside a combined query+filter+delete script, is the failure this guardrail exists
+     to prevent, whether or not a coupon actually ends up deleted.
+  3. Only after the merchant's reply names which coupon(s) to remove, call Delete Coupon — and
+     only on those.
 
-  Calling Delete Coupon on a candidate before the merchant has replied — even ones that look
-  obviously stale — is exactly the failure this guardrail exists to prevent. Never guess which
-  one(s) they meant.
+  Never guess which one(s) they meant, and never fold the delete into the same tool call as the
+  query "to save a round trip" — that round trip is the point.
 
 **Endpoint**: `DELETE https://www.wixapis.com/stores/v2/coupons/{id}`
 
