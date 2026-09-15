@@ -24,7 +24,9 @@ would plausibly control independently in the editor. It receives:
 
 - one prefixed global class: `'<component-name>-<part-name>'`
 - one CSS Module class
-- one matching `elementProps` entry, spread onto the element
+- one matching `elementProps` entry, spread onto the element. Declare `a11y` on
+  the entry only when the part reads `ariaLabel`, and destructure it out before
+  spreading (see `ACCESSIBILITY.md`)
 
 Apply this filter to every candidate:
 

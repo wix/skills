@@ -15,29 +15,42 @@ after every JSX edit.
 
 ## Implementation Contract
 
-### Route ARIA Through `a11y`
+### Own Accessibility per Part
 
-Do not add individual public props such as `ariaLabel`, `ariaDescribedBy`, or
-`role`. Use the platform `A11y` type and convert it at the semantic target.
+Use the platform `A11y` type instead of individual public props such as
+`ariaLabel`, `ariaDescribedBy`, or `role`. For each part:
+
+- Prefer a native element.
+- Keep roles, heading levels, keyboard and focus behavior, relationships, live
+  regions, and widget state in component code.
+- Read `a11y.ariaLabel` only when a control has no visible name.
+
+Every `a11y` field that reaches the DOM becomes an editor control. Read only the
+field the part needs and write it as its HTML attribute,
+`aria-label={a11y?.ariaLabel}`. Never spread the whole object.
 
 ```tsx
-import type { A11y, Direction } from '@wix/editor-react-types';
-import { convertA11yKeysToHtmlFormat } from '@wix/react-component-utils';
+import type { A11y } from '@wix/editor-react-types';
 
-export type TabsProps = {
-  id: string;
-  className?: string;
-  direction?: Direction;
-  a11y?: A11y;
+type ToggleProps = {
+  elementProps?: { toggle?: { className?: string; a11y?: A11y } };
 };
 
-<nav {...(a11y && convertA11yKeysToHtmlFormat(a11y))}>{tabs}</nav>;
+function Toggle({ elementProps }: ToggleProps) {
+  const { a11y: toggleA11y, ...toggleProps } = elementProps?.toggle ?? {};
+
+  return (
+    <button {...toggleProps} aria-label={toggleA11y?.ariaLabel ?? ARIA_LABELS.toggle}>
+      <ChevronIcon aria-hidden="true" />
+    </button>
+  );
+}
 ```
 
-Apply root accessibility to the elected root. If requirements assign
-accessibility to a named inner part, route it through that part's
-`elementProps.<name>.a11y` contract and convert it on the actual semantic
-element.
+Keep the root's typed `a11y?: A11y` prop even when it reads no field. Destructure
+`a11y` out of an `elementProps` entry before spreading the entry; a spread entry
+records the nested object as a whole. Image alt text comes from the `Image`
+type's `alt` field, not from `a11y`.
 
 ### Provide Accessible Names
 
@@ -158,9 +171,9 @@ Verify all of the following after triaging scanner output.
 
 ### Semantic Targeting
 
-- `a11y` is typed and converted on the correct semantic element.
+- Every `a11y` read is a necessary `ariaLabel` written as `aria-label`; no
+  whole-object spread remains.
 - Wrappers and polymorphic components preserve their documented semantics.
-- Configurable heading or tag choices reach the rendered element.
 - Extension overrides preserve generated accessibility fields.
 
 ### Names and Visual Content
