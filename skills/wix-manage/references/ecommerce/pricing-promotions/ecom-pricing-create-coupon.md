@@ -195,7 +195,16 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 ## Step 5: Delete a coupon
 
-**Confirm with the merchant before deleting** — this permanently removes the coupon and its usage history. If the goal is just to stop it from applying, use Update Coupon instead (`PATCH /stores/v2/coupons/{id}` with `"specification": { "active": false }`) so it can be re-activated later.
+Deleting permanently removes the coupon and its usage history — Update Coupon (`PATCH
+/stores/v2/coupons/{id}` with `"specification": { "active": false }`) is the reversible
+alternative when the goal is just to stop it from applying.
+
+- If the merchant names a **specific** coupon (by code, name, or ID) and explicitly asks to delete
+  it, that request is already the confirmation — proceed, but mention that it's permanent and that
+  deactivating is the reversible option, in case they meant that instead.
+- If the request is **ambiguous** — "clean up my old coupons," "get rid of unused ones," no
+  code/ID given, or more than one coupon could match — query first, then confirm with the merchant
+  exactly which coupon(s) will be deleted before calling Delete Coupon. Never guess which one they meant.
 
 **Endpoint**: `DELETE https://www.wixapis.com/stores/v2/coupons/{id}`
 
