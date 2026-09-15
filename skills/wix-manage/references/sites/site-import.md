@@ -24,8 +24,7 @@ and report the final result.
 5. **This API is the only site-creation tool for this task** — never
    substitute other Wix site-builder tools (see Scope).
 
-Base URL: `https://www.wixapis.com/site-import`. All calls use account-level
-scope on the signed-in Wix user's account. A full import typically takes
+Base URL: `https://www.wixapis.com/site-import`. A full import typically takes
 15–60 minutes.
 
 ## Calling the API
@@ -46,16 +45,30 @@ nothing useful.
 page, or any client-side code — those fail with CORS. The entire experience
 is plain chat — API calls plus short messages.
 
-Use the Wix account-level REST API tool available in your environment with
-the **full URL**. Start, Send-a-message, and Cancel are mutating (POST);
-Poll is read-only (GET).
+Use the Wix REST API tool available in your environment with the **full
+URL** (account-level, or site-scoped with a target `siteId` — see Start
+below for when each applies). Start, Send-a-message, and Cancel are mutating
+(POST); Poll is read-only (GET).
 
-Example — Start:
+Example — Start, account-level (creates a new site):
 
 ```
 POST https://www.wixapis.com/site-import/v1/imports
 Body: {
   "request": "Import https://example-store.com into a new Wix site",
+  "source_url": "https://example-store.com"
+}
+```
+
+Example — Start, site-scoped (imports into the user's existing site — same
+body, plus a `wix-site-id` header naming the destination site; see the
+Destination note under Start below):
+
+```
+POST https://www.wixapis.com/site-import/v1/imports
+Headers: { "wix-site-id": "<destination siteId>" }
+Body: {
+  "request": "Import https://example-store.com into my site",
   "source_url": "https://example-store.com"
 }
 ```
@@ -183,9 +196,18 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
      `request`, and no `fileUrls`, is rejected with `SITE_UNIDENTIFIED`.
    Returns: `importId`, `sourcePlatform`, `sourceConfidence`, `destinationSiteId`.
    `sourcePlatform` comes back as `CSV` for a FILE run (no site was probed, so
-   `sourceConfidence` is meaningless there). `destinationSiteId` is the id of
-   the Wix site being imported into — returned as soon as Start succeeds,
-   even before a source is confirmed.
+   `sourceConfidence` is meaningless there).
+   **Destination (new site vs. an existing site) is decided by call scope, not
+   a body field:** account-level (no site context) always creates a brand-new
+   site — the default when the user has none yet or wants a fresh one;
+   site-scoped (adding a `wix-site-id: <siteId>` header, same body — see the
+   examples above) writes into that existing site instead. Ask the user which
+   they want before calling Start — it can't change afterward — and if they
+   already have a destination site, add the `wix-site-id` header for every
+   call on that `importId` (Poll, Send-a-message, Cancel included), or you'll
+   silently create an unwanted second site. `destinationSiteId` in the
+   response echoes this (empty = new site, set = that existing site), returned
+   as soon as Start succeeds, even before a source is confirmed.
    **One import per store at a time, keyed on `source_url`** (or the file set
    when there's no `source_url`): re-starting with the same identity continues
    the SAME migration (server returns the existing `importId`, no new import
@@ -238,7 +260,9 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
   - `FAILED` — terminal. Relay `message` in plain words.
   - `AUTH_EXPIRED` — recoverable, NOT success, nothing is live (golden rule 1).
     Tell the user the connection to their account expired and you're restarting,
-    then call Start again with the same request — work so far is preserved.
+    then call Start again with the same request, using the same call scope
+    (account-level, or the same `wix-site-id`) as the original Start — work so
+    far is preserved.
   - `CANCELLED` — terminal.
 - **Anything the user says mid-import goes straight to Send-a-message** — no
   need to wait for `NEEDS_INPUT`.
@@ -269,26 +293,32 @@ the user has no way to open a file.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
   errors.
-- **Site Import is in limited rollout, with no self-service enablement path.**
-  If Start returns `404` or `403` with `"code": "NOT_ENABLED"`, tell the user
-  plainly that site import isn't available on their account yet — then stop.
+- **Site Import is in closed beta, with no self-service enablement path.**
+  A `404` or `403` on Start — with or without `"code": "NOT_ENABLED"` — means
+  this account isn't in the beta. Don't probe other endpoints to diagnose it,
+  don't retry, and don't fall back to another site-creation tool. Tell the
+  user plainly and warmly that Site Import is currently in a closed beta,
+  that you'd be happy to help once they're in, and that they can request
+  access by filling out this short form: https://forms.gle/RfZqVRtGCsPv7U7M6 —
+  the team will follow up. Then stop.
   **Do not tell them to "contact Wix support"**: this API is unlisted and
   ALPHA, Wix Support has no visibility into it or way to grant access, and the
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
-  dead end. If a Wix feedback tool is available in your environment, you may
-  offer to send feedback noting their interest; that is the only channel that
-  reaches the team. Do not retry or fall back to another site-creation tool.
-- Any other `403` on Start means the caller is not authorized — tell the user
-  and stop. Do not probe other endpoints to diagnose this. A `400` means a
-  required field is missing (`request`/`message` must be 1–20000 chars),
-  `source_url` exceeds 2048 chars, or `fileUrls` has more than 20 entries or
-  one over 2048 chars. A request with no identifiable site (no `source_url`
-  and no URL in `request`) and no `fileUrls` is rejected with
-  `SITE_UNIDENTIFIED` — ask the user for the store URL or export file(s) and
-  retry. A `fileUrls` entry that isn't a reachable http/https URL rejects the
-  whole call with `INVALID_FILE_URL` — tell the user which link failed and ask
-  for a working one.
+  dead end. The form above is the only channel that reaches the team.
+- For any other unrecognized error or exception on Start — a transient server
+  error, a timeout, a rate limit, or anything that isn't the closed-beta case
+  above or one of the specific cases below — don't guess that it's a
+  beta-enrollment issue and don't retry silently. Tell the user the import
+  couldn't be started, share what went wrong in plain language, and stop.
+- A `400` on Start means a required field is missing (`request`/`message`
+  must be 1–20000 chars), `source_url` exceeds 2048 chars, or `fileUrls` has
+  more than 20 entries or one over 2048 chars. A request with no identifiable
+  site (no `source_url` and no URL in `request`) and no `fileUrls` is rejected
+  with `SITE_UNIDENTIFIED` — ask the user for the store URL or export file(s)
+  and retry. A `fileUrls` entry that isn't a reachable http/https URL rejects
+  the whole call with `INVALID_FILE_URL` — tell the user which link failed and
+  ask for a working one.
 - Requesting an unknown id in `artifactIds` is silently ignored — not an error.
   A document simply may not exist yet on an earlier turn.
 - **The user cannot open files.** If a message mentions a document by filename,
