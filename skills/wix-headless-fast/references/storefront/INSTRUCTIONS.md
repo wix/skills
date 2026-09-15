@@ -19,7 +19,7 @@ plus your home page.
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
 | `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `formatMoney()` — already used by everything shipped |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`) — contracts inlined below |
-| `wix/storefront/catalog.ts` | `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `resolveVariant` |
+| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/search + cursor paging, all server-side), `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `resolveVariant` |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
 | `hooks/storefront/useCart.ts` | cart state + actions — contract below |
 | `hooks/storefront/useShop.ts` | listing + live category filter — contract below |
@@ -67,10 +67,15 @@ flipped token values; add brand fonts as extra tokens) and the **chrome** (heade
 //   imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */, quickAddable: boolean }
 // price vs maxPrice differ → show a range. quickAddable → useCart().addToCart(product.id).
 
-// useShop({ initialProducts?, initialCategories? }) →
+// useShop({ initialProducts?, initialCategories?, pageSize? /* 24 */ }) →
 // { products: ProductSummary[]|null /* null = loading → skeletons */, categories: Category[],
-//   activeCategoryId: string|null, setActiveCategoryId(id|null), loading, error }
+//   activeCategoryId: string|null, setActiveCategoryId(id|null),
+//   sort: keyof SORTS, setSort(sort), filters, setFilters({ minPrice?, maxPrice?, inStockOnly?, search? }),
+//   loading, error, retry(), hasMore, loadMore(), loadingMore }
 // Category = { id, slug, name }. Render the filter bar only when categories.length > 1.
+// Sort/filter/search/paging run on Wix across the WHOLE catalog (a change restarts the list);
+// SORTS (exported next to useShop) maps sort keys to display labels. hasMore → render a
+// "load more" control calling loadMore() (disabled while loadingMore).
 
 // useProductDetail({ initial? /* SSR */, slug? /* SPA */ }) →
 // { product: ProductDetail|null, notFound,
@@ -113,7 +118,7 @@ import type { Category, ProductSummary } from "../wix/storefront/types";
 let products: ProductSummary[] = [];
 let categories: Category[] = [];
 try {
-  [products, categories] = await Promise.all([fetchProducts(), fetchCategories()]);
+  [products, categories] = await Promise.all([fetchProducts({ limit: 24 }), fetchCategories()]);
 } catch {
   // Guarded: an unhandled SSR throw truncates the response mid-stream; the island
   // renders your empty state instead.
@@ -194,11 +199,14 @@ export default function ShopView(props: {
   // …you implement the render:
   //   • category pills when categories.length > 1 — All + one per category,
   //     driving setActiveCategoryId(id | null)
-  //   • error → a short inline message
+  //   • a sort control over SORTS driving setSort; filters (price bounds, in-stock,
+  //     name search) via setFilters — include the ones that fit the brief, not all of them
+  //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state
   //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image
   //     (hoverImageUrl on hover), name, price/compareAtPrice, ribbon, optionsSummary;
   //     tile links to `/products/${p.slug}`; quickAddable → useCart().addToCart(p.id)
+  //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
 
@@ -266,11 +274,10 @@ client id into `wix/config.ts`; nothing else to configure.
 - **Call every hook before any conditional return.** A PDP that returns early for
   `notFound`/loading above its `useState`/`useEffect` changes hook order between renders and
   React throws. Hooks first, branches after.
-- **Sort and filter at the source, not on a loaded page.** Pass the criteria to the
-  `wix/storefront/` exports so Wix applies them across the whole catalog; re-ordering the array
-  a hook already returned only sorts the slice you happen to have. Note the shipped listing
-  fetches up to 100 products in one call and does not page — for a catalog larger than that,
-  add cursor paging in `wix/storefront/` rather than raising the limit.
+- **Sort and filter at the source, not on a loaded page.** `useShop`'s sort/filters/search and
+  `searchCatalog` run on Wix across the whole catalog before cursor paging; re-ordering the
+  array a hook already returned only sorts the slice you happen to have. Never sort/filter
+  client-side, and never raise the page limit instead of paging (`hasMore`/`loadMore`).
 
 ## Point the user to their dashboard
 
