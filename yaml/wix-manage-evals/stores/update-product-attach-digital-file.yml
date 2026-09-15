@@ -5,14 +5,14 @@ triggerPrompt: >-
   ITEM_NOT_FOUND_IN_CATALOG. The download is this file:
   https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf — please fix it.
 tags: [stores, media]
-maxTokens: 25000
+maxTokens: 2500000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-catalog-v3
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

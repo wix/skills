@@ -443,11 +443,8 @@ Find, search, query, and list products from a Wix Store using Catalog V3 Search 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
 Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
 
-### [Update Product Pre-Order (Catalog V3)](references/stores/update-product-pre-order.md)
-Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
-
-### [Update Product with Options (Catalog V3)](references/stores/update-product-with-options.md)
-Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
+### [Update Product (Catalog V3)](references/stores/update-product-catalog-v3.md)
+Single entry point for Catalog V3 product and inventory updates. Routes multi-product jobs to bulk operations instead of sequential PATCH calls, and covers minimal product patches, safe full-array option and variant updates, price and SKU changes, exact variant selection, revisions, quantity, stock status, and preorder settings.
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 "Builds direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com — products list, edit a specific product, categories, inventory, orders list, a specific order, abandoned checkouts, gift cards, shipping and tax settings. Pairs each main Stores/eCommerce entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."

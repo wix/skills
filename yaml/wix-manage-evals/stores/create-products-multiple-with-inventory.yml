@@ -4,7 +4,7 @@ triggerPrompt: >-
   Create two physical products with no images: "Organic Green Tea" at $20, SKU TEA-001, quantity 50;
   and "Herbal Shampoo" at $15, SKU SHAMPOO-001, marked in stock.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 350000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

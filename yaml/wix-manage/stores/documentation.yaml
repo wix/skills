@@ -22,12 +22,8 @@ apiDoc:
       title: Create Product (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
-      title: Update Product with Options (Catalog V3)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
-      tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/update-product-pre-order.md
-      title: Update Product Pre-Order (Catalog V3)
+    - file: ../../../skills/wix-manage/references/stores/update-product-catalog-v3.md
+      title: Update Product (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/add-store-pages-to-site.md

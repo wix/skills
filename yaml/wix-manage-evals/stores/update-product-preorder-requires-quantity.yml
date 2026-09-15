@@ -1,0 +1,90 @@
+name: stores/update-product-preorder-requires-quantity
+description: >
+  A store owner requests a preorder limit for variants whose inventory uses status tracking.
+  Verifies the unified Update Product skill routes to Inventory Items and asks for the missing
+  stock quantities instead of trying to write the read-only trackQuantity field or inventing data.
+triggerPrompt: >
+  Enable preorders for both sizes of my "Eval Preorder Hoodie" with the message "Ships next
+  month" and a limit of 50 per size. Go ahead and make the change.
+tags: [stores]
+maxTokens: 2100000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The seeded product has Small and Large variants whose inventory items use status tracking
+      (`inStock: true`), not quantity tracking. The user requested a preorder limit of 50 but did
+      not supply the current stock quantity for either size.
+
+      Score 9-10: the agent identifies that preorder belongs to per-variant, per-location Inventory
+      Items, recognizes that a limit requires quantity tracking, and asks the user for the initial
+      quantity of Small and Large before any write. It does not invent quantities and does not try
+      to write `trackQuantity`, which is read-only.
+
+      Score 7-8: the agent correctly pauses for missing stock quantities and makes no write, but
+      its explanation of inventory-item scope or the read-only field is incomplete.
+
+      Score 4-6: it asks a relevant question but also guesses a quantity, proposes writing
+      `trackQuantity`, or confuses a product update with an inventory update.
+
+      Score 1-3: it performs any product or inventory write despite the missing quantities, claims
+      success, enables preorder without the requested limit, or only reports that the product was
+      not found.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate the tool-call path. Score 9-10 when the agent directly locates the product, reads the
+      two variants and their inventory items, notices status tracking, and asks once for both
+      initial quantities without making a write. Penalize redundant reads, probing schema calls,
+      wrong Catalog versions, any rejected call, one question per variant, or any attempted write.
+      For each friction, name the likely MCP/docs gap. Return ONLY
+      {"score":<0-10>,"reason":"<terse friction list or 'clean path'>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed hoodie with status-tracked inventory
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Preorder Hoodie
+            productType: PHYSICAL
+            physicalProperties: {}
+            options:
+              - name: Size
+                optionRenderType: TEXT_CHOICES
+                choicesSettings:
+                  choices:
+                    - choiceType: CHOICE_TEXT
+                      name: Small
+                    - choiceType: CHOICE_TEXT
+                      name: Large
+            variantsInfo:
+              variants:
+                - choices:
+                    - optionChoiceNames:
+                        optionName: Size
+                        choiceName: Small
+                        renderType: TEXT_CHOICES
+                  price: { actualPrice: { amount: "45.00" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }
+                - choices:
+                    - optionChoiceNames:
+                        optionName: Size
+                        choiceName: Large
+                        renderType: TEXT_CHOICES
+                  price: { actualPrice: { amount: "45.00" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }

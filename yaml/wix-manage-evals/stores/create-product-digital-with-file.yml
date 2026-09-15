@@ -4,7 +4,7 @@ triggerPrompt: >-
   Sell this PDF on my store as a digital download named "Focus Planner" for $9.99:
   https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
 tags: [stores, media]
-maxTokens: 25000
+maxTokens: 375000
 siteSetup:
   mode: template
   templateId: stores-v3-editor

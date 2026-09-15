@@ -1,7 +1,7 @@
 name: stores/update-product-sku-full-variant
 description: >
   A store owner asks to set the SKU on one variant of a Catalog V3 product that has two variants.
-  Verifies the agent loads the Update Product with Options (Catalog V3) recipe and sends every
+  Verifies the agent loads the Update Product (Catalog V3) recipe and sends every
   variant complete in the Update Product PATCH. `variantsInfo.variants` replaces both the array and
   each variant object, so sending only the changed variant drops the other one, and rebuilding a
   variant from just its `id` plus the changed field drops the fields it did not carry — rejected
@@ -12,7 +12,7 @@ tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-catalog-v3
   - type: llm_judge          # correctness — the user's outcome
     minScore: 7
     maxTokens: 2048

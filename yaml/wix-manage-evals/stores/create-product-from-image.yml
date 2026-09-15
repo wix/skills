@@ -5,7 +5,7 @@ triggerPrompt: >-
   https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800. Name it "Blue Studio Mug", price it at $28,
   generate the description and SEO copy.
 tags: [stores, media]
-maxTokens: 25000
+maxTokens: 275000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
