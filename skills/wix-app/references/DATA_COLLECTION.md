@@ -36,7 +36,7 @@ The CLI manages a shared aggregator file (`data-collections.extension.ts`) that 
 The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per the [Context-Based Permission Rules](#context-based-permission-rules) before shipping.
 
 ```typescript
-import type { DataCollection } from '@wix/astro/builders';
+import type { DataCollection } from '@wix/custom-extensions';
 
 export const collectionIdSuffix = '<CollectionName>';
 
@@ -313,7 +313,7 @@ wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"addi
 Edit the generated `src/extensions/backend/data-collections/additional-fees.ts`:
 
 ```typescript
-import type { DataCollection } from '@wix/astro/builders';
+import type { DataCollection } from '@wix/custom-extensions';
 
 export const collectionIdSuffix = 'additional-fees';
 
