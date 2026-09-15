@@ -27,15 +27,6 @@ and report the final result.
 Base URL: `https://www.wixapis.com/site-import`. A full import typically takes
 15–60 minutes.
 
-**Destination: new site vs. an existing site — decided by call scope, not a
-body field.** Account-level (no site context) always creates a brand-new
-site — the default when the user has no site yet or wants a fresh one.
-Site-level (called with a specific `siteId`) writes into that existing site
-instead. Ask the user which they want before calling Start — it can't change
-after the migration starts. If they already have (or just created) a
-destination site, scope every call for that `importId` to its `siteId`;
-calling account-level instead silently creates an unwanted second site.
-
 ## Calling the API
 
 This API is **deliberately not listed in the public Wix REST documentation**,
@@ -55,12 +46,12 @@ page, or any client-side code — those fail with CORS. The entire experience
 is plain chat — API calls plus short messages.
 
 Use the Wix REST API tool available in your environment with the **full
-URL**, scoped per the Destination section above (account-level or site-scoped
-with the target `siteId`). Start, Send-a-message, and Cancel are mutating
+URL** (account-level, or site-scoped with a target `siteId` — see Start
+below for when each applies). Start, Send-a-message, and Cancel are mutating
 (POST); Poll is read-only (GET).
 
 Example — Start (same body for account-level or site-scoped — only the call's
-scope changes, per the Destination section above):
+scope changes, per the Destination note under Start below):
 
 ```
 POST https://www.wixapis.com/site-import/v1/imports
@@ -193,11 +184,17 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
      `request`, and no `fileUrls`, is rejected with `SITE_UNIDENTIFIED`.
    Returns: `importId`, `sourcePlatform`, `sourceConfidence`, `destinationSiteId`.
    `sourcePlatform` comes back as `CSV` for a FILE run (no site was probed, so
-   `sourceConfidence` is meaningless there). `destinationSiteId` echoes what the
-   call is about to write into, resolved from your call's scope (see
-   "Destination" above), not from anything in the request body — empty means a
-   new site will be created; set means it's importing into that existing site.
-   Returned as soon as Start succeeds, even before a source is confirmed.
+   `sourceConfidence` is meaningless there).
+   **Destination (new site vs. an existing site) is decided by call scope, not
+   a body field:** account-level (no site context) always creates a brand-new
+   site — the default when the user has none yet or wants a fresh one;
+   site-level (called with a specific `siteId`) writes into that existing site
+   instead. Ask the user which they want before calling Start — it can't
+   change afterward — and if they already have a destination site, scope
+   every call for that `importId` to its `siteId`, or you'll silently create
+   an unwanted second site. `destinationSiteId` in the response echoes this
+   (empty = new site, set = that existing site), returned as soon as Start
+   succeeds, even before a source is confirmed.
    **One import per store at a time, keyed on `source_url`** (or the file set
    when there's no `source_url`): re-starting with the same identity continues
    the SAME migration (server returns the existing `importId`, no new import
