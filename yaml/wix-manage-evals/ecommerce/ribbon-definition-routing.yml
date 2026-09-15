@@ -24,9 +24,14 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: >-
-      Score 0-10 for the tool-call path. A direct path routes to Get or Create Ribbon and performs
-      the name-based ribbon operation. Score below 7 if it loads discount-rule creation guidance for
-      this ribbon-only task, attempts a discount mutation, retries duplicate ribbon creation instead
-      of using get-or-create, or performs promotion-strategy/context discovery unrelated to the
-      request. List errors and avoidable detours. Return ONLY {"score":<0-10>,"reason":"<frictions
-      or clean path>"}.
+      Score 0-10 for the tool-call path. Reading the required pricing-promotions dispatcher
+      is part of the correct route: it contains the ribbon instructions and example. Do not
+      penalize that read as unrelated promotion discovery based on the page title or URL.
+      README, then that dispatcher, then a successful Get or Create Ribbon request is a
+      clean path deserving 10. A relevant ribbon API reference read is also acceptable.
+      Score below 7 if the agent follows the dispatcher into the separate
+      pricing-create-discount-rule recipe or discount-rule schema discovery for this
+      ribbon-only task, attempts a coupon/discount mutation, retries duplicate ribbon creation
+      instead of using get-or-create, or performs unrelated promotion-strategy/context discovery.
+      Evaluate the actual calls and cite the specific detour; the dispatcher itself is not
+      discount-rule creation guidance. Return ONLY {"score":<0-10>,"reason":"<frictions or clean path>"}.

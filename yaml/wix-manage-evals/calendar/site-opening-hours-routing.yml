@@ -24,9 +24,18 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: >-
-      Score 0-10 for the tool-call path. A direct path reads the current site schedule, updates the
-      requested weekly periods through Site Properties, and verifies the result. Score below 7 if it
-      probes Calendar schedules, installs Bookings, mutates either the wrong schedule or holiday
-      exceptions, or recovers from a guessed request shape. Necessary read-before-write and
-      verification calls are not friction. List errors and avoidable detours. Return ONLY
-      {"score":<0-10>,"reason":"<frictions or clean path>"}.
+      Score 0-10 for the tool-call path. Read the actual tool arguments and executed API
+      requests, not just documentation titles or URL categories. Loading the required
+      configure-default-business-hours recipe is valid routing, even though its URL contains
+      /calendar/; it is NOT a Calendar API probe. Relevant Site Properties documentation reads
+      and required schema checks are allowed.
+      A clean path reads the current Site Properties business schedule, updates the requested
+      weekly periods, then reads the persisted schedule back and checks it before reporting
+      success. These requests may be batched inside one tool execution; count the API requests
+      in that execution, not the number of tool calls. Echoing the submitted body is not readback.
+      Score below 7 for an actual Calendar schedule/event API call, Bookings installation,
+      unauthorized changes to holiday exceptions, a failed guessed request shape, or missing
+      post-update readback verification. Penalize avoidable repeated discovery; do not penalize
+      the required recipe read or necessary read-before-write and verification requests.
+      Cite the actual API operation or missing verification behind each penalty.
+      Return ONLY {"score":<0-10>,"reason":"<frictions or clean path>"}.
