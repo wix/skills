@@ -4,7 +4,7 @@ triggerPrompt: >-
   Change my store currency to EUR. I confirm this site-wide change. Keep existing
   product price numbers unchanged, and tell me if catalog prices may take time to reflect it.
 tags: [stores]
-maxTokens: 30000
+maxTokens: 800000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
