@@ -4,10 +4,12 @@ description: >-
   call scope, not a request-body field, and calls Start scoped to the user's existing site instead
   of defaulting to an account-level call that would silently create a second, unwanted site.
 triggerPrompt: >-
-  I already created a Wix site (site ID 5b1f7e2a-6c3d-4a2b-9f1e-3d7c8a9b0e11) to prepare for this —
-  please import my old store at https://my-old-store.example.com into that exact site, not a new
-  one.
+  I already created a Wix site to prepare for this — please import my old store at
+  https://my-old-store.example.com into that exact site, not a new one.
 tags: [sites]
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -16,17 +18,18 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user named an existing Wix site by id and asked Site Import to write into that exact
-      site, not create a new one.
+      The user already has a Wix site (the one provisioned for this run — resolvable from their
+      site context) and asked Site Import to write into that exact site, not create a new one.
 
       Intent: apply the skill's destination rule — destination is decided by call scope
-      (account-level always creates a new site; site-scoped, with the given siteId, writes into
-      that existing site), not by any request-body field. There is no destination field to set in
-      the body.
+      (account-level always creates a new site; site-scoped, with a `wix-site-id` header for the
+      user's existing site, writes into that existing site), not by any request-body field. There
+      is no destination field to set in the body.
 
       Pass if the response:
-      - calls (or clearly describes calling) Start scoped to the user's given site id — a
-        site-scoped call, not an account-level one, AND
+      - resolves the user's existing site (from context or by asking which one, if more than one
+        candidate exists) and calls (or clearly describes calling) Start scoped to it with a
+        `wix-site-id` header — not an account-level call, AND
       - does not claim a `destinationSiteId`/similar body field controls this, AND
       - does not create, or offer to create, a second/new site for this request.
 
@@ -35,14 +38,15 @@ assertions:
         despite the user naming an existing site to target, OR
       - invents a request-body field (e.g. `destinationSiteId`, `siteId` in the body) as how to
         pick the destination, OR
-      - never scopes the call to the given site at all.
+      - never scopes the call to the existing site at all.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how directly the agent reached the right call shape. Examine the tool-call trace.
-      Score 0-10 (10 = direct: one site-scoped Start call, no wasted steps). Penalize and LIST any
-      of: an account-level Start call before/instead of a site-scoped one; probing other endpoints
-      to "find" a destination field; asking the user redundant questions the prompt already
-      answered (they already said which site and that it should not be a new one). Return ONLY
+      Score 0-10 (10 = direct: resolve the existing site from context, then one site-scoped Start
+      call, no wasted steps). Penalize and LIST any of: an account-level Start call
+      before/instead of a site-scoped one; probing other endpoints to "find" a destination field;
+      asking the user redundant questions the prompt already answered (they already said it
+      should not be a new site). Return ONLY
       {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.

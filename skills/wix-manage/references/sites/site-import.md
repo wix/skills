@@ -50,13 +50,25 @@ URL** (account-level, or site-scoped with a target `siteId` — see Start
 below for when each applies). Start, Send-a-message, and Cancel are mutating
 (POST); Poll is read-only (GET).
 
-Example — Start (same body for account-level or site-scoped — only the call's
-scope changes, per the Destination note under Start below):
+Example — Start, account-level (creates a new site):
 
 ```
 POST https://www.wixapis.com/site-import/v1/imports
 Body: {
   "request": "Import https://example-store.com into a new Wix site",
+  "source_url": "https://example-store.com"
+}
+```
+
+Example — Start, site-scoped (imports into the user's existing site — same
+body, plus a `wix-site-id` header naming the destination site; see the
+Destination note under Start below):
+
+```
+POST https://www.wixapis.com/site-import/v1/imports
+Headers: { "wix-site-id": "<destination siteId>" }
+Body: {
+  "request": "Import https://example-store.com into my site",
   "source_url": "https://example-store.com"
 }
 ```
@@ -188,13 +200,14 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
    **Destination (new site vs. an existing site) is decided by call scope, not
    a body field:** account-level (no site context) always creates a brand-new
    site — the default when the user has none yet or wants a fresh one;
-   site-level (called with a specific `siteId`) writes into that existing site
-   instead. Ask the user which they want before calling Start — it can't
-   change afterward — and if they already have a destination site, scope
-   every call for that `importId` to its `siteId`, or you'll silently create
-   an unwanted second site. `destinationSiteId` in the response echoes this
-   (empty = new site, set = that existing site), returned as soon as Start
-   succeeds, even before a source is confirmed.
+   site-scoped (adding a `wix-site-id: <siteId>` header, same body — see the
+   examples above) writes into that existing site instead. Ask the user which
+   they want before calling Start — it can't change afterward — and if they
+   already have a destination site, add the `wix-site-id` header for every
+   call on that `importId` (Poll, Send-a-message, Cancel included), or you'll
+   silently create an unwanted second site. `destinationSiteId` in the
+   response echoes this (empty = new site, set = that existing site), returned
+   as soon as Start succeeds, even before a source is confirmed.
    **One import per store at a time, keyed on `source_url`** (or the file set
    when there's no `source_url`): re-starting with the same identity continues
    the SAME migration (server returns the existing `importId`, no new import
@@ -247,7 +260,9 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
   - `FAILED` — terminal. Relay `message` in plain words.
   - `AUTH_EXPIRED` — recoverable, NOT success, nothing is live (golden rule 1).
     Tell the user the connection to their account expired and you're restarting,
-    then call Start again with the same request — work so far is preserved.
+    then call Start again with the same request, using the same call scope
+    (account-level, or the same `wix-site-id`) as the original Start — work so
+    far is preserved.
   - `CANCELLED` — terminal.
 - **Anything the user says mid-import goes straight to Send-a-message** — no
   need to wait for `NEEDS_INPUT`.
