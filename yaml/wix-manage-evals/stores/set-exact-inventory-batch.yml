@@ -1,0 +1,68 @@
+name: stores/set-exact-inventory-batch
+description: Both named products must have quantity 25 with quantity tracking, using their existing inventory
+  records.
+triggerPrompt: Set Restock Wool Scarf and Restock Cotton Hat to exactly 25 in stock each. Keep everything
+  else as it is.
+tags:
+- stores
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+    - label: seed Restock Wool Scarf
+      method: post
+      url: https://www.wixapis.com/stores/v3/products-with-inventory
+      body:
+        product:
+          name: Restock Wool Scarf
+          productType: PHYSICAL
+          physicalProperties: {}
+          variantsInfo:
+            variants:
+            - price:
+                actualPrice:
+                  amount: '20.00'
+              sku: RESTOCK-WOOL-SCARF
+              physicalProperties: {}
+              visible: true
+              inventoryItem:
+                quantity: 7
+    - label: seed Restock Cotton Hat
+      method: post
+      url: https://www.wixapis.com/stores/v3/products-with-inventory
+      body:
+        product:
+          name: Restock Cotton Hat
+          productType: PHYSICAL
+          physicalProperties: {}
+          variantsInfo:
+            variants:
+            - price:
+                actualPrice:
+                  amount: '20.00'
+              sku: RESTOCK-COTTON-HAT
+              physicalProperties: {}
+              visible: true
+              inventoryItem:
+                inStock: false
+assertions:
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-inventory-catalog-v3
+- type: llm_judge
+  minScore: 7
+  prompt: Both named products must have quantity 25 with quantity tracking, using their existing inventory
+    records. Fail if stock is incremented by 25, status-only inStock is used, another product changes,
+    records or variants are recreated, or the agent reports all succeeded without inspecting each item
+    result and reconciling bulk failure counts. Returned entities must match the requested stock. Return
+    ONLY {"score":<0-10>,"reason":"<evidence>"}.
+- type: llm_judge
+  minScore: 7
+  prompt: Score the tool-call path 0-10, where 10 is direct and error-free. Prefer querying inventory,
+    then one bulk inventory update for both records with current revisions and returnEntity true. Penalize
+    product/option rewrites, duplicate inventory creation, reads of every unrelated product, and treating
+    absent inline inventory in product responses as missing records. Penalize guessed request shapes,
+    recovered errors, redundant documentation probes, and unnecessary verification reads. Required identity,
+    pagination, and revision reads are appropriate. Return ONLY {"score":<0-10>,"reason":"<frictions and
+    likely docs gap, or clean path>"}.

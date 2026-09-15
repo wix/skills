@@ -451,3 +451,6 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 "Builds direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com — products list, edit a specific product, categories, inventory, orders list, a specific order, abandoned checkouts, gift cards, shipping and tax settings. Pairs each main Stores/eCommerce entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+
+### [Update Inventory (Catalog V3)](references/stores/update-inventory-catalog-v3.md)
+Restocks existing Wix Stores Catalog V3 products and variants, sets exact stock quantities, and marks status-tracked items available or unavailable. Covers existing and missing inventory records, location selection, bulk updates, and partial failures without changing product options or prices.
