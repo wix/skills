@@ -203,8 +203,16 @@ alternative when the goal is just to stop it from applying.
   it, that request is already the confirmation — proceed, but mention that it's permanent and that
   deactivating is the reversible option, in case they meant that instead.
 - If the request is **ambiguous** — "clean up my old coupons," "get rid of unused ones," no
-  code/ID given, or more than one coupon could match — query first, then confirm with the merchant
-  exactly which coupon(s) will be deleted before calling Delete Coupon. Never guess which one they meant.
+  code/ID given, or more than one coupon could match — this is a two-turn flow, not one:
+  1. Query coupons, decide which one(s) look like candidates (expired, inactive, unused), and
+     **stop there.** List the candidate coupon(s) — name, code, why each qualifies — and ask the
+     merchant which to delete.
+  2. Do **not** call Delete Coupon in that same turn. Wait for the merchant's reply naming which
+     coupon(s) to remove, THEN delete only those.
+
+  Calling Delete Coupon on a candidate before the merchant has replied — even ones that look
+  obviously stale — is exactly the failure this guardrail exists to prevent. Never guess which
+  one(s) they meant.
 
 **Endpoint**: `DELETE https://www.wixapis.com/stores/v2/coupons/{id}`
 
