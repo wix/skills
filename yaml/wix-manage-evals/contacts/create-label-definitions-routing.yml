@@ -1,0 +1,31 @@
+name: contacts/create-label-definitions-routing
+description: Create several label definitions without querying or labeling contacts.
+triggerPrompt: Create contact labels named VIP, Wholesale, and Newsletter.
+tags:
+  - contacts
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: >-
+        https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/bulk-label-and-unlabel-contacts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >-
+      Pass if all three requested labels are created or reused using the Labels API and the agent
+      reports the returned labels. Fail if any label is missing, any contact is changed, bulk
+      contact labeling is started, or success is claimed without successful API results. Return ONLY
+      {"score":<0-10>,"reason":"<evidence-based assessment>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >-
+      Score 0-10 for the tool-call path. A direct path uses Find or Create Label once per requested
+      name, without querying contacts, starting bulk contact jobs or guessing keys. Score below 7
+      for contact queries or assignment calls performed solely to create label definitions, failed
+      mutations, or duplicate-creation retries. List each avoidable detour; a short relevant
+      documentation read is acceptable. Return ONLY {"score":<0-10>,"reason":"<frictions or clean
+      path>"}.
