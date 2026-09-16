@@ -8,7 +8,6 @@ triggerPrompt: >-
   I built a small website with an AI coding tool — I have a folder with index.html, styles.css and
   script.js on my computer. I don't have a Wix site yet. How do I get these files live on Wix?
 tags: [sites]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
