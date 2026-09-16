@@ -5,12 +5,16 @@ description: >-
   homepage optimization job, poll its predictionId until it completes, and present the
   before/after suggestions without applying any of them.
 triggerPrompt: >-
-  Optimize my site's homepage for the keyword "handmade ceramic mugs" and show me what
-  you would change. Don't apply any of the changes yet, I want to review them first.
+  Run a page optimization of my site's homepage for the keyword "handmade ceramic mugs" and
+  show me the before/after changes it suggests for the title, description, headings, and
+  text. Set the keyword as the page's focus keyword if it isn't already. Don't apply any of
+  the suggested changes yet, I want to review them first.
 tags: [seo]
 # A fresh Wix-rendered site with real homepage content is required: the trigger needs a
 # focus keyword (the agent sets it, that is part of the flow) and enough page text, and on
-# the shared multi-site account the agent stops to ask which site to act on.
+# the shared multi-site account the agent stops to ask which site to act on. The prompt
+# names the optimization flow and the focus keyword step so the scenario tests the
+# trigger-and-poll orchestration, not intent routing (the read-only scenario covers that).
 siteSetup:
   mode: template
   templateId: stores-v3-editor
@@ -50,7 +54,12 @@ assertions:
       Fail if the agent guessed a page ID, used Trigger Page Optimization instead of the
       homepage trigger for the homepage, started more than one job on purpose, wrote title or
       description tags after receiving the suggestions, invented suggestions the API did not
-      return, or described the page as optimized when the job did not complete.
+      return, or described the page as optimized when the job did not complete. Fail (score
+      0) if the agent never called a page-optimization trigger and answered from the title or
+      description generators (POST .../tag-suggestions/title or /description) or from its own
+      writing instead: those are not the page optimization the user asked for. Refusing to set
+      the focus keyword because the user said "don't apply changes" is also a fail: the user
+      explicitly asked for it to be set, and it is the job's input, not a suggested change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

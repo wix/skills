@@ -30,8 +30,9 @@ assertions:
       - calls Generate Title Suggestions (POST .../seo/suggestions/v1/tag-suggestions/title)
         and Generate Description Suggestions
         (POST .../seo/suggestions/v1/tag-suggestions/description), each once, with
-        "handmade ceramic mugs" as primaryKeyword and a pageType of HOMEPAGE (WEBSITE_PAGE is
-        acceptable, any other page type is not),
+        "handmade ceramic mugs" as primaryKeyword and pageType HOMEPAGE, the value the
+        recipe reserves for the homepage (WEBSITE_PAGE, an omitted pageType, or any other
+        value fails this check),
       - presents the returned suggestions as options the user can choose from, and does not
         invent extra titles or descriptions of its own or present the page's current tags as
         suggestions,

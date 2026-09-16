@@ -26,6 +26,13 @@ the site's pages and writes of its tags use the SEO Tags API under
 | Check or fix a page's heading hierarchy | Generate Heading Structure Suggestions |
 | Optimize or rewrite a page for a keyword, "improve this page's SEO" | Trigger Page Optimization, or Trigger Home Page Optimization for the homepage, then poll Get Page Optimization Results |
 
+"Optimize", "rewrite", or "improve the SEO of" a page means the page
+optimization flow: it reads the page's real text and rewrites title,
+description, headings, and body together. The title and description generators
+are not a substitute for it; they know nothing about the page's content and
+cover two tags only. Use them when the user asks for title or description
+options, not when they ask to optimize a page.
+
 Each call spends AI generation and returns fresh text; nothing is stored except
 page optimization results. Suggestions come back in the site's language, and
 there is no parameter to change it.
@@ -139,8 +146,9 @@ For a store product, get the ID and image URLs from Query Products
 (`POST https://www.wixapis.com/stores/v3/products/query` with
 `{ "query": { "cursorPaging": { "limit": 20 } }, "fields": ["MEDIA_ITEMS_INFO"] }`):
 each product's `id` is the `parentItemId`, and `media.itemsInfo.items[].image.url`
-are its image URLs. For a site page, use the page ID from List Item SEO Tags
-with `itemType` `STATIC_PAGE_V2`.
+are its image URLs. For a site page, `parentItemId` is the page's `itemId` from
+List Item SEO Tags (listed there under `STATIC_PAGE`), and the alt-text call's
+`itemType` is `STATIC_PAGE_V2`.
 
 [Generate Alt Text Suggestions](https://dev.wix.com/docs/api-reference/business-management/seo/tag-suggestions-v1/generate-alt-text-suggestions),
 one image; `id` is your own label, echoed back:
@@ -230,7 +238,11 @@ things, checked in this order:
    from List Item SEO Tags). Without one the trigger fails with
    `FAILED_PRECONDITION`, code `FOCUS_KEYWORD_NOT_SET`. If the user named the
    keyword they want the page to rank for, set it, then trigger; if they did
-   not, ask for it. Setting it is a write to the page's SEO settings:
+   not, ask for it. The focus keyword is the input the job needs, not one of the
+   suggested changes: a user who says "optimize my page for X but don't apply
+   anything yet" still expects X to be set as the focus keyword, and only the
+   returned before/after texts to be held back. Setting it is a write to the
+   page's SEO settings:
 
    ```
    PATCH https://www.wixapis.com/promote/seo/v1/item-seo-tags/STATIC_PAGE/{pageId}
