@@ -22,10 +22,6 @@ assistant/MCP referral; dropping or rewriting it breaks that attribution.
 
 1. The user drags in their files (or a zip) — no login needed.
 2. Wix hosts them immediately on a live URL they can open and share.
-3. To keep the site, they claim it into their Wix account (sign in / sign up
-   from the hosted site's banner). After claiming they can connect a custom
-   domain and manage the site from their dashboard. Unclaimed uploads expire
-   within about a day.
 
 ## Tell the user before they upload
 
