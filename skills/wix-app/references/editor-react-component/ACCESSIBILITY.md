@@ -1,13 +1,13 @@
 # Accessibility Implementation and Review
 
-Use this reference while authoring Editor React Component props and JSX and
-after every JSX edit.
+Use this reference while authoring Editor React Component props and JSX, then
+run the review command once the JSX is complete.
 
 ## Contents
 
 - [Implementation Contract](#implementation-contract)
 - [Review Scope](#review-scope)
-- [Automated Scanners](#automated-scanners)
+- [Automated Review](#automated-review)
 - [Finding Triage](#finding-triage)
 - [Manual Review](#manual-review)
 - [Pre-Fix Checks for Non-Interactive Controls](#pre-fix-checks-for-non-interactive-controls)
@@ -15,29 +15,42 @@ after every JSX edit.
 
 ## Implementation Contract
 
-### Route ARIA Through `a11y`
+### Own Accessibility per Part
 
-Do not add individual public props such as `ariaLabel`, `ariaDescribedBy`, or
-`role`. Use the platform `A11y` type and convert it at the semantic target.
+Use the platform `A11y` type instead of individual public props such as
+`ariaLabel`, `ariaDescribedBy`, or `role`. For each part:
+
+- Prefer a native element.
+- Keep roles, heading levels, keyboard and focus behavior, relationships, live
+  regions, and widget state in component code.
+- Read `a11y.ariaLabel` only when a control has no visible name.
+
+Every `a11y` field that reaches the DOM becomes an editor control. Read only the
+field the part needs and write it as its HTML attribute,
+`aria-label={a11y?.ariaLabel}`. Never spread the whole object.
 
 ```tsx
-import type { A11y, Direction } from '@wix/editor-react-types';
-import { convertA11yKeysToHtmlFormat } from '@wix/react-component-utils';
+import type { A11y } from '@wix/editor-react-types';
 
-export type TabsProps = {
-  id: string;
-  className?: string;
-  direction?: Direction;
-  a11y?: A11y;
+type ToggleProps = {
+  elementProps?: { toggle?: { className?: string; a11y?: A11y } };
 };
 
-<nav {...(a11y && convertA11yKeysToHtmlFormat(a11y))}>{tabs}</nav>;
+function Toggle({ elementProps }: ToggleProps) {
+  const { a11y: toggleA11y, ...toggleProps } = elementProps?.toggle ?? {};
+
+  return (
+    <button {...toggleProps} aria-label={toggleA11y?.ariaLabel ?? ARIA_LABELS.toggle}>
+      <ChevronIcon aria-hidden="true" />
+    </button>
+  );
+}
 ```
 
-Apply root accessibility to the elected root. If requirements assign
-accessibility to a named inner part, route it through that part's
-`elementProps.<name>.a11y` contract and convert it on the actual semantic
-element.
+Keep the root's typed `a11y?: A11y` prop even when it reads no field. Destructure
+`a11y` out of an `elementProps` entry before spreading the entry; a spread entry
+records the nested object as a whole. Image alt text comes from the `Image`
+type's `alt` field, not from `a11y`.
 
 ### Provide Accessible Names
 
@@ -80,36 +93,47 @@ including an icon plus visible text, usually do not need another ARIA label.
 
 ## Review Scope
 
-Run this review after creating or editing JSX.
+Run this review once the JSX is complete and again after each fix pass, at
+most two passes. Do not rerun after a clean result unless JSX changed.
 
-| Request | Scan and inspect |
+| Request | Pass to the command |
 | --- | --- |
-| Specific file | That file and rendered wrappers or shared components it imports |
-| A component name or "this component" | All hand-edited files in its component folder plus relevant shared imports |
-| Full audit | Every component under `src/extensions/site/components/` plus relevant shared imports |
+| Specific file | That file; its component folder is rendered |
+| A component name or "this component" | The component folder |
+| Full audit | `src/extensions/site/components/` |
 
-Exclude `*.generated.ts`; it is regenerated from JSX and CSS.
+`*.generated.ts` is regenerated from JSX and CSS and is never scanned.
 Imported shared components are inspection context, not automatic edit scope.
 Report a confirmed shared-component issue instead of changing a broadly reused
 primitive unless the requested fix requires that shared change and its impact is
 understood.
 
-## Automated Scanners
+## Automated Review
 
 `<SKILL_ROOT>` is the absolute directory containing the active `SKILL.md`. Run
-both commands from the consumer Wix package so dependencies resolve from that
-project. Pass `.tsx` or `.jsx` paths relative to the current directory.
+from the consumer Wix package so dependencies resolve from that project.
 
 ```bash
-node <SKILL_ROOT>/scripts/scan-a11y-eslint.cjs <file1> [file2] ...
-node <SKILL_ROOT>/scripts/scan-a11y-code.cjs <file1> [file2] ...
+node <SKILL_ROOT>/scripts/scan-a11y-review.cjs <component-dir | files...>
 ```
 
-Do not treat scanner startup failure as a clean result. The ESLint scanner
-reports JSX accessibility rules. The semantic scanner follows imports up to
-four levels and emits resolution evidence and confidence. Neither scanner
-covers every Editor React Component contract, so complete the manual review
-even when both return zero findings.
+One command, one report. It runs the jsx-a11y ESLint rules, a semantic scanner
+that follows imports and checks the per-part `a11y` contract, and a render
+audit: the component is rendered with `defaultProps` in Node (an SSR check),
+loaded into jsdom with its CSS Modules, and audited with axe-core.
+`component.preview.tsx` must render without falling back to the placeholder.
+
+The JSON report has `summary.line`, then `findings` grouped by rule with a
+count, locations or DOM target, the scanner message, and the axe help link,
+then `notChecked`. Exit `0` means every scanner ran and found nothing, `1`
+means findings, `2` means the review is inconclusive; never treat `2` as clean.
+Exit `2` with `render FAILED (missing-deps)` means `jsdom` or `axe-core` is not
+installed: install them (SKILL.md step 2) and rerun. Exit `2` with
+`render FAILED (loader)` means the audit could not load a module the component
+imports; that is a scanner limit, not a component defect. Change the import
+only if `tsc` also rejects it; otherwise stop and report the loader limit in the
+final summary as a check that could not run. Color contrast, target size, and
+keyboard behavior need a browser and remain manual.
 
 ## Finding Triage
 
@@ -154,39 +178,23 @@ evidence supports.
 
 ## Manual Review
 
-Verify all of the following after triaging scanner output.
+In the default rendered state the command checks names, alt text, ARIA
+validity, nesting, list and heading structure, hidden-but-focusable content,
+the `a11y` contract, and SSR safety. Verify what it cannot see:
 
-### Semantic Targeting
-
-- `a11y` is typed and converted on the correct semantic element.
-- Wrappers and polymorphic components preserve their documented semantics.
-- Configurable heading or tag choices reach the rendered element.
-- Extension overrides preserve generated accessibility fields.
-
-### Names and Visual Content
-
-- Icon-only controls have configurable or stable system-owned names.
-- Visually hidden text remains in the accessibility tree when needed.
-- Meaningful images and icons are named; decorative repetitions are hidden.
-- Accessibility strings are not hardcoded directly in JSX.
-
-### Hidden Content and Focus
-
-- Hidden or collapsed state agrees across visuals, focusability, and the
-  accessibility tree.
-- Invisible content cannot receive focus unless the interaction requires it.
-- Disabled and inert states behave consistently for keyboard and assistive
-  technology users.
-
-### Interaction and Structure
-
-- Interactive-looking elements use native semantics or complete role, focus,
-  and keyboard behavior.
-- `onClick` on a non-interactive tag is checked, including conditional spreads.
-- Nested interactive children and existing focus management are inspected
-  before semantics are added to a wrapper.
-- Lists, headings, landmarks, tabs, menus, dialogs, and breadcrumbs keep their
-  intended structure.
+- Every meaningful non-default state (expanded, selected, playing, error,
+  empty, hover/focus) keeps correct names, focusability, hidden state, and
+  structure; the command audits only the default render.
+- Wrappers and polymorphic components preserve their documented semantics;
+  extension overrides preserve generated accessibility fields.
+- Accessible names describe the action, and visually hidden text that carries
+  meaning stays in the accessibility tree.
+- State hidden through `--display` or transforms agrees with focusability and
+  the accessibility tree; disabled and inert states behave consistently.
+- Custom widgets (tabs, menus, dialogs, sliders) implement their keyboard
+  pattern: arrow keys, Home/End, Escape, roving `tabIndex`.
+- Interactive controls have a hit area of at least 24×24 CSS px and visible
+  focus.
 - The root implements the direction contract, and every `ReactNode` slot
   isolates nested content with `dir="ltr"`.
 
@@ -211,12 +219,13 @@ Prefer a native element when it preserves product behavior.
 
 The accessibility review is complete only when:
 
-- both scanners start successfully;
-- every finding is triaged;
-- confirmed issues are fixed when safe;
-- the manual review is complete; and
-- both scanners are rerun on every changed `.tsx` or `.jsx` file.
+- the last run exited `0` or `1`; exit `2` is acceptable only for a reported
+  `loader` limit;
+- every finding is triaged and confirmed issues are fixed when safe;
+- the command was rerun after the last fix pass; and
+- the manual review is complete.
 
+After two fix passes, stop and report the remaining findings with their triage.
 Preserve visual and runtime behavior. Fix the semantic owner: root, named inner
 part, shared primitive, or call site. Then return to the main workflow for the
 Wix build, manifest generation, TypeScript check, and relevant project tests.

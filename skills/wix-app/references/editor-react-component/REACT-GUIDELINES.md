@@ -86,4 +86,4 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
 - [ ] Direction and accessibility contracts are wired to the correct elements.
 - [ ] Public handlers use supported SDK names; internal handlers stay internal.
 - [ ] CSS changed by the request keeps editable selectors flat and scoped.
-- [ ] The accessibility review runs after JSX edits.
+- [ ] The accessibility review command passes, or its remaining findings are triaged.

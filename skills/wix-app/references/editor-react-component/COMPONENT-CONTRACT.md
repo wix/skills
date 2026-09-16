@@ -42,8 +42,9 @@ export type PlanCardProps = {
 
 Rules:
 
-- Route all ARIA attributes through `a11y`; do not add individual `ariaLabel`,
-  `role`, or similar props.
+- Follow `ACCESSIBILITY.md`. Expose only `ariaLabel`, for a control without a
+  visible name, through the typed `a11y` contract. Keep semantics and state in
+  code. Do not add one-off ARIA props or spread the whole object.
 - Expose only content and behavior that the site owner controls. Keep derived
   values internal.
 - Add only callbacks required by the component specification. Use supported SDK
