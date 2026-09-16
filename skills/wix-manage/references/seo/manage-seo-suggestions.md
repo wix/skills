@@ -19,8 +19,9 @@ All endpoints are under `https://www.wixapis.com/seo/suggestions/v1`. Reads of
 the site's pages and writes of its tags use the SEO Tags API under
 `https://www.wixapis.com/promote/seo/v1`. Every request and response shape a
 flow needs is in this recipe, verified against the live API: build the calls
-from here. The reference links are for cases this recipe does not cover, not a
-step before the first call.
+from here, including the two SEO Tags calls (List Item SEO Tags, and the
+focus-keyword write). Do not open the linked reference articles or search API
+schemas before calling; the links are for cases this recipe does not cover.
 
 | User asks for | Call |
 |---|---|
@@ -64,8 +65,14 @@ Relevant response fields (other tags omitted; IDs are illustrative):
 
 - `itemId` is the page ID (`pageId` in every call below). Identify the page by
   its resolved `title` tag; if that is ambiguous, ask the user which page.
-- The page path is the path of the canonical `link` `href`: `/` when the href has
-  no path (the homepage), `/cart-page` for `https://www.example.com/cart-page`.
+- The page path is the path of the canonical `link` `href`: `/cart-page` for
+  `https://www.example.com/cart-page`.
+- **The homepage is the one entry whose canonical `href` has no path**: it ends
+  at the host (`https://www.example.com`, at most a trailing `/`). Its path is
+  `/`. Do not parse anything else to find it: read `resolvedTags`, take the
+  `link` tag with `rel` `canonical`, keep the entry whose `href` has nothing
+  after the host. Its title is usually `Home | <site name>`, which confirms the
+  match but is not the rule.
 - `focusKeywords` with `isMain: true` is the focus keyword page optimization uses.
 - The current title and description are the `title` tag and the `meta` tag named
   `description` in `resolvedTags`; pass them as context, never present them as
@@ -256,7 +263,10 @@ things, checked in this order:
    ```
 
    The field mask limits the write to `focusKeywords`, so the page's tags are
-   untouched. The response echoes the page with its new `focusKeywords`.
+   untouched and no read is needed before this write: List Item SEO Tags already
+   returned the page's current `focusKeywords`, and the SEO Tags API's
+   read-before-write rule exists for the `tags` array, which this call does not
+   send. The response echoes the page with its new `focusKeywords`.
 
 Then start one job. Use
 [Trigger Home Page Optimization](https://dev.wix.com/docs/api-reference/business-management/seo/page-optimization-v1/trigger-home-page-optimization)
