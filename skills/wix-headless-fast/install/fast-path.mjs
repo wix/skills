@@ -4,7 +4,10 @@
 // or for connect/iterate runs (which must NOT scaffold and don't use this script).
 //
 //   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json \
-//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>]
+//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>] [--flatten]
+//
+// --flatten (opt-in): leave the project directly in the current directory instead of a subfolder,
+// moving it before the background install starts. Default off — the normal output is a subfolder.
 //
 // It emits ONE JSON event per line and exits in ~35s with BOTH long steps — the dependency
 // install AND the seed — running detached in the background (logs + completion markers
@@ -12,7 +15,7 @@
 // Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code + deps +
 // lockfile → pin AGENTS.md → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, openSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +37,8 @@ const businessName = flag("business-name");
 const planPath = flag("plan");
 const vertical = flag("vertical");
 const stack = flag("stack") ?? "astro";
+// Opt-in: leave the project in the current directory (flat) instead of a subfolder.
+const flatten = argv.includes("--flatten");
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong
 // seed against the plan — fail loudly with the discovered choices instead.
 const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
@@ -51,7 +56,10 @@ const plan = JSON.parse(readFileSync(planPath, "utf8"));
 const folderName =
   flag("folder-name") ??
   businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-const projectDir = resolve(process.cwd(), folderName);
+// `let`: after deploy we flatten the scaffold up into the repo root and repoint
+// projectDir there, so the detached install/seed and every reported path use the
+// final location.
+let projectDir = resolve(process.cwd(), folderName);
 
 // ---- 1 · scaffold -------------------------------------------------------------------------------
 if (existsSync(join(process.cwd(), "wix.config.json"))) {
@@ -102,6 +110,29 @@ const pin = spawnSync(
   { cwd: projectDir, encoding: "utf8", timeout: 10_000 },
 );
 try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block the build on the note */ }
+
+// ---- 2c · optional --flatten: move the scaffold into the current directory ----------------------
+// OFF by default — the normal output is a self-contained subfolder, unchanged. Opt in when the
+// caller wants the project directly in the current directory (e.g. bootstrapping into an existing
+// repo that must stay one flat tree). Done HERE, before the detached install below, on purpose:
+// no node_modules exists yet, so the move is instant and cannot collide with a running install —
+// the failure mode when a project is flattened by hand after the background install has started.
+// The scaffold's own nested .git is removed so the enclosing repo tracks the files directly rather
+// than as a submodule gitlink.
+const targetDir = process.cwd();
+if (flatten && projectDir !== targetDir) {
+  try {
+    rmSync(join(projectDir, ".git"), { recursive: true, force: true });
+    for (const entry of readdirSync(projectDir)) {
+      renameSync(join(projectDir, entry), join(targetDir, entry));
+    }
+    rmSync(projectDir, { recursive: true, force: true });
+    projectDir = targetDir;
+    emit("flattened", { into: targetDir });
+  } catch (e) {
+    fail("flatten", e?.stack || e);
+  }
+}
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");
