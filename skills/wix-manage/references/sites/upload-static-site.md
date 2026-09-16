@@ -11,15 +11,12 @@ new site. There is no API call to make. Send them to the upload page and
 explain the flow:
 
 ```
-https://www.wix.com/headless/drop?referral=<agent>&utm_campaign=<agent>
+https://www.wix.com/headless/drop?utm_campaign=mcp
 ```
 
-**Replace `<agent>` in both query parameters with your own product's short
-lowercase name** — `aria` if you are Wix Aria, `claude` for Claude, `chatgpt`
-for ChatGPT, and so on; use `assistant` if you have no product name. Give both
-parameters the same value and keep both. They attribute the visit to the
-referring assistant; dropping them, leaving the `<agent>` placeholder in, or
-inventing extra parameters breaks that attribution.
+**Always give the URL exactly as written above, including the
+`utm_campaign=mcp` query parameter.** It attributes the visit to an
+assistant/MCP referral; dropping or rewriting it breaks that attribution.
 
 ## What happens on that page
 
