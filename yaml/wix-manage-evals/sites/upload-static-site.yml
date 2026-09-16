@@ -12,7 +12,7 @@ maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-static-site
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -41,3 +41,25 @@ assertions:
       - tells the user to embed the HTML into an existing Wix site or upload the files to a
         site's media files, OR
       - is generic with no drop-page URL.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how directly the agent reached the drop-page
+      answer. Examine the tool-call trace, not the final answer. Score 0-10,
+      where 10 means a direct path: the agent read the upload-static-site skill
+      article and answered with the drop URL, with no exploratory or unrelated
+      calls in between.
+
+      Penalize and LIST any of:
+        - a call to any site-creation API (meta-site templates, headless-business
+          provision) before or after giving the drop URL
+        - a call to the site-import API or any crawl/migration tool
+        - probing unrelated docs articles or APIs before settling on the drop page
+        - an attempted file upload through any API
+        - multiple redundant turns to arrive at what is a single-link answer
+
+      For each issue, name the likely skill or docs gap that caused the detour.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of detours and the
+      gap behind each, or 'direct path'>"}
