@@ -76,14 +76,16 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table.
 
-   Optional `--flatten`: by default the project is created in a **new subfolder** (named after
-   the business). Pass `--flatten` to create it **directly in the current directory** instead —
-   the script moves the scaffold's files up into the CWD, done **before** the dependency install
-   starts so nothing is half-moved. If the current directory is **already a git repo**, it also
-   removes the scaffold's own nested `.git` so you don't end up with a repo nested in a repo;
-   if it isn't a repo, that `.git` is kept and becomes this project's repo. Use `--flatten` when
-   you're bootstrapping into an existing repo that must stay a single flat tree; otherwise omit
-   it and keep the subfolder.
+   fast-path scaffolds with `--skip-git`: it composes its own steps and leaves version control to
+   you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
+   commit (which would otherwise become a nested-repo gitlink if the project lands inside a repo).
+
+   Optional `--flatten`: by default the project is created in a **new subfolder** (named after the
+   business). Pass `--flatten` to create it **directly in the current directory** instead — a plain
+   move of the scaffold's files up into the CWD, done **before** the dependency install starts so
+   nothing is half-moved (and since git was skipped, there's no nested repo to reconcile). Use it
+   when bootstrapping into an existing repo that must stay a single flat tree; otherwise omit it
+   and keep the subfolder.
 
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
    **deploys** the shipped code (patching `package.json` with every dependency the code

@@ -71,9 +71,14 @@ if (existsSync(join(projectDir, "wix.config.json"))) {
   emit("scaffolding", { folder: folderName });
   const scaffold = spawnSync(
     "npm",
+    // --skip-git: this wrapper composes its own steps and leaves version control to
+    // the caller / the enclosing repo; the scaffold's own `git init` + "Initial
+    // commit" is noise here, and becomes a nested-repo (submodule gitlink) hazard
+    // if the project is later placed inside an existing repo. --skip-install for the
+    // same reason: deps install in a detached step below.
     ["create", "@wix/new@latest", "--", "headless",
      "--folder-name", folderName, "--business-name", businessName,
-     "--site-template", "--skip-install", "--no-publish"],
+     "--site-template", "--skip-install", "--skip-git", "--no-publish"],
     { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
   );
   if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
@@ -117,18 +122,11 @@ try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block the bu
 // repo that must stay one flat tree). Done HERE, before the detached install below, on purpose:
 // no node_modules exists yet, so the move is instant and cannot collide with a running install —
 // the failure mode when a project is flattened by hand after the background install has started.
-// The scaffold's own nested .git is removed so the enclosing repo tracks the files directly rather
-// than as a submodule gitlink.
+// A pure move: the scaffold was created with --skip-git (above), so there is no nested repo to
+// reconcile — git is whatever the destination already is.
 const targetDir = process.cwd();
 if (flatten && projectDir !== targetDir) {
   try {
-    // The scaffold inits its own git repo in the subfolder. Only drop it when the
-    // destination is ALREADY a repo — else the flattened project would be a repo
-    // nested in a repo (a submodule gitlink). If the destination is not a repo,
-    // keep the scaffold's .git: after the move it simply becomes this project's repo.
-    if (existsSync(join(targetDir, ".git"))) {
-      rmSync(join(projectDir, ".git"), { recursive: true, force: true });
-    }
     for (const entry of readdirSync(projectDir)) {
       renameSync(join(projectDir, entry), join(targetDir, entry));
     }
