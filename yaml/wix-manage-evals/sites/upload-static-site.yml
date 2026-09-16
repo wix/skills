@@ -20,12 +20,15 @@ assertions:
       The user already has a finished static website as local files (index.html, styles.css,
       script.js) and wants it live on Wix as a new site.
       Intent: send them to the Wix Headless drop page —
-      https://www.wix.com/headless/drop?referral=aria&utm_campaign=aria — where they upload the files, get an
-      instantly hosted live site, and claim it into their Wix account to keep it.
+      https://www.wix.com/headless/drop?referral=<agent>&utm_campaign=<agent> — where they upload the
+      files, get an instantly hosted live site, and claim it into their Wix account to keep it.
+      The skill tells the assistant to substitute its own short lowercase product name for <agent>
+      in BOTH parameters (this harness's assistant is Aria, so referral=aria&utm_campaign=aria is
+      the expected substitution).
 
       Pass if the response:
-      - gives the URL https://www.wix.com/headless/drop?referral=aria&utm_campaign=aria including both the
-        referral=aria and utm_campaign=aria query parameters, AND
+      - gives the drop URL with both a referral= and a utm_campaign= query parameter, both set to
+        the same lowercase assistant identifier (aria expected here), AND
       - explains they upload/drag the files there and get a live site they can claim into a Wix
         account, AND
       - does not attempt the upload itself through an API and does not create a site with any
@@ -34,7 +37,9 @@ assertions:
       building framework source first) is a plus but not required for a pass.
 
       Fail if the response:
-      - gives the drop URL without the referral=aria and utm_campaign=aria parameters, OR
+      - gives the drop URL missing either the referral= or the utm_campaign= parameter, with the
+        literal <agent> placeholder left unsubstituted, or with the two parameters set to
+        different values, OR
       - routes the task to the Site Import agent (site-import API) or any crawl/migration flow, OR
       - creates a site via the meta-site template API or the headless-business provision API
         instead of pointing to the drop page, OR
