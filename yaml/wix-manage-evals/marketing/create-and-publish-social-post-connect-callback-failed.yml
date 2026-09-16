@@ -1,0 +1,85 @@
+name: marketing/create-and-publish-social-post-connect-callback-failed
+description: >-
+  Advisory scenario for the "Create and Publish a Social Media Post" skill: the
+  user connected Facebook, then opened the Instagram authorization link and
+  landed on Wix's connect callback page saying "Connection failed". The site's
+  CONNECT_CHANNEL quota is limit 1 / currentUsage 1 / remainingUsage 0, so the
+  cause is the plan's channel-count cap, which Facebook consumed after the
+  Instagram link was minted. The correct behavior is to name the cap, not to
+  troubleshoot the user's Meta or Instagram account settings, not to re-issue
+  or retry the link, and to offer upgrading or posting to the connected channel.
+triggerPrompt: >-
+  I'm trying to publish to Facebook and Instagram from my Wix site. Facebook
+  connected fine. The Instagram link went through Facebook's approval screen and
+  then landed on a Wix page that only says "Connection failed, then try again".
+  My Instagram is already linked to my Facebook Page in Meta's Accounts Center.
+  When I check GET /social-publisher/v1/features?featureTypes=CONNECT_CHANNEL it
+  returns limit 1, currentUsage 1, remainingUsage 0; FACEBOOK
+  long-lived-token-status is VALID and INSTAGRAM is NEVER_CREATED. What went
+  wrong, and how do I get Instagram connected?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for an explanation and next steps. The values they
+      report are real and consistent: the plan's CONNECT_CHANNEL quota allows one
+      connected channel, Facebook holds it, so the Instagram authorization was
+      rejected at Wix's callback — the OAuth approval itself worked.
+
+      The agent may re-check the live site. If the live values differ from
+      what the user reported (for example nothing is connected on the eval
+      site), noting that discrepancy is acceptable and does not fail this
+      judge; judge the explanation of the reported values and the recommended
+      next steps.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - explains that the site's plan allows one connected social channel and
+        Facebook took that slot, which is why the Instagram callback failed, AND
+      - says the "Connection failed" page is that plan limit, not a problem with
+        the user's Instagram account, Meta Accounts Center link, Page, or
+        professional-account type, AND
+      - offers exactly these ways forward: upgrade the social media marketing
+        plan to connect Instagram too, or publish to the connected Facebook Page
+        now, AND
+      - does not tell the user to retry the same Instagram link or to fix
+        anything in Instagram/Meta settings, AND
+      - performs no mutating API calls.
+
+      Fail if the response:
+      - sends the user to Instagram or Meta settings (Accounts Center, sharing
+        across profiles, professional account) as the fix, OR
+      - re-issues or tells the user to retry the Instagram connect link without
+        naming the plan cap, OR
+      - suggests disconnecting Facebook to make room, OR
+      - calls the failure a Wix bug, outage, or something to retry later, OR
+      - claims Instagram can be connected on the current plan, OR
+      - falls back to searching the REST docs instead of using the skill.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path. The user already supplied the quota and status
+      values, so at most a read of features / long-lived-token-status is
+      justified; a fresh connect-url call is unnecessary and a retry of one after
+      a 428 is wrong.
+
+      Pass if:
+      - no create/publish/schedule/update call is made, AND
+      - connect-url is not called more than once, and never retried after a
+        428, AND
+      - List Accounts is not called for INSTAGRAM (its status is not VALID), AND
+      - no API call errors out from a guessed endpoint or shape.
+
+      Fail if:
+      - connect-url is called repeatedly or retried after an error, OR
+      - any mutating call is made, OR
+      - the agent makes blind API calls that error out.

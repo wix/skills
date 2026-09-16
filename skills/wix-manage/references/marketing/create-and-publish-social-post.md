@@ -295,6 +295,16 @@ Here `channel.accountId` = `facebook.id` (`1022334455667788`) and `facebookPost.
 
 Ask the user if they'd like to connect the channel now. If yes, run the OAuth connect flow — the site owner must authorize in their browser; it can't be completed server-side alone.
 
+**Before minting any link, read the connection quota** — `GET https://www.wixapis.com/social-publisher/v1/features?featureTypes=CONNECT_CHANNEL` (the STEP 5 endpoint; `CONNECT_CHANNEL` is the plan's cap on **how many** channels the site can connect):
+
+```json
+{ "features": [ { "type": "CONNECT_CHANNEL", "enabled": true, "quotaInfo": { "limit": 1, "currentUsage": 0, "remainingUsage": 1, "period": "NO_PERIOD" } } ], "monetizationEnabled": true }
+```
+
+- `remainingUsage` ≥ 1 (or no `quotaInfo`, or `limit: 0` — unmetered, see STEP 5) → mint the link (step 1).
+- `enabled: false`, or `monetizationEnabled: true` with a positive `limit` and `remainingUsage: 0` → the cap is full. **Don't mint a link** — it would fail at Wix's callback. Offer the two options from the `428` note in step 1: upgrade the plan, or post to the already-connected channel.
+- The user wants **more than one** channel ("Facebook and Instagram") → connect them **one at a time**: mint one link, wait for its `VALID` (step 3), then re-read `CONNECT_CHANNEL` and mint the next. Never hand out two links together — the first authorization consumes a slot, and when it was the last one the second link dies on Wix's callback page with a bare "Connection failed" and no reason. If `remainingUsage` is already smaller than the number of channels requested, say so up front and let the user pick which channel gets the slot.
+
 1. **Get the authorization URL** — `GET https://www.wixapis.com/social-publisher/v1/INSTAGRAM/connect-url` (path segment is the channel name):
 
    ```json
@@ -312,6 +322,8 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
    ```
 
    `status` values: `NEVER_CREATED` (not connected yet — keep polling until the timeout), `VALID` (connected — proceed), `INVALID` (connection expired — reconnect with the same flow), `DISCONNECTED` (was disconnected — reconnect). If it's still not `VALID` after ~2 minutes, stop and tell the user the connection wasn't completed and they can retry.
+
+   If the poll never reaches `VALID`, or the user reports that the authorization ended on a Wix page saying **"Connection failed"**, re-read `features?featureTypes=CONNECT_CHANNEL` before troubleshooting anything on the channel's side. `remainingUsage: 0` (or a fresh `428` from `connect-url`) means a slot was consumed after this link was minted — usually another channel connected in between — and the plan cap, not the user's Meta/Instagram/Page settings, is what failed. Say that plainly and offer the two options from step 1; don't send the user through the channel's account settings and don't re-issue the same link.
 
 4. **If this was a standalone connect request, stop here** — the channel is connected. Otherwise, run **STEP 4b** (`List Accounts`) to get the now-connected account's `id` for `channel.accountId`. (The poll already confirmed `VALID`, so no need to re-check status.)
 
@@ -505,6 +517,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | STEP 4b returns empty `accounts` even though status was `VALID` | Token exists but no postable page/account was granted at authorization | Treat as not-connected for that channel; re-run STEP 4c and tell the user to grant the Page |
 | `400 USER_NOT_EXIST_FOR_CHANNEL` on List Accounts | The **queried channel** has no connected user. Shouldn't occur after a `VALID` status (STEP 4a gates this) — a stray one means it disconnected between calls | Treat as not-connected for that channel only; offer STEP 4c. Don't conclude the whole site has no connected accounts — the check is per-channel |
 | `428 INELIGIBLE_FOR_FEATURE` on Get Connect Url | Site has hit its plan's cap on **number of connected channels** (e.g. free = 1), not a channel-specific block | Explain the channel-count limit; offer to upgrade, or find the already-connected channel (List Accounts / ask) and offer to post there. Don't suggest connecting a *different* new channel (same cap), don't suggest disconnecting/switching, don't retry the connect flow |
+| Authorization ends on a Wix page saying **"Connection failed"** (the connect callback), or the STEP 4c poll never turns `VALID`, while another channel is (now) `VALID` | A connection slot was consumed after the link was minted — the plan's `CONNECT_CHANNEL` cap is full, so the callback rejected the connection; the page shows no reason | Re-read `features?featureTypes=CONNECT_CHANNEL`; `remainingUsage: 0` (or a fresh `428` from `connect-url`) confirms it. Explain the channel-count limit and offer upgrade or posting to the connected channel. Don't troubleshoot the user's Meta/Instagram settings, don't re-issue the link |
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | Publish fails on a missing account-derived ID (e.g. LinkedIn `/author :: field is required`) | The `authorId`/`pageId`/`boardId`/`locationId`/`channelId`/`privacyLevel` wasn't added to the content object | Read it from the STEP 4b account object per the field-path table and add it before publishing |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |

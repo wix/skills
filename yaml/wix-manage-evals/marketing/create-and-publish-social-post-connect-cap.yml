@@ -1,0 +1,77 @@
+name: marketing/create-and-publish-social-post-connect-cap
+description: >-
+  Action scenario for the "Create and Publish a Social Media Post" skill on a
+  fresh site with nothing connected: the user asks to connect two channels at
+  once. A free site's CONNECT_CHANNEL quota allows a single connection, so the
+  correct behavior is to read that quota before minting any authorization link,
+  tell the user up front that only one channel fits the current plan, and hand
+  out at most one connect link (for the channel the user picks or the first one)
+  rather than two. Two links minted together is the failure this guards: the
+  first authorization consumes the only slot and the second link dies on Wix's
+  callback page with a bare "Connection failed".
+triggerPrompt: >-
+  Connect my Facebook Page and my Instagram account to Wix so I can post to both.
+  Give me whatever links I need to approve.
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to connect two social channels (Facebook and Instagram) on a
+      fresh site with nothing connected. On this site's plan the CONNECT_CHANNEL
+      premium feature allows one connected channel (quotaInfo.limit 1,
+      remainingUsage 1). Connecting is a browser OAuth step the user must do, so
+      the assistant can only mint authorization links and explain.
+
+      Pass if the response:
+      - reads the CONNECT_CHANNEL quota (GET /social-publisher/v1/features with
+        featureTypes=CONNECT_CHANNEL, or /features/CONNECT_CHANNEL) BEFORE
+        handing out any connect link, AND
+      - tells the user plainly that the current plan allows connecting one
+        channel, so both cannot be connected without an upgrade, AND
+      - hands out at most ONE connect link — for the channel the user picks, or
+        asks which channel should get the slot — and does NOT present two links
+        together, AND
+      - mentions upgrading the plan as the way to connect the second channel, AND
+      - performs no mutating API calls (reading features, token status and
+        connect-url is fine).
+
+      If the quota read shows more than one remaining connection, minting a link
+      per channel is acceptable as long as the quota was read first and the
+      response says how many channels the plan allows.
+
+      Fail if the response:
+      - presents Facebook and Instagram connect links together while the quota
+        allows only one connection, OR
+      - never reads the CONNECT_CHANNEL quota before minting a link, OR
+      - claims both channels can be connected on the current plan, OR
+      - suggests disconnecting one channel to make room, OR
+      - falls back to searching the REST docs instead of using the skill.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the wording. The clean path for this request is:
+      load the skill; check connection status per channel with
+      long-lived-token-status (both NEVER_CREATED on a fresh site); read the
+      CONNECT_CHANNEL quota; then mint at most one connect-url (or ask the user
+      which channel first), because the quota allows one connection.
+
+      Pass if:
+      - the features / CONNECT_CHANNEL read happens before any connect-url call, AND
+      - at most one connect-url call is made when remainingUsage is 1, AND
+      - no List Accounts call is made for a channel whose status is not VALID, AND
+      - no call is retried after an error, and no create/publish/schedule call is made.
+
+      Fail if:
+      - two connect-url calls are made without a quota read in between, OR
+      - a connect-url call precedes any quota read, OR
+      - List Accounts is called for an unconnected channel, OR
+      - any mutating call is made.
