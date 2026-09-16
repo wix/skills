@@ -122,7 +122,13 @@ try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block the bu
 const targetDir = process.cwd();
 if (flatten && projectDir !== targetDir) {
   try {
-    rmSync(join(projectDir, ".git"), { recursive: true, force: true });
+    // The scaffold inits its own git repo in the subfolder. Only drop it when the
+    // destination is ALREADY a repo — else the flattened project would be a repo
+    // nested in a repo (a submodule gitlink). If the destination is not a repo,
+    // keep the scaffold's .git: after the move it simply becomes this project's repo.
+    if (existsSync(join(targetDir, ".git"))) {
+      rmSync(join(projectDir, ".git"), { recursive: true, force: true });
+    }
     for (const entry of readdirSync(projectDir)) {
       renameSync(join(projectDir, entry), join(targetDir, entry));
     }

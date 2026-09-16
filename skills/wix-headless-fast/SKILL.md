@@ -78,8 +78,10 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 
    Optional `--flatten`: by default the project is created in a **new subfolder** (named after
    the business). Pass `--flatten` to create it **directly in the current directory** instead —
-   the script moves the scaffold's files up into the CWD and removes the scaffold's own nested
-   `.git`, done **before** the dependency install starts so nothing is half-moved. Use it when
+   the script moves the scaffold's files up into the CWD, done **before** the dependency install
+   starts so nothing is half-moved. If the current directory is **already a git repo**, it also
+   removes the scaffold's own nested `.git` so you don't end up with a repo nested in a repo;
+   if it isn't a repo, that `.git` is kept and becomes this project's repo. Use `--flatten` when
    you're bootstrapping into an existing repo that must stay a single flat tree; otherwise omit
    it and keep the subfolder.
 
