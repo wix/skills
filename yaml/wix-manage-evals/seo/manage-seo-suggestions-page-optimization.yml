@@ -1,0 +1,72 @@
+name: seo/manage-seo-suggestions-page-optimization
+description: >-
+  Verifies the trigger-and-poll orchestration of the Page Optimization API for the homepage:
+  discover the homepage ID, set the requested focus keyword on it, start exactly one
+  homepage optimization job, poll its predictionId until it completes, and present the
+  before/after suggestions without applying any of them.
+triggerPrompt: >-
+  Optimize my site's homepage for the keyword "handmade ceramic mugs" and show me what
+  you would change. Don't apply any of the changes yet, I want to review them first.
+tags: [seo]
+# A fresh Wix-rendered site with real homepage content is required: the trigger needs a
+# focus keyword (the agent sets it, that is part of the flow) and enough page text, and on
+# the shared multi-site account the agent stops to ask which site to act on.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-ai-seo-suggestions-for-a-wix-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to optimize their homepage for "handmade ceramic mugs" and to show the
+      proposed changes without applying them.
+
+      Pass if the agent:
+      - discovers the homepage's page ID from an API response (List Item SEO Tags for
+        STATIC_PAGE, identifying the homepage by its resolved title or canonical URL), never
+        guessing it,
+      - sets "handmade ceramic mugs" as the page's main focus keyword with Set Item SEO Tags
+        (PATCH .../promote/seo/v1/item-seo-tags/STATIC_PAGE/{pageId}, body with
+        itemSeoTags.focusKeywords containing that term with isMain true and fieldMask
+        "focusKeywords"), unless the page already had it,
+      - calls Trigger Home Page Optimization
+        (POST .../seo/suggestions/v1/page-optimization/trigger-home) once with that pageId
+        and pagePath "/", keeps the returned predictionId, and polls Get Page Optimization
+        Results (GET .../page-optimization/results?predictionId=...) until status is no
+        longer IN_PROGRESS,
+      - on COMPLETED, presents metaTitle, metaDescription, h1, h2OrH3, and any content entries
+        as current text versus proposed text, and applies none of them: no Set Item SEO Tags
+        call that writes tags after the results arrived.
+
+      Also pass if the trigger returned FAILED_PRECONDITION with code CONTENT_TOO_SHORT or
+      SITE_NOT_SUPPORTED, or a 403 / PERMISSION_DENIED, and the agent reported that code and
+      what it means, then stopped: one trigger attempt, no retries with another page, path, or
+      request shape.
+
+      Fail if the agent guessed a page ID, used Trigger Page Optimization instead of the
+      homepage trigger for the homepage, started more than one job on purpose, wrote title or
+      description tags after receiving the suggestions, invented suggestions the API did not
+      return, or described the page as optimized when the job did not complete.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the prose. Score 0-10 (10 = direct: no wasted calls, no
+      errors).
+
+      Expected path: read the skill, one List Item SEO Tags read to find the homepage, one
+      focus-keyword write with fieldMask "focusKeywords", one Trigger Home Page Optimization,
+      a few Get Page Optimization Results polls until the status changes, then the answer.
+      Penalize and list: a trigger sent before the focus keyword was set (a
+      FOCUS_KEYWORD_NOT_SET error the recipe warns about); a second trigger while the first
+      job was running; polling faster than every few seconds or continuing after a terminal
+      status; a request sent with a guessed shape or to a guessed path; a non-2xx response
+      even if recovered, except a FAILED_PRECONDITION or 403 that the agent reported and did
+      not retry; docs or schema searches for request shapes the recipe already gives. For
+      each friction, name the likely skill or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
