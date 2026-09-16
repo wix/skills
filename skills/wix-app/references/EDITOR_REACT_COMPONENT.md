@@ -121,7 +121,9 @@ extension configuration, and supporting files.
 - Explicit foreground colors need a known contrasting background; transparent
   roots inherit from the host.
 - Baseline Widely Available CSS/DOM only, or supported fallbacks.
-- Route ARIA through `a11y`; no one-off ARIA props.
+- Accessibility per part, per [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
+  read only `a11y.ariaLabel`, and only for a control without a visible name;
+  never spread the `a11y` object or add one-off ARIA props.
 - Named parts: global class, module class, and `elementProps` (root uses
   top-level props).
 - Native design states: pair selectors with injected modifiers; keep non-input
