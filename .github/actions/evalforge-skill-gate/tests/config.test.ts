@@ -28,6 +28,7 @@ vi.mock('@actions/github', () => ({
         number: 42,
         head: { sha: 'abc1234deadbeef' },
         base: { sha: 'base1234567890' },
+        author_association: 'MEMBER',
       },
     },
   },

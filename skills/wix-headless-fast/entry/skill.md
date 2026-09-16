@@ -15,7 +15,7 @@ already reading the raw text, don't fetch it again.
 
 ```bash
 curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs && node bootstrap.mjs
-CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
+CI=1 npx skills@latest add wix/skills --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
 # then open and follow: .agents/skills/wix-headless-fast/SKILL.md
 ```
 
@@ -50,15 +50,14 @@ version, install or upgrade Node first — do **not** work around it:
 
 ## Phase 1 — Run the bootstrap (deterministic, shared)
 
-Download and run the shared bootstrap script. It verifies the Wix CLI and handles login,
-emitting **one JSON event per line** on stdout. **Run it and relay its events** — it exits on
-its own once the CLI is verified and a session exists (seconds, when already logged in). Only
-when a login is actually needed does it pause on `awaiting_user`; surface the URL + code and
-let it keep running until the login completes.
+Download and run the shared bootstrap script — an ordinary foreground command that exits on
+its own within seconds. It verifies the Wix CLI and handles login, emitting **one JSON event
+per line** on stdout. **Run it and relay its events.**
 
 The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives
-`wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first
-if your sandbox flags externally-downloaded code.
+`wix login` (a device-code flow) — no other network calls, and the only files it writes are
+the login's own output and pid under the OS temp dir. Read it first if your sandbox flags
+externally-downloaded code.
 
 ```bash
 # macOS/Linux:
@@ -74,20 +73,30 @@ node bootstrap.mjs
 | Event | What to do |
 |---|---|
 | `cli_ok` | Wix CLI reachable — continue. |
-| `awaiting_user` (`verificationUri`, `userCode`) | Show the URL and code in plain prose; wait for the user to finish the login in their browser. |
+| `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
 | `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
 
-## Phase 2 — Install the skill and hand off
+On `awaiting_user`, run the script again once the user says they've logged in: it reports
+`logged_in` and you continue. Re-running while they're still in the browser is harmless — it
+returns the same code rather than issuing a new one.
 
-Install the skill (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI
-command):
+## Phase 2 — Install the skills and hand off
+
+Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
+keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
+parsed:
 
 ```bash
-CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
+CI=1 npx skills@latest add wix/skills \
+  --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
 ```
 
-It lands at `.agents/skills/wix-headless-fast/`. Then **open
+- **`wix-headless-fast`** — the build itself.
+- **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
+- **`wix-manage`** — management recipes, for admin work on the site after it exists.
+
+They land under `.agents/skills/`. Then **open
 `.agents/skills/wix-headless-fast/SKILL.md` and follow it** — it owns the rest of the run:
 resolve the stack, scaffold, deploy the shipped code, seed, build the brand layer, release.
 (If the request needs a vertical the skill doesn't ship yet — see its SKILL.md § Verticals —

@@ -13,12 +13,32 @@ Never emit them to stdout, stderr, logs, prompts, or tool results.
 npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 ```
 
-If it's non-zero, **log in yourself** — don't punt to the user and stop:
+If it's non-zero, **log in yourself** — don't punt to the user and stop. A foreground command that exits in seconds, one JSON event per line:
 
-1. Run `npx @wix/cli@latest login` with **`run_in_background: true`** (no shell `&`, no redirect of your own — the harness captures stdout to its task-output file and returns the path).
-2. Poll that file for the first JSON event: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`.
-3. Surface it to the user in plain prose: *"Open `<verificationUri>` and enter the code `<userCode>` — I'll continue once you've logged in."* **Send the message; do not re-invoke login.**
-4. Wait for the harness `task-notification` with `<status>completed</status>` (not a sleep loop). On exit 0, run `whoami` once to confirm, then proceed.
+```bash
+node ../../entry/bootstrap.mjs   # path relative to this file
+```
+
+| Event | Do |
+|---|---|
+| `logged_in` | Session exists — continue. |
+| `awaiting_user` (`verificationUri`, `userCode`, `message`) | Send `message` verbatim, then stop. Re-run the script when the user says they're done → `logged_in`. Re-running early returns the **same** code, not a new one. |
+| `cli_unreachable` / `login_failed` (`detail`) | Show `detail` and stop. |
+
+### If you'd rather not execute it
+
+Read `../../entry/bootstrap.mjs` and do the same thing yourself. What matters:
+
+```bash
+# AI_AGENT must be set, or the CLI renders an interactive Ink TUI and emits no JSON.
+# Detach, redirecting to a FILE — a pipe dies with your process and the CLI gets EPIPE.
+AI_AGENT=my-agent nohup npx -y @wix/cli@latest login > /tmp/wix-login.log 2>&1 &
+
+grep -m1 awaiting_user /tmp/wix-login.log
+# {"event":"awaiting_user","expiresInSeconds":600,"userCode":"…","verificationUri":"…"}
+```
+
+Send the user that URL + code, then stop — nothing moves until they act. The detached login lands the session on its own; resume with `whoami` (exit 0). Codes last ~10 min; after that, start a new login and surface the new code.
 
 ## 2 · Mint the token
 

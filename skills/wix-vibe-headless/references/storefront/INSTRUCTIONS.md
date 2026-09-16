@@ -9,7 +9,7 @@ or configuration changes are needed to build the UI. Never mock products or hand
 `/checkout` URL; the shipped cart uses the eCom redirect session.
 
 ## Prerequisites
-- The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately, in parallel with this build — so it may be empty at build time; render the empty state until products land.
+- The site's **Wix Stores** catalog is the read/cart target. It may be empty while the client is being built — render the empty state cleanly. Flows that seed do so after the client is built; verify the storefront once the catalog is populated, not against the empty state.
 
 ## Already installed in `src/`
 Successful deployment verified these files are in place; use this map without needing to read their source (`@/` → `src/`).
@@ -336,6 +336,10 @@ wire these exactly as shown below.
 When adding storefront routes and providers to `src/App.jsx`, preserve the existing platform
 authentication setup, including `AuthProvider`, `useAuth`, and their `@/lib/AuthContext` imports.
 Do not remove or replace that authentication logic.
+The shipped commerce flow needs no login: shoppers browse, cart, and check out on the Wix visitor
+session, which is separate from platform user auth. Whether the storefront is public or members-only
+is the brief's call — default to public, and gate routes behind platform auth only when the brief
+asks for it. Neither choice affects the commerce flow.
 - Wrap the routed tree in `<CartProvider>` (from `@/context/CartContext`).
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page

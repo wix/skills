@@ -47,6 +47,7 @@ const CONFIG: GateConfig = {
   comparisonGroupId: 'group-1',
   runsPerScenario: 1,
   baseArmGraceMs: 60_000,
+  headRepoFullName: 'wix/skills',
 };
 
 const SCOPE: GateScope = {

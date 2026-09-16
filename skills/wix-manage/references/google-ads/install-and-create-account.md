@@ -1,12 +1,12 @@
 ---
 name: "Install Google Ads and Create an Account"
-description: "One-time setup for running Google paid ads on a Wix site: install the Wix Google Ads app, then create the Google Ads account that every campaign, suggestion, and analytics call depends on. Covers checking whether an account already exists, choosing a currency, optionally attaching a promotional incentive (credit offer), linking a Google Merchant Center account, and deleting an account. Use when the user wants to 'set up Google Ads', 'connect Google Ads', 'start advertising on Google', 'create a Google Ads account', or hits an ACCOUNT_NOT_FOUND / app-not-installed error before creating a campaign. Google Ads REST API, base https://www.wixapis.com/google-ads/v1."
+description: "One-time setup for running Google paid ads on a Wix site: install the Wix Google Ads app, then create the Google Ads account that every campaign, suggestion, and analytics call depends on. Covers checking whether an account already exists, choosing a currency, optionally attaching a promotional incentive (credit offer), linking a Google Merchant Center account, and deleting an account. Use when the user wants to 'set up Google Ads', 'connect Google Ads', 'start advertising on Google', 'create a Google Ads account', or hits an ACCOUNT_NOT_FOUND / app-not-installed error before creating a campaign. Google Ads REST API, base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Install Google Ads and Create an Account
 
 Setting up Google Ads on a Wix site is a **strict two-step prerequisite** for everything else in this area: (1) install the Wix Google Ads app, then (2) create the Google Ads account. Campaigns, suggestions, analytics, and billing all fail with `ACCOUNT_NOT_FOUND` (or an app-not-installed error) until both are done. This is a one-time setup per site.
 
-Base URL for all endpoints: `https://www.wixapis.com/google-ads/v1`. The `<AUTH>` placeholder is shorthand for the `Authorization` header; body-bearing calls also need `Content-Type: application/json`.
+Base URL for all endpoints: `https://www.wixapis.com/_serverless/pa-google/v1`. The `<AUTH>` placeholder is shorthand for the `Authorization` header; body-bearing calls also need `Content-Type: application/json`.
 
 > **This flow creates a billable advertising account.** Creating the account and launching campaigns spends the site owner's real money. Confirm intent with the user before calling **Create Account**, and surface the chosen currency.
 
@@ -17,7 +17,7 @@ Base URL for all endpoints: `https://www.wixapis.com/google-ads/v1`. The `<AUTH>
 Before installing or creating anything, check for an existing account. **Get Account For Current Site** returns an empty response (not an error) when none exists, so it's the safe probe.
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/accounts/current-site' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/current-site' -H 'Authorization: <AUTH>'
 ```
 
 - **`account` present** → setup is already done. Skip to whatever the user actually wants (create a campaign, view analytics, etc.). Do **not** create a second account — Create Account returns `ACCOUNT_ALREADY_EXISTS`.
@@ -48,7 +48,7 @@ Example response for an existing account:
 Idempotent — safe to call even if already installed (no effect). Required before Create Account.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/install-if-not-installed' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/install-if-not-installed' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' -d '{}'
 ```
 
@@ -61,7 +61,7 @@ Returns `{}`. Always run this before the first Create Account on a site.
 New accounts in supported currencies can attach an **incentive** — a promotional credit granted after the account spends a threshold. Skip this step for unsupported currencies (the call returns no offers).
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/incentives?currency=USD' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/incentives?currency=USD' -H 'Authorization: <AUTH>'
 ```
 
 Returns up to three tiers (`lowOffer`, `mediumOffer`, `highOffer`), each with an `incentiveId`, an `awardAmount` (credit granted), and a `requiredAmount` (spend needed to unlock it), plus a `consolidatedTermsAndConditionsUrl`. Present the tiers to the user and let them pick; carry the chosen `incentiveId` into STEP 3 as `selectedIncentiveId`. The incentive is recorded now and applied automatically once the account's budget is assigned — there is no separate apply call in this flow.
@@ -73,7 +73,7 @@ Returns up to three tiers (`lowOffer`, `mediumOffer`, `highOffer`), each with an
 Requires `currency` (ISO-4217, e.g. `USD`). Pass `selectedIncentiveId` if the user picked one in STEP 2. **Confirm with the user before this call** — it provisions a billable account.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/accounts' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/accounts' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "currency": "USD",
@@ -107,7 +107,7 @@ The currency choice is durable and drives budget minimums/maximums and manager-a
 `UpdateAccount` is a partial update — send only the fields you're changing. Merchant Center linking is needed before a retail Performance Max campaign can serve product ads.
 
 ```bash
-curl -X PATCH 'https://www.wixapis.com/google-ads/v1/accounts/a1b2c3d4-e5f6-7890-abcd-ef1234567890' \
+curl -X PATCH 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/a1b2c3d4-e5f6-7890-abcd-ef1234567890' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "account": { "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "merchantCenterAccountId": "9876543210" } }'
 ```
@@ -119,7 +119,7 @@ The response's `merchantCenterAccountLinkStatus.status` starts at `PENDING` — 
 Conversion actions (Purchase, Page View, etc.) are what campaigns optimize toward. To inspect them:
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/accounts/current-site/conversion-actions' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/current-site/conversion-actions' -H 'Authorization: <AUTH>'
 ```
 
 ### Delete the account
@@ -127,7 +127,7 @@ curl -X GET 'https://www.wixapis.com/google-ads/v1/accounts/current-site/convers
 `DeleteAccount` unlinks and removes the account. This is destructive and cannot be undone — **always confirm with the user first**, and prefer pausing campaigns over deleting the whole account when the user just wants to stop spending.
 
 ```bash
-curl -X DELETE 'https://www.wixapis.com/google-ads/v1/accounts/a1b2c3d4-e5f6-7890-abcd-ef1234567890' -H 'Authorization: <AUTH>'
+curl -X DELETE 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/a1b2c3d4-e5f6-7890-abcd-ef1234567890' -H 'Authorization: <AUTH>'
 ```
 
 Returns `{}`. Errors with `ACCOUNT_NOT_FOUND` if no account exists.

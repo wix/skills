@@ -82,8 +82,11 @@ jobs:
           echo "wix_app_refs=$present" >> "$GITHUB_OUTPUT"
           echo "Changed wix-app reference files: ${present:-none}"
 
-          # evalforge-core plus both actions that bundle it. A change to core affects both
-          # actions' committed bundles, so any of these paths exercises the whole set.
+          # evalforge-core plus the two gate actions that bundle it. A change to core affects
+          # both actions' committed bundles, so any of these paths exercises the whole set.
+          # skill-eval bundles core too, but its own workflow (skill-eval-ci.yml) owns its
+          # typecheck, tests and staleness check, and lists packages/evalforge-core for
+          # exactly that reason — so it is deliberately not in this match.
           #
           # The evalforge workflow files are in here too, because the only tests covering them —
           # workflow-config.test.ts, which asserts the gate wiring and the re-eval script's guards —

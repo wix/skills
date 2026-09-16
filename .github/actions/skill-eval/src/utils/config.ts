@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { readHeadRepoFullName } from '@wix/evalforge-core';
 
 export type Config = {
   githubToken: string;
@@ -14,6 +15,8 @@ export type Config = {
   headSha: string;
   owner: string;
   repo: string;
+  /** Where the PR's head branch lives; `null` if that repository is gone. */
+  headRepoFullName: string | null;
   blocking: boolean;
 };
 
@@ -52,6 +55,7 @@ export function getEvalConfig(): Config {
     headSha,
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+    headRepoFullName: readHeadRepoFullName(github.context.payload),
     blocking: core.getInput('blocking') !== 'false',
   };
 }

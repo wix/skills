@@ -228,7 +228,9 @@ Want to shape the result yourself? Pass raw code against the index (`lightIndex`
 await wx.spec(`
   const url = "<docsUrl from search/browse>";           // API method page, not a skill/article page
   const s = await getResourceSchemaByUrl(url);
-  const m = s.methods.find(x => x.docsUrl === url);
+  // A method URL resolves to exactly that method — take methods[0]. Don't match on docsUrl:
+  // the reader normalizes the url, so equality against the one you passed can miss.
+  const m = s.methods[0];
   return {
     call: m.publicUrl,                                       // callable https://www.wixapis.com/… URL
     body: m.requestBody?.content["application/json"].schema.properties,

@@ -58,7 +58,7 @@ able to force the safety control visible.
 import type { A11y, Direction } from '@wix/editor-react-types';
 
 export interface MyAnimationProps {
-  id?: string;
+  id: string;
   className?: string;
   direction?: Direction;
   a11y?: A11y;
@@ -216,7 +216,9 @@ Add `useIsEditMode` to the existing `@wix/react-component-utils` import. Then
 edit only the body of the existing `ComponentNamePreview` function — add the
 `isEditMode` check and gate the autoplay props. Do not touch the
 `withFallbackPlaceholder` call, the `withDefaults` export, or any other part
-of the file.
+of the file. The composition must keep `withDefaults` outside
+`withFallbackPlaceholder`, whether the calls are nested inline or assigned to
+component variables.
 
 ```tsx
 const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {

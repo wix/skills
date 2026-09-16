@@ -112,7 +112,6 @@ Presentation success applies across all five stages. Choose both the right **rep
 | **Kanban** | Work moves through meaningful stages. | Stage, workload, and valid movement are understandable. |
 | **Timeline or calendar** | Time, sequence, or scheduling matters. | Upcoming activity, conflicts, and timing are clear. |
 | **Chart** | The user needs to understand a trend or relationship. | The visualization answers a specific business question. |
-| **Summary metrics** | The user needs a quick health signal. | Metrics clarify current conditions and where to focus. |
 
 - Choose the default view that best supports the primary task.
 - Offer another view only when it provides distinct value.
@@ -130,7 +129,7 @@ Choose the smallest interface that gives users enough context and room to comple
 | **Entity page** | The task involves complex details, multi-section editing, history, or related information. | The user has enough space and structure to complete deeper work. |
 | **Inline or expanded row** | The user needs a quick inspection or simple action. | Detail appears without creating a separate workspace. |
 
-Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in [Collection Toolkit](COLLECTION_TOOLKIT.md). Patterns has no side panel; that one is WDS.
+Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in the installed package's `Collection Toolkit.md` guide — reached through [The Discovery Chain](../WIX_PATTERNS_DOCS.md#the-discovery-chain). Patterns has no side panel; that one is WDS.
 
 
 ## Data Success
