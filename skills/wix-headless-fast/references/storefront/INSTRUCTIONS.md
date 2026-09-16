@@ -230,7 +230,12 @@ export default function ProductDetailView(props: {
   //   d.notFound  → a "doesn't exist (anymore)" message
   //   !d.product  → a loading placeholder
   //   else the product view, laid out for the brand:
-  //     • gallery from d.product.gallery (urls, main first) — your arrangement
+  //     • gallery from d.product.gallery (urls, main first): show ONE primary
+  //       image at full size, and the rest as a small thumbnail strip (or a
+  //       scrollable row) that swaps the primary — never map the whole gallery
+  //       to full-width images stacked down the column (products with per-color
+  //       linked media carry several gallery urls, so that stacks big duplicates).
+  //       A single-image gallery is just the one primary — no empty strip.
   //     • name, live d.price / d.compareAtPrice (strike only when they differ),
   //       descriptionHtml rendered as HTML
   //     • option controls from d.optionGroups → d.selectOption(optionName, choiceName)
