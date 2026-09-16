@@ -20,14 +20,13 @@ assertions:
       The user already has a finished static website as local files (index.html, styles.css,
       script.js) and wants it live on Wix as a new site.
       Intent: send them to the Wix Headless drop page —
-      https://www.wix.com/headless/drop?utm_campaign=mcp — where they upload the files, get an
-      instantly hosted live site, and claim it into their Wix account to keep it.
+      https://www.wix.com/headless/drop?utm_campaign=mcp — where they upload the files and get an
+      instantly hosted live site.
 
       Pass if the response:
       - gives the URL https://www.wix.com/headless/drop?utm_campaign=mcp including the
         utm_campaign=mcp query parameter, AND
-      - explains they upload/drag the files there and get a live site they can claim into a Wix
-        account, AND
+      - explains they upload/drag the files there and get a live hosted site, AND
       - does not attempt the upload itself through an API and does not create a site with any
         other site-creation tool.
       Mentioning practical requirements (index.html at the root of the upload, size limits,
