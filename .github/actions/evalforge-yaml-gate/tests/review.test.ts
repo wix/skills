@@ -178,7 +178,7 @@ describe('review mode — what may and may not fail the check', () => {
   it.each([
     ['a blocking finding while soaking', [finding()], undefined, false],
     ['a blocking finding once blocking is on', [finding()], 'true', true],
-    ['a finding that is not blocking', [finding({ severity: 'fix-before-merge' })], 'true', false],
+    ['a finding that is not blocking', [finding({ severity: 'advisory' })], 'true', false],
     ['no findings at all', [], 'true', false],
   ])('%s', async (_label, findings, blocking, fails) => {
     if (blocking) process.env.INPUT_BLOCKING = blocking;
@@ -189,7 +189,7 @@ describe('review mode — what may and may not fail the check', () => {
   });
 
   it.each([
-    ['a discarded finding alongside good ones', [finding({ severity: 'fix-before-merge' })], 1],
+    ['a discarded finding alongside good ones', [finding({ severity: 'advisory' })], 1],
     ['a discarded finding and nothing else', [], 1],
   ])('reports the findings and the drop count, then fails, on %s', async (_label, findings, discarded) => {
     process.env.INPUT_BLOCKING = 'true';
