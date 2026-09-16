@@ -17,7 +17,7 @@ wix generate --params '{"extensionType":"APP_TOOLS","name":"my-tools"}'
 The generated file lives at `src/extensions/backend/app-tools/my-tools/my-tools.extension.ts`. Replace the stub tool with your own:
 
 ```typescript
-import { extensions } from '@wix/astro/builders';
+import { extensions } from '@wix/custom-extensions';
 
 export default extensions.appTools({
   id: '<generated-uuid>',
