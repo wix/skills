@@ -424,6 +424,9 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 ### [Sites Dashboard Navigation](references/sites/sites-dashboard-navigation.md)
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Upload a Website or HTML Files](references/sites/upload-static-site.md)
+Get a user's ready-made website live on Wix when they already have the site files — an index.html, a zip, or a static build exported from an AI builder or any other tool — by sending them to the Wix Headless drop page, where they upload the files and instantly get a live hosted site they can claim into their account. Use whenever the user wants to upload, publish, or host their own HTML/CSS/JS files as a NEW site. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+
 ---
 
 ## Stores

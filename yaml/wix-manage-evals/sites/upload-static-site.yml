@@ -1,0 +1,43 @@
+name: sites/upload-static-site
+description: >-
+  Verifies the agent reads the upload-static-site skill and sends a user who already has finished
+  site files (HTML/CSS/JS from an AI builder) to the Wix Headless drop page with the attribution
+  query parameter intact, instead of driving Site Import, creating a site via template/headless
+  provision APIs, or suggesting embedding the HTML into an existing site.
+triggerPrompt: >-
+  I built a small website with an AI coding tool — I have a folder with index.html, styles.css and
+  script.js on my computer. I don't have a Wix site yet. How do I get these files live on Wix?
+tags: [sites]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-static-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already has a finished static website as local files (index.html, styles.css,
+      script.js) and wants it live on Wix as a new site.
+      Intent: send them to the Wix Headless drop page —
+      https://www.wix.com/headless/drop?referral=aria&utm_campaign=aria — where they upload the files, get an
+      instantly hosted live site, and claim it into their Wix account to keep it.
+
+      Pass if the response:
+      - gives the URL https://www.wix.com/headless/drop?referral=aria&utm_campaign=aria including both the
+        referral=aria and utm_campaign=aria query parameters, AND
+      - explains they upload/drag the files there and get a live site they can claim into a Wix
+        account, AND
+      - does not attempt the upload itself through an API and does not create a site with any
+        other site-creation tool.
+      Mentioning practical requirements (index.html at the root of the upload, size limits,
+      building framework source first) is a plus but not required for a pass.
+
+      Fail if the response:
+      - gives the drop URL without the referral=aria and utm_campaign=aria parameters, OR
+      - routes the task to the Site Import agent (site-import API) or any crawl/migration flow, OR
+      - creates a site via the meta-site template API or the headless-business provision API
+        instead of pointing to the drop page, OR
+      - tells the user to embed the HTML into an existing Wix site or upload the files to a
+        site's media files, OR
+      - is generic with no drop-page URL.
