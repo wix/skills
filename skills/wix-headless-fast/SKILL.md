@@ -76,6 +76,13 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table.
 
+   Optional `--flatten`: by default the project is created in a **new subfolder** (named after
+   the business). Pass `--flatten` to create it **directly in the current directory** instead —
+   the script moves the scaffold's files up into the CWD and removes the scaffold's own nested
+   `.git`, done **before** the dependency install starts so nothing is half-moved. Use it when
+   you're bootstrapping into an existing repo that must stay a single flat tree; otherwise omit
+   it and keep the subfolder.
+
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
    **deploys** the shipped code (patching `package.json` with every dependency the code
    imports, and placing the pre-resolved lockfile), then **starts two detached background
