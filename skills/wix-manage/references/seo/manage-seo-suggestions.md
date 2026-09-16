@@ -17,7 +17,10 @@ site-specific calls. Never invent a site ID or ask the user to type one.
 
 All endpoints are under `https://www.wixapis.com/seo/suggestions/v1`. Reads of
 the site's pages and writes of its tags use the SEO Tags API under
-`https://www.wixapis.com/promote/seo/v1`.
+`https://www.wixapis.com/promote/seo/v1`. Every request and response shape a
+flow needs is in this recipe, verified against the live API: build the calls
+from here. The reference links are for cases this recipe does not cover, not a
+step before the first call.
 
 | User asks for | Call |
 |---|---|

@@ -69,13 +69,22 @@ assertions:
 
       Expected path: read the skill, one List Item SEO Tags read to find the homepage, one
       focus-keyword write with fieldMask "focusKeywords", one Trigger Home Page Optimization,
-      a few Get Page Optimization Results polls until the status changes, then the answer.
-      Penalize and list: a trigger sent before the focus keyword was set (a
-      FOCUS_KEYWORD_NOT_SET error the recipe warns about); a second trigger while the first
-      job was running; polling faster than every few seconds or continuing after a terminal
-      status; a request sent with a guessed shape or to a guessed path; a non-2xx response
-      even if recovered, except a FAILED_PRECONDITION or 403 that the agent reported and did
-      not retry; docs or schema searches for request shapes the recipe already gives. For
-      each friction, name the likely skill or docs gap.
+      Get Page Optimization Results polls (by predictionId or by pageId, both are correct)
+      until the status changes, then the answer.
+
+      HEAVY penalties (2-3 points each): a trigger sent before the focus keyword was set
+      (the FOCUS_KEYWORD_NOT_SET error the recipe warns about); a second trigger sent on
+      purpose while the first job was running; a request sent with a guessed body shape or
+      to a path that is not in the recipe; a non-2xx response even if recovered, except a
+      FAILED_PRECONDITION or 403 that the agent reported and did not retry; polling that
+      continued after a terminal status.
+
+      LIGHT penalties (at most 1 point each): a Get Item SEO Tags read of the homepage
+      before the focus-keyword write; reading a linked reference article for a shape the
+      recipe already gives; one extra poll; a docs search before opening the recipe.
+
+      Do not penalize: waiting between polls, the number of polls a job that takes up to two
+      minutes needs, or presenting an empty content array truthfully. For each friction you
+      count, name the likely skill or docs gap.
 
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
