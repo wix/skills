@@ -192,8 +192,10 @@ the `a11y` contract, and SSR safety. Verify what it cannot see:
   meaning stays in the accessibility tree.
 - State hidden through `--display` or transforms agrees with focusability and
   the accessibility tree; disabled and inert states behave consistently.
-- Custom widgets (tabs, menus, dialogs, sliders) implement their keyboard
-  pattern: arrow keys, Home/End, Escape, roving `tabIndex`.
+- Custom widgets (tabs, menus, dialogs, sliders) implement their full APG
+  keyboard pattern (arrow keys, Home/End, Escape, roving `tabIndex`) and
+  structural relationships, or use a plain native element instead of
+  borrowing the role.
 - Interactive controls have a hit area of at least 24×24 CSS px and visible
   focus.
 - The root implements the direction contract, and every `ReactNode` slot

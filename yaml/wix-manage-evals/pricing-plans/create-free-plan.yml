@@ -53,13 +53,13 @@ assertions:
       provisioning problem, not a failure of this scenario — ignore it when
       judging criterion 2, and say so in your reason.
   - type: llm_judge
-    minScore: 0
+    minScore: 7
     maxTokens: 2048
     prompt: |
-      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the
-      agent create a free Pricing Plans plan. Examine the tool-call trace.
-      Score 0-10, where 10 means a direct path: no failed calls, no schema
-      guessing, no re-reading an article to recover from an error.
+      Rate how smoothly the Wix MCP and its docs let the agent create a free
+      Pricing Plans plan. Examine the tool-call trace. Score 0-10, where 10
+      means a direct path: no failed calls, no schema guessing, no re-reading
+      an article to recover from an error.
 
       Penalize and LIST any of:
         - a create-plan call that returned a non-2xx error, even if recovered
@@ -71,6 +71,13 @@ assertions:
         - a `billingCycle` sent on a free plan, then removed
 
       For each issue, name the likely MCP or docs gap.
+
+      Calibration: a clean run is 9-10; one or two minor frictions (a redundant
+      docs read, one recovered error unrelated to the recipe's required fields)
+      land at 7-8; required-field 400s, schema guessing, or a probing spiral
+      score lower. Errors caused by site provisioning rather than the agent
+      (for example CURRENCY_MISSING or the app not being installed) are not
+      the agent's friction — ignore them.
 
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions and the
       suspected MCP/docs gap, or 'clean path' if none>"}.
