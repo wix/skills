@@ -66837,6 +66837,7 @@ function getReviewConfig() {
         timeoutSeconds: getClampedReviewTimeout(),
         isBlocking: core.getInput('blocking') === 'true',
         headRepoFullName: (0, evalforge_core_1.readHeadRepoFullName)(github.context.payload),
+        triggeredBy: core.getInput('triggered-by'),
     };
 }
 function getClampedReviewTimeout() {
@@ -67868,35 +67869,64 @@ function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
+    async function deleteMarked(markers) {
+        try {
+            const stale = [];
+            for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100,
+            })) {
+                for (const comment of page.data) {
+                    const body = comment.body ?? '';
+                    if (markers.some(marker => body.includes(marker)))
+                        stale.push(comment.id);
+                }
+            }
+            for (const comment_id of stale) {
+                await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
+            }
+        }
+        catch (error) {
+            core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+        }
+    }
     return {
         post,
-        async clear() {
-            try {
-                const stale = [];
-                for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-                    owner, repo, issue_number: prNumber, per_page: 100,
-                })) {
-                    for (const comment of page.data) {
-                        if (comment.body?.includes(review_comment_1.REVIEW_PENDING_MARKER))
-                            stale.push(comment.id);
-                    }
-                }
-                for (const comment_id of stale) {
-                    await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
-                }
-            }
-            catch (error) {
-                core.warning(`Could not clear the skill review reminder: ${String(error)}`);
-            }
-        },
+        clear: () => deleteMarked([review_comment_1.REVIEW_PENDING_MARKER, review_comment_1.REVIEW_ACK_MARKER]),
+        clearAck: () => deleteMarked([review_comment_1.REVIEW_ACK_MARKER]),
     };
 }
-/** Its own marker: the upsert finds a comment by marker alone, so a shared one would collide. */
 function makeReviewCommenter(octokit, owner, repo, prNumber) {
-    return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: review_comment_1.REVIEW_COMMENT_MARKER }, {
-        warn: core.warning,
-        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
-    });
+    return async function post(body) {
+        try {
+            await outdatePriorReviews(octokit, owner, repo, prNumber);
+            await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+        }
+        catch (error) {
+            core.warning(`Failed to post the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
+            await core.summary.addRaw(body).write();
+        }
+    };
+}
+async function outdatePriorReviews(octokit, owner, repo, prNumber) {
+    const priorNodeIds = [];
+    for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+        owner, repo, issue_number: prNumber, per_page: 100,
+    })) {
+        for (const comment of page.data) {
+            if (comment.body?.includes(review_comment_1.REVIEW_COMMENT_MARKER))
+                priorNodeIds.push(comment.node_id);
+        }
+    }
+    for (const subjectId of priorNodeIds) {
+        try {
+            await octokit.graphql('mutation($subjectId: ID!) {'
+                + ' minimizeComment(input: { subjectId: $subjectId, classifier: OUTDATED })'
+                + ' { minimizedComment { isMinimized } } }', { subjectId });
+        }
+        catch (error) {
+            core.warning(`Could not mark an earlier skill review as outdated: ${String(error)}`);
+        }
+    }
 }
 
 
@@ -68654,15 +68684,16 @@ exports.testables = { buildArgs };
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.REVIEW_SEVERITIES = exports.REVIEW_PENDING_MARKER = exports.REVIEW_COMMENT_MARKER = void 0;
+exports.REVIEW_SEVERITIES = exports.REVIEW_ACK_MARKER = exports.REVIEW_PENDING_MARKER = exports.REVIEW_COMMENT_MARKER = void 0;
 exports.formatReviewFindings = formatReviewFindings;
 exports.formatReviewClean = formatReviewClean;
 exports.formatReviewSkipped = formatReviewSkipped;
 exports.formatReviewPending = formatReviewPending;
 exports.formatReviewServiceError = formatReviewServiceError;
 exports.REVIEW_COMMENT_MARKER = '<!-- evalforge-skill-review-action -->';
-/** Neither marker may contain the other: the upsert finds a comment by `includes`. */
+/** No marker may contain another: comments are matched by `includes`. */
 exports.REVIEW_PENDING_MARKER = '<!-- evalforge-skill-review-pending -->';
+exports.REVIEW_ACK_MARKER = '<!-- evalforge-skill-review-ack -->';
 const HEADING = '## 🤖 Skill Review';
 const JOB_STATUS = {
     completed: '✅ Review job completed',
@@ -68670,8 +68701,11 @@ const JOB_STATUS = {
     failed: '❌ Review job failed',
     skipped: '⏭ Review job skipped',
 };
-function jobLine(status, detail) {
-    const line = detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`;
+function jobLine(status, detail, triggeredBy) {
+    const parts = [detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`];
+    if (triggeredBy)
+        parts.push(`triggered by @${triggeredBy}`);
+    const line = parts.join(' · ');
     return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
 /** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
@@ -68682,8 +68716,8 @@ const SEVERITY_ICON = {
 };
 /** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
 const MAX_RENDERED_FINDINGS = 40;
-function render(marker, status, detail, body) {
-    return [marker, HEADING, '', jobLine(status, detail), '', ...body].join('\n');
+function render(marker, status, detail, body, triggeredBy) {
+    return [marker, HEADING, '', jobLine(status, detail, triggeredBy), '', ...body].join('\n');
 }
 function count(quantity, noun) {
     return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
@@ -68768,7 +68802,7 @@ function formatReviewFindings(findings, summary) {
     return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
         ...body,
         ...retryNote(),
-    ]);
+    ], summary.triggeredBy);
 }
 function formatReviewClean(summary) {
     return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
@@ -68776,7 +68810,7 @@ function formatReviewClean(summary) {
         '',
         'Nothing to raise against the reviewed sections of the contribution guide.',
         ...retryNote(),
-    ]);
+    ], summary.triggeredBy);
 }
 function formatReviewSkipped(reason) {
     return render(exports.REVIEW_COMMENT_MARKER, 'skipped', reason, [
@@ -68887,6 +68921,7 @@ function buildTask(config, files) {
 /** A commit nobody could review is not a reviewed commit, so this fails like a push does. */
 async function reportUnavailable(reason, pending, isBlocking) {
     await pending.post((0, review_comment_1.formatReviewServiceError)(reason));
+    await pending.clearAck();
     (0, github_1.fail)(`The skill review did not complete: ${reason}`, isBlocking);
 }
 async function runReview() {
@@ -68948,6 +68983,7 @@ async function runReview() {
         headSha: config.headSha,
         filesReviewed: files.length,
         discarded: outcome.discarded,
+        triggeredBy: config.triggeredBy || undefined,
     };
     const findings = outcome.findings;
     await comment(findings.length === 0
