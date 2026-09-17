@@ -47,11 +47,9 @@ management tools, or do both.
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
 visitor client (Write the code, below). Redirect sessions for Wix-hosted flows also require a
 visitor token minted for the headless OAuth app; see Visitor authentication and Wix-hosted flows below.
-**Getting that OAuth app right is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp`
-creates it — or adds this app's URLs to the one already there — with the admin token, so it is the
-task's first step and never a reason to move a visitor flow onto the admin token, drop the
-Wix-hosted checkout, or defer it to a later phase. A flow built on the admin token has to be
-rewritten to become a visitor flow.
+**The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
+`clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
+a reason to move the flow onto the admin token or leave it for later.
 Anyone can mint an anonymous visitor token from the
 OAuth app's public `clientId`; no visitor login is required. APIs for the "current visitor"
 use that token to identify whose data and state to access. This applies both to a standalone
@@ -337,24 +335,13 @@ return await wx.post("<a public read from Learn Wix>", { query: {} }, visitorTok
 redirect config set.** This covers redirect sessions *and* sending a buyer to the Wix-hosted
 checkout `checkoutUrl` and back — any flow where Wix redirects to a URL on your app.
 
-**Step one of any visitor flow: `wx.ensureOAuthApp` with this app's own URLs.** What matters is
-not that an OAuth app exists but that *your* app's URLs are in its allowed lists, and the two
-ways a site gets here both fail that on their own:
-
-- **A site provisioned as headless** already has an OAuth app, and `wx.context()` reports its
-  `clientId` — but its allowed lists were filled in at provisioning with that site's own domains,
-  not this Base44 app's, so a return still cannot complete. A reported `clientId` is not proof the
-  redirect config is right.
-- **A regular Wix site connected through the connector** has no OAuth app at all — the report
-  simply lists none — so one has to be created before any visitor token can be minted.
-
-`ensureOAuthApp` covers both: it creates the app when absent, merges your URLs into the lists when
-present, and hands back the `clientId` the frontend mints visitor tokens from (anonymous visitors
-do not need to log in). Run it freely — it is idempotent by name — and **never create a second
-OAuth app for the same Base44 app**: the first app's returns break the moment the frontend mints
-from a different `clientId`. **Always pass the redirect URIs and domains**; without them no return
-can complete, and the break is silent (create-checkout and the anonymous token still succeed)
-until a real buyer is redirected and stranded on Wix.
+**Step one of any visitor flow: `wx.ensureOAuthApp` with this app's own URLs.** It returns the
+`clientId` the frontend mints visitor tokens from (anonymous visitors do not need to log in),
+creating the OAuth app when the site has none and adding your URLs to its lists when it already
+has one. Returns only complete for URLs in those lists, and a missing one breaks silently —
+create-checkout and the anonymous token still succeed — until a real buyer is redirected and
+stranded on Wix. It is idempotent by name: never create a second OAuth app for the same Base44
+app, or the first `clientId`'s returns stop working.
 
 ```js
 // Register BOTH of this app's own URLs — its preview URL and its published URL — so returns work
