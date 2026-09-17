@@ -1,6 +1,6 @@
 ---
 name: "Pricing & Promotions"
-description: Pricing & Promotions boundary owner — discounts, coupons, sales, ribbons, bundles. **Always load this dispatcher first when a question touches both discount work and refunds, payments, product-price edits, or shipping rates** — the rules for which side owns each topic live in this file, not in this README line.
+description: Routes discounts, coupons, sales and bundles to promotion recipes, and visual product ribbons to the Catalog Ribbons API. Load this dispatcher for mixed pricing/refund/payment/product-price/shipping requests to choose the appropriate APIs.
 ---
 
 # Pricing & Promotions
@@ -14,7 +14,9 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 - A standing $0 shipping option/region rate → see **Shipping & fulfillment**.
 - Refunding a previous discounted order → route to verified Get Paid/payment docs or Dashboard guidance.
 
-> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
+> **Ribbon-only requests** — go directly to the ribbon path below; skip MerchantContext and promotion-strategy discovery.
+>
+> **Before dispatching promotion requests** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 >
@@ -24,8 +26,23 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 
 > - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
 > - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
-> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
+> - [Create or reuse a Catalog V3 ribbon](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/ribbons-v3/get-or-create-ribbon) — tags: `[intent:add-ribbon]` · priority 0 · *a ribbon is a visual product label, not a discount rule; follow the ribbon path below*
 > - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
+
+### Ribbon path
+
+For a Catalog V3 request such as "Create a Bestseller ribbon", use the idempotent name-based [Get or Create Ribbon](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/ribbons-v3/get-or-create-ribbon) method:
+
+```http
+POST https://www.wixapis.com/stores/v3/ribbons/get-or-create
+Content-Type: application/json
+
+{"ribbonName":"Bestseller"}
+```
+
+Read the returned `ribbon.id`. If the user requested only the ribbon definition, report that result and stop. If they also requested assignment to a product, follow [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) using the resolved ribbon and product IDs and the current product revision. Preserve unrelated product fields. For Catalog V1, follow that catalog version's product-ribbon contract instead of using the V3 endpoint.
+
+Do not create a coupon, discount rule, or price change just because a ribbon says "Sale". Those require a separate discount request. An explicit ribbon creation or assignment request authorizes that operation; otherwise confirm the intended change first. Merchant context needed for promotion recommendations is not a prerequisite to creating a named visual ribbon.
 
 ### Business flows — the orchestrator
 
