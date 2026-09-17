@@ -68443,19 +68443,19 @@ const OUTPUT_SCHEMA = JSON.stringify({
                 properties: {
                     file: {
                         type: 'string',
-                        description: 'Path from the repository root — e.g. skills/wix-manage/references/<area>/<skill>.md',
+                        description: 'Path from the repository root. The file the finding is on, or the skill that should be unified with others.',
                     },
-                    line: { type: 'integer' },
+                    line: { type: 'integer', description: 'The line in that file, where the finding is about specific text' },
                     section: {
                         type: 'string',
                         description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
                     },
                     severity: { enum: [...review_comment_1.REVIEW_SEVERITIES] },
                     quote: { type: 'string', description: 'The offending line' },
-                    consequence: { type: 'string', description: 'What an agent or user gets wrong because of this' },
-                    suggestion: { type: 'string', description: 'The wording that should replace the quoted line' },
+                    suggestion: { type: 'string', description: 'The change that resolves the finding' },
+                    consequence: { type: 'string', description: 'What an agent or a user gets wrong because of this — the failure itself, not the fix' },
                 },
-                required: ['file', 'severity', 'consequence'],
+                required: ['file', 'severity', 'suggestion', 'consequence'],
                 additionalProperties: false,
             },
         },
@@ -68675,10 +68675,10 @@ function jobLine(status, detail) {
     return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
 /** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
-exports.REVIEW_SEVERITIES = ['blocking', 'fix-before-merge'];
+exports.REVIEW_SEVERITIES = ['blocking', 'advisory'];
 const SEVERITY_ICON = {
     blocking: '🔴',
-    'fix-before-merge': '🟡',
+    advisory: '🟡',
 };
 /** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
 const MAX_RENDERED_FINDINGS = 40;
