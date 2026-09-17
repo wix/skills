@@ -63,7 +63,8 @@ visitor tokens. A custom headless management site extending the Wix back office 
 flow too. Ad hoc management calls in `exec_tool` also use the admin token. Backend functions
 also handle work requiring the owner's permissions, such as webhooks, scheduled jobs, and
 explicitly authorized elevated operations. For an app with both visitor and admin features,
-keep each feature on its corresponding flow.
+keep each feature on its corresponding flow. A site with no OAuth app yet is still a visitor
+app: create the app with `wx.ensureOAuthApp` and keep the visitor features on the visitor flow.
 
 ```
 visitor pages ──(visitor token)────────────────────────► wixapis.com
@@ -119,6 +120,10 @@ return await wx.context(accessToken);
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
 An empty report = bad token, never an empty site.
+
+No OAuth app in the report means the site has none **yet**. For anything a visitor operates,
+create it with `wx.ensureOAuthApp` — one call, returns the `clientId` the frontend mints visitor
+tokens from — and build the feature on the visitor flow.
 
 Reports over 4,000 characters are saved in full to a temporary Markdown file. The result includes
 its path, byte and line counts, and a heading outline. Read that file to inspect the site context.
