@@ -157,8 +157,8 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - After creation, course sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
 - If the user asked you to create the course and gave the session count/times, the job is not complete after `bulkCreateServices`; continue by creating the Calendar events, then verify the service has future events before telling the user it is ready
 
-Save the `serviceId` from the response: `results[0].item.service.id`
-Save the `service.schedule.id` from the response for the follow-up `bulkCreateEvents` request.
+Save the `serviceId` from the response: `results[0].item.id` (the created service is directly under `item` — there is no `item.service`). This requires `returnEntity: true` on the request; without it the response carries only `results[0].itemMetadata.id`.
+Save the `service.schedule.id` from the response (`results[0].item.schedule.id`) for the follow-up `bulkCreateEvents` request.
 
 ---
 
