@@ -9,7 +9,6 @@ triggerPrompt: >-
   direct dashboard links to: my payment links, my invoices list, the page to
   create a new invoice, and where I set up which payment methods I accept.
 tags: [get-paid]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
