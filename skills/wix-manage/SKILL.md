@@ -48,6 +48,9 @@ Generate an SEO content plan and read its blog post topics, or troubleshoot an e
 ### [Manage Google Search Console for a Wix Site](references/seo/manage-google-search-console.md)
 "Connect a Wix site to Google Search Console and drive its setup through the public GSC Connection and Site Readiness APIs: check connection and readiness, start the Google authorization, verify ownership, add the property, submit the sitemap, request indexing, read search performance, run URL inspection, recover a stale connection, or disconnect. The site owner authorizes in their own browser via a single-use connect URL."
 
+### [Generate AI SEO Suggestions for a Wix Site](references/seo/manage-seo-suggestions.md)
+"Generate AI-written SEO text for a Wix site through the public Tag Suggestions and Page Optimization APIs: title tag and meta description options for a page, alt text for the images of a page, store product, or blog post (one image or up to 20 per call), corrected heading levels for a page's headings, and a whole-page rewrite of title, description, headings, and body text aimed at the page's focus keyword, returned as before/after pairs. Use it when the user wants to improve, optimize, audit, or write the SEO text of a page or the homepage. Suggestions are returned for review; applying one is a separate SEO tags write."
+
 ---
 
 ## Accessibility

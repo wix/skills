@@ -1,0 +1,90 @@
+name: seo/manage-seo-suggestions-page-optimization
+description: >-
+  Verifies the trigger-and-poll orchestration of the Page Optimization API for the homepage:
+  discover the homepage ID, set the requested focus keyword on it, start exactly one
+  homepage optimization job, poll its predictionId until it completes, and present the
+  before/after suggestions without applying any of them.
+triggerPrompt: >-
+  Run a page optimization of my site's homepage for the keyword "handmade ceramic mugs" and
+  show me the before/after changes it suggests for the title, description, headings, and
+  text. Set the keyword as the page's focus keyword if it isn't already. Don't apply any of
+  the suggested changes yet, I want to review them first.
+tags: [seo]
+# A fresh Wix-rendered site with real homepage content is required: the trigger needs a
+# focus keyword (the agent sets it, that is part of the flow) and enough page text, and on
+# the shared multi-site account the agent stops to ask which site to act on. The prompt
+# names the optimization flow and the focus keyword step so the scenario tests the
+# trigger-and-poll orchestration, not intent routing (the read-only scenario covers that).
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-ai-seo-suggestions-for-a-wix-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to optimize their homepage for "handmade ceramic mugs" and to show the
+      proposed changes without applying them.
+
+      Pass if the agent:
+      - discovers the homepage's page ID from an API response (List Item SEO Tags for
+        STATIC_PAGE, identifying the homepage by its resolved title or canonical URL), never
+        guessing it,
+      - sets "handmade ceramic mugs" as the page's main focus keyword with Set Item SEO Tags
+        (PATCH .../promote/seo/v1/item-seo-tags/STATIC_PAGE/{pageId}, body with
+        itemSeoTags.focusKeywords containing that term with isMain true and fieldMask
+        "focusKeywords"), unless the page already had it,
+      - calls Trigger Home Page Optimization
+        (POST .../seo/suggestions/v1/page-optimization/trigger-home) once with that pageId
+        and pagePath "/", keeps the returned predictionId, and polls Get Page Optimization
+        Results (GET .../page-optimization/results?predictionId=...) until status is no
+        longer IN_PROGRESS,
+      - on COMPLETED, presents metaTitle, metaDescription, h1, h2OrH3, and any content entries
+        as current text versus proposed text, and applies none of them: no Set Item SEO Tags
+        call that writes tags after the results arrived.
+
+      Also pass if the trigger returned FAILED_PRECONDITION with code CONTENT_TOO_SHORT or
+      SITE_NOT_SUPPORTED, or a 403 / PERMISSION_DENIED, and the agent reported that code and
+      what it means, then stopped: one trigger attempt, no retries with another page, path, or
+      request shape.
+
+      Fail if the agent guessed a page ID, used Trigger Page Optimization instead of the
+      homepage trigger for the homepage, started more than one job on purpose, wrote title or
+      description tags after receiving the suggestions, invented suggestions the API did not
+      return, or described the page as optimized when the job did not complete. Fail (score
+      0) if the agent never called a page-optimization trigger and answered from the title or
+      description generators (POST .../tag-suggestions/title or /description) or from its own
+      writing instead: those are not the page optimization the user asked for. Refusing to set
+      the focus keyword because the user said "don't apply changes" is also a fail: the user
+      explicitly asked for it to be set, and it is the job's input, not a suggested change.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the prose. Score 0-10 (10 = direct: no wasted calls, no
+      errors).
+
+      Expected path: read the skill, one List Item SEO Tags read to find the homepage, one
+      focus-keyword write with fieldMask "focusKeywords", one Trigger Home Page Optimization,
+      Get Page Optimization Results polls (by predictionId or by pageId, both are correct)
+      until the status changes, then the answer.
+
+      HEAVY penalties (2-3 points each): a trigger sent before the focus keyword was set
+      (the FOCUS_KEYWORD_NOT_SET error the recipe warns about); a second trigger sent on
+      purpose while the first job was running; a request sent with a guessed body shape or
+      to a path that is not in the recipe; a non-2xx response even if recovered, except a
+      FAILED_PRECONDITION or 403 that the agent reported and did not retry; polling that
+      continued after a terminal status.
+
+      LIGHT penalties (at most 1 point each): a Get Item SEO Tags read of the homepage
+      before the focus-keyword write; reading a linked reference article for a shape the
+      recipe already gives; one extra poll; a docs search before opening the recipe.
+
+      Do not penalize: waiting between polls, the number of polls a job that takes up to two
+      minutes needs, or presenting an empty content array truthfully. For each friction you
+      count, name the likely skill or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
