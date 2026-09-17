@@ -39,7 +39,7 @@ assertions:
       - suggested the flow has failed or should be retried,
       - did not mention Create Content Plan at all.
   - type: llm_judge
-    minScore: 5
+    minScore: 7
     maxTokens: 2048
     prompt: |
       Rate the agent's efficiency answering a question about a stuck
