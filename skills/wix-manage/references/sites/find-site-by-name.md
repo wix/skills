@@ -8,7 +8,7 @@ Resolves a site the user referred to by name into the `metaSiteId` that every ot
 
 ## When to use this
 
-The user names a site in words — *"my kintsugi store"* — and the task needs an id. Call ReadFullDocsArticle first to load this recipe, then follow the steps below.
+The user names a site in words — *"my kintsugi store"* — and the task needs an id before anything else can run.
 
 ## Orchestration
 
