@@ -1,0 +1,57 @@
+name: google-ads/manage-campaign-update
+description: >-
+  Verifies the agent sends the whole campaign on UpdateCampaign: it reads the
+  campaign with GetCampaign before updating and sends every existing field back
+  in the PATCH body, rather than a minimal budget-only payload.
+triggerPrompt: >-
+  Raise the daily budget on my Google Ads campaign to $30 a day. Show me the
+  exact Wix Google Ads API calls and the request body you would send.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-campaign-lifecycle
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to raise an existing campaign's daily budget to $30/day and
+      gave no campaign id and no other campaign details.
+
+      Pass if the response:
+      - retrieves the campaign first — GET /v1/campaigns/{campaignId}, or
+        GET /v1/campaigns to resolve the id and then the single-campaign read —
+        and states that the update cannot be built without that read; AND
+      - builds the PATCH /v1/campaigns/{campaignId} body from the campaign the
+        read returned, with only budget.amountMicros changed to "30000000"; AND
+      - makes clear the body carries the campaign's other existing fields
+        (at least name, locations, and the smartCampaign /
+        performanceMaxCampaign block) unchanged, because data left out of the
+        payload is rejected or dropped rather than left alone; AND
+      - either uses a placeholder id it explains it must read first, or asks one
+        targeted question to identify the campaign — not both a guess and a
+        mutation.
+
+      Fail if the response:
+      - sends a PATCH containing only id/accountId/budget, or any body assembled
+        solely from what the user asked to change; OR
+      - describes UpdateCampaign as a partial update that leaves omitted fields
+        untouched; OR
+      - skips the read entirely, or presents it as optional; OR
+      - uses launch/pause/resume or a create call to change the budget; OR
+        hallucinates endpoints.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path: the lifecycle recipe loaded
+      from public documentation, one campaign read, one full-entity update, one
+      read-back to verify. Do not penalize a single concise question that
+      resolves which campaign is meant, or one confirmation of the change before
+      the update. Penalize guessed request shapes,
+      retyping the campaign body from memory instead of the read response,
+      probing calls that clearer docs would avoid, any non-2xx response even if
+      recovered, and internal service or tool names in the user-facing answer.
+      Name the likely recipe/docs gap behind each detour. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.
