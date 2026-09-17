@@ -184,6 +184,11 @@ Use the `resourceId` from the response (not `id`) in `staffMemberIds` when creat
 - **APPOINTMENT**: `staffMemberIds` is **required** - API will fail without it
 - **CLASS/COURSE**: `staffMemberIds` is ignored; use `service.schedule` instead
 
+> **Note:** This only applies to the SERVICE object. The calendar EVENTS you create in Step 3 for
+> a CLASS/COURSE session still need a real resource in `event.resources[]` — reuse the staff query
+> above (or a [Resources V2](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/introduction)
+> room/equipment id) to get one. Do not pass the service's own id there — see Step 3b.
+
 ### 2. Creating or Updating a service
 
 Based on the information gathered above, use the relevant API based on the desired outcome.
@@ -362,7 +367,7 @@ Once the service and staff member are available, you can define when the service
 
 **Event requirements**:
 
-- `event.resources` array **must include at least one resource** (a staff member/room/etc.) using the `resourceId`. CLASS and COURSE events will fail with a 400 error if no resources are provided.
+- `event.resources` array **must include at least one resource** using a real `Resource` id — a staff member's `resourceId` (query staff members with the `RESOURCE_DETAILS` fieldset, same as Step 1, even for CLASS/COURSE) or a [Resources V2](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/introduction) room/equipment id. **Never pass the service id or schedule id here** — that returns `404 Resource with <id> ID not found`, not a 400. CLASS and COURSE events will fail if no resources are provided at all.
 - `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE.
 - `event.type` — set to `WORKING_HOURS` for staff availability, `CLASS` for class sessions, or `COURSE` for course sessions.
 
@@ -373,6 +378,12 @@ Once the service and staff member are available, you can define when the service
 - **Error**: `"service of type appointment requires at least one staff member id"`
 - **Cause**: APPOINTMENT services cannot be created without at least one staff member assigned
 - **Solution**: Query staff members first (Step 1) to get a valid `resourceId`, then include it in `staffMemberIds`
+
+**CLASS/COURSE Event Creation Fails with 404 (wrong resource id):**
+
+- **Error**: `404 - "Resource with <id> ID not found"` on `bulkCreateEvents`/`bulkCreateEvent`
+- **Cause**: `event.resources[].id` was set to the just-created service id (or its schedule id) instead of a real `Resource` id
+- **Solution**: Query staff members with the `RESOURCE_DETAILS` fieldset (Step 1) — the same query used for APPOINTMENT — and use a returned `resourceId`, even though the service itself ignores `staffMemberIds` for CLASS/COURSE
 
 **Service Creation Fails (payment.options required):**
 
