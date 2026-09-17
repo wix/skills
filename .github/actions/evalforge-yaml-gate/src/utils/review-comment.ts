@@ -1,7 +1,9 @@
 export const REVIEW_COMMENT_MARKER = '<!-- evalforge-skill-review-action -->';
 
-/** Neither marker may contain the other: the upsert finds a comment by `includes`. */
+/** No marker may contain another: comments are matched by `includes`. */
 export const REVIEW_PENDING_MARKER = '<!-- evalforge-skill-review-pending -->';
+
+export const REVIEW_ACK_MARKER = '<!-- evalforge-skill-review-ack -->';
 
 const HEADING = '## 🤖 Skill Review';
 
@@ -12,8 +14,12 @@ const JOB_STATUS = {
   skipped: '⏭ Review job skipped',
 } as const;
 
-function jobLine(status: keyof typeof JOB_STATUS, detail: string | undefined): string {
-  const line = detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`;
+function jobLine(
+  status: keyof typeof JOB_STATUS, detail: string | undefined, triggeredBy?: string,
+): string {
+  const parts = [detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`];
+  if (triggeredBy) parts.push(`triggered by @${triggeredBy}`);
+  const line = parts.join(' · ');
   return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
 
@@ -43,6 +49,7 @@ export type ReviewSummary = {
   filesReviewed: number;
   /** Findings that failed validation — counted rather than silently dropped. */
   discarded: number;
+  triggeredBy?: string;
 };
 
 /** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
@@ -50,8 +57,9 @@ const MAX_RENDERED_FINDINGS = 40;
 
 function render(
   marker: string, status: keyof typeof JOB_STATUS, detail: string | undefined, body: string[],
+  triggeredBy?: string,
 ): string {
-  return [marker, HEADING, '', jobLine(status, detail), '', ...body].join('\n');
+  return [marker, HEADING, '', jobLine(status, detail, triggeredBy), '', ...body].join('\n');
 }
 
 function count(quantity: number, noun: string): string {
@@ -147,7 +155,7 @@ export function formatReviewFindings(findings: ReviewFinding[], summary: ReviewS
   return render(REVIEW_COMMENT_MARKER, ...completion(summary), [
     ...body,
     ...retryNote(),
-  ]);
+  ], summary.triggeredBy);
 }
 
 export function formatReviewClean(summary: ReviewSummary): string {
@@ -156,7 +164,7 @@ export function formatReviewClean(summary: ReviewSummary): string {
     '',
     'Nothing to raise against the reviewed sections of the contribution guide.',
     ...retryNote(),
-  ]);
+  ], summary.triggeredBy);
 }
 
 export function formatReviewSkipped(reason: string): string {
