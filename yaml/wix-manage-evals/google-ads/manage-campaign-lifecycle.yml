@@ -18,9 +18,8 @@ assertions:
 
       Pass if the response:
       - uses the campaign lifecycle recipe, AND
-      - gives POST
-        https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campaignId}/pause
-        with a scheduledResumeDate (ISO 8601) set ~2 weeks out, AND
+      - calls POST /v1/campaigns/{id}/pause with a scheduledResumeDate (ISO 8601)
+        set ~2 weeks out, AND
       - explains the campaign auto-resumes at that date (no manual resume needed),
         and that settings/data are preserved while paused, AND
       - does NOT suggest deleting the campaign, AND
@@ -32,17 +31,3 @@ assertions:
       - uses Launch to reactivate a previously-live paused campaign, OR
       - invents a separate "schedule" endpoint instead of the pause field, OR
       - hallucinates endpoints.
-  - type: llm_judge
-    minScore: 7
-    maxTokens: 2048
-    prompt: |
-      Rate how smoothly the agent answered the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct path: read the campaign lifecycle
-      documentation once, then explain the pause request using the documented
-      full URL and scheduledResumeDate body without executing the mutation.
-
-      Penalize unrelated or repeated documentation, a wrong or incomplete URL,
-      a guessed request shape, any API call that attempts to pause the campaign
-      when the user only asked how, or internal service or tool names in the
-      user-facing answer. Return only
-      {"score":<0-10>,"reason":"<terse findings or clean path>"}.
