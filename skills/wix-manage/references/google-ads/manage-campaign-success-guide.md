@@ -12,8 +12,6 @@ Treat a broad request such as "How can I improve my Google Ads campaign?" as a C
 
 This differs from [Get AI Campaign Suggestions](get-campaign-suggestions.md), which generates keywords, budgets, locations, copy, images, and other inputs used while **building** a campaign. Do not route pre-campaign keyword, budget, creative, or targeting generation here.
 
-`<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`.
-
 ## Resolve the campaign
 
 The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign." Google Ads calls operate on the current Wix site from the call context; the site is not a request-body field. Use an already-selected site context without asking the user to repeat it. If there is no unambiguous current site, ask which site to use instead of probing several sites. Follow the rest of this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation.
