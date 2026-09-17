@@ -980,6 +980,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@remix-run/router@npm:1.23.4":
+  version: 1.23.4
+  resolution: "@remix-run/router@npm:1.23.4"
+  checksum: 10c0/ef17eb2a606c125f09c55683585099725421af1c11f1c1d1c3841fe4eea3f99eb56b26ecbb17429a173c704ecae336c37e0d74855faa9330667433ef4f419436
+  languageName: node
+  linkType: hard
+
 "@rollup/rollup-android-arm-eabi@npm:4.62.5":
   version: 4.62.5
   resolution: "@rollup/rollup-android-arm-eabi@npm:4.62.5"
@@ -3876,11 +3883,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/bex-core@npm:2.342.0":
-  version: 2.342.0
-  resolution: "@wix/bex-core@npm:2.342.0"
+"@wix/bex-core@npm:2.376.0":
+  version: 2.376.0
+  resolution: "@wix/bex-core@npm:2.376.0"
   dependencies:
-    "@wix/bex-utils": "npm:2.129.0"
+    "@wix/bex-utils": "npm:2.163.0"
     chance: "npm:^1.0.0"
     events: "npm:^3.0.0"
     formstate: "npm:^2.1.0"
@@ -3906,13 +3913,13 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10c0/8476c8fe776f278272110df869258335c1dbd450aa0b693a27fec44682e15198877f32bd6b62793ab034600758efe59c5958f022f1cf491195e8f3067710184a
+  checksum: 10c0/2106bcfb996e3350b71c85bf08b3f126e099e7aa610007357c7595a9587eb682c671b2f334dc277466908de0a048537d71e28053c5e572c2f4331db61d820a81
   languageName: node
   linkType: hard
 
-"@wix/bex-utils@npm:2.129.0":
-  version: 2.129.0
-  resolution: "@wix/bex-utils@npm:2.129.0"
+"@wix/bex-utils@npm:2.163.0":
+  version: 2.163.0
+  resolution: "@wix/bex-utils@npm:2.163.0"
   dependencies:
     "@babel/runtime": "npm:^7.0.0"
     "@formatjs/intl-pluralrules": "npm:^1.5.9"
@@ -3940,7 +3947,7 @@ __metadata:
       optional: true
     react-native:
       optional: true
-  checksum: 10c0/3ea22babe83cfda0ea13df901e48d83f086221e95cdba58188f06a31ba7ea735d2e3b24e9cd16fa255b0ee864059de4b765cf744cb1007dba5498561705ba671
+  checksum: 10c0/e91fcccc9ab33735fd102a6bedc5159d96954f3e8871d636e1770ff875e4e2c237f220adf698bc52816584e0380f34d6b7ea20f11c5ea8104b22a1e78c059369
   languageName: node
   linkType: hard
 
@@ -5331,7 +5338,66 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/patterns-fields@npm:1.64.0, @wix/patterns-fields@npm:^1.52.0":
+"@wix/patterns-fields-utils@npm:1.79.0":
+  version: 1.79.0
+  resolution: "@wix/patterns-fields-utils@npm:1.79.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.0.0"
+    "@wix/ricos": "npm:11.10.1"
+    classnames: "npm:^2.5.1"
+    lodash: "npm:^4.17.21"
+    path-parse: "npm:^1.0.7"
+    react-draggable: "npm:^4.4.6"
+    react-measure: "npm:^2.5.2"
+    tslib: "npm:^2.0.0"
+  peerDependencies:
+    react: ^16.8.0 || ^18.0.0
+    react-dom: ^16.8.0 || ^18.0.0
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 10c0/67c2d305d8c7cb2225b065c56340725bfaa11208923830569d7c4cb744221202cad117145aac8e121ba746c2f4a0eaa04a53bdc4cbb43d26ea56a82d42b1b57b
+  languageName: node
+  linkType: hard
+
+"@wix/patterns-fields@npm:1.98.0":
+  version: 1.98.0
+  resolution: "@wix/patterns-fields@npm:1.98.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.0.0"
+    "@wix/atlas": "npm:^1.0.35"
+    "@wix/data": "npm:^1.0.323"
+    "@wix/media": "npm:^1.0.231"
+    "@wix/patterns-fields-utils": "npm:1.79.0"
+    "@wix/rich-content": "npm:1.0.37"
+    "@wix/sdk": "npm:^1.17.2"
+    "@wix/wix-ui-icons-common": "npm:^3.189.0"
+    color: "npm:^2.0.1"
+    draft-js: "npm:^0.11.7"
+    draft-js-export-html: "npm:^1.4.1"
+    draft-js-import-html: "npm:^1.4.1"
+    draftjs-conductor: "npm:^2.0.4"
+    immutable: "npm:^3.8.3"
+    lodash: "npm:^4.17.21"
+    mobx-react-lite: "npm:^3.4.3"
+    semver: "npm:^7.7.3"
+    uuid: "npm:^8.3.2"
+  peerDependencies:
+    "@wix/bex-core": ^2.284.0
+    "@wix/design-system": ^1.319.0
+    mobx: ^6.1.8
+    react: ^16.8.0 || ^18.0.0
+    react-dom: ^16.8.0 || ^18.0.0
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+  checksum: 10c0/de4fc43113466fb317ccb44a83fd449719005e39d4343fbcffa457911d92f21c9a4a5cbe1ef6730c9c5cdb684dd658b5eeb8bd35facc2034be3a00fc3162f553
+  languageName: node
+  linkType: hard
+
+"@wix/patterns-fields@npm:^1.52.0":
   version: 1.64.0
   resolution: "@wix/patterns-fields@npm:1.64.0"
   dependencies:
@@ -5363,17 +5429,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/patterns@npm:^1.364.0":
-  version: 1.436.0
-  resolution: "@wix/patterns@npm:1.436.0"
+"@wix/patterns@npm:^1.469.0":
+  version: 1.470.0
+  resolution: "@wix/patterns@npm:1.470.0"
   dependencies:
     "@wix/agent-platform-bm-sdk": "npm:^1.0.0"
-    "@wix/bex-core": "npm:2.342.0"
-    "@wix/bex-utils": "npm:2.129.0"
+    "@wix/bex-core": "npm:2.376.0"
+    "@wix/bex-utils": "npm:2.163.0"
     "@wix/essentials": "npm:^0.1.26"
-    "@wix/patterns-fields": "npm:1.64.0"
+    "@wix/patterns-fields": "npm:1.98.0"
+    "@wix/patterns-fields-utils": "npm:1.79.0"
     "@wix/sdk": "npm:^1.15.22"
-    "@wix/wix-style-react-incubator": "npm:3.22.0"
+    "@wix/wix-style-react-incubator": "npm:^3.23.1"
     "@wix/wix-ui-test-utils": "npm:^1.1.9"
     chance: "npm:^1.0.0"
     classnames: "npm:^2.0.0"
@@ -5398,7 +5465,7 @@ __metadata:
     "@wix/dashboard": ^1.0.0
     "@wix/design-system": ^1.271.0
     "@wix/fe-essentials": ^1.233.0
-    "@wix/wix-ui-icons-common": ^3.187.0
+    "@wix/wix-ui-icons-common": ^3.189.0
     "@wix/yoshi-flow-bm": ^6.103.0
     react: ^16.13.1 || ^17.0.0 || ^18.0.0
     react-router-dom: ^6.0.0 || ^7.0.0
@@ -5422,7 +5489,7 @@ __metadata:
       optional: true
     webpack:
       optional: true
-  checksum: 10c0/e4a31bcc2e85c546e15bf2de327b3a1a73c4d87503f65ec57d3f00f4f9cae66c1123ab6dbced22446745de9ed1a9a01e28c1327eec6384307baad7cb46cffedf
+  checksum: 10c0/5d0f4dbce7a14dc91a93867bf522db094253793ba61d1fb4dbdf865841e959695b48980b59f5d2f86afc6bafc908dd3f69c8812c39cce8938414a94d7e53e010
   languageName: node
   linkType: hard
 
@@ -5540,6 +5607,78 @@ __metadata:
     "@wix/auto_sdk_rich-content_ricos-documents": "npm:1.0.20"
     "@wix/auto_sdk_rich-content_ricos-embeddables": "npm:1.0.8"
   checksum: 10c0/aab50fceb6c3ab8b6f2cc16f82bfee90d5f802af643d737a67a09970047e20332b64cb31faee6b07a49697f855e77b1e8d0d5568e40607870b91e77357a38230
+  languageName: node
+  linkType: hard
+
+"@wix/ricos@npm:11.10.1":
+  version: 11.10.1
+  resolution: "@wix/ricos@npm:11.10.1"
+  dependencies:
+    "@codemirror/lang-json": "npm:^6.0.0"
+    "@codemirror/lint": "npm:^6.0.0"
+    "@emoji-mart/data": "npm:^1.2.1"
+    "@emoji-mart/react": "npm:^1.1.1"
+    "@floating-ui/react-dom": "npm:^2.0.0"
+    "@lezer/highlight": "npm:^1.2.0"
+    "@loadable/component": "npm:^5.14.1"
+    "@uiw/codemirror-themes": "npm:^4.21.25"
+    "@uiw/react-codemirror": "npm:^4.19.7"
+    "@wix/ai-assistant-avatar": "npm:^0.41.0"
+    "@wix/design-system": "npm:^1.231.0"
+    "@wix/image-kit": "npm:^1.123.0"
+    "@wix/members": "npm:^1.0.137"
+    "@wix/motion": "npm:^2.1.7"
+    "@wix/motion-presets": "npm:^1.0.3"
+    "@wix/sdk": "npm:^1.17.1"
+    "@wix/unidriver-core": "npm:^1.3.6"
+    "@wix/unidriver-jsdom-react": "npm:^1.3.6"
+    "@wix/unidriver-playwright": "npm:^1.3.9"
+    "@wix/unidriver-puppeteer": "npm:^1.3.6"
+    "@wix/wix-ui-icons-common": "npm:^3.189.0"
+    classnames: "npm:^2.5.1"
+    emoji-mart: "npm:^5.6.0"
+    emulate-tab: "npm:^1.2.1"
+    fastdom: "npm:^1.0.12"
+    focus-trap: "npm:^7.6.2"
+    fp-ts-esm: "npm:^2.16.10"
+    fuse.js: "npm:^7.0.0"
+    html-entities: "npm:^2.3.6"
+    i18next: "npm:^19.0.0"
+    id3js: "npm:2.1.1"
+    json-to-ast: "npm:^2.1.0"
+    linkify-it: "npm:^5.0.0"
+    linkifyjs: "npm:4.3.2"
+    load-script: "npm:^2.0.0"
+    monocle-ts-esm: "npm:^2.3.13"
+    omit-deep: "npm:0.3.0"
+    parse5: "npm:^6.0.0"
+    prosemirror-commands: "npm:^1.6.0"
+    prosemirror-dev-tools: "npm:4.3.0"
+    prosemirror-dropcursor: "npm:^1.8.2"
+    prosemirror-keymap: "npm:^1.2.2"
+    prosemirror-model: "npm:^1.22.3"
+    prosemirror-schema-list: "npm:^1.4.1"
+    prosemirror-state: "npm:^1.4.3"
+    prosemirror-transform: "npm:^1.10.0"
+    prosemirror-view: "npm:^1.34.3"
+    react-dock: "npm:^0.6.0"
+    react-i18next: "npm:^11.18.6"
+    react-infinite-scroller: "npm:^1.2.4"
+    react-json-tree: "npm:^0.17.0"
+    react-portal-tooltip: "npm:^2.4.7"
+    rope-sequence: "npm:^1.3.0"
+    roughjs: "npm:^4.6.6"
+    svgson: "npm:^5.3.1"
+    ts-is-present: "npm:^1.1.1"
+    use-sync-external-store: "npm:^1.6.0"
+    y-prosemirror: "npm:^1.3.7"
+    y-protocols: "npm:^1.0.6"
+    yjs: "npm:^13.6.27"
+  peerDependencies:
+    "@babel/runtime": ^7.17.2
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  checksum: 10c0/7a377edc91997f06e581004e591d1305ad9e95bf98c792ba355526ce56effc7908451fde6f4d120a85103aaccc8da9bce4f814711e606d8386fed8e08871cade
   languageName: node
   linkType: hard
 
@@ -5921,7 +6060,7 @@ __metadata:
     "@wix/editor": "npm:^1.508.0"
     "@wix/editor-react-types": "npm:^1.0.21"
     "@wix/essentials": "npm:^1.0.6"
-    "@wix/patterns": "npm:^1.364.0"
+    "@wix/patterns": "npm:^1.469.0"
     "@wix/payments": "npm:*"
     "@wix/react-component-schema": "npm:^1.6.0"
     "@wix/react-component-utils": "npm:^1.9.0"
@@ -5931,6 +6070,7 @@ __metadata:
     "@wix/stores": "npm:^1.0.779"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
+    react-router-dom: "npm:^6.30.0"
     typescript: "npm:^5.8.3"
   languageName: unknown
   linkType: soft
@@ -6061,9 +6201,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/wix-style-react-incubator@npm:3.22.0":
-  version: 3.22.0
-  resolution: "@wix/wix-style-react-incubator@npm:3.22.0"
+"@wix/wix-style-react-incubator@npm:^3.23.1":
+  version: 3.23.1
+  resolution: "@wix/wix-style-react-incubator@npm:3.23.1"
   dependencies:
     "@wix/patterns-dnd-kit-accessibility": "npm:^3.4.0"
     "@wix/patterns-dnd-kit-core": "npm:^6.5.0"
@@ -6072,11 +6212,11 @@ __metadata:
     "@wix/patterns-dnd-kit-utilities": "npm:^3.6.0"
   peerDependencies:
     "@babel/runtime": ^7.20.6
-    "@wix/design-system": ^1.281.0
-    "@wix/wix-ui-icons-common": ^3.163.0
+    "@wix/design-system": ^1.313.1
+    "@wix/wix-ui-icons-common": ^3.189.9
     react: ^16.8.0
     react-dom: ^16.8.0
-  checksum: 10c0/5d5633e8a8553f346627baa23c38a8aa5567e8baf71449cb77fc3b2089992c858691fe5af87f18cc523e9d6e21f1653e27017b52363e55519a980cd6621541ea
+  checksum: 10c0/13fcae946d4e5ea2fc9a075681d07d15dc8cba63e49175a720e09c378b44cc377b8a90b18274ad1547653a1daaca2d560018f47e1b22417f5eccdfbf98ef7a89
   languageName: node
   linkType: hard
 
@@ -9636,6 +9776,30 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c0/b5f3315bead75e72853f492c0b51ba8fb4fa09a4534d7fc42d6fcd59ca3e047cf213279ffc1e35b337e314ef5a04cb2b12544c85e0078802271731c27c09e5aa
+  languageName: node
+  linkType: hard
+
+"react-router-dom@npm:^6.30.0":
+  version: 6.30.6
+  resolution: "react-router-dom@npm:6.30.6"
+  dependencies:
+    "@remix-run/router": "npm:1.23.4"
+    react-router: "npm:6.30.6"
+  peerDependencies:
+    react: ">=16.8"
+    react-dom: ">=16.8"
+  checksum: 10c0/57dbb2ae4ac787f78c4d10b764c1c5223635378033e33dda4e0a4417144ae847fb43dc98008075951826258287c27c67729ca713c90957cf2ecf9055561bdc2e
+  languageName: node
+  linkType: hard
+
+"react-router@npm:6.30.6":
+  version: 6.30.6
+  resolution: "react-router@npm:6.30.6"
+  dependencies:
+    "@remix-run/router": "npm:1.23.4"
+  peerDependencies:
+    react: ">=16.8"
+  checksum: 10c0/d101388d92a44e159ef30dd2402a7f7b6aace8f837bb42aed1f8a6b3a4eff769d1822bf69382f0acb85a790628dac081c22bedb2bca12707e0e5e91427010fc3
   languageName: node
   linkType: hard
 
