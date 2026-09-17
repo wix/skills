@@ -2,9 +2,9 @@ name: marketing/create-and-publish-social-post
 description: >-
   Action scenario for the "Create and Publish a Social Media Post" skill on a
   fresh site with no connected Instagram: the agent is asked to publish now, and
-  per the recipe's opening protocol the correct behavior is to check the
-  connection first (List Accounts), find none, and offer to connect rather than
-  publish or fabricate an account. The user supplied their own caption and image,
+  per the recipe's delivery protocol the correct behavior is to check the
+  connection first (Get Long Lived Token Status), find the channel not
+  connected, and offer to connect rather than publish or fabricate an account. The user supplied their own caption and image,
   so the agent must also keep that content verbatim (no generation, no rewriting)
   and must not claim AI generation is plan-gated. A fresh site has no connected
   channel, so no post can actually go out.
@@ -30,12 +30,13 @@ assertions:
       missing connection and stop before publishing.
 
       Pass if the response:
-      - checks whether Instagram is connected via List Accounts
-        (GET /social-publisher/v1/accounts) BEFORE creating or publishing, AND
-      - on finding no connected account (empty accounts, or the app/channel not set
-        up), STOPS and offers to connect the channel — Get Connect URL, then poll
-        Get Long Lived Token Status until VALID — or otherwise tells the user the
-        channel must be connected first, AND
+      - checks whether Instagram is connected via Get Long Lived Token Status
+        (GET /social-publisher/v1/INSTAGRAM/long-lived-token-status) BEFORE
+        creating or publishing, AND
+      - on a non-VALID status (NEVER_CREATED / DISCONNECTED / INVALID — the
+        channel is not connected), STOPS and offers to connect the channel — Get
+        Connect URL, then poll Get Long Lived Token Status until VALID — or
+        otherwise tells the user the channel must be connected first, AND
       - does NOT fabricate or guess an accountId, AND
       - does NOT attempt Create Draft Item or Publish on the unconnected channel, AND
       - treats the user's caption and image as final: no generate-text /
@@ -46,6 +47,8 @@ assertions:
       - does not fall back to searching the REST docs instead of using the skill.
 
       Fail if the response:
+      - calls List Accounts before a VALID token status (on an unconnected
+        channel it can only error with USER_NOT_EXIST_FOR_CHANNEL), OR
       - attempts to publish or schedule to the unconnected channel, OR
       - invents an accountId, OR
       - generates, rewrites, or replaces the user's supplied caption or image, OR
