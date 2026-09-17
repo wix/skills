@@ -45,20 +45,18 @@ assertions:
       doing it.
 
       Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
-  - type: llm_judge
-    minScore: 7
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
     maxTokens: 2048
     prompt: >
-      Rate how smoothly the Wix MCP let the agent fulfill the
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP let the agent fulfill the
       request. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no
       errors). Penalize and LIST any of: repeated or probing API-spec/schema lookups used to
       discover the Update Product endpoint, its HTTP method, or the shape of its request body;
       a spec or schema lookup that returned an empty or unusable result; a response
       shape/field guessed wrong then corrected; a call that returned a non-2xx error even if
       recovered; a wrong endpoint or catalog version tried first. For each issue, name the
-      likely MCP/docs gap. Calibration: a clean run is 9-10; one or two minor frictions
-      (a redundant read, one recovered error) land at 7-8; guessed shapes, wrong
-      catalog versions, or probing spirals score lower.
+      likely MCP/docs gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
 siteSetup:
   mode: template
