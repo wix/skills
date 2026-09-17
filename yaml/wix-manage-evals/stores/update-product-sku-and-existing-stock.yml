@@ -1,0 +1,52 @@
+name: stores/update-product-sku-and-existing-stock
+description: The agent must change the existing Restock Gift Wrap SKU to WRAP-NEW and its quantity to
+  25, preserving its variant ID and price 20.00.
+triggerPrompt: Set the SKU of Restock Gift Wrap to WRAP-NEW and set its stock to exactly 25. Keep the
+  price and all other details unchanged.
+tags:
+- stores
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+    - label: seed Restock Gift Wrap
+      method: post
+      url: https://www.wixapis.com/stores/v3/products-with-inventory
+      body:
+        product:
+          name: Restock Gift Wrap
+          productType: PHYSICAL
+          physicalProperties: {}
+          variantsInfo:
+            variants:
+            - price:
+                actualPrice:
+                  amount: '20.00'
+              sku: RESTOCK-GIFT-WRAP
+              physicalProperties: {}
+              visible: true
+              inventoryItem:
+                quantity: 7
+assertions:
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-inventory-catalog-v3
+- type: llm_judge
+  minScore: 7
+  prompt: The agent must change the existing Restock Gift Wrap SKU to WRAP-NEW and its quantity to 25,
+    preserving its variant ID and price 20.00. Require successful product and inventory results. Fail
+    if it creates another product or inventory record, loses variant fields, changes other products, or
+    claims stock success without item-level evidence. Return ONLY {"score":<0-10>,"reason":"<evidence>"}.
+- type: llm_judge
+  minScore: 7
+  prompt: Score the tool-call path 0-10, where 10 is direct and error-free. After resolving the product,
+    preserve complete variant fields for the SKU update and query inventory before updating its existing
+    ID with the current revision. Penalize unconditional bulk inventory creation after the product update
+    and repeated product writes to set stock. Penalize guessed request shapes, recovered errors, redundant
+    documentation probes, and unnecessary verification reads. Required identity, pagination, and revision
+    reads are appropriate. Return ONLY {"score":<0-10>,"reason":"<frictions and likely docs gap, or clean
+    path>"}.

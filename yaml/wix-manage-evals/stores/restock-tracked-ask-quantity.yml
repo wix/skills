@@ -1,0 +1,46 @@
+name: stores/restock-tracked-ask-quantity
+description: The existing Restock Tracked Notebook tracks quantities and has zero stock.
+triggerPrompt: My Restock Tracked Notebook is available again. Please mark it back in stock.
+tags:
+- stores
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+    - label: seed Restock Tracked Notebook
+      method: post
+      url: https://www.wixapis.com/stores/v3/products-with-inventory
+      body:
+        product:
+          name: Restock Tracked Notebook
+          productType: PHYSICAL
+          physicalProperties: {}
+          variantsInfo:
+            variants:
+            - price:
+                actualPrice:
+                  amount: '20.00'
+              sku: RESTOCK-TRACKED-NOTEBOOK
+              physicalProperties: {}
+              visible: true
+              inventoryItem:
+                quantity: 0
+assertions:
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-inventory-catalog-v3
+- type: llm_judge
+  minScore: 7
+  prompt: The existing Restock Tracked Notebook tracks quantities and has zero stock. Pass only if the
+    agent reads its inventory and asks the user for the new quantity without any mutation. Fail if it
+    guesses a count, switches to status tracking with inStock true, or claims restocking completed. Return
+    ONLY {"score":<0-10>,"reason":"<evidence>"}.
+- type: llm_judge
+  minScore: 7
+  prompt: Score the tool-call path 0-10, where 10 is direct and error-free. A targeted inventory lookup
+    and a concise quantity question is the direct path. Penalize unnecessary product reconstruction, unrelated
+    catalog enumeration, or attempting a mutation before asking. Penalize guessed request shapes, recovered
+    errors, redundant documentation probes, and unnecessary verification reads. Required identity, pagination,
+    and revision reads are appropriate. Return ONLY {"score":<0-10>,"reason":"<frictions and likely docs
+    gap, or clean path>"}.

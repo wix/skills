@@ -38,3 +38,7 @@ apiDoc:
       title: Stores Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+    - file: ../../../skills/wix-manage/references/stores/update-inventory-catalog-v3.md
+      title: Update Inventory (Catalog V3)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
