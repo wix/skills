@@ -1,12 +1,12 @@
 ---
 name: "Query Campaign Performance Analytics"
-description: "Reads performance analytics for a Google Ads campaign on a Wix site: daily performance metrics (impressions, clicks, CTR, cost, leads, phone calls) with optional previous-period comparison and trends; conversion metrics from Wix Analytics (orders, revenue, leads, CPL, ROAS); the search terms that triggered a campaign's ads; per-product shopping performance for retail campaigns; and per-asset performance (headlines, descriptions, images) for PMAX Leads. Explains when to use campaignResourceName vs the Wix campaignId, the dateRange shape, field enums, sorting, and paging. Use when the user asks 'how is my campaign doing', 'show ad performance', 'what search terms triggered my ads', 'which products/assets perform best', 'campaign ROI/ROAS', or 'conversions from my Google ads'. REST base https://www.wixapis.com/google-ads/v1."
+description: "Reads performance analytics for a Google Ads campaign on a Wix site: daily performance metrics (impressions, clicks, CTR, cost, leads, phone calls) with optional previous-period comparison and trends; conversion metrics from Wix Analytics (orders, revenue, leads, CPL, ROAS); the search terms that triggered a campaign's ads; per-product shopping performance for retail campaigns; and per-asset performance (headlines, descriptions, images) for PMAX Leads. Explains when to use campaignResourceName vs the Wix campaignId, the dateRange shape, field enums, sorting, and paging. Use when the user asks 'how is my campaign doing', 'show ad performance', 'what search terms triggered my ads', 'which products/assets perform best', 'campaign ROI/ROAS', or 'conversions from my Google ads'. REST base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Query Campaign Performance Analytics
 
 Read how a Google Ads campaign is performing. Six query endpoints cover different breakdowns; picking the right one depends on the metric and the campaign type. Performance data is only available once a campaign is `LIVE`, and typically appears within a few hours of activity.
 
-Base URL: `https://www.wixapis.com/google-ads/v1` (search-term V2 is under `/v2`). `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. All endpoints are read-only.
+Base URL: `https://www.wixapis.com/_serverless/pa-google/v1` (search-term V2 is under `/v2`). `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. All endpoints are read-only.
 
 **Two identifiers — get them right:**
 - **`campaignResourceName`** — the Google Ads resource name `customers/{customerId}/campaigns/{campaignId}` (from `campaign.resourceName`). Used by **Performance Metrics** and **Search Term Metrics (v1)**.
@@ -33,7 +33,7 @@ Both come from Get/List Campaign (see [Manage Campaign Lifecycle](manage-campaig
 Clicks, impressions, CTR, cost, leads, phone calls — per day, plus a summary row. `fields` chooses which metrics to return (defaults to clicks, impressions, CTR, cost, phone calls, date). `includePreviousPeriod: true` adds a `previousPeriodSummaryRow` and `trends` (decimal % change vs the equivalent preceding period).
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/performance-metrics' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/performance-metrics' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaignResourceName": "customers/3827461950/campaigns/7412836509",
@@ -60,7 +60,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/performance-metrics' \
 Business outcomes from **Wix Analytics** (not Google). Both `campaignId` and `dateRange` are **required**. Complex query — 120s SLA.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/conversion-metrics' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/conversion-metrics' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "campaignId": "b3f8e241-7c4a-4d19-a562-9f1e30d87c05", "dateRange": { "custom": { "from": "2026-03-01", "to": "2026-03-31" } } }'
 ```
@@ -74,7 +74,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v1/conversion-metrics' \
 The actual queries users typed. Use **V2** (`/v2/search-term-metrics`, keyed by `campaignId`) — it supports both Smart and PMAX Leads. Optional `searchTermText` (contains-match) and `searchTermTextsFilter` (`{ type: "MATCH" | "NOT_MATCH", searchTermTexts: [...] }`). Sortable by `COST`/`CLICKS`/`IMPRESSIONS`; paged with `nextPageToken`.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v2/search-term-metrics' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v2/search-term-metrics' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaignId": "b3f8e241-7c4a-4d19-a562-9f1e30d87c05",
@@ -100,7 +100,7 @@ curl -X POST 'https://www.wixapis.com/google-ads/v2/search-term-metrics' \
 Product-level rows for a Shopping campaign, plus a summary with total conversions, revenue, and ROAS. `resultSetting` controls the payload: `SUMMARY_ONLY`, `RESULTS_ONLY`, or `SUMMARY_AND_RESULTS`. 120s SLA. Note: per-product `conversions`/`conversionRate` always return 0 (not queried from Google) — use the summary's `totalConversions`/`roas` for outcomes.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/shopping-performance-metrics' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/shopping-performance-metrics' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaignId": "b3f8e241-7c4a-4d19-a562-9f1e30d87c05",
@@ -119,7 +119,7 @@ Results carry `productTitle`, `productImageUrl`, and the Wix `productId`; the `s
 Which creative assets perform best. `filter.assetTypes` narrows to specific roles (`HEADLINE`, `DESCRIPTION`, `MARKETING_IMAGE`, …).
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/asset-performance-metrics' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/asset-performance-metrics' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{
     "campaignId": "b3f8e241-7c4a-4d19-a562-9f1e30d87c05",

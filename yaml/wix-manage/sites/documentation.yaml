@@ -30,3 +30,7 @@ apiDoc:
       title: Sites Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/upload-static-site.md
+      title: Upload a Website or HTML Files
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]

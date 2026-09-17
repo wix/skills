@@ -17,7 +17,8 @@ assertions:
       The user wants their upcoming Google Ads charge and remaining credits.
 
       Pass if the response:
-      - uses the billing recipe and GET /v1/payment-details, AND
+      - uses the billing recipe and
+        GET https://www.wixapis.com/_serverless/pa-google/v1/payment-details, AND
       - explains the upcomingPayments breakdown: usageAmount (ad spend) plus
         wixServiceFee minus couponAdjustmentAmount equals totalAmount, over a
         billingPeriod, AND
@@ -27,5 +28,7 @@ assertions:
       Fail if the response:
       - reads the deprecated monthlyPayments field instead of upcomingPayments, OR
       - inverts the creditBalance meaning, OR
-      - invents a billing endpoint, OR
+      - invents a billing endpoint, or names one under the
+        https://www.wixapis.com/google-ads/v1 base, which does not exist and
+        returns 404, OR
       - conflates totalAmount with usageAmount (ignoring the Wix fee).

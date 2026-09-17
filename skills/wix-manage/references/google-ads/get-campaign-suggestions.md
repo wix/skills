@@ -1,12 +1,12 @@
 ---
 name: "Get AI Campaign Suggestions for Google Ads"
-description: "Reference for the Google Ads Suggestions API on a Wix site: AI/Google-generated inputs that help build effective campaigns — keyword themes (from a URL or autocomplete), geo-target options, low/recommended/high daily-budget tiers with estimated clicks, PMAX budget recommendations, text assets (headlines/descriptions), AI image assets (auto-uploaded to Wix Media), search themes, promotional incentive offers, and complete AI-generated campaign configurations from a campaign brief. Use when the user asks 'suggest keywords for my ads', 'what budget should I use', 'where should I target', 'generate ad copy/headlines', 'generate ad images', 'suggest a whole campaign', or when a create-campaign flow needs suggested values. REST base https://www.wixapis.com/google-ads/v1."
+description: "Reference for the Google Ads Suggestions API on a Wix site: AI/Google-generated inputs that help build effective campaigns — keyword themes (from a URL or autocomplete), geo-target options, low/recommended/high daily-budget tiers with estimated clicks, PMAX budget recommendations, text assets (headlines/descriptions), AI image assets (auto-uploaded to Wix Media), search themes, promotional incentive offers, and complete AI-generated campaign configurations from a campaign brief. Use when the user asks 'suggest keywords for my ads', 'what budget should I use', 'where should I target', 'generate ad copy/headlines', 'generate ad images', 'suggest a whole campaign', or when a create-campaign flow needs suggested values. REST base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Get AI Campaign Suggestions for Google Ads
 
 The Suggestions API produces the values that make a campaign effective — keywords, locations, budgets, and creative assets — either from Google directly or from Wix's AI. It's the input layer for the create-campaign recipes; this file is the standalone reference for each endpoint and for the two that don't appear there (full campaign suggestions from a brief, and incentive offers).
 
-Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. All suggestion endpoints are **read-only** — none create or spend anything, so run them freely.
+Base URL: `https://www.wixapis.com/_serverless/pa-google/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. All suggestion endpoints are **read-only** — none create or spend anything, so run them freely.
 
 > **Two conventions to carry into every answer (this is where they trip people up):**
 > - **Budgets come back in micros.** Every `dailyBudget` / `budgetAmountMicros` / `recommendedBudgetAmountMicros` is in micros, where `1,000,000` micros = 1 unit of the account's currency (so `15000000` = $15.00/day). Always convert to currency units when presenting to a user, and pass micros back when creating a campaign.
@@ -39,7 +39,7 @@ Generates one or more complete, ready-to-use campaign configurations — assets,
 - `campaignType` — `SMART` (default) or `PERFORMANCE_MAX_LEADS`.
 
 ```bash
-curl -X POST 'https://www.wixapis.com/google-ads/v1/campaign-suggestions' \
+curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaign-suggestions' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "campaignBriefId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "amount": 1, "campaignType": "SMART" }'
 ```
@@ -73,7 +73,7 @@ Present `campaignMessaging` and the config to the user, then use the `campaign` 
 Credit offers for **new** accounts, granted after a spend threshold. Only supported currencies return offers. This drives the optional incentive step of [account setup](install-and-create-account.md).
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/incentives?currency=USD' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/incentives?currency=USD' -H 'Authorization: <AUTH>'
 ```
 
 Returns `lowOffer` / `mediumOffer` / `highOffer`, each with `incentiveId`, `awardAmount`, and `requiredAmount`, plus a `consolidatedTermsAndConditionsUrl`. Pass the chosen `incentiveId` as `selectedIncentiveId` when creating the account.

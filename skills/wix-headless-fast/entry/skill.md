@@ -15,7 +15,7 @@ already reading the raw text, don't fetch it again.
 
 ```bash
 curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs && node bootstrap.mjs
-CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
+CI=1 npx skills@latest add wix/skills --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
 # then open and follow: .agents/skills/wix-headless-fast/SKILL.md
 ```
 
@@ -81,16 +81,22 @@ On `awaiting_user`, run the script again once the user says they've logged in: i
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
 returns the same code rather than issuing a new one.
 
-## Phase 2 — Install the skill and hand off
+## Phase 2 — Install the skills and hand off
 
-Install the skill (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI
-command):
+Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
+keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
+parsed:
 
 ```bash
-CI=1 npx skills@latest add wix/skills/skills/wix-headless-fast --yes
+CI=1 npx skills@latest add wix/skills \
+  --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
 ```
 
-It lands at `.agents/skills/wix-headless-fast/`. Then **open
+- **`wix-headless-fast`** — the build itself.
+- **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
+- **`wix-manage`** — management recipes, for admin work on the site after it exists.
+
+They land under `.agents/skills/`. Then **open
 `.agents/skills/wix-headless-fast/SKILL.md` and follow it** — it owns the rest of the run:
 resolve the stack, scaffold, deploy the shipped code, seed, build the brand layer, release.
 (If the request needs a vertical the skill doesn't ship yet — see its SKILL.md § Verticals —
