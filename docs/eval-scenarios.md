@@ -49,6 +49,8 @@ Assert three things: **coverage** (the agent reached the skill — the assertion
 
 Adapt the penalty list to the detours *your* task invites. This judge gates like any other, so a bumpy path fails the PR — deliberately. When it fails, the gap is usually in the skill, the docs, or the MCP: close that gap rather than lowering `minScore`.
 
+`minScore` is required on every `llm_judge` and must be at least 7 — the schema rejects anything lower. A judge with a floor it can never fail (`minScore: 0`, or a "diagnostic, non-gating" framing) doesn't gate anything and gives false confidence that the path is checked. When a judge scores legitimate runs below the floor, calibrate the rubric's bands (what lands at 7–8 vs lower) rather than the floor.
+
 ## Adding a Wix Manage Eval Scenario
 
 Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
