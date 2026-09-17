@@ -21,8 +21,10 @@ assertions:
         not ask whether to mark the recommendation complete or which
         recommendation they mean;
       - uses site b342a30b-616e-40ce-ad26-52a83397e08e, identifies its campaign,
-        retrieves the current guide, and maps the user's wording to suggestion
-        type CLEAR_CTA_COPY and desired status COMPLETED;
+        using GET https://www.wixapis.com/_serverless/pa-google/v1/campaigns at
+        most once if a list call is needed, retrieves the current guide, and
+        maps the user's wording to suggestion type CLEAR_CTA_COPY and desired
+        status COMPLETED;
       - when the item is OPEN, successfully calls POST
         https://www.wixapis.com/pa-platform/suggestions/v1/campaign-success-guides/{campaignId}/update-suggestion-status
         with type CLEAR_CTA_COPY and status COMPLETED; and
@@ -36,10 +38,11 @@ assertions:
 
       Fail if it asks for redundant confirmation, maps to a different or
       multiple suggestions, uses a suggestion ID instead of the type, sends a
-      different endpoint, method, type, or status, modifies another guide item,
-      receives a non-2xx response, claims success without either a successful
-      update or an already-COMPLETED guide item, or claims the underlying
-      landing-page change was implemented by this status update.
+      different endpoint, method, type, or status, calls the obsolete
+      /google-ads/v1/campaigns path, modifies another guide item, receives a
+      non-2xx response, claims success without either a successful update or an
+      already-COMPLETED guide item, or claims the underlying landing-page change
+      was implemented by this status update.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -53,7 +56,9 @@ assertions:
 
       Do not penalize one successful same-state COMPLETED update. Penalize
       redundant confirmation, probing other sites, repeated guide retrieval or
-      update calls, changing any other suggestion, a wrong endpoint or request
+      update calls, changing any other suggestion, using
+      /google-ads/v1/campaigns instead of the documented
+      /_serverless/pa-google/v1/campaigns route, a wrong endpoint or request
       shape, a suggestion ID in place of the type, any non-2xx call even if
       recovered, unrelated documentation, or internal service or tool names in
       the user-facing answer. Name the likely recipe, MCP, or docs gap for each

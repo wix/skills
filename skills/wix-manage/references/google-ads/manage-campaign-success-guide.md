@@ -21,14 +21,14 @@ The guide endpoints require a campaign UUID, but users often provide only a camp
 Site listing is for resolving navigation metadata only. Never use account-wide site listing to hunt for a campaign before retrieving or updating a guide. A current-site ID in the available context counts as an unambiguous selected site even when the user's prompt does not repeat its name. If no current-site ID is available, ask which site to use.
 
 1. If the campaign UUID is known, use it in the current site context.
-2. Otherwise, follow [Manage Campaign Lifecycle](manage-campaign-lifecycle.md) and list campaigns once for the current site:
+2. Otherwise, list campaigns once for the current site using the Campaign API's public serverless route:
 
    ```bash
-   curl -X GET 'https://www.wixapis.com/google-ads/v1/campaigns' \
+   curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
      -H 'Authorization: <AUTH>'
    ```
 
-   Use this full URL exactly once. Do not retry it with a relative path, a different service prefix, or another site when it returns a permission or not-found response.
+   Use this full URL exactly once. The `/_serverless/pa-google` prefix is part of the public endpoint; the legacy-looking `/google-ads/v1/campaigns` path returns `404`. Do not try that path, retry with a relative URL or another service prefix, or probe another site when the documented call returns an error.
 
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
 3. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.
@@ -110,7 +110,7 @@ After the tasks, make one closing offer that groups the supported actions you ca
 For a Merchant Center connection, first read the selected site's Google Ads account:
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/accounts/current-site' \
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/current-site' \
   -H 'Authorization: <AUTH>'
 ```
 

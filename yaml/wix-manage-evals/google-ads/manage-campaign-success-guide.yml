@@ -21,6 +21,8 @@ assertions:
       - treats the direct request as approval, identifies the campaign on site
         b342a30b-616e-40ce-ad26-52a83397e08e, and successfully retrieves or
         creates its campaign success guide with platformType GOOGLE;
+      - if campaign resolution requires a list call, uses GET
+        https://www.wixapis.com/_serverless/pa-google/v1/campaigns at most once;
       - presents the returned suggestions as prioritized, actionable
         improvements and does not wait for LEARNING to end or for performance
         metrics;
@@ -32,8 +34,8 @@ assertions:
       Fail if it asks for redundant approval, does not retrieve the guide, uses
       a different site, receives a non-2xx response, tells the user to wait for
       metrics, queries analytics first, changes a suggestion status, claims
-      recommendations are automatically implemented, or routes to pre-campaign
-      suggestions.
+      recommendations are automatically implemented, routes to pre-campaign
+      suggestions, or calls the obsolete /google-ads/v1/campaigns path.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -47,7 +49,9 @@ assertions:
 
       Penalize redundant approval, a different site, probing multiple sites,
       pre-campaign suggestion or analytics calls, repeated guide retrieval,
-      guide-status mutation, guessed request shapes, any non-2xx call even if
+      guide-status mutation, guessed request shapes, using
+      /google-ads/v1/campaigns instead of the documented
+      /_serverless/pa-google/v1/campaigns route, any non-2xx call even if
       recovered, redundant documentation, and internal service or tool names in
       the user-facing answer. Name the likely recipe, MCP, or docs gap for each
       detour. Return only

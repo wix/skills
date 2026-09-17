@@ -20,17 +20,19 @@ assertions:
         Ads campaign rather than to pre-campaign asset, keyword, budget, or
         targeting suggestions;
       - uses site b342a30b-616e-40ce-ad26-52a83397e08e, lists that site's
-        campaigns at most once to identify the campaign, retrieves or
-        creates its campaign success guide, and presents the returned
-        suggestions as prioritized improvements;
+        campaigns at most once with GET
+        https://www.wixapis.com/_serverless/pa-google/v1/campaigns to identify
+        the campaign, retrieves or creates its campaign success guide, and
+        presents the returned suggestions as prioritized improvements;
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
       Fail if it gives only generic optimization advice, routes only to analytics
       or pre-campaign suggestions, does not retrieve the guide, uses a different
       site, tells the user to wait for metrics, probes several sites, receives a
-      non-2xx response, guesses between multiple campaigns, or claims
-      recommendations are automatically implemented.
+      non-2xx response, calls the obsolete /google-ads/v1/campaigns path,
+      guesses between multiple campaigns, or claims recommendations are
+      automatically implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -44,9 +46,9 @@ assertions:
 
       Penalize querying analytics first, routing through pre-campaign
       suggestions, using a different site, probing multiple sites, guessing
-      between campaigns, any non-2xx call even if recovered, repeated calls,
-      unrelated or repeated documentation, and internal service or tool names
-      in the user-facing answer. Reading the campaign-lifecycle recipe once to
-      list the site's campaigns is relevant, not a detour. Name the likely
-      recipe, MCP, or docs gap for each detour. Return only
+      between campaigns, using /google-ads/v1/campaigns instead of the
+      documented /_serverless/pa-google/v1/campaigns route, any non-2xx call
+      even if recovered, repeated calls, unrelated or repeated documentation,
+      and internal service or tool names in the user-facing answer. Name the
+      likely recipe, MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
