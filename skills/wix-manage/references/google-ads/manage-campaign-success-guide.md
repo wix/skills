@@ -12,7 +12,7 @@ Treat a broad request such as "How can I improve my Google Ads campaign?" as a C
 
 This differs from [Get AI Campaign Suggestions](get-campaign-suggestions.md), which generates keywords, budgets, locations, copy, images, and other inputs used while **building** a campaign. Do not route pre-campaign keyword, budget, creative, or targeting generation here.
 
-Base URL: `https://www.wixapis.com/pa-platform/suggestions/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`.
+`<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`.
 
 ## Resolve the campaign
 
@@ -28,7 +28,7 @@ Site listing is for resolving navigation metadata only. Never use account-wide s
      -H 'Authorization: <AUTH>'
    ```
 
-   Use this full URL exactly once. The `/_serverless/pa-google` prefix is part of the public endpoint; the legacy-looking `/google-ads/v1/campaigns` path returns `404`. Do not try that path, retry with a relative URL or another service prefix, or probe another site when the documented call returns an error.
+   Use this full URL exactly once. The `/_serverless/pa-google` prefix is part of the public endpoint. Do not retry with a relative URL or another service prefix, or probe another site when the documented call returns an error.
 
    Read each campaign's `id`, `name`, `campaignType`, and `status`.
 3. Select a campaign only when one result clearly matches the user's wording. If several campaigns on that site plausibly match, show concise campaign choices and ask the user to choose; never guess.

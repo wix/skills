@@ -30,9 +30,8 @@ assertions:
       Fail if it gives only generic optimization advice, routes only to analytics
       or pre-campaign suggestions, does not retrieve the guide, uses a different
       site, tells the user to wait for metrics, probes several sites, receives a
-      non-2xx response, calls the obsolete /google-ads/v1/campaigns path,
-      guesses between multiple campaigns, or claims recommendations are
-      automatically implemented.
+      non-2xx response, guesses between multiple campaigns, or claims
+      recommendations are automatically implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -46,9 +45,8 @@ assertions:
 
       Penalize querying analytics first, routing through pre-campaign
       suggestions, using a different site, probing multiple sites, guessing
-      between campaigns, using /google-ads/v1/campaigns instead of the
-      documented /_serverless/pa-google/v1/campaigns route, any non-2xx call
-      even if recovered, repeated calls, unrelated or repeated documentation,
-      and internal service or tool names in the user-facing answer. Name the
-      likely recipe, MCP, or docs gap for each detour. Return only
+      between campaigns, any non-2xx call even if recovered, repeated calls,
+      unrelated or repeated documentation, and internal service or tool names
+      in the user-facing answer. Name the likely recipe, MCP, or docs gap for
+      each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
