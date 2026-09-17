@@ -8,7 +8,6 @@ triggerPrompt: >-
   direct dashboard links to: my blog posts list, my blog categories, comment
   moderation, and my blog analytics.
 tags: [blog]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:

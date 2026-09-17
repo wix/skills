@@ -9,7 +9,6 @@ triggerPrompt: >-
   new plan, the page to record a manual plan order for a member, and my pricing
   plans settings.
 tags: [pricing-plans]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
