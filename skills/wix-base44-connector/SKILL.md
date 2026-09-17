@@ -45,8 +45,10 @@ management tools, or do both.
 
 **A site for visitors** — use a visitor token for public reads and actions on behalf of the
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
-visitor client (Write the code, below). Redirect sessions for Wix-hosted flows also require a
-visitor token minted for the headless OAuth app; see Visitor authentication and Wix-hosted flows below.
+visitor client (Write the code, below). Every handoff to a Wix-hosted page and back — checkout,
+and any other page where the visitor pays — runs on a visitor token minted for the headless OAuth
+app; a redirect session created with the admin token returns `403`. See Visitor authentication and
+Wix-hosted flows below.
 **The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
 `clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
 a reason to move the flow onto the admin token or leave it for later.
