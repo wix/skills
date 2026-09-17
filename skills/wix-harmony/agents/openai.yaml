@@ -1,0 +1,6 @@
+interface:
+  display_name: "Wix Harmony"
+  short_description: "Inspect a Wix Harmony editor session"
+  default_prompt: "Use $wix-harmony to inspect this Harmony editor session and report Phase 1 readiness or execution blockers."
+policy:
+  allow_implicit_invocation: false

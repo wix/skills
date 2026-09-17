@@ -1,0 +1,17 @@
+{
+  "name": "@wix/wix-harmony-skill-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "preflight": "node scripts/wix-harmony-preflight.mjs",
+    "install-browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "1.62.0"
+  },
+  "packageManager": "yarn@4.9.2"
+}
