@@ -18,13 +18,13 @@ function jobLine(status: keyof typeof JOB_STATUS, detail: string | undefined): s
 }
 
 /** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
-export const REVIEW_SEVERITIES = ['blocking', 'fix-before-merge'] as const;
+export const REVIEW_SEVERITIES = ['blocking', 'advisory'] as const;
 
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
 
 const SEVERITY_ICON: Record<ReviewSeverity, string> = {
   blocking: '🔴',
-  'fix-before-merge': '🟡',
+  advisory: '🟡',
 };
 
 export type ReviewFinding = {
@@ -34,7 +34,7 @@ export type ReviewFinding = {
   severity: ReviewSeverity;
   quote: string;
   consequence: string;
-  /** The wording that should replace the quote. */
+  /** The change that resolves the finding. */
   suggestion?: string;
 };
 

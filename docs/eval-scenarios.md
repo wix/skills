@@ -5,6 +5,8 @@ Reference for authoring the YAML that drives skill evaluation. Start from
 format itself. For what the automated checks do and how to read a failing one, see
 [skill-evaluation.md](skill-evaluation.md).
 
+An eval scenario is a simulated conversation between a user and an agent working through the Wix MCP and skills, with the `triggerPrompt` standing in for the user. Only the conversation is simulated: the calls the agent makes read and write real data through the Wix APIs.
+
 ## What a Scenario Must Test
 
 ### Test behavior, not skill text
@@ -20,7 +22,7 @@ A scenario is the strongest evidence we have that a skill is worth having. It pu
 So aim the coverage at what the skill exists to settle:
 
 - **Start from an intention, not a feature.** Write the `triggerPrompt` as the request a user would actually send — the outcome they want, in their words, with the details they would have to hand. Not the API name, not the steps, not the skill's own vocabulary.
-- **Reach the parts that would hurt if they broke.** One scenario per skill is the floor, not the target. Where the skill carries a decision — a branch, a precondition, an order that matters, a value the agent must ask for rather than invent — a scenario that never reaches that decision leaves it unproven, and a regression there will merge green.
+- **Provide meaningful coverage.** The eval scenarios must give confidence that the skill helps resolve the user requests it is meant to support and that important regressions would be caught. What sufficient coverage looks like depends on the skill.
 - **Make the skill the reason it passes.** Ask what a run without the skill would look like. If a capable agent would land in the same place anyway, the scenario is measuring the platform, not the skill. Point the assertions at what the skill is the only source of: the order, the wrapper, the precondition, the question it asks before mutating data.
 
 ### Test a real user conversation
@@ -29,7 +31,7 @@ A scenario is a single request with no conversation around it. The agent gets th
 
 Prefer prompts that need none of that. But a real request is sometimes one a user would only send *after* something the run cannot reproduce: an identifier they are holding, a choice they already made, a value from a system outside Wix. Where that is the case, put that context in the prompt the way the earlier turn would have delivered it — the least that makes the request answerable, phrased as the user would phrase it. The prompt must still read as something a user sent, not as a briefing written for the agent.
 
-**This is not a way around provisioning the site.** The apps, the content, and the state the task operates on belong in [`siteSetup`](#site-provisioning-optional) and its `bootstrap` steps, which stand up a real site for the agent to work against. Describing that state in the prompt instead — *"assume the store already has three products"*, or an ID for a product nothing created — leaves the agent with nothing to call and the judge grading a run against a site that does not exist. Provision the state; put only the conversation in the prompt.
+**The agent has to read and write real data.** Either bootstrap it — [`siteSetup`](#site-provisioning-optional) stands up a fresh site and its `bootstrap` steps seed what the task operates on — or point the prompt at data already prepared on the test account. A reference nothing can resolve like an ID that names nothing on the site the run uses — gives the agent nothing to work against.
 
 ### Assert correctness *and* quality
 
@@ -53,7 +55,7 @@ Adapt the penalty list to the detours *your* task invites. This judge gates like
 
 ## Adding a Wix Manage Eval Scenario
 
-Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
+Every `wix-manage` skill must have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
 
 ### Where to put it
 
