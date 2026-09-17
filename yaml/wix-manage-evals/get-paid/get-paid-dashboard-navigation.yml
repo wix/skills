@@ -9,7 +9,6 @@ triggerPrompt: >-
   direct dashboard links to: my payment links, my invoices list, the page to
   create a new invoice, and where I set up which payment methods I accept.
 tags: [get-paid]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -33,3 +32,23 @@ assertions:
         finance/invoices), OR
       - omits the meta site id from the URLs or uses a different domain, OR
       - only describes how to click through the dashboard instead of giving links.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer this request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: read the recipe, then
+      answer with the links — this is a pure lookup task with no API calls
+      needed).
+
+      Penalize and LIST any of:
+      - any mutating API call — score 0-3: nothing here should write
+      - a non-2xx error, even if recovered — score at most 5
+      - routes guessed first and corrected after reading the recipe — score
+        at most 5
+      - doc/spec searches or site API probing beyond reading the recipe —
+        minor deduction: one or two redundant reads land at 7-8, a longer
+        probing spiral lower
+
+      For each friction, name the likely MCP/docs gap. Return ONLY
+      {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path'>"}

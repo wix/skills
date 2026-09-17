@@ -42,7 +42,7 @@ describe('the review comment', () => {
         finding({
           line: 44,
           section: undefined,
-          severity: 'fix-before-merge',
+          severity: 'advisory',
           quote: 'The response contains the bundle and its items.',
           consequence: 'An agent cannot tell which field the next call reads, so it guesses or goes back to the docs for it.',
           suggestion: 'The response returns `bundle.id`, which the publish call takes as `bundleId`.',
@@ -90,7 +90,7 @@ describe('the review comment', () => {
   // over something the contributor cannot read. Ranked before anything is dropped.
   it('leads with the blocking findings whatever order they arrive in', () => {
     const body = formatReviewFindings([
-      finding({ file: 'later.md', severity: 'fix-before-merge' }),
+      finding({ file: 'later.md', severity: 'advisory' }),
       finding({ file: 'worst.md', severity: 'blocking' }),
     ], summary());
 

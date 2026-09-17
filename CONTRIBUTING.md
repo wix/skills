@@ -32,12 +32,14 @@ If you are adding or changing `wix-manage` skills, do not open the PR from a for
 
 If you do not have write permissions for this repository, please read [bo.wix.com/github-assist](https://bo.wix.com/github-assist) for the approved contribution path.
 
+Start with [When a skill earns its place](#when-a-skill-earns-its-place): read the area's section of the index, and add a new skill only when no existing entry already claims the intent yours would serve.
+
 When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
 2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update its entry in the same commit.
 3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node).
-4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
+4. **Add eval scenarios** under `yaml/wix-manage-evals/<area>/` that provide meaningful coverage of what the skill exists to help an agent do. At least one scenario is required. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
 7. Keep the skill's `description` to at most 1024 characters.
@@ -58,6 +60,23 @@ Connect an agent to the Wix MCP and use official docs, examples, and method sche
 The best source for a skill is often a real agent conversation where the agent successfully completed the task. After the task works, ask the agent to distill the happy path, the API details it had to discover, and the missing context it needed to know up front.
 
 Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill only when those sources are correct but still do not connect the dots for an agent. Keep the skill minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
+
+### When a skill earns its place
+
+An agent picks a skill from the `name` and `description` of each entry in `skills/wix-manage/SKILL.md`, before opening any file. So before adding an entry, decide whether the content needs a skill of its own or belongs in a skill that already exists.
+
+Two skills are separate when they serve different intents or use cases, or when the same intent genuinely needs a different flow, and an agent never has to open either one to choose between them.
+
+Skills to unify — the same intent and the same outcome:
+- Same endpoint, different request body: The body is an argument, not a different intent.
+- Single and bulk endpoints for one operation: The skill picks the endpoint.
+- The same intent from a different input.
+- The same intent plus a feature.
+- A narrow copy of a general skill: "Site properties" and "site properties for stores". Put the content in the general one.
+
+Linking two skills does not fix an overlap: the agent chooses from the index and reads the contents afterwards.
+
+When you do merge skills, name the survivor, delete the absorbed files, remove their entries from `SKILL.md` and their lines from `documentation.yaml`, repoint their eval scenarios, and rewrite the survivor's `description` to claim the ground it now covers.
 
 ### Keep the description high level
 
@@ -85,7 +104,7 @@ Run every example against a real site, or confirm it against the official refere
 
 ### Stay agnostic to agent and client
 
-You don't know which agent will read a skill, which client or provider it's running in, which tools it has, or what machine it's on. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. The same goes for a named model, operating system, device, or editor. Describe the capability you need, not the tool that provides it.
+You don't know which agent will read a skill, which client or provider it's running in, which tools it has, or what machine it's on. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. The same goes for a named model, device, or editor. Describe the capability you need, not the tool that provides it.
 
 For mutating flows, ask for user confirmation before changing site or account data unless the surrounding skill already makes the mutation an explicit user-confirmed action.
 
@@ -95,9 +114,9 @@ Before opening a PR, confirm the following.
 
 Three things look at a PR, and they answer different questions. The **wiring** group is checked
 automatically, and a failing check names the item that broke. The **eval run** answers whether the
-skill actually works — it runs your scenarios against your PR's own skill content, which is the only
-thing that can. The **skill review** reads what you wrote: whether the content is complete and
-followable, and whether the scenarios would prove anything. The two content groups below are what it
+skill actually works — it runs your scenarios against your PR's own skill content.
+The **skill review** reads what you wrote: whether the content is complete and
+followable, and whether the scenarios coverage is meaningful. The two content groups below are what it
 starts from, so they are worth reading before you write rather than after — but they are the points
 worth emphasizing, not the whole of what a reviewer may raise about the writing.
 
@@ -114,6 +133,7 @@ worth emphasizing, not the whole of what a reviewer may raise about the writing.
 
 **Skill content** — see [Writing Wix API Skills](#writing-wix-api-skills)
 
+- No existing entry [serves the same intent](#when-a-skill-earns-its-place).
 - The `description` is [high level](#keep-the-description-high-level): a summary of what the skill covers, with the flow and the product's rules left to the body.
 - The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
 - The common path is completable [without leaving the skill](#orchestration-and-worked-examples): the reference page is linked for the full contract, not pasted in and not standing in for what the task needs.
@@ -125,7 +145,7 @@ worth emphasizing, not the whole of what a reviewer may raise about the writing.
 **Eval scenario content** — see [What a Scenario Must Test](docs/eval-scenarios.md#what-a-scenario-must-test)
 
 - Every eval scenario starts from a real user's intent.
-- The scenarios [cover what the skill is for](docs/eval-scenarios.md#cover-what-the-skill-is-for): they reach the decisions the skill exists to settle, and the skill is the reason they pass.
+- The scenarios [provide meaningful coverage](docs/eval-scenarios.md#cover-what-the-skill-is-for): they give confidence that the skill helps resolve the user requests it is meant to support and that important regressions would be caught.
 - The `triggerPrompt` is [a real user's request](docs/eval-scenarios.md#test-a-real-user-conversation) — context added only where an earlier turn would have carried it, never in place of site state that belongs in `siteSetup`.
 - Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
 - Each judge is [written so that a plausible-but-wrong run fails it](docs/eval-scenarios.md#assert-correctness-and-quality).
