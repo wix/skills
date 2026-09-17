@@ -2,6 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { createProgressLogger, parseProgressArgs } = require('../../../lib/progress-log.js');
 const { readEnvFile } = require('../../../lib/config-env.js');
 
@@ -30,6 +31,12 @@ const {
 // in scope; embedded detection and Tier-B derivation run after sampling because they need
 // real record payloads and the accepted route set.
 const { gatherInventory, inventoryPayload } = require('./wp-plugin-inventory.js');
+// discover-structure/query-structure (spec 0101/0102): the only source for entities whose
+// blocked[].fulfillment.kind is structure-bridge-plugin -- data with no REST route at all.
+const {
+  discoverStructure, queryStructure, guardedValueColumns, violatesTierRule,
+  discoverEavKeys, buildEavReadPlan,
+} = require('../lib/wix-wp-plugin-v2-client.js');
 const {
   pluginsRoot,
   loadProfiles,
@@ -249,6 +256,9 @@ function parseArgs(argv) {
   if (!args.applicationPassword) {
     args.applicationPassword = process.env.WP_APPLICATION_PASSWORD;
   }
+  if (!args.migrationKey) {
+    args.migrationKey = process.env.WMH2_MIGRATION_KEY;
+  }
   if (args.authHeaders.length === 0 && process.env.WP_AUTH_HEADER) {
     args.authHeaders.push(process.env.WP_AUTH_HEADER);
   }
@@ -288,6 +298,9 @@ async function hydrateArgsFromEnvFile(args) {
   }
   if (!args.applicationPassword && envValues.WP_APPLICATION_PASSWORD) {
     args.applicationPassword = envValues.WP_APPLICATION_PASSWORD;
+  }
+  if (!args.migrationKey && envValues.WMH2_MIGRATION_KEY) {
+    args.migrationKey = envValues.WMH2_MIGRATION_KEY;
   }
   if (!args.apiKey && envValues.WP_API_KEY) {
     args.apiKey = envValues.WP_API_KEY;
@@ -370,6 +383,28 @@ function summarizeAuthMode(args) {
     return 'custom-header';
   }
   return 'none';
+}
+
+function summarizeBridgeAuthMode(args, namespaces) {
+  const hasWooCommerce = namespaces.some((namespace) => namespace.startsWith('wc/'));
+  const hasRestCredential = Boolean(
+    (args.username && args.applicationPassword) || args.apiKey || args.authHeaders.length > 0,
+  );
+  if (args.migrationKey) return 'migration-key';
+  if (hasWooCommerce && hasRestCredential) return 'wordpress-rest-credential';
+  if (hasRestCredential) return 'unavailable-without-woocommerce-capability';
+  return 'none';
+}
+
+function chooseBridgeAuth({ migrationKey, timeoutMs }) {
+  const useMigrationKey = Boolean(migrationKey);
+  return {
+    auth: useMigrationKey
+      ? { type: 'migration-key', migrationKey, migrationId: randomUUID(), timeoutMs }
+      : undefined,
+    structureMethod: useMigrationKey ? 'POST' : 'GET',
+    queryRoute: useMigrationKey ? '/wix-wp-plugin/v2/query' : '/wix-wp-plugin/v2/query/admin-key',
+  };
 }
 
 function summarizeOverrides(args) {
@@ -1245,12 +1280,376 @@ async function sampleChildEntities({ baseUrl, headers, timeoutMs, sampleLimit, p
   return results;
 }
 
+// Pure -- no I/O -- so it can be unit-tested directly without mocking httpClient or the
+// profile loader. Decides what query a structure-bridge-plugin entity's sample should
+// run, or why none can be run at all. `table` is spread in LAST when a fulfillment declares its
+// own sampleStructureRequest so a stray `table` key inside that declaration (which
+// plugin-knowledge.js's validator already rejects at authoring time) can never silently
+// redirect the query at a different table than this entity's fulfillment names -- this is
+// the second, independent line of defense for that same invariant.
+function resolveSampleStructureRequest(fulfillment, table, schema) {
+  if (fulfillment.sampleStructureRequest) {
+    return { sampleRequest: { ...fulfillment.sampleStructureRequest, table }, skippedReason: null };
+  }
+  if (schema.columns.length === 0) {
+    return {
+      sampleRequest: null,
+      skippedReason: 'discover-structure returned zero columns for this table -- cannot build a default sample. Unexpected for a real table; the fulfillment metadata or the live schema needs review.',
+    };
+  }
+  if (schema.columns.length > 50) {
+    return {
+      sampleRequest: null,
+      skippedReason: `this table has ${schema.columns.length} columns, more than wix-wp-plugin-v2's own 50-column select limit -- a default "every column" sample would silently drop ${schema.columns.length - 50} of them. This entity's fulfillment must declare an explicit sampleStructureRequest choosing which columns matter; there is no safe default for a table this wide.`,
+    };
+  }
+  // Spec 0122: on a key/value table the guarded value column(s) are unreachable until the
+  // request pins the matching key column, so a default "select every column" sample is a
+  // request the plugin REFUSES with a 400 -- and a 400 here reads as "this table is broken"
+  // rather than "this sample was built wrong". Drop the guarded columns and sample the key
+  // names instead, which is the discovery tier and exactly what a mapper needs first: the
+  // real key list for whatever plugin this site runs.
+  const guarded = guardedValueColumns(schema.eavPair);
+  const sampleable = schema.columns.filter((column) => !guarded.includes(column.name));
+  if (sampleable.length === 0) {
+    return {
+      sampleRequest: null,
+      skippedReason: 'every column on this table is a guarded key/value column -- nothing can be sampled without naming specific keys first.',
+    };
+  }
+  if (guarded.length > 0) {
+    return {
+      sampleRequest: {
+        table,
+        select: sampleable.map((column) => ({ column: column.name })),
+        orderBy: [{ column: schema.eavPair.keyColumn, direction: 'asc' }],
+      },
+      skippedReason: null,
+      eavNote: `key/value table: ${guarded.join(', ')} omitted from this sample because wix-wp-plugin-v2 will not return a value until the request pins its key column (${schema.eavPair.keyColumn}). Read those with a scoped request naming the keys this sample reveals.`,
+    };
+  }
+  const primaryColumn = schema.columns.find((column) => column.key === 'primary') || schema.columns[0];
+  return {
+    sampleRequest: {
+      table,
+      select: schema.columns.map((column) => ({ column: column.name })),
+      orderBy: [{ column: primaryColumn.name, direction: 'asc' }],
+    },
+    skippedReason: null,
+  };
+}
+
+// spec 0102: every entity whose blocked[].fulfillment.kind is structure-bridge-plugin has
+// no REST route at all -- the ONLY way to capture it is wix-wp-plugin-v2's own routes. Runs
+// after plugin detection/coverage so it can skip a plugin that isn't actually active, and
+// after the REST sampling passes so it never competes with them for the shared rate limit
+// slot ordering. Never throws: a per-entity failure (plugin not installed, table renamed,
+// wix-wp-plugin-v2 not installed at all) is recorded as a request error on that entity's own
+// file, exactly like an auth-gated REST route already is -- it must not abort discovery.
+/**
+ * Spec 0122 §7. Accumulates the per-read counts the client derives and files them with
+ * rp-telemetry once, at the end of the bridge pass.
+ *
+ * Wired HERE, in the real caller, rather than left as a hook nobody calls: `onSourceRead` with
+ * no production caller is telemetry that exists in the code and not in the data, which is
+ * indistinguishable from a run that read nothing. Failure to record is swallowed on purpose --
+ * telemetry must never be able to abort a discovery run, and this whole function is already
+ * built on "a per-entity failure is recorded, not thrown".
+ */
+function makeSourceReadCollector(outDir) {
+  const totals = { discovery_queries: 0, scoped_queries: 0, tier_refusals: 0, redacted_values: 0 };
+  const discoveryTables = new Set();
+  const scopedTables = new Set();
+  return {
+    onSourceRead(counts) {
+      for (const key of Object.keys(totals)) totals[key] += counts[key] || 0;
+      for (const table of counts.discovery_tables || []) discoveryTables.add(table);
+      for (const table of counts.scoped_tables || []) scopedTables.add(table);
+    },
+    countTierRefusal() {
+      totals.tier_refusals += 1;
+    },
+    flush(progress) {
+      const payload = { ...totals };
+      if (discoveryTables.size > 0) payload.discovery_tables = [...discoveryTables].sort();
+      if (scopedTables.size > 0) payload.scoped_tables = [...scopedTables].sort();
+      if (Object.values(totals).every((n) => n === 0)) return;
+      try {
+        // outDir is <project>/discovery/wordpress; the project root is two levels up, the same
+        // derivation the decisions.json lookup above already uses.
+        const projectDir = path.resolve(outDir, '..', '..');
+        // eslint-disable-next-line global-require
+        require('../../rp-telemetry/lib/telemetry-recorder.js').sourceRead(projectDir, payload);
+      } catch (error) {
+        progress?.progress(`source-read telemetry not recorded: ${error.message}`, {
+          phase: 'discovery',
+          step: 'structure-bridge-plugin',
+        });
+      }
+    },
+  };
+}
+
+async function sampleStructureBridgeEntities({ baseUrl, headers, migrationKey, namespaces, sampleLimit, timeoutMs, progress, detection, outDir }) {
+  if (!namespaces.includes('wix-wp-plugin/v2')) {
+    progress?.progress('wix-wp-plugin-v2 not detected on this site; skipping structure-bridge-plugin entities', {
+      phase: 'discovery',
+      step: 'structure-bridge-plugin',
+    });
+    return [];
+  }
+
+  // Prefer the signed route whenever a migration key is configured, avoiding capability
+  // drift on the manage_woocommerce-gated route. Without a key, the ordinary route is usable
+  // only when WooCommerce is present (the source skill enforces that credential selection).
+  const bridge = chooseBridgeAuth({ migrationKey, timeoutMs });
+  const bridgeAuth = bridge.auth;
+  const bridgeStructureMethod = bridge.structureMethod;
+  const bridgeQueryRoute = bridge.queryRoute;
+
+  const httpClient = {
+    async get(url, { params } = {}) {
+      const response = await fetchJson(baseUrl, '/wix-wp-plugin/v2/structure', {
+        headers, method: 'GET', query: params, timeoutMs, progress,
+        progressContext: { step: 'structure-bridge-discover', entity: params?.table },
+      });
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status} ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+      return { data: response.json };
+    },
+    async post(url, { body } = {}) {
+      const response = await fetchJson(baseUrl, '/wix-wp-plugin/v2/query/admin-key', {
+        headers, method: 'POST', body, timeoutMs, progress,
+        progressContext: { step: 'structure-bridge-query' },
+      });
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status} ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+      return { data: response.json };
+    },
+  };
+
+  const detectedSlugs = new Set((detection?.detected || []).map((entry) => entry.plugin));
+  const profiles = loadProfiles(pluginsRoot(path.resolve(__dirname, '..')));
+  const results = [];
+
+  const sourceReads = makeSourceReadCollector(outDir);
+
+  for (const profile of profiles) {
+    if (!detectedSlugs.has(profile.plugin)) continue;
+    for (const entity of profile.entities || []) {
+      const blockedEntries = [
+        ...(entity.blocked || []),
+        ...((entity.pitfalls || []).flatMap((pitfall) => pitfall.blocked || [])),
+      ];
+      for (const blockedEntry of blockedEntries) {
+        const fulfillment = blockedEntry.fulfillment;
+        if (!fulfillment || fulfillment.kind !== 'structure-bridge-plugin' || fulfillment.handlerId !== 'wix-wp-plugin-v2') continue;
+
+        const { table } = fulfillment;
+        const fileName = `${slugify('wix-wp-plugin/v2')}--${slugify(table)}.md`;
+        const notes = [
+          `Captured via wix-wp-plugin-v2's discover-structure (schema) and query-structure (sample rows), not the WordPress REST API -- this entity has no REST route at all (channel: ${entity.channel}). See specs 0101/0102.`,
+          `Source plugin: ${profile.plugin}.`,
+        ];
+        const requestErrors = [];
+        let schema = null;
+        let sampleRecords = [];
+        let recordCount = null;
+
+        progress?.progress(`Inspecting structure-bridge-plugin table ${table}`, {
+          phase: 'discovery',
+          step: 'structure-bridge-plugin',
+          entity: table,
+        });
+
+        try {
+          schema = await discoverStructure({ httpClient, siteBaseUrl: baseUrl, auth: bridgeAuth, table });
+        } catch (error) {
+          requestErrors.push({ request: bridgeStructureMethod, routePath: `/wix-wp-plugin/v2/structure?table=${table}`, status: error.status || 0, statusText: error.message });
+          notes.push(`discover-structure failed: ${error.message}. wix-wp-plugin-v2 may not be fully installed/authorized on this site, or ${table} may not exist -- this entity's fulfillment metadata may need review.`);
+          results.push({
+            entityName: entity.entity, namespace: 'wix-wp-plugin/v2', routePath: `/structure?table=${table}`,
+            classification: null, methods: ['GET'], responseShape: 'object', recordCount: null, inUse: null,
+            sampleRecords: [], discoveryNotes: notes, relationships: [], requestErrors, schema: null, collectionArgs: [], fileName,
+          });
+          continue;
+        }
+
+        // The authoritative `table` is spread LAST so it always wins even if a declared
+        // sampleStructureRequest carried its own `table` key -- plugin-knowledge.js's
+        // validator already rejects that key at authoring time, but this ordering is the
+        // second, independent line of defense: a profile can never make this code query a
+        // different table than the one this entity's filename/notes say it describes.
+        const { sampleRequest, skippedReason: sampleSkippedReason, eavNote } = resolveSampleStructureRequest(fulfillment, table, schema);
+        // Surfaced to the mapper, not swallowed: "this table's values need a second, scoped
+        // read" is exactly the kind of thing that turns into a silent data gap if the sample
+        // merely looks a bit thin.
+        if (eavNote) notes.push(eavNote);
+        if (fulfillment.sampleStructureRequest) {
+          notes.push('This sample uses the fulfillment\'s own declared query, not a raw "select every column" dump -- see this entity\'s blocked[].resolution for why a raw sample is not safe here.');
+        }
+
+        let queried = false;
+        if (sampleSkippedReason) {
+          notes.push(sampleSkippedReason);
+        } else {
+          try {
+            const response = await queryStructure({
+              httpClient, siteBaseUrl: baseUrl, auth: bridgeAuth, structureRequest: sampleRequest, limit: sampleLimit,
+              onSourceRead: sourceReads.onSourceRead,
+            });
+            sampleRecords = response.rows;
+            recordCount = response.pagingMetadata.total;
+            queried = true;
+            // A redaction is a finding about the SOURCE SITE -- it means a credential is
+            // stored somewhere nobody expected -- so it belongs in the discovery record
+            // rather than being noticed later as a value that looks oddly literal.
+            if (response.redactionMetadata.redactedValueCount > 0) {
+              notes.push(`${response.redactionMetadata.redactedValueCount} value(s) in ${response.redactionMetadata.redactedColumns.join(', ')} matched a credential shape and were returned as [REDACTED:secret-shaped]. This is a source-site finding, not a sampling error: something on this site keeps a secret in this column.`);
+            }
+            if (response.eavAccess) {
+              notes.push(`Key/value table, served in the ${response.eavAccess.tier} tier: key column ${response.eavAccess.keyColumn}, guarded value column(s) ${guardedValueColumns(response.eavAccess).join(', ')}.`);
+            }
+          } catch (error) {
+            requestErrors.push({ request: 'POST', routePath: bridgeQueryRoute, status: error.status || 0, statusText: error.message });
+            notes.push(`query-structure failed: ${error.message}. Schema above is still real; no sample rows could be captured this run.`);
+            // Count a tier refusal only when the REQUEST actually violates the tier rule.
+            // A 400 here can equally mean a nonexistent column (an outdated profile naming a
+            // column the site dropped), a malformed request, or a bad cursor -- the plugin
+            // uses one error for all of them on purpose, so that a refusal never discloses
+            // which column holds values. Deciding from the request instead keeps
+            // `tier_refusals` meaning "something tried to reach values it had not named".
+            if (error.status === 400 && violatesTierRule(sampleRequest, schema.eavPair)) {
+              sourceReads.countTierRefusal();
+            }
+          }
+        }
+
+        // Persisted as a machine-readable sidecar (not just described in this file's own
+        // "Collection Args" prose) so rp-import-codegen can consume the EXACT request
+        // verbatim instead of re-deriving its own default at codegen time, which could
+        // drift from this one if the table's live schema changes in between (spec 0102,
+        // "this is a normal reader, not a blocked-dependency snapshot"). This filename is
+        // computed unconditionally (even when nothing gets written this run) so writeOutputs
+        // can clean up a STALE sidecar from a prior run when this run could not produce a
+        // fresh one -- publishing only happens when the query actually succeeded (`queried`),
+        // never merely because a request was built; a failed or skipped run must not leave a
+        // sidecar codegen would then trust as current.
+        const structureRequestArtifactFileName = `${slugify('wix-wp-plugin/v2')}--${slugify(table)}.structure-request.json`;
+        const structureRequestArtifact = queried
+          ? { fileName: structureRequestArtifactFileName, content: sampleRequest }
+          : null;
+
+        // A key/value table needs a SECOND artifact, because the request above deliberately
+        // omits the guarded value columns -- a reader running it verbatim extracts key names
+        // and no values, which is the opposite of what this capability is for. The read plan
+        // is the executable second step: every distinct key, batched at the plugin's 50-key
+        // cap, each batch a complete runnable request.
+        const eavReadPlanFileName = `${slugify('wix-wp-plugin/v2')}--${slugify(table)}.eav-read-plan.json`;
+        let eavReadPlan = null;
+        // Deliberately NOT gated on `queried`. The ordinary sample is skipped for a table wider
+        // than the 50-column select cap (and fails for other reasons too), but key discovery
+        // selects exactly ONE column, so nothing that stopped the sample applies to it. Tying
+        // the two together meant a wide key/value table -- which a busy `postmeta` absolutely
+        // can be -- silently lost its only path to values.
+        if (schema.eavPair) {
+          try {
+            const pairs = [
+              { keyColumn: schema.eavPair.keyColumn, valueColumn: schema.eavPair.valueColumn },
+              ...(schema.eavPair.additionalPairs || []),
+            ];
+            // One key sweep PER PAIR: each value column answers only to its own key column, so
+            // one pair's key list cannot unlock another pair's values.
+            const keysByPair = {};
+            const countsByPair = {};
+            let anyTruncated = false;
+            let totalPages = 0;
+            for (const pair of pairs) {
+              // eslint-disable-next-line no-await-in-loop
+              const discovered = await discoverEavKeys({
+                httpClient, siteBaseUrl: baseUrl, auth: bridgeAuth, table, keyColumn: pair.keyColumn,
+                onSourceRead: sourceReads.onSourceRead,
+              });
+              keysByPair[pair.keyColumn] = discovered.keys;
+              countsByPair[pair.keyColumn] = discovered.keyCounts;
+              anyTruncated = anyTruncated || discovered.truncated;
+              totalPages += discovered.pages;
+            }
+            const content = buildEavReadPlan({
+              table, eavPair: schema.eavPair, schemaColumns: schema.columns, keysByPair, countsByPair, truncated: anyTruncated,
+            });
+            eavReadPlan = { fileName: eavReadPlanFileName, content };
+            notes.push(
+              `Key/value table: ${content.distinctKeyCount} distinct key(s) across ${pairs.length} pair(s), discovered over ${totalPages} page(s). `
+              + `Values are extracted by ${content.expectedBatches} scoped batch(es)`
+              + (content.expectedScopedRequests === null ? '' : ` (~${content.expectedScopedRequests} paginated request(s))`)
+              + ` carrying ${content.identityColumns.join(', ') || 'no'} identity column(s) -- `
+              + `see ${eavReadPlanFileName}, which rp-import-codegen runs verbatim.`
+              + (anyTruncated ? ' *** KEY LIST TRUNCATED: this extraction cannot be treated as whole-table. ***' : '')
+              + (content.droppedIdentityColumns.length === 0 ? ''
+                : ` *** WIDER THAN THE 50-COLUMN SELECT CAP: ${content.droppedIdentityColumns.length} column(s) are absent from every extracted row (${content.droppedIdentityColumns.join(', ')}). `
+                  + 'Every row will be INCOMPLETE per record until the mapping narrows this table and the plan is regenerated with an explicit column choice. ***')
+              + (content.orderByIsUnique ? '' : ` *** No primary or NOT-NULL unique column: batches order by ${content.orderColumn}, which can tie, so paging is best-effort. ***`),
+            );
+          } catch (error) {
+            // Never fatal: the schema above is still real, and a discovery run must not abort
+            // because one table's key sweep failed.
+            notes.push(`Key discovery for the scoped-value read failed: ${error.message}. Values for this table cannot be extracted until this succeeds.`);
+            requestErrors.push({ request: 'POST', routePath: bridgeQueryRoute, status: error.status || 0, statusText: error.message });
+          }
+        }
+
+        results.push({
+          entityName: entity.entity,
+          namespace: 'wix-wp-plugin/v2',
+          routePath: `${bridgeAuth ? '/query' : '/query/admin-key'} (table=${table})`,
+          classification: null,
+          methods: ['POST'],
+          responseShape: 'object',
+          recordCount,
+          inUse: sampleRecords.length > 0,
+          sampleRecords,
+          discoveryNotes: notes,
+          relationships: [],
+          requestErrors,
+          schema,
+          // Not literally REST "collection args" (no such concept here) -- reusing this
+          // section to display the actual structureRequest this sample used (or an empty
+          // array when none was attempted), so a human reader can see (e.g.) that
+          // gift-card-activity's sample is an aggregate query, not a raw dump, without
+          // having to go read the plugin profile's JSON. The machine-readable copy
+          // consumers should actually parse is structureRequestArtifact below.
+          collectionArgs: sampleRequest ? [sampleRequest] : [],
+          fileName,
+          structureRequestArtifact,
+          structureRequestArtifactFileName,
+          eavReadPlan,
+          eavReadPlanFileName,
+        });
+      }
+    }
+  }
+
+  // One telemetry write for the whole bridge pass, after every entity, so a resumed or
+  // partially-failed run still files what it actually read.
+  sourceReads.flush(progress);
+
+  return results;
+}
+
 function pluginCoveragePayload(context) {
   const plugins = context.plugins;
   return {
     generatedAt: context.generatedAt,
     baseUrl: context.baseUrl,
     authenticated: context.authMode !== 'none',
+    bridgeAuthMode: context.bridgeAuthMode,
     pluginListAvailable: plugins.detection.pluginListAvailable,
     notes: [
       ...(context.pluginNotes || []),
@@ -1340,6 +1739,55 @@ async function writeOutputs(outDir, context, progress) {
       entity: entity.routePath,
       artifact: path.join(outDir, entity.fileName),
     });
+    // structure-bridge-plugin entities (spec 0102) additionally persist the exact
+    // structureRequest their sample used, as machine-readable JSON alongside the
+    // human-readable markdown -- see sampleStructureBridgeEntities()'s own comment on why.
+    if (entity.structureRequestArtifact) {
+      const artifactPath = path.join(outDir, entity.structureRequestArtifact.fileName);
+      await fs.writeFile(artifactPath, `${JSON.stringify(entity.structureRequestArtifact.content, null, 2)}\n`, 'utf8');
+      progress?.progress(`Wrote structure-request artifact for ${entity.entityName}`, {
+        phase: 'discovery',
+        step: 'write-artifact',
+        entity: entity.routePath,
+        artifact: artifactPath,
+      });
+    } else if (entity.structureRequestArtifactFileName) {
+      // This run could not produce a fresh sidecar (query skipped or failed) -- delete any
+      // sidecar a PRIOR run left behind for this exact table, so rp-import-codegen can never
+      // consume a stale one and mistake it for this run's (non-existent) authoritative query.
+      const stalePath = path.join(outDir, entity.structureRequestArtifactFileName);
+      try {
+        await fs.unlink(stalePath);
+        progress?.progress(`Removed stale structure-request artifact for ${entity.entityName}`, {
+          phase: 'discovery',
+          step: 'write-artifact',
+          entity: entity.routePath,
+          artifact: stalePath,
+        });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+
+    // Same publish-or-clean rule for the scoped-value read plan: a stale plan is worse than a
+    // missing one, because codegen would run it and produce a confidently wrong extraction
+    // against a key list the site no longer has.
+    if (entity.eavReadPlan) {
+      const planPath = path.join(outDir, entity.eavReadPlan.fileName);
+      await fs.writeFile(planPath, `${JSON.stringify(entity.eavReadPlan.content, null, 2)}\n`, 'utf8');
+      progress?.progress(`Wrote EAV read plan for ${entity.entityName}`, {
+        phase: 'discovery',
+        step: 'write-artifact',
+        entity: entity.routePath,
+        artifact: planPath,
+      });
+    } else if (entity.eavReadPlanFileName) {
+      try {
+        await fs.unlink(path.join(outDir, entity.eavReadPlanFileName));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
   }
 }
 
@@ -1530,6 +1978,31 @@ async function main() {
       });
     }
     plugins = { ...plugins, childSamples };
+
+    // Fourth pass: structure-bridge-plugin entities (spec 0102) -- data with no REST route
+    // at all, captured through wix-wp-plugin-v2 instead. Pushed into the same `entities`
+    // array so it flows through the existing per-entity markdown writer unchanged; run
+    // after detection/coverage so it can skip a plugin that isn't actually active.
+    const structureBridgeEntities = await sampleStructureBridgeEntities({
+      baseUrl: args.baseUrl,
+      headers,
+      migrationKey: args.migrationKey,
+      namespaces,
+      sampleLimit: args.sampleLimit,
+      timeoutMs: args.timeoutMs,
+      progress,
+      detection: plugins.detection,
+      outDir: args.outDir,
+    });
+    if (structureBridgeEntities.length > 0) {
+      progress.progress('wix-wp-plugin-v2 structure-bridge-plugin capture completed', {
+        phase: 'discovery',
+        step: 'structure-bridge-plugin',
+        count: structureBridgeEntities.length,
+        unit: 'entities',
+      });
+    }
+    entities.push(...structureBridgeEntities);
   }
 
   const context = {
@@ -1537,6 +2010,7 @@ async function main() {
     baseUrl: normalizeBaseUrl(args.baseUrl),
     restRoot: `${normalizeBaseUrl(args.baseUrl)}/wp-json`,
     authMode: summarizeAuthMode(args),
+    bridgeAuthMode: summarizeBridgeAuthMode(args, namespaces),
     authProviders: Object.keys(indexJson?.authentication || {}),
     namespaces,
     totalAdvertisedRoutes: Object.keys(indexJson?.routes || {}).length,
@@ -1592,9 +2066,15 @@ module.exports = {
   buildChildRoutePath,
   describeChildSample,
   sampleChildEntities,
+  sampleStructureBridgeEntities,
+  resolveSampleStructureRequest,
+  writeOutputs,
   getAtPath,
   inspectEntity,
   resolveRequestBody,
   normalizeResponseRecords,
   findSampledIdsDependencies,
+  summarizeAuthMode,
+  summarizeBridgeAuthMode,
+  chooseBridgeAuth,
 };

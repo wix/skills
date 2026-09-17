@@ -1,9 +1,17 @@
 'use strict';
 
+const { isDeniedGatewayRoute } = require('./wp-http.js');
+
 const ROUTE_CATEGORIES = new Set([
   'backend_data',
   'backend_metadata',
   'public_commerce_data',
+  // A route whose response carries live credentials. Distinct from the other exclusions
+  // because those describe scope ("this is presentation, not data"), while this one describes
+  // danger: the route holds data we genuinely want (which gateways exist, which are enabled)
+  // wrapped around a secret we must never receive. Naming it makes the intent visible in the
+  // classification output instead of surfacing only as a transport-level refusal.
+  'excluded_credential_bearing',
   'excluded_frontend',
   'excluded_template_editor',
   'excluded_runtime_session',
@@ -105,6 +113,15 @@ const BACKEND_DATA_RULES = [
   // Must precede /wc/v3/taxes* (first-match-wins) — it's a prefix of that route.
   ['/wc/v3/taxes/classes*', 'wc.data.tax-classes', 'WooCommerce tax classes are canonical store data'],
   ['/wc/v3/taxes*', 'wc.data.taxes', 'WooCommerce taxes are canonical store data'],
+  // The store's OWN configuration: address, currency, which countries it sells to, whether tax
+  // is calculated. Canonical store data, not marketplace noise — it was landing in
+  // excluded_unsupported and was never sampled on any run, so a migrated site published with an
+  // empty business address and nobody noticed.
+  // NOTE the REST index advertises the PARAMETERIZED form `/wc/v3/settings/(?P<group>...)`, not
+  // this literal, so this rule alone does not cause a fetch — the group is read directly by the
+  // caller, the same way a shipping zone's /locations and /methods sub-resources are. The rule
+  // exists so that when the literal IS advertised it is classified as data rather than excluded.
+  ['/wc/v3/settings/general', 'wc.data.store-settings-general', 'WooCommerce general settings hold the store address, currency and selling countries — canonical store configuration'],
   ['/wc/v3/shipping/zones', 'wc.data.shipping-zones', 'WooCommerce shipping zones are canonical store configuration'],
   ['/wc/v3/shipping_methods', 'wc.data.shipping-method-types', 'WooCommerce shipping method types are canonical store configuration'],
 ];
@@ -251,6 +268,21 @@ function findMatchingRule(routePath, rules) {
   return null;
 }
 
+// Route patterns for the credential-bearing category, listed so coreRulePatterns() can refuse a
+// plugin profile that tries to declare one of them as a data route. The MATCH itself is
+// isDeniedGatewayRoute() in wp-http.js — one definition of "this is a gateway route" driving
+// both the classifier and the transport deny, so the two layers cannot drift into disagreeing
+// about which routes they cover.
+const CREDENTIAL_BEARING_PATTERNS = [
+  '/wc/v1/payment_gateways*',
+  '/wc/v2/payment_gateways*',
+  '/wc/v3/payment_gateways*',
+];
+
+const CREDENTIAL_BEARING_REASON =
+  'WooCommerce payment-gateway routes return each gateway\'s full settings object, including live '
+  + 'API keys and secrets; read gateway identity and enablement through fetchGatewaySummary() instead';
+
 function actionForCategory(category) {
   if (category === 'backend_data' || category === 'public_commerce_data') {
     return 'sample';
@@ -269,7 +301,7 @@ function makeClassification(candidate, category, reason, ruleId, extra = {}) {
     reason,
     ruleId,
     sampleByDefault: category === 'backend_data',
-    canIncludeByOverride: category !== 'backend_data',
+    canIncludeByOverride: category !== 'backend_data' && category !== 'excluded_credential_bearing',
     includedByOverride: false,
     excludedByOverride: false,
     effectiveAction: actionForCategory(category),
@@ -367,7 +399,7 @@ function findExclusion(routePath) {
 // Every route pattern owned by the classifier itself. Exported so the plugin knowledge
 // validator can refuse a profile route that silently shadows a core rule.
 function coreRulePatterns() {
-  const patterns = new Set();
+  const patterns = new Set(CREDENTIAL_BEARING_PATTERNS);
   for (const [, rules] of EXCLUSION_RULE_GROUPS) {
     for (const [pattern] of rules) patterns.add(pattern);
   }
@@ -379,6 +411,14 @@ function coreRulePatterns() {
 function classifyBaseRoute(candidate, routeSet, options = {}) {
   const routePath = candidate.routePath;
   const pluginRules = options.pluginRules || { dataRules: [], excludeRules: [] };
+
+  // FIRST, above the plugin profile rules and above every exclusion family. A profile's
+  // explicitly-listed data route beats an exclusion family by design, which is exactly why this
+  // check has to sit above that mechanism rather than inside it — a credential-bearing route is
+  // not a scope judgement a plugin author gets to overturn.
+  if (isDeniedGatewayRoute(routePath)) {
+    return makeClassification(candidate, 'excluded_credential_bearing', CREDENTIAL_BEARING_REASON, 'wc.credential-bearing.payment-gateways');
+  }
 
   // Precedence: profile excludeRoutes > profile data routes > existing
   // category rules > collection-shape fallback > unsupported.default. Profile data routes
@@ -577,8 +617,19 @@ function classifyRoutes(candidates, overrides = {}) {
       };
     }
 
+    // `--include-route` and `--include-excluded-category` are operator overrides for scope
+    // judgements. They are not an override for a route that hands back live credentials, so a
+    // credential-bearing route stays `skip` no matter what was passed. The transport refuses it
+    // as well (wp-http.js); this layer is what keeps the CLI's own report honest rather than
+    // promising a sample it will never take.
     const includeRoute = normalizedOverrides.includeRoutes.includes(candidate.routePath);
     const includeCategory = isIncludedCategory(classification.category, normalizedOverrides.includeExcludedCategories);
+    if ((includeRoute || includeCategory) && classification.category === 'excluded_credential_bearing') {
+      return {
+        ...classification,
+        reason: `${classification.reason}; requested by override and refused`,
+      };
+    }
     if (includeRoute || includeCategory) {
       return {
         ...classification,
@@ -608,6 +659,10 @@ function summarizeSkippedByCategory(classifications) {
 
 module.exports = {
   ROUTE_CATEGORIES,
+  CREDENTIAL_BEARING_PATTERNS,
+  // Re-exported so the plugin-profile validator can refuse a credential-bearing route without
+  // reaching into the transport module itself.
+  isCredentialBearingRoute: isDeniedGatewayRoute,
   classifyRoutes,
   normalizeOverrides,
   routeMatchesPattern,

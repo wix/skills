@@ -11,6 +11,7 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [],
   "preferredWrite": {
     "surface": "Form Schemas V4 (FormSchemaService)",
@@ -111,7 +112,7 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/contact-form-7.json",
-      "note": "source side, VERIFIED LIVE 2026-08-16 on the reference store: CF7 form definitions ARE readable over the plugin's own namespace (GET /contact-form-7/v1/contact-forms/{id} returns properties.form.fields[] with type/basetype/name/options), while WPForms Lite definitions are NOT REST-readable (the `wpforms` CPT registers with no show_in_rest). Both profiles point content.form-definitions here"
+      "note": "source side, VERIFIED LIVE 2026-08-16 on an anonymized verification environment: CF7 form definitions ARE readable over the plugin's own namespace (GET /contact-form-7/v1/contact-forms/{id} returns properties.form.fields[] with type/basetype/name/options), while WPForms Lite definitions are NOT REST-readable (the `wpforms` CPT registers with no show_in_rest). Both profiles point content.form-definitions here"
     }
   ],
   "notes": "Authored 2026-08-16 alongside the contact-form-7 and wpforms-lite profiles. Docs-verified only, no live write attempted. importSafe is true for the schema create itself: Create Form takes no visitor-facing action and emits only Form Created; the notification risk in this domain sits entirely on forms/form-submission. reliability stays `unknown` until a real form is created on a live site — the layout/lowercase-id trap is exactly the kind of thing that returns 200 and produces an empty dashboard. CORRECTION LOG: the first draft of this entity claimed an unrecognized `identifier` is silently dropped from the stored schema; re-reading About Form Fields on 2026-08-16 showed the docs claim only that a non-standard identifier may render incorrectly in the submission table while the API still accepts the field. The pitfall was rewritten and downgraded from blocker to warning (nonstandard-identifier-breaks-the-submission-table), and the genuinely-blocking option-id rule the first draft missed was added (choice-options-need-lowercase-guid-ids)."

@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readEntityByRef } = require('./domain-knowledge.js');
 
+const { verifySubscriptionEvidence } = require('./write-verification');
 const SCHEMA_VERSION = 1;
+const validEvidence = artifact => artifact && artifact.status === 'passed' && artifact.probeRecordId === artifact.valueEvidence?.targetId && verifySubscriptionEvidence(artifact.valueEvidence).verified;
 
 function normalizePathPresence(verifiedPaths = []) {
   return verifiedPaths
@@ -23,7 +25,7 @@ function createContractLedgerProposalFromStoresVerification(artifact) {
   return {
     schemaVersion: SCHEMA_VERSION,
     proposalId: `stores-product-subscription-create-${(artifact.timestamp || new Date().toISOString()).slice(0, 10)}`,
-    status: artifact.status === 'passed' ? 'proposed' : 'blocked',
+    status: validEvidence(artifact) ? 'proposed' : 'blocked',
     sourceVerification: {
       command: artifact.command,
       artifactPath: artifact.artifactPath || null,
@@ -38,7 +40,7 @@ function createContractLedgerProposalFromStoresVerification(artifact) {
       surface: 'catalog-v3',
       operation: 'createProduct',
       path: 'product.subscriptionDetails',
-      verificationLevel: 'live-create-and-readback',
+      verificationLevel: validEvidence(artifact) ? 'live-create-and-readback' : 'unverified',
       lastVerified: artifact.timestamp ? artifact.timestamp.slice(0, 10) : null,
       verifiedBy: artifact.targetSiteIdentifier || artifact.sourceRunId || 'live-verification',
       requiredPaths: verifiedPaths.filter((entry) => entry !== 'product.subscriptionDetails.subscriptions[].id'),
@@ -114,8 +116,11 @@ function validateContractPromotion({ domainsDir, verificationArtifacts = [], pro
 
   for (const artifactPath of verificationArtifacts) {
     const artifact = readJsonIfExists(artifactPath);
-    if (!artifact || artifact.status !== 'passed') continue;
-    if (artifact.command !== 'stores subscription-create') continue;
+    if (!artifact || artifact.command !== 'stores subscription-create') continue;
+    if (!validEvidence(artifact)) {
+      errors.push(`${artifactPath}: missing or invalid identity/value verification`);
+      continue;
+    }
     const proposalEntry = proposalsByVerification.get(path.resolve(artifactPath));
     if (!proposalEntry) {
       errors.push(`${artifactPath}: passed verification is missing contract-ledger proposal`);
@@ -123,6 +128,10 @@ function validateContractPromotion({ domainsDir, verificationArtifacts = [], pro
     }
     const { proposal } = proposalEntry;
     if (proposal.status === 'deferred' || proposal.deferralReason) continue;
+    if (proposal.status !== 'proposed' || proposal.fieldContract?.verificationLevel !== 'live-create-and-readback') {
+      errors.push(`${proposalEntry.artifactPath}: invalid verification proposal`);
+      continue;
+    }
     if (!isProposalPromoted(domainsDir, proposal)) {
       errors.push(`${proposalEntry.artifactPath}: proposal is not promoted into shared target ledger`);
     }

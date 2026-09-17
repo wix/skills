@@ -92,7 +92,7 @@ async function writeJsonAtomic(filePath, data) {
 async function writeTextAtomic(filePath, text) {
   await mkdirp(path.dirname(filePath));
   const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tempPath, text, 'utf8');
+  await fs.writeFile(tempPath, text, { encoding: 'utf8', mode: 0o600 });
   await fs.rename(tempPath, filePath);
 }
 
@@ -170,10 +170,189 @@ function validateCrosswalkRow(row, { allowThrow = true, label = 'crosswalk row' 
   if (row.updatedAt !== undefined && Number.isNaN(Date.parse(row.updatedAt))) {
     errors.push(`${label}.updatedAt must be an ISO timestamp when present`);
   }
+  // Spec 0140 §2: the version pair recorded from a CONFIRMED write, so a rerun can tell a
+  // changed source record from an unchanged one. All four stay OPTIONAL, because rows written
+  // before this existed must still load -- but absence is never read as "unchanged" (see
+  // rerunDecision, which reports `unknown` rather than skipping).
+  if (row.sourceVersionField !== undefined
+    && (typeof row.sourceVersionField !== 'string' || row.sourceVersionField === '')) {
+    errors.push(`${label}.sourceVersionField must be a non-empty string when present`);
+  }
+  if (row.sourceVersion !== undefined
+    && !(typeof row.sourceVersion === 'string' || typeof row.sourceVersion === 'number')) {
+    errors.push(`${label}.sourceVersion must be a string or number when present`);
+  }
+  if (row.sourceVersion !== undefined && row.sourceVersionField === undefined) {
+    errors.push(`${label}.sourceVersion requires sourceVersionField — a version with no named field cannot be compared`);
+  }
+  if (row.targetRevision !== undefined
+    && (typeof row.targetRevision !== 'string' || row.targetRevision === '')) {
+    errors.push(`${label}.targetRevision must be a non-empty opaque string when present`);
+  }
+  if (row.sourceHash !== undefined && (typeof row.sourceHash !== 'string' || row.sourceHash === '')) {
+    errors.push(`${label}.sourceHash must be a non-empty string when present`);
+  }
+  if (row.sourceHashDefinition !== undefined
+    && (typeof row.sourceHashDefinition !== 'string' || row.sourceHashDefinition === '')) {
+    errors.push(`${label}.sourceHashDefinition must be a non-empty string when present`);
+  }
   if (errors.length && allowThrow) {
     throw new Error(errors.join('; '));
   }
   return { ok: errors.length === 0, errors };
+}
+
+// Spec 0140 §2 and A.2. Decides what a rerun does with one source record, given its crosswalk
+// baseline. Pure: no I/O, no writes, so the same inputs always give the same verdict.
+//
+// The load-bearing rule is the LAST one: a linked record with no usable comparison evidence is
+// `unknown`, never `skip` and never a blind `update`. "We lost the baseline" and "the source did
+// not change" are different facts, and conflating them either silently drops a real change or
+// silently overwrites a merchant's Wix edit.
+const RERUN_ACTIONS = new Set(['create', 'skip', 'update', 'unknown']);
+
+function comparableVersion(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  // Version IDs are opaque (A.2): compare as strings, never numerically or by recency.
+  return String(value);
+}
+
+function rerunDecision({
+  crosswalkRow = null,
+  sourceVersion = undefined,
+  sourceVersionField = null,
+  sourceHash = undefined,
+  sourceHashDefinition = null,
+} = {}) {
+  if (!crosswalkRow) {
+    return {
+      action: 'create',
+      reason: 'no_crosswalk_link',
+      targetId: null,
+      targetRevision: null,
+    };
+  }
+  const targetId = crosswalkRow.targetId || null;
+  const targetRevision = crosswalkRow.targetRevision || null;
+  const base = { targetId, targetRevision };
+
+  const baselineVersion = comparableVersion(crosswalkRow.sourceVersion);
+  const currentVersion = comparableVersion(sourceVersion);
+  const baselineField = crosswalkRow.sourceVersionField || null;
+  const baselineHash = comparableVersion(crosswalkRow.sourceHash);
+  const currentHash = comparableVersion(sourceHash);
+
+  // A.2: "Changing the comparison field/hash definition invalidates that baseline until
+  // reconciled." A baseline captured from `date_modified_gmt` says nothing about a version now
+  // read from a different field.
+  if (baselineField && sourceVersionField && baselineField !== sourceVersionField) {
+    return { ...base, action: 'unknown', reason: 'version_field_changed' };
+  }
+  // A.2 applies the same rule to the hash: "Changing the comparison field/hash definition
+  // invalidates that baseline until reconciled." A hash computed over a different set of mapped
+  // fields is not comparable with the stored one -- without this, a redefinition falls through
+  // to `update` and quietly overwrites Wix on every rerun.
+  if (crosswalkRow.sourceHashDefinition && sourceHashDefinition
+    && crosswalkRow.sourceHashDefinition !== sourceHashDefinition) {
+    return { ...base, action: 'unknown', reason: 'hash_definition_changed' };
+  }
+
+  const versionComparable = baselineVersion !== null && currentVersion !== null;
+  const hashComparable = baselineHash !== null && currentHash !== null;
+
+  // A hash difference catches a change the timestamp missed (coarse or unchanged mtime), so it
+  // is checked even when the versions match.
+  if (hashComparable && baselineHash !== currentHash) {
+    if (!targetRevision) {
+      return { ...base, action: 'unknown', reason: 'no_saved_revision_for_update' };
+    }
+    return { ...base, action: 'update', reason: 'source_hash_differs' };
+  }
+  if (versionComparable && baselineVersion !== currentVersion) {
+    // A linked row with no saved revision cannot be updated safely: the write would carry no
+    // revision and therefore no conflict protection, so a merchant edit would be overwritten
+    // silently. Legacy rows written before the version pair existed land here too.
+    if (!targetRevision) {
+      return { ...base, action: 'unknown', reason: 'no_saved_revision_for_update' };
+    }
+    return { ...base, action: 'update', reason: 'source_version_differs' };
+  }
+  if (versionComparable || hashComparable) {
+    // Equality WITH adequate evidence. Wix may have changed on its own; that is not a reason to
+    // write, and not a reason to refresh the saved revision either.
+    return { ...base, action: 'skip', reason: versionComparable ? 'source_version_equal' : 'source_hash_equal' };
+  }
+  return {
+    ...base,
+    action: 'unknown',
+    reason: crosswalkRow.sourceVersion === undefined && crosswalkRow.sourceHash === undefined
+      ? 'no_baseline_recorded'
+      : 'source_version_unavailable',
+  };
+}
+
+// Spec 0140 §2 and A.2: the pair advances ONLY on a confirmed write. A failed, conflicted,
+// dry-run or skipped write leaves the previous baseline exactly where it was, so the record
+// stays eligible for recovery instead of being recorded as applied.
+const CONFIRMED_WRITE_OUTCOMES = new Set(['created', 'updated']);
+
+function nextCrosswalkBaseline({
+  existingRow = null,
+  outcome = null,
+  sourceVersion = undefined,
+  sourceVersionField = null,
+  sourceHash = undefined,
+  sourceHashDefinition = null,
+  targetRevision = undefined,
+} = {}) {
+  if (!CONFIRMED_WRITE_OUTCOMES.has(outcome)) {
+    return { advanced: false, reason: `outcome_not_confirmed:${outcome === null ? 'none' : outcome}`, row: existingRow };
+  }
+  // Consistent with validateCrosswalkRow, which hard-rejects the same shape: a version with no
+  // named field cannot be compared later, so accepting it silently would write an unusable
+  // baseline that reads as "compared and equal" on the next rerun.
+  if (sourceVersion !== undefined && !sourceVersionField) {
+    throw new Error('nextCrosswalkBaseline: sourceVersion requires sourceVersionField — an unnamed version cannot be compared on a later rerun');
+  }
+  const next = { ...(existingRow || {}) };
+  if (sourceVersion !== undefined && sourceVersionField) {
+    next.sourceVersion = sourceVersion;
+    next.sourceVersionField = sourceVersionField;
+  }
+  if (sourceHash !== undefined) {
+    next.sourceHash = sourceHash;
+  }
+  if (sourceHashDefinition) {
+    next.sourceHashDefinition = sourceHashDefinition;
+  }
+  // A.2: "Preserve its exact value; do not increment it locally." An absent revision in the
+  // response is not a reason to invent one, and not a reason to drop a known-good earlier one.
+  const haveRevision = targetRevision !== undefined && targetRevision !== null && targetRevision !== '';
+  if (haveRevision) {
+    next.targetRevision = String(targetRevision);
+  }
+  // A.2 again: "If the response lacks a revision, reconcile a readback with the expected written
+  // values before establishing a baseline." Advancing the SOURCE version while keeping the OLD
+  // revision would pair a new source state with a revision that predates the write — the saved
+  // pair would no longer describe the same write, and the next change would send a stale
+  // revision and self-conflict. An update that returns no revision is therefore not a baseline;
+  // it needs reconciliation.
+  // This applies to a FIRST write too, not only to a re-write of an already-linked record. A
+  // create whose response carried no revision leaves the pair half-formed: the source version
+  // says "this state is applied" while there is no revision to protect the next update, so the
+  // next change would be written with no concurrency guard at all. Half a pair is not a
+  // baseline.
+  if (!haveRevision) {
+    return {
+      advanced: false,
+      reason: 'confirmed_write_without_returned_revision',
+      needsReconciliation: true,
+      row: existingRow,
+    };
+  }
+  return { advanced: true, reason: outcome, row: next };
 }
 
 function validateAttemptRow(row, { allowThrow = true, label = 'attempt row' } = {}) {
@@ -400,15 +579,37 @@ async function appendCrosswalkRow(projectDir, row) {
   return row;
 }
 
-async function upsertCrosswalkRow(projectDir, row) {
-  validateCrosswalkRow(row);
+async function updateCrosswalkRows(projectDir, updates, { remove = [] } = {}) {
+  // Load protected receipts once per batch, not once per crosswalk row.
+  const states = new Map();
+  const verifier = require('./write-verification');
+  for (const row of updates) {
+    validateCrosswalkRow(row);
+    if (!row.verification) continue;
+    let receipt = row.verification;
+    if (receipt.storage === 'write-verification') {
+      const ref = receipt;
+      if (!states.has(ref.siteId)) states.set(ref.siteId, await require('./write-verification-state').load(projectDir, ref.siteId));
+      const candidate = states.get(ref.siteId).rows[row.sourceStableKey];
+      if (candidate?.identityConflict) throw new Error('Revoked crosswalk verification');
+      receipt = [candidate?.receipt, candidate?.lastVerifiedReceipt].find(r => r && ref.receiptDigest === verifier.digest(r));
+      if (!receipt || ref.receiptDigest !== verifier.digest(receipt) || ref.sourceKey !== row.sourceStableKey || ref.targetId !== row.targetId || ref.siteId !== receipt?.siteId || ref.kind !== receipt?.kind) throw new Error('Invalid crosswalk verification reference');
+    }
+    if (!verifier.validReceipt(receipt, { sourceKey: row.sourceStableKey, targetId: row.targetId })) throw new Error('Invalid crosswalk verification');
+  }
   const current = await loadCrosswalk(projectDir);
-  current.bySource[row.sourceStableKey] = row;
+  for (const key of remove) delete current.bySource[key];
+  for (const row of updates) current.bySource[row.sourceStableKey] = row;
   const rows = Object.values(current.bySource).sort((a, b) => a.sourceStableKey.localeCompare(b.sourceStableKey));
-  const text = rows.map((item) => JSON.stringify(item)).join('\n');
-  await writeTextAtomic(crosswalkPath(projectDir), text ? `${text}\n` : '');
+  await writeTextAtomic(crosswalkPath(projectDir), rows.map(row => JSON.stringify(row)).join('\n') + (rows.length ? '\n' : ''));
   await rebuildCrosswalkIndexes(projectDir);
+}
+async function upsertCrosswalkRow(projectDir, row) {
+  await updateCrosswalkRows(projectDir, [row]);
   return row;
+}
+async function removeCrosswalkRow(projectDir, sourceStableKey) {
+  await updateCrosswalkRows(projectDir, [], { remove: [sourceStableKey] });
 }
 
 function foldAttempts(rows) {
@@ -608,19 +809,32 @@ async function seedCrosswalkFromCmsMirror(projectDir, rows) {
 
 async function withStateLock(projectDir, fn) {
   const lockPath = path.join(stateDir(projectDir), '.lock');
-  await mkdirp(stateDir(projectDir));
+  await mkdirp(lockPath);
+  const host = Buffer.from(require('node:os').hostname()).toString('base64url');
+  // Unique claim files avoid deleting/replacing a directory another runner just acquired.
+  // Publish the claim before scanning. Concurrent entrants see each other and at least
+  // one backs off; a process that starts later always sees the active owner's claim.
+  const claim = `${host}.${process.pid}.${require('node:crypto').randomUUID()}.owner`;
+  const claimPath = path.join(lockPath, claim);
+  await fs.writeFile(claimPath, JSON.stringify({ pid: process.pid, host, acquiredAt: new Date().toISOString() }), { flag: 'wx', mode: 0o600 });
   try {
-    await fs.mkdir(lockPath);
-  } catch (error) {
-    if (error && error.code === 'EEXIST') {
-      throw new Error(`state lock already held: ${lockPath}`);
+    for (const entry of await fs.readdir(lockPath)) {
+      if (entry === claim) continue;
+      const match = /^([^.]+)\.(\d+)\.[a-f0-9-]+\.owner$/.exec(entry);
+      if (!match || match[1] !== host) throw new Error(`state lock owner cannot be checked locally: ${path.join(lockPath, entry)}; confirm that importer is stopped before removing its claim`);
+      try { process.kill(Number(match[2]), 0); }
+      catch (error) {
+        if (error.code === 'ESRCH') { await fs.rm(path.join(lockPath, entry), { force: true }); continue; }
+        if (error.code === 'ENOENT') continue;
+        throw error;
+      }
+      throw new Error(`state lock already held by PID ${match[2]}: ${lockPath}`);
     }
-    throw error;
-  }
-  try {
     return await fn();
   } finally {
-    await fs.rm(lockPath, { recursive: true, force: true });
+    await fs.rm(claimPath, { force: true });
+    // Keep the empty container: its existence is not ownership. SIGKILL leaves only
+    // this process's uniquely named claim, which the next local process can reclaim.
   }
 }
 
@@ -638,8 +852,11 @@ module.exports = {
   loadCrosswalk,
   appendCrosswalkRow,
   upsertCrosswalkRow,
+  updateCrosswalkRows,
+  removeCrosswalkRow,
   loadAttemptJournal,
   appendAttempt,
+  validateCrosswalkRow,
   validateAttemptRow,
   appendSafeModeEmailReplacement,
   appendSafeModeBlockedRecord,
@@ -648,6 +865,10 @@ module.exports = {
   appendDryRunCrosswalkRow,
   loadDryRunCrosswalk,
   dryRunUpsertDecision,
+  RERUN_ACTIONS,
+  rerunDecision,
+  CONFIRMED_WRITE_OUTCOMES,
+  nextCrosswalkBaseline,
   validateSafeModeEmailReplacementRow,
   validateSafeModeBlockedRecordRow,
   validateWixRequestCaptureRow,

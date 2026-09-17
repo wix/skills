@@ -11,9 +11,24 @@
     "idPolicy": "client-assigned",
     "crosswalkRequired": false
   },
+  "dependsOn": [],
   "sourceAliases": [
-    { "sourceSystem": "wordpress", "sourceEntity": "custom_post_type", "routes": ["/wp/v2/{type}"], "confidence": "medium" },
-    { "sourceSystem": "wix", "sourceEntity": "cmsCollection", "routes": ["Wix Data Collections"], "confidence": "high" }
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "custom_post_type",
+      "routes": [
+        "/wp/v2/{type}"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "cmsCollection",
+      "routes": [
+        "Wix Data Collections"
+      ],
+      "confidence": "high"
+    }
   ],
   "preferredWrite": {
     "surface": "Wix Data Collections",
@@ -24,12 +39,24 @@
     "bulk": false
   },
   "fallbacks": [],
-  "reliability": { "status": "partially-reliable", "flags": [] },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
   "pitfalls": [
-    { "code": "setup-before-items", "severity": "blocker", "summary": "Collections, fields, permissions, and indexes must be represented in setup before item import." }
+    {
+      "code": "setup-before-items",
+      "severity": "blocker",
+      "summary": "Collections, fields, permissions, and indexes must be represented in setup before item import."
+    }
   ],
-  "mappingGuidance": ["Use CMS collections for custom content models and native gaps where data should remain queryable."],
-  "setupRequirements": ["Wix Data enabled", "Collection schema and permissions plan"],
+  "mappingGuidance": [
+    "Use CMS collections for custom content models and native gaps where data should remain queryable."
+  ],
+  "setupRequirements": [
+    "Wix Data enabled",
+    "Collection schema and permissions plan"
+  ],
   "evidence": [
     {
       "type": "domain-kb",

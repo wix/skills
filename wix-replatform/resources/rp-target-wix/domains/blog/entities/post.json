@@ -11,6 +11,12 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "blog/category",
+    "blog/tag",
+    "media/media-file",
+    "crm/contact"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

@@ -55,7 +55,7 @@
     "importSafe": true,
     "bulk": false,
     "releaseStatus": "beta",
-    "decision": "Import Order is the dedicated migration path (ECOM-01): settable purchasedDate/createdDate/number, values stored as-is, no side effects (no buyer notifications, no inventory adjustment, no contact/invoice/receipt/subscription creation; only the OrderImported event fires). Beta, single-order only (no bulk endpoint), no SHOPIFY/WOOCOMMERCE channel enums (use OTHER_PLATFORM), analytics inclusion not suppressible. Rollback via Bulk Delete Imported Orders; re-send with the same id fully replaces."
+    "decision": "Import Order is the dedicated migration path (ECOM-01): settable purchasedDate/number (createdDate is NOT settable -- see pitfalls), values stored as-is, no side effects (no buyer notifications, no inventory adjustment, no contact/invoice/receipt/subscription creation; only the OrderImported event fires). Beta, single-order only (no bulk endpoint), no SHOPIFY/WOOCOMMERCE channel enums (use OTHER_PLATFORM), analytics inclusion not suppressible. Rollback via Bulk Delete Imported Orders (VERIFIED LIVE 2026-09-05: async jobId, orders gone within seconds, a deleted id can be re-imported). Caller-supplied `id` VERIFIED LIVE 2026-09-05 (24 probes on a disposable site): a never-seen GUID is ACCEPTED and kept, so the order write can be made idempotent by deriving the id from the source -- `lib/order-history.js` does this; a re-send with an existing id fully REPLACES the body (omitted fields are cleared, createdDate kept, updatedDate moves, the number can change) while attached payments and extendedFields SURVIVE; a non-GUID id is a 400. See the silent-replace pitfall."
   },
   "alternateWrites": [
     {
@@ -77,13 +77,41 @@
     "dataExtensionSchemaBacked": true,
     "keyConvention": "wpCheckout_<metaKey> for values sourced from a checkout-field-editor-style plugin — avoids collision with merchant-created or other-plugin _user_fields entries.",
     "fieldTypeMapping": [
-      { "csvType": "text", "fieldType": "string", "notes": "maxLength 255 default" },
-      { "csvType": "textarea", "fieldType": "string", "notes": "maxLength 2000 default" },
-      { "csvType": "select", "fieldType": "string", "notes": "options documented in description, not enforced — DES has no enum" },
-      { "csvType": "radio", "fieldType": "string", "notes": "same as select" },
-      { "csvType": "multiselect", "fieldType": "array", "notes": "items: string" },
-      { "csvType": "checkbox", "fieldType": "boolean", "notes": "single yes/no field" },
-      { "csvType": "date", "fieldType": "string", "notes": "format: date" }
+      {
+        "csvType": "text",
+        "fieldType": "string",
+        "notes": "maxLength 255 default"
+      },
+      {
+        "csvType": "textarea",
+        "fieldType": "string",
+        "notes": "maxLength 2000 default"
+      },
+      {
+        "csvType": "select",
+        "fieldType": "string",
+        "notes": "options documented in description, not enforced — DES has no enum"
+      },
+      {
+        "csvType": "radio",
+        "fieldType": "string",
+        "notes": "same as select"
+      },
+      {
+        "csvType": "multiselect",
+        "fieldType": "array",
+        "notes": "items: string"
+      },
+      {
+        "csvType": "checkbox",
+        "fieldType": "boolean",
+        "notes": "single yes/no field"
+      },
+      {
+        "csvType": "date",
+        "fieldType": "string",
+        "notes": "format: date"
+      }
     ],
     "docs": [
       "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order",
@@ -147,7 +175,7 @@
     {
       "code": "order-number-must-be-numeric",
       "severity": "blocker",
-      "summary": "VERIFIED LIVE 2026-08-16: `order.number` must be a numeric string. A non-numeric value (e.g. the 'WT-1042' shape produced by WooCommerce sequential-order-number plugins, one of which is installed on the reference store) fails the entire Import Order call with a bare 400 {\"message\":\"Not a numeric value\"} carrying no field path — the error does not say which field, so it reads as a malformed payload. Strip prefixes to the numeric core and ledger the original as a fidelity note; do not pass the source order number through unvalidated."
+      "summary": "VERIFIED LIVE 2026-08-16: `order.number` must be a numeric string. A non-numeric value (e.g. the 'WT-1042' shape produced by WooCommerce sequential-order-number plugins, one of which is installed on an anonymized verification environment) fails the entire Import Order call with a bare 400 {\"message\":\"Not a numeric value\"} carrying no field path — the error does not say which field, so it reads as a malformed payload. Strip prefixes to the numeric core and ledger the original as a fidelity note; do not pass the source order number through unvalidated."
     },
     {
       "code": "merchant-note-author-is-token-holder",
@@ -178,6 +206,19 @@
       "code": "checkout-custom-field-values-need-definitions",
       "severity": "warning",
       "summary": "A checkout-field-editor-style plugin's custom field VALUES ride as unregistered order postmeta with no fixed key or envelope (see woo-checkout-field-editor-pro.json's values-have-no-fallback-envelope-key pitfall) — they cannot be identified, let alone written as extendedFields.namespaces._user_fields entries, until the field list (label/type/meta-key) is known. Without it, these values are not degraded, they are entirely unattempted."
+    },
+    "buyerInfo.memberId is what member-facing reads authorize on. A member-identity Get Order returns an order only if that member placed it, and the invoice download backend checks the same field again itself -- so an imported order carrying only buyerInfo.contactId is invisible to its own buyer, and one attributed to the WRONG member hands that member someone else's invoice. Both checks read the same stored value, so neither catches a bad crosswalk. Setting and validating buyerInfo.memberId is a prerequisite of any member-facing order feature, not something those features can verify.",
+    "LIVE-FOUND 2026-09-05 (15 real orders): `createdDate` sent to Import Order is IGNORED. The order reads back with createdDate = the moment of the import, while `purchasedDate` and the payment record's own createdDate both hold the real source dates. Earlier notes here claimed createdDate was settable; the live sentinel printed it but only ever asserted purchasedDate, so the claim was never actually tested. Do not report createdDate as preserved history, and do not use it to reconcile against a source date -- purchasedDate is the field that carries when the order happened.",
+    "LIVE-FOUND 2026-09-05: Import Order rejects an order with no `status` and no `billingInfo.contactDetails` -- 400 \"status value is required\" and \"contactDetails must not be empty\". A billing ADDRESS alone does not satisfy it. Neither field is obvious from the response shape, and the 400 names them only once you have already omitted them.",
+    {
+      "code": "existing-id-replaces-silently",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-05: Import Order with the `id` of an EXISTING imported order replaces its whole body with no conflict response -- nothing distinguishes \"replace my own earlier import\" from \"overwrite the merchant's edits since\", and an omitted field is cleared rather than kept. So never re-send an order that already exists: `lib/order-history.js` reads by derived id on a crosswalk miss and reconciles an existing order instead of importing. Payments and extendedFields do survive a replace, so an accidental one loses order-body edits, not payment history or preserved documents."
+    },
+    {
+      "code": "buyerinfo-memberid-stored-unvalidated",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-05 (fresh site): Import Order accepts `buyerInfo.memberId` with or without `contactId` and reads it back; it ALSO accepts a memberId that is not a member on the site and stores it as-is -- no validation, no error. Since member-facing reads and the invoice download authorize on this field, a wrong value hands one member another's order. The field is set only from `lib/order-buyer.js` resolveOrderBuyer -- member crosswalk row whose loginEmail equals the order's billing email -- stamped; the composite refuses a caller-set memberId on the body and requires the body's buyerInfo.email to be the email the member was corroborated against. A memberId alone reads back without a contactId (no derivation)."
     }
   ],
   "mappingGuidance": [
@@ -186,10 +227,10 @@
     "Use order and line-item extended fields for source-only metadata when configured.",
     "A per-order merchant note or comment from the source (e.g. a WooCommerce order note, or a payment-gateway plugin's note field) has no import-time field — `activities[]` is read-only on Create/Import Order (dev.wix.com verified 2026-08-11). Add it as a SEPARATE follow-up call after the order is imported: POST /ecom/v1/orders/{orderId}/activities/add with activityType MERCHANT_COMMENT and merchantComment.message (max 5000 chars). This stamps authorEmail and createdDate at migration time — the original note's author and timestamp cannot be preserved; prefix the message with the original date/author if that provenance matters.",
     "Source order notes map to merchant comment activities (POST /ecom/v1/orders/{id}/activities) after the order import, preserving original author/date inside the message text — verified live 2026-08-12 (10/10).",
-    "ADDED 2026-08-17 (spec 0042): always set channelInfo = { type: \"OTHER_PLATFORM\", externalOrderId: <source order id>, externalOrderUrl: <source order edit link, if constructible> }. This is a documented field (dev.wix.com order object) for exactly this purpose, and unlike the local crosswalk file it is visible on the order itself in the Wix dashboard. Built by lib/order-channel-build.js's buildChannelInfo() (fixed 2026-08-18, code exists, not yet runtime-verified against a live Import Order call) — externalOrderUrl is left to the caller to construct (or omit), since only the caller knows whether the source site uses legacy post-based order storage or WooCommerce HPOS, which use different admin URL shapes.",
-    "ADDED 2026-08-17 (spec 0042): if the order bought a gift card (see plugins/pw-woocommerce-gift-cards.json), import that line item normally — the crosswalk row recorded when the corresponding Wix gift card was created (see gift-cards/gift-card.json) is what a later redemption-linking pass would look up. If the order redeemed a gift card as payment, do NOT attempt to reconstruct that from WooCommerce order data — see spec 0042 Decision 4: this is not a fidelity approximation, the source signal genuinely does not exist in /wc/v3/orders for this plugin. Treat it as a named blocked capability pointing at spec 0040's bridge plugin, not a silent gap. lib/gift-card-redemption-build.js's buildGiftCardRedemption() (fixed 2026-08-18) builds the Redeem Gift Card call from a spec-0040 bridge-plugin activity row once that data exists — code exists, still blocked on the bridge plugin's own install/security-review gap (spec 0040), not on anything in this repo.",
+    "Always set channelInfo = { type: \"OTHER_PLATFORM\", externalOrderId: <source order id>, externalOrderUrl: <source order edit link, if constructible> }. This documented field makes the source identity visible on the Wix order as well as in the local crosswalk. lib/order-channel-build.js's buildChannelInfo() constructs it; the caller constructs or omits externalOrderUrl because legacy post-based order storage and WooCommerce HPOS use different admin URL shapes.",
+    "If the order bought a gift card, import that line item normally and use the gift-card crosswalk for later redemption linking. If the order redeemed a gift card as payment, do not reconstruct that from WooCommerce order data because the required source signal is absent from /wc/v3/orders. Record an explicit blocked capability until verified source gift-card activity data is available; lib/gift-card-redemption-build.js's buildGiftCardRedemption() builds the redemption call from that activity row.",
     "ADDED 2026-08-17 — full sub-object review against the live Import Order request schema (dev.wix.com, fetched 2026-08-17), reconciled with the already-live-verified sibling entities (order-line-item, order-line-item-options, order-applied-discount, order-merchant-note, order-refund):",
-    "lineItems[].catalogReference is OPTIONAL overall (a custom, non-catalog line has none) but catalogItemId+appId are required TOGETHER when it is present (VERIFIED LIVE by this session's own gift-card orders, which carried no catalogReference at all and imported fine). appId picks the dependency: Wix Stores' fixed app id -> stores/product; the Wix Gift Cards app id (d80111c5-a0f4-47a8-b63a-65b54d774a27, see domains/gift-cards/domain.json) -> gift-cards/gift-card-product. Resolve the crosswalk for whichever catalog the line actually belongs to — never assume Stores.",
+    "lineItems[].catalogReference is optional overall (a custom, non-catalog line has none) but catalogItemId+appId are required together when it is present, as verified by gift-card orders imported without catalogReference. appId picks the dependency: Wix Stores' fixed app id -> stores/product; the Wix Gift Cards app id (d80111c5-a0f4-47a8-b63a-65b54d774a27, see domains/gift-cards/domain.json) -> gift-cards/gift-card-product. Resolve the crosswalk for whichever catalog the line actually belongs to — never assume Stores.",
     "shippingInfo.carrierId (\"App Def Id of external provider\") and shippingInfo.code (\"Unique code (or ID) of selected shipping option\") are free-text/ID fields with no server-side referential check, but for a migrated order to display a real shipping method rather than an orphaned label, they should resolve against the site's already-migrated ecom/delivery-profile carriers and ecom/shipping-option resources — added to dependsOn as of this review; NOT yet live-verified that Wix cross-checks these values at write time (unverified whether an unrecognized carrierId/code is silently accepted or rejected).",
     "taxInfo.taxBreakdown[].taxGroupId and the equivalent lineItems[].taxInfo.taxGroupId reference a Wix tax group GUID (tax/tax-group) — added to dependsOn as of this review. Not yet live-verified on the Import Order path specifically (tax/tax-group's own live verification was against tax-region/tax-settings writes, not an order referencing a group id).",
     "Reviewed and found to need NO crosswalk dependency (plain data, no other-entity reference): recipientInfo (final-recipient address/contact, distinct from shippingInfo.logistics.shippingDestination — both are just address+contact data), businessLocation.id (a Wix Locations id; no domain entity models Locations in this repo yet — treat as informational/omit if the source has no location concept), customFields/extendedFields (free-form key:value, extendedFields additionally requires the namespace to be pre-configured in the app dashboard — a setup step, not an entity crosswalk), lineItems[].subscriptionInfo (subscription cycle metadata carried as-is, no subscription-entity crosswalk found on the Import Order path), additionalFees (free-form fee records, no crosswalk), buyerNote/tags/weightUnit/currency/taxIncludedInPrices/attributionSource/buyerLanguage (scalar/enum fields, no dependency).",
@@ -208,22 +249,27 @@
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/add-activities",
-      "note": "Add Activities endpoint (activityType MERCHANT_COMMENT) — the post-import path for a source order note/comment; verified 2026-08-11 while researching commerce.applied-discounts and the Custom Payment Gateway for WooCommerce architecture gap (finding #21)"
+      "note": "Add Activities with activityType MERCHANT_COMMENT is the verified post-import path for a source order note or comment."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 5/5 orders via the import-safe Import Order flow, read back; no notification/inventory side effects observed"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 5/5 orders via the import-safe Import Order flow, read back; no notification/inventory side effects observed"
     },
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/import-order",
-      "note": "Full sub-object dependency review, 2026-08-17: fetched the Import Order request schema directly and cross-checked every field against the already-live-verified sibling entities and wix-writers.js's own buildImportOrderRequest comment. Caught the docs-summary tool overclaiming catalogReference as unconditionally required — this session's own gift-card orders (created via importOrder with no catalogReference at all) prove otherwise."
+      "note": "A full Import Order request-schema review cross-checked every field against live-verified sibling entities and wix-writers.js. Live gift-card order imports without catalogReference confirmed that the field is optional overall."
     },
     {
       "type": "live-verification",
-      "path": "msid fd0ad9fb-d439-406f-8a00-b6c6ad0d95ab (poratus), 2026-08-17",
-      "note": "Order 6e3672ad-2ce3-4f18-8560-cdd88444636c imported via POST /ecom/v1/orders/import with lineItems carrying only quantity/itemType/productName/price — no catalogReference — and succeeded, confirming catalogReference is genuinely optional on this endpoint."
+      "path": "anonymized-live-verification",
+      "note": "Order <anonymized-id> imported via POST /ecom/v1/orders/import with lineItems carrying only quantity/itemType/productName/price — no catalogReference — and succeeded, confirming catalogReference is genuinely optional on this endpoint."
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification",
+      "note": "Import Order id semantics, 24 probes confirmed on a disposable site: never-seen v4 and derived v5-style GUIDs accepted and returned unchanged; same-id re-send is a full replace (createdDate kept, updatedDate moved, omitted purchasedDate cleared, one order per number); payments and extendedFields survive the replace; extendedFields settable through Import Order; non-GUID id -> 400; Bulk Delete Imported Orders returns a jobId and a deleted id re-imports. One refuted: Search Orders by the OLD number still matched ~1s after a renumber (eventually consistent) -- search is not an existence check."
     }
   ]
 }

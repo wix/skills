@@ -160,6 +160,35 @@ function validateKnowledge(domainsDir) {
         errors.push(`${domain}/domain.json: defaultImportOrder references missing entity ${entityId}`);
       }
     }
+    // REACHABILITY, the other direction — and the one that actually bites. The check above
+    // catches an order naming an entity that does not exist, which fails loudly. The reverse
+    // fails SILENTLY: an entity that is authored, has a verified writer, is covered by tests,
+    // and is named in no import order at all. Nothing errors, every test passes, and a run
+    // simply never writes it. That is how three separate entities shipped unreachable
+    // (ecom/shipping-option, ecom/pickup-location, site/business-contact) — each found only
+    // when a migrated site was missing the data and a human noticed.
+    //
+    // Rule: an entity with a writerId MUST be in its domain's defaultImportOrder. An entity
+    // with `writerId: null` has nothing to run and is legitimately absent, so the exclusion is
+    // derived from the entity's own contract rather than a hand-maintained opt-out list that
+    // would drift the same way.
+    const entitiesPath = path.join(domainsDir, domain, 'entities');
+    if (fs.existsSync(entitiesPath)) {
+      const order = new Set(domainJson.defaultImportOrder || []);
+      for (const fileName of fs.readdirSync(entitiesPath).filter((f) => f.endsWith('.json')).sort()) {
+        const entityId = fileName.replace(/\.json$/, '');
+        if (order.has(entityId)) continue;
+        let entityJson = null;
+        try {
+          entityJson = JSON.parse(fs.readFileSync(path.join(entitiesPath, fileName), 'utf8'));
+        } catch (error) {
+          continue; // the entity's own parse error is reported by validateEntity
+        }
+        if (entityJson && entityJson.preferredWrite && entityJson.preferredWrite.writerId) {
+          errors.push(`${domain}/domain.json: entity ${entityId} has writerId ${entityJson.preferredWrite.writerId} but is not in defaultImportOrder — a writer nothing runs migrates nothing. Add it to the order, or set preferredWrite.writerId to null if it genuinely cannot be written yet.`);
+        }
+      }
+    }
     validateEvidence(domainJson.evidence || [], `${domain}/domain.json`, errors);
 
     for (const fileName of listEntityFiles(path.join(domainsDir, domain))) {
@@ -689,6 +718,15 @@ function listFlagged(domainsDir, flag) {
   });
 }
 
+// Lazily required: domain-knowledge is loaded by tooling that has no need for the schema library,
+// and a hard dependency at module load is how one domain file breaks everything (learned the hard
+// way when a generic library loaded an eCommerce entity at init).
+function stampSetupRequirement(requirement) {
+  if (!requirement || requirement.kind !== 'extendedFieldSchema') return requirement;
+  // eslint-disable-next-line global-require
+  return require('./data-extension-schema.js').stampRequirement(requirement);
+}
+
 function summarizeEntities(domainsDir, refs, { includeEvidence = false } = {}) {
   return refs.map((ref) => {
     const entity = readEntityByRef(domainsDir, ref);
@@ -700,7 +738,10 @@ function summarizeEntities(domainsDir, refs, { includeEvidence = false } = {}) {
       reliability: entity.reliability,
       pitfalls: entity.pitfalls,
       mappingGuidance: entity.mappingGuidance,
-      setupRequirements: entity.setupRequirements || [],
+      // Stamped HERE, at the producer the shipped path actually uses. The stamp used to live only
+      // on a domain adapter that setup discovery never calls, so the real chain emitted unstamped
+      // requirements and every invoice write was refused by a guard that was working correctly.
+      setupRequirements: (entity.setupRequirements || []).map(stampSetupRequirement),
       fieldContracts: entity.fieldContracts || [],
       blockedSourceDependencies: entity.blockedSourceDependencies || [],
       extendedFields: entity.extendedFields || null,

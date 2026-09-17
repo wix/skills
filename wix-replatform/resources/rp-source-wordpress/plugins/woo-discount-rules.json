@@ -32,7 +32,7 @@
         {
           "code": "rule-definitions-reconfigure-in-wix",
           "severity": "warning",
-          "summary": "Per-order applied-discount records ride inside wc/v3/orders order-item meta_data under _wdr_discounts — real historical transactional data with a CONFIRMED Wix target: Order.appliedDiscounts[] (merchantDiscount variant + lineItemDiscounts[]) via Import Order — mapping confirmed by Spec Owner 2026-08-16, see ecom/order-applied-discount. Rule *definitions* (the discount configuration itself, not applied history) remain separate, plugin-owned config with no candidate target at all — reconfigure-in-wix."
+          "summary": "Per-order applied-discount records ride inside wc/v3/orders order-item meta_data under _wdr_discounts — real historical transactional data with a CONFIRMED Wix target: Order.appliedDiscounts[] (merchantDiscount variant + lineItemDiscounts[]) via Import Order — mapping confirmed by Spec Owner 2026-08-16, see ecom/order-applied-discount. Rule *definitions* (the discount configuration itself, not applied history) are a SEPARATE entity on this profile (discount-rule-definition, below) with its own candidate target (ecom/discount-rule) — CORRECTED 2026-08-28: this used to read \"no candidate target at all, reconfigure-in-wix\" back when the wp-admin rule-config page looked unreachable; the underlying wdr_rules table turned out to be readable through wix-wp-plugin-v2\u2019s structure-bridge regardless of the page. See specs/backlog/0136-woo-discount-rules-to-wix-automatic-discounts.md for the row-to-DiscountRule mapping design (not yet built)."
         },
         {
           "code": "partial-channel-db-only-remainder",
@@ -44,20 +44,25 @@
     {
       "entity": "discount-rule-definition",
       "capability": "commerce.discount-rules",
-      "channel": "admin-page-only",
+      "channel": "db-only",
       "candidateTargetRefs": ["ecom/discount-rule"],
       "pitfalls": [
         {
           "code": "admin-page-not-reachable-with-application-password",
-          "severity": "blocker",
-          "summary": "The rule configuration itself (triggers, effects, scope — 'buy X get Y', 'N% off orders over $Y', tiered pricing) renders only at wp-admin/admin.php?page=woo_discount_rules, a settings page with no REST route. VERIFIED against a live WordPress installation: a Basic-Auth GET against that URL with a valid Application Password 302-redirects to wp-login.php?reauth=1 — identical to an anonymous request. WordPress core does not extend Application Password auth to wp-admin page rendering; there is no automated read path here at all, not even a degraded one. See plugins/README.md's admin-page-only channel note.",
-          "blocked": [
-            {
-              "kind": "user-file",
-              "resolution": "Ask the site owner to open the settings page themselves (they hold a real login session) and transcribe or screenshot each rule's trigger/effect/scope. Do not ask for the owner's actual WordPress account password to attempt this automatically — that is a materially more sensitive credential than an Application Password.",
-              "declined": false
-            }
-          ]
+          "severity": "warning",
+          "summary": "DOWNGRADED from blocker 2026-08-28 -- a working read path now exists (see this entity's blocked[].fulfillment below), so this note is background, not a dead end. The rule configuration itself (triggers, effects, scope — 'buy X get Y', 'N% off orders over $Y', tiered pricing) renders only at wp-admin/admin.php?page=woo_discount_rules, a settings page with no REST route. VERIFIED against a live WordPress installation: a Basic-Auth GET against that URL with a valid Application Password 302-redirects to wp-login.php?reauth=1 — identical to an anonymous request. WordPress core does not extend Application Password auth to wp-admin page rendering. See plugins/README.md's admin-page-only channel note for why the admin PAGE specifically stays unreachable even though the underlying table is not."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "wix-wp-plugin-v2's discover-structure/query-structure routes read the wdr_rules table directly -- no dependency on the unreachable wp-admin settings page. VERIFIED LIVE 2026-08-28 against poratus.wpcomstaging.com: discover-structure returned wdr_rules's real 30-column schema, and query-structure returned real sample rows (id/title/enabled/discount_type/priority) with correct pagingMetadata. Site owner must install wix-wp-plugin-v2 and provide its migration key or an Application Password with manage_woocommerce, same credential this profile's other entities already need.",
+          "declined": false,
+          "fulfillment": {
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "wdr_rules"
+          }
         }
       ]
     }

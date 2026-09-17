@@ -98,6 +98,349 @@ respect. These are read mechanics, not mapping decisions:
   per batch when combined with a `$SAMPLED_IDS` requestBody above, mirroring
   `wp-discovery.js`'s `inspectEntity`/`normalizeResponseRecords` handling of the same field.
 
+### `structure-bridge-plugin` entities (`channel: "db-only"`, spec 0101/0102)
+
+An entity whose `blocked[].fulfillment.kind` is `structure-bridge-plugin` has no REST
+route at all — its declared readiness (self-test passing, checked via
+`blocked-data-handlers.js` at planning time, per `rp-mapper`) means it is safe to treat
+as a normal candidate target, but its generated reader is genuinely different from every
+other reader this skill generates: it reads through `wix-wp-plugin-v2`'s `/query` or
+`/query/admin-key` route, not the platform adapter's own transport. This is **not**
+resolved through `blocked-data-requests.js`'s one-shot `attemptFulfillment()`/snapshot
+mechanism the way `csv-upload` is — that mechanism exists for a small, static,
+human-provided document; a `structure-bridge-plugin` table is a live, potentially large,
+paginated dataset, so it gets a normal incremental reader like any REST entity, just
+reading from a different transport.
+
+- **Vendor `rp-source-wordpress/lib/wix-wp-plugin-v2-client.js` into `src/lib/`**, the
+  same way an ordinary WordPress reader vendors `wp-http.js`. Do not re-implement
+  `discoverStructure()`/`queryStructure()` or their response validation.
+- **Generate the same bridge credential selection discovery used.** When
+  `WMH2_MIGRATION_KEY` is configured, call `queryStructure()` with
+  `auth: { type: 'migration-key', migrationKey, siteId, migrationId, timeoutMs }` so the
+  vendored client uses signed `/query`; preferring the key when it is available avoids
+  capability drift on the `manage_woocommerce`-gated route. Otherwise, when WooCommerce is
+  present and a WordPress REST credential is configured, pass the generated `httpClient`
+  and omit `auth` to use `/query/admin-key`. Keep one stable `migrationId` for the
+  extraction process and let the client create a fresh request `jti` per page. If neither
+  usable bridge credential exists, halt to needs-user before opening the output file.
+- **The structureRequest is fixed, not derived at codegen time.** Read it verbatim from
+  the machine-readable artifact discovery already persisted:
+  `data/wp-discovery/wix-wp-plugin-v2--<table>.structure-request.json`. **Never re-call
+  `discoverStructure()` and rebuild a fresh default at codegen time**, even when the
+  fulfillment declares no `sampleStructureRequest` of its own — the table's live schema
+  could have changed between the discovery run and this codegen run, and re-deriving
+  independently is exactly the drift this artifact exists to prevent; the sample and the
+  full extraction must run the literal same request, not two requests that happen to
+  usually agree. If the artifact does not exist (discovery never ran for this table, or
+  discovery deliberately skipped building one — e.g. a >50-column table with no declared
+  `sampleStructureRequest`, or a zero-column schema), this entity cannot be extracted
+  yet: fail clearly, name the missing artifact path, and stop — do not invent a request.
+- **Page at the plugin's maximum, 200 — not discovery's small sample limit.** Loop: call
+  `queryStructure({ httpClient, auth: bridgeAuth, structureRequest, cursor, limit: 200,
+  onSourceRead })`, append every returned row, and continue only while
+  `pagingMetadata.hasNext` is true. `bridgeAuth` is `undefined` for the admin-key path and
+  the migration-key auth object above for the signed path.
+- **Pass `onSourceRead` on every `queryStructure` call, and file the totals once at the end**
+  (spec 0122 §7):
+
+  ```js
+  const totals = { discovery_queries: 0, scoped_queries: 0, tier_refusals: 0, redacted_values: 0 };
+  const tables = { discovery_tables: new Set(), scoped_tables: new Set() };
+  const onSourceRead = (counts) => {
+    for (const k of Object.keys(totals)) totals[k] += counts[k] || 0;
+    for (const t of counts.discovery_tables || []) tables.discovery_tables.add(t);
+    for (const t of counts.scoped_tables || []) tables.scoped_tables.add(t);
+  };
+  // ...after the read loop, once:
+  //   node <rp-telemetry>/scripts/rp-telemetry.js source-read '<totals JSON>' --project <dir>
+  ```
+
+  The client derives the counts; the generated reader only accumulates and files them. Omitting
+  the hook does not error — it just makes the run report that it read no key/value data, which
+  is indistinguishable from a run that genuinely did not. Never abort an extraction because
+  telemetry failed.
+- **Check `redactionMetadata.redactedValueCount` on every page.** Non-zero means a returned
+  value matched a credential shape and arrived as `[REDACTED:secret-shaped]`. Write the row
+  through as-is — the redaction is the plugin's decision, not something to work around — and
+  surface the count and column names in the extraction's own report. It is a finding about the
+  source site: something there keeps a secret in that column.
+- **A key/value table has TWO artifacts, and the second one is where the values come from.**
+  `…--<table>.structure-request.json` selects key names only; running it verbatim extracts no
+  values at all. The values come from `…--<table>.eav-read-plan.json`, which discovery writes
+  beside it:
+
+  ```jsonc
+  {
+    "table": "postmeta",
+    "distinctKeyCount": 213,          // across every pair
+    "keysTruncated": false,
+    "expectedBatches": 5,             // total across all pairs
+    "pageLimit": 200,
+    "identityColumns": ["meta_id", "post_id"],   // ride every batch, so values attribute to a record
+    "orderColumn": "meta_id", "orderByIsUnique": true,
+    "pairs": [ { "keyColumn": "meta_key", "valueColumn": "meta_value", "distinctKeyCount": 213,
+                 "batches": [ { "batchIndex": 0, "keys": ["…"],
+                                "structureRequest": { /* runnable as-is */ } } ] } ]
+  }
+  ```
+
+  **Run every `pairs[].batches[].structureRequest` verbatim, page each at `pageLimit`, and
+  concatenate into the same NDJSON the single-request path writes.** The batching is already
+  done — each batch pins at most the plugin's 50-key cap, carries the table's identity columns
+  so a value can be attributed to the record it belongs to, and selects only the value column
+  belonging to the key it pins. Never merge batches, never add another pair's value column, and
+  never author a scoped request yourself: an unpinned value column is refused with a 400 that
+  looks exactly like naming a nonexistent column, so a hand-built request fails in the least
+  diagnosable way available.
+
+  **The EAV checkpoint replaces the single-request checkpoint below — do not write both.** The
+  single-request shape (one cursor, one snapshot total, one request hash) cannot resume a
+  multi-batch plan: on restart there is no way to tell which batches already finished. Every
+  property that shape has is still needed, but *per active batch*:
+
+  ```jsonc
+  { "planFile": "…--postmeta.eav-read-plan.json",
+    "planHash": "6cbfc47c83d83264",  // the plan's own planHash, checked on resume
+    "activeBatch": {                 // null between batches and when the plan is finished
+      "batchIndex": 2,
+      "cursor": "…",                 // opaque; null before the first page of this batch
+      "hasNext": true,               // REQUIRED — see below
+      "rowsRead": 88,
+      "snapshotTotal": 412           // this batch's first page total, then carried unchanged
+    },
+    "completedBatches": [            // one entry per FINISHED batch, no duplicates
+      { "batchIndex": 0, "rowsRead": 412, "snapshotTotal": 412 },
+      { "batchIndex": 1, "rowsRead": 130, "snapshotTotal": 130 }
+    ],
+    "rowsWritten": 542 }
+  ```
+
+  - `hasNext` is required for the same reason the single-request checkpoint requires it: the
+    plugin returns `cursors.next: null` on the last page, so `cursor: null` alone cannot
+    distinguish "this batch has not started" from "this batch just finished its final page".
+  - `planHash` replaces `structureRequestHash`, and for the same reason: discovery can re-run
+    and rewrite the plan — the site gained or lost keys — and resuming a half-finished
+    extraction into a different batch layout silently mixes two reads. `reconcileEavReadPlan`
+    rejects a checkpoint whose `planHash` does not match the plan on disk; on a mismatch,
+    restart the extraction rather than resuming it.
+  - `batchIndex` is unique across the whole plan, including across pairs, so resume means "skip
+    every `completedBatches` index, then restart `activeBatch` from its cursor".
+  - ⚠️ Never record a batch in `completedBatches` twice. A resume that re-runs a finished batch
+    duplicates its rows in the output; reconciliation rejects the duplicate rather than letting
+    a doubled file promote.
+
+  **Which keys?** The plan contains every key the site actually has, which is the complete
+  extraction and the right default. A mapping step may narrow `batches` to the keys that matter;
+  because the plan is a persisted, diffable artifact, that narrowing is reviewable instead of
+  buried in generated code. Regenerate the plan rather than editing requests inside it.
+
+  **Reconcile before promoting the `.tmp` file**, with `reconcileEavReadPlan(plan, {
+  planHash: checkpoint.planHash, batches: completedBatches, rowsWritten })` from
+  `wix-wp-plugin-v2-client.js`. ⚠️ `planHash` is required and must come from the CHECKPOINT —
+  passing the plan's own makes the check compare the plan to itself. It returns the
+  problems; a non-empty result must fail the extraction loudly. "It did not throw" is not
+  completeness — it catches four things a partial run gets wrong silently:
+
+  - a batch the plan expects never ran, named by index rather than merely counted;
+  - a batch that read fewer rows than its own first page promised, i.e. its page loop stopped
+    early;
+  - `rowsWritten` disagreeing with the sum of what the batches actually read;
+  - `keysTruncated: true`, meaning key discovery hit its cap, so the key list itself is
+    incomplete and the extraction cannot be called whole-table;
+  - a non-empty `droppedIdentityColumns`, meaning the table is wider than the 50-column select
+    cap so **every extracted row is missing columns**. Narrow the mapping and regenerate the
+    plan with an explicit column choice, or set `acknowledgedDroppedColumns: true` on the plan
+    to record that the omission was chosen. It does not pass by default, because a per-record
+    incompleteness nobody decided on is the kind that reaches an import unnoticed.
+
+  ⚠️ It also reports `orderByIsUnique: false` — a table with no primary or unique column is
+  paged on a repeating sort key, so rows can shift between pages. That extraction is
+  best-effort and must be reported as such, never as complete.
+
+  **If the plan is absent for a table whose schema reports an `eavPair`, stop.** That means key
+  discovery failed during the discovery run; the entity's markdown says so. Do not fall back to
+  the key-names request and report the result as an extraction.
+- **Write through a temporary file, promoted atomically only after reconciliation
+  passes — never write `data/source-extract/<entity>.ndjson` directly while the read is
+  still in progress.** Append to `data/source-extract/<entity>.ndjson.tmp` and, after
+  each durable append, checkpoint `data/source-extract/<entity>.ndjson.tmp.cursor.json`.
+  ⚠️ **For a key/value table this is the EAV checkpoint shape above, not the single-request
+  shape here** — the two are alternatives, never both. The single-request shape is
+  (`{ "cursor": "...", "hasNext": true|false, "rowsWritten": N, "snapshotTotal": M,
+  "structureRequestHash": "..." }`). `snapshotTotal` is the first page's
+  `pagingMetadata.total`, captured once and carried through every subsequent checkpoint
+  unchanged. `structureRequestHash` is a hash of the exact structureRequest this read
+  started with (the JSON read from the sidecar at the start of THIS read, not re-read on
+  every page) and is likewise carried unchanged through every checkpoint of the same
+  read. wix-wp-plugin-v2's cursor is an opaque, HMAC-signed token encoding a frozen
+  snapshot (spec 0101's "Pagination" section) — unlike an ordinary REST reader's
+  `page`/`offset`, it cannot be reconstructed from row count alone, so the checkpoint is
+  the only way to resume correctly. **`hasNext` is required, not cosmetic: the plugin
+  returns `cursors.next: null` on the last page precisely because there is nothing
+  further to fetch, so a checkpoint's `cursor: null` is ambiguous between "never started"
+  and "just finished the final page" unless `hasNext` is also recorded.**
+  **`structureRequestHash` is required for the same reason a final file needs a
+  manifest: discovery can re-run and rewrite the sidecar to a different approved query
+  while a `.tmp` from an earlier read is still in progress, and the plugin's cursor
+  encodes only an offset and a snapshot total — it has no way to detect that the query
+  underneath it changed. Without this check, a resume would silently splice rows queried
+  under the old request with a continuation queried under the new one, and the file would
+  end up permanently mislabeled by whichever request happened to be current when it was
+  promoted.** On resume, first hash the CURRENT sidecar and compare it against the
+  checkpoint's `structureRequestHash`:
+  - If they differ, the approved query changed since this `.tmp` was started. DELETE both
+    the `.tmp` file and its checkpoint and restart the read from `cursor: null` into a
+    freshly created `.tmp`, using the current sidecar's request and hash — do not attempt
+    to salvage or continue rows written under the old request.
+  - If they match, compare the `.tmp` file's own line count against the checkpoint's
+    `rowsWritten`:
+    - If they match and `hasNext` is `true`, continue paging from the saved `cursor`,
+      using the same structureRequest this read started with.
+    - If they match and `hasNext` is `false`, the read itself is already complete — skip
+      straight to the completion reconciliation below (comparing `rowsWritten` against
+      the checkpoint's own `snapshotTotal`, with no further plugin call) and promote.
+      **Do not call `queryStructure` again with `cursor: null` in this case** — that
+      re-issues page one and appends a full duplicate copy onto an already-complete temp
+      file.
+    - If they do not match (a prior interrupted write), DELETE both the `.tmp` file and
+      its checkpoint and restart the read from `cursor: null` into a freshly created
+      `.tmp` file — resuming a mismatched cursor against stale content, or restarting
+      from `cursor: null` while appending onto the existing (possibly stale or partial)
+      file, both duplicate rows.
+
+  Reconciliation passing is not the last check. **Immediately before promoting — even on
+  a single uninterrupted run that never needed to resume — re-hash the current sidecar
+  one more time and compare it against the checkpoint's carried `structureRequestHash`.**
+  All of the pages in this read could have completed correctly under request A while
+  discovery replaced the sidecar with request B somewhere in the middle; nothing earlier
+  in this contract catches that, because the resume-time hash check above only ever runs
+  when a read is picked back up after being interrupted, not at the end of one that ran
+  straight through. If the hashes differ at this final check, do **not** promote — leave
+  the `.tmp` file and its checkpoint in place (recording `structureRequestHash: A`,
+  exactly as it was throughout the read) and report the entity as a deferred extraction,
+  the same as any other unresolved page error; the next run's resume logic will see the
+  mismatch and correctly restart under the now-current request. Writing the manifest with
+  request A's hash after promoting under request B would make the bookkeeping honest but
+  would still let request A's data reach `data/source-extract/<entity>.ndjson` and
+  everything downstream of it after B became the approved query — the check has to block
+  the promotion itself, not just label what already happened.
+
+  ⚠️ **For a key/value table, substitute `planHash` for `structureRequestHash` throughout the
+  paragraph above.** The hazard is identical — discovery can replace the plan mid-read, and only
+  a final re-hash catches a read that ran straight through under the old one — but the artifact
+  is the read plan, so re-derive the hash of `…--<table>.eav-read-plan.json` and compare against
+  the checkpoint's `planHash`. **Use `eavReadPlanHash(plan)` from
+  `wix-wp-plugin-v2-client.js` — never `JSON.stringify` and hash it yourself.** It excludes the
+  plan's own `planHash` field (a hash cannot cover itself) and sorts keys, so the value it
+  returns is the one discovery stamped. Three call sites hashing "the plan" three slightly
+  different ways is how this check ended up unable to detect anything. There is no single `structureRequest` to hash: an EAV read runs one
+  request per batch, all of them derived from the plan, which is why the plan is the unit of
+  provenance. `reconcileEavReadPlan()` **requires** `planHash` in the observation it is given —
+  pass the checkpoint's, never the plan's own, or the check compares the plan to itself and
+  proves nothing.
+
+  Only once this final hash check and the completion reconciliation above both pass does
+  the `.tmp` file get renamed (atomically) to `data/source-extract/<entity>.ndjson` and
+  its checkpoint deleted, and the manifest below written using the checkpoint's own
+  `structureRequestHash` (now confirmed current, not merely carried).
+
+  ⚠️ **That order is load-bearing: rename first, write the manifest second.** The two writes
+  cannot be atomic together, so one has to survive a crash between them. Writing the manifest
+  first means a crash leaves a NEW manifest sitting beside an OLD final file — it verifies
+  cleanly against data it does not describe, and the next run reuses stale rows silently.
+  Renaming first means a crash leaves a fresh file with a missing or stale manifest, which the
+  reuse check refuses, so the entity is re-extracted. Re-doing work is the acceptable failure;
+  trusting the wrong rows is not. If
+  `data/source-extract/<entity>.ndjson` already exists (no `.tmp` in progress), do not
+  assume it is complete just because the file is present — see the manifest/provenance
+  check below before trusting it.
+- **A final `.ndjson` file is only trustworthy if it was produced by the structureRequest
+  currently on file.** On promotion, write
+  `data/source-extract/<entity>.manifest.json` recording the read's own
+  `structureRequestHash` (the same value carried through its checkpoints, not
+  recomputed), plus `rowsWritten`, `snapshotTotal`, and the extraction timestamp. Before
+  treating an existing `data/source-extract/<entity>.ndjson` as already fully extracted,
+  hash the CURRENT sidecar and compare it against the manifest's stored hash. A match
+  means skip re-extraction. A mismatch — the table's approved query changed since that
+  file was written — or a missing manifest means the existing file is stale: do not reuse
+  it; re-extract from `cursor: null` into a fresh `.tmp` the same as if no file existed.
+
+  ⚠️ **A key/value table's manifest has a different shape, because the read did.** There is no
+  single `snapshotTotal` — each batch has its own — and no single `structureRequestHash`:
+
+  ```jsonc
+  { "kind": "eav-read-plan",
+    "planFile": "…--postmeta.eav-read-plan.json",
+    "planHash": "6cbfc47c83d83264",
+    "completedBatches": [ { "batchIndex": 0, "rowsRead": 412, "snapshotTotal": 412 } ],
+    "rowsWritten": 542,
+    "keysTruncated": false,
+    "droppedIdentityColumns": [],       // non-empty = rows are incomplete per record
+    "acknowledgedDroppedColumns": false, // the APPROVAL that let an incomplete read promote
+    "orderByIsUnique": true,            // false = paging was best-effort
+    "ndjsonDigest": "sha256…",          // binds this manifest to the file it describes
+    "extractedAt": "…" }
+  ```
+
+  Build it with `eavExtractionManifest(plan, { planFile, completedBatches, rowsWritten,
+  extractedAt, ndjsonDigest })` rather than by hand, so a new qualifier cannot be forgotten at
+  one call site. It refuses a missing `planFile` or `ndjsonDigest`, and
+  `eavExtractionIsReusable()` requires every field it emits — the documented shape and the
+  builder are the same contract, checked both ways.
+
+  ⚠️ **Compute `ndjsonDigest` from the promoted file, with `eavExtractionFileDigest()`, AFTER
+  the rename.** Every other field describes the read that was supposed to happen; this is the
+  only one that says what actually landed on disk.
+
+  Decide reuse with `eavExtractionIsReusable(plan, manifest, observed)`, which returns the
+  reasons an existing file cannot be trusted; empty means skip re-extraction. `observed` is what
+  is on disk **right now** and is required:
+
+  ```jsonc
+  { "planFile": "…--postmeta.eav-read-plan.json",  // the path YOU resolved for this entity
+    "ndjsonDigest": "sha256…",                     // eavExtractionFileDigest(<final file>)
+    "ndjsonRowCount": 542 }                        // lines in the final file
+  ```
+
+  ⚠️ **Never open `manifest.planFile`.** A manifest is untrusted input — it can name
+  `../../something-else.json` — so following its path would let the file choose what it is
+  validated against. Pass the sidecar path you already resolved; the check compares the two and
+  refuses a mismatch. The same reasoning is why the digest and row count come from the file you
+  are about to reuse, not from the manifest: a manifest that is only checked against itself
+  cannot detect a truncated, replaced or half-written NDJSON beside it. ⚠️ **The plan hash alone is
+  not the whole decision.** `acknowledgedDroppedColumns` is deliberately excluded from the hash
+  so that acknowledging an omission cannot invalidate an in-flight resume — which means
+  *withdrawing* it would leave the hash unchanged, and an extraction that promoted only because
+  someone approved its missing columns would still look reusable. The reuse check compares the
+  approval directly, in both directions: withdrawn, and no-longer-needed.
+
+  The staleness half is the same idea against the plan: `eavReadPlanHash()` the current plan
+  file and compare with the manifest's `planHash`; a mismatch or a missing manifest means
+  re-extract. ⚠️ `reconcileEavReadPlan()` additionally verifies the plan against ITS OWN embedded
+  hash before anything else, so a plan file edited by hand after discovery wrote it is refused
+  outright — without that, `planHash` only proved two strings matched. Carry
+  `keysTruncated`, `droppedIdentityColumns` and `orderByIsUnique` into the manifest **because
+  they qualify what the file contains** — a downstream consumer reading an extraction that
+  silently omitted columns, or was paged on a tying sort key, must be able to learn that from
+  the artifact rather than from whoever happened to run it.
+- **Fail clearly, never loop or silently truncate**, if `hasNext` is true but the
+  returned `cursors.next` is missing or identical to the cursor just used — record the
+  entity as a failed/deferred extraction with that reason (leaving the `.tmp` file and
+  its checkpoint in place for the next resume attempt), the same as any other reader's
+  unrecoverable page error.
+- **Reconcile before promoting, never after.** The first page's `pagingMetadata.total`
+  is the frozen snapshot total for the whole read. Before renaming `.tmp` to the final
+  `.ndjson`, compare it against the `.tmp` file's own line count; a mismatch is reported
+  as a failed/deferred extraction, and the `.tmp` file is NOT promoted — a row inserted
+  or deleted mid-read can still shift a page's contents (the accepted residual gap spec
+  0101 documents), but the counts themselves must always be checked before anything
+  downstream is allowed to treat this entity as complete.
+- **Authorization and query validation are the plugin's job, not the reader's.**
+  wix-wp-plugin-v2 re-validates every identifier against a live `DESCRIBE` on every
+  request; the generated reader only needs to treat the plugin's 403/404 responses as a
+  failed extraction for that entity, not re-derive its own authorization logic.
+
 ### CSV sources (`platform: "csv"`)
 
 When `source-schema.json.platform === "csv"`, generate a **file reader** instead of an HTTP
@@ -174,8 +517,8 @@ not a per-project regeneration.
    assume V3 unconditionally: no version detection, no branch, no V1 shape, no V1 fallback
    for a failing V3 write. A V1 site (only reachable on a pre-existing site this run did not
    create) is a **blocker the run halts on**, never a case codegen handles. Concretely: never
-   emit Catalog V1-style top-level `price`, `sku`, or variant
-   inventory fields. For simple products, emit one variant under
+   emit Catalog V1-style top-level `price`, `sku`, or legacy inventory objects.
+   V3 `variantsInfo.variants[].inventoryItem` is handled by the inventory contract below. For simple products, emit one variant under
    `variantsInfo.variants[]` with variant-level `price`, `sku`, and physical properties.
    When the source product is subscription-based and the source payload exposes explicit
    recurring cadence in structured product data, emit native
@@ -197,6 +540,25 @@ not a per-project regeneration.
    target adapter says an entity can ingest external URLs directly (for example Wix Stores
    product media), generate that entity-native path instead of routing those files through
    the slower generic Media Manager import flow.
+   **Never let generated code name an image field.** A source image reference usually carries
+   several URLs for the same picture at different sizes, and the field that holds the original
+   differs between routes of the same source — so `images.map((i) => i.src)` is a codegen
+   defect, not a shortcut. Emit a call to the source adapter's resolver instead (WordPress:
+   `resolveImageUrls` in `rp-source-wordpress/lib/wp-image-url.js`), which returns the
+   original at maximum resolution, percent-encoded, with `altText` and `displayName` attached.
+   The destination copies the one URL it is given and cannot be upgraded later, so a crop
+   emitted here is permanent.
+   **Never let generated code treat a media write's 200 as done.** Entity-native ingestion is
+   asynchronous: the destination acknowledges the queue entry and fetches the file afterwards,
+   and the write is a full replace, so a fetch that fails later leaves the entity with **no
+   image at all** — no error, and the previous image already discarded. Measured live on one
+   catalog, 17% of items had not ingested 60 s after an accepted write. Generated media code
+   must therefore read the entity back and re-send whatever did not land, and must feed BOTH
+   failure kinds — the write that was refused (429) and the write that was accepted but never
+   ingested — into the same retry list. Call `patchStoresProductMediaVerified` rather than
+   `patchStoresProductMedia`; emitting the unverified writer for a media-bearing import is a
+   codegen defect. Whatever never lands is reported per entity, by name — never summarised
+   into a count.
 6. Generate thin project-specific write specs and import orchestration code that pass
    those Wix-shaped objects into the shared `rp-target-wix` runtime. Generated code should
    describe *what* to write and in what order, not *how* to implement retries, throttling,
@@ -339,6 +701,24 @@ runnable entrypoints:
     `--missing-only`, `--failed-only`, and `--deferred-only` are mutually exclusive. These
     flags must drive the same import path as a full run after selecting a stable record
     set; do not generate one-off recovery drivers.
+  - support a `--rerun` catch-up mode (spec 0140) built on `lib/import-recovery.js`'s
+    `selectRerunRecords`, which buckets the refreshed scope into create / update / unchanged /
+    unknown against the crosswalk baseline. **Do not build this out of `--missing-only` plus
+    `--failed-only`** — those filters do not compare source versions. Contacts/products
+    deliberately recheck crosswalk hits, while other entities may exclude them; failed-only
+    only revisits what was already attempted. On every confirmed write,
+    persist the version pair (`sourceVersionField` + `sourceVersion`, or the declared
+    `sourceHash` fallback, plus the returned `targetRevision`) through
+    `nextCrosswalkBaseline`, which refuses to advance on a failed, conflicted, dry-run or
+    skipped write. Route an update through the entity's **verified revision-taking update
+    writer** and, on a revision conflict, through `lib/rerun-conflicts.js` to a user decision —
+    never through a silent revision refresh, and never through a same-id create/import as a
+    substitute for an update. `updateSupportFor` enforces that in code rather than leaving it
+    to this prose: declare `{ writerId, revisionParam }` per entity in the accepted mapping,
+    and honour its `report_for_review` outcome. The order family is denied there outright, so a
+    changed order must be reported, never written. Honour the selector's other buckets too —
+    `needsReconciliation` (an uncertain prior attempt, or an unchanged contact/product
+    that still needs target identity/value verification), `outOfScope` (pass the accepted scope as `inScope`), and `reportForReview`.
   - emit a stable `runId` at process start and include it in every audit event, dry-run
     request capture, placeholder crosswalk row, and summary artifact.
   - emit `execution/live-import-summary.json` and `execution/completion-report.json`
@@ -422,8 +802,136 @@ one silently corrupts a report if ignored:
   those are still failures and must appear in the completion report.
 
 Dedupe **before** building the batch — a skipped record must never reach the API — and
-record the crosswalk per successful item, not per batch, so an interrupted run resumes
-correctly.
+retain each successful item’s source identity. The verified wrappers durably checkpoint
+these outcomes in batches before publishing verified crosswalk references; do not rewrite
+the full crosswalk and its indexes for each item.
+
+### Contact and product identity verification
+
+Generate standard contact/product imports through `contact-import.js` and
+`product-import.js`, not a loop that publishes `bulk.succeeded` directly. Vendor their
+`bulk-results.js`, `write-verification.js`, and root `lib/write-verification-state.js`
+dependencies with the existing local-state/runtime files, preserving the relative layout.
+The wrappers own prewrite reconciliation, source-index correlation, candidate persistence,
+read-back, and publication of verified mappings. Raw writers remain request primitives.
+
+Select `sourceKey` and all expected fields from the source mapping BEFORE sending a write.
+Contact rows carry `{sourceKey, sourceId, sourceSystem, contact, safeModeOptions,
+updateMember}`. Supply per-record safe-mode options so a batch cannot acquire one shared
+replacement identity. Phone-only identities and conflicting source/target identifiers
+block and report; there is no automatic merge or V4 fallback. Contact custom-field setup
+must already be resolved; the shared DES setup helper still supports orders only.
+
+Product rows carry `{sourceKey, product, expected, marker, variantExpectations}`.
+`expected` includes every mapped readable product field; exclude write-only inventory
+fields and verify them through the inventory pass. `marker: {path, value}` is source-derived
+(e.g. a unique mapped slug), not copied from a returned product. Each variant expectation
+carries `{sourceKey, expected, inventory}` with an unambiguous source-fixed SKU/choice
+projection. Include submitted variant choices in that projection; an unverified choice
+shape must remain a gap, even when SKU and price agree. The wrapper resolves exact target
+variant IDs, retaining the correspondence
+in each verified receipt. A missing or ambiguous match remains a gap, never a positional zip.
+
+Use this caller shape; `toolkitRoot` is the installed or vendored wix-replatform root
+and `dryRun` is the shared runtime's resolved dry-run flag:
+
+```js
+// BEGIN verified-contact-import
+const { importContacts } = require(require('node:path').join(toolkitRoot, 'resources/rp-target-wix/lib/contact-import.js'));
+const { createCompletionReport } = require(require('node:path').join(toolkitRoot, 'lib/completion-report.js'));
+const contactVerification = await importContacts(wix, {
+  projectDir, siteId, rows: contactRows, dryRun,
+});
+const completion = dryRun ? { status: 'simulated', verification: { contacts: contactVerification } } : createCompletionReport({
+  siteId,
+  entityCompleteness: [{
+    entity: 'contacts', verificationKind: 'contact', sourceKeys: contactRows.map(row => row.sourceKey),
+    inScope: contactRows.length, imported: contactVerification.verified,
+    deferred: contactRows.length - contactVerification.verified,
+  }],
+  verification: { contacts: contactVerification },
+});
+// Persist completion to execution/completion-report.json using the shared runtime.
+// END verified-contact-import
+```
+
+Both wrappers create absent records and verify existing ones; they never update an existing
+record whose values differ. Route such differences to the declared revision-protected
+update/conflict-review flow, then verify the result. Pass optional `sourceVersion`,
+`sourceVersionField`, `sourceHash`, and `sourceHashDefinition` with each row to establish
+its baseline after a confirmed create with a returned revision. Read-only reconciliation
+preserves the saved baseline, including across verification failure and resume; it never
+advances a source version or refreshes the saved revision. Run unchanged contact/product
+rows from `selectRerunRecords().needsReconciliation` through these same wrappers.
+
+Declare `verificationKind` in the accepted mapping and carry it into completion and
+selection options independently of source table names: `contact` or `product` for these
+comparators, `none` for other entities with their own verification flow. Unknown names
+without a declaration require verification; they cannot silently opt out. Reject undefined
+projection fields before any API call, naming the field to omit or replace with a JSON value.
+
+Call `importProducts` with the equivalent product rows. Add its verification report and
+source-key set to the same completion input, then pass its verified variant correspondence
+to `reconcileInventory` below. Every intended variant stays in the inventory denominator,
+including products that failed identity checks. Do not send stock or category membership
+writes for an unverified product mapping. Keep inventory outcomes separate from product
+identity outcomes.
+
+Run the SAME wrappers on retries, single-record batches, existing crosswalks and
+`--missing-only`; selection is not evidence that a target exists. An uncertain write
+remains pending until target reconciliation resolves it. Do not hand-code per-record
+fallbacks that turn errors or missing indexes into create permission. When using dry-run,
+pass `dryRun: true` and report simulated outcomes, not verified live completion.
+
+The inspected contact and products-with-inventory endpoints require unique request-local
+`originalIndex`. Their endpoint adapters enforce this; Blog bulk is not covered by that
+contract. `undetailedFailures` counts failures but cannot identify their input rows, which
+stay unresolved. Counts, HTTP 200, and old presence-only receipts do not establish identity.
+
+### Product inventory: inline create, then reconcile and verify
+
+For default-location inventory, the shared reconciler also reads Catalog products and verifies each exact variant's availability. Inventory success alone cannot complete the report; disagreement stays unverified after bounded read retries. Never toggle stock to force Catalog propagation. Non-default locations record this Catalog check as not applicable.
+
+Vendor `rp-target-wix/lib/stores-inventory.js` with `wix-build.js` and `wix-writers.js`.
+The builder consumes each canonical variant's `inventoryTracked`, `inventoryQuantity`, and
+`inStock`; it emits `inventoryItem` on variants when stock is known. Use the existing bulk
+products-with-inventory writer so initial stock costs no separate write. Send `quantity`
+OR `inStock`, never both; `trackQuantity` is read-only. Explicit non-default stock belongs
+in the separate inventory pass, not in default-location inline fields.
+
+Collect inventory identities after each product batch, including products already found in
+the crosswalk. Generate a resumable inventory pass through `reconcileInventory`. Resolve actual product and variant
+IDs from returned/read-back entities and source-option correspondence; never zip unordered
+results or variants by position. Persist that correspondence. Keep source gaps and failed
+product-to-variant mappings in `inventoryGaps` so every intended source variant is counted.
+
+```js
+const { reconcileInventory, persistInventoryReport } = require('../resources/rp-target-wix/lib/stores-inventory.js');
+// resolvedInventoryRows: [{productId, variantId, inventory: {inStock} OR {quantity}}]
+// sourceVariantCount is counted BEFORE filtering gaps or failed product mappings.
+const inventoryReport = await reconcileInventory(wix, resolvedInventoryRows, {
+  expectedCount: sourceVariantCount,
+  gaps: inventoryGaps,
+  // locationId may be supplied from verified setup; otherwise resolve the default.
+});
+await persistInventoryReport(inventoryReportPath, inventoryReport);
+// The generated completion report consumes inventoryReport.status and counts directly.
+```
+
+Set `inventoryReportPath` to the project's `state/inventory-report.json`. Supply the full
+intended variant set and gaps once per inventory pass; the helper handles bounded API batches
+internally. Persist lightweight resolved identities during product import so interrupted runs
+can reconstruct this set without recreating products. Do not replace the report with only the
+last product batch. The completion report consumes `status`, `counts`, and `complete` directly;
+only `complete:true` can mark the inventory checkpoint complete.
+
+Product and inventory checkpoints are independent. Product success followed by inventory
+failure preserves the product crosswalk; resume queries existing inventory and repairs it.
+A successful bulk product receipt or `inventoryResults` count never substitutes for per-variant
+read-back. Report unresolved inventory as partial, while allowing independent records to
+continue. The setup inventory probe must pass before stock writes. Existing notification
+protection and dry-run boundaries still apply; a dry-run does not produce a live inventory
+verification receipt.
 
 ### Record streams are NDJSON, single documents are JSON (required)
 
@@ -614,6 +1122,7 @@ load these files before reading config:
   WP_BASE_URL=
   WP_USERNAME=
   WP_APPLICATION_PASSWORD=
+  WMH2_MIGRATION_KEY=
   WP_MEDIA_URL_REWRITE_FROM=
   WP_MEDIA_URL_REWRITE_TO=
   WC_CONSUMER_KEY=
@@ -758,6 +1267,276 @@ pre-import flow is:
 2. run `bash scripts/mint-token.sh` (writes `WIX_AUTH_TOKEN` silently),
 3. run the import — the generated client reads `WIX_AUTH_TOKEN` and sends it as
    `Authorization: Bearer <token>` with `wix-site-id`.
+
+## Members: full-fidelity create/reconcile, so orders can link to a buyer (spec 0135)
+
+`resolveOrderBuyer` (below) links an order to a member only when the member crosswalk row for that
+source customer carries a `loginEmail` — nothing produces that row unless the member pass runs
+FIRST, in its own loop, before order history. Generate the call, not a hand-rolled `createMember`.
+
+```js
+const CM = require('./src/resources/rp-target-wix/lib/customer-member.js');
+const memberCrosswalk = require('./src/lib/member-crosswalk.js').createProjectMemberCrosswalk({ projectDir: ROOT });
+
+for (const customer of registeredCustomers) { // registered only -- guest buyers are 0089's, not this pass
+  const { contact, findings } = CM.buildMemberContact({
+    firstName: customer.first_name, lastName: customer.last_name,
+    phone: customer.billing && customer.billing.phone, countryCode: customer.billing && customer.billing.country,
+    address: customer.billing && { addressLine: customer.billing.address_1, addressLine2: customer.billing.address_2, city: customer.billing.city, subdivision: customer.billing.state, postalCode: customer.billing.postcode, country: customer.billing.country },
+  });
+  const known = await memberCrosswalk.get(customer.id);
+  const result = await w.ensureMember(wix, { loginEmail: customer.email, contact, knownMemberId: known && known.memberId });
+  if (result.memberId) await memberCrosswalk.put(customer.id, { memberId: result.memberId, loginEmail: customer.email, contactId: result.contactId });
+  report(result); // result.outcome, result.findings (member-phone-not-normalized, member-phone-collision-dropped, member-crosswalk-row-stale)
+}
+```
+
+What the call does, so the generated code must not:
+
+- **Converts the phone to E.164 or drops it, never sends it as-is and never guesses.** Create
+  Member 400s on anything that is not already E.164 (VERIFIED LIVE). `normalizePhoneE164` covers a
+  small set of countries (`customer-member.js`'s `COUNTRY_PHONE_RULES`); an unlisted country is a
+  finding, not a guess -- extend the table rather than hand-rolling a conversion in generated code.
+- **Queries Contacts by phone before every create that carries one.** Create Member reuses an
+  EXISTING contact that already carries the phone being sent -- even one belonging to a member
+  deleted earlier in the same run (deleting a member does not delete its contact). Two source
+  customers who share a phone would otherwise be silently merged into one Wix identity. Never call
+  Create Member directly with a phone; `ensureMember` is where this guard lives.
+- **Reconciles by the crosswalk row first (read back and verified), then by `loginEmail`.** One
+  match reconciles, more than one is ambiguous and creates nothing. A stale crosswalk row (the
+  member was deleted, or the row points at a different email) falls through to the `loginEmail`
+  query rather than being trusted blind.
+- **Persist `loginEmail` on the crosswalk row, or `resolveOrderBuyer` cannot link anything.** The
+  member pass must run to completion (or at least for every registered buyer the order pass will
+  see) BEFORE the order-history loop below.
+
+## Order history: payments, refunds and preserved invoice documents (specs 0124, 0129)
+
+An imported order reads back with `payments: []` — Import Order creates no payment record — and
+the order write has no idempotency of its own unless it is given an id. Payment history, refunds
+and the invoice document are separate target writes with an ordering constraint, a shared
+identity and state that must outlive a crash. **All of that is sequenced by one library call.
+Generate the call, not the sequence.**
+
+```js
+const H = require('./src/resources/rp-target-wix/lib/order-history.js'); // vendored layout, see below
+const { resolveOrderBuyer } = require('./src/resources/rp-target-wix/lib/order-buyer.js');
+const crosswalk = H.createProjectOrderCrosswalk({ projectDir: ROOT }); // state/crosswalk/crosswalk.ndjson
+const setupVerification = readJson('setup/extended-field-verification.json'); // ONCE per run
+
+for (const source of orders) {
+  const result = await H.importOrderHistory(wix, {
+    order: toWixOrder(source),         // the mapped Import Order body — never set `id`; buyerInfo.email = source.billing.email
+    sourceId: source.id,
+    sourceSiteHost,                    // new URL(WP_SITE_URL).host
+    evidence: {                        // FACTS from the source, nothing else
+      amount: source.total,
+      paidDate: source.date_paid_gmt, altPaidDate: source.date_paid,
+      currency: storeCurrency,         // rp-source-wordpress/lib/store-currency.js, not order.currency
+      status: source.status,
+      methodName: gateway.displayName, providerTransactionId: gateway.reference, offlinePayment: gateway.offline,
+      refunds: qualified.map((r) => ({ sourceId: r.id, amount: r.amount, reason: r.reason })),
+      invoice: approval && { approval, sourceUrl: approval.documentUrl, invoiceNumber: approval.number },
+    },
+    crosswalk,
+    setupVerification,
+    // the buyer, corroborated from the member crosswalk (rows carry memberId + loginEmail)
+    // contactCrosswalk is OPTIONAL (a guest/contact-only buyer's contactId, when one is tracked
+    // separately from members) -- omit the property entirely when there is no such crosswalk in
+    // this project, never pass a variable that is not actually declared (confirmed live 2026-09-06:
+    // an earlier version of this snippet did exactly that and threw ReferenceError: contactCrosswalk
+    // is not defined the moment this line ran, not at require() time).
+    buyer: await resolveOrderBuyer({ sourceCustomerId: source.customer_id, billingEmail: source.billing.email, memberCrosswalk }),
+  });
+  report(result); // result.outcomes.{order, payment, refunds[], invoice, buyer}, result.findings, result.errors
+}
+```
+
+What the composite does, so the generated code must not:
+
+- **Derives the order id** from `sourceSiteHost` and `sourceId` (Import Order accepts a
+  caller-supplied GUID — verified live 2026-09-05), writes the crosswalk row before any further
+  write, and on a crosswalk miss asks the target by that id. A lost crosswalk is a read, not a
+  duplicated store. An order that already exists is reconciled, never re-sent: a re-send silently
+  replaces the whole body.
+- **Runs the payment gate from `evidence`.** A key the contract does not read (`sourceAmount`,
+  `total`, `transaction_id`, …) throws, naming the key it should have been. It does not read as
+  "never paid".
+- **Reads the order's payments once** and reconciles both the payment and every refund against
+  that read. Occurrence numbers for equal refunds are assigned from the refunds' source ids — pass
+  ALL of an order's refunds in the one call.
+- **Returns every outcome**, including the payment's when a refund exists, and a named
+  partial-failure outcome (`payment-failed`, `refund-failed`, `invoice-failed`, with the cause in
+  `errors`) instead of throwing, so a resume retries only what failed.
+- **Sets `buyerInfo.memberId` only from `resolveOrderBuyer`** (`rp-target-wix/lib/order-buyer.js`):
+  a member crosswalk row whose `loginEmail` equals the order's billing email. Persist `loginEmail`
+  on the member crosswalk row when creating members, or nothing can be linked. Never put a
+  `memberId` on the order body yourself; the composite refuses it.
+- **Binds the body's `buyerInfo.email` to the buyer it was resolved for.** The mapped body must carry
+  the order's billing email (the same value passed as `billingEmail`); a linked buyer beside a body
+  carrying another email, or none, is refused — a resolution for one order must not attribute
+  another order to that member.
+- **Hands the invoice approval to the writer unchanged.** The merchant opt-in is an input to
+  `resolvePreservationPlan()`, which STAMPS every approval it issues; the writer believes an opt-in
+  only with that stamp, so an approval assembled by hand (or lifted from the plan's `refused` list)
+  is refused as `invoice-preservation-not-approved`. Pass the plan's objects, never rebuild them.
+- **Remembers a document that reached Media but whose order patch failed** — in the crosswalk
+  (`state/crosswalk/pending-invoice-files.ndjson`), so the resume records that file instead of
+  importing a second private copy. No caller state; `createProjectOrderCrosswalk` holds it.
+- **Verifies every crosswalk hit with one order read.** A row pointing at an order the target no
+  longer has (a migration cleared with Bulk Delete Imported Orders) is re-imported under the
+  derived id and counted as `order-reimported-after-deletion`.
+
+What is still the caller's, because it is source knowledge:
+
+- Which processor a payment-method slug names: `rp-source-wordpress/lib/gateway-source-keys.js`.
+- Whether a refund is real: `lib/refund-corroboration.js` `qualifyRefund()` (its
+  `assignRefundOccurrences()` is no longer needed — the composite assigns them).
+- Which document and whether it may be copied: `lib/invoice-discovery.js` through
+  `resolvePreservationPlan({ selection, merchantOptedIn })`.
+- The store currency, resolved once at extract time — `order.currency` on WooCommerce REST is not
+  reliably ISO 4217 (a live store returned the HTML-encoded shekel symbol on every order).
+- The verification receipt, read once, and the report: every `outcomes` value is a line for
+  `rp-execution-policy/lib/payments-report.js`, including the zeros.
+
+Vendoring mirrors the skill's layout: the shared modules require each other across resources
+(`../../../lib/…`), so `src/` reproduces `lib/` + `resources/<resource>/lib/` — `order-history.js`
+lives at `src/resources/rp-target-wix/lib/` and reaches `src/lib/local-state.js`. A flat copy loads
+nothing.
+
+**Two dependency shapes `require()` alone will not surface, both hit live 2026-09-06 running a
+generated-style project end to end:** a lib can read a **domain entity JSON file directly**
+(`order-invoice-contract.js` reads `../domains/ecom/entities/order-invoice-document.json` with
+`path.join` + `readFileSync`, not `require`, so a dependency scan that only follows `require` calls
+misses it — vendor `domains/ecom/entities/order-invoice-document.json` alongside
+`order-invoice-contract.js`), and a lib can have a **sibling JSON registry** next to its own `.js`
+file (`gateway-source-keys.js` → `gateway-source-keys.json`, `refund-corroboration.js` →
+`refund-corroboration.json`) that must be copied too, or it throws `ENOENT` the first time the
+function that reads it is actually called — not at `require()` time, so a smoke test that only
+does `require()` on every vendored file will not catch a missing one. Copy the `.json` file
+wherever you copy the `.js` file next to it.
+
+If the source has no payment evidence at all, make the call anyway with what evidence there is and
+let it report zero under a named reason. An importer that omits the path is indistinguishable from
+one that ran and found nothing, and only one of those is a correct migration.
+
+**Never call the invoicing service**, and never generate a fallback that does. Re-issuing a
+historical tax document mints a second legal document under a different number.
+`tests/target-wix/no-invoices-api-contract-test.js` scans the published tree for this.
+
+## Coupons, currency and pricing-plan definitions
+
+Generate three passes, in this order, and one report section. The decisions are in the libraries;
+codegen supplies reads and facts.
+
+1. **Currency gate, before any order write.** Read `wc/v3/settings/general` →
+   `store-currency.js` `readStoreCurrency`; resolve every order's currency with
+   `resolveOrderCurrency(order, storeCurrency)` (the order field is `&#8362;` on a real store);
+   read the target site currency; call `currency-gate.js` `evaluateCurrencyGate`. `halt: true`
+   stops the run at the approval gate with the named finding. `currency-validated` is a line too.
+2. **Coupons.** `sweepCoupons(page => wc/v3/coupons?per_page=100&page=N)` to exhaustion; the
+   `posts` count by `post_status` through the plugin bridge (0122) for reconciliation;
+   `summarizeCoupons` for the counts; per coupon `mapCouponToWix(coupon, { resolveProduct,
+   resolveCategory })` through the catalog crosswalks, then write them in BATCHES with
+   `bulkCreateCoupons(wix, specifications)` -- 100 per call, and it returns one outcome per input
+   specification in input order, so the coupon crosswalk row (`code → couponId`) is written per
+   coupon exactly as before and a re-run still resumes. A few thousand coupons is ordinary for
+   this source, and `ensureCoupon` one at a time makes it a few thousand round trips; reach for
+   `ensureCoupon` only for a single coupon or a repair.
+   ⚠️ **Batching and tagging cannot be combined.** The batch discards the tag field and still
+   answers 200, so `bulkCreateCoupons` refuses a tagged specification. Pick one and report which:
+   write tagged coupons with `ensureCoupon` one at a time, or batch them untagged and then tag
+   each with `updateCouponFields({ tags })`, which is a call per coupon.
+   ⚠️ Do NOT re-implement the batch call. `bulkCreateCoupons` already handles the two traps that
+   make it dangerous: a batch fails as a whole while reporting the same error against every row
+   in it (so any failure re-sends that batch as individual creates), and `originalIndex` is
+   omitted on the first result (so results are correlated by index, never by position, and a
+   duplicate or incomplete index cover reconciles per coupon rather than guessing). Outcomes
+   `coupon-reconciled-existing` and `coupon-write-unknown` are not failures: the first recovered
+   an id for a coupon that was already there, the second means the code exists but is not
+   readable yet and must be re-read rather than re-written. A
+   `coupon-type-unmappable` / `coupon-scope-unmappable` / `coupon-usage-limit-unresolved` result
+   is a report line, not a write. `sweepCoupons` runs to an EMPTY page when the server sends no
+   `X-WP-Total`; pass the header through as `total` whenever it is present.
+2a. **Decide a coupon's final shape from the FRESH read, not from the mapped snapshot**
+   (spec 0142, `rp-target-wix/lib/coupon-redemption-drift.js`). Gate the whole coupon pass on
+   `classifySnapshot({ capturedAt, now, maxAgeMs })` and halt on `snapshot-stale` or
+   `snapshot-undated`.
+
+   Then, for each coupon where `isBearerVoucher(coupon)` is true and only those, re-read
+   `wc/v3/coupons/{id}` immediately before writing and pass both rows to `classifyPreWriteDrift`.
+   **The verdict is not a boolean gate — it is the specification's final state**, and the payload
+   must be rebuilt from it rather than from the mapper's output:
+
+   | Verdict field | What the outgoing specification must carry |
+   | --- | --- |
+   | `write: false` | nothing — the coupon is not written at all; report the outcome |
+   | `writeActive` | `specification.active`. `false` for a coupon the fresh read found used up |
+   | `writeUsageLimit` | `specification.usageLimit` — the uses the holder has LEFT |
+   | `usageUnlimited: true` | **delete** `specification.usageLimit` entirely; a stale limit left on an unlimited coupon caps it |
+   | `setTags` | `specification.tags` — replaces whatever the mapper stamped |
+
+   ⚠️ Mapping and then only checking `write` is the failure this table exists to prevent: a coupon
+   spent after the snapshot comes back `write: true, writeActive: false` with `Already_Used`, and a
+   payload built from the mapper alone goes out `active: true` tagged only `Imported` — the
+   redeemable-again defect this spec exists to fix, reintroduced one layer down.
+
+   **Why it cannot be skipped:** the target starts its own usage count at zero and nothing seeds a
+   prior redemption, so a coupon used up between the read and the write lands fully redeemable and
+   stays that way until somebody notices. Measured on one migration: ten single-use money vouchers
+   of equal face value, all live on the target.
+
+   ⚠️ `write: false` has two distinct causes and they are different report lines, not one:
+   `voucher-usage-unknown-at-write` (the fresh read failed) and
+   `voucher-face-value-precision-unsupported`. Neither is a skip.
+
+   ⚠️ **Precision is gated for EVERY monetary coupon, not just bearer vouchers**, and that gate is
+   in the mapper: `mapCouponToWix` returns `coupon-amount-precision-unsupported` and no
+   specification for any amount carrying more than two decimal places. A fixed-money coupon with a
+   usage limit of 6, or a percentage of `12.3456`, never reaches `classifyPreWriteDrift` at all —
+   it is not a bearer instrument — and would otherwise put an amount on the target that differs
+   from the source while every later check reported a match.
+
+   **Report lines.** `coupons-spent-after-capture` and `coupons-partially-used-limit-reduced` are
+   sub-counts of `coupons-written` — those coupons ARE created, just not as the snapshot described
+   them — and must NOT be added to the accounting identity. The identity term is
+   `coupons-face-value-precision-unsupported`, because that coupon is refused:
+
+   ```
+   discovered = written + type-unmappable + scope-unmappable
+              + usage-limit-unresolved + face-value-precision-unsupported + skipped
+   ```
+
+2b. **Reconcile voucher drift at cutover, never inside the import.** A trading source keeps
+   spending vouchers after the import finishes. `classifyPostImportDrift` + `buildVoucherDriftPlan`
+   take the receipts, a fresh source read and a target read-back and produce a read-only remedy
+   plan (face value and affected orders per code). Generated code may BUILD and report that plan;
+   it must not act on it — closing a voucher needs an explicit owner decision per code, including
+   in one-click mode. The remedy is `buildRemedyRequest`: a `PATCH` carrying ONLY
+   `{active: false, tags: [...]}` plus `fieldMask: {paths: ['active','tags']}`, which keeps the
+   coupon id, code, dates and amount. **Never build that body from the coupon you just read** —
+   the full specification alongside a narrow mask returns 200 and writes nothing, so counting 2xx
+   responses produces a false pass on money. `verifyRemedyApplied` decides the outcome from a
+   post-settle read-back, never from the status code.
+3. **Coupon usage**, inside the order pass: `buildCouponAppliedDiscounts({ couponLines:
+   order.coupon_lines, resolveCoupon })` and put `appliedDiscounts` on the mapped order body handed
+   to `importOrderHistory`. Name the surface (`rest-order-coupon-lines` on legacy storage,
+   `wc_order_coupon_lookup` on HPOS, `none-found`).
+4. **Plan definitions.** Row counts for `B1`/`B2`/`B3` → `evaluatePlanSources`; when it runs,
+   normalize each source offer to `{ sourceId, name, description, amount, period, interval,
+   lengthCycles, trialDays, signupFee }`, `buildPlanDefinition`, `ensurePlanDefinition`. Install
+   the Pricing Plans app first (`WIX_PRICING_PLANS_APP_DEF_ID`); it is absent on a commerce site.
+5. **Report** through `rp-execution-policy/lib/coupon-currency-plan-report.js`
+   `buildCouponCurrencyPlanReport({ counts, notPublishedByStatus, couponUsageSurface,
+   voucherLiabilityLive })`. Build
+   `counts` from ONE surface: `summarizeCoupons({ restCoupons, postsByStatus, mappings,
+   writeOutcomes })`, where `mappings` is the per-coupon `mapCouponToWix` result (it owns the
+   unmappable numerators — the type table alone under-counts) and `writeOutcomes` the per-coupon
+   `ensureCoupon` outcome (`coupon-reconciled-existing` folds into `coupons-written`; failed,
+   read-failed and ambiguous fold into `coupons-skipped` with reasons as notes). Plans fold the
+   same way through `tallyPlanWriteOutcomes`. Every Appendix D line, zeros included; `written +
+   unmappable + skipped = discovered` or the gate blocks; "imported N coupons" and "not supported"
+   are refused.
 
 ## Localhost media sources
 
@@ -1020,6 +1799,14 @@ exists:
 
 ## Codegen rules
 
+- **Never generate a reader that works around a route the source adapter's transport refuses.**
+  An adapter transport may refuse a route because its response carries live credentials — a
+  payment-gateway configuration route is the case that exists today. When it does, the adapter
+  exports a purpose-built reader that returns the facts without the secret; generate a call to
+  that, and record what it reports. Do not hand-roll a request, do not vendor or reconstruct a
+  raw transport, and do not add a flag to the shared one. A generated reader that reaches the
+  route directly puts a live credential into the extract files, the import logs and the
+  transcript, where nothing downstream can take it back.
 - Keep reader and writer responsibilities separate.
 - Keep setup, extraction, and import responsibilities separate.
 - Do not generate a read-all-into-memory importer for the general case. The reader extracts

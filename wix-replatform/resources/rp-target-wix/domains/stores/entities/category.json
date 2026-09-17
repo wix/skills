@@ -58,14 +58,15 @@
   ],
   "hierarchy": {
     "maxNestingDepth": 5,
-    "source": "user-confirmed domain knowledge",
-    "confirmedBy": "user (Wix domain expert), 2026-08-12",
+    "source": "product domain knowledge",
+    "confirmedBy": null,
     "liveVerified": false,
-    "note": "Not yet independently live-verified by this pipeline (e.g. no throwaway multi-level treeReference probe has confirmed this on a live site). Recorded as fact per user statement so future migrations do not need to re-ask or re-test this. If a future run needs live confirmation, verify with a small test chain and update liveVerified/evidence here rather than re-opening the question as unknown."
+    "note": "Not yet independently live-verified. If live confirmation is required, verify with a small multi-level treeReference test chain and update liveVerified/evidence."
   },
   "mappingGuidance": [
     "Preserve hierarchy where the target category tree supports it (up to 5 levels of nesting per Wix Stores category tree); create before products.",
-    "If a source category tree exceeds 5 levels, re-parent nodes deeper than level 5 up to their level-5 ancestor and record the flattening as a documented faithfulness-ledger loss -- do not silently drop or guess."
+    "If a source category tree exceeds 5 levels, re-parent nodes deeper than level 5 up to their level-5 ancestor and record the flattening as a documented faithfulness-ledger loss -- do not silently drop or guess.",
+    "Category images take the same one-url, permanent-ceiling path as product media: resolve the source reference to its original, maximum-resolution candidate instead of reading a single named field, and percent-encode the url before sending it."
   ],
   "setupRequirements": [
     "Wix Stores app"
@@ -76,6 +77,5 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/category-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     }
-    
   ]
 }

@@ -55,7 +55,7 @@
     "importSafe": true,
     "bulk": true,
     "releaseStatus": "ga",
-    "decision": "Contacts V5 is GA (docs verified 2026-08-04). The GA contact shape is flat: main email/phone + additionalEmails/additionalPhones, addresses[] with postal fields nested under `address`, company as { name, jobTitle }; no `info` wrapper. Bulk upsert (100/call, synchronous, per-item results, externalId set-once) is the import path; createContact/updateContact cover single-record needs. Live create/query/update verification is still pending a token with Contacts permissions (2026-07-26 probe got 403)."
+    "decision": "Contacts V5 uses flat contact fields wrapped under contacts[].contact for bulk upsert (1–100). Existing live evidence covers safe-mode basic-field upsert and query-back only, not member updates, real-value delivery, or extensions. Use the verified contact import wrapper to reconcile identifiers before writing and compare each stored record before publishing its crosswalk."
   },
   "alternateWrites": [
     {
@@ -144,6 +144,31 @@
       "code": "consent-sensitive",
       "severity": "blocker",
       "summary": "Only import subscription status with proof of consent."
+    },
+    {
+      "code": "member-create-reuses-a-contact-by-phone-match",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-06, from the member side: Create Member's phone-based contact dedup is not just a bulk-upsert risk -- it fires on ordinary Create Member calls too, and on an ORPHANED contact (one whose member was deleted; the contact itself is never deleted with it). Two different source customers who share a phone number (a shared line, a placeholder store number, a data-entry error) silently become one Wix contact, the second person's name overwriting the first's. See rp-target-wix/lib/customer-member.js and wix-writers.js ensureMember for the guard this project uses (query Contacts by phone before create, EVERY phone in the array; drop the phone(s) rather than merge)."
+    },
+    {
+      "code": "bulk-correlation-and-readback",
+      "severity": "blocker",
+      "summary": "Bulk Upsert results must use itemMetadata.originalIndex with unique in-range indexes. Missing/duplicate indexes, invalid IDs and undetailed failures retain unresolved source identities. HTTP success and balanced counts do not certify crosswalks; importContacts verifies identity and intended values before publication."
+    },
+    {
+      "code": "primary-phone-can-match-with-email",
+      "severity": "blocker",
+      "summary": "V5 matches externalId, main email and main phone; phone can match even when an email is supplied. Reconcile target candidates before upsert. Phone-only identity and distinct source keys sharing one target block and report in the shared importer."
+    },
+    {
+      "code": "extensions-require-surface-specific-evidence",
+      "severity": "warning",
+      "summary": "V5 declares extendedFields.namespaces, not V4 info.extendedFields/items. Contact DES is named by the V5 schema but absent from the DES supported-objects table; shared provisioning supports orders only. Existing basic-contact evidence does not prove extension persistence. Compare selected values and enforce their actual field schema; no undocumented global 200-character cap or silent V4 fallback."
+    },
+    {
+      "code": "contact-permission-failure",
+      "severity": "warning",
+      "summary": "An empty-body 403 establishes authorization failure, not specifically token expiry. Preserve partial outcomes and reconcile before retrying uncertain writes. Set updateMember only for an intended member update; changing login email belongs to Members."
     }
   ],
   "mappingGuidance": [
@@ -151,15 +176,15 @@
     "Prefer contact extended fields for source CRM metadata before CMS fallback.",
     "Use Contacts V5 (GA) as the default contact writer surface; the GA contact shape is flat (main email/phone + additionalEmails/additionalPhones, addresses[] with nested address, company object) — never emit the V4 info wrapper to V5 endpoints.",
     "For contact custom fields, setup must define the Data Extension Schema (FQDN wix.contacts.*.contact) and carry the returned key into contact writers under extendedFields.namespaces._user_fields.",
-    "Source labels map to V5 tags (tags.privateTags.tagIds via the Tags API, FQDN wix.contacts.*.contact); resolve the tag/label story during setup before planning post-import label-wave automations."
+    "Source labels map to V5 tags (tags.privateTags.tagIds via the Tags API, FQDN wix.contacts.*.contact); resolve the tag/label story during setup before planning post-import label-wave automations.",
+    "Standard contact imports use lib/contact-import.js with stable source keys and per-record safe-mode options. Reuse the same wrapper on reruns; a crosswalk hit is not proof of identity. Field comparisons use a closed rule set: main email trim/lowercase, other mapped values exact."
   ],
   "setupRequirements": [
     "Contact extended fields when source-only CRM fields are preserved natively.",
     "Data Extension Schema setup (FQDN wix.contacts.*.contact) before contact writers emit extendedFields values; verify live given the DES supported-objects docs inconsistency.",
-    "V5 writers remain UNVERIFIED in execution reports until a live contract test with Contacts permissions promotes create/query/update."
+    "Basic safe-mode bulk upsert/query-back evidence does not verify single create/update, member changes, or extensions. Report the actual operation and field verification scope."
   ],
   "evidence": [
-    
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/contact-object"
@@ -174,8 +199,12 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 8/8 contacts via Contacts V5 bulk upsert (emails/phones were safe-mode mocks — real-value delivery path still unexercised)"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 8/8 contacts via Contacts V5 bulk upsert (emails/phones were safe-mode mocks — real-value delivery path still unexercised)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/matching-contacts"
     }
   ]
 }

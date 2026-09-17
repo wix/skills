@@ -11,6 +11,7 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -172,8 +173,8 @@
     },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real POST /bookings/v2/services, POST /calendar/v3/events, POST /apps-installer-service/v1/app-instance/install, POST /form-schema-service/v4/forms/{id}/clone against the live reference store; 8/8 services + sessions created and independently re-queried."
+      "path": "anonymized-live-verification"
     }
   ],
-  "notes": "Two independent authorings merged 2026-08-16. The Events Calendar path (WordPress events -> CLASS services + Calendar V3 sessions) was exercised live on the reference store 2026-08-12, 8/8 - that is where reliability:reliable and the verified error strings come from. The WooCommerce mwb-bookings-for-woocommerce path (WPS Bookings for WooCommerce 3.12.0, authored 2026-08-16) is docs-verified only and has never been exercised live; treat its cadence/capacity/venue meta mapping as unproven. Service creation itself has no documented customer-facing notification (the only 'notif' hits on the Create Service and Service object pages are waitlist reservationTimeInMinutes prose), which is why importSafe is true here while bookings/booking is false."
+  "notes": "Two independent authorings merged 2026-08-16. The Events Calendar path (WordPress events -> CLASS services + Calendar V3 sessions) was exercised live on an anonymized verification environment 2026-08-12, 8/8 - that is where reliability:reliable and the verified error strings come from. The WooCommerce mwb-bookings-for-woocommerce path (WPS Bookings for WooCommerce 3.12.0, authored 2026-08-16) is docs-verified only and has never been exercised live; treat its cadence/capacity/venue meta mapping as unproven. Service creation itself has no documented customer-facing notification (the only 'notif' hits on the Create Service and Service object pages are waitlist reservationTimeInMinutes prose), which is why importSafe is true here while bookings/booking is false."
 }

@@ -80,7 +80,7 @@
         "stores/product-customization"
       ],
       "reviewedOn": "2026-08-16",
-      "note": "Revisit condition met: PPOM for WooCommerce profiled 2026-08-16 (commerce.product-addon-fields); mapping confirmed by Spec Owner 2026-08-16."
+      "note": "Revisit condition met: PPOM for WooCommerce profiled 2026-08-16 (commerce.product-addon-fields);"
     },
     {
       "id": "api-reference/business-solutions/stores/catalog-v3/info-sections-v3",
@@ -178,8 +178,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/service-plugins/product-restrictions-v3",
       "group": "Service Plugins",
       "verdict": "not-relevant",
-      "reason": "Service plugin (SPI) — an extension point the site implements, not a write API; per the target-search protocol an SPI is never an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI) -- lets a dropshipping/print-on-demand app lock product fields. No source data behind it. Genuinely not relevant. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/stores/site-currency",

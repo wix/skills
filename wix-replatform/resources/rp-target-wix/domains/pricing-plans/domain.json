@@ -22,7 +22,7 @@
     {
       "code": "recurring-billing-never-migrates",
       "severity": "blocker",
-      "summary": "Payment tokens do not carry from any source platform, and an offline plan order has no charge method attached. At best the contract's facts migrate; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Decision: Spec Owner 2026-08-16."
+      "summary": "Payment tokens do not carry from any source platform, and an offline plan order has no charge method attached. At best the contract's facts migrate; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Required migration policy."
     },
     {
       "code": "offline-order-lifecycle-calls-fire-events",
@@ -39,7 +39,7 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
-      "note": "commerce.subscription-contracts pending entry resolved by Spec Owner 2026-08-16: recreate active WooCommerce subscriptions as Pricing Plans memberships (Create Plan + Create Offline Order)"
+      "note": "commerce.subscription-contracts pending entry resolved by the approved product policy: recreate active WooCommerce subscriptions as Pricing Plans memberships (Create Plan + Create Offline Order)"
     }
   ]
 }

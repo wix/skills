@@ -11,11 +11,17 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "tax/tax-group",
+    "tax/tax-region"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
       "sourceEntity": "tax-rate.rate",
-      "routes": ["/wc/v3/taxes"],
+      "routes": [
+        "/wc/v3/taxes"
+      ],
       "confidence": "medium",
       "note": "The `rate` field of a wc/v3/taxes row (a percentage, e.g. 7.5) maps to `taxRate` as a decimal-string FRACTION (\"0.075\"), joined with `class` (-> resolved tax-group.json group id) and country/state (-> resolved tax-region.json region id). `name` maps to `taxName` (cosmetic only -- shown at checkout, doesn't change the amount)."
     }
@@ -31,10 +37,13 @@
   "fallbacks": [
     {
       "classification": "skip-by-default",
-      "when": "No source rate rows exist (the reference store's actual state, re-verified live 2026-08-12: 0 rows in wc/v3/taxes) -- nothing to map. A genuinely tax-exempt product/category needs NO manual tax mapping at all -- see the unmapped-tax-group pitfall below, which is the intentional non-writer path for that case."
+      "when": "No source rate rows exist (an anonymized verification environment's actual state, re-verified live 2026-08-12: 0 rows in wc/v3/taxes) -- nothing to map. A genuinely tax-exempt product/category needs NO manual tax mapping at all -- see the unmapped-tax-group pitfall below, which is the intentional non-writer path for that case."
     }
   ],
-  "reliability": { "status": "reliable", "flags": [] },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
   "pitfalls": [
     {
       "code": "tax-apis-live-under-billing-v1",
@@ -64,7 +73,7 @@
     {
       "code": "unmapped-tax-group-calculates-to-exactly-zero-tax",
       "severity": "info",
-      "summary": "LIVE-VERIFIED 2026-08-12 (not stated explicitly in docs): calling Calculate Tax for a line item whose tax group has NO manual tax mapping for the matched region returns exactly zero tax (taxAmount/taxableAmount both \"0\", empty taxBreakdown[]) -- confirmed against the reference store with a genuinely mapping-less tax group next to a 7%-mapped control group in the same calculateTax call/region. This is the correct primitive for a genuinely exempt product: create the dedicated tax group (tax-group.json) and deliberately create NO manual tax mapping for it anywhere, rather than enumerating a 0% mapping per region the product might ship to."
+      "summary": "LIVE-VERIFIED 2026-08-12 (not stated explicitly in docs): calling Calculate Tax for a line item whose tax group has NO manual tax mapping for the matched region returns exactly zero tax (taxAmount/taxableAmount both \"0\", empty taxBreakdown[]) -- confirmed against an anonymized verification environment with a genuinely mapping-less tax group next to a 7%-mapped control group in the same calculateTax call/region. This is the correct primitive for a genuinely exempt product: create the dedicated tax group (tax-group.json) and deliberately create NO manual tax mapping for it anywhere, rather than enumerating a 0% mapping per region the product might ship to."
     },
     {
       "code": "tax-breakdowns-are-multiple-mapping-rows-not-a-list-field",
@@ -90,12 +99,21 @@
   ],
   "setupRequirements": [],
   "evidence": [
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/manual-tax-mapping-object" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/create-manual-tax-mapping" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation/calculate-tax" },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/manual-tax-mapping-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/manual-tax-mappings/create-manual-tax-mapping"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation/calculate-tax"
+    },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real Create Manual Tax Mapping (0% and 7% diagnostic rows), Query Manual Tax Mappings, Delete Manual Tax Mapping, and two real Calculate Tax calls against the live site -- one proving a 0%-mapped group and an unmapped group both charge zero tax, a second (after deleting the 0% mapping) proving an entirely UNMAPPED group also charges exactly zero tax next to a 7%-mapped control group in the same request/region. All diagnostic mappings/regions were deleted afterward; only the real 'Tax Exempt' tax group (see tax-group.json) and the product assignment remain on the site."
+      "path": "anonymized-live-verification"
     }
   ]
 }

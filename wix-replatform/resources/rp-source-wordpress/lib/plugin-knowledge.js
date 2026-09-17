@@ -33,8 +33,23 @@ const DISTRIBUTIONS = new Set(['wordpress-org', 'premium-or-unlisted', 'unknown'
 const SEVERITIES = new Set(['blocker', 'warning', 'info']);
 const CONTEXTS = new Set(['view', 'edit', 'both']);
 const REQUEST_METHODS = new Set(['GET', 'POST']);
-const BLOCKED_KINDS = new Set(['user-file', 'bridge-plugin']);
-const FULFILLMENT_KINDS = new Set(['csv-upload', 'bridge-plugin']);
+const BLOCKED_KINDS = new Set(['user-file', 'structure-bridge-plugin']);
+const FULFILLMENT_KINDS = new Set(['csv-upload', 'structure-bridge-plugin']);
+const SAMPLE_AGGREGATE_ENUM = new Set(['sum', 'count', 'avg', 'min', 'max']);
+const SAMPLE_DIRECTION_ENUM = new Set(['asc', 'desc']);
+// Mirrors plugins/wix-wp-plugin-v2/schemas/structure-request.v1.schema.json's `where[].op`
+// enum, the live plugin's own authoritative wire shape -- kept in sync by hand since this
+// repo and that plugin ship independently (see plugins/wix-wp-plugin-v2/README.md).
+const SAMPLE_WHERE_OP_ENUM = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in']);
+// WordPress core tables reachable through wix-wp-plugin-v2 (not on its always-denied list)
+// but shared across every post type/taxonomy/comment type on the site -- a plugin only owns
+// a SUBSET of rows, distinguished by a discriminator column (post_type, taxonomy,
+// comment_type). Unlike a plugin's own dedicated table, there is no safe "select every
+// column, no filter" default here. Meta tables (postmeta/usermeta/commentmeta) and `users`
+// are deliberately excluded: the meta tables are already unconditionally denied by
+// wix-wp-plugin-v2's own core-table denylist regardless of what a profile declares, and
+// `users` rows are not a mix of unrelated content types the way posts/terms/comments are.
+const SHARED_CORE_TABLES_REQUIRING_WHERE = new Set(['posts', 'terms', 'term_taxonomy', 'term_relationships', 'comments']);
 
 const RESERVED_FILES = new Set([
   'schema.json',
@@ -318,7 +333,7 @@ function validateBlockedEntries(blocked, label, errors) {
       errors.push(`${entryLabel}.fulfillment must be an object`);
       return;
     }
-    if (!FULFILLMENT_KINDS.has(fulfillment.kind)) errors.push(`${entryLabel}.fulfillment.kind must be csv-upload or bridge-plugin`);
+    if (!FULFILLMENT_KINDS.has(fulfillment.kind)) errors.push(`${entryLabel}.fulfillment.kind must be csv-upload or structure-bridge-plugin`);
     if (!fulfillment.handlerId || typeof fulfillment.handlerId !== 'string') errors.push(`${entryLabel}.fulfillment.handlerId must be a non-empty string`);
     if (fulfillment.freshnessWindowHours !== undefined && (!Number.isFinite(fulfillment.freshnessWindowHours) || fulfillment.freshnessWindowHours < 0)) {
       errors.push(`${entryLabel}.fulfillment.freshnessWindowHours must be a non-negative number`);
@@ -326,13 +341,114 @@ function validateBlockedEntries(blocked, label, errors) {
     if (fulfillment.kind === 'csv-upload' && (!fulfillment.expectedInputPath || typeof fulfillment.expectedInputPath !== 'string')) {
       errors.push(`${entryLabel}.fulfillment.expectedInputPath is required for csv-upload`);
     }
-    if (fulfillment.kind === 'bridge-plugin') {
-      for (const field of ['manifestCaseId', 'expectedNamespace', 'extractionRoute']) {
-        if (!fulfillment[field] || typeof fulfillment[field] !== 'string') errors.push(`${entryLabel}.fulfillment.${field} is required for bridge-plugin`);
+    // structure-bridge-plugin (wix-wp-plugin-v2, spec 0101) has no manifest of its own to
+    // cross-check -- authorization is a live core-table denylist + DESCRIBE check at request
+    // time, not a build-time readiness flag. The only thing a fulfillment must declare is
+    // which bare table to read; everything else is decided live by the plugin itself.
+    if (fulfillment.kind === 'structure-bridge-plugin') {
+      if (!fulfillment.table || typeof fulfillment.table !== 'string' || !/^[A-Za-z0-9_]+$/.test(fulfillment.table)) {
+        errors.push(`${entryLabel}.fulfillment.table is required for structure-bridge-plugin and must be a bare identifier`);
       }
-      if (fulfillment.extractionRoute && !fulfillment.extractionRoute.startsWith('/')) errors.push(`${entryLabel}.fulfillment.extractionRoute must start with /`);
+      // Optional: the safe sample query for discovery-time capture (spec 0102). Omitted
+      // means "select every discovered column, limit-N, ordered by the first live key" is
+      // safe -- declared means the omitted default is NOT safe for this table (e.g. a raw
+      // row dump would expose a full transaction ledger) and this is the query discovery
+      // must run instead. Validated against wix-wp-plugin-v2's own structureRequest shape
+      // so a malformed declaration is caught here, not only when discovery actually runs.
+      if (fulfillment.sampleStructureRequest !== undefined) {
+        validateSampleStructureRequest(fulfillment.sampleStructureRequest, `${entryLabel}.fulfillment.sampleStructureRequest`, errors);
+      }
+      // A shared WordPress core table (not this plugin's own dedicated table) holds every
+      // plugin's/feature's rows mixed together, distinguished only by a discriminator
+      // column (post_type on `posts`, taxonomy on `term_taxonomy`, etc.). wp-discovery's
+      // no-declared-sampleStructureRequest default is "select every column, no where" --
+      // safe for a dedicated table, but a silent full-table dump of every post type/term/
+      // comment on the site for one whose default was left undeclared against `posts`
+      // (found live on poratus.wpcomstaging.com: 1546 rows of products/pages/attachments/etc.,
+      // not just the plugin's own custom-post-type rows). Require an explicit filtered
+      // sampleStructureRequest.where for these tables instead of trusting the default.
+      // Compare case-insensitively: the format check above (line ~345) permits uppercase in
+      // `table`, but this Set is all-lowercase -- a re-cased name like "Posts" must still be
+      // caught here, or it silently bypasses this entire safety check (PR review finding).
+      if (SHARED_CORE_TABLES_REQUIRING_WHERE.has(String(fulfillment.table).toLowerCase())
+        && !(fulfillment.sampleStructureRequest && Array.isArray(fulfillment.sampleStructureRequest.where) && fulfillment.sampleStructureRequest.where.length > 0)) {
+        errors.push(`${entryLabel}.fulfillment.sampleStructureRequest.where is required when table is "${fulfillment.table}" -- a shared WordPress core table holds every plugin's rows mixed together; an unfiltered default sample would dump the whole table, not just this plugin's data`);
+      }
     }
   });
+}
+
+const SAMPLE_STRUCTURE_REQUEST_KEYS = ['select', 'where', 'groupBy', 'orderBy'];
+
+function validateSampleStructureRequest(request, label, errors) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+  // `table` is deliberately NOT an allowed key here: the caller (wp-discovery.js /
+  // rp-import-codegen) always merges the fulfillment's own authoritative `table` into the
+  // final request itself. A declared sampleStructureRequest with its own `table` (or a
+  // stray `limit`/`cursor`, which the caller also controls) would let a profile silently
+  // query a different table than the one this entity's filename/notes claim to describe --
+  // rejecting any key outside this exact set closes that off at authoring time, not just
+  // by hoping the merge order elsewhere is never reversed.
+  const extraKeys = Object.keys(request).filter((key) => !SAMPLE_STRUCTURE_REQUEST_KEYS.includes(key));
+  if (extraKeys.length > 0) {
+    errors.push(`${label} must not declare ${extraKeys.join(', ')} -- only ${SAMPLE_STRUCTURE_REQUEST_KEYS.join('/')} are allowed; table/limit/cursor are always supplied by the caller`);
+  }
+  if (!Array.isArray(request.select) || request.select.length === 0) {
+    errors.push(`${label}.select must be a non-empty array`);
+  } else {
+    for (const [index, item] of request.select.entries()) {
+      if (!item || typeof item !== 'object' || typeof item.column !== 'string' || item.column === '') {
+        errors.push(`${label}.select[${index}].column must be a non-empty string`);
+      }
+      if (item && item.aggregate !== undefined && !SAMPLE_AGGREGATE_ENUM.has(item.aggregate)) {
+        errors.push(`${label}.select[${index}].aggregate must be one of ${[...SAMPLE_AGGREGATE_ENUM].join(', ')}`);
+      }
+    }
+  }
+  if (request.groupBy !== undefined && (!Array.isArray(request.groupBy) || request.groupBy.some((c) => typeof c !== 'string'))) {
+    errors.push(`${label}.groupBy must be an array of strings`);
+  }
+  if (request.where !== undefined && !Array.isArray(request.where)) {
+    errors.push(`${label}.where must be an array`);
+  } else if (Array.isArray(request.where)) {
+    // Presence of a non-empty `where` alone does not guarantee it actually filters anything
+    // (PR review finding: `where: [{}]`, or a clause with no real column/op, previously
+    // satisfied every caller's "an explicit where is required" check with no real
+    // discrimination). Validate each entry's shape against the live plugin's own
+    // structure-request.v1 schema (column/op/value) the same way select[]/orderBy[] already
+    // validate their own items -- this cannot prove a clause targets the RIGHT discriminator
+    // column, but it does close off a syntactically-empty or malformed "filter".
+    for (const [index, item] of request.where.entries()) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        errors.push(`${label}.where[${index}] must be an object`);
+        continue;
+      }
+      if (typeof item.column !== 'string' || item.column === '') {
+        errors.push(`${label}.where[${index}].column must be a non-empty string`);
+      }
+      if (!SAMPLE_WHERE_OP_ENUM.has(item.op)) {
+        errors.push(`${label}.where[${index}].op must be one of ${[...SAMPLE_WHERE_OP_ENUM].join(', ')}`);
+      }
+      if (item.value === undefined) {
+        errors.push(`${label}.where[${index}].value is required`);
+      }
+    }
+  }
+  if (!Array.isArray(request.orderBy) || request.orderBy.length === 0) {
+    errors.push(`${label}.orderBy must be a non-empty array -- wix-wp-plugin-v2 requires it on every request`);
+  } else {
+    for (const [index, item] of request.orderBy.entries()) {
+      if (!item || typeof item.column !== 'string' || item.column === '') {
+        errors.push(`${label}.orderBy[${index}].column must be a non-empty string`);
+      }
+      if (item && !SAMPLE_DIRECTION_ENUM.has(item.direction)) {
+        errors.push(`${label}.orderBy[${index}].direction must be asc or desc`);
+      }
+    }
+  }
 }
 
 function blockedEntriesOf(entity) {
@@ -423,14 +539,12 @@ function validateProfile(profile, slug, label, errors) {
 // base, and every capability must either be claimed by a target entity or be explicitly
 // allowlisted. This is the check that keeps the two knowledge homes from drifting apart.
 //
-// $bridgeManifest is caller-supplied (already-parsed JSON), never resolved from a path by this
-// function itself: the wix-migration-helper plugin lives at repo-root plugins/, outside this
-// skill's own published bundle (skills/wix-replatform/), and a skill lib must never hardcode a
-// path reaching outside its own folder -- see tests/lib/paths.js's documented rule. Passing
-// `null`/omitting it simply skips the bridge-manifest-specific checks below; the two-of-three
-// tests that need them (tests/source-wordpress/blocked-data-validation-test.js) load and pass
-// the real manifest themselves.
-function validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors, bridgeManifest = null, bridgeManifestRoot = null) {
+// blocked[].fulfillment resolution is handler-registry-only now: every db-only/admin-page-only
+// entity this repo bridges reads through wix-wp-plugin-v2 (structure-bridge-plugin), which has
+// no external manifest of its own to cross-check against -- authorization is a live denylist +
+// DESCRIBE check at request time, not a build-time readiness flag. There is nothing left here
+// analogous to the old bridge-plugin/manifest-case cross-reference.
+function validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors) {
   if (!targetKnowledge) return;
   const { knownRefs, capabilityRefs } = targetKnowledge;
   const allowlist = new Set(
@@ -447,40 +561,6 @@ function validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors, b
   try { handlerRegistry = require('./blocked-data-handlers.js').handlers; }
   catch (error) { errors.push(`blocked data handler registry could not be loaded: ${error.message}`); }
 
-  // schemaVersion 2 added `area`-keyed cases alongside the original bridge-plugin shape: they
-  // are not (yet) cross-referenced against a plugin profile's blocked[].fulfillment (that wiring
-  // is deliberately deferred to whoever builds the Wix-side signing service), so they carry no
-  // sourceEntityRef; an area with no shipped adapter yet also carries no handlerId/module.
-  if (bridgeManifest) {
-    if (![1, 2].includes(bridgeManifest.schemaVersion)) errors.push('bridge manifest: schemaVersion must be 1 or 2');
-    if (!Array.isArray(bridgeManifest.cases)) errors.push('bridge manifest: cases must be an array');
-    const seenManifestCases = new Set();
-    for (const [index, manifestCase] of (bridgeManifest.cases || []).entries()) {
-      const label = `bridge manifest cases[${index}]`;
-      const isAreaCase = typeof manifestCase.area === 'string' && manifestCase.area !== '';
-      const requiredFields = isAreaCase ? ['caseId'] : ['caseId', 'sourceEntityRef', 'handlerId', 'module'];
-      for (const field of requiredFields) {
-        if (!manifestCase[field] || typeof manifestCase[field] !== 'string') errors.push(`${label}.${field} must be a non-empty string`);
-      }
-      if (isAreaCase) {
-        // An unshipped area (e.g. blocked on an open issue) has no adapter yet: both fields are
-        // null together, never just one — a handlerId with no module (or vice versa) is a real
-        // inconsistency, not a legitimate "not built yet" state.
-        const handlerIdPresent = manifestCase.handlerId !== null && manifestCase.handlerId !== undefined;
-        const modulePresent = manifestCase.module !== null && manifestCase.module !== undefined;
-        if (handlerIdPresent !== modulePresent) errors.push(`${label}: handlerId and module must both be set, or both be null`);
-        if (handlerIdPresent && typeof manifestCase.handlerId !== 'string') errors.push(`${label}.handlerId must be a non-empty string or null`);
-        if (modulePresent && typeof manifestCase.module !== 'string') errors.push(`${label}.module must be a non-empty string or null`);
-      }
-      if (seenManifestCases.has(manifestCase.caseId)) errors.push(`${label}.caseId ${manifestCase.caseId} is duplicated`);
-      seenManifestCases.add(manifestCase.caseId);
-      if (typeof manifestCase.productionReady !== 'boolean') errors.push(`${label}.productionReady must be boolean`);
-      if (manifestCase.module && bridgeManifestRoot && !fs.existsSync(path.resolve(bridgeManifestRoot, manifestCase.module))) {
-        errors.push(`${label}.module ${manifestCase.module} does not exist`);
-      }
-    }
-  }
-  const manifestCases = new Map(((bridgeManifest && bridgeManifest.cases) || []).map((entry) => [entry.caseId, entry]));
   const referencedSourceRefs = new Set();
   for (const [targetRef, dependencies] of targetKnowledge.blockedSourceDependenciesByRef || []) {
     for (const dependency of dependencies) {
@@ -505,17 +585,6 @@ function validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors, b
       const handler = handlerRegistry[fulfillment.handlerId];
       if (!handler) errors.push(`${sourceEntityRef}: fulfillment handlerId ${fulfillment.handlerId} is not registered`);
       else if (handler.kind !== fulfillment.kind) errors.push(`${sourceEntityRef}: handler ${fulfillment.handlerId} kind ${handler.kind} does not match ${fulfillment.kind}`);
-      // Only checked when the caller actually supplied a bridge manifest -- without one, this
-      // plugin-knowledge validation still checks handler registration above, just not the
-      // manifest-specific fields (see this function's own doc comment on `bridgeManifest`).
-      if (fulfillment.kind === 'bridge-plugin' && bridgeManifest) {
-        const manifestCase = manifestCases.get(fulfillment.manifestCaseId);
-        if (!manifestCase) errors.push(`${sourceEntityRef}: manifestCaseId ${fulfillment.manifestCaseId} is missing from the bridge manifest`);
-        else {
-          if (manifestCase.sourceEntityRef !== sourceEntityRef) errors.push(`${sourceEntityRef}: manifest case sourceEntityRef does not match`);
-          if (manifestCase.handlerId !== fulfillment.handlerId) errors.push(`${sourceEntityRef}: manifest case handlerId does not match fulfillment`);
-        }
-      }
     }
   }
 
@@ -670,12 +739,14 @@ function validateFingerprintAliases(pluginsDir, errors) {
   }
 }
 
-function validateKnowledge(pluginsDir, { targetKnowledge = null, bridgeManifest = null, bridgeManifestRoot = null } = {}) {
+function validateKnowledge(pluginsDir, { targetKnowledge = null } = {}) {
   const errors = [];
   const profiles = [];
 
   let corePatterns = new Set();
+  let isCredentialBearingRoute = () => false;
   try {
+    ({ isCredentialBearingRoute } = require('./wp-route-classifier.js'));
     corePatterns = require('./wp-route-classifier.js').coreRulePatterns();
   } catch (error) {
     errors.push(`could not load classifier core rule patterns for collision checks: ${error.message}`);
@@ -707,6 +778,13 @@ function validateKnowledge(pluginsDir, { targetKnowledge = null, bridgeManifest 
         errors.push(`${label}: route ${route} is already claimed by plugin ${routeOwners.get(route)}`);
       }
       routeOwners.set(route, slug);
+      // A credential-bearing route is refused outright, with no `overridesCoreRule` escape.
+      // `overridesCoreRule` exists so a profile can reclaim a route whose core classification is
+      // a scope judgement; whether a response carries a live API key is not one.
+      if (isCredentialBearingRoute(route)) {
+        errors.push(`${label}: route ${route} returns payment-gateway settings, including live credentials — it cannot be declared as a readable entity route under any flag`);
+        continue;
+      }
       // A profile route that shadows a classifier-owned pattern must say so explicitly,
       // so an accidental shadow cannot silently change core scope.
       if (corePatterns.has(route) && !overridingEntities.has(route)) {
@@ -727,7 +805,7 @@ function validateKnowledge(pluginsDir, { targetKnowledge = null, bridgeManifest 
     capabilityRefs: targetKnowledge?.capabilityRefs || null,
   }, errors);
   validateFingerprintAliases(pluginsDir, errors);
-  validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors, bridgeManifest, bridgeManifestRoot);
+  validateAgainstTargets(profiles, pluginsDir, targetKnowledge, errors);
 
   const generated = generateIndex(pluginsDir);
   const indexPath = path.join(pluginsDir, 'index.json');
@@ -906,6 +984,11 @@ module.exports = {
   CHANNELS,
   ROUTE_CHANNELS,
   CHILD_ROUTE_PLACEHOLDER,
+  // Exported so a runtime consumer (e.g. wp-discovery.js's sampleStructureBridgeEntities /
+  // resolveSampleStructureRequest) can apply the identical rule at query-build time, not only
+  // at authoring-time validation (PR review finding: today this is a build/CI-time-only
+  // guard with no live backstop if a profile is hand-edited after its last validate run).
+  SHARED_CORE_TABLES_REQUIRING_WHERE,
   validateEntity,
   validateProfile,
   validateBlockedEntries,

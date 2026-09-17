@@ -137,6 +137,11 @@ const STORES_V3_TARGET = {
       // or an info section, recorded in mapping-gaps.json.
       note: 'html-string-converted-to-ricos-by-wix',
     },
+    // WooCommerce and some other source platforms expose a second, shopper-facing short body.
+    // Wix has one description field, so wix-build composes it with product.description before
+    // emitting plainDescription. Keeping this declared makes coverage honest: the field lands,
+    // but never as a separate target property.
+    'product.shortDescription': { via: 'descriptionComposition', provenance: 'unverified' },
     'product.slug': { payloadPath: 'slug', provenance: 'verified', coerce: 'slug' },
     'product.brand': {
       payloadPath: 'brand',
@@ -153,6 +158,9 @@ const STORES_V3_TARGET = {
     'variant.sku': { via: 'variants', provenance: 'verified' },
     'variant.weight': { via: 'variants', provenance: 'verified' },
     'variant.visible': { via: 'variants', provenance: 'verified' },
+    'variant.inStock': { via: 'variants', provenance: 'verified' },
+    'variant.inventoryQuantity': { via: 'variants', provenance: 'verified' },
+    'variant.inventoryTracked': { via: 'variants', provenance: 'verified' },
     'variant.option1.name': { via: 'options', provenance: 'verified' },
     'variant.option1.value': { via: 'options', provenance: 'verified' },
     'variant.option2.name': { via: 'options', provenance: 'verified' },
@@ -183,7 +191,6 @@ const STORES_V3_TARGET = {
     'tag.name': 'Same as product.tags — no native product-tag target in Stores V3.',
     'product.sourceId': 'Identity only: tracked in the crosswalk, not written to Wix (no client-settable id).',
     'variant.parentRef': 'Identity only: used to attach a variation row to its parent during extract.',
-    'product.shortDescription': 'Stores V3 has one description; a second body would need an info section (not modelled here).',
     'variant.inStock': 'Fed into inventoryItem.inStock by the variants builder rather than mapped directly.',
     'variant.image': 'Per-variant media needs Wix media ids, which only exist after ingestion; requires a follow-up patch.',
     'variant.width': 'Dimension fields on the V3 variant create shape are unverified; not mapped rather than guessed.',
@@ -201,7 +208,6 @@ const STORES_V3_TARGET = {
     'variant.requiresShipping': 'Implied by productType PHYSICAL; not separately settable.',
     'variant.taxable': 'Tax behaviour is a site-level/tax-group concern, not a variant field.',
     'variant.weightUnit': 'Weight is sent in the site weight unit; the source unit only drives conversion.',
-    'variant.inventoryTracked': 'V3 inventory tracking is derived from the inventory item, not a flag.',
   },
 };
 

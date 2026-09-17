@@ -103,13 +103,13 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/reference-run",
-      "note": "finding #17 follow-up; RSVP import path spotted at the docs-survey sweep"
+      "path": "anonymized-live-verification",
+      "note": "The docs survey identified the RSVP import surface."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted (muted:true re-checked at call time): create against the DRAFT probe event → 400 EVENT_NOT_FOUND; after publish, create with disableNotifications:true + ignoreResponseStatus/ignoreLimits and a zzz-probe-guest@example.invalid address → 200 (rsvp 19e60538…, disableNotifications echoed true on create and on GET); a contact with sourceType WIX_EVENTS appeared for the guest email; RSVP, contact and both probe events deleted afterwards"
+      "path": "anonymized-live-verification",
+      "note": "Verified live on a muted site: RSVP creation against a draft event returned EVENT_NOT_FOUND; after publication, creation with disableNotifications:true and ignoreResponseStatus/ignoreLimits succeeded. The flag persisted on readback and Wix created a contact with sourceType WIX_EVENTS. Notification delivery remains unverified because the site was muted and the test address was undeliverable. Probe records were deleted afterward."
     }
   ],
   "notes": "Authored 2026-08-11 from the docs-survey gap (RSVP V2). The write shape was promoted to verified-live on 2026-08-16, but importSafe deliberately stays FALSE — the probe could not prove that no guest email fires (see notification-suppression-unproven for the settle-it conditions). The same probe found two contradictions in the original entry: draft events reject RSVPs, and RSVP creation does create a CRM contact."

@@ -16,6 +16,8 @@ in its own context.
 
 - Resolve the active project under `migrations/<project>/` (or `REPLATFORM_MIGRATIONS_DIR`)
   before inspecting or creating anything. Only that project's artifacts are authoritative.
+- Preserve `EXPECTATIONS.md` at that project root. It is the user's free-form record of
+  how they expected the run to behave; initialization creates it once and never overwrites it.
 - Start/resume `resources/rp-telemetry/` at the beginning of every run and finalize it at
   a terminal state. Never hand-write telemetry events.
 - Use orchestration JSON plus validated stage artifacts as resume authority. Logs and chat
@@ -59,6 +61,14 @@ On every new or resumed turn:
 If an artifact is malformed, partial, stale, or fails its validator, treat its producing
 stage as incomplete and route to the producer. Do not make parallel replacement artifacts.
 
+**Catching up a finished migration is a rerun, not a new project.** When the user asks to pull
+in records that arrived or changed since the import — "the source kept selling", "these orders
+are missing", "re-run it" — reuse the same project, destination, mapping, generated importer
+and crosswalk, and route to `rp-execute-import` → "Rerunning an import for new and modified
+records" (spec 0140). Do not scaffold a second project or re-approve an unchanged mapping; a
+mapping or scope *change* does go back through the existing gates. A rerun's revision conflicts
+are user decisions even in 1-click mode.
+
 ## Demand-loaded module map
 
 | Router situation | Load |
@@ -84,6 +94,13 @@ secret, scaffolding, or storefront procedures for a stage where they are irrelev
 
 Normal mode asks only for a missing required input, a genuinely ambiguous active project,
 or a mandatory write approval. Ask one question at a time unless a module says otherwise.
+
+When the user says `add to expectations: <note>` (or an unambiguous natural-language
+equivalent), append the note to the active project's `EXPECTATIONS.md` before continuing.
+Use `scripts/expectations-ledger.js` so the entry retains the supplied statement plus safe
+current context (stage/state, relevant project-relative artifacts, and known entity/field
+labels). Do not treat this as approval or silently change a mapping. Never record secrets,
+tokens, raw customer data, or raw source records; redact them if supplied and say so.
 
 Before writes, preserve the mandatory execution-plan approval gate. Read-only discovery,
 mapping, setup verification, code generation, and review happen before it.

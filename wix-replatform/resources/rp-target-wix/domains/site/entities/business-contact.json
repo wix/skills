@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "domain": "site",
+  "entity": "business-contact",
+  "displayName": "Site Business Contact",
+  "capability": "site.business-contact",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "BusinessContactData",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "settings.general",
+      "routes": [
+        "/wc/v3/settings/general"
+      ],
+      "confidence": "high",
+      "note": "The store's own address lives in the general settings group as woocommerce_store_address / _address_2 / _city / _postcode / woocommerce_default_country. Two traps: the REST index advertises only the PARAMETERIZED form /wc/v3/settings/(?P<group>...), so the group must be read directly; and the WooCommerce consumer key 401s here while the WordPress application password succeeds. See rp-source-wordpress's SKILL.md."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Site Properties",
+    "endpoint": "POST https://www.wixapis.com/site-properties/v4/properties/business-contact",
+    "writerId": "updateBusinessContact",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "releaseStatus": "stable",
+    "decision": "A site-wide singleton, applied at the setup gate as configuration -- not a per-record import. Permission SITE_PROPERTIES.UPDATE_BUSINESS_CONTACT, scope SCOPE.DC-SITEPROP.MANAGE-BUSINESS-CONTACT. Read back with GET /site-properties/v4/properties, which is a separate call because the update returns an empty body."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "listing-a-field-you-do-not-send-clears-it",
+      "severity": "blocker",
+      "summary": "`fields.paths[]` is destructive in one direction: a property NAMED in the mask but ABSENT from `businessContact` is CLEARED. Migrating only an address therefore means sending paths ['address'] and nothing more -- adding 'email','phone','fax' to be thorough wipes contact details the merchant may already have entered by hand. Build the mask from the payload's own keys. Wix's own documented example is itself unsafe to copy: it lists 'businessSchedule' in paths while sending none."
+    },
+    {
+      "code": "state-is-a-bare-subdivision-and-the-source-encodes-it-in-the-country-field",
+      "severity": "warning",
+      "summary": "Wix takes `country` (ISO 3166-1 alpha-2) and `state` as separate fields. WooCommerce packs both into one setting: `woocommerce_default_country` is either `IL` or `COUNTRY:STATE` (e.g. `US:CA`). Split on the colon -- the same encoding a WooCommerce shipping zone's `state`-type location uses, so shipping-build.js already carries the parse. Sending `US:CA` as `country` does not error; it just stores a country code that matches nothing."
+    },
+    {
+      "code": "street-is-free-text-do-not-parse-a-house-number-out-of-it",
+      "severity": "warning",
+      "summary": "The object has separate `street` and `streetNumber` fields, which invites splitting the source's single address line. Do not. WooCommerce's `woocommerce_store_address` is one free-text field with no structure guarantee -- some shops put the number first, some last, some have no number at all (LIVE-OBSERVED: a real store address that is a street name only). Put the whole source line in `street`, leave `streetNumber` empty, and let the merchant correct it. A wrong split is worse than no split: it looks deliberate."
+    },
+    {
+      "code": "zip-has-a-20-character-limit-the-source-does-not",
+      "severity": "warning",
+      "summary": "`zip` is capped at 20 characters; WooCommerce's `woocommerce_store_postcode` is unbounded free text. Guard the length rather than letting the API reject the whole write for one long field."
+    },
+    {
+      "code": "update-returns-nothing-so-success-is-not-evidence",
+      "severity": "warning",
+      "summary": "The response body is `{}`. A 200 proves the request was accepted, not that the address is stored as intended -- and given the clearing behaviour above, a call can succeed while having wiped a sibling field. Always follow a write with GET /site-properties/v4/properties and compare what came back. CONFIRMED LIVE 2026-09-01: an address-only write returned {} and the follow-up read showed the address stored exactly as sent, with the site's other contact fields untouched."
+    },
+    {
+      "code": "coordinates-and-google-formatted-address-have-no-source",
+      "severity": "info",
+      "summary": "`coordinates` and `googleFormattedAddress` are real fields with no WooCommerce counterpart. Omit them rather than geocoding: a migration that silently invents a latitude/longitude is asserting a precision the source never had. Wix resolves display formatting itself."
+    }
+  ],
+  "mappingGuidance": [
+    "Field map: woocommerce_store_address -> street (whole line, unparsed); woocommerce_store_address_2 -> apartmentNumber; woocommerce_store_city -> city; woocommerce_store_postcode -> zip (truncate-guard at 20); woocommerce_default_country -> country, plus state when the value is COUNTRY:STATE. Set isPhysical true -- a shop's registered address is a real place. Omit coordinates and googleFormattedAddress.",
+    "Send `fields.paths` built from the keys actually present on the payload, never a fixed list. See this file's first pitfall; it is the one mistake here that destroys data rather than failing loudly.",
+    "This is the site's OWN address. It is NOT a pickup address, and must never be used as one without a human confirming it -- a shop's registered address and the place customers collect from are routinely different (LIVE-OBSERVED: a store address and its collection point about 20 km apart, in different towns). ecom/pickup-location may OFFER this value as a default to confirm; it may not adopt it.",
+    "Apply at the setup gate with the other configuration, and read back afterwards. An absent business address on the destination is the normal starting state, not evidence of a failed earlier write."
+  ],
+  "setupRequirements": [],
+  "objectPageException": "Site Properties is modelled as a property stream with per-group update methods rather than as a fetchable object with its own '…-object' reference page; the API-reference tree exposes Update Business Contact / Profile / Schedule / Consent Policy and a single Get Properties read, with no object page for BusinessContactData. The field shape here is taken from the Update Business Contact method schema.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-contact",
+      "note": "full request schema: businessContact.address fields (street, streetNumber, apartmentNumber, city, state, country, zip maxLength 20, hint, isPhysical, googleFormattedAddress, coordinates), the fields.paths mask semantics, the empty response body, permission and scope names"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/introduction",
+      "note": "Site Properties as the single source of truth for the site's public business information"
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification",
+      "note": "GET /site-properties/v4/properties on a fresh site returned only locale/currency/timezone with no business address key present"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "2026-09-01: a site whose business address was entirely blank (street/city/zip empty, isPhysical false) was populated by an address-only update. Read-back matched the payload field for field; email and phone were absent before and after, confirming the derived field mask cleared nothing."
+    }
+  ],
+  "notes": "Authored 2026-09-01 to close an unowned gap: nothing in the pipeline had ever written a business address, so every migrated site published with the field empty, and ecom/pickup-location needed an address with no target entity to point at. Write path VERIFIED LIVE the same day against a real site whose address was blank."
+}

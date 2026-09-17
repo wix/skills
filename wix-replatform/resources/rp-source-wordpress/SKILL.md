@@ -30,7 +30,12 @@ WordPress knowledge here is what lets the rest of the workflow stay platform-agn
 - Source platform: WordPress (core REST `wp/v2`), optionally WooCommerce (`wc/v3`).
 - Detect by hitting `<base-url>/wp-json/` — the REST index lists advertised namespaces.
 - Set `"platform": "wordpress"` (and note WooCommerce presence in `sourceMeta`) in the
-  emitted `source-schema.json`.
+  emitted `source-schema.json`. This describes the discovery artifact, not the orchestration
+  decision.
+- Once discovery confirms WooCommerce, record `sourcePlatform=woocommerce` in the
+  orchestration decision and use `config/source.woocommerce.env`. Otherwise record
+  `sourcePlatform=wordpress` and use `config/source.wordpress.env`. The adapter remains
+  `rp-source-wordpress` in both cases.
 
 ## Capture (discovery-time)
 
@@ -43,13 +48,16 @@ turn that hint into a target decision here. Keep frontend, theme, runtime, admin
 transient routes skipped by default even if a knowledge entry exists for a related
 setup/config target.
 
-Before capture, verify `migrations/<project>/config/source.wordpress.env`. Create it if
-missing with empty values:
+After identifying the platform, verify `migrations/<project>/config/source.<platform>.env`.
+For a confirmed WooCommerce source, this is `source.woocommerce.env`; for WordPress without
+WooCommerce evidence, it is `source.wordpress.env`. Create the selected file if missing with
+empty values:
 
 ```bash
 WP_BASE_URL=
 WP_USERNAME=
 WP_APPLICATION_PASSWORD=
+WMH2_MIGRATION_KEY=
 WP_MEDIA_URL_REWRITE_FROM=
 WP_MEDIA_URL_REWRITE_TO=
 WC_CONSUMER_KEY=
@@ -64,8 +72,19 @@ the user which data scope they want:
 
 This choice is mandatory and must be explicit. Do not ask for `WP_USERNAME`,
 `WP_APPLICATION_PASSWORD`, or WooCommerce keys until the user chooses `also include
-private/authenticated data`. After that choice, collect sensitive values through
-the secure Secrets Manager flow; do not ask the user to paste them into chat.
+private/authenticated data`. Request `WMH2_MIGRATION_KEY` only when bridge-backed entities
+are actually in scope and the detected source has no WooCommerce. Collect every sensitive
+value through the secure Secrets Manager flow; do not ask the user to paste it into chat.
+
+There are two independent scopes, and a complete run may need both credentials:
+
+- **Private WordPress/WooCommerce REST** (`wp/v2`, `wc/v3`) requires a WordPress
+  Application Password (`WP_USERNAME` + `WP_APPLICATION_PASSWORD`).
+- **`wix-wp-plugin-v2` bridge reads** use the Application Password path only when
+  WooCommerce is present, because that route requires `manage_woocommerce`. When the
+  source has no WooCommerce, collect `WMH2_MIGRATION_KEY` for bridge reads instead. The
+  key is generated and shown once on the plugin's wp-admin page at activation or rotation.
+  It never authenticates ordinary `wp/v2` or `wc/v3` reads.
 
 Key sensitivity is predefined and does not change at runtime. Requiredness is separate
 and may depend on the selected acquisition mode or source behavior.
@@ -73,8 +92,9 @@ and may depend on the selected acquisition mode or source behavior.
 | Key | Sensitivity | Requiredness |
 |---|---|---|
 | `WP_BASE_URL` | non-sensitive | Required for URL-based capture |
-| `WP_USERNAME` | sensitive | Required for private/authenticated WordPress capture |
-| `WP_APPLICATION_PASSWORD` | sensitive | Required for private/authenticated WordPress capture |
+| `WP_USERNAME` | sensitive | Required for private/authenticated WordPress capture via Application Password |
+| `WP_APPLICATION_PASSWORD` | sensitive | Required for private/authenticated WordPress capture via Application Password |
+| `WMH2_MIGRATION_KEY` | sensitive | Required for `wix-wp-plugin-v2` bridge reads when the source has no WooCommerce; optional otherwise |
 | `WP_MEDIA_URL_REWRITE_FROM` | non-sensitive | Optional |
 | `WP_MEDIA_URL_REWRITE_TO` | non-sensitive | Optional |
 | `WC_CONSUMER_KEY` | sensitive | Optional unless WooCommerce rejects the WordPress Application Password for `wc/v3` reads |
@@ -83,8 +103,21 @@ and may depend on the selected acquisition mode or source behavior.
 Required for a complete WordPress/WooCommerce capture:
 
 - `WP_BASE_URL`
-- `WP_USERNAME`
-- `WP_APPLICATION_PASSWORD`
+- `WP_USERNAME` + `WP_APPLICATION_PASSWORD` when private REST-visible data is in scope
+- `WMH2_MIGRATION_KEY` additionally when bridge-backed entities are in scope and the
+  source has no WooCommerce
+
+⚠️ **`WMH2_MIGRATION_KEY` only unblocks the plugin's own `/structure` and `/query` routes**
+(`wix-wp-plugin-v2`'s `structure-bridge-plugin` entities — custom plugin tables with no REST
+route, spec 0101/0102) — `wp-discovery.js`/`wix-wp-plugin-v2-client.js` sign requests with it
+automatically when the signed bridge path is selected. It does **not** authenticate
+standard WordPress/WooCommerce REST (`wp/v2`, `wc/v3`) at all — reading posts, pages,
+products, orders, customers, and every other REST-visible entity still requires the
+Application Password. On a source site with no WooCommerce, the Application Password routes
+are `manage_woocommerce`-gated and unusable by any user regardless, so the migration key is
+the only credential that reaches the bridge. If no separate WordPress REST credential is
+available, ordinary private content still cannot be captured through this adapter and needs
+another source API or export.
 
 `WC_CONSUMER_KEY` and `WC_CONSUMER_SECRET` are optional when WooCommerce accepts the
 WordPress Application Password for `wc/v3` reads; ask for them only if WooCommerce routes
@@ -95,7 +128,7 @@ WordPress API is reached through a public tunnel but media/file URLs inside reco
 point at `localhost` or another private origin. If they are blank, generated readers may
 rewrite localhost/private origins to `WP_BASE_URL` when `WP_BASE_URL` is public.
 
-`config/source.wordpress.env` is a secret-bearing file once it may contain real values.
+`config/source.<platform>.env` is a secret-bearing file once it may contain real values.
 Do not read it with whole-file commands that print its contents into tool output. Check
 only whether the file exists and whether each required key is present/blank/missing; when
 describing status, name keys only and never echo values.
@@ -104,7 +137,7 @@ describing status, name keys only and never echo values.
    containing this `SKILL.md`; see `CONVENTIONS.md`):
 
    ```
-   node scripts/wp-discovery.js --env-file <migrations-root>/<project>/config/source.wordpress.env --out-dir <migrations-root>/<project>/data/wp-discovery
+   node scripts/wp-discovery.js --env-file <migrations-root>/<project>/config/source.<platform>.env --out-dir <migrations-root>/<project>/data/wp-discovery
    ```
 
    It walks the REST index, runs one `OPTIONS` + a small `GET` sample per entity, and
@@ -158,6 +191,27 @@ describing status, name keys only and never echo values.
    commerce data when present. Cart and checkout Store API routes remain out of scope as
    runtime session state.
 
+   **Images: never read a field, always resolve.** An image reference in a WordPress-family
+   payload is a *set* of candidate URLs for one picture — the merchant's original upload plus
+   the crops WordPress generated from it. Which field holds the original varies by route, and
+   the two WooCommerce APIs disagree on the **same site**: on `wc/store/v1` `images[].src` is
+   the original, while on `wc/v3` it is resolved through WordPress's registered image sizes
+   and can be the *smallest* crop, because any theme or image-optimizer plugin may redefine
+   those sizes. Pass the whole reference to `resolveImageUrl` / `resolveImageUrls` in
+   `lib/wp-image-url.js` and use what it returns. It handles `src`, `thumbnail`,
+   `source_url`, `srcset`, `thumbnail_srcset`, and `media_details.sizes.*`, prefers the
+   original, falls back to the widest crop, and percent-encodes the result.
+
+   ⚠️ This is not optional on the public path just because `src` happens to be right there
+   today. Same call, everywhere — a contract test pins the Store API no-op, so a change in
+   that behaviour surfaces as a test failure rather than as a merchant's blurry storefront.
+
+   ⚠️ The destination gives one attempt. Wix copies the single URL you send and generates
+   every derivative from it, with no way to raise quality afterwards, so a crop shipped here
+   is that product's permanent ceiling. When `resolvedIsCrop()` is true the source genuinely
+   had nothing better — report those images in the run's own record rather than shipping them
+   silently.
+
 6. **Plugin coverage runs automatically.** Plugin handling is a deterministic pre-pass plus
    declarative profiles, not prose guesswork — see "Plugin coverage" below. The capture
    script writes `plugin-inventory.json` and `plugin-coverage.json` alongside the per-entity
@@ -186,6 +240,97 @@ describing status, name keys only and never echo values.
 The raw capture is evidence, not a hand-off artifact. `rp-discovery` synthesizes it into
 the canonical artifacts and records traceability pointers (`rawDiscovery`, per-entity
 `rawFile`).
+
+## Payment gateways: read the summary, never the route
+
+`GET /wc/v3/payment_gateways` and `/wc/v3/payment_gateways/{id}` return each gateway's **entire
+settings object**. On a site with a real gateway connected that includes the live API key and
+secret. Anything a tool returns is in the model's context, the transcript and potentially a
+durable run artifact, so there is no careful-handling mitigation available after the fact — the
+value must never be requested.
+
+**`fetchGatewaySummary()` in `lib/wp-http.js` is the only way to read gateway configuration.**
+It returns, per gateway, `id` / `title` / `enabled` / `order` and `fields: [{ name, state }]`,
+where `state` is `present`, `blank` or `absent` — plus a `value` for the short allowlist of
+display and behaviour fields, each of which passes the shared secret-value guard first. That is
+everything discovery legitimately needs: which gateways are registered, which are enabled, and
+whether a credential is configured. Request-level outcomes (`ok`, `unauthorized`, `unreachable`,
+`malformed`) are a separate axis, and a failed request returns **zero** field entries rather
+than a page of `absent`, so "this gateway has no API key" can never be confused with "we could
+not ask".
+
+Everything else about the route is closed, on purpose:
+
+- `fetchJson()` **refuses** either gateway route before issuing the request, below discovery's
+  `--include-route` override. There is no flag, option, capability token or environment variable
+  that lifts it; adding one is the exposure with extra steps.
+- The route classifier categorizes both shapes as `excluded_credential_bearing`, and neither
+  `--include-route` nor `--include-excluded-category` can promote them to `sample`.
+- A plugin profile may not declare a gateway route as a readable entity route, under any flag.
+- Never write a gateway field value into `source-profile.md`, `source-schema.json`, a sample
+  record, a progress log, a completion report, a CMS field, telemetry, or `.local.env`. Never a
+  prefix, a length or a hash of one either — each of those is a usable clue on its own.
+
+Report what was read. A run that states "15 gateways, 4 enabled, 6 credential fields present, 0
+values retained" is auditable; one that silently read the settings blob is not.
+`describeGatewaySummary()` produces that line for the approval gate.
+
+⚠️ The value guard is a pattern list, not a guarantee — a credential in an unrecognized format
+passes it. It is the backstop for credentials nobody can name in advance; the controls above are
+the actual protection.
+
+## Reading payment, refund and invoice history
+
+Three deterministic registries carry this knowledge. Use them; do not re-derive which source keys
+mean what, and do not hand-author the reads.
+
+| What you need | Use |
+| --- | --- |
+| Which source keys the payments import may read at all | `paymentReadKeys()` in `lib/gateway-source-keys.js` |
+| Which value may become a payment's provider transaction reference | `resolveTransactionReference()` in the same module |
+| Whether a method is online or offline | `resolveOfflinePayment()` — omits the flag when unknown |
+| Whether a refund actually happened | `qualifyRefund()` in `lib/refund-corroboration.js` |
+| Whether the store has invoices, and where their bytes live | `lib/invoice-discovery.js` |
+
+**The read manifest is closed.** `paymentReadKeys()` returns the complete set of keys this import
+touches — the amount, both paid-date fields, the method, the currency, the canonical reference,
+and each registry family's candidate fields. Nothing else is read. In particular a raw provider
+response blob is declared **unreadable**, not "to be pattern-matched later": on a live store its
+sibling fields carried customer name, phone and email, and a contract that requires parsing
+unstructured personal data is not one that can be honoured safely.
+`assertNoNeverReadKeys()` refuses a read plan naming it *before* the plan executes — filtering
+after the response arrives is too late, the blob is already in the run's working data.
+
+**Two surfaces, and neither alone covers payments.** Row-shaped tables come through the plugin
+`/query` surface; meta-backed fields come through WooCommerce REST. Run the generated
+`…--<table>.eav-read-plan.json` verbatim and reconcile it afterwards — a hand-authored scoped read
+cannot be reconciled against anything, and a plan edited after discovery wrote it is caught by its
+own hash.
+
+**A gateway-shaped key is not attribution.** The payment-method slug names the checkout plugin,
+not necessarily the processor: on the measured store, orders whose method was one gateway carried
+another gateway's reference key, while every order whose method *was* that second gateway carried
+none. So a candidate is written only when its semantics are verified AND the registry recognizes
+the order's method — directly, or through a separately verified layered integration. Everything
+else is reported with a reason and never guessed at by precedence. Report candidate coverage and
+defensible coverage as separate numbers; collapsing them overstates fidelity.
+
+**A refund needs a refund record.** A canonical WooCommerce refund entity with a stable id and a
+positive amount is authoritative on its own. An order-level refunded status corroborates but
+cannot supply a missing amount. Gateway flags, statuses and refundable-balance fields never create
+a refund, however many agree — fields written by one callback are one signal. On the measured
+store this yields zero importable refunds and 556 reported orders, which is the correct output.
+
+**Invoices are resolved per run.** Discovery matches key *families*, not authored names, and
+patterns found in a sample are then applied across the full order population. A discovered
+document URL is untrusted input that something is about to fetch: classify it before touching it,
+and never log or store it — the query string can be a bearer token and the filename can carry the
+customer's name. Nothing found means nothing is created, and the report says "no invoices found",
+never "not supported".
+
+Redaction counts are findings, not plumbing: a non-zero `redactedValueCount` means a credential
+was sitting somewhere unexpected in the source, and it belongs in the run report. Telemetry
+carries counts only — never a discovered key name and never a value.
 
 ## Plugin coverage
 
@@ -231,13 +376,90 @@ A plugin version below a profile's `detect.minVersion` is reported as
 `plugin-rest`, `core-cpt`, `core-embedded`, `core-meta`, `plugin-rest-child`, `export-file`,
 `db-only` — see `plugins/README.md`. Two consequences worth stating to the user:
 
-- **Unregistered post meta is invisible.** WordPress exposes meta only when the plugin
-  registered it with `show_in_rest` (and, for a CPT, declared `custom-fields` support). A
-  plugin can keep its entire per-record state in `postmeta` and expose none of it. That data
-  is reachable only from a WXR export or the database.
+- **Unregistered post meta is invisible to the REST API.** WordPress exposes meta only when
+  the plugin registered it with `show_in_rest` (and, for a CPT, declared `custom-fields`
+  support). A plugin can keep its entire per-record state in `postmeta` and expose none of
+  it. Three ways to reach it, in preference order: the **structure bridge** (see "Reading
+  key/value tables through the bridge" below — this is the one that needs no profile and no
+  user action), a WXR export the user produces, or a database dump.
 - **WXR cannot be fetched.** Application Passwords authenticate the REST API and XML-RPC
   only, never `wp-admin`, so an export file is something the **user produces and supplies**.
   Treat `export-file` as a request to the user, never as a download.
+### Reading key/value tables through the bridge
+
+When `wix-wp-plugin-v2` is installed on the source site, `postmeta` and every other
+key/value-shaped table is readable — key-scoped. This is the channel to reach for when a
+capability would otherwise be a `user-file` blocker, and it is the ONLY one that works for a
+plugin nobody has profiled.
+
+**Always run key discovery, even for a profiled plugin.** It is tempting to treat a profile's
+`detect.recordProperties` as the key list and skip the round-trip — `subscriptions-for-woocommerce.json`
+names `_wps_sfw_product` there — but those are *detection markers*, one or two keys that prove
+the plugin wrote the record. They are not the record's field list. Reading only them produces a
+short extraction that looks complete, the same failure as a truncated key list.
+
+Profiles earn their place elsewhere: they say which table to read, which entity it maps to, and
+what the pitfalls are. The key list comes from the site. A single order on a gateway-backed store
+can carry dozens of gateway-specific meta keys under a prefix no profile anywhere has seen, which
+is why discovery is the mechanism and not the fallback.
+
+**The rule: if you have not named the keys you want, the value column does not exist.** Not
+in `select`, not in `where`, not in `orderBy`, not in `groupBy`. Violating it returns
+`wmh2_invalid_structure_request` (400) — the same error as naming a nonexistent column, so
+the refusal will not tell you which column is the value column. Two steps:
+
+1. **`GET /structure?table=postmeta`** → the column list plus `eavPair: {keyColumn,
+   valueColumn}`. This tells you the table is key-scoped *before* you write a query. No rows,
+   no key names.
+2. **Discovery** — `select` the key column plus a count, `groupBy` the key column. Returns the
+   real key list with row counts, `eavAccess.tier: "key-discovery"`.
+3. **Scoped read** — `where` the key column `in` the keys you want (**max 50 per request**),
+   then `select` the value column freely. `eavAccess.tier: "key-scoped"`.
+
+```jsonc
+// 2. discovery                                  // 3. scoped read
+{"structureRequest": {                           {"structureRequest": {
+  "table": "postmeta",                             "table": "postmeta",
+  "select": [{"column": "meta_key"},               "select": [{"column": "post_id"},
+             {"column": "meta_key",                            {"column": "meta_key"},
+              "aggregate": "count", "as": "n"}],              {"column": "meta_value"}],
+  "groupBy": ["meta_key"],                         "where": [{"column": "meta_key", "op": "in",
+  "orderBy": [{"column": "meta_key",                          "value": ["<key from step 2>",
+               "direction": "asc"}]                                     "<key from step 2>"]}],
+}}                                               "orderBy": [{"column": "post_id", "direction": "asc"}]
+                                                 }}
+```
+
+⚠️ **Count the KEY column, not some other column.** `{"column": "<keyColumn>", "aggregate":
+"count"}` works on any key/value table; counting `meta_id` only works where that column happens
+to exist, and a `name`/`value` table has no `meta_id` at all. The generic client counts the
+discovered key column for exactly this reason.
+
+Four things that will bite:
+
+- **Page discovery to exhaustion.** `limit` maxes at 200 and a large `postmeta` has more
+  distinct keys than one page. Follow `pagingMetadata.cursors.next` until it is null before
+  concluding a key is absent — a truncated key list reads as "these are all the keys" and
+  will send the mapping down a wrong path. Budget `ceil(N/200)` discovery pages plus at least
+  `ceil(N/50)` scoped **batches** — and a batch is not a request: each pages at 200 rows, so a
+  batch whose 50 keys hold 4,000 rows costs 20 requests. Because discovery returns each key's
+  row count, the read plan states the real figure (`expectedPages` per batch,
+  `expectedScopedRequests` overall) — read it there rather than estimating.
+- **`options` and `usermeta` are still refused outright**, and pinning `option_name` does not
+  unlock `options`. Gateway configuration held in `options` is a different mechanism
+  entirely — do not try to route around this.
+- **Check `redactionMetadata.redactedValueCount` on every response.** Non-zero means a value
+  matched a credential shape and came back as `[REDACTED:secret-shaped]`. That is not a bug
+  to work around: it means the source site keeps a credential somewhere unexpected, and it
+  belongs in the run's notes.
+- **A table named `*meta` whose pair is not one of the six recognized ones is refused (403),
+  not readable.** There is no key column to pin, so there is nothing to scope. Reach for a WXR
+  export or a database dump for that table, and say so rather than reporting it as empty.
+- **A table can carry MORE than one pair**, and each is guarded separately: pinning `meta_key`
+  does not make a second pair's `value` column readable. `eavPair.additionalPairs` and
+  `eavAccess.additionalPairs` list them; `guardedValueColumns()` in the client returns all of
+  them at once, which is what you want when building a select list.
+
 - **Parent-scoped sub-resources (`plugin-rest-child`, fixed 2026-08-11).** WooCommerce order
   *notes* (`/wc/v3/orders/{id}/notes`) and similar per-parent sub-collections cannot be listed
   on their own — the base classifier only samples flat collection routes (`page`/`per_page`
@@ -310,18 +532,26 @@ human-signed register `plugins/requires-development.json` is its single source.
 
 ### Interaction rules
 
-- **The admin Application Password is the only source credential.** A plugin REST namespace
-  that honours WordPress authentication works with it, and that is the normal case — plugins
-  with their own key systems offer them as an *alternative* for external callers, not a
-  requirement (verified for Gravity Forms, which accepts Application Passwords and runs
-  requests under the caller's plugin capabilities). Do **not** treat "this plugin has API
-  keys" as "we need another credential"; that reasoning has been wrong every time it was
-  applied. If a plugin genuinely rejects the platform credential, that is a config-gate
-  requirement like the WooCommerce consumer keys — not a per-capability runtime state.
+- **The admin Application Password is the source REST credential; `wix-wp-plugin-v2`'s
+  migration key is scoped to that bridge.** A plugin REST namespace that honours
+  WordPress authentication works with the Application Password, and that is the normal
+  case — plugins with their own key systems offer them as an *alternative* for external
+  callers, not a requirement (verified for Gravity Forms, which accepts Application
+  Passwords and runs requests under the caller's plugin capabilities). Do **not** treat
+  "this plugin has API keys" as "we need another credential"; that reasoning has been
+  wrong every time it was applied. If a plugin genuinely rejects the platform credential,
+  that is a config-gate requirement like the WooCommerce consumer keys — not a
+  per-capability runtime state. For the structure bridge specifically, select the
+  Application Password path only when WooCommerce is present; otherwise use
+  `WMH2_MIGRATION_KEY`. Never describe that bridge-only key as private REST authentication.
 - `blocked[]` entries are collected and asked **once**, batched, each individually
-  skippable. A `user-file` blocker is the one state no credential can fix: unregistered post
-  meta and plugin tables are unreachable by any WordPress API, and Application Passwords
-  cannot reach `wp-admin`, so a WXR or CSV export must be produced by the user. Record each
+  skippable. A `user-file` blocker means no *WordPress API* can reach it: unregistered post
+  meta and plugin tables are invisible to REST, and Application Passwords cannot reach
+  `wp-admin`, so absent anything else a WXR or CSV export must be produced by the user.
+  **Check the structure bridge first** — if `wix-wp-plugin-v2` is installed on the source
+  site, both of those are readable through it (see "Reading key/value tables through the
+  bridge" below), and asking the user for an export they did not need to produce is a real
+  cost to avoid. Record each
   answer in `orchestration/decisions.json` under `pluginBlocker:<capability>:<kind>`
   (`provided` / `declined`); `wp-discovery.js` reads it back (`--decisions`, defaulting to
   `<out-dir>/../../orchestration/decisions.json`) so a declined ask renders as declined.
@@ -374,6 +604,17 @@ node scripts/plugin-knowledge-validate.js --write-index
 To add or correct a plugin, edit `plugins/<slug>.json` and add a fixture — no skill logic
 changes. See `plugins/README.md`.
 
+## Product and variation stock
+
+Extract `stock_status`, `manage_stock`, `stock_quantity`, `backorders`,
+`backorders_allowed`, and `backordered` from products and every variation. Use
+`lib/woo-inventory.js` → `mapWooInventory(record, {parent})` during canonical mapping.
+Persist its `fields` on the canonical variant and its disposition beside the source ID.
+An untracked product can still be explicitly in stock; `manage_stock:false` is not missing
+inventory. Use variation records for variable products; never replicate a parent's shared
+tracked quantity onto each child. Preserve `decision-needed` outcomes for missing signals,
+backorders, invalid quantities, and shared stock; do not turn them into an empty success.
+
 ## Read contract (codegen-time)
 
 What a generated WordPress reader must get right. Capture the operational facts below into
@@ -388,7 +629,9 @@ disk later without re-fetching the source.
 throttling, and `Retry-After`-aware 429/503 backoff a reader needs already exist as a
 dependency-free module at `lib/wp-http.js` in **this skill directory** (the same module
 the capture script imports). It
-exports `fetchJson`, `buildHeaders`, `configureRateLimit`, and `parseTotalHeader`. Any
+exports `fetchJson`, `buildHeaders`, `configureRateLimit`, and `parseTotalHeader`. It does
+**not** export an undenied transport — `fetchJson` refuses payment-gateway routes, and a
+generated reader must not reintroduce a raw one. Any
 generated WordPress reader **must reuse this module rather than reimplementing transport**,
 so the reader contains only per-project orchestration: which entities to pull, the
 pagination loop, `_embed`/`_links` resolution, and transform glue. One tested transport
@@ -448,6 +691,24 @@ that shared core:
   placeholder variants, causing price-empty errors. Fix: when ALL attributes for a variation
   are null/"Any", treat the variation as a single cartesian entry covering all option choices
   at the variation's price, rather than filtering it out.
+- **The store's own configuration must be read DIRECTLY, and with the WordPress credential
+  (trap, hit live 2026-09-01):** `/wc/v3/settings/general` holds the business address
+  (`woocommerce_store_address`, `_address_2`, `_city`, `_postcode`, `woocommerce_default_country`),
+  the currency, which countries the shop sells to, and whether tax is calculated. Two reasons it
+  was never captured on any run:
+  1. **The REST index advertises only the parameterized form** `/wc/v3/settings/(?P<group>...)`,
+     never the literal group route, so nothing in the generic sweep ever fetches it. Read
+     `/wc/v3/settings/general` directly, the same way a shipping zone's `/locations` and
+     `/methods` sub-resources are — a parent-scoped sub-resource the caller resolves itself.
+  2. **The WooCommerce consumer key gets `401 woocommerce_rest_cannot_view` here; the WordPress
+     application password gets `200`.** Both are already in every run's source config. A reader
+     that only tries the store key gets a plausible "no permission" and moves on — which is
+     exactly how this stayed invisible while migrated sites published with an empty business
+     address.
+
+  `woocommerce_default_country` is `COUNTRY` **or** `COUNTRY:STATE` (e.g. `US:CA`) — the same
+  packing a zone's `state`-type location uses. `rp-target-wix/lib/store-config-build.js` maps the
+  whole group; do not hand-roll it.
 - **Route paths passed to `fetchJson` / `buildApiUrl` must NOT include `/wp-json` (trap, hit live 2026-07-21):**
   `buildApiUrl` in `lib/wp-http.js` already prepends `/wp-json` to the `routePath` argument.
   Generated route paths must start with the namespace directly (e.g. `/wc/store/v1/products`,
@@ -487,3 +748,66 @@ per-entity output, `wp-plugin-detect.js`'s `describeProfiledEntity`) rather than
 them from discovery's prose notes. `rp-import-codegen`'s read contract depends on finding
 these under exactly those `sourceMeta` keys; omitting them silently degrades a declared
 non-GET/fragmented read into an unreadable one downstream.
+
+## Coupons, coupon usage and the currency gate
+
+Three source-side decisions, each in a library so a generated importer supplies facts rather than
+rules. Read `lib/coupon-discovery.js` and `lib/currency-gate.js`; both are pure.
+
+- **Coupons are counted from one surface and imported from the same one.** `wc/v3/coupons`
+  (published) is the discovered set and the denominator; sweep it to exhaustion with
+  `sweepCoupons(fetchPage)`, which refuses a total that disagrees with `X-WP-Total`. The `posts`
+  count by `post_status` is a reconciliation check only — `summarizeCoupons({ restCoupons,
+  postsByStatus })` reports the non-published rows as deliberately excluded, never as a shortfall
+  (one reference store: 4,287 posts vs 4,224 via REST, the difference being 62 drafts and 1 auto-draft).
+- **Redeemability, not expiry, classifies a coupon.** `classifyCoupon` — redeemable iff not expired
+  and not usage-exhausted; **`usage_limit` 0 or empty means UNLIMITED**. A `usage_limit` or
+  `usage_count` that is not an integer (`"1.5"`, `"abc"`) is `unresolved`: neither redeemable nor
+  exhausted, not written (`coupon-usage-limit-unresolved`), its own partition line. Import all
+  published coupons; the report carries the breakdown, never "imported N coupons".
+- **Mapping reports rather than approximates.** `mapCouponToWix(coupon, { resolveProduct,
+  resolveCategory })` returns a Wix specification or a named refusal: `fgf_free_gift` and any
+  unknown `discount_type` are `coupon-type-unmappable`, and so is an **unrestricted
+  `fixed_product`** (a per-unit amount on every product; Wix's money-off takes it off the order
+  once — a product-scoped one maps); a scope Wix cannot hold in one group is
+  `coupon-scope-unmappable`. An exhausted single-use code is imported `active: false`, because
+  Wix's usage count starts at zero. An eligibility constraint Wix cannot hold — excluded products
+  or categories, a sale-item exclusion, a maximum discount amount, an email restriction, or a
+  minimum spend on a product/collection-scoped coupon — is a **refusal** (`coupon-scope-unmappable`,
+  reason `scope: constraints`): dropped, each would make the coupon more generous than the
+  merchant published. Only a dropped amount on a free-shipping coupon stays a per-coupon finding.
+- **Coupon usage rides on the order.** On legacy post storage the surface is the order's REST
+  `coupon_lines[]` (measured on a reference store: 8 of 50 recent orders carry them, with
+  `discount` per code); HPOS stores have `wc_order_coupon_lookup`. Name whichever was found as
+  `coupon-usage-surface`. The target side (`rp-target-wix/lib/order-applied-discount-build.js`)
+  turns the lines into `appliedDiscounts` through the coupon crosswalk; an unresolved code writes
+  nothing and is reported.
+- **Currency halts before any order write.** `currency-gate.js` `evaluateCurrencyGate({
+  settingsCurrency, orderCurrencies, targetSiteCurrency })` — settings from
+  `wc/v3/settings/general` through `store-currency.js`, order currencies through
+  `resolveOrderCurrency` (which decodes `&#8362;` and refuses a contradicting symbol). One
+  currency matching the site proceeds with `currency-validated`; a mismatch or a history spanning
+  two currencies is a **halt**, and unresolved orders halt too. Two configured currencies with a
+  single-currency history proceeds, with the configuration reported.
+- **Plan-shaped sources are gated by row counts** (`B1` subscription products, `B2` membership
+  CPT, `B3` recurring-plan meta), never by plugin detection. Zero rows on all three — every store
+  surveyed so far — reports "no pricing plans found". The gate and the plan body live target-side
+  in `rp-target-wix/lib/pricing-plan-definition.js`.
+
+## Currency is a store setting, not an order field
+
+`order.currency` is documented as an ISO 4217 code. Do not trust it. LIVE-FOUND 2026-09-05 on a
+real store, every one of 7,297 orders returned `currency: "&#8362;"` — the HTML-encoded shekel
+SYMBOL — because a plugin or theme filter had overridden the field. Passed through, the payment
+existence gate refuses every payment as a currency mismatch; passed through without a gate it
+labels amounts with a symbol.
+
+`lib/store-currency.js` resolves it: `readStoreCurrency()` reads `woocommerce_currency` from
+`/wc/v3/settings/general` (one request per run, and the store's own authoritative setting), and
+`resolveOrderCurrency(order, storeCurrency)` trusts the order's own value when it is a plausible
+ISO code — a multi-currency store legitimately holds several — and falls back to the store setting
+when it is not. It reports `order-currency-not-iso` when it falls back, because a store that
+mangles this field is a store whose other currency-bearing fields are suspect too.
+
+It never infers a code from a symbol. `$` is at least a dozen different currencies, and guessing
+one silently mislabels money.
