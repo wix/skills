@@ -47,8 +47,11 @@ management tools, or do both.
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
 visitor client (Write the code, below). Every handoff to a Wix-hosted page and back — checkout,
 and any other page where the visitor pays — runs on a visitor token minted for the headless OAuth
-app; a redirect session created with the admin token returns `403`. See Visitor authentication and
-Wix-hosted flows below.
+app. A redirect session refuses the admin token outright (`403`); a checkout URL created with it
+does work, which is what makes it a trap — that checkout belongs to the site rather than to the
+buyer, so cart persistence, abandoned-checkout recovery and session attribution never reach the
+customer, and the return to this app only works for URLs in the OAuth app's redirect list. See
+Visitor authentication and Wix-hosted flows below.
 **The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
 `clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
 a reason to move the flow onto the admin token or leave it for later.
@@ -66,11 +69,21 @@ explicitly authorized elevated operations. For an app with both visitor and admi
 keep each feature on its corresponding flow. A site with no OAuth app yet is still a visitor
 app: create the app with `wx.ensureOAuthApp` and keep the visitor features on the visitor flow.
 
+**An app with no login still serves visitors.** `asServiceRole` governs this app's own data
+access, and says nothing about which identity Wix sees: a public page's Wix calls still run on a
+visitor token. Reach for the admin token because a feature is owner-side, never because nobody
+signs in — a checkout sent through it makes the site the buyer.
+
 ```
 visitor pages ──(visitor token)────────────────────────► wixapis.com
 admin pages   ──► base44/functions/… ──(admin token)────► wixapis.com
 exec_tool     ──(admin token, ad hoc management)────────► wixapis.com
 ```
+
+**The connected site owns its payments.** A Wix order, booking or ticket is paid on the Wix-hosted
+page this app hands the visitor off to, with the provider the site already has. The platform's
+list of available payment providers describes checkout hosted by this app instead — it does not
+apply to these flows, and needs no step here, whichever providers it names.
 
 ## The helpers
 
