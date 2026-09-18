@@ -176,7 +176,16 @@ export const defaultProps = {
 ### Wix Data Types
 
 Use `Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText` from
-`@wix/editor-react-types`. See `node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts` for the full list.
+`@wix/editor-react-types`. Model authored media with the corresponding Wix
+media type, whether it is a top-level prop or a field in an array item. Name
+the field for the media itself (`image`, `video`, `audio`, and so on), not for
+one representation of it.
+
+Do not represent media as a URL/source string or split its metadata across
+primitive props. Preserve the media object through the public contract so the
+component can consume all of its supported data. See
+`node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts` for the
+full list.
 
 ## Defaults and Resources
 
@@ -242,5 +251,6 @@ Do not extract tiny fragments merely to satisfy a line-count threshold.
 - [ ] Named inner parts have `elementProps` wiring; leaf components avoid exported `children`.
 - [ ] One-body-visible arrays use the active-item contract and render all bodies.
 - [ ] Array elements are objects with semantic named fields. No separate `id` field added to item types; React keys use item fields (stable unique → slug → index), not a typed `id`.
+- [ ] Authored media uses the corresponding Wix media type, not URL/source strings or flattened metadata.
 - [ ] Defaults live only in the props file (no JSX fallbacks).
 - [ ] Resources are Wix-hosted, prop-supplied, or locally bundled.
