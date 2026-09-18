@@ -7,6 +7,39 @@ description: Complete booking flow from service discovery to payment. Query serv
 
 Step-by-step flow for implementing a complete booking experience using REST APIs.
 
+> ## ⚠️ This is a management recipe — owner-side calls, not visitor-facing code
+>
+> Every call below runs with the **site owner's credentials** (API key or the site's admin token),
+> from a server or a management tool. The booking it creates belongs to the site, not to the
+> person being booked.
+>
+> **Building a site or app where a visitor books for themselves? These payloads are right, the
+> identity is not.** A visitor's booking and checkout run on an **anonymous visitor token** minted
+> from the site's OAuth app client id. Using the owner's credentials for a visitor's purchase
+> produces a checkout that belongs to the site: no cart persistence, no abandoned-checkout
+> recovery, and no attribution to the customer. Read these first:
+>
+> | Doc | What it gives you |
+> |---|---|
+> | [Book an Appointment](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/book-an-appointment) | The same flow from the visitor's side — visitor token, slot re-validation, booking form fields, checkout hand-off, and eight pitfalls from real conversations |
+> | [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens) | How to mint and refresh the anonymous visitor token |
+> | [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains) | Registering your URLs so the visitor returns to your app after the Wix-hosted checkout |
+> | [Manage OAuth Apps](../sites/manage-oauth-apps.md) | Creating the OAuth app, whose id is the `client_id` the frontend mints visitor tokens from |
+> | [Bookings Quick Start](https://dev.wix.com/docs/go-headless/self-managed-headless/tutorials/java-script-sdk-tutorials/bookings-quick-start) | The same flow through the JavaScript SDK on a headless site |
+>
+> Mixed apps are normal: the owner's credentials manage the catalog, staff, policies and coupons
+> (the recipes here), while the visitor's own token books and pays.
+
+## Contents
+
+| Step | Endpoint | Section |
+|---|---|---|
+| 1 | `POST /bookings/v2/services/query` | [Query Available Services](#step-1-query-available-services) |
+| 2 | `POST /_api/service-availability/v2/time-slots` | [Check Availability](#step-2-check-availability) — date format, parameters, what to save, classes |
+| 3 | `POST /_api/bookings-service/v2/bookings` | [Create the Booking](#step-3-create-the-booking) — appointments, classes, courses, participants |
+| 4 | `…/confirm` or `POST /ecom/v2/carts` | [Confirm or Process Payment](#step-4-confirm-or-process-payment) — free/offline vs online |
+| — | — | [Service Type Summary](#service-type-summary) — which `bookedEntity` and availability API per type |
+
 ## Prerequisites
 
 - **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
@@ -256,7 +289,14 @@ Use the booking ID as `catalogItemId` with the Wix Bookings app ID. Save `cart.i
 
 Redirect the user to the returned `checkoutUrl`. After payment, the booking is automatically confirmed.
 
-**4c. Place Order (alternative, server-to-server)**
+> When the person paying is a visitor, create the cart and this URL **with their visitor token**,
+> not the owner's credentials — see the note at the top. The call succeeds either way, which is
+> what makes it easy to get wrong.
+
+**4c. Place Order — owner-side only (alternative, server-to-server)**
+
+> This path charges nothing and belongs to the owner: it books and orders on someone's behalf with
+> no payment page. It is not a substitute for sending a visitor to checkout.
 
 First calculate the cart to get a price-verification token:
 
