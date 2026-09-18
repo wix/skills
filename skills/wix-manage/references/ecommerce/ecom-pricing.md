@@ -23,6 +23,7 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 ### Actions — concrete operations
 
 > - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
+> - [Delete / remove / clean up a coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:delete-coupon]` · priority 0 · *same recipe as Create coupon — it also covers the Delete Coupon step and its merchant-confirmation guardrail; do not go straight to the raw Coupons API docs for this*
 > - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
 > - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
 > - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
@@ -66,6 +67,7 @@ The agent matches the merchant's natural-language query to an `intent:*` tag (cu
 | Merchant query | MerchantContext | Match |
 |---|---|---|
 | "Create a 20% off coupon" | any | `ecom-pricing-create-coupon` via `[intent:create-coupon]` |
+| "Delete my expired coupons" / "get rid of this coupon" | any | `ecom-pricing-create-coupon` via `[intent:delete-coupon]` |
 | "Run a Black Friday sale" | any | `recommend-ecommerce-strategy` via `[intent:run-a-sale]` (orchestrator classifies as SEASONAL internally) |
 | "Help me boost my sales" | any | `recommend-ecommerce-strategy` via `[intent:boost-business]` |
 | "My coupon code XMAS isn't working" | any | `ecom-pricing-troubleshoot-not-applying` |
