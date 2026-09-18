@@ -106,8 +106,8 @@ Full CRUD operations for Wix Bookings services using Services API. Covers servic
 ### [Check Bookings Availability (and Diagnose Issues)](references/bookings/diagnose-availability-issues.md)
 "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
 
-### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
-Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
+### [End-to-End Booking Flow — Owner Side](references/bookings/end-to-end-booking-flow.md)
+Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 
 ### [External Calendar Integration](references/bookings/external-calendar-integration.md)
 OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management.

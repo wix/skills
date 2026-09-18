@@ -1,17 +1,23 @@
 ---
-name: "End-to-End Booking Flow"
-description: Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
+name: "End-to-End Booking Flow — Owner Side"
+description: Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 ---
 
-# End-to-End Booking Flow (REST)
+# End-to-End Booking Flow — Owner Side (REST)
 
-Step-by-step flow for implementing a complete booking experience using REST APIs.
+Step-by-step flow for creating and settling bookings with the site owner's credentials.
 
-> ## ⚠️ This is a management recipe — owner-side calls, not visitor-facing code
+> ## ⚠️ These are owner-side calls, not visitor-facing code
 >
-> Every call below runs with the **site owner's credentials** (API key or the site's admin token),
-> from a server or a management tool. The booking it creates belongs to the site, not to the
-> person being booked.
+> Every call below runs with the **site owner's credentials** — an API key or the site's admin
+> token. That covers two situations, and both are this recipe:
+>
+> - an **operator managing bookings**, calling these APIs from a script, a management tool, or a
+>   back-office screen
+> - **server-side code in a site or app acting as the owner** — a backend function booking a
+>   client in, a scheduled job, a webhook handler
+>
+> Either way the booking belongs to the site, not to the person being booked.
 >
 > **Building a site or app where a visitor books for themselves? These payloads are right, the
 > identity is not.** A visitor's booking and checkout run on an **anonymous visitor token** minted
@@ -51,8 +57,9 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
    lands as `CREATED` and is not on the calendar until step 4.
 4. [Confirm or Process Payment](#step-4-confirm-or-process-payment) — two branches. Free and
    pay-at-location bookings are confirmed directly with a payment status. Paid bookings go into a
-   cart that references the booking id, and the visitor is sent to its checkout URL; a
-   server-to-server place-order path exists for owner-side bookings that take no payment.
+   cart that references the booking id, and whoever is paying is sent to its checkout URL; a
+   server-to-server place-order path skips the payment page entirely, which only fits an operator
+   or backend job booking someone in.
 5. [Service Type Summary](#service-type-summary) — appointment, class and course side by side:
    which `bookedEntity` each uses, which availability API feeds it, and what makes it different.
 
@@ -309,10 +316,11 @@ Redirect the user to the returned `checkoutUrl`. After payment, the booking is a
 > not the owner's credentials — see the note at the top. The call succeeds either way, which is
 > what makes it easy to get wrong.
 
-**4c. Place Order — owner-side only (alternative, server-to-server)**
+**4c. Place Order — no payment page (alternative, server-to-server)**
 
-> This path charges nothing and belongs to the owner: it books and orders on someone's behalf with
-> no payment page. It is not a substitute for sending a visitor to checkout.
+> This one only makes sense on the owner's side: it creates the order outright, with nobody
+> visiting a payment page. Right for an operator or backend job booking someone in; not a way to
+> charge a visitor, who still has to be sent to checkout.
 
 First calculate the cart to get a price-verification token:
 
