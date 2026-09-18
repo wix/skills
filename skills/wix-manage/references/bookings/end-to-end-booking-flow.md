@@ -1,11 +1,12 @@
 ---
-name: "End-to-End Booking Flow — Owner Side"
+name: "End-to-End Booking Flow"
 description: Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 ---
 
-# End-to-End Booking Flow — Owner Side (REST)
+# End-to-End Booking Flow (REST)
 
-Step-by-step flow for creating and settling bookings with the site owner's credentials.
+Step-by-step flow for creating and settling bookings **with the site owner's credentials** —
+see who that covers, and where visitor-facing code goes instead, immediately below.
 
 > ## ⚠️ These are owner-side calls, not visitor-facing code
 >
