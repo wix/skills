@@ -80,9 +80,9 @@ exec_tool     ──(admin token, ad hoc management)────────► 
 ```
 
 **The connected site owns its payments.** Whatever the visitor buys is paid on the Wix-hosted page
-this app hands them off to, with the provider the site already has. The platform's
-list of available payment providers describes checkout hosted by this app instead — it does not
-apply to these flows, and needs no step here, whichever providers it names.
+this app hands them off to, with the provider the site already has. Base44's
+`<available_payment_providers>` note is about checkout that Base44 hosts instead — it does not
+apply to these flows, and asks nothing of them, whichever providers it names or rules out.
 
 ## The helpers
 
