@@ -13,27 +13,36 @@ site.
 
 **[Path A — publish the files yourself](#path-a--publish-the-files-yourself).**
 Three unauthenticated calls — create a site, upload the files, release — and the
-user has a live URL in seconds, without ever leaving the conversation or signing
-in. If you also hold the user's identity, two more calls put the site in their
-own Wix account and return its permanent URL and dashboard. Available when you
-can read the file bytes, because you generated them in this conversation or they
-are reachable from where you are running, **and** you can make outbound HTTPS
-requests.
+user has a live URL in seconds, without ever leaving the conversation. Available
+when you can read the file bytes, because you generated them in this
+conversation or they are reachable from where you are running, **and** you can
+make outbound HTTPS requests. From there Path A finishes one of two ways, and
+both are complete answers:
+
+- **No user identity — the anonymous finish.** You hand over the live URL plus a
+  save link the user opens to sign in and keep the site. This is the ordinary
+  outcome, not a degraded one: it is exactly what the drop page itself does, and
+  it works for someone who has never had a Wix account.
+- **You hold the user's identity — the account finish.** Two more calls put the
+  site in their Wix account and return its permanent URL and dashboard, with
+  nothing left for them to do.
 
 **[Path B — hand the user the drop page](#path-b--hand-the-user-the-drop-page).**
 One URL. The user drags their files in themselves, gets the same instantly
 hosted site, and signs in there to keep it. Use it when the files live only on
 the user's machine, or you cannot make arbitrary HTTP requests.
 
-Prefer Path A whenever it is available — it is the same outcome with nothing for
-the user to do. But decide honestly: if you cannot read the bytes, you cannot
-publish them, so take Path B rather than reporting an upload you did not
-perform.
+Prefer Path A whenever it is available — the user gets a live site without
+doing the upload themselves. But decide honestly: if you cannot read the bytes,
+you cannot publish them, so take Path B rather than reporting an upload you did
+not perform.
 
 ## Path A — publish the files yourself
 
-Three calls put the site live, and they need no authentication at all. If you
-also hold the user's identity, two more calls put the site in their own account.
+Steps 1–3 put the site live and need no authentication at all. Step 3 then
+branches on whether you hold the user's identity: without one you hand over the
+site and a save link and you are done; with one you continue to steps 4 and 5
+and finish the job yourself. Neither ending is a fallback for the other.
 
 ```
 Base URL: https://www.wixapis.com/headless-business-setup
@@ -101,13 +110,14 @@ curl -sS -X POST \
 The site is live at `siteUrl` immediately. What you do next depends on whether
 you hold the user's identity.
 
-**3a. You have a user or account-level access token for the user** — continue to
+**3a. You have a user or account-level access token for the user.** Continue to
 step 4 now. Do not stop here and hand over a temporary site: an unclaimed site
 expires, so putting it in their account is part of publishing it, not an extra
 favour to ask about.
 
-**3b. You have no user identity** — give the user `siteUrl` together with the
-save link, which is the only way the site survives:
+**3b. You have no user identity.** Stop here — this is a finished, legitimate
+result, and the one the drop page produces for every visitor. Give the user
+`siteUrl` together with the save link, which is how the site survives:
 
 ```
 https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
