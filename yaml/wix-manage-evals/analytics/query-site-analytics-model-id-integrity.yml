@@ -1,0 +1,50 @@
+name: analytics/query-site-analytics-model-id-integrity
+description: >-
+  Verifies the agent reads the query-site-analytics skill and runs List -> Get -> Query as
+  separate calls with a model id that stays intact end to end: copied once from the List row it
+  chose, then reused unchanged from its own Get call for Query. Guards the observed failure where
+  the id sent to Get or Query is a splice of two List rows and fails with SEMANTIC_MODEL_NOT_FOUND.
+triggerPrompt: >-
+  How's my site's traffic doing this month? Sessions and page views are enough.
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how their site's traffic is doing this month (sessions and page views).
+      Intent: answer from the Semantic Model API traffic model for the current month.
+
+      Examine the tool-call trace and the final response.
+
+      Pass ONLY if:
+      - the agent called List Semantic Models, then Get Semantic Model, then Query Semantic Model
+        Data, each as its own call (not one combined script), AND
+      - the `semanticModelId` sent to Get appears verbatim in the List result, and the
+        `semanticModelId` sent to Query is byte-for-byte the same string as the `semanticModel.id`
+        in the Get response, AND
+      - the chosen model is the site traffic model (slug `traffic` or equivalent), AND
+      - the Query included a time `interval` covering the current month, AND
+      - the response reports the traffic numbers, or states plainly that there is no traffic data
+        for the period.
+
+      Fail if:
+      - any Get or Query call returned SEMANTIC_MODEL_NOT_FOUND, OR
+      - any id sent to Get or Query is not present verbatim in an earlier tool result, OR
+      - the id sent to Query differs from the id returned by Get for that model, OR
+      - the agent asked the user for the model id, guessed one, or answered without querying.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent fulfilled the request. Examine the tool-call trace. Score 0-10
+      (10 = direct: List, Get, Query, answer; no wasted calls, no errors). Penalize and LIST any of:
+      a non-2xx error even if recovered (especially SEMANTIC_MODEL_NOT_FOUND); a model id that was
+      re-copied from the List result after Get had already returned it; a retry with a "corrected"
+      or similar-looking id instead of re-reading it from a tool result; List, Get and Query merged
+      into a single script; field names guessed rather than read from Get; redundant docs lookups
+      for things the skill already states. For each, name the likely skill/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

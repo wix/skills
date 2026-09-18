@@ -34,7 +34,7 @@ Always follow **List → Get → Query**. You cannot construct a valid query wit
 
 **Run each step as its own separate API call, and stop to read the result before starting the next step.** The inputs to each step do not exist until the previous step returns:
 
-- You cannot set `semanticModelId` until **List** returns it. **Never fabricate or guess a model ID** — it must be a GUID copied verbatim from a `List Semantic Models` result. A plausible-looking GUID that List did not return will fail (`SEMANTIC_MODEL_NOT_FOUND`).
+- You cannot set `semanticModelId` until **List** returns it. **Never fabricate or guess a model ID.** For **Get**, locate the model in the `List Semantic Models` result by its `slug`/`description` and copy the `id` next to it. For **Query**, take `semanticModel.id` from that model's Get response rather than from the list. A plausible-looking GUID that List did not return will fail (`SEMANTIC_MODEL_NOT_FOUND`).
 - You cannot set `fields`, `filters[].field`, or `sort.fieldName` until you have read the schema from **Get**.
 
 Choosing the model and the field names is a **reasoning** step you perform by reading the returned JSON — not something to automate with string matching. Do **not** chain List, Get, and Query into a single script/execution.
@@ -55,7 +55,7 @@ This guesses field names, ignores each field's `dependencies` (so those fields c
 
 1. Call **List**. Read the returned models; pick the `id` whose subject area matches the request.
 2. Call **Get** with that `id`. Read `measures`/`dimensions`/`parameters`; choose the exact `name`s you need and note each field's `dependencies`.
-3. Call **Query** with the field names you chose.
+3. Call **Query** with the field names you chose and the `semanticModel.id` from that model's Get response, unchanged.
 
 ## Before you begin (sharp edges)
 
@@ -272,7 +272,7 @@ Analytics questions are answered from the site's **semantic models**, discovered
 |---|---|---|
 | 4XX | `fieldIsInvalid` | A `fields`/`filters[].field`/`sort.fieldName` value doesn't exist in the model, and this query rejected it (some invalid fields are instead silently dropped from a `200` — see *Handling wrong fields*). When present, the error lists the model's **available field names** — pick the correct one and re-query. |
 | 401 | `NO_ACCOUNT_IDENTITY` / `UNAUTHENTICATED` | Caller isn't authenticated; provide valid credentials. |
-| 404 | `SEMANTIC_MODEL_NOT_FOUND` | The `semanticModelId` doesn't exist for this site. |
+| 404 | `SEMANTIC_MODEL_NOT_FOUND` | The `semanticModelId` doesn't exist for this site. Re-read the id from that model's Get response (or, if Get failed, from the List row located by its `slug`) and resend it unchanged; do not retry with a similar-looking or "corrected" id. |
 
 Error codes are self-explanatory strings (e.g. `fieldIsInvalid`) — read the code and the fields it returns rather than parsing a fixed body shape. Note: not every invalid field errors; some are silently omitted from a `200` response, so also validate the response (see *Handling wrong fields*).
 
@@ -280,7 +280,7 @@ Silent gap (no error): a requested field returns no data because none of its `de
 
 ## Best Practices
 
-1. Always run **List → Get → Query** as three separate calls; read each result before composing the next, and never hardcode or pattern-match field names — read them from `Get Semantic Model`.
+1. Always run **List → Get → Query** as three separate calls; read each result before composing the next, and never hardcode or pattern-match field names — read them from `Get Semantic Model`. Take the model `id` from the List row for Get, and `semanticModel.id` from that model's Get response for Query.
 2. Pass the site's time zone (`properties.timeZone` from Get Site Properties) in `interval.timezone` **and** set `start`/`end` to local-midnight-in-UTC for that zone (DST-aware) so results match the Wix dashboard. `start`/`end` are absolute instants, not wall-clock.
 3. Include a field's `dependencies` in the query, or expect that field to be silently dropped.
 4. After each query, validate the response — confirm every requested field appears in `results[].fields`. A wrong field either errors (`4XX`, e.g. `fieldIsInvalid`) or is silently dropped from a `200`; a missing field means an unknown name or a missing dependency. Fix and re-query rather than trusting the partial result. Choose fields by reading their `description` (honoring "do not use" notes), never by name pattern.
