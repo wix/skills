@@ -46,8 +46,8 @@ management tools, or do both.
 **A site for visitors** — use a visitor token for public reads and actions on behalf of the
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
 visitor client (Write the code, below).
-**Checkout runs on a visitor token, never the admin token** — including checkout for a booking or
-ticket the owner set up. The admin token *will* hand back a checkout URL, and that is the trap: it
+**Checkout runs on a visitor token, never the admin token** — including a checkout this app
+creates for the visitor. The admin token *will* hand back a checkout URL, and that is the trap: it
 belongs to the site rather than the buyer (no cart persistence, no abandoned-checkout recovery, no
 attribution), and a redirect session refuses it outright (`403`). Returns reach this app only from
 URLs in the OAuth app's redirect list; see Visitor authentication and Wix-hosted flows below.
@@ -79,8 +79,8 @@ admin pages   ──► base44/functions/… ──(admin token)────► 
 exec_tool     ──(admin token, ad hoc management)────────► wixapis.com
 ```
 
-**The connected site owns its payments.** A Wix order, booking or ticket is paid on the Wix-hosted
-page this app hands the visitor off to, with the provider the site already has. The platform's
+**The connected site owns its payments.** Whatever the visitor buys is paid on the Wix-hosted page
+this app hands them off to, with the provider the site already has. The platform's
 list of available payment providers describes checkout hosted by this app instead — it does not
 apply to these flows, and needs no step here, whichever providers it names.
 
