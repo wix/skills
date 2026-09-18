@@ -46,7 +46,8 @@ assertions:
       - creates the site with the meta-site template API or the headless-business provisioning API,
         OR
       - claims the site is live without a URL, OR
-      - transfers/claims the site into the user's account without asking the user first.
+      - holds a user identity for the caller and still stops at a temporary anonymous site
+        instead of claiming it into their account and returning the final URL.
       Mentioning the 1-hour window before the record expires, the 3 MB per file / 20 MB total
       limits, or the top-level-HTML requirement is a plus, not required.
   - type: llm_judge
@@ -65,7 +66,7 @@ assertions:
         - a call to the site-import API or any crawl/migration tool
         - an upload attempted as JSON rather than multipart
         - calls made out of order, or release attempted without an uploadId
-        - a claim/transfer call made without the user having asked to keep the site
+        - a claim/transfer call made before the release, or against a site that was never released
         - probing unrelated docs articles or APIs before settling on the flow
 
       For each issue, name the likely skill or docs gap that caused the detour.

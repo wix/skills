@@ -1,40 +1,40 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there: calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests, and handing the user the Wix Headless drop page when you cannot. Also covers transferring a published site into the user's own Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there: calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests, and handing the user the Wix Headless drop page when you cannot. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
 
 The user has a finished website as files — hand-written HTML, a static build, a
 zip, or the output of an AI site builder — and wants it live on Wix as a new
-site. There are two ways to get there. Pick by what you can actually do.
+site.
 
 ## Pick the path first
 
-| Can you read the file bytes — because you generated them in this conversation, or they are reachable from where you are running — **and** make outbound HTTPS requests? | Path |
-|---|---|
-| Yes | **[Path A](#path-a--publish-the-files-yourself)** — publish them yourself, and hand back a live URL |
-| No — the files are only on the user's machine, or you cannot make arbitrary HTTP requests | **[Path B](#path-b--hand-the-user-the-drop-page)** — hand the user the drop page |
+**Publish it yourself** when you can read the file bytes — because you generated
+them in this conversation, or they are reachable from where you are running —
+**and** you can make outbound HTTPS requests. Go to [Path A](#path-a--publish-the-files-yourself).
 
-Decide honestly: if you cannot read the bytes, you cannot publish them. Take
+**Hand the user the drop page** when you cannot: the files live only on the
+user's machine, or you cannot make arbitrary HTTP requests. Go to
+[Path B](#path-b--hand-the-user-the-drop-page).
+
+Decide honestly. If you cannot read the bytes, you cannot publish them — take
 Path B rather than reporting an upload you did not perform.
-
-Publishing costs the user nothing and requires no login — the site is created
-anonymously and is theirs to keep only if they claim it (step 4). Say so when
-you hand over the URL, so an unclaimed site does not expire unexpectedly.
 
 ## Path A — publish the files yourself
 
-Four calls. Steps 1–3 need no authentication at all; step 4 is optional and
-needs the user's account credentials.
+Three calls put the site live, and they need no authentication at all. If you
+also hold the user's identity, two more calls put the site in their own account.
 
 ```
 Base URL: https://www.wixapis.com/headless-business-setup
 ```
 
-You generate `anonymousId` yourself — any UUID, once per site — and reuse it in
-every call for that site. **Steps 1–3 must complete within one hour of step 1**;
-after that the site's record expires and steps 2, 3 and 4 return `404`.
+Generate `anonymousId` yourself — any UUID, once per site — and reuse it in
+every call for that site. **The whole flow must finish within one hour of step
+1.** After that the site's record expires and every later step returns `404`,
+including the claim, so do not leave the account step for a later session.
 
 ### 1. Create the site
 
@@ -49,20 +49,21 @@ curl -sS -X POST \
 ```
 
 Keep both. `metaSiteId` addresses the site in every later call; `projectId`
-builds the save link in step 4.
+builds the save link in step 3b.
 
 ### 2. Upload the files
 
-One `multipart/form-data` request. Send every file in a single call, each as a
-`files` part whose filename is its **path relative to the site root** — that is
-how subdirectories are preserved. A single `.zip` part works too; it is
-unpacked server-side.
+One `multipart/form-data` request carrying every file. Each file is a part named
+`files`, and **the part's filename is the file's path relative to the site
+root** — that is how subdirectories survive. With `curl`, set that path
+explicitly with `;filename=` whenever it is not just the basename.
 
 ```bash
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?trackingId=$TRACKING_ID" \
-  -F "files=@index.html" \
+  -F "files=@index.html;filename=index.html" \
   -F "files=@assets/styles.css;filename=assets/styles.css" \
+  -F "files=@assets/app.js;filename=assets/app.js" \
   -F "files=@assets/logo.png;filename=assets/logo.png"
 ```
 
@@ -70,8 +71,11 @@ curl -sS -X POST \
 { "uploadId": "03244542-d820-42f6-acfa-166c6658b1a6" }
 ```
 
+A single `.zip` part works too — send it as the only part and it is unpacked
+server-side, with a single wrapping folder stripped automatically.
+
 `trackingId` is an optional UUID you generate; pass it so the upload can be
-correlated later. Nothing is live yet — this only stages and validates.
+correlated later. Nothing is live yet — this call only stages and validates.
 
 ### 3. Release — the site goes live
 
@@ -86,22 +90,27 @@ curl -sS -X POST \
 { "siteUrl": "https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com" }
 ```
 
-Give the user `siteUrl` — it is live immediately — **and** the save link, which
-is the only way an unclaimed site survives:
+The site is live at `siteUrl` immediately. What you do next depends on whether
+you hold the user's identity.
+
+**3a. You have a user or account-level access token for the user** — continue to
+step 4 now. Do not stop here and hand over a temporary site: an unclaimed site
+expires, so putting it in their account is part of publishing it, not an extra
+favour to ask about.
+
+**3b. You have no user identity** — give the user `siteUrl` together with the
+save link, which is the only way the site survives:
 
 ```
 https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
 ```
 
-That page shows the site with a countdown and signs the user in to keep it.
-Treat the link as a secret: anyone who opens it while signed in to Wix claims
-the site into *their* account, so send it only to the user who asked.
+That page shows the site with a countdown and signs the user in to keep it. Tell
+them the site is anonymous and disappears if they do not. Treat the link as a
+secret — anyone who opens it while signed in to Wix claims the site into *their*
+account — so give it only to the user who asked.
 
-### 4. Optional — save the site into the user's Wix account
-
-Only when the user asks to keep the site **and** you hold an account-level
-access token for them. **Confirm with the user before calling this** — it
-transfers a site into their account, and it can only be done once.
+### 4. Put the site in the user's account
 
 ```bash
 curl -sS -X POST \
@@ -109,21 +118,21 @@ curl -sS -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Returns `{}` on success. Requires a user or account-level identity; without one
-it fails with `UNAUTHENTICATED`. It consumes the anonymous record, so steps 2–4
-stop working afterwards — claim last.
+Returns `{}` on success. It needs a user or account-level identity; without one
+it fails with `UNAUTHENTICATED`. It consumes the anonymous record, so it is the
+last call that works against these endpoints — do it after the release, never
+before.
 
-**The site's URL changes when it is claimed.** The temporary host from step 3
-stops resolving, because the free host is scoped to the owning account and is
-re-minted under the user's. Do not repeat the step-3 URL after a claim — read
-the new one in step 5.
+**The site's URL changes here.** The temporary host from step 3 stops resolving,
+because the free host is scoped to the owning account and is re-minted under the
+user's. Never repeat the step-3 URL after a claim — read the new one in step 5.
 
-### 5. After a claim — read the site's final URL
+### 5. Read the site's final URL
 
 [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites)
-with the **`HEADLESS` namespace**. Headless sites are omitted from the default
-query, so the filter is required, and then match on the id yourself — an `id`
-filter is rejected by this endpoint.
+filtered to the **`HEADLESS` namespace**. Headless sites are left out of the
+default query, so that filter is required; then match the id yourself, because
+an `id` filter is rejected by this endpoint.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
@@ -141,33 +150,30 @@ Find the entry whose `id` equals your `metaSiteId` and read `viewUrl`; page with
   "viewUrl": "https://instant-hguwrvtcrniw-ayalg5-1406.wix-site-host.com/" }
 ```
 
-Report `viewUrl` as the live site, plus its dashboard at
-`https://manage.wix.com/dashboard/{metaSiteId}` for managing it.
+Give the user two links: `viewUrl` for the live site, and its dashboard at
+`https://manage.wix.com/dashboard/{metaSiteId}` for managing and changing it.
 
 ### What the upload accepts, and how it fails
 
 Check these before uploading — they are the reasons a release never happens:
 
 - **An HTML file at the top level is required.** It need not be named
-  `index.html`: a single top-level HTML file of any name becomes the homepage,
-  and a zip or folder that wraps everything in one directory
-  (`my-site/index.html`) is unwrapped automatically.
+  `index.html`: a single top-level HTML file of any name becomes the homepage.
+  Once there is more than one, an `index.html` must be among them.
 - **3 MB per file, 20 MB per site.**
 - **Static files only** — HTML, CSS, JS, images, fonts. Framework source that
   needs a build step (a `package.json`, React/Vue sources) must be built first;
   upload the build output, not the source.
 
-Failures come back as HTTP 400 with the code in
-`details.applicationError.code`:
+Failures come back as HTTP 400 with a code in `details.applicationError.code`:
 
-| Code | Meaning | Fix |
-|---|---|---|
-| `MISSING_INDEX_HTML` | no HTML file at the top level | move an HTML file to the root of what you send |
-| `FILE_TOO_LARGE` | a single file exceeds 3 MB | shrink or drop that file |
-| `TOTAL_TOO_LARGE` | the bundle exceeds 20 MB | reduce total size |
+- `MISSING_INDEX_HTML` — no HTML file at the top level of what you sent. Move an
+  HTML file to the root of the upload.
+- `FILE_TOO_LARGE` — one file is over 3 MB. Shrink or drop it.
+- `TOTAL_TOO_LARGE` — the bundle is over 20 MB. Reduce the total.
 
-A `404` on steps 2–4 means the one-hour window has passed or the site was
-already claimed — start again from step 1.
+A `404` on any step after the first means the one-hour window has passed, or the
+site was already claimed. Start again from step 1.
 
 ## Path B — hand the user the drop page
 
@@ -184,19 +190,25 @@ What happens there: the user drags in their files or a zip — no login needed �
 and Wix hosts them immediately on a live URL. A banner offers to sign in and
 keep the site, which transfers it into their account.
 
-Tell them the requirements above (top-level HTML, 3 MB per file, 20 MB total,
-static files only) so the upload does not fail on the first try.
+Tell them the requirements above — top-level HTML, 3 MB per file, 20 MB total,
+static files only — so the upload does not fail on the first try.
 
 ## Route the request correctly
 
-| The user has… | Do this |
-|---|---|
-| Files you generated in this conversation, or files you can read, and wants them live | Path A — publish them and return the live URL |
-| Site files only on their own machine, or you cannot make HTTP calls | Path B — the drop URL |
-| A published anonymous site they now want to keep | Steps 4–5, or the save link from step 3 |
-| A live site or store on another platform (a URL), or CSV/TSV exports, and wants content/products migrated | [Site Import](site-import.md) |
-| An existing Wix site they want to add HTML, an embed, or custom code into | Not this recipe — that's embedding custom code in the site editor |
-| Images, videos, or documents to add to a site | [Upload Media to Wix](../media/upload-media-to-wix.md) — media goes to a site's media files, not a new site |
+- **Files you generated in this conversation, or files you can read** — Path A.
+  Publish them, and if you hold the user's identity, put the site in their
+  account and return the live URL and the dashboard.
+- **Site files only on the user's machine, or you cannot make HTTP calls** —
+  Path B, the drop URL.
+- **A published anonymous site the user now wants to keep** — steps 4 and 5 if
+  you hold their identity, otherwise the save link from step 3b.
+- **A live site or store on another platform (a URL), or CSV/TSV exports, with
+  content or products to migrate** — [Site Import](site-import.md).
+- **An existing Wix site to add HTML, an embed, or custom code into** — not this
+  recipe; that is embedding custom code in the site editor.
+- **Images, videos, or documents to add to a site** —
+  [Upload Media to Wix](../media/upload-media-to-wix.md). Media goes to a site's
+  media files, not a new site.
 
 Do not create the site with other site-creation tools (meta-site templates,
 headless-business provisioning) — those produce an empty site, not a published
