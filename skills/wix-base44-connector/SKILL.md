@@ -45,13 +45,12 @@ management tools, or do both.
 
 **A site for visitors** — use a visitor token for public reads and actions on behalf of the
 visitor, never the admin connector token. Call Wix directly from the browser through one shared
-visitor client (Write the code, below). Every handoff to a Wix-hosted page and back — checkout,
-and any other page where the visitor pays — runs on a visitor token minted for the headless OAuth
-app. A redirect session refuses the admin token outright (`403`); a checkout URL created with it
-does work, which is what makes it a trap — that checkout belongs to the site rather than to the
-buyer, so cart persistence, abandoned-checkout recovery and session attribution never reach the
-customer, and the return to this app only works for URLs in the OAuth app's redirect list. See
-Visitor authentication and Wix-hosted flows below.
+visitor client (Write the code, below).
+**Checkout runs on a visitor token, never the admin token** — including checkout for a booking or
+ticket the owner set up. The admin token *will* hand back a checkout URL, and that is the trap: it
+belongs to the site rather than the buyer (no cart persistence, no abandoned-checkout recovery, no
+attribution), and a redirect session refuses it outright (`403`). Returns reach this app only from
+URLs in the OAuth app's redirect list; see Visitor authentication and Wix-hosted flows below.
 **The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
 `clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
 a reason to move the flow onto the admin token or leave it for later.
