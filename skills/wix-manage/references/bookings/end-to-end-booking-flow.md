@@ -36,14 +36,25 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 
 ## Contents
 
-1. [Query Available Services](#step-1-query-available-services) — `POST /bookings/v2/services/query`
-2. [Check Availability](#step-2-check-availability) — `POST /_api/service-availability/v2/time-slots`;
-   date format, parameters, what to save from each slot, classes
-3. [Create the Booking](#step-3-create-the-booking) — `POST /_api/bookings-service/v2/bookings`;
-   appointments, classes, courses, participants
-4. [Confirm or Process Payment](#step-4-confirm-or-process-payment) — `…/confirm` for free and
-   offline, `POST /ecom/v2/carts` for online
-5. [Service Type Summary](#service-type-summary) — which `bookedEntity` and availability API per type
+1. [Query Available Services](#step-1-query-available-services) — `POST /bookings/v2/services/query`.
+   The three service types and how each one changes the rest of the flow, plus the four fields to
+   carry forward: `id`, `schedule.id`, `type`, `staffMemberIds`.
+2. [Check Availability](#step-2-check-availability) — `POST /_api/service-availability/v2/time-slots`.
+   Time Slots V2 replaces the deprecated Availability Calendar. Dates must be full local
+   datetimes or the call 400s; `availableResources` stays empty unless you ask for it by resource
+   type; the `location.locationType` a slot returns is **not** the value Create Booking accepts.
+   Classes come from a different endpoint and carry an `eventId`.
+3. [Create the Booking](#step-3-create-the-booking) — `POST /_api/bookings-service/v2/bookings`.
+   One payload shape per service type: appointments need every slot field spelled out, classes
+   need only the service and event ids and derive the rest, courses book a whole schedule.
+   Participants are `totalParticipants` **or** `participantsChoices`, never both. The booking
+   lands as `CREATED` and is not on the calendar until step 4.
+4. [Confirm or Process Payment](#step-4-confirm-or-process-payment) — two branches. Free and
+   pay-at-location bookings are confirmed directly with a payment status. Paid bookings go into a
+   cart that references the booking id, and the visitor is sent to its checkout URL; a
+   server-to-server place-order path exists for owner-side bookings that take no payment.
+5. [Service Type Summary](#service-type-summary) — appointment, class and course side by side:
+   which `bookedEntity` each uses, which availability API feeds it, and what makes it different.
 
 ## Prerequisites
 
