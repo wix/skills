@@ -19,26 +19,31 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 > produces a checkout that belongs to the site: no cart persistence, no abandoned-checkout
 > recovery, and no attribution to the customer. Read these first:
 >
-> | Doc | What it gives you |
-> |---|---|
-> | [Book an Appointment](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/book-an-appointment) | The same flow from the visitor's side — visitor token, slot re-validation, booking form fields, checkout hand-off, and eight pitfalls from real conversations |
-> | [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens) | How to mint and refresh the anonymous visitor token |
-> | [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains) | Registering your URLs so the visitor returns to your app after the Wix-hosted checkout |
-> | [Manage OAuth Apps](../sites/manage-oauth-apps.md) | Creating the OAuth app, whose id is the `client_id` the frontend mints visitor tokens from |
-> | [Bookings Quick Start](https://dev.wix.com/docs/go-headless/self-managed-headless/tutorials/java-script-sdk-tutorials/bookings-quick-start) | The same flow through the JavaScript SDK on a headless site |
+> - [Book an Appointment](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/book-an-appointment)
+>   — the same flow from the visitor's side: visitor token, slot re-validation, booking form
+>   fields, checkout hand-off, and eight pitfalls from real conversations
+> - [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens)
+>   — minting and refreshing the anonymous visitor token
+> - [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains)
+>   — registering your URLs so the visitor returns to your app after the Wix-hosted checkout
+> - [Manage OAuth Apps](../sites/manage-oauth-apps.md) — creating the OAuth app, whose id is the
+>   `client_id` the frontend mints visitor tokens from
+> - [Bookings Quick Start](https://dev.wix.com/docs/go-headless/self-managed-headless/tutorials/java-script-sdk-tutorials/bookings-quick-start)
+>   — the same flow through the JavaScript SDK on a headless site
 >
 > Mixed apps are normal: the owner's credentials manage the catalog, staff, policies and coupons
 > (the recipes here), while the visitor's own token books and pays.
 
 ## Contents
 
-| Step | Endpoint | Section |
-|---|---|---|
-| 1 | `POST /bookings/v2/services/query` | [Query Available Services](#step-1-query-available-services) |
-| 2 | `POST /_api/service-availability/v2/time-slots` | [Check Availability](#step-2-check-availability) — date format, parameters, what to save, classes |
-| 3 | `POST /_api/bookings-service/v2/bookings` | [Create the Booking](#step-3-create-the-booking) — appointments, classes, courses, participants |
-| 4 | `…/confirm` or `POST /ecom/v2/carts` | [Confirm or Process Payment](#step-4-confirm-or-process-payment) — free/offline vs online |
-| — | — | [Service Type Summary](#service-type-summary) — which `bookedEntity` and availability API per type |
+1. [Query Available Services](#step-1-query-available-services) — `POST /bookings/v2/services/query`
+2. [Check Availability](#step-2-check-availability) — `POST /_api/service-availability/v2/time-slots`;
+   date format, parameters, what to save from each slot, classes
+3. [Create the Booking](#step-3-create-the-booking) — `POST /_api/bookings-service/v2/bookings`;
+   appointments, classes, courses, participants
+4. [Confirm or Process Payment](#step-4-confirm-or-process-payment) — `…/confirm` for free and
+   offline, `POST /ecom/v2/carts` for online
+5. [Service Type Summary](#service-type-summary) — which `bookedEntity` and availability API per type
 
 ## Prerequisites
 
