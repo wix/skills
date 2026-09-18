@@ -3,7 +3,7 @@ apiDoc:
 
   docs:
     - file: ../../../skills/wix-manage/references/bookings/end-to-end-booking-flow.md
-      title: End-to-End Booking Flow
+      title: End-to-End Booking Flow — Owner Side
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-and-update-booking-services.md
