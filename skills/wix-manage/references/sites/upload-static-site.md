@@ -9,18 +9,26 @@ The user has a finished website as files — hand-written HTML, a static build, 
 zip, or the output of an AI site builder — and wants it live on Wix as a new
 site.
 
-## Pick the path first
+## The two paths
 
-**Publish it yourself** when you can read the file bytes — because you generated
-them in this conversation, or they are reachable from where you are running —
-**and** you can make outbound HTTPS requests. Go to [Path A](#path-a--publish-the-files-yourself).
+**[Path A — publish the files yourself](#path-a--publish-the-files-yourself).**
+Three unauthenticated calls — create a site, upload the files, release — and the
+user has a live URL in seconds, without ever leaving the conversation or signing
+in. If you also hold the user's identity, two more calls put the site in their
+own Wix account and return its permanent URL and dashboard. Available when you
+can read the file bytes, because you generated them in this conversation or they
+are reachable from where you are running, **and** you can make outbound HTTPS
+requests.
 
-**Hand the user the drop page** when you cannot: the files live only on the
-user's machine, or you cannot make arbitrary HTTP requests. Go to
-[Path B](#path-b--hand-the-user-the-drop-page).
+**[Path B — hand the user the drop page](#path-b--hand-the-user-the-drop-page).**
+One URL. The user drags their files in themselves, gets the same instantly
+hosted site, and signs in there to keep it. Use it when the files live only on
+the user's machine, or you cannot make arbitrary HTTP requests.
 
-Decide honestly. If you cannot read the bytes, you cannot publish them — take
-Path B rather than reporting an upload you did not perform.
+Prefer Path A whenever it is available — it is the same outcome with nothing for
+the user to do. But decide honestly: if you cannot read the bytes, you cannot
+publish them, so take Path B rather than reporting an upload you did not
+perform.
 
 ## Path A — publish the files yourself
 
