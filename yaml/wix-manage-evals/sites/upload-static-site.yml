@@ -1,7 +1,7 @@
 name: sites/upload-static-site
 description: >-
   Verifies the agent reads the upload-static-site skill and, for files that live only on the
-  user's own machine and so are out of its reach, takes Path B — sends the user to the Wix
+  user's own machine and so are out of its reach, takes Path A — sends the user to the Wix
   Headless drop page with the attribution query parameter intact — instead of driving Site
   Import, creating a site via template/headless provision APIs, suggesting embedding the HTML
   into an existing site, or reporting an upload it could not have performed.
@@ -24,7 +24,7 @@ assertions:
       instantly hosted live site.
 
       The files are on the user's own machine, so the agent cannot read the bytes and cannot
-      publish them itself — Path B of the skill.
+      publish them itself — Path A of the skill.
 
       Pass if the response:
       - gives the URL https://www.wix.com/headless/drop?utm_campaign=mcp including the

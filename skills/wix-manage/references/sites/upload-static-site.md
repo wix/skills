@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests, and handing the user the Wix Headless drop page when you cannot. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — handing the user the Wix Headless drop page, and calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
@@ -11,25 +11,41 @@ site. There are two ways to get there.
 
 ## The two paths
 
-**[Path A — publish the files yourself](#path-a--publish-the-files-yourself).**
-Three calls to a live URL, no login needed. Available only when **both** hold:
-you can read the file bytes (you generated them here, or they're reachable from
-where you run), **and** you can do a `multipart/form-data` file upload from a
-shell (`curl` or equivalent). Reaching APIs *only* through the Wix
-API-call/execute-API tools does **not** count — they can't upload a local file —
-so that agent takes Path B.
+**[Path A — hand the user the drop page](#path-a--hand-the-user-the-drop-page).**
+One URL; the user uploads in the browser and gets a live site. This works for
+**any** agent and any user — it's the default. Reach for it whenever you can't
+clearly do Path B.
 
-**[Path B — hand the user the drop page](#path-b--hand-the-user-the-drop-page).**
-One URL; the user uploads in the browser. Take it when the files are only on the
-user's machine, when you can't make HTTP requests, or when you have no shell and
-your only reach is the API-call/execute-API tools. Same hosted result — a correct
-answer, not a consolation.
+**[Path B — publish the files yourself](#path-b--publish-the-files-yourself).**
+Three calls put the site live without the user touching a browser. Available only
+when **both** hold: you can read the file bytes (you generated them here, or
+they're reachable from where you run), **and** you can do a `multipart/form-data`
+file upload from a shell (`curl` or equivalent). Reaching APIs *only* through the
+Wix API-call/execute-API tools does **not** count — they can't upload a local
+file.
 
-Prefer Path A when it's genuinely available. But decide honestly on both
-conditions: if you can't read the bytes or can't upload from a shell, take Path B
-rather than attempting Path A and reporting an upload you couldn't perform.
+Prefer Path B when you can genuinely do it — the user gets a live site without
+uploading anything themselves. Otherwise, and by default, take Path A. Decide
+honestly: if you can't read the bytes or can't upload from a shell, hand over the
+drop page rather than attempting Path B and reporting an upload you couldn't
+perform.
 
-## Path A — publish the files yourself
+## Path A — hand the user the drop page
+
+Send the user here:
+
+```
+https://www.wix.com/headless/drop?utm_campaign=mcp
+```
+
+**Give the URL exactly as written, including `utm_campaign=mcp`** — it attributes
+the visit to an assistant referral; rewriting it breaks that. There the user drags
+in their files (no login), Wix hosts them immediately on a live URL, and a banner
+offers to sign in and keep the site. Tell them the requirements from
+[What the upload accepts](#what-the-upload-accepts-and-how-it-fails) so it doesn't
+fail on the first try.
+
+## Path B — publish the files yourself
 
 > **Run every call from your shell with `curl` — not the Wix API-call/execute-API
 > tools.** The upload (step 2) and the download in
@@ -164,7 +180,8 @@ Give the user two links: `viewUrl` for the live site, and its dashboard at
 
 ### What the upload accepts, and how it fails
 
-Check these before uploading — they are why a release never happens:
+The requirements below apply to both paths — an upload that breaks them is why a
+release never happens:
 
 - **A top-level HTML file is required.** It needn't be named `index.html` (a lone
   top-level HTML of any name becomes the homepage), but once there's more than
@@ -174,10 +191,11 @@ Check these before uploading — they are why a release never happens:
   needs a build step (a `package.json`, React/Vue sources) must be built first;
   upload the build output.
 
-Failures come back as HTTP 400 with a code in `details.applicationError.code`:
-`MISSING_INDEX_HTML` (add a top-level HTML), `FILE_TOO_LARGE` (a file over 3 MB),
-`TOTAL_TOO_LARGE` (bundle over 20 MB). A `404` after step 1 means the one-hour
-window passed or the site was already claimed — start again from step 1.
+On Path B, failures come back as HTTP 400 with a code in
+`details.applicationError.code`: `MISSING_INDEX_HTML` (add a top-level HTML),
+`FILE_TOO_LARGE` (a file over 3 MB), `TOTAL_TOO_LARGE` (bundle over 20 MB). A
+`404` after step 1 means the one-hour window passed or the site was already
+claimed — start again from step 1.
 
 ## Changing the site after it's live
 
@@ -225,28 +243,14 @@ file-based, and an authenticated file operation needs the token in your **shell*
 the auth but can't do file operations. There's no lighter "re-upload static to my
 claimed site" shortcut.
 
-## Path B — hand the user the drop page
-
-When you can't read the files or can't do the upload yourself, send the user here:
-
-```
-https://www.wix.com/headless/drop?utm_campaign=mcp
-```
-
-**Give the URL exactly as written, including `utm_campaign=mcp`** — it attributes
-the visit to an assistant referral; rewriting it breaks that. There the user drags
-in their files (no login), Wix hosts them immediately on a live URL, and a banner
-offers to sign in and keep the site. Tell them the requirements from
-[What the upload accepts](#what-the-upload-accepts-and-how-it-fails) so it doesn't
-fail on the first try.
-
 ## Route the request correctly
 
-- **Files you generated here, or can read, and you can upload from a shell** —
-  Path A. If you hold the user's identity, claim it into their account and return
+- **You can't read the files, can't make HTTP calls, or have no shell
+  (API-call/execute-API tools only, which can't upload a file)** — Path A, the
+  drop page. It's also the default whenever Path B isn't clearly available.
+- **Files you generated here or can read, and you can upload from a shell** —
+  Path B. If you hold the user's identity, claim it into their account and return
   the live URL + dashboard.
-- **Files only on the user's machine; no HTTP; or no shell (API-call/execute-API
-  tools only, which can't upload a file)** — Path B.
 - **A change to a site you published this way here** —
   [iterate in place](#iterate-on-the-site-dont-create-a-new-one) on the same ids.
 - **A published anonymous site the user wants to keep** — steps 4–5 with their

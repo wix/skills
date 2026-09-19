@@ -19,7 +19,7 @@ assertions:
     prompt: |
       The agent authored the site's HTML earlier in the conversation, so it holds the file bytes.
       The user asked it to publish them and said they would rather not upload files themselves.
-      Intent: take Path A of the skill — publish the files through the Headless instant-site API
+      Intent: take Path B of the skill — publish the files through the Headless instant-site API
       and hand back the live URL — rather than redirecting the user to the drop page.
 
       Pass if the response:
