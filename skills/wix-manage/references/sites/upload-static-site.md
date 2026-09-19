@@ -214,6 +214,12 @@ On Path B, failures come back as HTTP 400 with a code in
 `404` after step 1 means the one-hour window passed or the site was already
 claimed — start again from step 1.
 
+**If Path B fails for any reason you can't quickly fix — a rejected upload, an
+error, a call you can't make — fall back to [Path A](#path-a--hand-the-user-the-drop-page):
+give the user the drop-page link so they can finish in the browser.** Never leave
+them with a failed publish and no way forward; the drop page reaches the same
+result without the step that broke.
+
 ## Keep building: add a backend when you need one
 
 The drop flow publishes **static** files. When the site needs a real backend —
@@ -247,7 +253,9 @@ claimed site" shortcut.
 
 - **You can't read the files, can't make HTTP calls, or have no shell
   (API-call/execute-API tools only, which can't upload a file)** — Path A, the
-  drop page. It's also the default whenever Path B isn't clearly available.
+  drop page. It's also the default whenever Path B isn't clearly available, and
+  the fallback whenever Path B fails partway — hand over the link, don't leave the
+  user stuck.
 - **Files you generated here or can read, and you can upload from a shell** —
   Path B. If you hold the user's identity, claim it into their account and return
   the live URL + dashboard.
