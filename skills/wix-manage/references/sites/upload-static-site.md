@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests, and handing the user the Wix Headless drop page when you cannot. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests, and handing the user the Wix Headless drop page when you cannot. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
@@ -48,10 +48,13 @@ and finish the job yourself. Neither ending is a fallback for the other.
 Base URL: https://www.wixapis.com/headless-business-setup
 ```
 
-Generate `anonymousId` yourself — any UUID, once per site — and reuse it in
-every call for that site. **The whole flow must finish within one hour of step
-1.** After that the site's record expires and every later step returns `404`,
-including the claim, so do not leave the account step for a later session.
+Generate `anonymousId` yourself — any UUID, **once per site, not once per
+request**. Reuse the same `anonymousId` and `metaSiteId` for every call for that
+site, and keep them for the rest of the conversation: when the user asks to
+change the site later, iterate on this same site (see [Iterate](#iterate-on-the-site-dont-create-a-new-one))
+rather than creating another one. **The whole flow must finish within one hour
+of step 1.** After that the site's record expires and every later step returns
+`404`, including the claim, so do not leave the account step for a later session.
 
 ### 1. Create the site
 
@@ -109,6 +112,24 @@ curl -sS -X POST \
 
 The site is live at `siteUrl` immediately. What you do next depends on whether
 you hold the user's identity.
+
+#### Iterate on the site (don't create a new one)
+
+When the user asks to change the site after it's live — new copy, another page,
+a different look — **update this same site in place. Do not go back to step 1.**
+Re-run step 2 (upload) then step 3 (release) with the **same `anonymousId` and
+`metaSiteId`** you already have; the new upload replaces the site's contents and
+`siteUrl` stays the same. Send the full set of files each time (the release
+publishes exactly what the upload contained — it is a replace, not a merge), so
+include unchanged files too.
+
+Creating a fresh site per change (a new `anonymousId`) instead leaves the user
+with a trail of abandoned one-off sites and a different URL each time — only
+create a new site when the user genuinely wants a separate, additional one.
+
+This applies as long as the site is still anonymous and within its one-hour
+window. Once it has been claimed into the user's account (step 4), the anonymous
+endpoints no longer apply — see step 5 for where the site lives afterwards.
 
 **3a. You have a user or account-level access token for the user.** Continue to
 step 4 now. Do not stop here and hand over a temporary site: an unclaimed site
@@ -218,6 +239,9 @@ static files only — so the upload does not fail on the first try.
   account and return the live URL and the dashboard.
 - **Site files only on the user's machine, or you cannot make HTTP calls** —
   Path B, the drop URL.
+- **A change to a site you already published this way in this conversation** —
+  [iterate in place](#iterate-on-the-site-dont-create-a-new-one) with the same
+  ids; don't publish a new site.
 - **A published anonymous site the user now wants to keep** — steps 4 and 5 if
   you hold their identity, otherwise the save link from step 3b.
 - **A live site or store on another platform (a URL), or CSV/TSV exports, with
