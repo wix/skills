@@ -69,6 +69,14 @@ and font, and the manual encoding is brittle. Use `curl` (or any direct HTTP
 client) for the whole flow — create and release are plain JSON, but the upload
 needs a real file client anyway, so keep all of it in the shell.
 
+Make **every** call this way, including create and release: a harness capable of
+Path A is one that can call these APIs **directly itself** — issue its own HTTP
+requests from a shell or runtime — not one that reaches them through the Wix
+API-call/execute-API tools. Even for the JSON steps, don't route through those
+tools: they return the response into the conversation instead of leaving it where
+your next step needs it, and an agent that has no way to call HTTP except through
+them isn't set up for Path A at all — send that user to Path B.
+
 Generate `anonymousId` yourself — any UUID, **once per site, not once per
 request**. Reuse the same `anonymousId` and `metaSiteId` for every call for that
 site, and keep them for the rest of the conversation: when the user asks to
