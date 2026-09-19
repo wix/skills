@@ -23,8 +23,8 @@ they also surface from a search that began at the methods.
 
 In this skill:
 
-- **What are you building?** — route each feature to its identity: visitor token, admin token
-  in a backend function, or admin ad hoc in exec_tool
+- **What are you building?** — for visitors, for the owner, or management done for them —
+  decided per request from the user's intent, each on its own flow
 - **The helpers** — the `wx.*` loader every exec opens with
 - **Gather context** — `wx.context`, the report of what the site actually has
 - **Learn Wix** — find the APIs, learn their contracts
@@ -40,38 +40,41 @@ In this skill:
 
 ## What are you building?
 
-Choose the token by who the code acts for. A headless app can serve visitors, provide admin
-management tools, or do both.
+Wix has two identities, visitor and admin, and each has its own flow. Decide which one every
+request is for before acting on it — from what the user wants, not from the technology:
 
-**A site for visitors** — use a visitor token for public reads and actions on behalf of the
-visitor, never the admin connector token. Call Wix directly from the browser through one shared
-visitor client (Write the code, below).
-**Checkout runs on a visitor token, never the admin token** — including a checkout this app
-creates for the visitor. The admin token *will* hand back a checkout URL, and that is the trap: it
-belongs to the site rather than the buyer (no cart persistence, no abandoned-checkout recovery, no
-attribution), and a redirect session refuses it outright (`403`). Returns reach this app only from
-URLs in the OAuth app's redirect list; see Visitor authentication and Wix-hosted flows below.
-**The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
-`clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
-a reason to move the flow onto the admin token or leave it for later.
-Anyone can mint an anonymous visitor token from the
-OAuth app's public `clientId`; no visitor login is required. APIs for the "current visitor"
-use that token to identify whose data and state to access. This applies both to a standalone
-headless frontend and to a frontend extending an existing Wix site.
+- **Visitor** — the people using the site: browsing, booking, buying, signing in as a member.
+  Visitor token, called from the browser through one shared visitor client.
+- **Admin, built** — a management surface of the owner's own: a custom view, a bulk operation,
+  an internal tool. Admin connector token, server-side in backend functions the frontend calls.
+- **Admin, done for them** — the user wants the business managed now, not an app: create the
+  products, change a setting, import the contacts. Admin token, ad hoc in exec_tool; nothing
+  ships in the app.
 
-**An admin tool for the owner** — use the admin connector token in backend functions implementing
-admin logic; keep it secret and server-side. The frontend calls those functions, not Wix with
-visitor tokens. A custom headless management site extending the Wix back office follows this
-flow too. Ad hoc management calls in `exec_tool` also use the admin token. Backend functions
-also handle work requiring the owner's permissions, such as webhooks, scheduled jobs, and
-explicitly authorized elevated operations. For an app with both visitor and admin features,
-keep each feature on its corresponding flow. A site with no OAuth app yet is still a visitor
-app: create the app with `wx.ensureOAuthApp` and keep the visitor features on the visitor flow.
+The owner already has a full Wix dashboard for running the business — orders, products,
+bookings, settings, and more — so an admin build is a choice the user makes, not a gap to fill by
+default. When a request has both visitor and admin parts, each keeps its own flow.
 
-**An app with no login still serves visitors.** `asServiceRole` governs this app's own data
-access, and says nothing about which identity Wix sees: a public page's Wix calls still run on a
-visitor token. Reach for the admin token because a feature is owner-side, never because nobody
-signs in — a checkout sent through it makes the site the buyer.
+When the request doesn't say which, ask the user — in their terms (who the thing is for), not in
+technical ones (identities, tokens, flows). When you decide without asking, tell them what you
+chose the same way.
+
+The rules that follow from the split:
+
+- **Checkout runs on a visitor token, never the admin token** — including a checkout this app
+  creates for the visitor. The admin token *will* hand back a checkout URL, and that is the trap:
+  it belongs to the site rather than the buyer (no cart persistence, no abandoned-checkout
+  recovery, no attribution), and a redirect session refuses it outright (`403`). Returns reach
+  this app only from URLs in the OAuth app's redirect list (Visitor authentication and
+  Wix-hosted flows, below).
+- **No OAuth app yet is not a reason to use the admin token.** `wx.ensureOAuthApp` returns the
+  `clientId`, creating the app when the site has none — a visitor flow's first step. Anyone can
+  mint an anonymous visitor token from that public `clientId`; no visitor login is required.
+- **No login still means visitors.** `asServiceRole` governs this app's own data access and says
+  nothing about which identity Wix sees: a public page's Wix calls run on a visitor token. Reach
+  for the admin token because a feature is owner-side, never because nobody signs in.
+- **Owner-side work beyond pages** — webhooks, scheduled jobs, explicitly authorized elevated
+  operations — is admin flow too, in backend functions.
 
 ```
 visitor pages ──(visitor token)────────────────────────► wixapis.com
