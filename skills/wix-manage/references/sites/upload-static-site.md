@@ -128,8 +128,12 @@ with a trail of abandoned one-off sites and a different URL each time — only
 create a new site when the user genuinely wants a separate, additional one.
 
 This applies as long as the site is still anonymous and within its one-hour
-window. Once it has been claimed into the user's account (step 4), the anonymous
-endpoints no longer apply — see step 5 for where the site lives afterwards.
+window, so **do the iterating first and claim last** — keep refining on the same
+anonymous ids, then claim once (step 4) when the site is right. Once the site has
+been claimed into the user's account the anonymous endpoints no longer apply: to
+keep changing a claimed site with code, move it to a headless project (see
+[Keep building — add a backend](#keep-building-add-a-backend-when-you-need-one)),
+and otherwise it's a normal Wix site the owner edits in Wix.
 
 **3a. You have a user or account-level access token for the user.** Continue to
 step 4 now. Do not stop here and hand over a temporary site: an unclaimed site
@@ -192,6 +196,41 @@ Find the entry whose `id` equals your `metaSiteId` and read `viewUrl`; page with
 Give the user two links: `viewUrl` for the live site, and its dashboard at
 `https://manage.wix.com/dashboard/{metaSiteId}` for managing and changing it.
 
+### Keep building: add a backend when you need one
+
+The drop flow publishes **static** files. When the site needs a real backend —
+stores, payments, bookings, a CMS, members, forms — it should become a **Wix
+Headless project**. This is a solution the user chooses when they need it, not a
+required next step: a static marketing page is a finished result on its own.
+
+Offer this once the site is the user's (claimed / owned) and you're in a coding
+environment with a shell and a filesystem. It keeps the **same site, appId and
+URL** — the downloaded project already carries a `wix.config.json` binding it to
+this site — and from then on the project is released with the Wix CLI, not the
+drop API.
+
+**Download the project to disk, then follow the headless guide:**
+
+```bash
+# Download to the local filesystem with a redirect-following HTTP client.
+curl -sSL -o project.zip \
+  "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
+unzip project.zip -d project      # index.html + assets + wix.config.json
+```
+
+Then open `https://wix.com/headless/skill.md` and follow it: it turns the static
+files into a headless project (`@wix/sdk` + the business solutions the site
+needs) bound to the same site, released with the Wix CLI.
+
+**Download to disk — never through the Wix API-call tools.** The download must
+land on the machine as a file so the agent can edit it with filesystem
+operations. Do **not** fetch it through the Wix API-call/execute tools (the ones
+that run a request or JavaScript through the Wix API on your behalf): they return
+the response into the conversation, not to disk — so even on success you'd get an
+unusable blob instead of a project — and the download redirects to storage those
+tools are not allowed to follow, so it fails outright. Use your own shell or a
+direct HTTP client, as above.
+
 ### What the upload accepts, and how it fails
 
 Check these before uploading — they are the reasons a release never happens:
@@ -244,6 +283,9 @@ static files only — so the upload does not fail on the first try.
   ids; don't publish a new site.
 - **A published anonymous site the user now wants to keep** — steps 4 and 5 if
   you hold their identity, otherwise the save link from step 3b.
+- **The site (claimed/owned) now needs a backend — stores, payments, bookings,
+  CMS, members, forms** — [move it to a headless project](#keep-building-add-a-backend-when-you-need-one):
+  download the project to disk and follow the headless guide; same site and URL.
 - **A live site or store on another platform (a URL), or CSV/TSV exports, with
   content or products to migrate** — [Site Import](site-import.md).
 - **An existing Wix site to add HTML, an embed, or custom code into** — not this
