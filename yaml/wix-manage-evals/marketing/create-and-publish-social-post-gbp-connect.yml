@@ -1,0 +1,57 @@
+name: marketing/create-and-publish-social-post-gbp-connect
+description: >-
+  Advisory scenario for the "Create and Publish a Social Media Post" skill: the
+  Google Business Profile connection APIs disagree — the account-level connection
+  reports VALID while the Social Publisher posting status does not. The correct
+  behavior is to recognize these as two separate links, never attempt
+  GBP/connect-url, and tell the user which dashboard step is missing instead of
+  answering "connected" or "not connected" flatly.
+triggerPrompt: >-
+  I want to publish a post to my Google Business Profile from my Wix site. When I
+  check GET /gbp/v1/connection it returns status VALID, but GET
+  /social-publisher/v1/GBP/long-lived-token-status returns NEVER_CREATED. Which
+  one is right, and how do I get the post published?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They did NOT ask the assistant to
+      create or publish an actual post. Both statuses they report are real and
+      consistent: gbp/v1/connection VALID describes the account-level Google
+      connection, and long-lived-token-status NEVER_CREATED describes the
+      separate link that lets Social Media Marketing publish to the profile.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - explains that the two endpoints report two different things and that both
+        answers are correct at the same time — it does not call one of them wrong
+        or a bug, AND
+      - says long-lived-token-status is the one that decides whether a post can
+        be delivered, so the post cannot be published yet, AND
+      - says the missing step is connecting Google Business Profile as a channel
+        on the Social Media Marketing social posts hub in the Wix dashboard
+        (a manage.wix.com/dashboard/.../social-marketing-web link), which no API
+        call can do, AND
+      - states that the agent cannot connect GBP for posting itself, AND
+      - does not perform any mutating API calls.
+
+      Fail if the response:
+      - calls GET /social-publisher/v1/GBP/connect-url, or tells the user to call
+        it, or presents any OAuth/connect-url flow as the way to connect GBP for
+        posting, OR
+      - reports the profile as connected for posting because gbp/v1/connection
+        says VALID, OR
+      - reports the profile as simply "not connected" without distinguishing the
+        two links, OR
+      - treats the disagreement as an error, outage, or something to retry, OR
+      - tells the user to disconnect and reconnect the Google account to fix it,
+        OR
+      - falls back to searching the REST docs instead of using the skill.
