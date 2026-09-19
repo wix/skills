@@ -69,13 +69,24 @@ and font, and the manual encoding is brittle. Use `curl` (or any direct HTTP
 client) for the whole flow — create and release are plain JSON, but the upload
 needs a real file client anyway, so keep all of it in the shell.
 
-Make **every** call this way, including create and release: a harness capable of
-Path A is one that can call these APIs **directly itself** — issue its own HTTP
-requests from a shell or runtime — not one that reaches them through the Wix
-API-call/execute-API tools. Even for the JSON steps, don't route through those
-tools: they return the response into the conversation instead of leaving it where
-your next step needs it, and an agent that has no way to call HTTP except through
-them isn't set up for Path A at all — send that user to Path B.
+The two calls that **must** use a direct file client are the ones that move a
+file:
+
+- **Step 2, upload** — `POST …/{metaSiteId}/upload`, a `multipart/form-data`
+  request whose body is your files read from disk.
+- **The download** in [Keep building](#keep-building-add-a-backend-when-you-need-one)
+  — `GET …/instant-sites/{metaSiteId}/download.zip`, whose body is a zip you save
+  to disk.
+
+The other calls — **create** (`POST …/anonymous/{anonymousId}`) and **release**
+(`POST …/{metaSiteId}/release`) — are small JSON in, small JSON out; calling those
+through the Wix API-call/execute-API tools is fine, since you just read the
+returned `metaSiteId` / `uploadId` / `siteUrl` from the response. It's only the
+two file-transfer calls those tools can't do (they can't pipe a local file in or
+write a downloaded file out). So the real capability question for Path A is
+narrow: **can you do the multipart upload from disk?** If your only way to reach
+APIs is the API-call/execute-API tools, you can't — use Path B. Simplest when you
+can: run all of it with one shell/`curl`, since the upload needs it anyway.
 
 Generate `anonymousId` yourself — any UUID, **once per site, not once per
 request**. Reuse the same `anonymousId` and `metaSiteId` for every call for that
