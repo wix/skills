@@ -69,6 +69,15 @@ and font, and the manual encoding is brittle. Use `curl` (or any direct HTTP
 client) for the whole flow — create and release are plain JSON, but the upload
 needs a real file client anyway, so keep all of it in the shell.
 
+**These direct calls need no auth.** Create, upload, release and the download are
+all **anonymous** — no token, no login, no credentials. So even if your Wix
+access is normally injected only into the API-call/execute-API tools, you do not
+need it here: call these endpoints directly from your shell with no auth header
+and they work. Don't reach for those tools just to borrow their credentials —
+there's nothing to authenticate. The **only** call that needs the user's identity
+is [step 4, claim](#4-put-the-site-in-the-users-account) (put the site in their
+account); everything up to and including the live URL is credential-free.
+
 The two calls that **must** use a direct file client are the ones that move a
 file:
 
