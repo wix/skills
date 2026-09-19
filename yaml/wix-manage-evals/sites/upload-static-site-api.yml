@@ -43,6 +43,10 @@ assertions:
         that it cannot reach them or cannot make the calls, OR
       - invents endpoints, paths, or field names that are not the ones above, OR
       - sends the files as a JSON body instead of multipart/form-data, OR
+      - performs the multipart upload through a Wix API-call/execute-API tool — e.g. hand-building a
+        multipart body as a string inside executed JavaScript — instead of a direct multipart file
+        client (curl -F / a real HTTP client reading the files off disk); that path can only carry
+        inlined text and drops binary assets, OR
       - creates the site with the meta-site template API or the headless-business provisioning API,
         OR
       - claims the site is live without a URL, OR
@@ -65,6 +69,8 @@ assertions:
         - a call to any site-creation API (meta-site templates, headless-business provisioning)
         - a call to the site-import API or any crawl/migration tool
         - an upload attempted as JSON rather than multipart
+        - a multipart upload hand-rolled inside a Wix API-call/execute-API tool rather than a direct
+          file client (curl -F / real HTTP client)
         - calls made out of order, or release attempted without an uploadId
         - a claim/transfer call made before the release, or against a site that was never released
         - probing unrelated docs articles or APIs before settling on the flow

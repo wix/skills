@@ -48,6 +48,18 @@ and finish the job yourself. Neither ending is a fallback for the other.
 Base URL: https://www.wixapis.com/headless-business-setup
 ```
 
+**Run this flow with your own shell / a direct HTTP client — not the Wix
+API-call or execute-API tools.** Step 2 is a `multipart/form-data` upload that
+reads files off disk, and the download in [Keep building](#keep-building-add-a-backend-when-you-need-one)
+writes a file to disk — both are filesystem operations. The Wix API-call/execute
+tools proxy a JSON request through the Wix API and return the result into the
+conversation; they cannot pipe your local files in or write a download out. In
+particular, do **not** hand-build a multipart body inside an execute-API call: it
+can only carry text you inline into the code, so it silently drops every image
+and font, and the manual encoding is brittle. Use `curl` (or any direct HTTP
+client) for the whole flow — create and release are plain JSON, but the upload
+needs a real file client anyway, so keep all of it in the shell.
+
 Generate `anonymousId` yourself — any UUID, **once per site, not once per
 request**. Reuse the same `anonymousId` and `metaSiteId` for every call for that
 site, and keep them for the rest of the conversation: when the user asks to
