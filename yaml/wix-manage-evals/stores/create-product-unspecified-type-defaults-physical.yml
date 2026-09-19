@@ -1,0 +1,24 @@
+name: stores/create-product-unspecified-type-defaults-physical
+description: When the user gives a name and price but never states (or implies) a product type, the agent must default to a PHYSICAL product with physicalProperties on the product and every variant, rather than omitting productType or asking the user to pick a type.
+triggerPrompt: >-
+  Create a product called "Bamboo Cutting Board" priced at $34.99.
+tags: [stores]
+maxTokens: 20000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: the user supplied a name and a price, the two mandatory inputs, but never stated or implied a product type (no mention of digital, download, file, physical, shipping, etc.).
+      Recipe loading is preferred but not required for this judge; authoritative Wix docs are an acceptable source. Pass if the agent creates exactly one product through /stores/v3/products, /stores/v3/products-with-inventory, or the matching bulk endpoint (with exactly one product), where the request has productType "PHYSICAL", product-level physicalProperties, and physicalProperties on every variant. The single variant must contain actualPrice.amount "34.99" (or an equivalent numeric string such as "34.99000" only if that is how the tool normalizes it). The agent must NOT ask the user which product type to use before creating.
+      Fail if the response asks the user to choose a product type (physical vs. digital) before creating, omits productType from the create request, sends productType "PHYSICAL" without physicalProperties on the product or on a variant (or vice versa), defaults to DIGITAL or any type other than PHYSICAL, or reports a failed/rejected create call caused by a missing productType or physicalProperties.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. Prefer the unified recipe, but do not score below 7 solely because authoritative Wix docs were used instead. A 10 uses either source directly, resolves the missing type to PHYSICAL without hesitation or extra questions, and completes the create in one mutation with response validation. Penalize a clarifying question about product type, a rejected create call retried after a productType/physicalProperties error, redundant docs lookups, or unnecessary post-mutation probes. Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs/MCP gap, or clean path>"}.

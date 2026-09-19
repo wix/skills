@@ -39,7 +39,7 @@ Name and price are mandatory **workflow inputs for every product**, even when th
 
 1. **No product identified:** Respond only: “What product would you like to create? You can upload up to 3 images and I’ll generate the product information from them, or describe the product in text.” **RETURN.** Do not replace the two paths with a form, checklist, questionnaire, text-only prompt, or requests for name, price, type, options, SEO, or inventory.
 2. **Any product lacks an explicit name or price:** Ask for all missing mandatory values in one question and offer to suggest them. When only price is missing, respond only: “What price should I set for [product name]? I can suggest one if you’d like.” **RETURN.**
-3. **Every name and price is known:** Creation may continue. Options, variations, description, SEO, info sections, type, SKU, inventory, and images are optional. Use them when supplied or requested; do not ask the user to resolve them before creation.
+3. **Every name and price is known:** Creation may continue. Options, variations, description, SEO, info sections, type, SKU, inventory, and images are optional. Use them when supplied or requested; do not ask the user to resolve them before creation. If the user did not explicitly state a product type and it cannot be inferred from what they supplied (e.g. an attached digital file), default to `PHYSICAL` — never omit `productType` from the create call and never ask the user to pick one.
 
 “Create it,” “create it now,” “for my store, create,” or similar mutation language does not satisfy a missing price. A usable price must be either explicitly supplied by the user or a suggestion the user accepted. Treat `0` as supplied only when the user explicitly requests a free or zero-priced product.
 
@@ -65,7 +65,7 @@ If any product is missing a price, **do not call the API**. Ask for the missing 
    ```
 
    Continue here only for `V3_CATALOG`; use the V1 recipe for `V1_CATALOG`.
-4. Resolve each product's supplied type, variants, SKUs, inventory intent, and images after its mandatory name and variant price are known. Do not invent optional attributes the user did not supply or request.
+4. Resolve each product's supplied type, variants, SKUs, inventory intent, and images after its mandatory name and variant price are known. Do not invent optional attributes the user did not supply or request. The one exception is `productType`: if it is unknown, default to `PHYSICAL` rather than omitting it.
 5. Choose the endpoint, build the products, upload any images, create, and validate every result. Continue until all requested products succeed or report the exact failed items.
 
 ## Choose the endpoint
@@ -95,10 +95,12 @@ If any product is missing a price, **do not call the API**. Ask for the missing 
 > ```
 >
 > Put supplied physical fields such as weight or dimensions inside those objects; use `{}` when none were supplied. Never invent them, and never execute or retry a physical-product request when either object is absent.
+>
+> **`productType` itself is never optional in the request, even though it's an optional workflow input.** If the user did not explicitly state a product type (and none can be inferred, e.g. from an attached digital file), default to `"PHYSICAL"` and include `physicalProperties: {}` as above. Do not send a create call with `productType` omitted, and do not ask the user to choose a type before creating.
 
 | Concern | Rule |
 |---|---|
-| Type | `PHYSICAL` requires both `productType: "PHYSICAL"` and product-level `physicalProperties`, plus both `productType: "PHYSICAL"` and variant-level `physicalProperties` on every variant. `DIGITAL` omits physical properties and carries `inventoryItem.inStock` plus `digitalProperties.digitalFile` on each variant. |
+| Type | `PHYSICAL` requires both `productType: "PHYSICAL"` and product-level `physicalProperties`, plus both `productType: "PHYSICAL"` and variant-level `physicalProperties` on every variant. `DIGITAL` omits physical properties and carries `inventoryItem.inStock` plus `digitalProperties.digitalFile` on each variant. If the user did not explicitly say which type, default to `PHYSICAL` (with `physicalProperties: {}` on the product and every variant) instead of omitting `productType` — the create call rejects a request with no `productType` at all. |
 | Variants | Include at least one. Price, SKU, barcode, inventory, and digital file are variant-level fields. |
 | Price | Use a string in `price.actualPrice.amount`; add `compareAtPrice` only when supplied. |
 | SKU | Preserve supplied strings exactly, including `#`, punctuation, and leading zeroes. Keep variant SKUs unique unless explicitly requested otherwise. |
@@ -316,4 +318,5 @@ Retry only failed transient items, not successful products. If a requested field
 - Option/variant mismatch: create every requested combination and reference every option once per variant.
 - Media not visible: use the uploaded `wixstatic.com` URL in `media.itemsInfo.items`; do not set `media.main`.
 - `productType` alignment 400 (`product is invalid: productType and the corresponding physical_properties field must be passed together`): pair `productType: "PHYSICAL"` with `physicalProperties` on the product and on every physical variant. The API validates these as aligned one-of pairs, so do not retry with only one level populated. Pair `productType: "DIGITAL"` with the digital variant fields instead.
+- `productType` missing/required: this happens when the user never stated a type and it was left out of the request. Default to `"PHYSICAL"` (with `physicalProperties: {}` on the product and every variant) and retry — do not stop to ask the user which type to use.
 - Digital product rejected at add-to-cart: `ITEM_NOT_FOUND_IN_CATALOG` means the variant has no `digitalProperties.digitalFile`; `exceeds available inventory` means it has no `inventoryItem.inStock`. Both read back as a healthy product.
