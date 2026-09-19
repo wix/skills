@@ -258,6 +258,21 @@ URL** — the downloaded project already carries a `wix.config.json` binding it 
 this site — and from then on the project is released with the Wix CLI, not the
 drop API.
 
+**This is the post-claim path — and it's why it needs `wix login`.** Once the
+site is claimed, changing it again is an *authenticated* operation, and there is a
+hard constraint to understand: authenticated **file** operations need the token in
+your shell, not in a tool. The drop flow avoided auth entirely (create / upload /
+release / download are anonymous), and claim is small JSON so it can go through
+the Wix API-call/execute-API tools or a shell token. But re-releasing files to a
+claimed site is authenticated *and* file-based — and the API-call/execute-API
+tools can't do file operations. So the way to keep building a claimed site is to
+`wix login` (which puts a real account/site token in your shell) and work through
+the **Wix CLI / headless project**. There is no lighter "re-upload static files to
+my claimed site" shortcut: if you need to keep changing a claimed site with code,
+it's the headless/CLI flow. (This is also why claiming *last* — iterating while
+the site is still anonymous, then claiming once it's right — keeps the simple
+path open for as long as possible.)
+
 **Download the project to disk, then follow the headless guide:**
 
 ```bash
