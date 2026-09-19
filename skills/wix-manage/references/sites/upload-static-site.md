@@ -63,7 +63,7 @@ Base URL: https://www.wixapis.com/headless-business-setup
 
 Generate `anonymousId` yourself — any UUID, **once per site, not once per
 request** — and reuse it (with the returned `metaSiteId`) for every call for that
-site, including later changes ([Iterate](#iterate-on-the-site-dont-create-a-new-one)).
+site, including later changes ([Iterate](#iterate-while-anonymous-dont-create-a-new-site)).
 **Finish within one hour of step 1**: after that the record expires and every
 later step, claim included, returns `404`.
 
@@ -119,10 +119,27 @@ curl -sS -X POST \
 { "siteUrl": "https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com" }
 ```
 
-The site is live at `siteUrl` immediately. What you do next depends on identity:
+The site is live at `siteUrl` immediately.
 
-- **You have the user's access token** — continue to step 4 now. Don't stop at a
-  temporary site: an unclaimed site expires, so saving it to their account is part
+#### Iterate while anonymous (don't create a new site)
+
+Simple static changes — new copy, another page, a different look — happen here,
+**while the site is still anonymous**, and this is the only window for them:
+re-run steps 2–3 with the **same `anonymousId` and `metaSiteId`**; the upload
+replaces the site's contents and `siteUrl` stays the same. Send the full file set
+each time (release replaces, it doesn't merge). Don't go back to step 1 — a fresh
+site per change leaves the user a trail of abandoned sites on changing URLs; only
+create another for a genuinely separate site.
+
+So **iterate first, claim last**: refine on the same ids until the site is right,
+*then* finish. Once claimed, these anonymous endpoints stop working and the only
+way to keep changing the site in code is a headless project
+([Keep building](#keep-building-add-a-backend-when-you-need-one)).
+
+**When the site is final, finish based on identity:**
+
+- **You have the user's access token** — claim it into their account (step 4).
+  Don't stop at a temporary site: an unclaimed site expires, so saving it is part
   of publishing, not an extra favour to ask about.
 - **You have no user identity** — stop here; this is a finished, legitimate result
   (exactly what the drop page produces for every visitor). Give the user `siteUrl`
@@ -197,24 +214,7 @@ On Path B, failures come back as HTTP 400 with a code in
 `404` after step 1 means the one-hour window passed or the site was already
 claimed — start again from step 1.
 
-## Changing the site after it's live
-
-### Iterate on the site (don't create a new one)
-
-When the user asks to change the site — new copy, another page, a different look —
-**update this same site in place; don't go back to step 1.** Re-run step 2 then
-step 3 with the **same `anonymousId` and `metaSiteId`**; the upload replaces the
-site's contents and `siteUrl` stays the same. Send the full file set each time
-(release replaces, it doesn't merge). A fresh site per change leaves the user a
-trail of abandoned sites on changing URLs — only create another site for a
-genuinely separate one.
-
-This works while the site is anonymous, within the one-hour window, so **iterate
-first and claim last**: refine on the same ids, then claim once it's right. After
-a claim these anonymous endpoints stop working — see [Add a backend](#keep-building-add-a-backend-when-you-need-one)
-for continuing in code, or the user edits it as a normal Wix site.
-
-### Keep building: add a backend when you need one
+## Keep building: add a backend when you need one
 
 The drop flow publishes **static** files. When the site needs a real backend —
 stores, payments, bookings, a CMS, members, forms — it becomes a **Wix Headless
@@ -252,7 +252,7 @@ claimed site" shortcut.
   Path B. If you hold the user's identity, claim it into their account and return
   the live URL + dashboard.
 - **A change to a site you published this way here** —
-  [iterate in place](#iterate-on-the-site-dont-create-a-new-one) on the same ids.
+  [iterate in place](#iterate-while-anonymous-dont-create-a-new-site) on the same ids.
 - **A published anonymous site the user wants to keep** — steps 4–5 with their
   identity, else the step-3 save link.
 - **A claimed site that now needs a backend** (stores, bookings, CMS, members,
