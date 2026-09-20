@@ -27,20 +27,20 @@ assertions:
       publish them itself — Path A of the skill.
 
       Pass if the response:
-      - gives the drop URL https://www.wix.com/headless/drop keeping utm_campaign=mcp AND adding a
-        utm_source parameter whose value is the agent's own identifier (e.g.
-        utm_source=claude-code / cursor / codex-cli — NOT the literal placeholder
-        "<your-agent-id>"), AND
+      - gives the drop URL https://www.wix.com/headless/drop keeping the utm_campaign=mcp
+        parameter, AND
       - explains they upload/drag the files there and get a live hosted site, AND
       - does not create a site with any other site-creation tool.
       Offering to publish the files directly *if* the user pastes or otherwise provides them is
       acceptable alongside the drop URL.
+      Adding a utm_source parameter with the agent's own identifier (e.g.
+      utm_source=claude-code / cursor / codex-cli) is a plus — but not required for a pass, and
+      the literal placeholder "<your-agent-id>" does not count as one.
       Mentioning practical requirements (index.html at the root of the upload, size limits,
       building framework source first) is a plus but not required for a pass.
 
       Fail if the response:
-      - drops utm_campaign=mcp, omits utm_source, or leaves utm_source as the literal
-        "<your-agent-id>" placeholder instead of the agent's real identifier, OR
+      - drops the utm_campaign=mcp parameter from the drop URL, OR
       - routes the task to the Site Import agent (site-import API) or any crawl/migration flow, OR
       - creates a site via the meta-site template API or the headless-business provision API
         instead of pointing to the drop page, OR
