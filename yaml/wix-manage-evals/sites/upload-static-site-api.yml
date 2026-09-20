@@ -36,7 +36,7 @@ assertions:
         explains how to keep it), AND
       - if it could not make the calls at all, says so plainly and falls back to the drop URL
         https://www.wix.com/headless/drop?utm_campaign=mcp (optionally adding
-        &utm_source=<its own agent id>) rather than claiming an upload it did not perform.
+        &agent=<its own agent id>) rather than claiming an upload it did not perform.
 
       Fail if the response:
       - sends the user to the drop page to upload files the agent already has, with no explanation

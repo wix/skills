@@ -20,7 +20,7 @@ assertions:
       The user already has a finished static website as local files (index.html, styles.css,
       script.js) and wants it live on Wix as a new site.
       Intent: send them to the Wix Headless drop page —
-      https://www.wix.com/headless/drop?utm_campaign=mcp&utm_source=<agent-id> — where they upload
+      https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<agent-id> — where they upload
       the files and get an instantly hosted live site.
 
       The files are on the user's own machine, so the agent cannot read the bytes and cannot
@@ -33,8 +33,8 @@ assertions:
       - does not create a site with any other site-creation tool.
       Offering to publish the files directly *if* the user pastes or otherwise provides them is
       acceptable alongside the drop URL.
-      Adding a utm_source parameter with the agent's own identifier (e.g.
-      utm_source=claude-code / cursor / codex-cli) is a plus — but not required for a pass, and
+      Adding an agent parameter with the agent's own identifier (e.g.
+      agent=claude-code / cursor / codex-cli) is a plus — but not required for a pass, and
       the literal placeholder "<your-agent-id>" does not count as one.
       Mentioning practical requirements (index.html at the root of the upload, size limits,
       building framework source first) is a plus but not required for a pass.
