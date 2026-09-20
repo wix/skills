@@ -20,15 +20,17 @@ assertions:
       The user already has a finished static website as local files (index.html, styles.css,
       script.js) and wants it live on Wix as a new site.
       Intent: send them to the Wix Headless drop page —
-      https://www.wix.com/headless/drop?utm_campaign=mcp — where they upload the files and get an
-      instantly hosted live site.
+      https://www.wix.com/headless/drop?utm_campaign=mcp&utm_source=<agent-id> — where they upload
+      the files and get an instantly hosted live site.
 
       The files are on the user's own machine, so the agent cannot read the bytes and cannot
       publish them itself — Path A of the skill.
 
       Pass if the response:
-      - gives the URL https://www.wix.com/headless/drop?utm_campaign=mcp including the
-        utm_campaign=mcp query parameter, AND
+      - gives the drop URL https://www.wix.com/headless/drop keeping utm_campaign=mcp AND adding a
+        utm_source parameter whose value is the agent's own identifier (e.g.
+        utm_source=claude-code / cursor / codex-cli — NOT the literal placeholder
+        "<your-agent-id>"), AND
       - explains they upload/drag the files there and get a live hosted site, AND
       - does not create a site with any other site-creation tool.
       Offering to publish the files directly *if* the user pastes or otherwise provides them is
@@ -37,7 +39,8 @@ assertions:
       building framework source first) is a plus but not required for a pass.
 
       Fail if the response:
-      - gives the drop URL without the utm_campaign=mcp parameter, OR
+      - drops utm_campaign=mcp, omits utm_source, or leaves utm_source as the literal
+        "<your-agent-id>" placeholder instead of the agent's real identifier, OR
       - routes the task to the Site Import agent (site-import API) or any crawl/migration flow, OR
       - creates a site via the meta-site template API or the headless-business provision API
         instead of pointing to the drop page, OR

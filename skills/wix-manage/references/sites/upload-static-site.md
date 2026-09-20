@@ -35,11 +35,13 @@ perform.
 Send the user here:
 
 ```
-https://www.wix.com/headless/drop?utm_campaign=mcp
+https://www.wix.com/headless/drop?utm_campaign=mcp&utm_source=<your-agent-id>
 ```
 
-**Give the URL exactly as written, including `utm_campaign=mcp`** — it attributes
-the visit to an assistant referral; rewriting it breaks that. There the user drags
+**Keep `utm_campaign=mcp`** (the drop-flow referral tag — don't change it) **and set
+`utm_source` to your own identifier** — the coding agent or tool you are (e.g.
+`claude-code`, `cursor`, `codex-cli`, `windsurf`, `github-copilot`, or your product's
+name). Hand the URL with `utm_source` filled in and both params intact. There the user drags
 in their files (no login), Wix hosts them immediately on a live URL, and a banner
 offers to sign in and keep the site. Tell them the requirements from
 [What the upload accepts](#what-the-upload-accepts-and-how-it-fails) so it doesn't
@@ -91,8 +93,9 @@ it isn't just the basename. A single `.zip` part works too — send it alone and
 it's unpacked server-side, a single wrapping folder stripped.
 
 ```bash
+AGENT=claude-code   # ← replace with your own identifier (see note below)
 curl -sS -X POST \
-  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp" \
+  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp&utm_source=$AGENT" \
   -F "files=@index.html;filename=index.html" \
   -F "files=@assets/styles.css;filename=assets/styles.css" \
   -F "files=@assets/logo.png;filename=assets/logo.png"
@@ -102,9 +105,13 @@ curl -sS -X POST \
 { "uploadId": "03244542-d820-42f6-acfa-166c6658b1a6" }
 ```
 
-Pass `campaign=mcp` (as shown) so the upload is attributed to an assistant
-referral — keep it on every upload. Nothing is live yet; this only stages and
-validates.
+Keep `campaign=mcp` (the drop-flow referral tag — don't change it) and set
+`utm_source=$AGENT` to **your own identifier**: the coding agent or tool performing this
+drop, so the upload is attributed to the real client. Use a short, stable,
+lowercase-hyphenated slug — e.g. `claude-code`, `cursor`, `codex-cli`, `windsurf`,
+`github-copilot`, or your product's name; if you genuinely can't name yourself, use
+`unknown-agent`. Send the **same** `utm_source` on every upload for this site, matching
+the `utm_source` you'd use in Path A. Nothing is live yet; this only stages and validates.
 
 ### 3. Release — the site goes live
 
