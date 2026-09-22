@@ -65,10 +65,9 @@ fallback — a runtime error, or a field the snippets don't cover (see "Fallback
 (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/members/app/` → `src/`.)
 
-**Before those files resolve, `src/lib/nav.js` must exist** — they import `Link`/`useParams`
-from `@/lib/nav` so the same sources run on either template. Copy
-`_shared/nav/nav.react-router.js` or `_shared/nav/nav.tanstack.js` to `src/lib/nav.js`,
-whichever matches this app ([which template?](../_shared/routing.md)).
+**Their `Link`/`useParams` imports come from `@/lib/nav`**, so the same sources run on either
+template. The install wrote that adapter for the template this app is on — use the file that is
+there ([which template?](../_shared/routing.md)).
 
 
 > **⚠️ Copy `wix-members-auth.js` verbatim — do NOT rewrite its internals.** The OAuth wire shapes are
@@ -84,11 +83,11 @@ share the same colors and typography.
 
 ## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
 
-> **Check the template first.** `src/routes/__root.jsx` present → TanStack Start (file-based
-> routes, no `src/App.jsx`); `src/App.jsx` present → React Router. The wiring below is the React
-> Router form — for TanStack use the route files at the end of this step. Either way, copy the nav
-> adapter to `src/lib/nav.js` before the shipped files land, or their `@/lib/nav` imports don't
-> resolve: see [`../_shared/routing.md`](../_shared/routing.md).
+> **The template decides this step.** The install's `deploy` result named it —
+> `"template": "react-router"` or `"tanstack"` — and wrote the matching `src/lib/nav.js`, which is
+> what the shipped files' `@/lib/nav` imports resolve to. The wiring below is the React Router
+> form; on TanStack use the route files at the end of this step
+> ([both patterns](../_shared/routing.md)).
 
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`, the **Base44 builder

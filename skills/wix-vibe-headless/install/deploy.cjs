@@ -15,10 +15,11 @@
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
+const { existsSync, cpSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
+const NAV_ADAPTER = '/app/src/lib/nav.js';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
@@ -67,6 +68,27 @@ function replaceMembersAuthLeftovers() {
     }
   }
   return result;
+}
+
+// --- nav adapter --------------------------------------------------------------------------------
+//
+// Every shipped component imports Link/useParams/etc from "@/lib/nav", so one set of sources runs on
+// either Base44 template and the router is named in exactly one file. Which adapter belongs here is
+// a filesystem fact, so resolve and copy it here: the agent gets `src/lib/nav.js` already correct,
+// before it writes its first page, and the reported template tells it which route wiring to follow.
+// The react-router adapter is a one-line re-export a model can guess; the TanStack one normalises
+// useParams (strict:false) and useNavigate (object arg) and a guess there breaks every detail page.
+function detectTemplate() {
+  return existsSync('/app/src/routes/__root.jsx') ? 'tanstack' : 'react-router';
+}
+
+function installNavAdapter(template) {
+  const src = `${REF}/_shared/nav/nav.${template}.js`;
+  if (!existsSync(src)) return 'adapter_missing_from_skill';
+  if (existsSync(NAV_ADAPTER)) return 'already_present';   // same don't-clobber contract as COPY
+  mkdirSync('/app/src/lib', { recursive: true });
+  cpSync(src, NAV_ADAPTER);
+  return 'written';
 }
 
 // --- WRITE the credentials ----------------------------------------------------------------------
@@ -130,6 +152,10 @@ if (aliased.length) deployed.aliased = aliased;
 
 // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
+
+// Nav adapter — always, and before the verticals whose files import it.
+deployed.template = detectTemplate();
+deployed.navAdapter = installNavAdapter(deployed.template);
 
 // Each named vertical — its app/ (UI + app/rest/ helpers) -> src/.
 const unknown = requested.filter((v) => !VERTICALS.includes(v));

@@ -1,30 +1,32 @@
 # Mounting pages: which template is this app?
 
-Base44 ships more than one app template, and they route differently. Check before you write a
-page — a storefront built for the wrong router renders nothing, and the preview comes back blank
-with no error to explain it.
+Base44 ships more than one app template, and they route differently — so which one you are on
+decides how a page gets mounted. A page mounted the other template's way renders nothing, and the
+preview comes back blank with no error to explain it.
 
+**The install already told you.** Its `deploy` result carries the answer it resolved from disk:
+
+```json
+{ "template": "react-router",  "navAdapter": "written", … }
+{ "template": "tanstack",      "navAdapter": "written", … }
 ```
-src/routes/__root.jsx exists   →  TanStack Start, file-based routes. No src/App.jsx, no index.html.
-src/App.jsx exists             →  React Router SPA.
-```
 
-The app's own `AGENTS.md` (both templates ship one) states its conventions — read it before the
-first write.
+Same fact, read directly, if that output has scrolled away: `src/routes/__root.jsx` present →
+TanStack Start (file-based routes, no `src/App.jsx`, no `index.html`, build output in `.output/`
+rather than `dist/`); `src/App.jsx` present → React Router SPA. The app's own `AGENTS.md` (both
+templates ship one) states its conventions — worth a read before the first write.
 
-## Both templates: install the nav adapter first
+## The nav adapter is already installed
 
 Shipped components import `Link`, `useParams` and friends from `@/lib/nav`, never from a router
-package, so the same files run on either template. Copy the matching adapter **before** you copy a
-vertical's `app/` tree:
+package, so one set of sources runs on either template. The install resolved the template and wrote
+the matching adapter to `src/lib/nav.js` — `nav.react-router.js` or `nav.tanstack.js` from
+`_shared/nav/` — before any vertical's files landed.
 
-```
-_shared/nav/nav.react-router.js  →  src/lib/nav.js     (React Router template)
-_shared/nav/nav.tanstack.js      →  src/lib/nav.js     (TanStack Start template)
-```
-
-Skipping this leaves every shipped card and detail page with an unresolvable import, and the dev
-server fails to start rather than rendering a broken page.
+Use the file that is there. It is the one place the router is named, and on TanStack it carries two
+normalisations that the imports depend on: `useParams` is scoped with `strict: false`, and
+`useNavigate` returns a function you call with a path (`navigate(-1)` still goes back). Write your
+own pages against `@/lib/nav` too, and they stay portable for free.
 
 ## React Router template
 
