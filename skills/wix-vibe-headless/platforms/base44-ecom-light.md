@@ -62,7 +62,7 @@ need to diagnose and fix it.
 
 **No seeding in this flow** — the client is the only deliverable. Do not seed, populate, or write data to Wix.
 
-### Preview
+### Verify
 
 Images that are still generating may show `/__generating__/…` placeholders;
 the platform replaces these automatically at turn end, with a stock fallback if generation

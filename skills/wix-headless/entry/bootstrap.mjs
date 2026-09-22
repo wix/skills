@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
-import readline from 'node:readline';
+import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // ── tiny event protocol (one JSON object per line) ───────────────────────────
 const emit = (event, extra = {}) =>
@@ -24,6 +26,12 @@ const WIX = [bin('npx'), '-y', '@wix/cli@latest']; // run the CLI via npx — no
 // Respect an existing value so a known runner (claude, cursor, …) keeps its name.
 const AGENT_ENV = { ...process.env, AI_AGENT: process.env.AI_AGENT || 'wix-headless-skill' };
 
+// Where the detached login parks its output between runs. It has to outlive this
+// process, so it can't be a pipe and can't live in the project.
+const STATE_DIR = join(tmpdir(), 'wix-headless-login');
+const LOG = join(STATE_DIR, 'login.log');
+const PIDFILE = join(STATE_DIR, 'login.pid');
+
 // run a command, capture stdout+stderr (combined), return {status, out}
 function capture(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: 'utf8', shell: isWin, env: AGENT_ENV, ...opts });
@@ -41,60 +49,108 @@ function checkCli() {
 }
 
 // ── 2. Reuse an existing session, or start device login ──────────────────────
-function hasExistingSession() {
-  const r = capture(WIX[0], [...WIX.slice(1), 'whoami']);
-  if (r.status !== 0) return false;
-  emit('logged_in');
-  return true;
+const hasExistingSession = () => capture(WIX[0], [...WIX.slice(1), 'whoami']).status === 0;
+
+function loginEvents() {
+  if (!existsSync(LOG)) return [];
+  return readFileSync(LOG, 'utf8')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null; // non-JSON CLI chatter
+      }
+    })
+    .filter((e) => e && e.event);
 }
 
-function login() {
-  return new Promise((resolve) => {
-    const child = spawn(WIX[0], [...WIX.slice(1), 'login'], { shell: isWin, env: AGENT_ENV });
-    const rl = readline.createInterface({ input: child.stdout });
-    let loggedIn = false;
-    // Buffer the CLI's own diagnostics (stderr + any non-event stdout chatter) so a
-    // failure reports the REAL cause — network/proxy error, expired code, etc. — not
-    // a guess. Keep only the tail so a chatty CLI can't blow up memory, and draining
-    // stderr also avoids the pipe filling up and stalling the child.
-    let diag = '';
-    const collect = (chunk) => {
-      diag = (diag + chunk).slice(-2000);
-    };
-    child.stderr?.on('data', collect);
-    rl.on('line', (line) => {
-      const t = line.trim();
-      if (!t) return;
-      // In agent mode the CLI emits {event:"awaiting_user"|"success"|"logged_in", ...}
-      // — pass those straight through so the agent can relay the device code.
-      try {
-        const ev = JSON.parse(t);
-        if (ev && ev.event) {
-          process.stdout.write(t + '\n');
-          if (ev.event === 'success' || ev.event === 'logged_in') {
-            loggedIn = true;
-            resolve();
-          }
-          return;
-        }
-        collect(line + '\n'); // JSON, but not an event — keep for diagnostics
-      } catch {
-        collect(line + '\n');
-      } // non-JSON CLI chatter — keep for diagnostics
-    });
-    // Only a success/logged_in event counts as login. On any other exit, surface the
-    // CLI's actual output — do NOT assume a cause (agent mode, etc.).
-    child.on('close', (code) => {
-      if (loggedIn) return;
-      const detail =
-        diag.trim().slice(-1500) ||
-        `wix login exited (code ${code}) before authenticating, with no output.`;
-      fail('login_failed', { code, detail });
-    });
-    child.on('error', (e) => fail('login_failed', { detail: String(e) }));
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// A login this machine started earlier may still be waiting on the browser. Reuse
+// its code instead of minting a second one — a new login invalidates nothing, but
+// it hands the user a different code than the one already on their screen.
+function pendingLogin() {
+  if (!existsSync(PIDFILE)) return null;
+  let state;
+  try {
+    state = JSON.parse(readFileSync(PIDFILE, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!state.pid || !alive(state.pid)) return null;
+  const ev = loginEvents().find((e) => e.event === 'awaiting_user');
+  if (!ev) return null;
+  // Don't hand back a code that's about to expire mid-typing.
+  const ageSeconds = Math.round((Date.now() - state.startedAt) / 1000);
+  if (ageSeconds > (ev.expiresInSeconds ?? 600) - 60) return null;
+  return ev;
+}
+
+// Detach so the login keeps polling after this process exits. stdio goes to a
+// file, not a pipe: a pipe dies with the parent, and the CLI would get EPIPE.
+function startLogin() {
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeFileSync(LOG, '');
+  const out = openSync(LOG, 'a');
+  const child = spawn(WIX[0], [...WIX.slice(1), 'login'], {
+    detached: true,
+    stdio: ['ignore', out, out],
+    env: AGENT_ENV,
+    shell: isWin,
   });
+  child.on('error', (e) => fail('login_failed', { detail: String(e) }));
+  writeFileSync(PIDFILE, JSON.stringify({ pid: child.pid, startedAt: Date.now() }));
+  child.unref();
+}
+
+async function waitForCode(timeoutMs = 60000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const events = loginEvents();
+    const ev = events.find((e) => e.event === 'awaiting_user');
+    if (ev) return ev;
+    const bad = events.find((e) => e.event === 'login_failed');
+    if (bad) fail('login_failed', bad);
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  const detail = existsSync(LOG) ? readFileSync(LOG, 'utf8').trim().slice(-1500) : '';
+  fail('login_failed', {
+    detail: detail || `wix login produced no device code within ${timeoutMs / 1000}s.`,
+  });
+}
+
+// The next move is the user's, so hand the code back and exit rather than holding
+// the caller open for a browser round-trip. `message` is the sentence to relay.
+function surrenderTo(ev) {
+  emit('awaiting_user', {
+    ...ev,
+    message:
+      `To connect your Wix account, open ${ev.verificationUri} and enter the code ` +
+      `${ev.userCode}. Tell me once you're done and I'll continue.`,
+  });
+  process.exit(0);
 }
 
 // ── main ────────────────────────────────────────────────────────────────────
 checkCli();
-if (!hasExistingSession()) await login();
+
+if (hasExistingSession()) {
+  emit('logged_in');
+  process.exit(0);
+}
+
+const pending = pendingLogin();
+if (pending) surrenderTo(pending);
+
+startLogin();
+surrenderTo(await waitForCode());

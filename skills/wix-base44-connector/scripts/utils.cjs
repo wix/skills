@@ -353,9 +353,13 @@ async function spec(arg) {
   const code = /^async function/.test(s) ? s
     : /^https:\/\/dev\.wix\.com\/docs\//.test(s) ? "async function(){ return await getResourceSchemaByUrl(" + JSON.stringify(s) + "); }"
     : "async function(){ " + s + " }";
-  const { result } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  const { result, error } = await post("https://mcp.wix.com/api/code-mode/search", { code });
+  // The envelope is 200 even when the query throws — the cause is in `error`, not the status.
+  // Surfacing it matters: swallowing it turns "your code threw" into "nothing matched".
+  if (error)
+    return { error, note: "the query threw — read the message and fix the code; don't re-send it unchanged" };
   if (result == null || (Array.isArray(result) && !result.length))
-    return { result, note: "empty — the query missed the shape; match your docsUrl against s.methods[].docsUrl" };
+    return { result, note: "the query ran but matched nothing — widen it, or check the url resolves" };
   const text = JSON.stringify(result, null, 1);
   if (text.length <= BUDGET) return result;
   let h = 5381;
@@ -424,4 +428,36 @@ async function installApp(appDefId, siteId, token) {
     { tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId } }, token);
 }
 
-module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp };
+// The headless OAuth app: the visitor client id, and the redirect config every Wix-hosted
+// return needs. Idempotent by name — a site reached by the "connect an existing site" flow
+// has none, and creating a second one for the same app strands the first app's returns.
+// Redirect lists are merged, never replaced: an app that already serves a custom domain
+// keeps it when a preview URL is added.
+async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains = [] }) {
+  const { oAuthApps = [] } = await post(
+    "https://www.wixapis.com/oauth-app/v1/oauth-apps/query", { query: {} }, token);
+  const existing = oAuthApps.find((a) => a.name === name);
+  const merge = (a = [], b = []) => [...new Set([...a, ...b])];
+  if (!existing) {
+    const { oAuthApp } = await post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
+      oAuthApp: { name, allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains },
+    }, token);
+    return { clientId: oAuthApp.id, created: true, oAuthApp };
+  }
+  const allowedRedirectUris = merge(existing.allowedRedirectUris, redirectUris);
+  const allowedRedirectDomains = merge(existing.allowedRedirectDomains, redirectDomains);
+  const unchanged =
+    allowedRedirectUris.length === (existing.allowedRedirectUris || []).length &&
+    allowedRedirectDomains.length === (existing.allowedRedirectDomains || []).length;
+  if (unchanged) return { clientId: existing.id, created: false, oAuthApp: existing };
+  // The update docs disagree with themselves on the mask field (prose says `paths`, the
+  // curl example says `path`); send both so the call does not silently no-op.
+  const paths = ["allowedRedirectUris", "allowedRedirectDomains"];
+  const { oAuthApp } = await patch(
+    `https://www.wixapis.com/oauth-app/v1/oauth-apps/${existing.id}`,
+    { oAuthApp: { id: existing.id, allowedRedirectUris, allowedRedirectDomains },
+      mask: { paths, path: paths.join(",") } }, token);
+  return { clientId: (oAuthApp || existing).id, created: false, oAuthApp: oAuthApp || existing };
+}
+
+module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp, ensureOAuthApp };

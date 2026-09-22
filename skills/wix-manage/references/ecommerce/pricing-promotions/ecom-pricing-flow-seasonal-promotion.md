@@ -1,6 +1,6 @@
 ---
 name: "Flow: Seasonal Promotion"
-description: SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
+description: "SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README."
 ---
 # Flow: Seasonal Promotion
 

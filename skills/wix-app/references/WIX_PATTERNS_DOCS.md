@@ -2,174 +2,96 @@
 
 ## Prerequisites
 
-Lookups here are direct file reads — no script. Resolve the installed package root once per session and reuse it:
+Resolve the package root once per session and reuse it — a bare `require.resolve` throws under Yarn PnP:
 
 ```bash
-node -e "
-const fs = require('fs'), path = require('path');
-function tryEnablePnp() {
-  let dir = process.cwd();
-  for (;;) {
-    const pnp = path.join(dir, '.pnp.cjs');
-    if (fs.existsSync(pnp)) { try { require(pnp).setup(); } catch {} return; }
-    const parent = path.dirname(dir);
-    if (parent === dir) return;
-    dir = parent;
-  }
-}
-tryEnablePnp();
-try {
-  console.log(path.dirname(require.resolve('@wix/patterns/package.json', { paths: [process.cwd()] })));
-} catch {
-  let dir = process.cwd();
-  for (;;) {
-    const candidate = path.join(dir, 'node_modules', '@wix', 'patterns');
-    if (fs.existsSync(path.join(candidate, 'package.json'))) { console.log(candidate); process.exit(0); }
-    const parent = path.dirname(dir);
-    if (parent === dir) { console.error('@wix/patterns not found'); process.exit(1); }
-    dir = parent;
-  }
-}
-"
+node <this-skill-dir>/scripts/pkg-root.cjs @wix/patterns
 ```
 
-A bare `require.resolve` without the PnP-activation step throws in a Yarn Berry project even when installed — run the whole snippet, not a shortened version.
+Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and — the one that matters — look for a **`Collection Toolkit`** key once step 1 has the docs index. The guides are *entries inside* that index rather than a directory, so no missing file reveals their absence.
 
-Then confirm the installed version actually ships the bundle index:
+**If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
-```bash
-ls <pkgRoot>/dist/dts-bundle/index.json
-```
+**Patterns API facts come from three published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where step 5 says: `package.json` points `types` at it, so it is what `tsc` enforces. Within those trees, `grep`/`sed` for one declaration usually beats a whole-file read.
 
-**If it's missing, stop — do not look elsewhere for types or docs.** The installed `@wix/patterns` predates the index (ships from **1.458.0**); upgrade and re-run the check. Prefer **1.465.0**+ — the lookups below assume it (`OffsetQuery`, `useEntityPage`'s create route, `withDashboard.md`, a deprecation `status` in `dist/docs/index.json`, page-relative router paths). A missing *file* isn't the same as a name not being covered (see below).
+## The Discovery Chain
 
-**Never inspect `node_modules` by hand** — no `ls`, `find`, or `cat` of an arbitrary path, not even `dist/dts-bundle/` or `dist/docs/`. Every lookup below names the exact file to `Read` — go straight to it.
+### 1 — The index
 
-## Library Architecture
+**Probe `<pkgRoot>/dist/docs/index.json`; do not read it whole.** At ~80 KB a `Read` truncates part-way and reports nothing, so the tail goes silently missing. Pull what you need with one `grep`/`python3` call, resolving every symbol you plan to write in it.
 
-### Composition Hierarchy
+Start here rather than the bundle index: it carries every documented name *and* the guides.
 
-```
-Provider                     <- WixPatternsProvider or WixPatternsBMProvider
-  +-- Page                   <- CollectionPage, EntityPage, or SettingsPage
-       +-- Collection        <- Table, Grid, TableGridSwitch, etc.
-            +-- Features     <- filters, actions, sorting, drag-and-drop, etc.
-```
+- **Read each entry's `summary` before opening anything.** It is that page's opening paragraph, so for most questions the index *is* the answer and step 4 becomes no read.
+- **Resolve against the keys *and* each entry's `symbols` aliases.** The index is keyed by Storybook title: `ExportButton` lives under `ExportTo`, `CollectionToolbarFilters` under `ToolbarFilters`. Matching is exact — scan for something close before concluding a name isn't covered.
+- **`status: "deprecated"`** means use what `statusMessage` names. A deprecated component still renders, so nothing else stops you.
 
-### The Collection Triad
+**Not in the docs index? Check `dist/dts-bundle/index.json` before concluding it does not exist.** It curates names with no page of their own — hooks, prop and query types, names re-exported from another package — and carries `importPath` and `file`, so step 4 still applies with no page to read.
 
-Each collection type follows the same Component + State + Hook pattern:
+**For that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB, one read, every curated name with `kind`, `importPath` and file. From 1.469.0 it adds `bytes`, `props` (`5/63` — what the file declares against what the symbol has) and `stubs`: step 5's triage for every symbol at once, with the columns named in its header. Drop to the `.json` for `readWith`, `readWithBytes` and status prose.
 
-| Component | State Type | Hook |
+### 2 — Composition, once per session
+
+`Read <pkgRoot>/dist/docs/Composition and Providers.md` before writing any patterns JSX: which provider, the four nesting layers, the collection triad, and why the provider must be a parent component rather than a sibling — the mistake that throws at runtime while the JSX looks right.
+
+### 3 — Which component serves this need
+
+| Building | Guide |
+| --- | --- |
+| Anything collection-shaped — tables, filters, search, aggregates, row and bulk actions, empty states | `dist/docs/Collection Toolkit.md` |
+| The path from a listed row to one record, and its form | `dist/docs/Collection to Entity Flow.md` |
+
+Each guide's index entry carries `relatedComponents`; every name in it resolves, because `@wix/patterns` fails its own build otherwise. Prefer one of those over a name you recall.
+
+### 4 — Read only what answers your question, then stop
+
+| Your question | Read | Path |
 | --- | --- | --- |
-| `Table` | `TableState` | `useTableCollection()` |
-| `Grid` | `GridState` | `useGridCollection()` |
-| `TableGridSwitch` | `TableGridSwitchState` | `useTableGridSwitchCollection()` |
-| `TableFolders` | `TableFoldersState` | `useTableFolders()` |
-| `GridFolders` | `GridFoldersState` | `useGridFolders()` |
+| What is it, and how does it wire in? | **nothing** — the entry says | `summary` |
+| Where do I import it from? | **nothing** — the entry says | `importPath` |
+| How do I call it? | one **example**, or a call in a guide's prose | `dist/examples/<examples[i]>` · `dist/docs/<guide>.md` |
+| What props, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `dist/dts-bundle/<bundle>` · absent: `dist/docs/<file>` |
+| A setup requirement or gotcha? | the **doc's** prose | `dist/docs/<file>` |
 
-Common types only; `dist/dts-bundle/index.json` has the authoritative set. Create state with the hook -> pass it to the component's `state` prop -> wrap in a page component.
+Prefix the index's bare values with their tree — `file` → `dist/docs/`, `examples` → `dist/examples/`, `bundle` → `dist/dts-bundle/` — and never rebuild a path from a symbol name.
 
-### Choosing the Right Provider
+**Those two middle rows are one question in practice.** You ask how to call it, start writing, and the question turns prop-shaped mid-call — where the second row sends you to a `.d.ts` that may be stubbed (step 5). Take the props off the example first; go to the `.d.ts` only for what it cannot show — optionality, union members, an exact callback signature.
 
-| Provider | When to Use |
-| --- | --- |
-| `WixPatternsProvider` | **Default — start here.** Auto-detects the environment (BM, Essentials, Giza). |
-| `WixPatternsBMProvider` / `WixPatternsGizaProvider` | Optional alternatives for Yoshi BM Flow (Business Manager / Giza). |
-| `WixPatternsEssentialsProvider` | Yoshi Fullstack. |
-| `WixPatternsBaseProvider` | App does **not** run under Giza/WixEssentials and you inject services (i18n, sentry) yourself. |
+**A guide's prose often holds the call.** `PrimaryActions`' bundle stubs its own props type, while `usePatternsNavigate.md` carries `<PrimaryActions label="Add shift" onClick={…} />` verbatim. Check what you have already read before opening anything.
 
-**Confirm the import path in the provider's own bundle** — not all share a subpath (`WixPatternsEssentialsProvider`, `WixPatternsBaseProvider` live under `@wix/patterns/essentials`).
+**`bundle` and a doc props table are mutually exclusive.** With `bundle`, the page's `### Props` is only a pointer; without it, that table marks what is required. Reading both is one hop too many.
 
-### Keep Provider and Page Separate
+**A `.d.ts` names props; it never says what they do.** Wiring and defaults live in prose: `CollectionSearch`'s bundle lists four optional props and no behaviour, while its page says the search term reaches your `fetchData` via `query.search`. When a behaviour question outlives the `summary`, open the page.
 
-The provider **must** be a parent of the page content: hooks like `useTableCollection` need its context above them in the tree.
+**Artifact not listed?** No `examples` — a hook's usage is usually filed under the component it pairs with (`useEntityPage` → `EntityPage/basic.tsx`). No `importPath` — a guide, or documented but not exported. Nothing at all — a state object you receive rather than construct; its doc is the only source.
 
-**Wrong:** calling `useTableCollection` in the component that renders `WixPatternsProvider` — the hook runs before the provider exists, so it throws at runtime even though the JSX looks right.
+### 5 — Traps that make a read wrong
 
-**Correct — provider in root, page in a separate file:**
-```tsx
-// App.tsx
-import { WixPatternsProvider } from '@wix/patterns/provider';
+**Search inside the file an index named, never across the tree.** A shared shape is re-stubbed in every bundle referencing it, so a tree-wide `grep` returns mostly pointers, and the first hit is rarely the declaration.
 
-function App() {
-  return (
-    <WixPatternsProvider>
-      <MyCollectionPage />
-    </WixPatternsProvider>
-  );
-}
+**Most bundles stub the parent holding the props — 70 of the 105 curated entries do** — and the index says so per entry. **`dist/dts-bundle/index.json` is the triage surface, not merely a fallback for names the docs index lacks:** a component entry carries `ownProps` / `inheritedProps` beside `bytes` and `readWith`, so "is this file the whole answer" is a lookup, not an inspection.
 
-// MyCollectionPage.tsx
-import { Table, useTableCollection, OffsetQuery } from '@wix/patterns';
-import { CollectionPage } from '@wix/patterns/page';
+- `Table` → `ownProps: 5, inheritedProps: 58`, `readWith` naming 3 files. Five of sixty-three.
+- `PrimaryActions` → `ownProps: 0, inheritedProps: 12`. A 470-byte file declaring none of them.
+- No `ownProps` on a component entry means no split — that file *is* the whole answer.
 
-function MyCollectionPage() {
-  // works — the provider context exists above this component
-  const state = useTableCollection({
-    queryName: 'my-items',
-    itemKey: (item) => item.id,
-    itemName: (item) => item.name,
-    fetchData: async (query: OffsetQuery) => ({ items: [], total: 0 }),
-    filters: {},
-  });
-  return (
-    <CollectionPage>
-      <Table state={state} columns={[{ title: 'Name', render: (item) => item.name }]} />
-    </CollectionPage>
-  );
-}
-```
+A split is not a dead end: the parent is a real file, `readWith` names it, and from 1.469.0 so does the stub inside the file (`Full shape: types/Filter.d.ts`). **Read that one file — one hop, not N.** The rest of `readWith` is types referenced *inside* it, opened only if needed. Judge by the entry's own `bytes`, never `readWithBytes` — `Table`'s are 5,277 against 31,731 — since the combined figure talks you out of a read you should just do. A `…Params` type built from `Pick<>`/`Omit<>` is the same trap in another shape.
 
-Keep the provider (and router, if any) in the app's root component and each page in its own file.
+**When you do need several `readWith` files, read them in one call** — one `Read` per file in a single message. Reads measure ~21 ms each, so ten is a fifth of a second and one round trip. Deciding is what costs: decide once, then batch, and never hop one file per turn. Batching is not a licence to skip the filter, though — a few deliberate reads beat dozens of just-in-case ones.
 
-For **multiple pages**, use the `@wix/patterns` routing solution (`PatternsReactRouter`, `PatternsReactRoute`, `usePatternsNavigate`) rather than a separate router. Read `PatternsReactRouter.md` and `withDashboard.md` for setup — the router reads page location from the dashboard context `withDashboard` renders, so it needs that wrapper above it with a `location` prop, and throws at render time without them. (it ships from **1.465.0**; no entry in `dist/docs/index.json` means an older install — use `PatternsReactRouter.md`'s **Requirements**.)
+**If the parent is large, take the declaration `tsc` uses.** `dist/types/components/CollectionTable/CollectionTable.d.ts` is 5,919 B against the bundle's 20,802 B, carries JSDoc, and states `columns: TableColumn<T>[]` (required) outright. Nothing there is stubbed, so a `grep` for a prop name is reliable. This case only.
 
-## How to Look Things Up
+The generated files' conventions — which one-line stubs are answers rather than truncation, how entry-point files are scoped — are in `dist/docs/Reading the Doc Indices.md`, worth reading before your first `dist/dts-bundle/*.d.ts` of the session.
 
-**Don't guess which components or props exist — read the doc files first.**
+### Rules for the reads themselves
 
-### Finding the right name
-
-`Read <pkgRoot>/dist/dts-bundle/index.json` — one entry per name, grouped implicitly by its `category` field. Lookup is **exact-match only** — no fuzzy matching. If the exact key isn't there, scan the index you already hold for something close before concluding the name isn't covered.
-
-Not every real export is in this index — only names these guides reference. If a needed name genuinely isn't there, **stop and say so rather than falling back to `node_modules`.**
-
-### Reading doc files
-
-`Read <pkgRoot>/dist/docs/index.json` to resolve a name to its doc file — or a `symbols` alias, for cases where the Storybook title doesn't match the export (`ExportTo.md` documents `ExportButton`) — then `Read <pkgRoot>/dist/docs/<file>.md` directly, the whole file, not piped through `head`. It covers more names than the bundle index above — every documented component, not just the curated ones.
-
-**Always check the import statement inside the doc** — not everything comes from `@wix/patterns` (some use subpaths, e.g. `@wix/patterns/provider`).
-
-A doc whose index entry has a `bundle` field does **not** list its props — its `### Props` points at that bundle. One without it carries its own table. Either way the doc owns prose, variations, BI events, and the import line.
-
-### Reading the file the index names
-
-The mechanics of the file an index names — batching the reads, types docs don't cover, one-line stubs that are answers rather than truncation, subpath entry points, cross-references, split compound docs — are in [Reading bundles and docs](dashboard-page/PATTERNS_BUNDLE_READING.md). Read it before your first `dist/dts-bundle/*.d.ts` of the session.
-
-## The Collection → Entity Flow
-
-A collection page and its item form are **two patterns pages**, not a page plus a modal. Reserve modals for dialogs that neither write nor display a listed record (a delete or discard confirmation, an unsaved-changes prompt); **a create / "add new" form is not one of them** — it writes the record, so it's an `EntityPage` regardless of size. A page that lists nothing is outside this rule — full test in [SKILL.md](../SKILL.md#entity-create-and-edit).
-
-| Step | What owns it |
-| --- | --- |
-| Navigate from a row / primary action to the item | `usePatternsNavigate()` → `navigateToEntityPage({ path, entity })` |
-| Register the route | `PatternsReactRoute` inside `PatternsReactRouter` |
-| Fetch, save, validation, dirty state, skeletons, errors | `useEntityPage({ fetch, onSave })` |
-| Form state and field binding | `useForm` / `useController` from `@wix/patterns/form` — `useController`, never `register` |
-| Body layout | `EntityPage.Header`, `.MainContent`, `.AdditionalContent`, `.Card` |
-| The individual fields inside those cards | `@wix/design-system` (`FormField`, `Input`, `Text`) |
-
-Prefer `navigateToEntityPage` over a plain route change — the entity header renders before the fetch resolves. **Every `path` above is page-relative**: the router roots at `path="/"` even on a page scaffolded `route: "shifts"`, so never repeat that name in a `path`, `parentPath`, or `navigateToEntityPage` call — it fails silently. See [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md).
-
-Read `EntityPage.md`, `useEntityPage.md` and `usePatternsNavigate.md` before implementing, plus [ENTITY_PAGE_TOOLKIT.md](dashboard-page/ENTITY_PAGE_TOOLKIT.md) for the `useEntityPage` call itself (generics, `onSave`, params). Note `useCreateCollection` is **not** about creating items: it returns a function that initializes collection state.
+- **Use the exact `file`, `bundle` and `examples` values, prefixed per step 4.** Bundles nest one directory per kind, so `<Name>.d.ts` at the top level is wrong by construction, and an example slug is not derivable from a title.
+- **Extract from the file the index named.** A whole-file `Read` is safe (`bytes` gives the size first); a scoped `grep`/`sed` is cheaper. If an extraction is empty or ambiguous, read the whole file rather than guess.
+- **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system` skill; never follow a deep `@wix/design-system/dist/...` path a bundle mentions.
+- **If a name is in neither index, stop and say so**, naming the path that dead-ended. A wrong guess compiles and breaks at runtime.
 
 ## When Patterns Has No Equivalent
 
-A concept is only "missing" from patterns after you've checked `dist/dts-bundle/index.json` and `dist/docs/index.json` **and** searched by keyword within what you've read. Then:
+A concept is only "missing" after you have checked both indices **and** searched by keyword in what you have read. Then look it up via the `wix-design-system` skill and render it *inside* the patterns page shell rather than in place of it; if WDS lacks it too, compose from `Box`, `Card` and `Text`. Never restyle patterns internals, and never add another UI library.
 
-1. Look the component up in `@wix/design-system` via the `wix-design-system` skill.
-2. Render it *inside* the patterns page shell / collection, not as a replacement for it.
-3. If WDS lacks it too, compose from WDS primitives (`Box`, `Card`, `Text`) — never restyle patterns internals, never add another UI library.
-
-Anything page- or collection-shaped (shell, header, table, grid, filters, sorting, paging, row/bulk actions) is patterns' territory. Building one from WDS parts means a skipped lookup.
+Anything page- or collection-shaped is patterns' territory; building one from WDS parts means a skipped lookup.

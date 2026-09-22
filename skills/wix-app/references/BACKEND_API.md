@@ -1,64 +1,81 @@
 
 # Wix Backend API Builder
 
-Creates HTTP endpoints for Wix CLI applications — server-side routes that handle HTTP requests, process data, and return responses. HTTP endpoints are powered by Astro endpoints and are automatically discovered from the file system.
+Creates HTTP endpoints for Wix app projects. Determine the existing runtime
+before choosing the directory, handler type, or frontend URL.
 
-**Key facts:**
+## Scope and Runtime Detection
 
-- Files live in `src/pages/api/` with `.ts` extension
-- Cannot be added via `npm run generate` — create files directly
-- Don't appear on the Extensions page in the app dashboard
-- No extension registration needed (auto-discovered)
-- Replace the legacy "HTTP functions" from the previous Wix CLI for Apps
+- The CLI uses the `@wix/custom-extensions` runtime when the project's own
+  `package.json` declares that package in `dependencies` or `devDependencies`. A
+  transitive installation under `node_modules` is not enough. Do not infer the
+  runtime from using `wix dev`, `wix build`, or the Wix CLI alone.
+- Existing `@wix/astro` apps retain Astro routing. Do not add
+  `@wix/custom-extensions`, move routes into `src/endpoints`, change their handler
+  imports, or introduce `WIX_SERVER_BASE_PATH` to apply the other runtime's recipe.
 
-## Use Cases
+## Generate for the Project Type
 
-Use HTTP endpoints when you need to:
+```bash
+npx wix generate --params '{"extensionType":"HTTP_ENDPOINT","name":"hello"}'
+```
 
-- Build REST APIs with multiple HTTP methods
-- Integrate with external APIs or services
-- Handle complex form submissions or file uploads
-- Serve dynamic content (images, RSS feeds, personalized data)
-- Access runtime data or server-side databases
+Names use lowercase letters, digits, and hyphens; slash-separated names such as
+`payments/checkout` create nested routes. Do not include a leading slash or `.ts`.
+The generator creates GET/POST stubs; keep only the methods the task needs.
+
+For Wix app projects, the generator preserves the selected runtime:
+
+| Project | Generated file | Route before any server base path | `APIRoute` import |
+| --- | --- | --- | --- |
+| `@wix/custom-extensions` | `src/endpoints/hello.ts` | `/hello` | `@wix/custom-extensions/types` |
+| `@wix/astro` | `src/pages/api/hello.ts` | `/api/hello` | `astro` |
+
+In `@wix/custom-extensions` projects, endpoints live in `src/endpoints` by default and require
+`@wix/custom-extensions@^0.2.14`; older releases neither scan that directory by
+default nor export `./types`, and the build passes without serving anything. The
+generator upgrades the package; when creating the file by hand, upgrade it
+yourself. Install changed dependencies before validating. If `app()` in
+`src/extensions.ts` passes `apiDir`, that directory (under `src/`) is the one the
+runtime scans instead, and the generator does not read it: either remove `apiDir`
+to use the default, or move the generated file into `src/<apiDir>`. The route is
+`/<name>` either way.
+
+If `wix generate` does not recognize `HTTP_ENDPOINT`, the CLI predates the
+generator (added in `@wix/cli` 1.1.243). Update the CLI, or create the file by hand:
+put it in the directory from the table above, export the handlers shown in
+[HTTP Methods](#http-methods), and import `APIRoute` from
+`@wix/custom-extensions/types` or from `astro`, matching the project's runtime. Do
+not add `astro` to a `@wix/custom-extensions` project to make an Astro-style import
+resolve. No registration step is needed.
 
 ## File Structure and Naming
 
-### Basic Endpoint
+Nested paths are relative to the runtime's endpoint directory:
 
-File path determines the endpoint URL:
-
-```
-src/pages/api/<your-endpoint-name>.ts
-```
-
-### Dynamic Routes
-
-Use square brackets for dynamic parameters:
-
-```
-src/pages/api/users/[id].ts → /api/users/:id
-src/pages/api/posts/[slug].ts → /api/posts/:slug
-src/pages/api/users/[userId]/posts/[postId].ts → /api/users/:userId/posts/:postId
-```
+| `@wix/custom-extensions` file | Route | Astro equivalent |
+| --- | --- | --- |
+| `src/endpoints/payments/checkout.ts` | `/payments/checkout` | `src/pages/api/payments/checkout.ts` → `/api/payments/checkout` |
+| `src/endpoints/users/[id].ts` | `/users/:id` | `src/pages/api/users/[id].ts` → `/api/users/:id` |
 
 ## HTTP Methods
 
-Export named functions for each HTTP method. Type with `APIRoute` from `astro`. Each handler receives a `request` object and returns a `Response`:
+Export a named handler for each requested HTTP method. Preserve the generated
+`APIRoute` import for the project's runtime. For `@wix/custom-extensions` projects:
 
 ```typescript
-import type { APIRoute } from "astro";
+import type { APIRoute } from "@wix/custom-extensions/types";
 
-export const GET: APIRoute = async ({ request }) => {
-  console.log("Log from GET."); // This message logs to your CLI.
-  return new Response("Response from GET."); // This response is visible in the browser console
-};
-
-export const POST: APIRoute = async ({ request }) => {
-  const data = await request.json();
-  console.log("Log POST with body: ", data); // This message logs to your CLI.
-  return new Response(JSON.stringify(data)); // This response is visible in the browser console.
+export const GET: APIRoute = async () => {
+  return Response.json({
+    message: "Hello from the backend!",
+    timestamp: new Date().toISOString(),
+  });
 };
 ```
+
+In an Astro project, use `import type { APIRoute } from "astro"` instead.
+The request/response examples below apply to both runtimes.
 
 ## Request Handling
 
@@ -66,17 +83,13 @@ export const POST: APIRoute = async ({ request }) => {
 
 ```typescript
 export const GET: APIRoute = async ({ params }) => {
-  const { id } = params; // From /api/users/[id]
+  const { id } = params; // From users/[id].ts in the endpoint directory
 
   if (!id) {
-    return new Response(JSON.stringify({ error: "ID required" }), {
-      status: 400,
-      statusText: "Bad Request",
-      headers: { "Content-Type": "application/json" },
-    });
+    return Response.json({ error: "ID required" }, { status: 400 });
   }
 
-  // Use id to fetch data
+  return Response.json({ id });
 };
 ```
 
@@ -91,7 +104,7 @@ export const GET: APIRoute = async ({ request }) => {
   const limit = parseInt(url.searchParams.get("limit") || "10", 10);
   const offset = parseInt(url.searchParams.get("offset") || "0", 10);
 
-  // Use query parameters
+  return Response.json({ search, limit, offset });
 };
 ```
 
@@ -106,23 +119,15 @@ export const POST: APIRoute = async ({ request }) => {
     const { title, content } = body;
 
     if (!title || !content) {
-      return new Response(
-        JSON.stringify({ error: "Title and content required" }),
-        {
-          status: 400,
-          statusText: "Bad Request",
-          headers: { "Content-Type": "application/json" },
-        }
+      return Response.json(
+        { error: "Title and content required" },
+        { status: 400 }
       );
     }
 
-    // Process data
+    return Response.json({ title, content });
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-      statusText: "Bad Request",
-      headers: { "Content-Type": "application/json" },
-    });
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 };
 ```
@@ -136,74 +141,73 @@ const contentType = request.headers.get("Content-Type");
 
 ## Response Patterns
 
-Always return a `Response` object with proper status codes and headers:
+Return a `Response` from every handler path. `Response.json(body, { status })`
+serializes JSON and sets `Content-Type: application/json` automatically.
 
-```typescript
-// 200 OK
-return new Response(JSON.stringify({ data: result }), {
-  status: 200,
-  headers: { "Content-Type": "application/json" },
-});
+| Status | Use |
+| --- | --- |
+| 200 | Successful read or update (default) |
+| 201 | Resource created |
+| 204 | Success without a body: `new Response(null, { status: 204 })` |
+| 400 | Invalid request |
+| 404 | Resource not found |
+| 500 | Unexpected server failure; return a generic error |
 
-// 201 Created
-return new Response(JSON.stringify({ id: newId, ...data }), {
-  status: 201,
-  headers: { "Content-Type": "application/json" },
-});
-
-// 204 No Content (for DELETE)
-return new Response(null, { status: 204 });
-
-// 400 Bad Request
-return new Response(JSON.stringify({ error: "Invalid input" }), {
-  status: 400,
-  statusText: "Bad Request",
-  headers: { "Content-Type": "application/json" },
-});
-
-// 404 Not Found
-return new Response(JSON.stringify({ error: "Not found" }), {
-  status: 404,
-  statusText: "Not Found",
-  headers: { "Content-Type": "application/json" },
-});
-
-// 500 Internal Server Error
-return new Response(JSON.stringify({ error: "Internal server error" }), {
-  status: 500,
-  statusText: "Internal Server Error",
-  headers: { "Content-Type": "application/json" },
-});
-```
+For example: `Response.json({ error: "Not found" }, { status: 404 })`.
 
 ## Frontend Integration
 
-Call HTTP endpoints from frontend components using Wix's built-in HTTP client (`httpClient.fetchWithAuth()`):
+For app extensions, use `httpClient.fetchWithAuth()` from `@wix/essentials`.
+Build the URL from the extension module's origin, not the host page's origin.
+
+### `@wix/custom-extensions` Projects
+
+`wix dev` may run with `--base`, so the request must preserve
+`import.meta.env.WIX_SERVER_BASE_PATH`. The runtime defaults this value to `/`
+without a configured base, including the normal production build.
+During dev, the injected value is Vite's resolved base, which already has a
+trailing slash even when `--base` omits it. Concatenate the endpoint name
+directly, with `/` as a fallback for a missing/empty value.
+Do not hardcode the base prefix or add `/api` to a `@wix/custom-extensions` route.
 
 ```typescript
 import { httpClient } from "@wix/essentials";
 
-// GET request
-const baseApiUrl = new URL(import.meta.url).origin;
-const res = await httpClient.fetchWithAuth(
-  `${baseApiUrl}/api/<your-endpoint-name>`,
-);
-const data = await res.text();
+const origin = new URL(import.meta.url).origin;
+const basePath = import.meta.env.WIX_SERVER_BASE_PATH || "/";
+const endpointUrl = `${origin}${basePath}hello`;
 
-// POST request
-const res = await httpClient.fetchWithAuth(
-  `${baseApiUrl}/api/<your-endpoint-name>`,
-  {
-    method: "POST",
-    body: JSON.stringify({ message: "Hello from frontend" }),
-  },
-);
+// Inside an event handler or runtime data-loading function:
+const res = await httpClient.fetchWithAuth(endpointUrl);
+if (!res.ok) {
+  throw new Error(`Request failed: ${res.status}`);
+}
 const data = await res.json();
 ```
 
+Keep the module origin: passing only `${basePath}hello` can resolve against the
+hosting site's origin instead of the app server.
+
+### Astro App Extensions
+
+For a standard Astro app endpoint, use its `/api` route without the
+`WIX_SERVER_BASE_PATH` variable. If the existing Astro configuration has its own base path,
+preserve that project's URL handling instead of applying the root-only example:
+
+```typescript
+import { httpClient } from "@wix/essentials";
+
+const endpointUrl = new URL("/api/hello", import.meta.url).href;
+const res = await httpClient.fetchWithAuth(endpointUrl);
+```
+
+For either runtime, a POST uses the same endpoint URL with `method: "POST"`, a
+JSON body, and `Content-Type: application/json`, provided the route exports POST.
+
 ## Identity and Authorization
 
-Endpoints run as the **app**, so this is one of the few places `auth.elevate` is valid — it works only in backend code, never in a site, editor, or dashboard extension. It wraps the SDK method rather than being called around it, so inside a request handler you invoke the wrapper:
+`auth.elevate` works only in backend code. Wrap the SDK method, then invoke
+that wrapper inside the request handler:
 
 ```typescript
 import { auth } from "@wix/essentials";
@@ -213,39 +217,34 @@ const elevatedArchive = auth.elevate(locations.archiveLocation);
 const archived = await elevatedArchive(locationId); // locationId read from the request
 ```
 
-**Only create an endpoint for calls that need it.** Settle that with [Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement) *before* adding a file under `src/pages/api/` — an endpoint wrapping a call the extension could have made itself is a correctness or privacy bug, not extra indirection, because elevating inside it re-targets a session-resolved call away from the visitor or hands back what the platform deliberately withheld.
+Before routing SDK calls through an endpoint, apply the
+[Identity and Elevation Requirement](../SKILL.md#identity-and-elevation-requirement).
+Keep visitor/session-resolved and caller-filtered calls in the frontend: elevation
+can change whose data is accessed or expose data the platform withheld.
 
-**Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself** — otherwise every caller who can reach it gets the elevated operation, and only `httpClient.fetchWithAuth()` (see [Frontend Integration](#frontend-integration)) sends the caller's identity for the handler to check; a bare `fetch` sends nothing and leaves the endpoint open.
+**Elevation bypasses Wix's permission check.** The endpoint must authorize the
+caller before invoking an elevated method. Use `httpClient.fetchWithAuth()` to
+send caller identity; a bare `fetch` does not supply that identity. Authentication
+alone does not grant permission to perform the operation.
 
-What you can establish depends on the host: a dashboard caller is a Wix user, whose roles already limit them. From a site or editor extension `members.getMyMember()` identifies a logged-in member, but there is **no documented way to prove the caller is the site owner** — a real constraint, not an oversight, so an owner-only operation belongs in a dashboard extension, where the Wix user identity already carries the authority, rather than behind an endpoint reachable from a site extension.
+Dashboard callers are Wix users. For site/editor callers, `members.getMyMember()`
+identifies a logged-in member but does not prove site ownership. Owner-only
+operations belong in a dashboard extension; do not expose them to site visitors
+on the assumption that member authentication proves ownership.
 
-## Build, Deploy, and Delete
+## Validate, Deploy, and Delete
 
-To take HTTP endpoints to production, build and release your project:
+1. Install changed dependencies, typecheck, and run `wix build`.
+2. If a dev site is configured (`wix dev-site`), run `wix dev` and request the
+   URL; also exercise the frontend caller when one was requested. `wix preview`
+   uploads a version and exits; it is not a server.
+3. When deployment is requested, use the normal build/preview/release commands,
+   unless the environment hosting the project manages deployment itself.
 
-1. Build the project assets using the [`build`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/build) command.
-2. Optionally create preview URLs using the [`preview`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/preview) command to share with team members for testing.
-3. Release your project using the [`release`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/release) command.
+To delete an endpoint, remove its file from the appropriate directory and apply
+that change through the same deployment flow. No `.use()` cleanup is needed.
 
-Once released, endpoints are accessible at production URLs and handle live traffic.
-
-To delete an HTTP endpoint, remove the file under `src/pages/api/` and release again.
-
-## Output Structure
-
-```
-src/pages/api/
-├── users.ts              # /api/users endpoint
-├── users/
-│   └── [id].ts           # /api/users/:id endpoint
-└── posts.ts              # /api/posts endpoint
-```
-
-## Backend-API-specific Conventions
-
-- Type all handlers with `APIRoute` from `astro`.
-- Always return `Response` objects with `JSON.stringify()` for JSON.
-- Use proper HTTP status codes (200, 201, 204, 400, 404, 500).
-- Include `Content-Type: application/json` header on JSON responses.
-- Include `statusText` in error responses.
-- Validate input parameters and request bodies.
+If a route 404s, or the file was created by hand, confirm it was discovered: in a
+`@wix/custom-extensions` build `grep 'pattern:' dist/server/index.mjs` lists every route (a
+dynamic segment prints as `:"id"`); in an Astro build the route string appears
+under `dist/`. A missing entry means the file is outside the scanned directory.

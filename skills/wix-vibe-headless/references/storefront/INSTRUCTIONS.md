@@ -9,7 +9,7 @@ or configuration changes are needed to build the UI. Never mock products or hand
 `/checkout` URL; the shipped cart uses the eCom redirect session.
 
 ## Prerequisites
-- The site's **Wix Stores** catalog is the read/cart target. It's installed and seeded separately, in parallel with this build — so it may be empty at build time; render the empty state until products land.
+- The site's **Wix Stores** catalog is the read/cart target. It may be empty while the client is being built — render the empty state cleanly. Flows that seed do so after the client is built; verify the storefront once the catalog is populated, not against the empty state.
 
 ## Already installed in `src/`
 Successful deployment verified these files are in place; use this map without needing to read their source (`@/` → `src/`).

@@ -59,15 +59,15 @@ describe('toEvalForgeBody', () => {
     expect(JSON.parse(String(l.params?.expectedParams))).toEqual({});
   });
 
-  it('maps llm_judge with minimal fields (prompt only)', () => {
+  it('maps llm_judge with minimal fields (prompt + minScore)', () => {
     const judge: Scenario = {
       ...scenario,
-      assertions: [{ type: 'llm_judge', prompt: 'judge {{output}}' }],
+      assertions: [{ type: 'llm_judge', prompt: 'judge {{output}}', minScore: 7 }],
     };
     const [l] = toEvalForgeBody(judge).assertionLinks;
     expect(l).toEqual({
       assertionId: 'system:llm_judge',
-      params: { prompt: 'judge {{output}}' },
+      params: { prompt: 'judge {{output}}', minScore: 7 },
     });
   });
 
@@ -101,7 +101,7 @@ describe('toEvalForgeBody', () => {
       ...scenario,
       assertions: [
         { tool: 'wix_mcp_remote_X', params: { url: 'https://x' } },
-        { type: 'llm_judge', prompt: 'judge' },
+        { type: 'llm_judge', prompt: 'judge', minScore: 7 },
       ],
     };
     const body = toEvalForgeBody(mixed);

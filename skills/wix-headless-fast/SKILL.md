@@ -11,6 +11,11 @@ layer, hooks, components, pages, and a seed script that are already correct — 
 job narrows to brand, layout, copy, and wiring. The decisions live in the code; don't
 re-litigate them.
 
+**Scope.** This is the bootstrap, tuned for Wix-managed Astro, and each vertical ships *one*
+shape of its solution. Deploy it as-is when the brief doesn't contradict it. When the brief
+asks for something that shape doesn't express — or once the site exists and the work turns to
+managing or extending it — that's `wix-docs` and `wix-manage`, not a workaround here.
+
 ## Relationship to sibling skills
 
 | Skill                        | Use when                                                                                                               |
@@ -36,13 +41,14 @@ re-litigate them.
   this — nothing to wire by hand.
 - **Data as-is; presentation is yours.** The data layer, hooks, and cart chrome are wired
   as-is — never rewrite their internals, re-route them through API routes, or re-derive a
-  request shape. For a genuine gap, first read the relevant official contract with the
-  `wix-docs` skill; do not search generated SDK types, package files, or `node_modules` to
-  infer it. A normal caller-permitted operation belongs in a new data-layer function. A
-  privileged operation belongs in a validated server endpoint — see
-  `references/shared/CUSTOM_OPERATIONS.md`. The presentation components ship only as
-  **references**: the vertical's INSTRUCTIONS names the surfaces you design and implement
-  yourself on the shipped hooks (for storefront: card, grid, shop + PDP surfaces, home).
+  request shape. When the brief needs something they don't express, read the shipped file that
+  owns it and confirm the contract with `wix-docs`; never infer one from generated SDK types,
+  package files, or `node_modules`. A normal caller-permitted operation belongs in a new
+  data-layer function. A privileged operation belongs in a validated server endpoint — see
+  `references/shared/CUSTOM_OPERATIONS.md`. The presentation **doesn't ship**: the vertical's
+  INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
+  with a skeleton carrying each surface's contract (for storefront: the shop and PDP pages
+  with their islands, and home).
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -69,6 +75,17 @@ re-litigate them.
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table.
+
+   fast-path scaffolds with `--skip-git`: it composes its own steps and leaves version control to
+   you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
+   commit (which would otherwise become a nested-repo gitlink if the project lands inside a repo).
+
+   Optional `--flatten`: by default the project is created in a **new subfolder** (named after the
+   business). Pass `--flatten` to create it **directly in the current directory** instead — a plain
+   move of the scaffold's files up into the CWD, done **before** the dependency install starts so
+   nothing is half-moved (and since git was skipped, there's no nested repo to reconcile). Use it
+   when bootstrapping into an existing repo that must stay a single flat tree; otherwise omit it
+   and keep the subfolder.
 
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
    **deploys** the shipped code (patching `package.json` with every dependency the code
@@ -156,6 +173,7 @@ references/<vertical>/
   app-astro/           # Astro overlay importing ONLY from the core:
     pages/…            #   SSR fetch → DTO props → client:load islands; item pages carry
                        #   wixMetadata + <SEO.Tags>; chrome islands are client:only
+                       #   (storefront ships no pages — its INSTRUCTIONS carries their skeletons)
     layouts/…          #   (reuse SiteLayout when it fits)
   seed/                # seed-<vertical>.mjs (REST, mints its own CLI token) + SEED.md
 ```

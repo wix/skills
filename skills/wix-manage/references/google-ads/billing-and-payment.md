@@ -1,12 +1,12 @@
 ---
 name: "Retrieve Google Ads Billing and Payment Details"
-description: "Retrieves billing and payment details for a Wix site's Google Ads account: the current billing period's ad spend (usage), the Wix service fee, the total charge, any promotional coupon adjustment, the billing period dates, and the account's credit balance (positive = available credits, negative = outstanding debt not yet charged). Also explains reading current vs remaining budget from the account object. Use when the user asks 'how much have I spent on Google Ads', 'what's my next Google Ads charge', 'show my ad billing', 'do I have ad credits left', 'why was I charged', or 'upcoming Google Ads payment'. Requires an existing Google Ads account. REST base https://www.wixapis.com/google-ads/v1."
+description: "Retrieves billing and payment details for a Wix site's Google Ads account: the current billing period's ad spend (usage), the Wix service fee, the total charge, any promotional coupon adjustment, the billing period dates, and the account's credit balance (positive = available credits, negative = outstanding debt not yet charged). Also explains reading current vs remaining budget from the account object. Use when the user asks 'how much have I spent on Google Ads', 'what's my next Google Ads charge', 'show my ad billing', 'do I have ad credits left', 'why was I charged', or 'upcoming Google Ads payment'. Requires an existing Google Ads account. REST base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Retrieve Google Ads Billing and Payment Details
 
 Report what a site owner will be charged for Google Ads: ad spend, the Wix service fee, coupon adjustments, the total, the billing period, and the account's credit balance.
 
-Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorization` header. This endpoint is read-only.
+Base URL: `https://www.wixapis.com/_serverless/pa-google/v1`. `<AUTH>` is the `Authorization` header. This endpoint is read-only.
 
 **Prerequisite:** a Google Ads account must exist (`ACCOUNT_NOT_FOUND` → run [install-and-create-account](install-and-create-account.md)).
 
@@ -17,7 +17,7 @@ Base URL: `https://www.wixapis.com/google-ads/v1`. `<AUTH>` is the `Authorizatio
 Billing is calculated from cached subscription data (not fetched live from Google), and the charge calculation is heavy — this endpoint has a **30-second SLA**, so allow time and don't retry prematurely.
 
 ```bash
-curl -X GET 'https://www.wixapis.com/google-ads/v1/payment-details' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/_serverless/pa-google/v1/payment-details' -H 'Authorization: <AUTH>'
 ```
 
 ```json

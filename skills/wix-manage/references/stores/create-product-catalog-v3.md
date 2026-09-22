@@ -83,9 +83,22 @@ If any product is missing a price, **do not call the API**. Ask for the missing 
 
 ## Build each product
 
+> [!WARNING]
+> **Hard requirement before every create call:** If `productType` is `"PHYSICAL"`, the request MUST include `physicalProperties` on the product and on every variant:
+>
+> ```json
+> {
+>   "productType": "PHYSICAL",
+>   "physicalProperties": {},
+>   "variantsInfo": {"variants": [{"physicalProperties": {}}]}
+> }
+> ```
+>
+> Put supplied physical fields such as weight or dimensions inside those objects; use `{}` when none were supplied. Never invent them, and never execute or retry a physical-product request when either object is absent.
+
 | Concern | Rule |
 |---|---|
-| Type | `PHYSICAL` uses product- and variant-level `physicalProperties`; `DIGITAL` omits them and carries `inventoryItem.inStock` plus `digitalProperties.digitalFile` on each variant. |
+| Type | `PHYSICAL` requires both `productType: "PHYSICAL"` and product-level `physicalProperties`, plus both `productType: "PHYSICAL"` and variant-level `physicalProperties` on every variant. `DIGITAL` omits physical properties and carries `inventoryItem.inStock` plus `digitalProperties.digitalFile` on each variant. |
 | Variants | Include at least one. Price, SKU, barcode, inventory, and digital file are variant-level fields. |
 | Price | Use a string in `price.actualPrice.amount`; add `compareAtPrice` only when supplied. |
 | SKU | Preserve supplied strings exactly, including `#`, punctuation, and leading zeroes. Keep variant SKUs unique unless explicitly requested otherwise. |
@@ -221,6 +234,8 @@ The first is for single endpoints; the second is for bulk endpoints. If the user
 
 For one product when the user supplied no quantity, stock state, or inventory-tracking request, the complete direct path is `POST /stores/v3/products` with `{"product": PRODUCT}`. Do not infer `inStock: true`, add `inventoryItem`, or choose `/products-with-inventory`; physical product type does not imply inventory. If it has ready images, add `"fields": ["MEDIA_ITEMS_INFO"]` to the same no-inventory request.
 
+For a physical product on either create endpoint, never send `productType: "PHYSICAL"` by itself. Include `physicalProperties: {}` on the product and `physicalProperties: {}` on every physical variant (or populate those objects with the supplied physical dimensions/weight). The API validates these as aligned one-of pairs and returns 400 if either corresponding field is missing.
+
 For one physical product with inventory, the complete direct path is one `POST /stores/v3/products-with-inventory` call with `{"product": PRODUCT}`. Put `inventoryItem` on its priced variant. If it has ready images, add `"fields": ["MEDIA_ITEMS_INFO"]` to that same request. The product shape, envelope, endpoint, and validation paths are complete here: do not search another recipe or schema, probe an alternate endpoint, or make a post-create read unless the projected create response does not prove requested media.
 
 ### Request projected media when validating images
@@ -300,4 +315,5 @@ Retry only failed transient items, not successful products. If a requested field
 - `variantsInfo must not be empty`: include at least one priced variant per product.
 - Option/variant mismatch: create every requested combination and reference every option once per variant.
 - Media not visible: use the uploaded `wixstatic.com` URL in `media.itemsInfo.items`; do not set `media.main`.
+- `productType` alignment 400 (`product is invalid: productType and the corresponding physical_properties field must be passed together`): pair `productType: "PHYSICAL"` with `physicalProperties` on the product and on every physical variant. The API validates these as aligned one-of pairs, so do not retry with only one level populated. Pair `productType: "DIGITAL"` with the digital variant fields instead.
 - Digital product rejected at add-to-cart: `ITEM_NOT_FOUND_IN_CATALOG` means the variant has no `digitalProperties.digitalFile`; `exceeds available inventory` means it has no `inventoryItem.inStock`. Both read back as a healthy product.

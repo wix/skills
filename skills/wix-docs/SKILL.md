@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`, incl. the SKILLS recipe corpus for multi-step workflows) **or by browsing** a docs portal as a menu — a structured, typed, counted browse of the REST, SDK, CLI, Build Apps, and Headless portals (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any surface — then read the page by appending `.md` to its URL; (2) the Wix MCP doc tools when present. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type(s) }`, incl. the SKILLS recipe corpus for multi-step workflows) **or by browsing** a docs portal as a menu — a structured, typed, counted browse of the REST, SDK, CLI, Build Apps, and Headless portals (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any surface — then read the page by appending `.md` to its URL; (2) the Wix MCP doc tools when present. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -15,11 +15,11 @@ or the Wix MCP doc tools if your agent has them (Lane 2). Either way, route by w
 know:
 
 - **You have a docs URL** → just read it (§2). Don't re-search for a page you can already name.
-- **A multi-step workflow** ("take a booking from service setup to payment") → look for a **recipe**
-  first: semantic search with `document_type: "SKILLS"` (§1A). A recipe carries step ordering,
-  cross-step gotchas, and the one bundled endpoint that does the whole job — things no single
-  method page states. No relevant recipe → search the relevant API corpus and assemble the workflow
-  from verified per-method contracts.
+- **A multi-step workflow** ("take a booking from service setup to payment") → include the **recipe**
+  corpus in the search: `document_types: ["SKILLS", …]` alongside the API corpus the steps live in
+  (§1A). A recipe carries step ordering, cross-step gotchas, and the one bundled endpoint that does
+  the whole job — things no single method page states. No relevant recipe comes back → assemble the
+  workflow from the verified per-method contracts in the same result set.
 - **One specific operation, field, or enum** → search its API corpus (`REST` / `SDK`), then read or
   schema-check what you land on.
 
@@ -34,12 +34,21 @@ Three ways to reach the right page — use whichever fits.
 
 **A. Semantic search.** Describe what you want in natural language ("let a customer book an
 appointment"), not just keywords; hits come back ranked by relevance. Same `POST` body for both
-variants: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` · `SKILLS` ·
-`WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI` · `OVERVIEW`),
-`maximum_results` (1–20, def 15), `lines_in_each_result` (0–200, def 20; `0` = no per-hit line cap).
-`SKILLS` is the dedicated **recipe corpus** — multi-step workflow pages that a `REST` search does
-not return; `OVERVIEW` is platform orientation (which development approach, which API family). Two
-variants — pick by what you're doing:
+variants: `search_term` (required, 1–500), **one** of `document_type` (a single corpus) or
+`document_types` (an array — several corpora in one ranked call); `maximum_results` (1–20, def 15,
+counted across the combined result set), `lines_in_each_result` (0–200, def 20; `0` = no per-hit
+line cap). Corpora: `REST` (default) · `SDK` · `SKILLS` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` ·
+`VELO` · `WDS` · `BUILD_APPS` · `CLI` · `OVERVIEW`. `SKILLS` is the dedicated **recipe corpus** —
+multi-step workflow pages a single-API search does not return; `OVERVIEW` is platform orientation
+(which development approach, which API family).
+
+**Search the corpora a question actually spans, in one call.** The service ranks them together and
+interleaves the hits, so they compete on relevance instead of you guessing which to try first —
+and one round trip replaces several. There's no fixed combination: pick by the question. Passing
+both `document_type` and `document_types` is an error (*"Pass either document_type or
+document_types, not both"*), and an unknown corpus name is rejected with the valid list.
+
+Two variants — pick by what you're doing:
 
 **`/docs/search/markdown` → read it (start here).** Returns JSON with a single `content` field
 holding one LLM-ready markdown string (extract it with `jq -r '.content'`) where each hit is a
@@ -58,26 +67,44 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
   | jq -r '.content'      # no jq? → python3 -c 'import sys,json;print(json.load(sys.stdin)["content"])'
 ```
 
-For a workflow, hit the recipe corpus first, then resolve each step's call in `REST`/`SDK`:
+A question that spans a workflow and its individual calls asks for both corpora at once — the
+recipe and the per-method contracts arrive in one ranked list:
 
 ```bash
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
-  --data-raw '{"search_term":"end to end booking flow","document_type":"SKILLS","maximum_results":2}' \
+  --data-raw '{"search_term":"end to end booking flow","document_types":["SKILLS","REST"],"maximum_results":6}' \
   | jq -r '.content'
 ```
 
 **`/docs/search` (JSON) → route on it.** Returns `{ results: [ { title, url, content,
-relevance_score, … } ] }` — structured hits. Use it when you want to **pick/route programmatically**:
-grab a hit's `url` to read that page (§2) or feed it to the schema query (§C). (Method hits carry a
-`url`; article hits keep their link inside `content`.)
+relevance_score, kb_name, … } ] }` — structured hits. Use it when you want to **pick/route
+programmatically**: grab a hit's `url` to read that page (§2) or feed it to the schema query (§C).
+
+**`kb_name` tells you what each hit is** — every hit carries one, and the kind decides what you can
+do with it: only a method page has a schema to pull (§C); an article or recipe is read as prose (§2).
+
+The request can't make that split for you. **A corpus mixes kinds** — searching the API reference
+returns method pages *and* the prose around them — and no corpus returns method pages alone. So
+pick corpora with `document_types`, then separate the kinds on the way out with `kb_name`. Two
+things not to do instead: don't infer the kind from the presence of a `url` (every hit has one,
+articles and recipes included), and don't infer it from the corpus you asked for.
+
+Most values name their kind (`…_METHODS_…` for method pages, `…_DOCS_…` for prose, `SKILLS_KB_ID`
+for recipes) but not all do — the SDK's method index is `API_REFERENCE_SDK_KB_ID`. So list the
+labels your search actually returned, then act on those, rather than pattern-matching the name or
+hard-coding a list of ids.
 
 ```bash
+# see what came back — label, title, url
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
   -H 'Content-Type: application/json' \
-  --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":5}' \
-  | jq -r '.results[] | select(.url) | "\(.title)\t\(.url)"'
-# no jq? → python3 -c 'import sys,json;[print(r["title"],r["url"]) for r in json.load(sys.stdin)["results"] if r.get("url")]'
+  --data-raw '{"search_term":"end to end booking flow","document_types":["REST","SKILLS","WIX_HEADLESS"],"maximum_results":10}' \
+  | jq -r '.results[] | "\(.kb_name)\t\(.title)\t\(.url)"'
+# no jq? → python3 -c 'import sys,json;[print(r.get("kb_name"),r["title"],r.get("url")) for r in json.load(sys.stdin)["results"]]'
+
+# then take the kind you need, by the label you just saw
+… | jq -r '.results[] | select(.kb_name == "REST_METHODS_KB_ID") | "\(.title)\t\(.url)"'
 ```
 
 **B. Browse the docs tree as a menu.** Two ways: the **structured browse endpoint** for the

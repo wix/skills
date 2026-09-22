@@ -162,7 +162,7 @@ function buildOptions(options = []) {
 }
 
 // Full Cartesian product, each variant priced/stocked from the product; visible:true baked in.
-function expandVariants(options = [], { price, compareAtPrice, quantity }, digitalFileId) {
+function expandVariants(options = [], { price, compareAtPrice, quantity, inStock }, digitalFileId) {
   const base = {
     price: {
       actualPrice: { amount: String(price) },
@@ -171,7 +171,10 @@ function expandVariants(options = [], { price, compareAtPrice, quantity }, digit
     visible: true,
     ...(digitalFileId
       ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
-      : { physicalProperties: {}, inventoryItem: { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
+      // inStock:true == untracked stock — always buyable, no count. Otherwise track a quantity.
+      : { physicalProperties: {}, inventoryItem: inStock === true
+          ? { inStock: true }
+          : { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -235,7 +238,10 @@ async function uploadDigitalFile(ctx, { digitalFileUrl, digitalFilePath, digital
   const bytes = digitalFilePath
     ? readFileSync(digitalFilePath)
     : await fetch(digitalFileUrl).then((r) => {
-        if (!r.ok) throw new Error(`digitalFileUrl ${digitalFileUrl} -> ${r.status}`);
+        // Don't invent a file and don't ship an unbuyable DIGITAL product: seed it PHYSICAL
+        // with stock (drop digitalFileUrl/digitalFilePath, set inStock or a quantity) and
+        // tell the user the download still needs a real file.
+        if (!r.ok) throw new Error(`digitalFileUrl ${digitalFileUrl} -> ${r.status}. No fetchable file: re-seed this product as PHYSICAL with stock and tell the user it needs a real file before it can be sold as a download.`);
         return r.arrayBuffer();
       });
   const { uploadUrl } = await req(ctx, "/site-media/v1/files/generate-upload-url", { body: { mimeType, fileName } });
@@ -266,15 +272,36 @@ export async function bulkCreateProducts(ctx, products) {
   };
   const r = await req(ctx, "/stores/v3/bulk/products-with-inventory/create", { body });
   // NB: results nest under productResults.results[].item — NOT a top-level `results`.
-  const created = (r.productResults?.results ?? []).map((x, i) => ({
-    id: x.item?.id, slug: x.item?.slug, revision: x.item?.revision,
-    variantId: x.item?.variantsInfo?.variants?.[0]?.id,
-    hasOptions: (products[i]?.options?.length ?? 0) > 0,
-    isDigital: !!fileIds[i],
-    quantity: products[i]?.quantity ?? 0,
-  }));
+  // The bulk returns 200 even on PARTIAL failure, so never map results by array position:
+  // pair each result to its input via itemMetadata.originalIndex and drop the ones that
+  // didn't persist. Positional mapping shifts every id after a failure onto the wrong
+  // product — which then mislabels categories and attaches images to the wrong items.
+  const created = [];
+  const failures = [];
+  for (const x of r.productResults?.results ?? []) {
+    const i = x.itemMetadata?.originalIndex;
+    const src = typeof i === "number" ? products[i] : undefined;
+    if (!x.itemMetadata?.success || !x.item?.id) {
+      failures.push({
+        name: src?.name,
+        error: x.itemMetadata?.error?.description ?? x.itemMetadata?.error?.code ?? "unknown",
+      });
+      continue;
+    }
+    created.push({
+      id: x.item.id, slug: x.item.slug, revision: x.item.revision, name: src?.name,
+      variantId: x.item.variantsInfo?.variants?.[0]?.id,
+      hasOptions: (src?.options?.length ?? 0) > 0,
+      isDigital: !!fileIds[i],
+      quantity: src?.quantity ?? 0,
+      inStock: src?.inStock,
+    });
+  }
   await stockOptionlessProducts(ctx, created);
-  return created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision }));
+  return {
+    created: created.map((p) => ({ id: p.id, slug: p.slug, revision: p.revision, name: p.name })),
+    failures,
+  };
 }
 
 // The bulk create stocks a variant via its choices; an OPTION-LESS product's single default
@@ -290,9 +317,15 @@ async function stockOptionlessProducts(ctx, created) {
     const vById = new Map((q.products ?? []).map((p) => [p.id, p.variantsInfo?.variants?.[0]?.id]));
     need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
   }
+  // inStock:true == untracked stock (always buyable, no count). Only send a quantity when the
+  // product actually tracks one, or Wix rejects the pair.
   const inventoryItems = need
     .filter((p) => p.variantId)
-    .map((p) => ({ productId: p.id, variantId: p.variantId, quantity: p.quantity }));
+    .map((p) => ({
+      productId: p.id,
+      variantId: p.variantId,
+      ...(p.inStock === true ? { inStock: true } : { quantity: p.quantity }),
+    }));
   if (inventoryItems.length) {
     await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
   }
@@ -342,20 +375,68 @@ export async function attachProductImages(ctx, items) {
   });
 }
 
+// Reject plans the API would reject halfway through, while nothing has been created yet —
+// a mid-batch 400 leaves a half-seeded store that the agent then has to reason about.
+export function validateProducts(products) {
+  const problems = [];
+  const colorByName = new Map();
+  products.forEach((p, i) => {
+    const where = p.name ? `"${p.name}"` : `product #${i + 1}`;
+    if (!p.name) problems.push(`${where}: name is required`);
+    if (p.quantity != null && (!Number.isInteger(p.quantity) || p.quantity < 0)) {
+      problems.push(`${where}: quantity must be a non-negative integer (got ${p.quantity}) — omit it and set inStock:true for untracked stock`);
+    }
+    for (const opt of p.options ?? []) {
+      const seen = new Set();
+      for (const c of opt.choices ?? []) {
+        const key = typeof c === "string" ? c : c?.name;
+        if (seen.has(key)) problems.push(`${where}: option "${opt.name}" repeats the choice "${key}"`);
+        seen.add(key);
+        // Wix keys a color choice by name, so the same name with two codes collides.
+        const code = typeof c === "object" ? c?.colorCode : undefined;
+        if (code) {
+          const prev = colorByName.get(key);
+          if (prev && prev !== code) problems.push(`color "${key}" is ${prev} on one product and ${code} on another — pick one`);
+          colorByName.set(key, code);
+        }
+      }
+    }
+  });
+  if (problems.length) throw new Error(`invalid seed plan:\n  - ${problems.join("\n  - ")}`);
+}
+
+// Site currency, set BEFORE any product exists (see setupStore). Existing product reads can
+// keep reporting the old currency for a short while after this returns — that lag is expected
+// and self-resolves, so don't re-verify or retry on it.
+// docs: https://dev.wix.com/docs/rest/business-management/site-properties/properties/update-site-properties
+async function setSiteCurrency(ctx, currency) {
+  await req(ctx, "/site-properties/v4/properties", {
+    method: "PATCH",
+    body: { properties: { paymentCurrency: currency }, fields: ["paymentCurrency"] },
+  });
+}
+
 /**
- * ONE-CALL seed: install → create products → categories → attach images, ids threaded in
- * memory. This is the default path — call it once instead of the individual functions.
+ * ONE-CALL seed: install → currency → create products → categories → attach images, ids
+ * threaded in memory. This is the default path — call it once instead of the individual
+ * functions.
  */
-export async function setupStore(ctx, { products = [], categories = {} } = {}) {
+export async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
+  validateProducts(products);
   await installStoresApp(ctx);
+  // Before any product exists: a product's price is stored in the site currency at create time,
+  // so switching afterwards leaves the catalog priced in the old one.
+  if (currency) await setSiteCurrency(ctx, currency);
 
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
   // exist yet makes that rerun safe instead of a duplicator.
   const existing = await queryProductsByNames(ctx, products.map((p) => p.name));
   const toCreate = products.filter((p) => !existing.has(p.name));
-  const created = toCreate.length ? await bulkCreateProducts(ctx, toCreate) : [];
-  const createdByName = new Map(created.map((p, i) => [toCreate[i]?.name, p]));
+  const { created, failures } = toCreate.length
+    ? await bulkCreateProducts(ctx, toCreate)
+    : { created: [], failures: [] };
+  const createdByName = new Map(created.map((p) => [p.name, p]));
   const withNames = products.map((p) => {
     const hit = createdByName.get(p.name) ?? existing.get(p.name);
     return { ...(hit ?? {}), name: p.name };
@@ -381,6 +462,8 @@ export async function setupStore(ctx, { products = [], categories = {} } = {}) {
     prompt: products[i]?.imagePrompt,
     displayName: `${p.slug || "product"}.png`,
   })));
+  // `p.id` guards this: a product that failed to create has no id, and bulk-updating an
+  // undefined id would 400 the whole batch and cost every other product its image.
   const imageItems = withNames
     .map((p, i) => (files[i] && p.id ? { id: p.id, url: files[i].url, altText: products[i]?.altText ?? p.slug } : null))
     .filter(Boolean);
@@ -392,7 +475,10 @@ export async function setupStore(ctx, { products = [], categories = {} } = {}) {
     /* never block on image failure — the products stay text-only */
   }
 
-  return { products: withNames, categories: cats, imagesAttached };
+  // failures is part of the result, not an exception: a partial seed still leaves a usable
+  // store, and the agent needs the names to report rather than silently shipping a short
+  // catalog. Re-run the seed to retry them — existing names are skipped, not duplicated.
+  return { products: withNames, categories: cats, imagesAttached, failures };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------

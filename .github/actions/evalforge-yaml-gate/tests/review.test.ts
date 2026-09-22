@@ -7,7 +7,7 @@ import type { AgentOutcome } from '../src/utils/review-agent';
 // `vi.hoisted` because `vi.mock` is hoisted above these declarations, and this file imports the
 // mocked modules at the top — so a factory would run before a plain `const` spy was initialised.
 const {
-  getChangedFiles, runReviewAgent, upsert, postPending, clearPending,
+  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, clearAck,
   existsSync,
 } =
   vi.hoisted(() => ({
@@ -16,6 +16,7 @@ const {
     upsert: vi.fn<(body: string) => Promise<void>>(),
     postPending: vi.fn<(body: string) => Promise<void>>(),
     clearPending: vi.fn<() => Promise<void>>(),
+    clearAck: vi.fn<() => Promise<void>>(),
     existsSync: vi.fn<() => boolean>(),
   }));
 
@@ -24,7 +25,9 @@ vi.mock('../src/utils/github', async (importOriginal) => {
   return {
     ...actual, getChangedFiles,
     makeReviewCommenter: () => upsert,
-    makeReviewPendingCommenter: () => ({ post: postPending, clear: clearPending }),
+    makeReviewPendingCommenter: () => ({
+      post: postPending, clear: clearPending, clearAck,
+    }),
   };
 });
 
@@ -51,6 +54,7 @@ vi.mock('@actions/github', () => ({
 const REVIEW_INPUTS: Record<string, string> = {
   'INPUT_GITHUB-TOKEN': 'gh-token',
   'INPUT_ANTHROPIC-API-KEY': 'wix-sk-test-key',
+  'INPUT_TRIGGERED-BY': 'asker',
 };
 
 /** Matches MD_RE in src/utils/paths.ts — the gate's own definition of wix-manage content. */
@@ -88,6 +92,7 @@ beforeEach(() => {
   upsert.mockResolvedValue(undefined);
   postPending.mockResolvedValue(undefined);
   clearPending.mockResolvedValue(undefined);
+  clearAck.mockResolvedValue(undefined);
   payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
   runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0 });
@@ -178,7 +183,7 @@ describe('review mode — what may and may not fail the check', () => {
   it.each([
     ['a blocking finding while soaking', [finding()], undefined, false],
     ['a blocking finding once blocking is on', [finding()], 'true', true],
-    ['a finding that is not blocking', [finding({ severity: 'fix-before-merge' })], 'true', false],
+    ['a finding that is not blocking', [finding({ severity: 'advisory' })], 'true', false],
     ['no findings at all', [], 'true', false],
   ])('%s', async (_label, findings, blocking, fails) => {
     if (blocking) process.env.INPUT_BLOCKING = blocking;
@@ -189,7 +194,7 @@ describe('review mode — what may and may not fail the check', () => {
   });
 
   it.each([
-    ['a discarded finding alongside good ones', [finding({ severity: 'fix-before-merge' })], 1],
+    ['a discarded finding alongside good ones', [finding({ severity: 'advisory' })], 1],
     ['a discarded finding and nothing else', [], 1],
   ])('reports the findings and the drop count, then fails, on %s', async (_label, findings, discarded) => {
     process.env.INPUT_BLOCKING = 'true';
@@ -206,6 +211,19 @@ describe('review mode — what may and may not fail the check', () => {
     await run();
     expect(upsert.mock.calls[0][0]).toContain('No findings');
     expect(upsert.mock.calls[0][0]).toContain('abcdef1');
+  });
+
+  it('names whoever triggered the run', async () => {
+    await run();
+    expect(upsert.mock.calls[0][0]).toContain('triggered by @asker');
+  });
+
+  it('retires the /review acknowledgement when the run fails, and keeps its own error notice', async () => {
+    runReviewAgent.mockResolvedValue({ ok: false, reason: 'it exceeded its time limit and was stopped' });
+    await run();
+    expect(postPending.mock.calls[0][0]).toContain('Review job failed');
+    expect(clearAck).toHaveBeenCalledOnce();
+    expect(clearPending).not.toHaveBeenCalled();
   });
 
   // A commit nobody could review is not a reviewed commit, so every one of these fails the check.

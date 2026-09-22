@@ -4,15 +4,18 @@
 // or for connect/iterate runs (which must NOT scaffold and don't use this script).
 //
 //   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json \
-//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>]
+//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>] [--flatten]
+//
+// --flatten (opt-in): leave the project directly in the current directory instead of a subfolder,
+// moving it before the background install starts. Default off — the normal output is a subfolder.
 //
 // It emits ONE JSON event per line and exits in ~35s with BOTH long steps — the dependency
 // install AND the seed — running detached in the background (logs + completion markers
 // reported in the final event), so the caller can build the brand layer while they finish.
 // Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code + deps +
-// lockfile → start `npm ci || npm install` detached → start the seed detached.
+// lockfile → pin AGENTS.md → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, openSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +37,8 @@ const businessName = flag("business-name");
 const planPath = flag("plan");
 const vertical = flag("vertical");
 const stack = flag("stack") ?? "astro";
+// Opt-in: leave the project in the current directory (flat) instead of a subfolder.
+const flatten = argv.includes("--flatten");
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong
 // seed against the plan — fail loudly with the discovered choices instead.
 const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
@@ -51,7 +56,10 @@ const plan = JSON.parse(readFileSync(planPath, "utf8"));
 const folderName =
   flag("folder-name") ??
   businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-const projectDir = resolve(process.cwd(), folderName);
+// `let`: after deploy we flatten the scaffold up into the repo root and repoint
+// projectDir there, so the detached install/seed and every reported path use the
+// final location.
+let projectDir = resolve(process.cwd(), folderName);
 
 // ---- 1 · scaffold -------------------------------------------------------------------------------
 if (existsSync(join(process.cwd(), "wix.config.json"))) {
@@ -63,9 +71,14 @@ if (existsSync(join(projectDir, "wix.config.json"))) {
   emit("scaffolding", { folder: folderName });
   const scaffold = spawnSync(
     "npm",
+    // --skip-git: this wrapper composes its own steps and leaves version control to
+    // the caller / the enclosing repo; the scaffold's own `git init` + "Initial
+    // commit" is noise here, and becomes a nested-repo (submodule gitlink) hazard
+    // if the project is later placed inside an existing repo. --skip-install for the
+    // same reason: deps install in a detached step below.
     ["create", "@wix/new@latest", "--", "headless",
      "--folder-name", folderName, "--business-name", businessName,
-     "--site-template", "--skip-install", "--no-publish"],
+     "--site-template", "--skip-install", "--skip-git", "--no-publish"],
     { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
   );
   if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
@@ -94,6 +107,36 @@ let deployResult = {};
 try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going with raw output below */ }
 if (deployResult.error) fail("deploy", deployResult.error);
 emit("deployed", deployResult);
+
+// ---- 2b · record what this project is, for later sessions ---------------------------------------
+const pin = spawnSync(
+  "node",
+  [join(SKILL_ROOT, "install", "pin-agents-md.mjs"), "--vertical", vertical, "--stack", stack],
+  { cwd: projectDir, encoding: "utf8", timeout: 10_000 },
+);
+try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block the build on the note */ }
+
+// ---- 2c · optional --flatten: move the scaffold into the current directory ----------------------
+// OFF by default — the normal output is a self-contained subfolder, unchanged. Opt in when the
+// caller wants the project directly in the current directory (e.g. bootstrapping into an existing
+// repo that must stay one flat tree). Done HERE, before the detached install below, on purpose:
+// no node_modules exists yet, so the move is instant and cannot collide with a running install —
+// the failure mode when a project is flattened by hand after the background install has started.
+// A pure move: the scaffold was created with --skip-git (above), so there is no nested repo to
+// reconcile — git is whatever the destination already is.
+const targetDir = process.cwd();
+if (flatten && projectDir !== targetDir) {
+  try {
+    for (const entry of readdirSync(projectDir)) {
+      renameSync(join(projectDir, entry), join(targetDir, entry));
+    }
+    rmSync(projectDir, { recursive: true, force: true });
+    projectDir = targetDir;
+    emit("flattened", { into: targetDir });
+  } catch (e) {
+    fail("flatten", e?.stack || e);
+  }
+}
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");

@@ -31,7 +31,8 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
     { "name": "Backstage Guide", "description": "…", "price": 12,
       "digitalFilePath": "/Users/me/guide.pdf" }
   ],
-  "categories": { "Legends": ["The Glam Rocker"], "Rising Stars": [] }
+  "categories": { "Legends": ["The Glam Rocker"], "Rising Stars": [] },
+  "currency": "EUR"
 }
 ```
 
@@ -53,8 +54,20 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 - `digitalFilePath` (a file on this machine) or `digitalFileUrl` — makes the product a digital
   download, uploaded and created with both the file and stock (`quantity` is ignored). It's also the
   only way in: a file-less digital product is created successfully, reads back healthy, and is then
-  rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`.
+  rejected at add-to-cart as `ITEM_NOT_FOUND_IN_CATALOG`. **No real file in hand?** Don't invent a
+  URL and don't ship the product as digital — seed it physical with stock (drop
+  `digitalFilePath`/`digitalFileUrl`, add `inStock` or a `quantity`) and tell the user the
+  download needs a real file before it can be sold.
 - `categories` — category name → product NAMES. Omit when the brief names none.
+- `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
+  order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
+  both is rejected.
+- `currency` — 3-letter ISO code. Set it **only when the brief names one** ("prices in euros",
+  "a German store charging EUR"). Do **not** infer it from a language, a country, or an address
+  — an unrequested switch silently reprices the whole catalog. The seed applies it before
+  creating anything, because a product's price is stored in the site currency at create time.
+  For a few seconds afterwards product reads can still report the old currency; that lag is
+  expected and self-resolves, so don't re-verify it or retry.
 
 **Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
 shape, not a full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise
@@ -63,6 +76,12 @@ truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
+
+**A bulk create can partially succeed.** The result carries `failures: [{ name, error }]` next
+to `products` — read it. A non-empty `failures` means those products are genuinely absent, not
+mis-mapped, so the rest of the catalog is fine to build on. To retry, re-run the **same** plan:
+creation is idempotent by name, so products that already exist are skipped rather than
+duplicated. Never hand-patch ids to "fill the gap".
 
 Two things this module does not seed (dashboard-only — tell the merchant):
 **ribbons** ("New", "Best Seller") and **per-choice linked media** (color choice → gallery photo).

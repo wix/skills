@@ -157,6 +157,21 @@ const UNSUPPORTED_ARIA_ELEMENTS = new Set([
 ]);
 
 const FILE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.cjs'];
+/** `A11y` fields a component may read. ZeroConfig turns each read into an editor control. */
+const A11Y_FIELDS = new Set(['ariaLabel']);
+const A11Y_FIELDS_LABEL = [...A11Y_FIELDS].join(', ');
+const A11Y_CONVERTER = 'convertA11yKeysToHtmlFormat';
+const HARDCODED_LABEL_ATTRIBUTES = new Set(['aria-label', 'aria-description']);
+const SUPPORTED_RULES = [
+  'alt-text',
+  'anchor-is-valid',
+  'aria-props',
+  'aria-role',
+  'aria-unsupported-elements',
+  'a11y-whole-object',
+  'a11y-disallowed-field',
+  'hardcoded-aria-label',
+];
 const parseCache = new Map();
 const resolutionWarnings = [];
 
@@ -189,12 +204,8 @@ function parseFile(filePath) {
         'optionalChaining',
         'nullishCoalescingOperator',
       ],
-      errorRecovery: true,
     });
-    const recoverableErrors = Array.isArray(ast.errors)
-      ? ast.errors.map((error) => error.message)
-      : [];
-    const parsed = { ok: true, ast, code, recoverableErrors };
+    const parsed = { ok: true, ast, code };
     parseCache.set(filePath, parsed);
     return parsed;
   } catch (error) {
@@ -557,6 +568,132 @@ function toRelative(filePath) {
   return path.relative(ROOT, filePath) || filePath;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-part a11y contract helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Peel type assertions, parentheses, and guards such as `a11y && x` or `x ?? {}`. */
+function unwrapExpression(node) {
+  let current = node;
+  for (let guard = 0; current && guard < 20; guard++) {
+    if (
+      t.isTSAsExpression(current) ||
+      t.isTSNonNullExpression(current) ||
+      t.isTSTypeAssertion(current) ||
+      t.isParenthesizedExpression(current) ||
+      (t.isTSSatisfiesExpression && t.isTSSatisfiesExpression(current))
+    ) {
+      current = current.expression;
+    } else if (t.isLogicalExpression(current)) {
+      current = current.operator === '&&' ? current.right : current.left;
+    } else {
+      break;
+    }
+  }
+  return current;
+}
+
+function isA11yIdentifierName(name) {
+  return name === 'a11y' || name.endsWith('A11y');
+}
+
+/** `a11y`, `toggleA11y`, `props.a11y`, `elementProps?.toggle?.a11y`. */
+function isA11yLike(node) {
+  const expr = unwrapExpression(node);
+  if (t.isIdentifier(expr)) return isA11yIdentifierName(expr.name);
+  if ((t.isMemberExpression(expr) || t.isOptionalMemberExpression(expr)) && !expr.computed) {
+    return t.isIdentifier(expr.property, { name: 'a11y' });
+  }
+  return false;
+}
+
+/** `props.elementProps?.toggle` → ['props', 'elementProps', 'toggle']; null for other shapes. */
+function memberChain(node) {
+  const expr = unwrapExpression(node);
+  if (t.isIdentifier(expr)) return [expr.name];
+  if ((t.isMemberExpression(expr) || t.isOptionalMemberExpression(expr)) && !expr.computed) {
+    const parent = memberChain(expr.object);
+    if (!parent || !t.isIdentifier(expr.property)) return null;
+    return [...parent, expr.property.name];
+  }
+  return null;
+}
+
+function isElementPropsPartChain(chain, partsWithA11y) {
+  if (!chain || chain.length < 2) return false;
+  const index = chain.indexOf('elementProps');
+  return index !== -1 && index === chain.length - 2 && partsWithA11y.has(chain[chain.length - 1]);
+}
+
+function typeLiteralHasMember(typeNode, memberName) {
+  return (
+    t.isTSTypeLiteral(typeNode) &&
+    typeNode.members.some(
+      (member) =>
+        t.isTSPropertySignature(member) &&
+        ((t.isIdentifier(member.key) && member.key.name === memberName) ||
+          (t.isStringLiteral(member.key) && member.key.value === memberName)),
+    )
+  );
+}
+
+/**
+ * Names of `elementProps` parts whose declared type carries an `a11y` field,
+ * keyed by folder so one component's contract never applies to another.
+ * Reads every `*.props.ts` next to the scanned files plus the files themselves.
+ */
+function collectPropsTypes(files) {
+  const partsByDir = new Map();
+  const candidates = new Set(files);
+  for (const file of files) {
+    const dir = path.dirname(file);
+    if (!partsByDir.has(dir)) partsByDir.set(dir, new Set());
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      if (name.endsWith('.props.ts')) candidates.add(path.join(dir, name));
+    }
+  }
+
+  for (const file of candidates) {
+    const parsed = parseFile(file);
+    if (!parsed.ok) continue;
+    const partsWithA11y = partsByDir.get(path.dirname(file));
+    traverse(parsed.ast, {
+      TSPropertySignature(path) {
+        const { key, typeAnnotation } = path.node;
+        if (!t.isIdentifier(key, { name: 'elementProps' }) || !typeAnnotation) return;
+        const literal = typeAnnotation.typeAnnotation;
+        if (!t.isTSTypeLiteral(literal)) return;
+        for (const member of literal.members) {
+          if (!t.isTSPropertySignature(member) || !member.typeAnnotation) continue;
+          const partName = t.isIdentifier(member.key)
+            ? member.key.name
+            : t.isStringLiteral(member.key)
+              ? member.key.value
+              : null;
+          if (partName && typeLiteralHasMember(member.typeAnnotation.typeAnnotation, 'a11y')) {
+            partsWithA11y.add(partName);
+          }
+        }
+      },
+    });
+  }
+
+  return partsByDir;
+}
+
+function contractFinding(filePath, node, rule, confidence, message) {
+  return findingFromNode(filePath, node, {
+    rule,
+    confidence,
+    message,
+    componentName: null,
+    semanticType: 'a11y-contract',
+    evidence: 'Per-part accessibility contract (ACCESSIBILITY.md).',
+    sourceKind: 'contract',
+  });
+}
+
 function findingFromNode(filePath, node, data) {
   return {
     file: toRelative(filePath),
@@ -572,7 +709,7 @@ function findingFromNode(filePath, node, data) {
   };
 }
 
-function scanFile(filePath) {
+function scanFile(filePath, options = {}) {
   const parsed = parseFile(filePath);
   if (!parsed.ok) {
     return {
@@ -586,9 +723,124 @@ function scanFile(filePath) {
 
   const imports = getImportMap(parsed.ast);
   const findings = [];
-  const parseWarnings = parsed.recoverableErrors || [];
+  const partsWithA11y = options.partsWithA11y || new Set();
+
+  const reportDisallowedField = (node, fieldName) => {
+    findings.push(
+      contractFinding(
+        filePath,
+        node,
+        'a11y-disallowed-field',
+        'high',
+        `a11y.${fieldName} is read; only ${A11Y_FIELDS_LABEL} may be read. Keep roles, state, and structure in component code.`,
+      ),
+    );
+  };
 
   traverse(parsed.ast, {
+    JSXSpreadAttribute(path) {
+      const argument = unwrapExpression(path.node.argument);
+
+      if (isA11yLike(argument)) {
+        findings.push(
+          contractFinding(
+            filePath,
+            path.node,
+            'a11y-whole-object',
+            'high',
+            'The whole a11y object is spread onto an element; every field becomes an editor control.',
+          ),
+        );
+        return;
+      }
+
+      // A spread identifier may alias `a11y` or an `elementProps` part; follow its declaration.
+      let chain = memberChain(argument);
+      if (t.isIdentifier(argument)) {
+        const binding = path.scope.getBinding(argument.name);
+        const declarator = binding && binding.path && binding.path.node;
+        if (declarator && t.isVariableDeclarator(declarator) && t.isIdentifier(declarator.id)) {
+          if (declarator.init && isA11yLike(declarator.init)) {
+            findings.push(
+              contractFinding(
+                filePath,
+                path.node,
+                'a11y-whole-object',
+                'high',
+                `${argument.name} aliases the a11y object and is spread onto an element; read a11y.ariaLabel instead.`,
+              ),
+            );
+            return;
+          }
+          chain = memberChain(declarator.init);
+        }
+      }
+      if (isElementPropsPartChain(chain, partsWithA11y)) {
+        findings.push(
+          contractFinding(
+            filePath,
+            path.node,
+            'a11y-whole-object',
+            'medium',
+            `elementProps.${chain[chain.length - 1]} is spread although its type declares a11y; destructure a11y out first.`,
+          ),
+        );
+      }
+    },
+
+    CallExpression(path) {
+      const callee = path.node.callee;
+      const isConverter =
+        t.isIdentifier(callee, { name: A11Y_CONVERTER }) ||
+        ((t.isMemberExpression(callee) || t.isOptionalMemberExpression(callee)) &&
+          t.isIdentifier(callee.property, { name: A11Y_CONVERTER }));
+      if (isConverter) {
+        findings.push(
+          contractFinding(
+            filePath,
+            path.node,
+            'a11y-whole-object',
+            'high',
+            `${A11Y_CONVERTER} writes every a11y field to the DOM; read only the field the part needs.`,
+          ),
+        );
+      }
+    },
+
+    'MemberExpression|OptionalMemberExpression'(path) {
+      const { node } = path;
+      if (node.computed || !t.isIdentifier(node.property)) return;
+      if (!isA11yLike(node.object)) return;
+      if (A11Y_FIELDS.has(node.property.name)) return;
+      reportDisallowedField(node.property, node.property.name);
+    },
+
+    VariableDeclarator(path) {
+      const { id, init } = path.node;
+      if (!t.isObjectPattern(id) || !init || !isA11yLike(init)) return;
+      for (const property of id.properties) {
+        if (t.isRestElement(property)) {
+          findings.push(
+            contractFinding(
+              filePath,
+              property,
+              'a11y-whole-object',
+              'high',
+              'Rest-destructuring a11y keeps every field; pick the single field the part needs.',
+            ),
+          );
+          continue;
+        }
+        if (!t.isObjectProperty(property) || property.computed) continue;
+        const fieldName = t.isIdentifier(property.key)
+          ? property.key.name
+          : t.isStringLiteral(property.key)
+            ? property.key.value
+            : null;
+        if (fieldName && !A11Y_FIELDS.has(fieldName)) reportDisallowedField(property, fieldName);
+      }
+    },
+
     JSXOpeningElement(path) {
       const node = path.node;
       const name = getJsxName(node.name);
@@ -599,6 +851,23 @@ function scanFile(filePath) {
         (attr) => t.isJSXAttribute(attr) && getJsxName(attr.name)?.startsWith('aria-'),
       );
       const roleAttr = getAttribute(node, 'role');
+
+      for (const attr of ariaAttrs) {
+        const attrName = getJsxName(attr.name);
+        if (!HARDCODED_LABEL_ATTRIBUTES.has(attrName)) continue;
+        const literal = getLiteralAttributeValue(attr);
+        if (typeof literal === 'string' && literal.trim() !== '') {
+          findings.push(
+            contractFinding(
+              filePath,
+              attr,
+              'hardcoded-aria-label',
+              'high',
+              `${attrName}="${literal}" is a hardcoded string; use visible text, a11y.ariaLabel, or a constants.ts label.`,
+            ),
+          );
+        }
+      }
 
       if (semantic.semanticType === 'img' && semantic.confidence !== 'low') {
         const altAttr = getAttribute(node, 'alt');
@@ -714,7 +983,42 @@ function scanFile(filePath) {
     },
   });
 
-  return { parseError: null, findings, parseWarnings };
+  return { parseError: null, findings };
+}
+
+/** Scan the given files. Any syntax error lands in `meta.parseErrors`; the review treats it as fatal. */
+function scan(files) {
+  const absoluteFiles = files.map((file) => path.resolve(file));
+  const partsByDir = collectPropsTypes(absoluteFiles);
+
+  const meta = {
+    filesScanned: files.length,
+    parser: '@babel/parser',
+    supportedRules: SUPPORTED_RULES,
+    a11yFields: [...A11Y_FIELDS],
+    confidenceModel: ['high', 'medium', 'low', 'unknown'],
+    parseErrors: [],
+    resolutionWarnings,
+  };
+
+  const findings = [];
+
+  for (const file of absoluteFiles) {
+    const result = scanFile(file, { partsWithA11y: partsByDir.get(path.dirname(file)) });
+    if (result.parseError) meta.parseErrors.push(result.parseError);
+    findings.push(...result.findings);
+  }
+
+  const summary = {
+    findings: findings.length,
+    highConfidence: findings.filter((item) => item.confidence === 'high').length,
+    mediumConfidence: findings.filter((item) => item.confidence === 'medium').length,
+    lowConfidence: findings.filter((item) => item.confidence === 'low').length,
+    filesWithFindings: new Set(findings.map((item) => item.file)).size,
+    cleanFiles: files.length - new Set(findings.map((item) => item.file)).size,
+  };
+
+  return { meta, findings, summary };
 }
 
 function main() {
@@ -733,45 +1037,11 @@ function main() {
     process.exit(1);
   }
 
-  const meta = {
-    filesScanned: files.length,
-    parser: '@babel/parser',
-    supportedRules: [
-      'alt-text',
-      'anchor-is-valid',
-      'aria-props',
-      'aria-role',
-      'aria-unsupported-elements',
-    ],
-    confidenceModel: ['high', 'medium', 'low', 'unknown'],
-    parseErrors: [],
-    resolutionWarnings,
-  };
-
-  const findings = [];
-
-  for (const file of files.map((file) => path.resolve(file))) {
-    const result = scanFile(file);
-    if (result.parseError) meta.parseErrors.push(result.parseError);
-    for (const warning of result.parseWarnings || []) {
-      meta.parseErrors.push({
-        file: toRelative(file),
-        message: warning,
-      });
-    }
-    findings.push(...result.findings);
-  }
-
-  const summary = {
-    findings: findings.length,
-    highConfidence: findings.filter((item) => item.confidence === 'high').length,
-    mediumConfidence: findings.filter((item) => item.confidence === 'medium').length,
-    lowConfidence: findings.filter((item) => item.confidence === 'low').length,
-    filesWithFindings: new Set(findings.map((item) => item.file)).size,
-    cleanFiles: files.length - new Set(findings.map((item) => item.file)).size,
-  };
-
-  console.log(JSON.stringify({ meta, findings, summary }, null, 2));
+  console.log(JSON.stringify(scan(files), null, 2));
 }
 
-main();
+module.exports = { scan };
+
+if (require.main === module) {
+  main();
+}

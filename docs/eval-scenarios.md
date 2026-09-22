@@ -5,6 +5,8 @@ Reference for authoring the YAML that drives skill evaluation. Start from
 format itself. For what the automated checks do and how to read a failing one, see
 [skill-evaluation.md](skill-evaluation.md).
 
+An eval scenario is a simulated conversation between a user and an agent working through the Wix MCP and skills, with the `triggerPrompt` standing in for the user. Only the conversation is simulated: the calls the agent makes read and write real data through the Wix APIs.
+
 ## What a Scenario Must Test
 
 ### Test behavior, not skill text
@@ -12,6 +14,24 @@ format itself. For what the automated checks do and how to read a failing one, s
 A scenario is not a test that the skill works. It tests that a real user's intention gets resolved, and that it gets resolved because the skill was there.
 
 So it tests what the agent *does*, not what the skill *says*. Give it a task-shaped `triggerPrompt` — *"create a product called 'Handmade Ceramic Mug' priced at $24"*, not *"how do I create a product?"* — and assert on the behavior: which APIs it called, what it asked before mutating data, whether the result is correct. Judge the decision the skill exists to drive; if the skill says to ask rather than invent a missing mandatory value, withhold that value and assert the agent asked.
+
+### Cover what the skill is for
+
+A scenario is the strongest evidence we have that a skill is worth having. It puts a real request to an agent, and shows that the request got resolved *because the skill was there*. Once merged it keeps running, so it is also the thing that tells us when a later change breaks the skill. A skill whose scenarios would pass without it has neither.
+
+So aim the coverage at what the skill exists to settle:
+
+- **Start from an intention, not a feature.** Write the `triggerPrompt` as the request a user would actually send — the outcome they want, in their words, with the details they would have to hand. Not the API name, not the steps, not the skill's own vocabulary.
+- **Provide meaningful coverage.** The eval scenarios must give confidence that the skill helps resolve the user requests it is meant to support and that important regressions would be caught. What sufficient coverage looks like depends on the skill.
+- **Make the skill the reason it passes.** Ask what a run without the skill would look like. If a capable agent would land in the same place anyway, the scenario is measuring the platform, not the skill. Point the assertions at what the skill is the only source of: the order, the wrapper, the precondition, the question it asks before mutating data.
+
+### Test a real user conversation
+
+A scenario is a single request with no conversation around it. The agent gets the `triggerPrompt`, runs once, and the assertions judge the result — there is no follow-up turn to answer a clarifying question with, and nothing the user said earlier.
+
+Prefer prompts that need none of that. But a real request is sometimes one a user would only send *after* something the run cannot reproduce: an identifier they are holding, a choice they already made, a value from a system outside Wix. Where that is the case, put that context in the prompt the way the earlier turn would have delivered it — the least that makes the request answerable, phrased as the user would phrase it. The prompt must still read as something a user sent, not as a briefing written for the agent.
+
+**The agent has to read and write real data.** Either bootstrap it — [`siteSetup`](#site-provisioning-optional) stands up a fresh site and its `bootstrap` steps seed what the task operates on — or point the prompt at data already prepared on the test account. A reference nothing can resolve like an ID that names nothing on the site the run uses — gives the agent nothing to work against.
 
 ### Assert correctness *and* quality
 
@@ -31,9 +51,11 @@ Assert three things: **coverage** (the agent reached the skill — the assertion
 
 Adapt the penalty list to the detours *your* task invites. This judge gates like any other, so a bumpy path fails the PR — deliberately. When it fails, the gap is usually in the skill, the docs, or the MCP: close that gap rather than lowering `minScore`.
 
+`minScore` is required on every numeric `llm_judge` and must be at least 7 — the schema rejects anything lower (judges with `scoringMode: boolean` pass/fail without a score and are exempt). A judge with a floor it can never fail (`minScore: 0`, or a "diagnostic, non-gating" framing) doesn't gate anything and gives false confidence that the path is checked. When a judge scores legitimate runs below the floor, calibrate the rubric's bands (what lands at 7–8 vs lower) rather than the floor.
+
 ## Adding a Wix Manage Eval Scenario
 
-Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
+Every `wix-manage` skill must have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
 
 ### Where to put it
 

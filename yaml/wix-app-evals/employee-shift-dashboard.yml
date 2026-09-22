@@ -5,7 +5,7 @@ triggerPrompt: |-
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, data-collection, wix-patterns-docs, entity-page-toolkit, collection-toolkit]
+tags: [dashboard-page, data-collection, wix-patterns-docs]
 assertions:
   - type: skill_was_called
     negate: false
@@ -22,11 +22,6 @@ assertions:
     skillNames: [wix-app]
     referenceFiles:
       wix-app: [references/DATA_COLLECTION.md]
-  - type: skill_was_called
-    negate: false
-    skillNames: [wix-app]
-    referenceFiles:
-      wix-app: [references/dashboard-page/ENTITY_PAGE_TOOLKIT.md]
   - type: build_passed
     command: npm run build
   - type: llm_judge
@@ -38,7 +33,7 @@ assertions:
     model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
-      Evaluate whether the shifts UI follows the patterns-first component selection rule. Check: (1) The shifts table/grid comes from `@wix/patterns` — a `Table`/`Grid` driven by a collection state hook (`useTableCollection` or a sibling) inside a `@wix/patterns` page shell (`CollectionPage`) — and is NOT a hand-written `<table>`, a manually assembled Wix Design System table, or a custom collection implementation. (2) **The add/edit-shift flow is a `@wix/patterns` `EntityPage` driven by `useEntityPage`, with form state from `@wix/patterns/form`, reached via `usePatternsNavigate` — NOT a hand-built Wix Design System form inside a dashboard modal.** A correct table paired with a hand-rolled WDS entity form scores no higher than 4. (3) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. (4) `@wix/design-system` is used only for leaf UI inside those shells (inputs, buttons, form fields, text, layout) — not to replace anything patterns provides. (5) There is no `@wix/auto-patterns` import and no `patterns.json` file anywhere in the project. (6) The agent looked up `@wix/patterns` names via `dist/dts-bundle/index.json` and `dist/docs/index.json` (and the specific `.d.ts`/`.md` files those point at) — not by running `ls`, `find`, `cat`, or `grep` against arbitrary paths under `node_modules`. Any such direct `node_modules` exploration is an automatic low score, same severity as the `@wix/auto-patterns` check above. Score 0-10.
+      Evaluate whether the shifts UI follows the patterns-first component selection rule. Check: (1) The shifts table/grid comes from `@wix/patterns` — a `Table`/`Grid` driven by a collection state hook (`useTableCollection` or a sibling) inside a `@wix/patterns` page shell (`CollectionPage`) — and is NOT a hand-written `<table>`, a manually assembled Wix Design System table, or a custom collection implementation. (2) **The add/edit-shift flow is a `@wix/patterns` `EntityPage` driven by `useEntityPage`, with form state from `@wix/patterns/form`, reached via `usePatternsNavigate` — NOT a hand-built Wix Design System form inside a dashboard modal.** A correct table paired with a hand-rolled WDS entity form scores no higher than 4. (3) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. (4) `@wix/design-system` is used only for leaf UI inside those shells (inputs, buttons, form fields, text, layout) — not to replace anything patterns provides. (5) There is no `@wix/auto-patterns` import and no `patterns.json` file anywhere in the project. (6) The agent looked up `@wix/patterns` names via `dist/docs/index.json` and `dist/dts-bundle/index.json` (and the specific `.md`/`.d.ts` files those point at) — not by running `ls`, `find`, `cat`, or `grep` against arbitrary paths under `node_modules`. Any such direct `node_modules` exploration is an automatic low score, same severity as the `@wix/auto-patterns` check above. (7) The component names came from the library's own guides rather than from recall: the agent read `dist/docs/index.json` and then the guide docs it lists — `Composition and Providers.md` before writing patterns JSX, and `Collection Toolkit.md` and/or `Collection to Entity Flow.md` for the components themselves — and used names those guides recommend. This is the assertion `skill_was_called` cannot make, because these files ship inside the installed package rather than in the skill. An agent that wrote correct patterns code without opening any guide scores no higher than 6; one that named a component the guides do not mention, and did not verify it against `dist/docs/index.json`, scores no higher than 4. (8) If the installed `@wix/patterns` had no `Collection Toolkit` entry in `dist/docs/index.json`, the agent said so and asked to upgrade rather than proceeding from memory. Score 0-10.
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7

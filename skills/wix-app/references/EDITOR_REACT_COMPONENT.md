@@ -24,7 +24,8 @@ roles intact.
 
 ## Workflow
 
-1. **Scaffold only when creating.** If the component folder does not exist, run:
+1. **Scaffold only when creating.** If the component folder does not exist, run
+   inside the Wix app project (the folder with `wix.config.json`):
 
    ```bash
    npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description"}'
@@ -37,7 +38,7 @@ roles intact.
    accessibility-review dependencies are installed:
 
    ```bash
-   node -e "const fs=require('fs'),path=require('path'),ps=['@wix/react-component-schema','@wix/react-component-utils','@wix/editor-react-types','@babel/parser','@babel/traverse','@babel/types','eslint','eslint-plugin-jsx-a11y','@typescript-eslint/parser','typescript','@types/eslint-plugin-jsx-a11y'];const missing=ps.filter(p=>!(require.resolve.paths(p)||[]).some(d=>fs.existsSync(path.join(d,p,'package.json'))));if(missing.length){console.error('Missing dependencies: '+missing.join(', '));process.exit(1)}" || { d="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/yarn.lock" ]; do d="${d%/*}"; done; if [ -f "$d/yarn.lock" ]; then yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && yarn add -D @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y; else npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && npm install --save-dev @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y; fi; }
+   node -e "const fs=require('fs'),path=require('path'),ps=['@wix/react-component-schema','@wix/react-component-utils','@wix/editor-react-types','@babel/parser','@babel/traverse','@babel/types','eslint','eslint-plugin-jsx-a11y','@typescript-eslint/parser','typescript','@types/eslint-plugin-jsx-a11y','jsdom','axe-core'];const missing=ps.filter(p=>!(require.resolve.paths(p)||[]).some(d=>fs.existsSync(path.join(d,p,'package.json'))));if(missing.length){console.error('Missing dependencies: '+missing.join(', '));process.exit(1)}" || { d="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/yarn.lock" ]; do d="${d%/*}"; done; if [ -f "$d/yarn.lock" ]; then yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && yarn add -D @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y jsdom axe-core; else npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && npm install --save-dev @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y jsdom axe-core; fi; }
    ```
 
 3. **Plan the contract and structure.** Identify props, semantic root, named
@@ -47,10 +48,16 @@ roles intact.
    the props file, logic in TSX, styles in the CSS Module. Do not edit
    `*.generated.ts`.
 
-5. **Run the accessibility review.** Follow
-   [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md): run scanners,
-   triage output, complete the manual checklist, fix issues, rerun on changed
-   JSX.
+5. **Run the accessibility review.** Once the JSX is complete, run from the
+   same folder (`<SKILL_ROOT>` is the directory containing the active `SKILL.md`):
+
+   ```bash
+   node <SKILL_ROOT>/scripts/scan-a11y-review.cjs src/extensions/site/components/<component-name>
+   ```
+
+   Then follow [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
+   fix confirmed findings, rerun after each fix pass (at most two), and report
+   what remains.
 
 6. **Configure the editor extension when required.** For a new component or a
    requested sizing, installation, or manifest change, apply
@@ -103,7 +110,7 @@ extension configuration, and supporting files.
 | Trigger | Read |
 | --- | --- |
 | Interactive/selectable part or custom state | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
-| Public event callbacks added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
+| Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
@@ -121,7 +128,9 @@ extension configuration, and supporting files.
 - Explicit foreground colors need a known contrasting background; transparent
   roots inherit from the host.
 - Baseline Widely Available CSS/DOM only, or supported fallbacks.
-- Route ARIA through `a11y`; no one-off ARIA props.
+- Accessibility per part, per [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
+  read only `a11y.ariaLabel`, and only for a control without a visible name;
+  never spread the `a11y` object or add one-off ARIA props.
 - Named parts: global class, module class, and `elementProps` (root uses
   top-level props).
 - Native design states: pair selectors with injected modifiers; keep non-input

@@ -1,0 +1,73 @@
+name: bookings/service-policy-cancellation-window
+description: >-
+  Verifies the booking-policy recipe on a real task: limit cancellations to 24 hours
+  before the session. Judged by outcome (the policy's cancellation window actually
+  changed) rather than by any specific policy field path.
+triggerPrompt: >-
+  On my Wix site, customers should only be able to cancel a booking up to 24 hours
+  before it starts. Set that up.
+tags: [bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+  # Seed one service so the cancellation-policy request has a concrete target —
+  # on an empty site the agent sometimes concludes there is nothing to update.
+  bootstrap:
+    steps:
+      - label: seed a class service the policy applies to
+        method: post
+        url: https://www.wixapis.com/bookings/v2/bulk/services/create
+        body:
+          services:
+            - name: Pilates Class
+              type: CLASS
+              onlineBooking:
+                enabled: true
+              defaultCapacity: 10
+              payment:
+                rateType: FIXED
+                options:
+                  online: true
+                  inPerson: false
+                fixed:
+                  price:
+                    value: "30"
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/booking-service-policy-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants cancellations allowed only up to 24 hours before the booked session.
+      Intent: update the site's booking/cancellation policy so the latest allowed
+      cancellation is 24 hours (1440 minutes) before the session start. Evaluate the
+      final response and the Wix API calls made.
+
+      Pass if the agent:
+      - updates a Wix Bookings policy (the site's default booking policy, or the policy
+        applied to its services) so that cancellation is enabled AND limited, with the
+        latest-cancellation window set to 24 hours / 1440 minutes before the session
+        (2xx response in the trace), AND
+      - the update targets cancellation specifically (not rescheduling, not booking
+        deadlines), AND
+      - reports the change based on the successful response.
+
+      Fail if the agent:
+      - changes the reschedule policy, booking-notice policy, or waitlist instead of
+        (or as well as, without being asked) the cancellation policy, OR
+      - sets a window that is not 24 hours / 1440 minutes, OR
+      - disables cancellation entirely, OR
+      - reports the policy as configured without a successful update call in the trace, OR
+      - only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the
+      tool-call trace. Score 0-10 (10 = direct: find the policy, one successful update).
+      Penalize and LIST any of: a non-2xx error even if recovered; hunting across
+      multiple APIs to locate where booking policies live; a request-body shape guessed
+      wrong then corrected; redundant or probing calls clearer docs would avoid. For
+      each friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

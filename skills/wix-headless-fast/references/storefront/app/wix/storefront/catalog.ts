@@ -133,33 +133,108 @@ function toDetail(raw: RawProduct): ProductDetail {
   };
 }
 
-/** List visible products (newest catalog order), mapped to grid-ready DTOs. */
-export async function fetchProducts({ limit = 100 } = {}): Promise<ProductSummary[]> {
-  const res = await products
-    .queryProducts({ fields: LIST_FIELDS as any })
-    .limit(limit)
-    .find();
-  return (res.items ?? []).map((p) => toSummary(p as RawProduct));
+// Search Products applies sort/filter/search server-side, across the WHOLE catalog, before
+// cursor paging — the only correct place for them. Sorting or filtering an already-fetched
+// page only rearranges the slice you happen to hold.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md
+export const CATALOG_SORTS = {
+  featured: { label: "Default order" }, // the catalog's own order; no merchant-curated promise
+  priceAsc: { label: "Price: low to high" },
+  priceHigh: { label: "Price: high to low" },
+  name: { label: "Name: A\u2013Z" },
+  newest: { label: "Newest" },
+} as const;
+export type CatalogSort = keyof typeof CATALOG_SORTS;
+
+const SORT_FIELDS: Partial<Record<CatalogSort, { fieldName: string; order: "ASC" | "DESC" }[]>> = {
+  priceAsc: [{ fieldName: "actualPriceRange.minValue.amount", order: "ASC" }, { fieldName: "name", order: "ASC" }],
+  priceHigh: [{ fieldName: "actualPriceRange.minValue.amount", order: "DESC" }, { fieldName: "name", order: "ASC" }],
+  name: [{ fieldName: "name", order: "ASC" }],
+  newest: [{ fieldName: "createdDate", order: "DESC" }, { fieldName: "name", order: "ASC" }],
+};
+
+function priceBound(value: number | string | undefined, name: string): number | undefined {
+  if (value == null || value === "") return undefined;
+  const parsed = Number(value);
+  if (!String(value).trim() || !Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a non-negative number.`);
+  }
+  return parsed;
+}
+
+export interface CatalogSearchOptions {
+  limit?: number;
+  /** Continues the ORIGINAL query — pass alone; new sort/filter values start without one. */
+  cursor?: string;
+  categoryId?: string | null;
+  sort?: CatalogSort;
+  /** Bounds compare the product's minimum actual variant price, in site currency. */
+  minPrice?: number | string;
+  maxPrice?: number | string;
+  inStockOnly?: boolean;
+  /** Name search, max 100 chars. */
+  search?: string;
 }
 
 /**
- * List visible products in a category, server-side-filtered by the live category id.
- * Category filtering MUST go through searchProducts (the field is not filterable in
- * queryProducts) with the $matchItems operator — this is encoded here so callers never
- * reconstruct it.
+ * Search visible catalog products — sorted, filtered, and searched by Wix across the whole
+ * catalog, then cursor-paged. `nextCursor` continues the same query; start over (no cursor)
+ * whenever any selection changes.
  */
+export async function searchCatalog({
+  limit = 24,
+  cursor,
+  categoryId,
+  sort = "featured",
+  minPrice,
+  maxPrice,
+  inStockOnly = false,
+  search = "",
+}: CatalogSearchOptions = {}): Promise<{ products: ProductSummary[]; nextCursor: string | null }> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+    throw new Error("limit must be between 1 and 100.");
+  let query: RawProduct = { cursorPaging: { limit, ...(cursor ? { cursor } : {}) } };
+  if (!cursor) {
+    if (!(sort in CATALOG_SORTS)) throw new Error("Unsupported catalog sort.");
+    const min = priceBound(minPrice, "minPrice");
+    const max = priceBound(maxPrice, "maxPrice");
+    if (min !== undefined && max !== undefined && min > max)
+      throw new Error("minPrice must not exceed maxPrice.");
+    if (search.trim().length > 100) throw new Error("Search must be at most 100 characters.");
+    const conditions: RawProduct[] = [{ visible: true }];
+    if (categoryId)
+      conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
+    // Search rejects two operators in one field object — separate bounds, joined by $and.
+    if (min !== undefined)
+      conditions.push({ "actualPriceRange.minValue.amount": { $gte: String(min) } });
+    if (max !== undefined)
+      conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
+    if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
+    query = {
+      ...query,
+      filter: { $and: conditions },
+      ...(SORT_FIELDS[sort] ? { sort: SORT_FIELDS[sort] } : {}),
+      ...(search.trim() ? { search: { expression: search.trim(), fields: ["name"] } } : {}),
+    };
+  }
+  const res: RawProduct = await products.searchProducts(query, { fields: LIST_FIELDS as any });
+  return {
+    products: (res.products ?? []).map((p: RawProduct) => toSummary(p)),
+    nextCursor: res.pagingMetadata?.cursors?.next ?? null,
+  };
+}
+
+/** First page of visible products in the default order — a thin wrap of searchCatalog. */
+export async function fetchProducts({ limit = 24 } = {}): Promise<ProductSummary[]> {
+  return (await searchCatalog({ limit })).products;
+}
+
+/** First page of a category — same wrap; category filtering only works through search. */
 export async function fetchProductsByCategory(
   categoryId: string,
-  { limit = 100 } = {},
+  { limit = 24 } = {},
 ): Promise<ProductSummary[]> {
-  const res: RawProduct = await products.searchProducts(
-    {
-      filter: { "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } },
-      cursorPaging: { limit },
-    },
-    { fields: LIST_FIELDS as any },
-  );
-  return (res.products ?? []).map((p: RawProduct) => toSummary(p));
+  return (await searchCatalog({ limit, categoryId })).products;
 }
 
 /** Fetch one product by its URL slug, with options/modifiers/variants. Null when not found. */
