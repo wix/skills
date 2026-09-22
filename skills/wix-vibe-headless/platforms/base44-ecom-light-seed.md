@@ -25,9 +25,9 @@ and added the Wix note to `AGENTS.md`. No installation, deployment, or AGENTS.md
 The deployed implementation and configuration files do not need to be read; use the build and seed
 guides below for their contracts and usage.
 
-**Mount pages the way this app's template expects** — `src/App.jsx` present → React Router;
-`src/routes/__root.jsx` present → TanStack Start, where pages mount as route files and the deployed
-`src/lib/nav.js` needs swapping for `_shared/nav/nav.tanstack.js`. Building for the wrong one
+**Mount pages the way this app's template expects** — ask `src/routes/__root.jsx` first: present →
+TanStack Start, where pages mount as route files and the deployed `src/lib/nav.js` needs swapping
+for `_shared/nav/nav.tanstack.js`; absent → React Router, routes wired into `src/App.jsx`. Building for the wrong one
 renders a blank preview with no error to explain it:
 [`../references/_shared/routing.md`](../references/_shared/routing.md).
 

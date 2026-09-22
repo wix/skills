@@ -6,10 +6,12 @@ preview comes back blank with no error to explain it.
 
 **An install that ran `deploy.cjs` already told you** — its result carries the template it resolved
 from disk, as `{ "template": "react-router" }` or `{ "template": "tanstack" }`. Where the host
-deployed the tree itself there is no such line, and the same fact reads straight off the app:
-`src/routes/__root.jsx` present → TanStack Start (file-based routes, no `src/App.jsx`, no
-`index.html`, build output in `.output/` rather than `dist/`); `src/App.jsx` present → React Router
-SPA. The app's own `AGENTS.md` (both templates ship one) states its conventions — worth a read
+deployed the tree itself there is no such line, and the same fact reads straight off the app —
+**ask `src/routes/__root.jsx` first**: present → TanStack Start (file-based routes, build output in
+`.output/` rather than `dist/`); absent → React Router SPA, routed from `src/App.jsx` with an
+`index.html` beside it. That order matters, because an `src/App.jsx` on a TanStack app is
+something an agent wrote believing the app was React Router — `__root.jsx` is never there by
+mistake. The app's own `AGENTS.md` (both templates ship one) states its conventions — worth a read
 before the first write.
 
 ## The nav adapter is already installed
