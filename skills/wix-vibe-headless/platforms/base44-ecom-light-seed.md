@@ -18,11 +18,20 @@ These skills are already installed under `.agents/skills/`:
 - **`wix-manage`** — REST recipes for managing and configuring the Wix site.
 - **`wix-base44-connector`** — Wix connector usage, API contracts, and documentation discovery.
 
-Base44 has also deployed the storefront hooks, cart components/context, image helpers, and REST
-scaffolds into `src/`, configured the Wix connector/client, and added the Wix note to `AGENTS.md`.
-No installation, deployment, or AGENTS.md update is needed.
+Base44 has also deployed the storefront hooks, cart components/context, image helpers, REST
+scaffolds and the nav adapter (`src/lib/nav.js`) into `src/`, configured the Wix connector/client,
+and added the Wix note to `AGENTS.md`. No installation, deployment, or AGENTS.md update is needed.
+
 The deployed implementation and configuration files do not need to be read; use the build and seed
-guides below for their contracts and usage. Continue with STEP 1.
+guides below for their contracts and usage.
+
+**Mount pages the way this app's template expects** — `src/App.jsx` present → React Router;
+`src/routes/__root.jsx` present → TanStack Start, where pages mount as route files and the deployed
+`src/lib/nav.js` needs swapping for `_shared/nav/nav.tanstack.js`. Building for the wrong one
+renders a blank preview with no error to explain it:
+[`../references/_shared/routing.md`](../references/_shared/routing.md).
+
+Continue with STEP 1.
 
 Follow STEPs 1–3 below exactly. Fire product image generations first, then build the client
 (STEP 1), and seed (STEP 2) **after** the client is built — generation finishes while you build.
