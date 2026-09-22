@@ -107,6 +107,7 @@ export default function ProductCard({ product }) {
     promoBadge,       // { type: 'ribbon', label } | null — the primary ribbon, for a single-badge slot
     priceDisplay,     // the price the buyer pays (discounted when an automatic discount applies), or a min–max range
     compareAtDisplay, // struck "was" price | null — never beside a range (the PDP shows the real comparison)
+    teaser,           // plain-text description for the tile — plainDescription is HTML; never render it raw on a card
     colors,           // hex colour strings
     optionLabel,      // e.g. "3 sizes · 2 materials", or ""
     isQuickAddable,   // no product options and not sold out; does NOT check modifiers
@@ -265,7 +266,9 @@ The product-detail example above provides both groups:
 // Text modifier: d.setModifier(m.key, text)
 ```
 Retired option choices are filtered out. Respect each choice's `inStock` and modifier's
-`mandatory` flag; the hook supplies colour values and selection state without prescribing layout.
+`mandatory` flag. A choice with `isColorSwatch` renders as a **color swatch** filled with its
+`colorCode` and labelled by its name — not as a text pill; the hook supplies the values and selection
+state without prescribing the rest of the layout.
 
 ### Images
 `useProductCard` returns normalized `image`/`hoverImage`, and `useProductDetail` returns normalized
@@ -341,7 +344,9 @@ currency; `convertedAmount` is in display currency. Format
 back to `USD`). Use `summary.priceSummary.subtotal` (after discounts) with `cart.subtotal` as the
 fallback while `summary` is null, a Discount row only when `priceSummary.discount` is above zero, and
 line `pricing.totalPrice`; never sum lines yourself. Shipping and tax resolve at checkout — say
-"calculated at checkout", never a hardcoded charge, threshold, or a made-up zero.
+"calculated at checkout", never a hardcoded charge, threshold, or a made-up zero. The estimate's
+`priceSummary.delivery`, `tax`, and `additionalFees` read `"0"` when nothing was calculated (verified
+live), so a zero there is not "Free shipping" or "No tax" — don't render those rows from the estimate.
 
 Line `quantityInfo.confirmedQuantity` is the current quantity; `availableQuantity` caps increases
 when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, or

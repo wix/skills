@@ -4,7 +4,7 @@
 // without touching the badge logic, price rules, or colour-dot extraction.
 //
 // Usage:
-//   const { isSoldOut, leftBadges, ribbons, promoBadge, priceDisplay, compareAtDisplay,
+//   const { isSoldOut, leftBadges, ribbons, promoBadge, priceDisplay, compareAtDisplay, teaser,
 //           colors, optionLabel, isQuickAddable, directAddVariantId, image, hoverImage } = useProductCard(product);
 //   // then render however you want; quick-add: addToCart(product.id, directAddVariantId) from useCart().
 
@@ -73,6 +73,11 @@ export function useProductCard(product) {
     // The variant a direct add sends (a product with no options still has one variant).
     const directAddVariantId = isQuickAddable ? minVariant?.id ?? null : null;
 
+    // plainDescription is an HTML string despite its name (<p>…</p>). A card wants plain text:
+    // strip the tags and cut at a word boundary, so no tile ever prints a literal "<p>".
+    const text = (product?.plainDescription || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const teaser = text.length > 140 ? `${text.slice(0, 140).replace(/\s+\S*$/, "")}…` : text;
+
     // Images: normalised through lib/storeImage so URLs are consistent across the tile,
     // the PDP gallery, and the cart. Hover image is the second gallery shot (if one exists).
     const image      = productImage(product);
@@ -87,6 +92,7 @@ export function useProductCard(product) {
       promoBadge,          // { type: 'ribbon', label } | null — the primary ribbon, for a single-badge slot
       priceDisplay,        // formatted price the buyer pays, or a min–max range
       compareAtDisplay,    // formatted struck "was" price | null (never beside a range)
+      teaser,              // plain-text description for the tile (tags stripped, ~140 chars) — never render plainDescription raw on a card
       colors,              // hex strings — render as dots; the tile shows up to however many you want
       optionLabel,         // "3 sizes · 2 materials" or empty string
       isQuickAddable,
