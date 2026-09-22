@@ -23,7 +23,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 |---|---|---|
 | Products (list, get, search, filter) | `@wix/stores` | `productsV3` |
 | Variants (to resolve `variantId`) | `@wix/stores` | `readOnlyVariantsV3` |
-| Categories | `@wix/stores` | `categories` |
+| Categories | `@wix/categories` | `categories` |
 | Cart (add / get / checkout) | `@wix/ecom` | `currentCartV2` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
 
