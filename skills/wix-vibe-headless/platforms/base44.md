@@ -91,9 +91,23 @@ truth for how the client is built.
 file the seed writes. Read its `INSTRUCTIONS.md` **Prerequisites** before building any form UI; seed
 it first (STEP 4) and build the rest of the app meanwhile.
 
-**`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
-rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
+**Know which template this app uses before writing a page.** Base44 ships more than one and they
+route differently; building for the wrong one renders a blank preview with no error to explain it.
+
+- `src/routes/__root.jsx` present → **TanStack Start**: file-based routes, no `src/App.jsx`, no
+  `index.html`, build output under `.output/` rather than `dist/`. Pages mount as route files;
+  chrome and providers live in `__root.jsx`.
+- `src/App.jsx` present → **React Router**: routes and providers are wired into `App.jsx`.
+
+Read the app's own `AGENTS.md` first either way — both templates ship one and it states their
+conventions. The full pattern for both, plus the nav adapter that shipped components need at
+`src/lib/nav.js`: [`../references/_shared/routing.md`](../references/_shared/routing.md).
+
+**On the React Router template, `src/App.jsx` is edited surgically, never rewritten.** It carries
+required platform auth scaffolding (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full
+rewrite drops them → the validator rejects the write. Wire routes/imports in with `find_replace`,
+leave the rest as-is. TanStack keeps the same scaffolding in `src/routes/__root.jsx` and
+`src/lib/AuthContext.jsx`, under the same rule: add around it, never replace it.
 
 ## STEP 4 — Manage and seed the business
 

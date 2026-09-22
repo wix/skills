@@ -1,7 +1,7 @@
 // Project detail — thin view over useProjectDetail (all data logic lives in the hook). Renders the
 // header, the details[] rows (text OR link), and the media gallery (each item via ProjectMedia,
 // which branches on item.type). Styled with base44 design tokens (shadcn Tailwind classes).
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import ProjectMedia from "@/components/ProjectMedia";
 

@@ -47,12 +47,25 @@ a real fallback — a runtime error, or a field the snippets don't cover (see "F
 end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/portfolio/app/` → `src/`.)
 
+**Before those files resolve, `src/lib/nav.js` must exist** — they import `Link`/`useParams`
+from `@/lib/nav` so the same sources run on either template. Copy
+`_shared/nav/nav.react-router.js` or `_shared/nav/nav.tanstack.js` to `src/lib/nav.js`,
+whichever matches this app ([which template?](../_shared/routing.md)).
+
+
 
 ## STEP 2 — Theme
 Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
 share the same colors and typography.
 
 ## STEP 3 — Wire routes (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+
+> **Check the template first.** `src/routes/__root.jsx` present → TanStack Start (file-based
+> routes, no `src/App.jsx`); `src/App.jsx` present → React Router. The wiring below is the React
+> Router form — for TanStack use the route files at the end of this step. Either way, copy the nav
+> adapter to `src/lib/nav.js` before the shipped files land, or their `@/lib/nav` imports don't
+> resolve: see [`../_shared/routing.md`](../_shared/routing.md).
+
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it. Portfolio is read-only with no cross-page state, so there's **no provider to wrap** (no
@@ -109,6 +122,32 @@ function Layout() {
   </Route>
 </Routes>
 ```
+
+
+### TanStack Start template — the same pages, mounted as files
+
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
+
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/portfolio` | `src/routes/portfolio.jsx` | `Portfolio` |
+| `/collection/:slug` | `src/routes/collection.$slug.jsx` | `CollectionPage` |
+| `/project/:slug` | `src/routes/project.$slug.jsx` | `ProjectDetail` |
+
+```jsx
+// src/routes/portfolio.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Portfolio from "@/pages/Portfolio";
+
+export const Route = createFileRoute("/portfolio")({ component: Portfolio });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`

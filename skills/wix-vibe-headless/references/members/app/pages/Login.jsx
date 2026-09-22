@@ -3,7 +3,7 @@
 // they came from (RequireAuth stashes it in location.state.from) or home. Social login returns via
 // /callback instead. Styled with base44 design tokens (shadcn Tailwind classes) — don't rewrite this page to add chrome
 // (the Header/Footer live in the Layout).
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "@/lib/nav";
 import LoginForm from "@/components/LoginForm";
 import SocialButtons from "@/components/SocialButtons";
 

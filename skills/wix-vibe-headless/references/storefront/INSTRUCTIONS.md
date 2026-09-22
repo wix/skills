@@ -353,6 +353,13 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider
+
+> **Check the template first.** `src/routes/__root.jsx` present → TanStack Start (file-based
+> routes, no `src/App.jsx`); `src/App.jsx` present → React Router. The wiring below is the React
+> Router form — for TanStack use the route files at the end of this step. Either way, copy the nav
+> adapter to `src/lib/nav.js` before the shipped files land, or their `@/lib/nav` imports don't
+> resolve: see [`../_shared/routing.md`](../_shared/routing.md).
+
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
@@ -438,6 +445,31 @@ function Layout() {
   </>);
 }
 ```
+
+
+### TanStack Start template — the same pages, mounted as files
+
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
+
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/shop` | `src/routes/shop.jsx` | `Shop` |
+| `/product/:slug` | `src/routes/product.$slug.jsx` | `ProductDetail` |
+
+```jsx
+// src/routes/shop.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Shop from "@/pages/Shop";
+
+export const Route = createFileRoute("/shop")({ component: Shop });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
 
 ## What a complete storefront shows
 

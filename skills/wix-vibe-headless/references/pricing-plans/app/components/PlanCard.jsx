@@ -7,7 +7,7 @@
 // plan.image is a WixMedia object { id, width, height, altText } with NO .url — its id must be
 // resolved to a URL before it can render. Rendering plan text only here avoids that trap; see
 // INSTRUCTIONS ("Plan image") for the resolve-or-omit fallback if you want the image.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 import PlanPrice from "./PlanPrice";
 
 export default function PlanCard({ plan, onSubscribe, featured = false }) {
