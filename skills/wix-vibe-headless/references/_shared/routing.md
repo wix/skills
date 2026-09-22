@@ -14,6 +14,20 @@ something an agent wrote believing the app was React Router — `__root.jsx` is 
 mistake. The app's own `AGENTS.md` (both templates ship one) states its conventions — worth a read
 before the first write.
 
+## On TanStack, four things differ from the React Router form
+
+Routing guidance you meet elsewhere — routes wired into `src/App.jsx`, `react-router-dom` imports,
+its `AuthProvider` / `QueryClientProvider` wrappers — describes the React Router template. On this
+one:
+
+- **There is no `src/App.jsx`, and that is the finished state.** Leave it absent; creating one
+  wires a router the app does not use, and the pages mounted in it never render.
+- **Route files import `createFileRoute` and `Link` from `@tanstack/react-router`**, which this
+  template installs.
+- **The wrappers live in `src/routes/__root.jsx`.** Same rule as `App.jsx` carries on the other
+  template: add around them, never replace them.
+- **Telling the two apart costs nothing** — the app's files are already in your context.
+
 ## The nav adapter is already installed
 
 Shipped components import `Link`, `useParams` and friends from `@/lib/nav`, never from a router
