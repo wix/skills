@@ -109,6 +109,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -142,6 +143,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
