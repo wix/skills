@@ -243,7 +243,16 @@ function sellingPrice(price) {
 }
 ```
 
-- **Before a variant is selected**, show the product range (`actualPriceRange.minValue`–`maxValue`, one value when equal) — never an empty price and never an arbitrary variant. Once every option is chosen, switch to the selected variant's `sellingPrice(variant.price)` and update the buy button's price with it.
+- **Before a variant is selected, show the range — not the minimum with a struck "was".** A product priced 39.99–44.99 with a 54.99 compare-at must read "₪39.99 – ₪44.99" until the buyer picks; "was ₪54.99 ₪39.99" claims a saving that may not apply to the variant they choose. Once every option is chosen, switch to `sellingPrice(variant.price)` and update the buy button with it:
+
+  ```js
+  const { minValue: min, maxValue: max } = product.actualPriceRange ?? {};
+  const rangeDisplay = min && max && min.amount !== max.amount
+    ? `${min.formattedAmount} – ${max.formattedAmount}`
+    : min?.formattedAmount ?? '';
+  const shown = variant ? sellingPrice(variant.price) : { current: null, original: null };
+  // render: variant ? shown.current.formattedAmount (+ labelled shown.original when higher) : rangeDisplay (no "was")
+  ```
 - **Strike the original only when it is defined and higher than the current price**, and label it ("was", "regular price") — strikethrough or color alone doesn't carry the meaning for assistive tech.
 - **On cards, never pair a price *range* with one lone struck "was" minimum** — it implies a saving that may not apply to every variant. Show the "was" only for a single-price product; otherwise omit the comparison until a variant is picked.
 - `discountInfo.discountRuleNames` (product level) names the automatic discounts — render the names if you like, but **never compute a percentage or a savings claim yourself**; the cart's calculated summary is the only source of applied discounts.
@@ -251,7 +260,13 @@ function sellingPrice(price) {
 
 ### Ribbons — render all of them
 
-A product carries a primary `ribbon.name` **and** up to four `additionalRibbons[].name`. Render **every** label, on cards and on the product page, with one shared presentation (same shape, typography, placement; a semantic accent such as a "Sale" color is fine but applied by label, not by which field it came from). Wrap or use a clearly labeled overflow control — never keep only the first.
+A product carries a primary `ribbon.name` **and** up to four `additionalRibbons[].name`. Render **every** label, on cards **and** on the product page, with one shared presentation (same shape, typography, placement; a semantic accent such as a "Sale" color is fine but applied by label, not by which field it came from). Wrap or use a clearly labeled overflow control — never keep only the first. One helper, used by the card and the PDP:
+
+```js
+const ribbons = (p) => [p.ribbon?.name, ...(p.additionalRibbons ?? []).map((r) => r.name)].filter(Boolean);
+```
+
+A card that reads only `product.ribbon.name` drops "Sale" on a product ribboned "New" + "Sale" — the merchant set both.
 
 ### Variants — resolve by choice IDs, from the product itself
 
@@ -275,6 +290,7 @@ const available = (v) => v.inventoryStatus?.inStock !== false || v.inventoryStat
 - **Which choices to disable:** before any selection, use each choice's own flags (`choice.inStock ?? true`, `choice.visible ?? true`). After a selection, a choice is selectable when at least one visible variant compatible with the current picks is `available` (in stock **or** preorder-enabled).
 - **A single-variant product** (no options) resolves to its only variant — `variantsInfo.variants[0]` on the PDP, `variantSummary.minPriceVariant` on a card.
 - Changing an option **resets quantity to 1**. Modifiers never take part in the key — they're separate inputs (next section).
+- **Color options render as swatches, not text pills.** When `option.optionRenderType` is `SWATCH_CHOICES` or `COLOR_CHOICES`, each choice carries `colorCode` (`#7c3aed`) — render a color swatch with the name as its label. Text options (`TEXT_CHOICES`) are pills.
 - **A choice image** lives at `choice.media.items[].mediaId` (with `PRODUCT_CHOICES_MEDIA_REFERENCES`); a resolved variant may carry `variant.media`. Make choice media *available* (highlight it in the gallery) rather than replacing the gallery on every option change.
 
 **Which action to show** — precedence, top wins: **(1)** the chosen combination doesn't exist → "unavailable"; **(2)** preorder (before selection: `inventory.preorderStatus === 'ENABLED'` and the product is out of stock; after: the variant's `preorderEnabled`) → "Pre-order"; **(3)** back-in-stock notify (see *Catalog-conditional*); **(4)** out of stock; **(5)** purchasable. Until the buyer has picked everything, the button is disabled with a **neutral** reason next to it ("Choose a size") — not error styling; promote to an error only after they try to buy.
@@ -319,9 +335,14 @@ const { cart } = await currentCartV2.addLineItemsToCurrentCart({ catalogItems: [
 Both take the **line's `_id`** (`cart.lineItems[]._id`), never the product id. The update body is a `lineItems` array with a nested `quantity` object — a flat `{ _id, quantity }` returns **400**:
 
 ```js
-const { cart } = await currentCartV2.updateLineItemsInCurrentCart({
-  lineItems: [{ lineItemId, quantity: { newQuantity } }],
-});
+try {
+  const { cart } = await currentCartV2.updateLineItemsInCurrentCart({
+    lineItems: [{ lineItemId, quantity: { newQuantity } }],
+  });
+  setCart(cart);
+} catch (e) {
+  setLineError(lineItemId, e?.message ?? "Couldn't update the quantity");   // shown next to the line — never `catch {}`
+}
 const { cart } = await currentCartV2.removeLineItemsFromCurrentCart([lineItemId]);
 ```
 
@@ -351,7 +372,7 @@ const { summary } = await currentCartV2.estimateCurrentCart();   // after every 
 ```
 
 - Show **Subtotal**, a **Discount** row only when it's non-zero, and **"Shipping and taxes are calculated at checkout"** — never a hardcoded shipping charge, free-shipping threshold, tax, or delivery date, and never a synthesized `0` for something that wasn't calculated.
-- `estimateCurrentCart` is a display nicety — if it fails, the cart is still valid; show lines without the summary row.
+- **Call `estimateCurrentCart` only when the cart has lines** — on an absent or empty cart the endpoint returns **404**, and a drawer that estimates on every page load logs that error for every first-time visitor. It is a display nicety — if it fails, the cart is still valid; show lines without the summary row.
 - Doc: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/estimate-current-cart.md?apiView=SDK>
 
 ### Checkout — redirect to the hosted checkout page
@@ -470,6 +491,8 @@ if (!product) return new Response(null, { status: 404 });
 ---
 <Layout title={product.name}>
   <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />   <!-- Layout renders <slot name="seo-tags" /> in <head> -->
+  <!-- SEO.Tags renders the <title>. The layout must NOT print its own when the slot is filled — two titles otherwise:
+       in Layout.astro:  {!Astro.slots.has("seo-tags") && <title>{title}</title>}  <slot name="seo-tags" /> -->
   …
 </Layout>
 ```
