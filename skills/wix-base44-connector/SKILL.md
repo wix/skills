@@ -23,8 +23,8 @@ they also surface from a search that began at the methods.
 
 In this skill:
 
-- **What are you building?** — route each feature to its identity: visitor token, admin token
-  in a backend function, or admin ad hoc in exec_tool
+- **What are you building?** — for visitors, for the owner, or management done for them —
+  decided per request from the user's intent, each on its own flow
 - **The helpers** — the `wx.*` loader every exec opens with
 - **Gather context** — `wx.context`, the report of what the site actually has
 - **Learn Wix** — find the APIs, learn their contracts
@@ -40,34 +40,52 @@ In this skill:
 
 ## What are you building?
 
-Choose the token by who the code acts for. A headless app can serve visitors, provide admin
-management tools, or do both.
+Wix has two identities, visitor and admin, and each has its own flow. Decide which one every
+request is for before acting on it — from what the user wants, not from the technology:
 
-**A site for visitors** — use a visitor token for public reads and actions on behalf of the
-visitor, never the admin connector token. Call Wix directly from the browser through one shared
-visitor client (Write the code, below). Redirect sessions for Wix-hosted flows also require a
-visitor token minted for the headless OAuth app; see Visitor authentication and Wix-hosted flows below.
-**The OAuth app is a one-call prerequisite, not a dead end**: `wx.ensureOAuthApp` returns its
-`clientId`, creating the app when the site has none, so it is a visitor flow's first step — never
-a reason to move the flow onto the admin token or leave it for later.
-Anyone can mint an anonymous visitor token from the
-OAuth app's public `clientId`; no visitor login is required. APIs for the "current visitor"
-use that token to identify whose data and state to access. This applies both to a standalone
-headless frontend and to a frontend extending an existing Wix site.
+- **Visitor** — the people using the site: browsing, booking, buying, signing in as a member.
+  Visitor token, called from the browser through one shared visitor client.
+- **Admin, built** — a management surface of the owner's own: a custom view, a bulk operation,
+  an internal tool. Admin connector token, server-side in backend functions the frontend calls.
+- **Admin, done for them** — the user wants the business managed now, not an app: create the
+  products, change a setting, import the contacts. Admin token, ad hoc in exec_tool; nothing
+  ships in the app.
 
-**An admin tool for the owner** — use the admin connector token in backend functions implementing
-admin logic; keep it secret and server-side. The frontend calls those functions, not Wix with
-visitor tokens. A custom headless management site extending the Wix back office follows this
-flow too. Ad hoc management calls in `exec_tool` also use the admin token. Backend functions
-also handle work requiring the owner's permissions, such as webhooks, scheduled jobs, and
-explicitly authorized elevated operations. For an app with both visitor and admin features,
-keep each feature on its corresponding flow.
+The owner already has a full Wix dashboard for running the business — orders, products,
+bookings, settings, and more — so an admin build is a choice the user makes, not a gap to fill by
+default. When a request has both visitor and admin parts, each keeps its own flow.
+
+When the request doesn't say which, ask the user — in their terms (who the thing is for), not in
+technical ones (identities, tokens, flows). When you decide without asking, tell them what you
+chose the same way.
+
+The rules that follow from the split:
+
+- **Checkout runs on a visitor token, never the admin token** — including a checkout this app
+  creates for the visitor. The admin token *will* hand back a checkout URL, and that is the trap:
+  it belongs to the site rather than the buyer (no cart persistence, no abandoned-checkout
+  recovery, no attribution), and a redirect session refuses it outright (`403`). Returns reach
+  this app only from URLs in the OAuth app's redirect list (Visitor authentication and
+  Wix-hosted flows, below).
+- **No OAuth app yet is not a reason to use the admin token.** `wx.ensureOAuthApp` returns the
+  `clientId`, creating the app when the site has none — a visitor flow's first step. Anyone can
+  mint an anonymous visitor token from that public `clientId`; no visitor login is required.
+- **No login still means visitors.** `asServiceRole` governs this app's own data access and says
+  nothing about which identity Wix sees: a public page's Wix calls run on a visitor token. Reach
+  for the admin token because a feature is owner-side, never because nobody signs in.
+- **Owner-side work beyond pages** — webhooks, scheduled jobs, explicitly authorized elevated
+  operations — is admin flow too, in backend functions.
 
 ```
 visitor pages ──(visitor token)────────────────────────► wixapis.com
 admin pages   ──► base44/functions/… ──(admin token)────► wixapis.com
 exec_tool     ──(admin token, ad hoc management)────────► wixapis.com
 ```
+
+**The connected site owns its payments.** Whatever the visitor buys is paid on the Wix-hosted page
+this app hands them off to, with the provider the site already has. Base44's
+`<available_payment_providers>` note is about checkout that Base44 hosts instead — it does not
+apply to these flows, and asks nothing of them, whichever providers it names or rules out.
 
 ## The helpers
 
@@ -117,6 +135,10 @@ return await wx.context(accessToken);
 One report: installed apps **with ids** (incl. Stores' catalog version — V1 vs V3 decides its
 endpoints), the OAuth app id (**also the visitor `clientId`**), locale, currency, CMS collections.
 An empty report = bad token, never an empty site.
+
+No OAuth app in the report means the site has none **yet**. For anything a visitor operates,
+create it with `wx.ensureOAuthApp` — one call, returns the `clientId` the frontend mints visitor
+tokens from — and build the feature on the visitor flow.
 
 Reports over 4,000 characters are saved in full to a temporary Markdown file. The result includes
 its path, byte and line counts, and a heading outline. Read that file to inspect the site context.

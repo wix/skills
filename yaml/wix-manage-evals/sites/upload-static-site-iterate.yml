@@ -1,0 +1,62 @@
+name: sites/upload-static-site-iterate
+description: >-
+  Verifies that when a user asks to change a site the agent already published through the Headless
+  instant-site API, the agent iterates on the SAME site — re-running upload + release with the same
+  anonymousId and metaSiteId so the live URL is unchanged — instead of creating a second anonymous
+  site for the edit. Guards against the "new site per change" pattern that leaves abandoned one-off
+  sites and a different URL each time.
+triggerPrompt: >-
+  Take this one-page site and put it live on Wix, then make one change: the headline currently says
+  "Welcome to Bloom Cafe" — change it to "Bloom Cafe — Now Open" and publish that too. Here's the
+  file (index.html): <!doctype html><html><head><title>Bloom Cafe</title></head><body><h1>Welcome to
+  Bloom Cafe</h1><p>Fresh coffee and pastries daily.</p></body></html>
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to (1) publish a one-page site through the Headless instant-site drop
+      API, then (2) make a headline change and publish that too. The correct behavior is to publish
+      once and then ITERATE ON THE SAME SITE for the change — re-run the upload
+      (POST /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/upload) and release
+      (POST .../{metaSiteId}/release) with the SAME anonymousId and metaSiteId created the first
+      time — so the site's live URL stays the same and there is one site, not two.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass if:
+      - exactly ONE anonymous site is created (one POST to
+        /v1/headless-business/anonymous/{anonymousId} with no metaSiteId in the path), AND
+      - the headline change is published by re-running upload + release against that same
+        anonymousId and metaSiteId (a second upload and a second release on the same ids), AND
+      - the final answer gives a single live URL for the site (not two different site URLs), AND
+      - the delivered site reflects the updated headline "Bloom Cafe — Now Open".
+
+      Fail if:
+      - a SECOND anonymous site is created for the change (a second create call / a second, different
+        metaSiteId / two different live URLs handed to the user), OR
+      - the agent re-uploads without ever creating a site, or invents endpoints, OR
+      - the change is only described but never actually published (no second release), OR
+      - the agent routes the edit to a different site-creation tool.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how cleanly the agent iterated in place. Examine the tool-call trace. Score 0-10, where
+      10 means: one create, then the edit published via a second upload+release on the same
+      anonymousId/metaSiteId, one URL throughout, no redundant or exploratory calls.
+
+      Penalize and LIST any of:
+        - a second `POST /v1/headless-business/anonymous/{anonymousId}` (new site) for the edit
+        - two different metaSiteIds or two different live URLs across the run
+        - a create-from-template or headless-provision call
+        - re-reading docs repeatedly, or a probing spiral
+        - publishing the edit to a brand-new anonymousId
+
+      For each issue name the likely skill gap behind it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list, or 'clean in-place iteration'>"}
