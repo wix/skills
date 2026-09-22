@@ -34,10 +34,3 @@
 
 - A caption describes what is **actually seen** in its image. Tone can vary (serious, playful, informative) but must stay aligned with the image's real content.
 - **No meaningless captions, and no caption that ignores the image.** A slogan or pull-quote overlaid on a photo is not a caption — if a true caption is wanted, write one that describes the scene once the real image is in place.
-
-## 6 · Truthful commerce copy
-
-- **Claims come from the merchant or the data, never from the page's need for a section.** No invented reviews, ratings, "X people bought this", scarcity, delivery promises, certifications, guarantees, or payment/trust badges. A section with no truthful source is omitted, and the gap is reported — not padded.
-- **Labels match their source.** "Best Sellers" needs sales data or a category the merchant named that way; the catalog's default order is not a ranking. "Featured" or the category's real name is always safe.
-- **Write for shoppers, not implementers.** No Wix IDs, API names, "catalog", "current catalog", "headless", or integration words in headings, labels, buttons, or empty states. Brand attribution only when the user asks for it.
-- **Operational text is the merchant's.** Announcement bars, shipping, returns, and support lines only from information the user supplied; a cart says "shipping and taxes calculated at checkout" rather than a number nobody configured.
