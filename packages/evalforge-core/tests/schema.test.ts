@@ -86,6 +86,14 @@ describe('parseScenario', () => {
     expect(() => parseScenario(yaml)).toThrow(/minScore/);
   });
 
+  it('accepts a boolean-scoringMode llm_judge without minScore (pass/fail judges have no score)', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: "x"\n    scoringMode: boolean\n`,
+    );
+    expect(() => parseScenario(yaml)).not.toThrow();
+  });
+
   it('rejects llm_judge with minScore below the gating floor', () => {
     for (const low of [0, 6]) {
       const yaml = minimalYaml.replace(
