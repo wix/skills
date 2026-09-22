@@ -67,12 +67,9 @@ Relevant response fields (other tags omitted; IDs are illustrative):
   its resolved `title` tag; if that is ambiguous, ask the user which page.
 - The page path is the path of the canonical `link` `href`: `/cart-page` for
   `https://www.example.com/cart-page`.
-- **The homepage is the one entry whose canonical `href` has no path**: it ends
-  at the host (`https://www.example.com`, at most a trailing `/`). Its path is
-  `/`. Do not parse anything else to find it: read `resolvedTags`, take the
-  `link` tag with `rel` `canonical`, keep the entry whose `href` has nothing
-  after the host. Its title is usually `Home | <site name>`, which confirms the
-  match but is not the rule.
+- The homepage is the entry whose canonical `link` `href` equals the site URL,
+  ignoring a trailing slash; on a free site that URL includes a path. Compare
+  only canonicals with `source` `TAG_SOURCE_DEFAULT_PATTERN`. Its path is `/`.
 - `focusKeywords` with `isMain: true` is the focus keyword page optimization uses.
 - The current title and description are the `title` tag and the `meta` tag named
   `description` in `resolvedTags`; pass them as context, never present them as
