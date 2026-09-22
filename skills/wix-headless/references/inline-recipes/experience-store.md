@@ -6,6 +6,8 @@ description: The storefront's own design and copy bar, on top of DESIGN.md and C
 
 `DESIGN.md` and `CONTENT.md` are the floor for every site. This file adds what is specific to a store. It is the *what* of a good storefront — the API *how* is `how-to-code-a-store.md`. The wiring is necessary, not sufficient: a store whose calls all work but whose homepage repeats the shop page, whose first screen shows no product, or whose cart hides checkout behind a page is not done.
 
+**These are defaults for when the brief doesn't say otherwise.** Whatever the user asked for in their prompt — a layout, a page they don't want, a cart page instead of a drawer, a specific look — wins over any line here.
+
 ## 1 · Design from the catalog, not from the category
 
 Before choosing tokens, **look at the catalog**: the categories and their depth, the assortment size, the media (count, aspect ratios, background consistency, focal points), the options and price points, the ribbons and sales. Then write the store's direction as a few lines, held with the design tokens:
