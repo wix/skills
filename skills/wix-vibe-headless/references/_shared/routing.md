@@ -4,29 +4,27 @@ Base44 ships more than one app template, and they route differently — so which
 decides how a page gets mounted. A page mounted the other template's way renders nothing, and the
 preview comes back blank with no error to explain it.
 
-**The install already told you.** Its `deploy` result carries the answer it resolved from disk:
-
-```json
-{ "template": "react-router",  "navAdapter": "written", … }
-{ "template": "tanstack",      "navAdapter": "written", … }
-```
-
-Same fact, read directly, if that output has scrolled away: `src/routes/__root.jsx` present →
-TanStack Start (file-based routes, no `src/App.jsx`, no `index.html`, build output in `.output/`
-rather than `dist/`); `src/App.jsx` present → React Router SPA. The app's own `AGENTS.md` (both
-templates ship one) states its conventions — worth a read before the first write.
+**An install that ran `deploy.cjs` already told you** — its result carries the template it resolved
+from disk, as `{ "template": "react-router" }` or `{ "template": "tanstack" }`. Where the host
+deployed the tree itself there is no such line, and the same fact reads straight off the app:
+`src/routes/__root.jsx` present → TanStack Start (file-based routes, no `src/App.jsx`, no
+`index.html`, build output in `.output/` rather than `dist/`); `src/App.jsx` present → React Router
+SPA. The app's own `AGENTS.md` (both templates ship one) states its conventions — worth a read
+before the first write.
 
 ## The nav adapter is already installed
 
 Shipped components import `Link`, `useParams` and friends from `@/lib/nav`, never from a router
-package, so one set of sources runs on either template. The install resolved the template and wrote
-the matching adapter to `src/lib/nav.js` — `nav.react-router.js` or `nav.tanstack.js` from
-`_shared/nav/` — before any vertical's files landed.
+package, so one set of sources runs on either template. `src/lib/nav.js` arrives with the rest of
+the deployed tree, and it is the one place the router is named. Write your own pages against
+`@/lib/nav` too and they stay portable for free.
 
-Use the file that is there. It is the one place the router is named, and on TanStack it carries two
-normalisations that the imports depend on: `useParams` is scoped with `strict: false`, and
-`useNavigate` returns a function you call with a path (`navigate(-1)` still goes back). Write your
-own pages against `@/lib/nav` too, and they stay portable for free.
+**On TanStack, check what landed.** The deployed default is the React Router adapter, and
+`deploy.cjs` swaps the TanStack one in when it runs — but a host that copies the tree itself lands
+the default whatever the template. So on a TanStack app, open `src/lib/nav.js` and, if it
+re-exports from `react-router-dom`, copy `_shared/nav/nav.tanstack.js` over it. That file carries
+the two normalisations the imports depend on: `useParams` scoped with `strict: false`, and
+`useNavigate` returning a function you call with a path (`navigate(-1)` included).
 
 ## React Router template
 

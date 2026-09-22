@@ -354,11 +354,11 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 
 ## Routes and provider
 
-> **The template decides this step.** The install's `deploy` result named it —
-> `"template": "react-router"` or `"tanstack"` — and wrote the matching `src/lib/nav.js`, which is
-> what the shipped files' `@/lib/nav` imports resolve to. The wiring below is the React Router
-> form; on TanStack use the route files at the end of this step
-> ([both patterns](../_shared/routing.md)).
+> **The template decides this step.** `src/App.jsx` present → React Router, which the wiring
+> below is written for; `src/routes/__root.jsx` present → TanStack Start, which mounts the same
+> pages as route files at the end of this step. The installed `src/lib/nav.js` — what the shipped
+> files' `@/lib/nav` imports resolve to — defaults to the React Router adapter, so on TanStack
+> check it and swap: [both patterns](../_shared/routing.md).
 
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;

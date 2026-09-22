@@ -18,7 +18,7 @@ STEP 3, and **except a seed that attaches entity images**, which runs after the 
 
 Install three skills under `.agents/skills/`: **`wix-vibe-headless`** (the client build + seed guide — your main source of truth), **`wix-manage`** (REST recipes to manage/configure the site), and **`wix-base44-connector`** (site context + API-doc discovery).
 
-Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js` and the nav adapter at `src/lib/nav.js`, and pins the AGENTS.md note. **Its `deploy` result reports this app's `template`** (`react-router` or `tanstack`) — STEP 3 needs it.
+Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/` (the nav adapter at `src/lib/nav.js` among them), writes `wix-config.js`, and pins the AGENTS.md note. **Its `deploy` result reports this app's `template`** (`react-router` or `tanstack`) — STEP 3 needs it.
 
 **Set `VERTICALS`** to what the prompt asks for — **list every vertical the app uses**, since several often join the main one (too vague to tell? do STEP 2 first, then set it). Adding one later: re-run with the extra name.
 
