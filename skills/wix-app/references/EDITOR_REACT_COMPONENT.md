@@ -110,7 +110,7 @@ extension configuration, and supporting files.
 | Trigger | Read |
 | --- | --- |
 | Interactive/selectable part or custom state | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
-| Public event callbacks added or changed | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
+| Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |

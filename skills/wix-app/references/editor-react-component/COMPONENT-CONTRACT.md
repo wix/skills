@@ -33,6 +33,10 @@ export type PlanCardProps = {
   heading?: string;
   plans?: Array<Plan>;
   onClick?: (event: React.MouseEvent) => void;
+  onMouseIn?: (event: React.MouseEvent) => void;
+  onMouseOut?: (event: React.MouseEvent) => void;
+  onFocus?: (event: React.FocusEvent) => void;
+  onBlur?: (event: React.FocusEvent) => void;
 
   elementProps?: {
     cta?: { className?: string; href?: string };
@@ -47,9 +51,8 @@ Rules:
   code. Do not add one-off ARIA props or spread the whole object.
 - Expose only content and behavior that the site owner controls. Keep derived
   values internal.
-- Add only callbacks required by the component specification. Use supported SDK
-  event names and types for public callbacks; keep implementation-only handlers
-  internal.
+- Default to common optional SDK callbacks by capability; add specialized ones
+  when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
 
 ## Numeric Range Constraints
@@ -176,7 +179,16 @@ export const defaultProps = {
 ### Wix Data Types
 
 Use `Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText` from
-`@wix/editor-react-types`. See `node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts` for the full list.
+`@wix/editor-react-types`. Model authored media with the corresponding Wix
+media type, whether it is a top-level prop or a field in an array item. Name
+the field for the media itself (`image`, `video`, `audio`, and so on), not for
+one representation of it.
+
+Do not represent media as a URL/source string or split its metadata across
+primitive props. Preserve the media object through the public contract so the
+component can consume all of its supported data. See
+`node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts` for the
+full list.
 
 ## Defaults and Resources
 
@@ -242,5 +254,6 @@ Do not extract tiny fragments merely to satisfy a line-count threshold.
 - [ ] Named inner parts have `elementProps` wiring; leaf components avoid exported `children`.
 - [ ] One-body-visible arrays use the active-item contract and render all bodies.
 - [ ] Array elements are objects with semantic named fields. No separate `id` field added to item types; React keys use item fields (stable unique → slug → index), not a typed `id`.
+- [ ] Authored media uses the corresponding Wix media type, not URL/source strings or flattened metadata.
 - [ ] Defaults live only in the props file (no JSX fallbacks).
 - [ ] Resources are Wix-hosted, prop-supplied, or locally bundled.

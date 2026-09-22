@@ -52,10 +52,11 @@ function buildTask(config: ReviewConfig, files: ChangedFile[]): string {
 /** A commit nobody could review is not a reviewed commit, so this fails like a push does. */
 async function reportUnavailable(
   reason: string,
-  pending: { post: (body: string) => Promise<void> },
+  pending: { post: (body: string) => Promise<void>; clearAck: () => Promise<void> },
   isBlocking: boolean,
 ): Promise<void> {
   await pending.post(formatReviewServiceError(reason));
+  await pending.clearAck();
   fail(`The skill review did not complete: ${reason}`, isBlocking);
 }
 
@@ -130,6 +131,7 @@ export async function runReview(): Promise<void> {
     headSha: config.headSha,
     filesReviewed: files.length,
     discarded: outcome.discarded,
+    triggeredBy: config.triggeredBy || undefined,
   };
 
   const findings: ReviewFinding[] = outcome.findings;

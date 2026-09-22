@@ -201,6 +201,9 @@ the `a11y` contract, and SSR safety. Verify what it cannot see:
 - The root implements the direction contract, and every `ReactNode` slot
   isolates nested content with `dir="ltr"`.
 
+- An auto-rotating set of readable parallel items uses `aria-live="off"` while
+  it is rotating and `aria-live="polite"` while it is stopped.
+
 ## Pre-Fix Checks for Non-Interactive Controls
 
 Before adding `role="button"`, `tabIndex`, and keyboard handlers to a non-native

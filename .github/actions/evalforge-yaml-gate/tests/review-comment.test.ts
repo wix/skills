@@ -102,3 +102,16 @@ describe('the review comment', () => {
     expect(formatReviewFindings([finding()], summary({ discarded: 1 }))).toContain('1 finding');
   });
 });
+
+describe('who triggered the review', () => {
+  const summary = { headSha: 'abcdef1234567890', filesReviewed: 3, discarded: 0 };
+
+  it('names the actor in the verdict line', () => {
+    const body = formatReviewClean({ ...summary, triggeredBy: 'omerme' });
+    expect(body).toContain('triggered by @omerme');
+  });
+
+  it('says nothing when the trigger is unknown', () => {
+    expect(formatReviewClean(summary)).not.toContain('triggered by');
+  });
+});
