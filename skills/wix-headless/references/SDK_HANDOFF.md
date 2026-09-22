@@ -36,7 +36,7 @@ Before implementing a capability, Read the local recipe linked in its row.
 
 | Capability | Package(s) | Required recipe |
 |---|---|---|
-| stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | `how-to-code-a-store.md` — Catalog V3 read + cart/checkout. |
+| stores | `@wix/stores` + `@wix/categories` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | `how-to-code-a-store.md` — Catalog V3 gallery (sort/filter/paging), product page (variants, prices, ribbons), Cart V2 + checkout, and what a complete storefront shows. |
 | blog | `@wix/blog` (+ `@wix/ricos` to render `richContent`; **`@wix/comments` + `@wix/members`** when the blog has comments/members; `@wix/blog` `likes` when the site has members) | `how-to-code-a-blog.md` — Blog V3 read/render + member features (likes, comments). Supplement: <https://dev.wix.com/docs/sdk/business-solutions/blog.md>. |
 | cms | `@wix/data` | `how-to-code-cms.md` — `items.query` read contract. |
 | forms | `@wix/forms` | `how-to-code-forms.md` — schema-driven render (read the live form schema, visitor token/no elevate) + Form Submissions v4 write contract. |
