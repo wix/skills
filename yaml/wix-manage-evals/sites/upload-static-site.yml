@@ -1,9 +1,10 @@
 name: sites/upload-static-site
 description: >-
-  Verifies the agent reads the upload-static-site skill and sends a user who already has finished
-  site files (HTML/CSS/JS from an AI builder) to the Wix Headless drop page with the attribution
-  query parameter intact, instead of driving Site Import, creating a site via template/headless
-  provision APIs, or suggesting embedding the HTML into an existing site.
+  Verifies the agent reads the upload-static-site skill and, for files that live only on the
+  user's own machine and so are out of its reach, takes Path A — sends the user to the Wix
+  Headless drop page with the attribution query parameter intact — instead of driving Site
+  Import, creating a site via template/headless provision APIs, suggesting embedding the HTML
+  into an existing site, or reporting an upload it could not have performed.
 triggerPrompt: >-
   I built a small website with an AI coding tool — I have a folder with index.html, styles.css and
   script.js on my computer. I don't have a Wix site yet. How do I get these files live on Wix?
@@ -19,39 +20,51 @@ assertions:
       The user already has a finished static website as local files (index.html, styles.css,
       script.js) and wants it live on Wix as a new site.
       Intent: send them to the Wix Headless drop page —
-      https://www.wix.com/headless/drop?utm_campaign=mcp — where they upload the files and get an
-      instantly hosted live site.
+      https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<agent-id> — where they upload
+      the files and get an instantly hosted live site.
+
+      The files are on the user's own machine, so the agent cannot read the bytes and cannot
+      publish them itself — Path A of the skill.
 
       Pass if the response:
-      - gives the URL https://www.wix.com/headless/drop?utm_campaign=mcp including the
-        utm_campaign=mcp query parameter, AND
+      - gives the drop URL https://www.wix.com/headless/drop keeping the utm_campaign=mcp
+        parameter, AND
       - explains they upload/drag the files there and get a live hosted site, AND
-      - does not attempt the upload itself through an API and does not create a site with any
-        other site-creation tool.
+      - does not create a site with any other site-creation tool.
+      Offering to publish the files directly *if* the user pastes or otherwise provides them is
+      acceptable alongside the drop URL.
+      Adding an agent parameter with the agent's own identifier (e.g.
+      agent=claude-code / cursor / codex-cli) is a plus — but not required for a pass, and
+      the literal placeholder "<your-agent-id>" does not count as one.
       Mentioning practical requirements (index.html at the root of the upload, size limits,
       building framework source first) is a plus but not required for a pass.
 
       Fail if the response:
-      - gives the drop URL without the utm_campaign=mcp parameter, OR
+      - drops the utm_campaign=mcp parameter from the drop URL, OR
       - routes the task to the Site Import agent (site-import API) or any crawl/migration flow, OR
       - creates a site via the meta-site template API or the headless-business provision API
         instead of pointing to the drop page, OR
+      - reports that it uploaded or published the files, which it cannot have done — the bytes
+        are on the user's machine, OR
       - tells the user to embed the HTML into an existing Wix site or upload the files to a
         site's media files, OR
       - is generic with no drop-page URL.
   - type: llm_judge
-    minScore: 0
+    minScore: 7
     maxTokens: 2048
     prompt: |
-      DIAGNOSTIC, non-gating — rate how directly the agent reached the drop-page
-      answer. Examine the tool-call trace, not the final answer. Score 0-10,
-      where 10 means a direct path: the agent read the upload-static-site skill
-      article and answered with the drop URL, with no exploratory or unrelated
-      calls in between.
+      Rate how directly the agent reached the drop-page answer. Examine the
+      tool-call trace, not the final answer. Score 0-10, where 10 means a
+      direct path: the agent read the upload-static-site skill article and
+      answered with the drop URL, with no exploratory or unrelated calls in
+      between. Calibration: a clean run is 9-10; one or two redundant docs
+      reads land at 7-8; a site-creation/import/upload attempt or a probing
+      spiral scores lower.
 
       Penalize and LIST any of:
         - a call to any site-creation API (meta-site templates, headless-business
           provision) before or after giving the drop URL
+        - an instant-site create/upload/release attempt for files the agent never had
         - a call to the site-import API or any crawl/migration tool
         - probing unrelated docs articles or APIs before settling on the drop page
         - an attempted file upload through any API

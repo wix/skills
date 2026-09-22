@@ -1,11 +1,68 @@
 ---
 name: "End-to-End Booking Flow"
-description: Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
+description: Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 ---
 
 # End-to-End Booking Flow (REST)
 
-Step-by-step flow for implementing a complete booking experience using REST APIs.
+Step-by-step flow for creating and settling bookings **with the site owner's credentials** —
+see who that covers, and where visitor-facing code goes instead, immediately below.
+
+> ## ⚠️ These are owner-side calls, not visitor-facing code
+>
+> Every call below runs with the **site owner's credentials** — an API key or the site's admin
+> token. That covers two situations, and both are this recipe:
+>
+> - an **operator managing bookings**, calling these APIs from a script, a management tool, or a
+>   back-office screen
+> - **server-side code in a site or app acting as the owner** — a backend function booking a
+>   client in, a scheduled job, a webhook handler
+>
+> Either way the booking belongs to the site, not to the person being booked.
+>
+> **Building a site or app where a visitor books for themselves? These payloads are right, the
+> identity is not.** A visitor's booking and checkout run on an **anonymous visitor token** minted
+> from the site's OAuth app client id. Using the owner's credentials for a visitor's purchase
+> produces a checkout that belongs to the site: no cart persistence, no abandoned-checkout
+> recovery, and no attribution to the customer. Read these first:
+>
+> - [Book an Appointment](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/book-an-appointment)
+>   — the same flow from the visitor's side: visitor token, slot re-validation, booking form
+>   fields, checkout hand-off, and eight pitfalls from real conversations
+> - [Retrieve Tokens](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens)
+>   — minting and refreshing the anonymous visitor token
+> - [Allow Redirect URIs and Domains](https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains)
+>   — registering your URLs so the visitor returns to your app after the Wix-hosted checkout
+> - [Manage OAuth Apps](../sites/manage-oauth-apps.md) — creating the OAuth app, whose id is the
+>   `client_id` the frontend mints visitor tokens from
+> - [Bookings Quick Start](https://dev.wix.com/docs/go-headless/self-managed-headless/tutorials/java-script-sdk-tutorials/bookings-quick-start)
+>   — the same flow through the JavaScript SDK on a headless site
+>
+> Mixed apps are normal: the owner's credentials manage the catalog, staff, policies and coupons
+> (the recipes here), while the visitor's own token books and pays.
+
+## Contents
+
+1. [Query Available Services](#step-1-query-available-services) — `POST /bookings/v2/services/query`.
+   The three service types and how each one changes the rest of the flow, plus the four fields to
+   carry forward: `id`, `schedule.id`, `type`, `staffMemberIds`.
+2. [Check Availability](#step-2-check-availability) — `POST /_api/service-availability/v2/time-slots`.
+   Time Slots V2 replaces the deprecated Availability Calendar. Dates must be full local
+   datetimes or the call 400s; `availableResources` stays empty unless you ask for it by resource
+   type; the `location.locationType` a slot returns is **not** the value Create Booking accepts.
+   Classes come from a different endpoint and carry an `eventId`.
+3. [Create the Booking](#step-3-create-the-booking) — `POST /_api/bookings-service/v2/bookings`.
+   One payload shape per service type: appointments need every slot field spelled out, classes
+   need only the service and event ids and derive the rest, courses book a whole schedule.
+   Participants are `totalParticipants` **or** `participantsChoices`, never both. The booking
+   lands as `CREATED` and is not on the calendar until step 4.
+4. [Confirm or Process Payment](#step-4-confirm-or-process-payment) — two branches. Free and
+   pay-at-location bookings are confirmed directly with a payment status. Paid bookings go into a
+   cart that references the booking id, and whoever is paying is sent to its checkout URL; a
+   server-to-server place-order path skips the payment page entirely, which only fits an operator
+   or backend job booking someone in.
+5. [Service Type Summary](#service-type-summary) — appointment, class and course side by side:
+   which `bookedEntity` each uses, which availability API feeds it, and what makes it different.
 
 ## Prerequisites
 
@@ -256,7 +313,15 @@ Use the booking ID as `catalogItemId` with the Wix Bookings app ID. Save `cart.i
 
 Redirect the user to the returned `checkoutUrl`. After payment, the booking is automatically confirmed.
 
-**4c. Place Order (alternative, server-to-server)**
+> When the person paying is a visitor, create the cart and this URL **with their visitor token**,
+> not the owner's credentials — see the note at the top. The call succeeds either way, which is
+> what makes it easy to get wrong.
+
+**4c. Place Order — no payment page (alternative, server-to-server)**
+
+> This one only makes sense on the owner's side: it creates the order outright, with nobody
+> visiting a payment page. Right for an operator or backend job booking someone in; not a way to
+> charge a visitor, who still has to be sent to checkout.
 
 First calculate the cart to get a price-verification token:
 

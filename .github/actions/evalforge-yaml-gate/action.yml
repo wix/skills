@@ -92,6 +92,9 @@ inputs:
     description: 'Wall-clock ceiling for one review. Clamped rather than rejected, so a typo cannot fail a soaking check'
     required: false
     default: '600'
+  triggered-by:
+    description: 'Login that set this run off — github.triggering_actor, which on a re-run is whoever asked'
+    required: false
 
 outputs:
   status:
