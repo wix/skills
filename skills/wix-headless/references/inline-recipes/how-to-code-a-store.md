@@ -88,7 +88,7 @@ product = {
   discountInfo: { discountRuleNames: [] },        // automatic-discount names, product level (DISCOUNT_INFO)
   inventory: { availabilityStatus, preorderStatus },   // "IN_STOCK" | "OUT_OF_STOCK" | "PARTIALLY_OUT_OF_STOCK"; preorderStatus "ENABLED"
   media: { main: { image }, itemsInfo: { items: [{ image, altText }] } },   // image is a wix:image:// id → resolve it (see Rendering images)
-  plainDescription, description,                  // plain string; description.nodes is the rich-text form
+  plainDescription, description,                  // plainDescription is an HTML STRING (<p>…</p>) despite the name; description.nodes is the rich-text form
   options: [{ _id, name, optionRenderType, choicesSettings: { choices: [{ choiceId, name, colorCode, inStock, visible, media }] } }],
   modifiers: [{ key, name, mandatory, modifierRenderType, freeTextSettings: { key }, choicesSettings: { choices: [{ key, name }] } }],
   variantSummary: { minPriceVariant: { _id, price } },          // LIST reads (MIN_PRICE_VARIANT)
@@ -213,7 +213,20 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **⚠️ `variantsInfo` is `null` unless `VARIANT_OPTION_CHOICE_NAMES` is in `fields`** — the docs say variants "aren't returned" and that's true of a bare read; with the field, `product.variantsInfo.variants` carries every variant with its `optionChoiceIds`, `price`, and `inventoryStatus`. There is no second call to make. (`readOnlyVariantsV3` still exists for bulk variant queries; the product page doesn't need it.)
 
-Render `description` as rich text (or `plainDescription` for plain), the info sections as sections/accordions matching their length, breadcrumbs from `breadcrumbsInfo`, and **every** image in `media.itemsInfo.items` as a browsable gallery (main first, de-duplicated) — not just `media.main`.
+Render the description as HTML (see *Rendering product descriptions*), the info sections as sections/accordions matching their length, breadcrumbs from `breadcrumbsInfo`, and **every** image in `media.itemsInfo.items` as a browsable gallery (main first, de-duplicated) — not just `media.main`.
+
+**How the page is split — one price, on the page in the HTML:**
+
+```astro
+---
+// src/pages/products/[slug].astro — the page owns the read, the name, the gallery, the description.
+const { product } = await productsV3.getProductBySlug(slug, { fields: DETAIL_FIELDS });
+if (!product) return new Response(null, { status: 404 });
+---
+<ProductPurchase client:load product={product} />   <!-- the island owns price, options, quantity, action -->
+```
+
+The purchase island takes the **server-fetched product as a prop** and mounts **`client:load`**, so the price, the option controls, and the buy action are in the initial HTML and hydrate in place. `client:only` is for widgets whose state exists only in the browser (the cart badge, the drawer — `astro.md` A4), not for the purchase area. **Render the price once**, inside the island, where it can follow the selected variant; the page doesn't print its own copy above it.
 
 ### Prices — which one the buyer actually pays
 
@@ -300,6 +313,21 @@ const { cart } = await currentCartV2.addLineItemsToCurrentCart({ catalogItems: [
 **Read the result, don't assume it.** Find the returned line (`lineItems[].source.catalogReference.catalogItemId` + `options.variantId`); a line whose `status` isn't `IN_STOCK`, or no line / `confirmedQuantity: 0`, means the add was refused — surface it. Then update your cart state from the returned `cart` (or `getCurrentCart()`) and **open the cart drawer**.
 
 **CRITICAL: `ITEM_NOT_FOUND_IN_CATALOG` for a product that exists is a catalog defect, not a stale id.** A `DIGITAL` product whose variant has no `digitalProperties.digitalFile` is rejected under that code, and one with no stock is rejected as `exceeds available inventory` — both read back `visible: true`. Fix the product (`setup-online-store.md` → digital products); re-reading ids won't help.
+
+### Changing quantity and removing lines
+
+Both take the **line's `_id`** (`cart.lineItems[]._id`), never the product id. The update body is a `lineItems` array with a nested `quantity` object — a flat `{ _id, quantity }` returns **400**:
+
+```js
+const { cart } = await currentCartV2.updateLineItemsInCurrentCart({
+  lineItems: [{ lineItemId, quantity: { newQuantity } }],
+});
+const { cart } = await currentCartV2.removeLineItemsFromCurrentCart([lineItemId]);
+```
+
+Docs: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items-in-current-cart.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/remove-line-items-from-current-cart.md?apiView=SDK>
+
+After either, refresh the estimate (below). **Never swallow the error**: an `await … catch {}` around a mutation leaves the shopper clicking "+" with nothing happening — render the message next to the line. `quantityInfo.availableQuantity` caps the stepper when it is finite.
 
 **Serialize price-affecting operations** (add/update/remove) per cart so a stale response can't overwrite newer state; disable checkout while one is pending. If an add may have succeeded before a timeout, re-read the cart before offering a retry — don't replay it blindly and double the line.
 
@@ -399,13 +427,54 @@ function imgSrcSet(mediaLike, widths = [320, 480, 640, 960], ratio = 1) {
 
 ### Rendering product descriptions
 
-Don't print the raw node object. A product description is rich text (`description.nodes`) — render the nodes (headings, lists, links, emphasis preserved, sanitized), or use `plainDescription` for a plain string. Printing the raw node object dumps literal `<p>…</p>` into the page. Info sections (`INFO_SECTION`) are the same shape — render them as sections or accordions, don't flatten them into one paragraph.
+**`plainDescription` is an HTML string** (`<p>…</p>`, `<br>`, `<strong>`) despite its name — the run that prints it as text shows literal `<p>` on every card. Render it as HTML (`set:html` in Astro, `dangerouslySetInnerHTML` in React) after sanitizing; for a card teaser or a meta description, strip the tags first (`plainDescription.replace(/<[^>]+>/g, '')`) and truncate. The rich-text form is `description.nodes` — render the nodes (headings, lists, links, emphasis preserved, sanitized) when you want structure; never print the raw node object. Info sections (`INFO_SECTION`) are the same shape — render them as sections or accordions, don't flatten them into one paragraph.
 
 ### SEO on item pages
 
 A **product page** and a **category page** are Wix **item pages**: their `<title>`/description/OG/canonical come from what the owner sets in the dashboard (the entity's `seoData`).
 
-**Astro (Wix-managed):** wire the canonical guide — **[Add SEO Support to Item Pages](https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md)** — export `wixMetadata`, call `loadSEOTagsServiceConfig(...)`, render `<SEO.Tags>` (from `@wix/seo`; deps in the guide). For a product page: **`wixMetadata`** from `WIX_APPS.checkoutAndOrders.productPageMetadata` (⚠️ `checkoutAndOrders`, **not** `WIX_APPS.stores` — `stores.id` is the catalog id for `catalogReference`), `identifiers` = your route param (`…productPageMetadata.identifiers.handle`), **`itemType`** `seoTags.ItemType.STORES_PRODUCT`. A dedicated category route uses `categoryPageMetadata` + `seoTags.ItemType.STORES_CATEGORY`. (A category rendered only as a query-string *filter* on the shop page is a main page — automatic SEO, no `wixMetadata`.)
+**Astro (Wix-managed):** the three pieces live in **three different import paths** — guessing them from the root package fails the build (`"loadSEOTagsServiceConfig" is not exported by @wix/seo`), and dropping SEO to unblock the build is not an acceptable fix. This block is the whole contract; reproduce it exactly (deps: `@wix/seo`, `@wix/essentials ≥ 1.0.10` — both already in a scaffolded project):
+
+```astro
+---
+// src/pages/products/[slug].astro
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+// Registers the route for the sitemap + the dashboard SEO editor. checkoutAndOrders, NOT
+// WIX_APPS.stores (stores.id is the catalog id for catalogReference).
+export const wixMetadata = {
+  appDefId: WIX_APPS.checkoutAndOrders.id,
+  pageIdentifier: WIX_APPS.checkoutAndOrders.productPageMetadata.pageIdentifier,
+  identifiers: { slug: WIX_APPS.checkoutAndOrders.productPageMetadata.identifiers.handle },
+};
+
+const slug = Astro.params.slug!;
+// Behind Wix's proxy the request URL is internal — the public page URL arrives on x-wix-forwarded-url.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let product = null, seoTagsServiceConfig = null;
+try {
+  [product, seoTagsServiceConfig] = await Promise.all([
+    productsV3.getProductBySlug(slug, { fields: DETAIL_FIELDS }).then((r) => r.product ?? null),
+    loadSEOTagsServiceConfig({ pageUrl, itemType: seoTags.ItemType.STORES_PRODUCT, itemData: { slug } }),
+  ]);
+} catch {}                                            // an unguarded SSR throw truncates the response
+if (!product) return new Response(null, { status: 404 });
+---
+<Layout title={product.name}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />   <!-- Layout renders <slot name="seo-tags" /> in <head> -->
+  …
+</Layout>
+```
+
+A dedicated category route uses `categoryPageMetadata` + `seoTags.ItemType.STORES_CATEGORY` with the same imports. (A category rendered only as a query-string *filter* on the shop page is a main page — automatic SEO, no `wixMetadata`.) Guide: <https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md>.
 
 **Non-Astro (you render the head yourself):** map `product.seoData` / `category.seoData` tags into the head and fill only what's missing from truthful entity data. Rules that hold on both paths: **one** document title and **one** canonical per page (a merchant override wins over a generated fallback; a tag the merchant disabled stays absent); a missing entity returns a **real 404**, never a rendered shell with another product's tags; clear route tags on client navigation so a product's metadata can't leak into the next page; a `Product` JSON-LD block only from real data — never fabricated reviews, ratings, or availability.
 
@@ -437,5 +506,5 @@ A correct Catalog V3 storefront frontend:
 - reads the product page with **`getProductBySlug` + `VARIANT_OPTION_CHOICE_NAMES`** and resolves the variant by **sorted choice IDs** — selections start empty, the mandatory **`variantId`** goes in `options.variantId` (not `options.options`);
 - prices with **`priceAfterDiscount` → `actualPrice` → `compareAtPrice`** precedence and renders **every ribbon**, never inferring one from the other;
 - sorts, filters, and pages **on Wix** (`searchProducts` + `$matchItems: [{ id: categoryId }]` on `allCategoriesInfo.categories`, cursor paging at 24) — never a frozen seed-time list, never `queryProducts` for categories, never `$hasSome`, never V1 `collectionIds`;
-- shows cart totals from **`estimateCurrentCart`**, checks out through the **redirect session** with an `https://` origin, and keeps Buy Now on a standalone cart;
+- shows cart totals from **`estimateCurrentCart`**, changes quantity with **`{ lineItems: [{ lineItemId, quantity: { newQuantity } }] }`**, checks out through the **redirect session** with an `https://` origin, and keeps Buy Now on a standalone cart;
 - builds the homepage, gallery, product page, and side cart to the bar in `experience-store.md` — the store is the surfaces, not the calls.
