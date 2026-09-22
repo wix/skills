@@ -424,17 +424,9 @@ For the exact shapes of the group, notification, and inventory APIs, find the me
 
 ---
 
-## What a complete storefront shows (the *what*, so the wiring isn't the whole store)
+## What a complete storefront shows
 
-The API wiring above is necessary, not sufficient. Before designing, **look at the catalog** — categories and their depth, assortment size, media quality and aspect ratios, options and price points, ribbons and sales — and let it, with the brief, drive the design (`DESIGN.md` §1). Then build these surfaces to this bar (`CAPABILITIES.md` → stores carries the same list in plain language for the handoff):
-
-- **Global shell:** category navigation from the live tree (a curated menu is fine, but every product-bearing category stays reachable), a persistent cart control with a live count, a footer sized to the real destinations. Announcement, shipping, and returns text only from the merchant.
-- **Homepage — a merchandising surface, not the shop page again.** Say what the store sells and one dominant shopping action in the first viewport; real products from live queries under truthful headings; category discovery when the taxonomy is meaningful. Don't reuse the same first product as hero, first card, and feature. No section exists to fill space.
-- **Gallery — a discovery surface.** Title, result count, sort, the filters the catalog supports, paging; in its default state a **real product card — image, name, price, link — is inside the first viewport**, also on a short desktop window. Skeletons while loading, a distinct "no results for these filters" with a reset, an honest empty catalog, a recoverable error. Filters that stay visible with the results commit immediately; filters in a sheet stage changes until Apply.
-- **Product page — a complete purchase decision.** In the first viewport at mobile, tablet, and desktop: a recognizable product image, name, price, the first required choice (or a control that jumps to it), and the buy action with its neutral disabled reason. Then every ribbon, the full description and info sections, a gallery of **every** image, quantity, and — when the catalog has them — subscriptions, preorder, group navigation, notify-me. A sticky buy region must never cover a control.
-- **Cart — a side drawer by default**, opened after every successful add and from the header: image, name, the chosen options and text, quantity editing with pending and failure states, line prices, the calculated subtotal and discount, "shipping and taxes at checkout", and checkout **from the drawer**. Persists across navigation and refresh.
-- **Overlays** (cart drawer, quick add, mobile nav, filter sheet): mount at the document root (a `position: fixed` panel inside a transformed header gets clipped), full-viewport scrim, background scroll locked, focus moved in and trapped while modal, Escape closes, focus returns to the trigger — verified in the browser, not assumed from CSS.
-- **Copy for shoppers, not implementers:** no Wix IDs, API names, "catalog", or "headless" in visible text; labels match their source (`CONTENT.md` § Truthful commerce copy).
+The API wiring above is necessary, not sufficient. **Read `experience-store.md`** (same folder) before designing — the store's own bar on top of `DESIGN.md`/`CONTENT.md`: derive the direction from the catalog, what the homepage, gallery, product page, and cart must show, the overlay contract, truthful commerce copy, and image discipline. `CAPABILITIES.md` → stores carries the same bar in plain language for the handoff.
 
 ---
 
@@ -446,4 +438,4 @@ A correct Catalog V3 storefront frontend:
 - prices with **`priceAfterDiscount` → `actualPrice` → `compareAtPrice`** precedence and renders **every ribbon**, never inferring one from the other;
 - sorts, filters, and pages **on Wix** (`searchProducts` + `$matchItems: [{ id: categoryId }]` on `allCategoriesInfo.categories`, cursor paging at 24) — never a frozen seed-time list, never `queryProducts` for categories, never `$hasSome`, never V1 `collectionIds`;
 - shows cart totals from **`estimateCurrentCart`**, checks out through the **redirect session** with an `https://` origin, and keeps Buy Now on a standalone cart;
-- builds the homepage, gallery, product page, and side cart to the bar above — the store is the surfaces, not the calls.
+- builds the homepage, gallery, product page, and side cart to the bar in `experience-store.md` — the store is the surfaces, not the calls.

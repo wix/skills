@@ -1,22 +1,16 @@
 // Headless data layer for a product grid tile.
 // Normalises raw Wix product fields into render-agnostic structures so you can build
 // whatever card UI you want (image layout, badge style, price display, quick-add trigger)
-// without touching the badge-priority logic, price-range maths, or colour-dot extraction.
+// without touching the badge logic, price rules, or colour-dot extraction.
 //
 // Usage:
-//   const { isSoldOut, leftBadges, promoBadge, priceDisplay, compareAtDisplay,
-//           colors, optionLabel, isQuickAddable, image, hoverImage } = useProductCard(product);
-//   // then render however you want, call addToCart(product.id) from useCart() for quick-add.
+//   const { isSoldOut, leftBadges, ribbons, promoBadge, priceDisplay, compareAtDisplay,
+//           colors, optionLabel, isQuickAddable, directAddVariantId, image, hoverImage } = useProductCard(product);
+//   // then render however you want; quick-add: addToCart(product.id, directAddVariantId) from useCart().
 
 import { useMemo } from "react";
 import { productImage, productGallery } from "@/lib/storeImage";
-
-function discountPercent(product) {
-  const now = Number(product?.actualPriceRange?.minValue?.amount);
-  const was = Number(product?.compareAtPriceRange?.minValue?.amount);
-  if (!now || !was || was <= now) return null;
-  return Math.round(((was - now) / was) * 100);
-}
+import { sellingPrice } from "@/rest/wix-store-catalog";
 
 export function useProductCard(product) {
   return useMemo(() => {
@@ -32,23 +26,31 @@ export function useProductCard(product) {
     else if (isSoldOut)            leftBadges.push({ type: "sold-out",      label: "Sold out"      });
     if (isPartiallyOutOfStock)     leftBadges.push({ type: "limited-stock", label: "Limited stock" });
 
-    // Right-side promo badge: discount % beats a merchant ribbon (a "Sale" ribbon is redundant
-    // when the % is already showing). Only one at a time.
-    const discount = discountPercent(product);
-    const ribbon   = product?.ribbon?.name;
-    const promoBadge = discount
-      ? { type: "discount", label: `-${discount}%` }
-      : ribbon
-      ? { type: "ribbon",   label: ribbon }
-      : null;
+    // Merchant ribbons — the primary one plus every additional one. Render ALL of them, in one shared
+    // style (a "Sale" accent is fine, applied by label). Never compute a "-20%" badge from the price
+    // range: a range's minimum says nothing about the variant the buyer picks, and a ribbon is a
+    // label, not a price claim.
+    const ribbons = [product?.ribbon?.name, ...(product?.additionalRibbons ?? []).map((r) => r?.name)]
+      .filter((name, i, all) => name && all.indexOf(name) === i);
+    const promoBadge = ribbons[0] ? { type: "ribbon", label: ribbons[0] } : null;
 
-    // Price: show a min–max range when variants span different prices so the PDP doesn't
-    // appear to raise the price once a variant is selected.
-    const priceMin = product?.actualPriceRange?.minValue?.formattedAmount;
-    const priceMax = product?.actualPriceRange?.maxValue?.formattedAmount;
-    const compareAt = product?.compareAtPriceRange?.minValue?.formattedAmount;
-    const priceDisplay      = priceMax && priceMax !== priceMin ? `${priceMin} – ${priceMax}` : priceMin;
-    const compareAtDisplay  = compareAt && compareAt !== priceMin ? compareAt : null;
+    // Price. A single-price product shows the price the buyer pays — the lowest-priced variant's
+    // discounted price when an automatic discount applies (priceAfterDiscount), else its regular
+    // price — with the struck "was" price beside it. Variants priced differently show a min–max
+    // range with NO struck price: one lone "was" against a range implies a saving that may not
+    // apply to the variant the buyer picks; the PDP shows the real comparison once a variant is chosen.
+    const min = product?.actualPriceRange?.minValue;
+    const max = product?.actualPriceRange?.maxValue;
+    const isRange = !!(min?.amount && max?.amount && min.amount !== max.amount);
+    const minVariant = product?.variantSummary?.minPriceVariant ?? null;
+    const { current, original } = sellingPrice(minVariant?.price);
+    const priceDisplay = isRange
+      ? `${min?.formattedAmount ?? ""} – ${max?.formattedAmount ?? ""}`
+      : current?.formattedAmount ?? min?.formattedAmount;
+    const compareAtDisplay =
+      !isRange && original?.formattedAmount && Number(original.amount) > Number(current?.amount ?? min?.amount)
+        ? original.formattedAmount
+        : null;
 
     // Options preview for the tile summary row.
     // Colour options → real hex dots (more informative than "3 colours").
@@ -68,6 +70,8 @@ export function useProductCard(product) {
     // Quick-add is only safe for single-variant products (no option choices to resolve).
     // Sold-out with pre-order still shows a CTA, but it links to the PDP, not quick-add.
     const isQuickAddable = !hasOptions && !isSoldOut;
+    // The variant a direct add sends (a product with no options still has one variant).
+    const directAddVariantId = isQuickAddable ? minVariant?.id ?? null : null;
 
     // Images: normalised through lib/storeImage so URLs are consistent across the tile,
     // the PDP gallery, and the cart. Hover image is the second gallery shot (if one exists).
@@ -78,15 +82,17 @@ export function useProductCard(product) {
       isSoldOut,
       isPreorder,
       isPartiallyOutOfStock,
-      leftBadges,       // [{ type: 'pre-order'|'sold-out'|'limited-stock', label }]
-      promoBadge,       // { type: 'discount'|'ribbon', label } | null
-      priceDisplay,     // formatted price (range or single value)
-      compareAtDisplay, // formatted compare-at price | null
-      colors,           // hex strings — render as dots; the tile shows up to however many you want
-      optionLabel,      // "3 sizes · 2 materials" or empty string
+      leftBadges,          // [{ type: 'pre-order'|'sold-out'|'limited-stock', label }]
+      ribbons,             // every merchant ribbon label, primary first — render all of them
+      promoBadge,          // { type: 'ribbon', label } | null — the primary ribbon, for a single-badge slot
+      priceDisplay,        // formatted price the buyer pays, or a min–max range
+      compareAtDisplay,    // formatted struck "was" price | null (never beside a range)
+      colors,              // hex strings — render as dots; the tile shows up to however many you want
+      optionLabel,         // "3 sizes · 2 materials" or empty string
       isQuickAddable,
-      image,            // primary image URL | null
-      hoverImage,       // second image URL for hover effect | null
+      directAddVariantId,  // pass as variantId to addToCart on quick-add
+      image,               // primary image URL | null
+      hoverImage,          // second image URL for hover effect | null
     };
   }, [product]);
 }
