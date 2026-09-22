@@ -96,6 +96,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -124,6 +125,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -149,7 +151,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `defaultCapacity` is **required** — sets max participants per session
 - After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
 
-**Response:** Save the service ID from `results[0].itemMetadata.id`
+**Response:** Save the service ID from `results[0].item.id` and the schedule ID for `bulkCreateEvents` from `results[0].item.schedule.id` (the created service is directly under `item`). This requires `returnEntity: true` on the request — without it the response carries only `results[0].itemMetadata.id`, which has no `schedule.id`.
 
 ---
 
