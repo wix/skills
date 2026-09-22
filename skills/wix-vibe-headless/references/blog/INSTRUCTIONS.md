@@ -42,6 +42,7 @@ end). (Files missing? the install's `deploy` result lists what it wrote; re-run 
 **Their `Link`/`useParams` imports come from `@/lib/nav`**, so the same sources run on either
 template. That adapter is installed at `src/lib/nav.js` with the rest of the deployed tree — use
 the file that is there, and on TanStack check it first ([which template?](../_shared/routing.md)).
+Import from `@/lib/nav` in the pages you write too, and they stay portable the same way.
 
 
 
@@ -57,6 +58,9 @@ share the same colors and typography.
 > exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
 > The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
 > [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
 
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't

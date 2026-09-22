@@ -360,6 +360,9 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 > exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
 > The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
 > [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
 
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
