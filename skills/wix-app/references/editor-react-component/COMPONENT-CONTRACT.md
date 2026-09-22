@@ -33,6 +33,10 @@ export type PlanCardProps = {
   heading?: string;
   plans?: Array<Plan>;
   onClick?: (event: React.MouseEvent) => void;
+  onMouseIn?: (event: React.MouseEvent) => void;
+  onMouseOut?: (event: React.MouseEvent) => void;
+  onFocus?: (event: React.FocusEvent) => void;
+  onBlur?: (event: React.FocusEvent) => void;
 
   elementProps?: {
     cta?: { className?: string; href?: string };
@@ -47,9 +51,8 @@ Rules:
   code. Do not add one-off ARIA props or spread the whole object.
 - Expose only content and behavior that the site owner controls. Keep derived
   values internal.
-- Add only callbacks required by the component specification. Use supported SDK
-  event names and types for public callbacks; keep implementation-only handlers
-  internal.
+- Default to common optional SDK callbacks by capability; add specialized ones
+  when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
 
 ## Numeric Range Constraints
