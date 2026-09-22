@@ -70,12 +70,38 @@ describe('parseScenario', () => {
   it('accepts an llm_judge assertion with minimal fields', () => {
     const yaml = minimalYaml.replace(
       /assertions:[\s\S]*$/,
-      `assertions:\n  - type: llm_judge\n    prompt: "Evaluate {{output}} for correctness"\n`,
+      `assertions:\n  - type: llm_judge\n    prompt: "Evaluate {{output}} for correctness"\n    minScore: 7\n`,
     );
     const s = parseScenario(yaml);
     const a = s.assertions[0];
     expect(a.type).toBe('llm_judge');
     if (a.type === 'llm_judge') expect(a.prompt).toMatch(/Evaluate/);
+  });
+
+  it('rejects llm_judge without minScore', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: "x"\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow(/minScore/);
+  });
+
+  it('accepts a boolean-scoringMode llm_judge without minScore (pass/fail judges have no score)', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: "x"\n    scoringMode: boolean\n`,
+    );
+    expect(() => parseScenario(yaml)).not.toThrow();
+  });
+
+  it('rejects llm_judge with minScore below the gating floor', () => {
+    for (const low of [0, 6]) {
+      const yaml = minimalYaml.replace(
+        /assertions:[\s\S]*$/,
+        `assertions:\n  - type: llm_judge\n    prompt: "x"\n    minScore: ${low}\n`,
+      );
+      expect(() => parseScenario(yaml)).toThrow(/at least 7/);
+    }
   });
 
   it('accepts an llm_judge assertion with all optional fields', () => {
@@ -287,6 +313,7 @@ describe('new assertion types (EvalForge parity)', () => {
       `assertions:
   - type: llm_judge
     prompt: "judge it: {{output}}"
+    minScore: 7
     browserTools: true
     scoringMode: boolean
 `,
@@ -304,6 +331,7 @@ describe('new assertion types (EvalForge parity)', () => {
       `assertions:
   - type: llm_judge
     prompt: "judge it: {{output}}"
+    minScore: 7
     parameters:
       - name: tone
         label: Tone

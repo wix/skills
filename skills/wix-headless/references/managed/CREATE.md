@@ -107,6 +107,11 @@ headlines, kickers, subtitles, and CTA labels per **`references/CONTENT.md`** �
 Either way, `CONTENT.md` §1 (the business's category must read literally above the fold) always holds —
 a page a first-time visitor can't identify isn't done yet, regardless of voice.
 
+**If a loaded vertical ships an experience overlay** — `references/inline-recipes/experience-<vertical>.md`
+(today: `experience-store.md`) — read it after `DESIGN.md`/`CONTENT.md`. It carries that vertical's own
+design and copy bar (what its surfaces must show, how to derive the direction from its content); the
+general files stay the floor.
+
 Then build the pages the user's intent calls for, **wired to the live backend**, using
 **`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded schema to
 bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the

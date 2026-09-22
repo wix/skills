@@ -60,3 +60,4 @@ jobs:
           review-effort: ${{ vars.SKILL_REVIEW_EFFORT }}
           review-timeout-seconds: ${{ vars.SKILL_REVIEW_TIMEOUT_SECONDS }}
           blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}
+          triggered-by: ${{ github.triggering_actor }}
