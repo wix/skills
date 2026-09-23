@@ -23,6 +23,20 @@ Match the user's words to one target:
 | "Scan this page" or a specific URL/page | One page, identified by its URL or page ID |
 | "Scan all products/blog posts/menu pages/etc." | One supported page collection |
 
+`target` is a `oneOf`, but its discriminator field `targetType` is **not**
+populated automatically from whichever sibling field you set — you must set
+it explicitly, or the call fails with `INVALID_SCAN_TARGET` ("target type is
+unsupported"). Always include it:
+
+```json
+// Full site
+{ "target": { "targetType": "SCOPE", "scope": "ACCESSIBILITY_SCAN_SCOPE_FULL_SITE" } }
+// One page
+{ "target": { "targetType": "PAGE", "page": { "pageId": "..." } } }
+// Page collection
+{ "target": { "targetType": "PAGE_COLLECTION", "pageCollection": { "collectionId": "..." } } }
+```
+
 For a generated vertical page, prefer its page URL unless a unique Wix page ID
 is already available. The caller never needs to know the page type.
 
@@ -42,14 +56,15 @@ request to scan, check, or audit is already confirmation to create the scan job.
    UUID only when retrying this exact request; use a new UUID for a new scan.
 3. Poll **Get Accessibility Scan** with that scan ID. Respect each response's
    suggested polling interval until the status is terminal.
-4. On `COMPLETED` or `PARTIALLY_COMPLETED`, read:
+4. On `ACCESSIBILITY_SCAN_STATUS_COMPLETED` or
+   `ACCESSIBILITY_SCAN_STATUS_PARTIALLY_COMPLETED`, read:
    - the scan summary for totals and executed-rule coverage;
    - **List Accessibility Scan Page Summaries** for every discovered page,
      including clear pages and pages that failed to scan;
    - **List Accessibility Scan Findings** for actionable issues. Follow cursor
      paging for the result set the user requested.
-5. On `FAILED`, report the public failure guidance. Do not request findings or
-   present the scan as clean.
+5. On `ACCESSIBILITY_SCAN_STATUS_FAILED`, report the public failure guidance.
+   Do not request findings or present the scan as clean.
 
 Use a findings filter when the user asks about one page, rule, severity, or
 accessibility category. Do not issue a separate findings request for every page.
