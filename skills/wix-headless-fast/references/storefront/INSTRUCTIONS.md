@@ -247,6 +247,9 @@ export default function ShopView(props: {
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
   //     optionsSummary; tile links to `/products/${p.slug}`;
   //     quickAddable → useCart().addToCart(p.id, p.minPriceVariantId)
+  //   • badges come ONLY from p.ribbons. Do NOT render a "Sale" badge because compareAtPrice
+  //     is set — the struck price already says it, and a product the merchant ribboned "Sale"
+  //     would show the badge twice.
   //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
