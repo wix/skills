@@ -32240,7 +32240,13 @@ const AssertionParameterSchema = zod_1.z.object({
 const LlmJudgeAssertionSchema = zod_1.z.object({
     type: zod_1.z.literal('llm_judge'),
     prompt: zod_1.z.string().min(1),
-    minScore: zod_1.z.number().int().min(0).max(10).optional(),
+    // Floor for numeric judges: one whose minScore it can never fail (0) does not gate,
+    // and an omitted minScore silently defers to a server-side default. Boolean-scoringMode
+    // judges pass/fail without a score, so the requirement (below) exempts them.
+    minScore: zod_1.z.number().int()
+        .min(7, 'minScore must be at least 7 — a judge that cannot fail does not gate (see docs/eval-scenarios.md)')
+        .max(10)
+        .optional(),
     model: zod_1.z.string().optional(),
     maxTokens: zod_1.z.number().int().positive().optional(),
     temperature: zod_1.z.number().min(0).max(1).optional(),
@@ -32248,7 +32254,15 @@ const LlmJudgeAssertionSchema = zod_1.z.object({
     browserTools: zod_1.z.boolean().optional(),
     parameters: zod_1.z.array(AssertionParameterSchema).optional(),
     negate: zod_1.z.boolean().optional(),
-}).strict();
+}).strict().superRefine((a, ctx) => {
+    if (a.scoringMode !== 'boolean' && a.minScore === undefined) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: 'minScore is required for numeric llm_judge assertions (integer 7-10) — a judge that cannot fail does not gate',
+            path: ['minScore'],
+        });
+    }
+});
 const ApiCallAssertionSchema = zod_1.z.object({
     type: zod_1.z.literal('api_call'),
     url: zod_1.z.string().min(1),
@@ -32366,6 +32380,12 @@ function parseScenario(raw) {
     const obj = parsed;
     if (obj?.assertions) {
         for (const a of obj.assertions) {
+            // Same union-error problem for a missing minScore: Zod reports "Invalid input"
+            // instead of naming the field, so say it plainly here. Boolean-scoringMode judges
+            // pass/fail without a score and are exempt.
+            if (a?.type === 'llm_judge' && a.minScore === undefined && a.scoringMode !== 'boolean') {
+                throw new Error('llm_judge requires minScore (integer 7-10) — a judge that cannot fail does not gate');
+            }
             const isToolCallShape = a?.type === undefined || a?.type === 'tool_called_with_param';
             if (!isToolCallShape || !a?.params)
                 continue;

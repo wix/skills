@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
   getCurrentCart,
+  estimateCurrentCart,
   addToCart as apiAdd,
   removeFromCart as apiRemove,
   updateCartItemQuantity as apiQty,
@@ -12,7 +13,11 @@ import {
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState(null);
+  const [cart, setCartState] = useState(null);
+  // The calculated summary (after-discount subtotal, cart-level discount) — from the estimate, never
+  // summed in the client. Refreshed with every cart change; null while unknown or when the estimate
+  // fails, in which case surfaces fall back to cart.subtotal.
+  const [summary, setSummary] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   // The cart helpers throw on refusal with a buyer-readable reason — an empty cart, or line items
@@ -20,7 +25,13 @@ export function CartProvider({ children }) {
   // this the rejection is unhandled and the shopper sees the spinner stop with nothing said.
   const [error, setError] = useState(null);
 
-  const refreshCart = useCallback(async () => setCart(await getCurrentCart()), []);
+  // Every cart write goes through here so the summary always describes the cart on screen.
+  const setCart = useCallback((next) => {
+    setCartState(next);
+    if (!next?.lineItems?.length) { setSummary(null); return; }
+    estimateCurrentCart().then((s) => setSummary(s)).catch(() => setSummary(null));
+  }, []);
+  const refreshCart = useCallback(async () => setCart(await getCurrentCart()), [setCart]);
   useEffect(() => {
     refreshCart();
     const onVisible = () => document.visibilityState === "visible" && refreshCart();
@@ -59,7 +70,7 @@ export function CartProvider({ children }) {
     run(async () => { window.location.href = await apiCheckout(); }, { reread: true });
 
   return (
-    <CartContext.Provider value={{ cart, itemCount, isOpen, setIsOpen, loading, error, clearError: () => setError(null), addToCart, removeItem, updateQuantity, checkout, refreshCart }}>
+    <CartContext.Provider value={{ cart, summary, itemCount, isOpen, setIsOpen, loading, error, clearError: () => setError(null), addToCart, removeItem, updateQuantity, checkout, refreshCart }}>
       {children}
     </CartContext.Provider>
   );

@@ -23,8 +23,13 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 
 ### stores — sell products
 - **Intent:** sell / shop / products / catalog / merch / store.
-- **Required site features:** a product list or grid; a page per product; categories to browse by; a cart; a checkout.
-- **Implementation checklist:** show each product's image, name, and price; show options and variants (size, colour…) where they exist; show availability / out-of-stock; a quantity picker and an add-to-cart that updates a visible cart; the product description; link each product to its category.
+- **Required site features:** a homepage that sells (what the store offers, real products, one clear shopping action); a shop / category gallery with sort, the filters the catalog supports, and paging; a page per product; categories to browse by; a cart the shopper can review and edit, opening as a side drawer after every add; checkout reachable directly from that cart.
+- **Implementation checklist:**
+  - *Homepage:* say what the store sells in the first screen; real products from the catalog under truthful headings — never a repeat of the shop page, never a heading like "Best Sellers" without data behind it.
+  - *Gallery:* a real product — image, name, price, link — visible in the first screen before any scrolling; a result count; loading, empty-catalog, no-results-for-these-filters, and error states that look different from each other.
+  - *Product page:* in the first screen, the product image, name, price, the first choice to make, and the buy button — disabled with a plain reason until every choice is made; every ribbon the merchant set; the current price and, when there is one, the labelled original price; a gallery of every product image; options with unavailable choices marked; quantity; the full description and information sections; pre-order, subscriptions, and notify-me only when the catalog has them.
+  - *Cart:* each line's image, name, chosen options, quantity (editable) and price; subtotal and discounts as Wix calculates them; "shipping and taxes calculated at checkout" rather than invented numbers; survives a reload; checkout from the drawer.
+  - *Everywhere:* availability / out-of-stock shown truthfully; each product linked to its category; no reviews, ratings, scarcity, or delivery promises the merchant didn't supply; no Wix IDs or technical words in shopper-facing text.
 
 ### blog — publish posts
 - **Intent:** blog / posts / articles / publication / news.

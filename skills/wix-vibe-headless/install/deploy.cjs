@@ -15,10 +15,11 @@
 // No vertical arg -> deploys just the shared transport; re-run with the vertical(s) once known.
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
-const { existsSync, cpSync, readFileSync, writeFileSync } = require('fs');
+const { existsSync, cpSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
+const NAV_ADAPTER = '/app/src/lib/nav.js';
 const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
@@ -67,6 +68,32 @@ function replaceMembersAuthLeftovers() {
     }
   }
   return result;
+}
+
+// --- nav adapter --------------------------------------------------------------------------------
+//
+// Every shipped component imports Link/useParams/etc from "@/lib/nav", so one set of sources runs on
+// either Base44 template and the router is named in exactly one file. Which adapter belongs there is
+// a filesystem fact, so resolve it here rather than leaving the agent to infer the template and
+// hand-write the file: the react-router one is a re-export a model can guess, but the TanStack one
+// normalises useParams (strict:false) and useNavigate (object arg), and a guess breaks every page.
+//
+// The react-router adapter ships INSIDE shared/app/ (-> src/lib/nav.js), so it lands on every
+// install path, including hosts that copy that tree themselves and never run this script. Only the
+// TanStack override needs writing, and it goes down BEFORE the shared copy — that copy is
+// force:false, so whatever is at the path first wins.
+function detectTemplate() {
+  return existsSync('/app/src/routes/__root.jsx') ? 'tanstack' : 'react-router';
+}
+
+function installNavAdapter(template) {
+  if (template !== 'tanstack') return 'from_shared_tree';
+  const src = `${REF}/_shared/nav/nav.tanstack.js`;
+  if (!existsSync(src)) return 'adapter_missing_from_skill';
+  if (existsSync(NAV_ADAPTER)) return 'already_present';   // same don't-clobber contract as COPY
+  mkdirSync('/app/src/lib', { recursive: true });
+  cpSync(src, NAV_ADAPTER);
+  return 'written';
 }
 
 // --- WRITE the credentials ----------------------------------------------------------------------
@@ -128,7 +155,11 @@ const deployed = { verticals: [] };
 const aliased = [...new Set(positional.filter((a) => ALIASES[a]))].map((a) => `${a} -> ${ALIASES[a]}`);
 if (aliased.length) deployed.aliased = aliased;
 
-// Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/).
+// Nav adapter — before the shared copy, which carries the react-router default at the same path.
+deployed.template = detectTemplate();
+deployed.navAdapter = installNavAdapter(deployed.template);
+
+// Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/, lib/nav.js).
 if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
 
 // Each named vertical — its app/ (UI + app/rest/ helpers) -> src/.
