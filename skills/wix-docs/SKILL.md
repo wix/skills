@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type(s) }`, incl. the SKILLS recipe corpus for multi-step workflows) **or by browsing** a docs portal as a menu — a structured, typed, counted browse of the REST, SDK, CLI, Build Apps, and Headless portals (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any surface — then read the page by appending `.md` to its URL; (2) the Wix MCP doc tools when present. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Discover and correctly call any Wix API: find the right endpoint or SDK method, confirm its exact request/response contract, see what the site actually has installed, and call it under the right identity — never guess a Wix API from memory. Find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type(s) }`, one or more corpora in a single ranked call, incl. the SKILLS recipe corpus for multi-step workflows) **or by browsing** a docs portal as a menu — a structured, typed, counted browse of the REST, SDK, CLI, Build Apps, and Headless portals (`POST /mcp-docs-search/v1/docs/menu/browse`), or the `.md` menu tree from the `llms.txt` root for any surface — then read the page by appending `.md` to its URL, and pull exact schemas and enums from the API spec index. Execution too: read the site's dynamic context before discovering against it, install a missing app rather than working around it, and mint the admin, visitor, member, or API-key identity the method requires. Plain `curl` by default (zero dependencies); the Wix MCP doc tools when present. Triggers: which Wix API do I call, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, read a Wix method schema, what is installed on this Wix site, which identity or token does this Wix call need, how do I authenticate a Wix API call, get a Wix admin or visitor token, explore Wix docs."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -305,11 +305,72 @@ plain docs URL **without** `.md` — never feed a `.md` URL to an MCP tool.
 
 ## From docs to calls
 
-Understanding the contract is this skill's job; executing it needs an identity. Which identities a
-method accepts is part of what you read — check the method page's permissions and identity notes
-before calling, and confirm your token's site/account scope matches. Token minting (CLI admin
-tokens, visitor tokens), the identity model, and the dynamic site-context report →
+A confirmed contract still needs a target and an identity. The whole execution side is these four
+calls; depth (the identity model, every grant type, the auth doc index) →
 **`references/CALLING.md`**.
+
+### Know the site before you discover against it
+
+Which contract is right depends on what the site has. Wix Stores exposes a different endpoint set
+on catalog V1 than on V3 — no doc search tells you which you're looking at. One call reports
+installed apps (with ids), their configuration, locale, currency, and CMS collections:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data-raw '{"siteId": "<metasite id>"}' | jq -r '.markdown'
+```
+
+A `200` with `"markdown": ""` means the token or `siteId` is wrong — read empty as "check auth",
+never as "empty site". Re-read it per task: a later turn doesn't inherit an earlier turn's context.
+
+### Get a token
+
+Pick the identity the method accepts — its page's permissions notes say which. Site-scoped tokens
+carry their site, so they need no site header; an API key doesn't, so it must name its target.
+
+```bash
+# admin, in a Wix CLI project — mint once per run and cache (byte-identical within a run)
+TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")   # site-scoped: this site's APIs
+TOKEN=$(npx @wix/cli@latest token)                     # account-scoped: list sites, account APIs
+
+# admin, from an API key (long-lived, generated in the dashboard, revoke/rotate there).
+# Not bound to a site → every call names its target: wix-site-id OR wix-account-id, never both.
+curl -sS -X POST 'https://www.wixapis.com/<endpoint>' \
+  -H "Authorization: $WIX_API_KEY" -H 'wix-site-id: <site id>' \
+  -H 'Content-Type: application/json' --data-raw '{}'
+
+# visitor — one unauthenticated mint from the OAuth app's public client id
+curl -sS -X POST 'https://www.wixapis.com/oauth2/token' -H 'Content-Type: application/json' \
+  --data-raw '{"clientId": "<oauth app client id>", "grantType": "anonymous"}'
+# → { "access_token": "OauthNG.JWS.…", "refresh_token": "…", "expires_in": 14400 }
+```
+
+OAuth access tokens last 4 hours. Visitor and member tokens come with a refresh token — renew with
+`{"refreshToken": "<token>", "grantType": "refresh_token"}` rather than re-minting anonymously,
+which would start a new session and drop the cart. API keys don't expire.
+
+### The app may not be installed yet
+
+A method whose app isn't on the site fails no matter how right the contract is. That's a
+prerequisite, not a dead end — install it and continue, rather than falling back to something
+hand-built. `appDefId` comes from discovery, `siteId` from the context report above:
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/apps-installer-service/v1/app-instance/install' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data-raw '{"tenant": {"tenantType": "SITE", "id": "<site id>"}, "appInstance": {"appDefId": "<app id>"}}'
+```
+
+### Route each caller to its identity
+
+Not just "which identity does this method accept", but which one *this* code should hold:
+
+- **Browser / frontend code** → visitor (or member) token. Never the admin token: shipping it to a
+  browser publishes it.
+- **Server-side — your backend, a job, a webhook handler, ad hoc management** → admin token.
+- Cart and checkout act on the *caller's* identity, so an anonymous shopper's calls want the
+  visitor token; the admin token manages the site, the visitor token is for being on it.
 
 ## Before you write the code
 
