@@ -39,7 +39,7 @@ staffSorting.provideHandlers({
     const { availableResourceIds, slot } = request;
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const elevatedQuery = auth.elevate(extendedBookings.query);
+    const elevatedQuery = auth.elevate(extendedBookings.queryExtendedBookings);
     const result = await elevatedQuery({
       filter: {
         "bookedEntity.item.slot.resource.id": { "$in": availableResourceIds },
@@ -73,10 +73,15 @@ staffSorting.provideHandlers({
 });
 ```
 
+## Manual Setup Required
+
+None. Confirmed live with a service that has 2 assigned staff — the dashboard's "Add booking" flow resolved a specific staff member from the plugin's sorted order, and the booking created successfully with no errors. No dashboard configuration is needed beyond having the app installed and released, and the service having 2+ staff assigned to genuinely exercise the sort.
+
 ## Key Implementation Notes
 
 1. **Return all IDs** - You must return every ID from `availableResourceIds`, just reordered
 2. **Performance matters** - Keep logic fast; the booking flow waits for your response
 3. **Elevate permissions** - Use `auth.elevate` when querying Wix APIs from the handler
 4. **Deterministic sorting** - Use a tiebreaker (e.g., resource ID) when priorities are equal
+5. **Use `queryExtendedBookings`, not `query`** — `extendedBookings.query` is deprecated. `queryExtendedBookings` takes the same `filter`/`cursorPaging` shape, so it's a drop-in replacement; confirmed live after switching.
 5. **Graceful degradation** - If your external data source is unavailable, return the original order rather than failing
