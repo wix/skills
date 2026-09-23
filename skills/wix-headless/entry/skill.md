@@ -67,7 +67,7 @@ On `awaiting_user`, run the script again once the user says they've logged in: i
 Install the Wix Headless skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI command):
 
 ```bash
-CI=1 npx skills@latest add wix/skills --yes
+CI=1 npx skills@latest add wix/skills#test/headless-lockfile-ci --yes
 ```
 
 The skills land in `.agents/skills/`.
