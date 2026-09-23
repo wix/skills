@@ -102,6 +102,14 @@ If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
 3. **If missing**: Install the app using the [Install Wix Apps](install-wix-apps.md) recipe
 4. **Retry the original API call**
 
+### Diagnose Overlapping Consent/Privacy Apps
+
+Wix's native cookie banner is a site-property, not an installed app — it's a separate mechanism from any third-party cookie-consent/GDPR app installed from the App Market. A site can have both active at once with no built-in warning, which can cause duplicate banners or conflicting cookie/script-blocking behavior. If a site owner reports odd banner behavior, unexplained script blocking, or you're ruling out consent-related causes for a rendering issue:
+
+1. **List installed apps** using this recipe and flag any whose name suggests a consent/privacy/GDPR function (e.g. containing "Cookie", "Consent", "GDPR", "Privacy").
+2. **Separately check Wix's native banner** with [Get Cookie Banner Settings](https://dev.wix.com/docs/api-reference/business-management/cookie-consent-policy/cookie-banner-settings/get-cookie-banner-settings) (`GET .../cookie-consent/v1/cookie-banner-settings/get/<languageCode>`) — `settings.appEnabled` tells you if it's active. This won't show up in step 1's results.
+3. **If both are active**, confirm with the site owner which one they intend to keep, then either disable the native banner (`enabled: false` via [Update Cookie Banner Settings](https://dev.wix.com/docs/api-reference/business-management/cookie-consent-policy/cookie-banner-settings/update-cookie-banner-settings)) or uninstall the redundant app ([Uninstall App](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/uninstall-app), `POST .../apps-installer-service/v1/app-instance/uninstall`).
+
 ---
 
 ## Error Handling
