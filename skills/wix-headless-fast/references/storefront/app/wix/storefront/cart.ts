@@ -85,29 +85,37 @@ function toLine(raw: RawCart, currency: string): CartLine {
   };
 }
 
-function toCart(raw: RawCart | null, subtotal: string): Cart {
+function toCart(raw: RawCart | null, subtotal: string, discount = ""): Cart {
   const currency = cartCurrency(raw);
   const lines = (raw?.lineItems ?? []).map((l: RawCart) => toLine(l, currency));
   return {
     lines,
     itemCount: lines.reduce((sum: number, l: CartLine) => sum + l.quantity, 0),
     subtotal,
+    discount,
     currency,
   };
 }
 
 async function readCartWithSubtotal(raw: RawCart | null): Promise<Cart> {
+  // Only estimate a cart WITH lines — on an absent/empty cart the endpoint returns 404.
   if (!raw?.lineItems?.length) return toCart(raw, "");
-  // The authoritative after-discount subtotal comes from the cart estimate, never from
-  // hand-summing line items (tax and shipping resolve at checkout).
+  // The authoritative after-discount subtotal and the CART-level discount come from the cart
+  // estimate, never from hand-summing lines. Its delivery/tax/fees read "0" when nothing was
+  // calculated — never render those as "Free"; shipping and tax resolve at checkout.
   let subtotal = "";
+  let discount = "";
   try {
     const estimate: RawCart = await cartApi.estimateCurrentCart();
-    subtotal = formatMoney(estimate?.summary?.priceSummary?.subtotal, cartCurrency(raw));
+    const summary = estimate?.summary?.priceSummary;
+    const currency = cartCurrency(raw);
+    subtotal = formatMoney(summary?.subtotal, currency);
+    const d = summary?.discount;
+    if (Number(d?.convertedAmount ?? d?.amount ?? 0) > 0) discount = formatMoney(d, currency);
   } catch {
     /* estimate is a display nicety — the cart itself is still valid */
   }
-  const cart = toCart(raw, subtotal);
+  const cart = toCart(raw, subtotal, discount);
   await fillLineImages(cart.lines, raw.lineItems as RawCart[]);
   return cart;
 }
@@ -127,6 +135,10 @@ export interface AddToCartExtras {
   modifierChoices?: Record<string, string>;
   /** FREE_TEXT modifier inputs: freeTextSettings key -> the buyer's text. */
   customTextFields?: Record<string, string>;
+  /** The variant is out of stock but pre-orderable — sends preOrderRequested. */
+  preorder?: boolean;
+  /** A chosen recurring plan (subscriptionPricesInfo); omit for a one-time purchase. */
+  subscriptionOptionId?: string;
 }
 
 /**
@@ -138,12 +150,14 @@ export async function addToCart(
   productId: string,
   variantId?: string | null,
   quantity = 1,
-  { modifierChoices, customTextFields }: AddToCartExtras = {},
+  { modifierChoices, customTextFields, preorder, subscriptionOptionId }: AddToCartExtras = {},
 ): Promise<Cart> {
   const options: Record<string, unknown> = {};
   if (variantId) options.variantId = variantId;
   if (modifierChoices && Object.keys(modifierChoices).length) options.options = modifierChoices;
   if (customTextFields && Object.keys(customTextFields).length) options.customTextFields = customTextFields;
+  if (subscriptionOptionId) options.subscriptionOptionId = subscriptionOptionId;
+  if (preorder) options.preOrderRequested = true;
 
   const { cart } = await cartApi.addLineItemsToCurrentCart({
     catalogItems: [
