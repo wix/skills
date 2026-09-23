@@ -17,7 +17,7 @@ plus your home page.
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `formatMoney()` — already used by everything shipped |
+| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet` + `sizes` for responsive tiles |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`) — contracts inlined below |
 | `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/search + cursor paging, all server-side), `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `resolveVariant` |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
@@ -58,14 +58,44 @@ Plus the **theme** (edit the `@theme` block in `styles/global.css` — one edit;
 flipped token values; add brand fonts as extra tokens) and the **chrome** (header/footer in
 `SiteLayout.astro`, one edit pass; mount the shipped `CartButton` in your header).
 
+### What a complete storefront shows (recommended defaults)
+
+These are the recommended defaults for a store whose brief says nothing about them. They are
+not requirements: when the user's prompt asks for something different — a cart page instead of a
+drawer, no shop page, a particular layout or look — the prompt wins, and the item here that
+conflicts with it is dropped without discussion. Look at the catalog before designing (categories,
+assortment size, media, options, sales, ribbons) and design for this store, not for a stereotype
+of its category. Then, by default:
+
+- **Home:** what the store sells and one shopping action in the first screen; real products under
+  truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page.
+- **Shop:** a real product card — image, name, price, link — in the first screen; sort and the
+  filters the catalog supports; loading, empty, no-results, and error states that look different.
+- **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
+  in the first screen; every ribbon; every image reachable in the gallery.
+- **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
+- **Overlays you build** (quick-add, mobile nav, filters): mount at the document root (a fixed
+  panel inside the `backdrop-blur` header gets clipped), lock background scroll, close on Escape,
+  return focus on close — as the shipped `CartDrawer` does.
+- **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
+  promises; no Wix IDs or technical words in visible text.
+
+Pre-order ships (`isPreorder`). Subscriptions, product groups, promotions, and notify-me are built
+only when the catalog has them — never fabricated; `wix-docs` has their contracts.
+
 ### The contracts your components consume (everything you need — don't read the source)
 
 ```ts
 // ProductSummary (grid tiles) — all display-ready: prices formatted, images https URLs:
-// { id, slug, name, price, maxPrice, compareAtPrice|null, ribbon|null,
-//   availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK", preorder: boolean,
-//   imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */, quickAddable: boolean }
-// price vs maxPrice differ → show a range. quickAddable → useCart().addToCart(product.id).
+// { id, slug, name, price, maxPrice, compareAtPrice|null, ribbon|null, ribbons: string[],
+//   minPriceVariantId|null, availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
+//   preorder: boolean, imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */,
+//   quickAddable: boolean }
+// price !== maxPrice → the product is a RANGE: render "price – maxPrice" (compareAtPrice is null
+// then — never a struck price beside a range). Otherwise price is what the buyer pays (a discount
+// already applied) and compareAtPrice, when present, is the labelled "was".
+// ribbons = EVERY merchant ribbon, primary first — render all, one shared style; a ribbon is a
+// label, never proof of a discount. quickAddable → useCart().addToCart(product.id, product.minPriceVariantId).
 
 // useShop({ initialProducts?, initialCategories?, pageSize? /* 24 */ }) →
 // { products: ProductSummary[]|null /* null = loading → skeletons */, categories: Category[],
@@ -84,14 +114,18 @@ flipped token values; add brand fonts as extra tokens) and the **chrome** (heade
 //   optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode|null, inStock, selected }] }],
 //   selectOption(optionName, choiceName),
 //   modifierValues, setModifier(key, value),          // product.modifiers: pills or text input; "*" = mandatory
-//   price, compareAtPrice,                            // live: variant price once resolved
-//   canAdd,                                           // gate the button; false until every option picked & in stock
-//   quantity, setQuantity, add(), adding, error }
-// ProductDetail adds: descriptionHtml (render as HTML), gallery: string[] (urls, main first),
-// options, modifiers, variants — but selection ALWAYS goes through the hook above.
+//   price, compareAtPrice,                            // the RANGE until every option is picked, then the variant's price (+ labelled "was" when real)
+//   isPreorder,                                       // resolved variant is out of stock but pre-orderable → label the action "Pre-order"
+//   canAdd,                                           // gate the button; false until every option picked & in stock (or pre-orderable)
+//   blockedReason,                                    // "Choose Size" / "Out of stock" / "Add Engraving" — render beside the button as
+//                                                     //   neutral guidance (not error styling) while it's disabled; null when addable
+//   quantity, setQuantity, add(), adding, error }     // quantity resets to 1 when an option changes
+// ProductDetail adds: descriptionHtml (render as HTML), infoSections: [{ title, html }] (sections
+// or accordions), gallery: string[] (urls, main first), options, modifiers, variants — but
+// selection ALWAYS goes through the hook above.
 
 // useCart() →
-// { cart: { lines, itemCount, subtotal, currency }|null, busy, error, open,
+// { cart: { lines, itemCount, subtotal, discount /* "" when none */, currency }|null, busy, error, open,
 //   addToCart(productId, variantId?, qty?, extras?), updateQuantity(lineItemId, qty),
 //   removeLine(lineItemId), checkout(), openCart(), closeCart(), refresh() }
 // addToCart rejects on refusal (out of stock, digital product with no file) AND records
@@ -208,9 +242,11 @@ export default function ShopView(props: {
   //     name search) via setFilters — include the ones that fit the brief, not all of them
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state
-  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image
-  //     (hoverImageUrl on hover), name, price/compareAtPrice, ribbon, optionsSummary;
-  //     tile links to `/products/${p.slug}`; quickAddable → useCart().addToCart(p.id)
+  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image (hoverImageUrl on
+  //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
+  //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
+  //     optionsSummary; tile links to `/products/${p.slug}`;
+  //     quickAddable → useCart().addToCart(p.id, p.minPriceVariantId)
   //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
@@ -236,14 +272,18 @@ export default function ProductDetailView(props: {
   //       to full-width images stacked down the column (products with per-color
   //       linked media carry several gallery urls, so that stacks big duplicates).
   //       A single-image gallery is just the one primary — no empty strip.
-  //     • name, live d.price / d.compareAtPrice (strike only when they differ),
-  //       descriptionHtml rendered as HTML
+  //     • name, EVERY ribbon (d.product.ribbons), live d.price (the range until every option
+  //       is picked) with d.compareAtPrice as a labelled "was" when present — never invent one;
+  //       descriptionHtml rendered as HTML, then d.product.infoSections as sections/accordions
   //     • option controls from d.optionGroups → d.selectOption(optionName, choiceName)
   //       (isColor → real swatches via colorCode; disable out-of-stock choices);
   //       modifiers from d.product.modifiers → d.setModifier(key, value), "*" = mandatory
   //     • quantity (d.quantity / d.setQuantity), then the buy button gated by d.canAdd
-  //       ONLY — never resolve variants yourself — calling d.add(); d.adding disables,
-  //       d.error renders inline
+  //       ONLY — never resolve variants yourself — calling d.add(); label it "Pre-order" when
+  //       d.isPreorder; while disabled, render d.blockedReason beside it as neutral guidance
+  //       (not error styling); d.adding disables, d.error renders inline
+  //     • in the first screen at mobile and desktop: the image, name, price, the first choice,
+  //       and the button with its reason — a shopper decides without scrolling
 }
 ```
 
@@ -276,6 +316,10 @@ client id into `wix/config.ts`; nothing else to configure.
   parallel theme files, no hardcoded palette values in components.
 - Checkout only through the shipped cart (`checkout()`) — never a hand-built checkout URL.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
+- **Prices and ribbons come from the DTOs as-is** — no computed percent-off, no "Sale" badge
+  inferred from `compareAtPrice`, no struck price beside a range (the DTO already withholds it).
+- **Cart totals come from `cart`** — never summed or hardcoded in the client; shipping and tax say
+  "calculated at checkout" (the drawer already does).
 - Your PDP page carries the SEO pieces (`wixMetadata` + `loadSEOTagsServiceConfig` +
   `<SEO.Tags>`) exactly as the skeleton shows — owners edit those tags in their dashboard.
 - **Browsing, cart and checkout need no login.** They run on the Wix visitor session the
@@ -307,8 +351,11 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
 - [ ] `/shop` renders live products SSR (view-source shows product names) through **your**
       grid/card; category bar filters when categories exist; empty catalog shows your honest
       empty state.
-- [ ] Your PDP: color options render as swatches, add is disabled until every option is
-      picked (`canAdd`), the resolved variant's price shows, a sale shows the strikethrough.
+- [ ] Your PDP: color options render as swatches, the button shows `blockedReason` ("Choose
+      Size") until every option is picked, the price is the range until then and the variant's
+      price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
+      a pre-orderable one reads "Pre-order".
+- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price.
 - [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
       a reload (same visitor token).
 - [ ] Checkout button redirects to Wix-hosted checkout.
