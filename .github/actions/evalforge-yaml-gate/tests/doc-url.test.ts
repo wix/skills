@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { canonicalDocUrl } from '../src/utils/doc-url';
+import { canonicalDocUrl, publishedSlug } from '../src/utils/doc-url';
 import { writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -62,5 +62,18 @@ describe('canonicalDocUrl', () => {
 
   it('returns null for a file not listed in any documentation.yaml', () => {
     expect(canonicalDocUrl('skills/wix-manage/references/blog/orphan.md', workspace)).toBeNull();
+  });
+});
+
+describe('publishedSlug', () => {
+  it('mirrors md-resolver: a slash in the title publishes the text after the last slash', () => {
+    // "CMS Publishing Flow & Visible/Hidden" was served at /skills/hidden (wix/skills#1428).
+    expect(publishedSlug('CMS Publishing Flow & Visible/Hidden')).toBe('hidden');
+    expect(publishedSlug('Shipping: Set Up Pickup / Local Delivery')).toBe('local-delivery');
+  });
+
+  it('is the plain title slug when there is no slash', () => {
+    expect(publishedSlug('CMS Draft & Publish Workflow (Draft Items plugin)'))
+      .toBe('cms-draft-publish-workflow-draft-items-plugin');
   });
 });

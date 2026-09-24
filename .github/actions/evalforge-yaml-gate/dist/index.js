@@ -66487,6 +66487,7 @@ exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatDocsEntryProblems = formatDocsEntryProblems;
+exports.formatSlashedTitles = formatSlashedTitles;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -66564,6 +66565,17 @@ function formatDocsEntryProblems(problems) {
     });
     return render('❌', 'Invalid docsEntry', [
         '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+        '',
+        ...lines,
+    ]);
+}
+function formatSlashedTitles(entries) {
+    const lines = entries.map((e) => {
+        const served = e.title.split('/').pop()?.trim() || '';
+        return `- \`${e.yamlPath}\` → "${e.title}" would be published as **"${served}"**`;
+    });
+    return render('❌', 'Slash in a documentation.yaml title', [
+        'The docs pipeline treats a `/` in a `title` as a section separator and publishes the page under the text after the last slash — the recipe loses its name and its doc URL. Remove the slash (the frontmatter `name` is a good title).',
         '',
         ...lines,
     ]);
@@ -67073,6 +67085,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.publishedSlug = publishedSlug;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
@@ -67116,11 +67129,25 @@ function slugify(displayName) {
     }
     return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
+/**
+ * The slug the docs pipeline actually publishes a skill under.
+ *
+ * md-resolver (wix-private/docs, serverless/md-resolver/src/utils/docs/docs-utils.ts) sets a
+ * doc's menu display name to `title.split('/').pop()` — a slash in a documentation.yaml title
+ * is the API-repo convention for "ServiceName/Doc Title" — and the page slug is derived from
+ * that display name. So "CMS Publishing Flow & Visible/Hidden" was served at `/skills/hidden`
+ * while a plain slugify of the whole title said `cms-publishing-flow-visible-hidden`, and the
+ * covering scenario could never match. Mirror the pipeline here; `slashedTitles` flags the
+ * titles so nobody relies on it.
+ */
+function publishedSlug(title) {
+    return slugify(title.split('/').pop() ?? '');
+}
 function canonicalDocUrl(filePath, workspace) {
     const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
     if (!info)
         return null;
-    const slug = slugify(info.title);
+    const slug = publishedSlug(info.title);
     if (!slug)
         return null;
     return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
@@ -67168,8 +67195,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.loadDocsEntryIndex = loadDocsEntryIndex;
 exports.changedDocsEntries = changedDocsEntries;
 exports.validateDocsEntries = validateDocsEntries;
+exports.slashedTitles = slashedTitles;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
@@ -67299,6 +67328,24 @@ async function validateDocsEntries(targets) {
         return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
     }
     return { problems };
+}
+/**
+ * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
+ * text after the last slash (see `publishedSlug` in doc-url.ts). For a skill that is never
+ * wanted: the recipe loses its name and every URL derived from the full title misses.
+ */
+function slashedTitles(workspace, baseWorkspace) {
+    const headIndex = loadDocsEntryIndex(workspace);
+    const baseIndex = loadDocsEntryIndex(baseWorkspace);
+    const changed = [];
+    const existing = [];
+    for (const target of headIndex.values()) {
+        if (!target.title.includes('/'))
+            continue;
+        const base = baseIndex.get(target.file);
+        (base && base.title === target.title ? existing : changed).push(target);
+    }
+    return { changed, existing };
 }
 
 
@@ -67618,6 +67665,17 @@ async function runGate() {
             (0, github_1.fail)(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
             return;
         }
+    }
+    // A slash in a title publishes the page under the last segment (see publishedSlug); a
+    // pre-existing offender only warns, so it does not block PRs elsewhere in the repo.
+    const slashed = (0, docs_entry_check_1.slashedTitles)(workspace, baseWorkspace);
+    for (const e of slashed.existing) {
+        core.warning(`documentation.yaml title contains a slash and publishes as "${e.title.split('/').pop()}": ${e.yamlPath} → "${e.title}"`);
+    }
+    if (slashed.changed.length > 0) {
+        await comment((0, comment_1.formatSlashedTitles)(slashed.changed));
+        (0, github_1.fail)(`${slashed.changed.length} documentation.yaml title(s) contain a slash`, config.blocking);
+        return;
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)

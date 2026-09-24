@@ -46,7 +46,7 @@ type MenuNode = {
   children?: MenuNode[];
 };
 
-function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
+export function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
   const index = new Map<string, DocsEntryTarget>();
   const yamlPaths = glob.sync(DOC_YAML_GLOB, {
     cwd: workspace,
@@ -177,4 +177,29 @@ export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<D
   }
 
   return { problems };
+}
+
+export type SlashedTitles = {
+  /** Entries this PR adds or retitles whose title contains a slash — block */
+  changed: DocsEntryTarget[];
+  /** Entries already on the base branch with a slash — warn only, so unrelated PRs are not blocked */
+  existing: DocsEntryTarget[];
+};
+
+/**
+ * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
+ * text after the last slash (see `publishedSlug` in doc-url.ts). For a skill that is never
+ * wanted: the recipe loses its name and every URL derived from the full title misses.
+ */
+export function slashedTitles(workspace: string, baseWorkspace: string): SlashedTitles {
+  const headIndex = loadDocsEntryIndex(workspace);
+  const baseIndex = loadDocsEntryIndex(baseWorkspace);
+  const changed: DocsEntryTarget[] = [];
+  const existing: DocsEntryTarget[] = [];
+  for (const target of headIndex.values()) {
+    if (!target.title.includes('/')) continue;
+    const base = baseIndex.get(target.file);
+    (base && base.title === target.title ? existing : changed).push(target);
+  }
+  return { changed, existing };
 }

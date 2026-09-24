@@ -5,7 +5,7 @@ import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
-import { changedDocsEntries, validateDocsEntries } from './docs-entry-check';
+import { changedDocsEntries, validateDocsEntries, slashedTitles } from './docs-entry-check';
 import { computeCoverage } from './coverage';
 import {
   EvalForgeClient, assertSameRepoBranch, diffSyncPlan, draftTagFor, evalRunUrl,
@@ -19,8 +19,7 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatDocsEntryProblems, formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
-} from './comment';
+  comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills, formatSlashedTitles } from './comment';
 import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 
 type Commenter = ReturnType<typeof makeCommenter>;
@@ -130,6 +129,18 @@ export async function runGate(): Promise<void> {
       fail(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
       return;
     }
+  }
+
+  // A slash in a title publishes the page under the last segment (see publishedSlug); a
+  // pre-existing offender only warns, so it does not block PRs elsewhere in the repo.
+  const slashed = slashedTitles(workspace, baseWorkspace);
+  for (const e of slashed.existing) {
+    core.warning(`documentation.yaml title contains a slash and publishes as "${e.title.split('/').pop()}": ${e.yamlPath} → "${e.title}"`);
+  }
+  if (slashed.changed.length > 0) {
+    await comment(formatSlashedTitles(slashed.changed));
+    fail(`${slashed.changed.length} documentation.yaml title(s) contain a slash`, config.blocking);
+    return;
   }
 
   const allChanged = await guardedCall(

@@ -84,7 +84,7 @@ Cover all three of [coverage, correctness, and quality](#assert-correctness-and-
     articleUrl: https://dev.wix.com/docs/api-reference/<...>/skills/<skill-name>
 ```
 
-The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<slug>`, where `<docsEntry>` and the skill's `title` come from its entry in `yaml/wix-manage/<area>/documentation.yaml`, and `<slug>` is that `title` slugified (lowercased, spaces/punctuation → `-`). For example `title: "Abandoned Carts"` → `…/skills/abandoned-carts`.
+The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<slug>`, where `<docsEntry>` and the skill's `title` come from its entry in `yaml/wix-manage/<area>/documentation.yaml`, and `<slug>` is that `title` slugified (lowercased, spaces/punctuation → `-`). For example `title: "Abandoned Carts"` → `…/skills/abandoned-carts`. A title must not contain `/`: the pipeline would publish only the text after the last slash, and the gate rejects such titles.
 
 **2. An `llm_judge` on correctness** — proves the agent did the right thing, not just that it loaded the docs.
 
