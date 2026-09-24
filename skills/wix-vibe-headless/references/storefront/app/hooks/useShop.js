@@ -1,21 +1,25 @@
 // Catalog queries run on Wix before pagination. A changed selection starts a fresh cursor chain.
+// Pass `initialCategory` (a category object, or { id } resolved from a /category/:slug route) to
+// start scoped; the hook's facets follow the active category.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { searchProducts, queryCategories, CATALOG_SORTS } from "@/rest/wix-store-catalog";
+import { searchProducts, countProducts, fetchFacets, queryCategories, CATALOG_SORTS } from "@/rest/wix-store-catalog";
 
 export const SORTS = CATALOG_SORTS;
 const SYSTEM_CATEGORY_SLUG = "all-products";
 
-export function useShop({ pageSize = 24 } = {}) {
+export function useShop({ pageSize = 24, initialCategory = null } = {}) {
   const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [sort, setSort] = useState("featured");
   const [filters, setFilters] = useState({});
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState([]);
+  const [facets, setFacets] = useState([]);
   const [attempt, setAttempt] = useState(0);
-  const [page, setPage] = useState({ key: null, products: null, cursor: null, error: null, loadingMore: false });
+  const [page, setPage] = useState({ key: null, products: null, total: null, cursor: null, error: null, loadingMore: false });
   const generation = useRef(0);
   const pendingMore = useRef(null);
   const key = JSON.stringify([pageSize, activeCategory?.id ?? null, sort, filters.minPrice ?? null,
-    filters.maxPrice ?? null, !!filters.inStockOnly, filters.search ?? "", attempt]);
+    filters.maxPrice ?? null, !!filters.inStockOnly, filters.search ?? "", [...selectedChoiceIds].sort(), attempt]);
   const currentKey = useRef(key);
   currentKey.current = key;
 
@@ -29,21 +33,34 @@ export function useShop({ pageSize = 24 } = {}) {
     return () => { alive = false; };
   }, []);
 
+  // Facets follow the category scope (a "Size" facet inside "Mugs" is noise).
+  const activeCategoryId = activeCategory?.id ?? null;
+  useEffect(() => {
+    let alive = true;
+    fetchFacets({ categoryId: activeCategoryId }).then((f) => { if (alive) setFacets(f); });
+    return () => { alive = false; };
+  }, [activeCategoryId]);
+
   useEffect(() => {
     const id = ++generation.current;
     let alive = true;
     pendingMore.current = null;
-    setPage({ key, products: null, cursor: null, error: null, loadingMore: false });
-    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search] = JSON.parse(key);
-    searchProducts({ limit, categoryId, sort: selectedSort, minPrice, maxPrice, inStockOnly, search })
-      .then(res => {
+    setPage({ key, products: null, total: null, cursor: null, error: null, loadingMore: false });
+    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search, choiceIds] = JSON.parse(key);
+    const selection = { categoryId, minPrice, maxPrice, inStockOnly, choiceIds };
+    Promise.all([
+      searchProducts({ limit, sort: selectedSort, search, ...selection }),
+      // The count is a nicety: a failure leaves total null, the page still renders.
+      search ? Promise.resolve(null) : countProducts(selection).catch(() => null),
+    ])
+      .then(([res, total]) => {
         if (alive && generation.current === id && currentKey.current === key) {
-          setPage({ key, products: res.products, cursor: res.nextCursor, error: null, loadingMore: false });
+          setPage({ key, products: res.products, total, cursor: res.nextCursor, error: null, loadingMore: false });
         }
       })
       .catch(e => {
         if (alive && generation.current === id && currentKey.current === key) {
-          setPage({ key, products: [], cursor: null, error: e?.message || "Couldn't load products.", loadingMore: false });
+          setPage({ key, products: [], total: null, cursor: null, error: e?.message || "Couldn't load products.", loadingMore: false });
         }
       });
     return () => { alive = false; generation.current++; };
@@ -73,10 +90,18 @@ export function useShop({ pageSize = 24 } = {}) {
   }, [key, page.key, page.cursor, pageSize]);
 
   const retry = useCallback(() => setAttempt(n => n + 1), []);
+  const toggleChoice = useCallback((choiceId) =>
+    setSelectedChoiceIds(ids => ids.includes(choiceId) ? ids.filter(x => x !== choiceId) : [...ids, choiceId]), []);
+  const clearFilters = useCallback(() => { setFilters({}); setSelectedChoiceIds([]); }, []);
+  const hasActiveFilters = selectedChoiceIds.length > 0 || !!filters.inStockOnly ||
+    (filters.minPrice != null && filters.minPrice !== "") || (filters.maxPrice != null && filters.maxPrice !== "") ||
+    !!(filters.search && String(filters.search).trim());
   const current = page.key === key;
   return {
     categories, activeCategory, setActiveCategory, sort, setSort, filters, setFilters,
-    products: current ? page.products : null, loading: !current || page.products === null,
+    facets, selectedChoiceIds, toggleChoice, clearFilters, hasActiveFilters,
+    products: current ? page.products : null, total: current ? page.total : null,
+    loading: !current || page.products === null,
     error: current ? page.error : null, retry,
     hasMore: current && !!page.cursor, loadMore, loadingMore: current && page.loadingMore,
   };

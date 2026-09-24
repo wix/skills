@@ -18,12 +18,14 @@ Successful deployment verified these files are in place; use this map without ne
 |---|---|
 | `context/CartContext.jsx` | `CartProvider` and `useCart()`: server cart, add/update/remove, checkout |
 | `hooks/useProductDetail.js` | PDP product, variant resolution, selection, load/add state |
-| `hooks/useShop.js` | Catalog listing, categories, cursor paging, sort, failure state; use in your `Shop` |
+| `hooks/useShop.js` | Catalog listing: category scope, sort, filters, option facets, result count, cursor paging, failure state; use in your `Shop` and `Category` pages |
 | `hooks/useProductCard.js` | Card badges, prices, options summary, quick-add flag, images |
 | `hooks/useVariantOptions.js` | Render-agnostic option and modifier groups for PDP controls |
 | `lib/storeImage.js` | Wix image URL and gallery helpers |
 | `components/CartButton.jsx` | Cart icon button with a live-count badge |
 | `components/CartDrawer.jsx` | Cart drawer; mount once, opens through `useCart` |
+| `components/FilterPanel.jsx` | The gallery's filters: result count, sort, price, in-stock, the catalog's option facets, active chips; a bottom sheet under `md`. Mount in your `Shop` with the `useShop` result |
+| `components/QuickAdd.jsx` | The card's buy control: one-click add for a product with no options, an anchored option picker (bottom sheet on small screens) for one with options, the product page for free-text customization. Mount in every card |
 | `components/WixManageBanner.jsx` | Preview-only manage banner; include only when the entry guide enables it |
 | `rest/wix-config.js` | Deployed configuration; consumed internally by the shipped client |
 | `rest/wix-client.js` | REST transport and visitor authentication |
@@ -39,8 +41,8 @@ Use the existing Base44 theme in `src/index.css` so your pages and the shipped c
 share the same colors and typography.
 
 ## Presentation interfaces
-Build `pages/Shop.jsx`, `components/ProductGrid.jsx`, `components/ProductCard.jsx`, and
-`pages/ProductDetail.jsx` from these contracts. All paths are under `src/`. Home, header, and
+Build `pages/Shop.jsx`, `pages/Category.jsx`, `components/ProductGrid.jsx`,
+`components/ProductCard.jsx`, and `pages/ProductDetail.jsx` from these contracts. All paths are under `src/`. Home, header, and
 footer are yours to design; their integration is in **Routes and provider** below.
 
 ### Shop page and product grid
@@ -48,29 +50,59 @@ Create both files below. The hook owns catalog data; your page owns its presenta
 
 ```jsx
 // src/pages/Shop.jsx
-import { useShop, SORTS } from "@/hooks/useShop";
+import { Link } from "@/lib/nav";
+import { useShop } from "@/hooks/useShop";
+import FilterPanel from "@/components/FilterPanel";
 import ProductGrid from "@/components/ProductGrid";
 
-export default function Shop() {
-  const s = useShop();
-  // Category controls: s.categories ({ id, name }), s.activeCategory;
-  // select with s.setActiveCategory(category), or null for all products.
-  // Sort controls: Object.entries(SORTS) -> [key, { label }];
-  // selected value s.sort; change with s.setSort(key).
-  // Optional filters: s.setFilters({ minPrice: 20, maxPrice: 100,
-  //   inStockOnly: true, search: "linen" }); s.setFilters({}) clears them.
-  // Apply a submitted/debounced search value; the hook queries on every change.
-  // Render s.error with s.retry separately from loading/empty results.
+export default function Shop({ initialCategory = null }) {   // Category.jsx passes the resolved category
+  const s = useShop({ initialCategory });
+  // Category row when s.categories.length > 1: LINKS — <Link to={`/category/${c.slug}`}> per
+  //   category, "All" → /shop, the active one (s.activeCategory?.id) marked. Real URLs a shopper
+  //   can share; s.setActiveCategory(category | null) is for an extra live switch, not a substitute.
+  // <FilterPanel shop={s} /> above the grid — shipped: result count, sort, price, stock, this
+  //   catalog's option facets, active chips. Always mounted; it shows only facets that exist.
+  // A name search (s.setFilters({ ...s.filters, search })) is yours to add when the brief wants
+  //   it: apply a submitted/debounced value; the hook queries on every change.
+  // Render s.error with s.retry separately from loading/empty results; when s.hasActiveFilters
+  //   and nothing matches, say so and offer s.clearFilters() — not the empty-catalog message.
   // On a later-page error, keep already loaded products visible.
   // Pagination: when s.hasMore, call s.loadMore(); disable while s.loadingMore.
   return (
-    <ProductGrid
-      products={s.products}
-      loading={s.loading}
-      emptyMessage={s.error ? "" : "No products yet."}
-      emptyHint={s.error ? "" : "Try another category or check back later."}
-    />
-  ); // Add the controls and states above; layout and styling are yours.
+    <>
+      <FilterPanel shop={s} />
+      <ProductGrid
+        products={s.products}
+        loading={s.loading}
+        emptyMessage={s.error ? "" : s.hasActiveFilters ? "No products match these filters." : "No products yet."}
+        emptyHint={s.error ? "" : s.hasActiveFilters ? "" : "Try another category or check back later."}
+      />
+    </>
+  ); // Add the category links and states above; layout and styling are yours.
+}
+```
+
+```jsx
+// src/pages/Category.jsx — the same Shop, scoped to one category, at its own URL. A category
+// page is a link a shopper shares and a search engine indexes; a state toggle on /shop isn't.
+import { useEffect, useState } from "react";
+import { useParams } from "@/lib/nav";
+import { getCategoryBySlug } from "@/rest/wix-store-catalog";
+import Shop from "@/pages/Shop";
+
+export default function Category() {
+  const { slug } = useParams();
+  const [category, setCategory] = useState(undefined);   // undefined = loading, null = not found
+  useEffect(() => {
+    let alive = true;
+    setCategory(undefined);
+    getCategoryBySlug(slug).then((c) => alive && setCategory(c && c.visible !== false ? c : null)).catch(() => alive && setCategory(null));
+    return () => { alive = false; };
+  }, [slug]);
+  if (category === undefined) return null;   // your loading UI
+  if (category === null) return null;        // your not-found UI — never a fallback to all products
+  // Head the page with category.name (and category.description when present), then:
+  return <Shop key={category.id} initialCategory={category} />;
 }
 ```
 
@@ -118,12 +150,21 @@ export default function ProductCard({ product }) {
 }
 ```
 A ribbon is a label, never proof of a price: don't render a "Sale" badge from `compareAtDisplay`,
-and don't compute a percent-off — the hook deliberately doesn't. For quick-add, call
-`addToCart(product.id, directAddVariantId)` only when `isQuickAddable` and no mandatory
-modifier needs input (`product.modifiers` entries have a `mandatory` boolean). Otherwise link to `/product/${product.slug}` for selection, including
-pre-orders. Listing results have no full variants; the PDP hook loads and resolves them.
-Use cart-context `loading` to disable repeated adds. Failures open the shipped drawer with
-`error`; you can also display it beside the card/PDP controls (see **Cart**).
+and don't compute a percent-off — the hook deliberately doesn't.
+
+The card's buy control is the shipped `QuickAdd` — mount it in every card, inside a `relative`
+wrapper so its picker anchors to the card on wide screens:
+```jsx
+import QuickAdd from "@/components/QuickAdd";
+// inside your card, after the price:
+<QuickAdd product={product} />
+```
+It decides the path from the product: no options → adds `directAddVariantId` in one click; options
+or a mandatory choice modifier → an option picker on the card (a bottom sheet on small screens) that
+loads the full product only when opened and resolves the variant through the PDP hook; a free-text
+modifier → a link to `/product/${product.slug}`. Don't rebuild that decision in the card, and don't
+send every product to the product page. Failures open the shipped drawer with `error`; you can also
+display it beside the card/PDP controls (see **Cart**).
 
 ### Catalog hook reference
 `useShop` and `SORTS` are named exports from `@/hooks/useShop`; the Shop skeleton above uses them.
@@ -131,12 +172,18 @@ Use cart-context `loading` to disable repeated adds. Failures open the shipped d
 ```js
 const {
   categories, activeCategory, setActiveCategory,
-  products, loading, error, retry,
+  products, total, loading, error, retry,
   hasMore, loadMore, loadingMore, sort, setSort, filters, setFilters,
-} = useShop({ pageSize: 24 }); // optional argument; default pageSize 24
+  facets, selectedChoiceIds, toggleChoice, clearFilters, hasActiveFilters,
+} = useShop({ pageSize: 24, initialCategory: null }); // optional; default pageSize 24, all products
 // categories: category[]; activeCategory: category | null (null = all products)
 // setActiveCategory(categoryOrNull): starts a fresh product query, keeping sort/filters
-// products: product[] | null; loading: boolean (fresh query, including sort/filter changes)
+// products: product[] | null; total: matching products across the catalog | null while unknown
+// facets: [{ name, isColor, choices: [{ id, name, colorCode }] }] for the active category scope;
+//   toggleChoice(choiceId) selects/deselects (products carrying ANY selected choice match);
+//   clearFilters() drops price/stock/search and facet selections; hasActiveFilters: boolean.
+//   The shipped <FilterPanel shop={...} /> renders all of these — hand it the whole hook result.
+// loading: boolean (fresh query, including sort/filter changes)
 // error: string | null; retry(): reloads the active category's first page
 // hasMore, loadingMore: booleans; loadMore(): appends another page when available
 // sort: 'featured' | 'priceAsc' | 'priceHigh' | 'name' | 'newest'; setSort(key)
@@ -164,7 +211,10 @@ For a standalone product selection or category menu, import these named function
 
 | Function | Result |
 |---|---|
-| `searchProducts({ limit = 100, cursor, categoryId, sort, minPrice, maxPrice, inStockOnly, search } = {})` | `{ products: product[], nextCursor: string or null }` — same sort/filter semantics as the hook |
+| `searchProducts({ limit = 100, cursor, categoryId, sort, minPrice, maxPrice, inStockOnly, search, choiceIds } = {})` | `{ products: product[], nextCursor: string or null }` — same sort/filter semantics as the hook |
+| `countProducts({ categoryId, minPrice, maxPrice, inStockOnly, choiceIds } = {})` | `number` — matching visible products; no options → the whole catalog |
+| `fetchFacets({ categoryId } = {})` | `[{ name, isColor, choices: [{ id, name, colorCode }] }]` — the filterable options in scope; `[]` on failure |
+| `getCategoryBySlug(slug)` | `category or null` — `{ id, name, slug, visible, description }`; null → your 404, never all products |
 | `queryProducts(options = {})` | `{ products: product[], nextCursor: string or null }` — visible catalog products |
 | `queryCategories({ limit = 100, cursor } = {})` | `{ categories: category[], nextCursor: string or null }` — one category page |
 | `queryProductsByCategory(categoryId, options = {})` | `{ products: product[], nextCursor: string or null }` — visible products in the category identified by `id` |
@@ -233,6 +283,7 @@ export default function ProductDetail() {
 - Label the action by state: `isPreorder` → "Pre-order"; otherwise "Add to cart". Keep quantity at least 1. Disable adding when `!canAdd || adding`; call `submit()` only with a loaded product and `canAdd`. `submit()` coerces quantity to at least 1 but does not itself enforce `canAdd`.
 - `canAdd` checks variant resolution, availability (in stock or pre-orderable), and mandatory modifier values. `inStock` defaults to true without a resolved variant; use `canAdd` for the full gate.
 - Render the PDP gallery from `images` — every image reachable (thumbnails, arrows, or a swipeable rail), not just the first; a single-image product gets no empty strip.
+- In the first screen at 390px wide as well as desktop: image, name, price, the first option, and the buy button with its reason. On a phone the primary image is a bounded band (`max-h-[45vh] md:max-h-none`, `object-contain`), thumbnails a row under it, the two-column split only from `md`; description and info come after the buy button, never between the price and the action.
 - `submit()` resets `adding` after completion and preserves the cart result: `undefined` on success, `null` on failure. Add failures live in `useCart().error`, not the PDP load `error`; the shipped drawer opens to display them.
 
 For an optional **add and check out** shortcut, check the add result before checkout:
@@ -378,8 +429,9 @@ asks for it. Neither choice affects the commerce flow.
 - Put your **header + footer in a `Layout`** that renders `<Outlet/>` between them, and nest every
   route under one pathless `<Route element={<Layout/>}>`. Your brand chrome then wraps **every** page
   — including your Shop and product-detail pages. Mount `<CartDrawer/>` once in the Layout.
-- Routes under the Layout: `/shop` → **your `Shop`** (renders your grid); `/product/:slug` → **your
-  `ProductDetail`**; `/` → **your `Home`**.
+- Routes under the Layout: `/shop` → **your `Shop`** (renders your grid); `/category/:slug` → **your
+  `Category`** (the same `Shop`, scoped); `/product/:slug` → **your `ProductDetail`**; `/` → **your `Home`**.
+  Link every category from the header (or a menu/footer when the tree is large) to `/category/<slug>`.
 
 Mount the default export `CartButton` from `@/components/CartButton` once in your header. It opens
 the drawer and shows the live count, inheriting `currentColor`; use it as-is, without a nested button.
@@ -389,6 +441,7 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 import Shop from "@/pages/Shop";                       // YOU build
+import Category from "@/pages/Category";               // YOU build
 import ProductDetail from "@/pages/ProductDetail";     // YOU build
 import Home from "@/pages/Home";       // YOU build
 import Header from "@/components/Header";   // YOU build
@@ -408,6 +461,7 @@ function Layout() {
     <Route element={<Layout />}>                                   {/* chrome wraps all */}
       <Route path="/" element={<Home />} />                        {/* yours */}
       <Route path="/shop" element={<Shop />} />                    {/* yours */}
+      <Route path="/category/:slug" element={<Category />} />      {/* yours */}
       <Route path="/product/:slug" element={<ProductDetail />} />  {/* yours */}
     </Route>
   </Routes>
@@ -461,6 +515,7 @@ route is a two-line file; shipped pages stay in `src/pages/` untouched.
 |---|---|---|
 | `/` | `src/routes/index.jsx` | `Home` |
 | `/shop` | `src/routes/shop.jsx` | `Shop` |
+| `/category/:slug` | `src/routes/category.$slug.jsx` | `Category` |
 | `/product/:slug` | `src/routes/product.$slug.jsx` | `ProductDetail` |
 
 ```jsx
@@ -484,10 +539,14 @@ store, not for a stereotype of its category. Then:
 
 - **Home:** what the store sells and one shopping action in the first screen; real products from
   the catalog under truthful headings; not a repeat of the shop page.
-- **Shop:** a real product card — image, name, price, link — in the first screen; sort and the
-  filters the catalog supports; loading, empty, no-results, and error states that look different.
+- **Shop:** a real product card — image, name, price, link — in the first screen; the shipped
+  `FilterPanel` (sort, price, stock, and this catalog's option facets) — a store with a filterable
+  catalog ships it, not "when it fits"; the shipped `QuickAdd` in every card; every category
+  reachable by a real link to `/category/<slug>`; loading, empty, no-results, and error states
+  that look different.
 - **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
-  in the first screen; every ribbon; every image reachable in the gallery.
+  in the first screen, at 390px wide too (the image a bounded band on a phone, not a full-screen
+  hero); every ribbon; every image reachable in the gallery.
 - **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
 - **Overlays you build** (quick-add, mobile nav, filters): mount at the document root, lock
   background scroll, close on Escape, return focus on close — as the shipped `CartDrawer` does.
@@ -506,6 +565,9 @@ shipped file; catalog and cart helpers link their API references inline.
 ## Hard rules
 - Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — keep shared chrome out of individual pages.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
+- Gallery buying goes through the shipped `QuickAdd` — a card never adds a product with options itself, and never sends a product with no options to the product page just to buy it.
+- Filters are the shipped `FilterPanel`, mounted in the gallery — not rebuilt with fewer controls, not dropped because the brief didn't ask.
+- Categories are routes (`/category/:slug`) linked from the chrome — not only a state toggle on `/shop`.
 - Render live Wix data or your empty state — never mock products, reviews, ratings, or counts.
 - Prices and ribbons come from the hooks as-is: no computed percent-off, no "Sale" badge inferred from a compare-at price, no struck price beside a range.
 - Cart totals come from `summary`/`cart` — never summed or hardcoded in the client; shipping and tax say "calculated at checkout".

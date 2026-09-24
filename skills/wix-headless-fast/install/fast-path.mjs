@@ -165,7 +165,9 @@ const seedDoneMarker = join(projectDir, ".seed-exit");
 const planAbs = resolve(planPath);
 const seedChild = spawn(
   "sh",
-  ["-c", `node "${seedFile}" "${planAbs}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
+  // --fresh-site: this script created the site moments ago, so the only products in it are the
+  // Stores install's samples — the seed clears them first (a seed run by hand never deletes).
+  ["-c", `node "${seedFile}" "${planAbs}" --fresh-site > seed-result.json 2> seed.log; echo $? > .seed-exit`],
   { cwd: projectDir, detached: true, stdio: "ignore" },
 );
 seedChild.unref();
