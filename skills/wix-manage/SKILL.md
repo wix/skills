@@ -248,7 +248,7 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 "Creates an event with the Wix Events V3 API — the required request body, ISO-8601 date and time settings, venue/online/TBD location, RSVP vs ticketed registration, guest capacity, short vs rich-text descriptions, ticket tiers and pricing, and recurring series. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create an event, set its date, location, description, guest limit or ticket prices, or set up a repeating event."
 
 ### [Manage Wix Events — Publishing, Cancelling, Cloning and Counting](references/events/manage-wix-events.md)
-"Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date or details, and counting events. Use when the user wants to publish or cancel an event, duplicate one, move an event's date, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
+"Operates on events that already exist with the Wix Events V3 API — finding an event by title, publishing a draft, cancelling, deleting (one or by filter), cloning, updating an event's date or details, and counting events. Use when the user wants to find, publish or cancel an event, duplicate one, move an event's date, delete events in bulk, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
 
 ---
 
