@@ -1,7 +1,7 @@
 // Storefront seed — a BUILD-TIME script, never shipped in the app. Run it from the project
 // root (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json [--fresh-site]
+//   node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 //
 // It mints its own site token via the Wix CLI (the token never leaves this process), installs
 // the Wix Stores app if needed, waits for the V3 catalog, bulk-creates products (variants
@@ -367,23 +367,6 @@ export async function createCategories(ctx, names) {
   return out;
 }
 
-// The Stores install drops sample products ("I'm a product") into every new catalog. On a site the
-// fast path JUST created nothing else can exist, so they are deleted before seeding — otherwise the
-// storefront ships with the samples between the real products. Only called with --fresh-site; a
-// seed against an existing site never deletes anything (SEED.md: seeding is additive).
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-delete-products.md
-export async function deleteAllProducts(ctx) {
-  let deleted = 0;
-  for (let pass = 0; pass < 10; pass++) {
-    const r = await req(ctx, "/stores/v3/products/query", { body: { query: { cursorPaging: { limit: 100 } } } });
-    const ids = (r.products ?? []).map((p) => p.id).filter(Boolean);
-    if (!ids.length) break;
-    await req(ctx, "/stores/v3/bulk/products/delete", { body: { productIds: ids } });
-    deleted += ids.length;
-    if (ids.length < 100) break;
-  }
-  return deleted;
-}
 
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md
 export async function addProductsToCategories(ctx, mapping) {
@@ -462,22 +445,12 @@ async function setSiteCurrency(ctx, currency) {
  * threaded in memory. This is the default path — call it once instead of the individual
  * functions.
  */
-export async function setupStore(ctx, { products = [], categories = {}, currency } = {}, { freshSite = false } = {}) {
+export async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
   validateProducts(products);
   await installStoresApp(ctx);
   // Before any product exists: a product's price is stored in the site currency at create time,
   // so switching afterwards leaves the catalog priced in the old one.
   if (currency) await setSiteCurrency(ctx, currency);
-  // A just-created site holds only the install's sample products — clear them (never on an
-  // existing site: the flag is the fast path's, set only when it created the site itself).
-  let samplesDeleted = 0;
-  if (freshSite) {
-    try {
-      samplesDeleted = await deleteAllProducts(ctx);
-    } catch (e) {
-      console.error(`sample cleanup failed (seeding on top): ${String(e.message).slice(0, 120)}`);
-    }
-  }
 
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
@@ -529,23 +502,21 @@ export async function setupStore(ctx, { products = [], categories = {}, currency
   // failures is part of the result, not an exception: a partial seed still leaves a usable
   // store, and the agent needs the names to report rather than silently shipping a short
   // catalog. Re-run the seed to retry them — existing names are skipped, not duplicated.
-  return { products: withNames, categories: cats, imagesAttached, samplesDeleted, failures };
+  return { products: withNames, categories: cats, imagesAttached, failures };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
 const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
 if (invokedDirectly) {
-  const args = process.argv.slice(2);
-  const freshSite = args.includes("--fresh-site");
-  const planPath = args.find((a) => !a.startsWith("--"));
+  const planPath = process.argv[2];
   if (!planPath) {
-    console.error("usage: node seed-store.mjs <plan.json> [--fresh-site]   (run from the project root)");
+    console.error("usage: node seed-store.mjs <plan.json>   (run from the project root)");
     process.exit(1);
   }
   const plan = JSON.parse(readFileSync(planPath, "utf8"));
   const ctx = makeCtx();
-  setupStore(ctx, plan, { freshSite })
+  setupStore(ctx, plan)
     .then((result) => console.log(JSON.stringify(result, null, 2)))
     .catch((e) => {
       console.error(e.message);
