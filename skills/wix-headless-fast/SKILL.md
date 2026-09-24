@@ -63,9 +63,10 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
    different React framework or the directory already holds a non-Astro React project (`--stack
    react`: the shipped TypeScript runs there too; the agent's own files may be JS). A stack that
-   **cannot run the shipped code** — a static site with no bundler (plain HTML/CSS/JS), or a server
-   language (Python, PHP, Go, …) — is **reference mode** (below): nothing from `app/` deploys; the
-   REST layer is what deploys (static) or what gets ported (server language).
+   **cannot run the shipped code** — a static site with no bundler (plain HTML/CSS/JS), or a
+   server-rendered app in another language or runtime (Flask, Laravel, Rails, Express without
+   React, …) — is **reference mode** (below): nothing from `app/` deploys; the REST layer is what
+   deploys for the browser side, and what the server side ports for its reads.
 2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
    the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
@@ -138,7 +139,7 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.
 
-## Reference mode — a static site, or another language
+## Reference mode — a static site, or a server-rendered app in another language
 
 The commerce logic ships a second time as a **REST layer**: `references/shared/rest/` (the auth
 seam `client.ts`, `media.ts`, `config.ts`) and `references/<vertical>/rest/` (the same exports as
@@ -155,21 +156,31 @@ two transports. Storefront ships it today; other verticals follow the same layou
   route is a page plus a query-string slug (`product.html?slug=…`). Seed per the vertical's
   `SEED.md` (Node + the CLI token, no project dependencies). Release with `npx @wix/cli@latest
   release` — it uploads the directory, no build. Item-page tags come from the entity's `seoData`.
-- **Another language (Python, PHP, Go, …).** Nothing deploys. `init` still runs in the project
-  folder for the site, OAuth app, and config. Read `rest/` as the specification and port it: each
-  function is one `fetch` with a literal URL and JSON body, and the `*-core.ts` beside it carries
-  the rules (price precedence, ribbons, ranges, media de-dupe, variant resolution, cart shapes).
-  The one non-mechanical point is in `client.ts`'s header: on a server the token set lives in the
-  **shopper's session**, one per shopper, never one process-wide token (that is one cart for
-  everyone). Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
-  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Hosting is theirs; close
-  with run instructions, the dashboard link, and the allowed-domain step (add the public https
-  origin to the OAuth app before checkout can return).
+- **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
+  Astro — pages rendered on the server, a browser cart — with hosting and SEO plumbing theirs.
+  `init` still runs in the project folder; run `deploy.mjs <vertical> --stack static` there too: it
+  only needs `wix.config.json` and writes `js/wix/`. Split by where the call runs:
+  - **Reads render on the server.** Port `rest/catalog.ts` and its `*-core.ts` to the server
+    language: each function is one HTTP call with a literal URL and JSON body, and the core carries
+    the rules (price precedence, ribbons, ranges, media de-dupe, variant resolution). Catalog reads
+    are public, so one anonymous visitor token per server process, refreshed per `client.ts`, is
+    enough for them.
+  - **The cart runs in the browser.** Load `js/wix/cart.js` in the templates and let the page talk
+    to Wix directly for add/update/remove/checkout, exactly as a static site does: the browser
+    owns the shopper's visitor token in `localStorage`, so no per-shopper token handling on the
+    server. If the cart must run server-side anyway, `client.ts`'s header applies: one token set
+    per shopper in the shopper's session, never one process-wide token (that is one cart for
+    everyone).
+  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
+  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run
+  instructions, the dashboard link, and the allowed-domain step (add the public https origin to
+  the OAuth app before checkout can return).
 - Both: the calls in `rest/` are the ones a **visitor token** may make from a page — catalog
   reads, the current cart, the checkout redirect. Anything elevated (writes, orders, other
   people's data) runs server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI
-  token never belongs in a page. A static site or a port has no SSR and no owner-editable
-  item-page SEO — say so in the closing message; Astro stays the recommendation for a public store.
+  token never belongs in a page. A static site has no SSR; neither case has owner-editable
+  item-page SEO through `@wix/seo` (tags come from the entity's `seoData`) — say so in the closing
+  message; managed Astro stays the recommendation for a public store.
 
 ## Verticals
 

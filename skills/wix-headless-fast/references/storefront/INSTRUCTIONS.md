@@ -427,15 +427,19 @@ scroll lock, Escape, focus back). Pages are `shop.html`, `category.html?slug=…
 page. `npx @wix/cli@latest release` uploads the folder (`site.outputDirectory` in
 `wix.config.json` points at it).
 
-### Wiring — another language (port)
+### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
-Nothing deploys. `js/wix/*.ts` (or `references/storefront/rest/` + `catalog-core.ts` /
-`cart-core.ts` / `types.ts`) is the specification: port `client.ts` to a session-backed token
-store (one token set per shopper, in the shopper's session), then `catalog.ts` and `cart.ts` as
-services with the same names and DTOs, then the core rules once. Render the surfaces in your
-templating to the contracts above and the Verify list below; item-page tags from the entity's
-`seoData`. Pass your public https origin to `checkoutUrl(origin)` and add it to the OAuth app's
-allowed domains.
+Run `deploy.mjs storefront --stack static` in the project folder anyway: `js/wix/` is both the
+browser-side code and the readable spec. Then split by where the call runs. **Reads on the
+server:** port `js/wix/catalog.ts` and `catalog-core.ts` to your language — the same six functions
+returning the same DTO shapes as dicts, one anonymous visitor token per process for these public
+reads (mint and refresh per `client.ts`) — and render shop, category, and PDP in your templates to
+the contracts above, so product names and prices are in the HTML; item-page tags from the entity's
+`seoData`. **The cart in the browser:** load `./js/wix/cart.js` in the templates and drive the
+drawer, add, quantity, remove, and `checkoutUrl()` from the page, exactly as the static wiring
+above — the browser owns the shopper's visitor token, so the server never handles per-shopper
+tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
+to the OAuth app's allowed domains before checkout can return.
 
 ### Wiring — React SPA (Vite etc.)
 
