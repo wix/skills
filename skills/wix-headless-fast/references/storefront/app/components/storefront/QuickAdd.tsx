@@ -3,8 +3,10 @@
 //   • options / choice mods → Quick Add: a picker on the card (bottom sheet on small screens)
 //   • free-text modifier    → the product page (the gallery can't collect the text)
 // Mount as the LAST ROW of the tile's text block (under name and price), as a direct child of the
-// tile root that carries `relative` — the picker anchors to that root and takes its width. Never
-// overlay it on the image, never wrap it in a narrower positioned box.
+// tile root that carries `relative flex flex-col` — the picker anchors to that root and takes its
+// width, and the control pins itself to the tile's bottom (mt-auto) so the action row lines up
+// across a grid row whether or not a neighbour carries swatches or a struck price. Never overlay
+// it on the image, never wrap it in a narrower positioned box.
 //   <QuickAdd product={p} />   Wire as-is; style via the tokens.
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/storefront/useCart";
@@ -34,11 +36,11 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
   const [error, setError] = useState<string | null>(null);
 
   if (product.availability === "OUT_OF_STOCK" && !product.preorder) {
-    return <span className="text-sm text-muted-foreground">Out of stock</span>;
+    return <span className="mt-auto block pt-3 text-sm text-muted-foreground">Out of stock</span>;
   }
   if (product.quickAddable) {
     return (
-      <div>
+      <div className="mt-auto pt-3">
         <button
           type="button"
           disabled={busy}
@@ -56,7 +58,7 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
   // Options to pick, or a single variant that isn't plainly in stock (pre-order, partial stock):
   // the picker resolves it through useProductDetail, exactly as the PDP would.
   return (
-    <>
+    <div className="mt-auto pt-3">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -65,7 +67,7 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
         {product.optionsSummary ? "Choose options" : product.preorder ? "Pre-order" : "Add to cart"}
       </button>
       {open && <QuickAddPicker product={product} onClose={() => setOpen(false)} />}
-    </>
+    </div>
   );
 }
 
