@@ -31,7 +31,11 @@ vi.mock('../src/utils/github', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/utils/review-agent', () => ({ runReviewAgent }));
+vi.mock('../src/utils/review-agent', () => ({
+  runReviewAgent,
+  REVIEW_AGENT: 'skill-review',
+  agentPath: (workspace: string) => `${workspace}/.claude/agents/skill-review.md`,
+}));
 
 vi.mock('node:fs', () => ({ existsSync }));
 
@@ -168,12 +172,12 @@ describe('review mode — whether it spends', () => {
     expect(clearPending).toHaveBeenCalledOnce();
   });
 
-  it('reports a missing prompt rather than reviewing without its rules', async () => {
+  it('reports a missing reviewer definition rather than reviewing without its rules', async () => {
     process.env.INPUT_BLOCKING = 'true';
     existsSync.mockReturnValue(false);
     await run();
     expect(runReviewAgent).not.toHaveBeenCalled();
-    expect(postPending.mock.calls[0][0]).toContain('prompt');
+    expect(postPending.mock.calls[0][0]).toContain('.claude/agents/skill-review.md');
     expect(upsert).not.toHaveBeenCalled();
     expect(setFailed).toHaveBeenCalledOnce();
   });
