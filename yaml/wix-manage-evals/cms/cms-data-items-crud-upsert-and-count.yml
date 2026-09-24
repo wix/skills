@@ -8,7 +8,6 @@ triggerPrompt: >-
   item SKU-003 with quantity 7. Then tell me how many items in the collection now have quantity 0.
   Go ahead and make the changes.
 tags: [cms]
-maxTokens: 400000
 siteSetup:
   mode: template
   templateId: blank-editor
@@ -89,12 +88,15 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: >
-      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
-      Score 0-10 (10 = direct: one lookup query, one or two write calls, one count or filtered query,
-      answer). Penalize and LIST any of: a non-2xx error even if recovered; `_id` used where `id` was
-      required (or the reverse) and then corrected; `dataItems` sent to the patch endpoint or `patches`
-      to the update endpoint; a full-item replace that dropped fields and had to be repaired; paging
-      through all items to count them when a count call or a filtered query would do; redundant or
-      probing schema reads beyond one. Necessary reads (schema, the sku lookup, one verification read)
-      are not penalized. For each friction name the likely MCP/docs gap.
+      Rate the tool-call path 0-10. A clean run reads the skill document once, reads the collection
+      schema once, looks up the existing items by sku with one filtered query, writes with one or two
+      calls, then answers the count with a count call or one filtered query. Treat that as a 10; reading
+      the skill, the schema, or a docs page once each is expected and costs nothing. Score 7-8 when
+      the run adds a couple of extra reads or verification queries but every write has the right shape
+      the first time. Score below 7 only for mistakes the skill exists to prevent, and LIST them: a
+      non-2xx error even if recovered; `_id` used where `id` was required (or the reverse) and then
+      corrected; `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a
+      full-item replace that dropped fields and had to be repaired; paging through the whole
+      collection to count instead of a count call or a filtered query; an invented endpoint.
+      For each friction name the likely docs gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

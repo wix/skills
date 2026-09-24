@@ -7,7 +7,6 @@ triggerPrompt: >-
   In my Projects CMS collection, assign Alice and Bob from the Team collection to the
   "Website Redesign" project. Go ahead and make the change, then confirm who is on the project.
 tags: [cms]
-maxTokens: 400000
 siteSetup:
   mode: template
   templateId: blank-editor
