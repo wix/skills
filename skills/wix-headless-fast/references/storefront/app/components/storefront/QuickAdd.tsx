@@ -12,6 +12,23 @@ import { useProductDetail } from "../../hooks/storefront/useProductDetail";
 import type { ProductSummary } from "../../wix/storefront/types";
 
 export default function QuickAdd({ product }: { product: ProductSummary }) {
+  return (
+    // A tile is often one big <a>. A click inside the buy control must never become a navigation
+    // to the product page — this boundary cancels the link's default for everything below it
+    // (the button, the picker, the sheet). Still: keep the control OUTSIDE the tile's link.
+    <div
+      className="contents"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <QuickAddControl product={product} />
+    </div>
+  );
+}
+
+function QuickAddControl({ product }: { product: ProductSummary }) {
   const { addToCart, busy } = useCart();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
