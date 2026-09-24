@@ -337,15 +337,20 @@ export default function ShopView(props: {
   //     block, under name and price, full width — the shipped buy control (direct add / option
   //     picker / product page, decided from the product). It is a direct child of the tile root,
   //     which carries `relative`: the picker anchors to that root and takes the tile's width.
-  //     Never overlay the control on the image or float it between image and text, and never
-  //     wrap it in a smaller positioned box (the picker would inherit that box's width).
+  //     THE TILE ROOT IS A <div>, NOT THE LINK: the <a> wraps the image and the name/price, and
+  //     <QuickAdd> sits beside it — a button inside an <a> is invalid HTML and its click navigates
+  //     to the product page instead of adding. Never overlay the control on the image or float it
+  //     between image and text, and never wrap it in a smaller positioned box (the picker would
+  //     inherit that box's width).
+  //   • the name WRAPS (`min-w-0`, `break-words`) — no `truncate` / `line-clamp-1`: a shopper reads
+  //     "Red Velvet Cupcake 4-Pack", not "Red Velvet Cupc…"; price on its own line under it.
   //   • badges come ONLY from p.ribbons. Do NOT render a "Sale" badge because compareAtPrice
   //     is set — the struck price already says it, and a product the merchant ribboned "Sale"
   //     would show the badge twice.
-  //   • name and price on SEPARATE lines (`min-w-0`, the name may wrap) — never one flex row
-  //     where a long name and a price range fight for width and the price gets clipped at 390px.
-  //     Keep the page intro short enough that a full tile (image, name, price) is in the first
-  //     screen, also on a short desktop window.
+  //   • name and price on SEPARATE lines — never one flex row where a long name and a price
+  //     range fight for width and the price gets clipped at 390px. Keep the page intro short
+  //     enough that a full tile (image, name, price) is in the first screen, also on a short
+  //     desktop window.
   //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
@@ -467,7 +472,9 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
 - [ ] Shop first screen: at 1280×720 and at 390px wide, at least one full tile — image, name,
       price — is visible without scrolling; the tile with the longest product name and a price
       range shows the whole price at 390px, nothing clipped.
-- [ ] Tiles: the buy control sits under name and price (not over the image); a product with no
+- [ ] Tiles: the buy control sits under name and price (not over the image) and OUTSIDE the tile's
+      link — clicking "Add to cart" stays on the shop page and opens the drawer, it does not
+      navigate to the product; full product names are readable (no truncation); a product with no
       options adds to the cart in one click; a product with options opens the picker across the
       full tile width (a bottom sheet at 390px wide) and adds the chosen variant; the drawer
       opens after either.
