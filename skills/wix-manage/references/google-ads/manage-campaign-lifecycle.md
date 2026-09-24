@@ -47,6 +47,36 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campai
 
 Never skip step 1 because the change looks small. Changing one number still sends the full entity.
 
+### Request and response shape
+
+The body is `{ "campaign": … }` wrapping the whole object; the response is the same shape, carrying the campaign as stored. **There is no `updateMask` to send** — the field mask is derived from the object you pass, and the `updateMask` field in the published reference is not implemented. Nothing else needs looking up: the object below is what `GetCampaign` returns and what `PATCH` takes back.
+
+```
+campaign {
+  id*, accountId, campaignType, status*, resourceName*, name,
+  createdDate*, updatedDate*, actionDate*, reportingKey*,
+  budget { resourceName*, amountMicros },
+  locations[] { resourceName*, location { geoTargetConstant | proximity }, displayName },
+  adSchedule { adShowAnytime, sunday … saturday },
+  campaignBrief { id, platformType, goal, audience },
+
+  // exactly one of these two, decided by campaignType:
+  smartCampaign { keywordThemes[], excludedSearchTerms[], adGroups[], url,
+                  languageCode, businessName, phone, businessProfileLocationId,
+                  rejectionInfo },
+  performanceMaxCampaign { url, assetGroups[], languages[], conversionGoals[],
+                           excludedKeywords[], locationGroups[], biddingStrategy,
+                           feedLabel, endDate, phone, assetAutomationSettings,
+                           daysInLearning, rejectionInfo }
+}
+
+assetGroups[] { resourceName*, assetGroupAssets { assets[] },
+                assetGroupSignals { signals[] },
+                assetGroupListingGroupFilters[], status* }
+
+* = read-only: echo it back as read, never compose it yourself.
+```
+
 ```bash
 # 1. Read the current campaign
 curl -s 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campaignId}' \
