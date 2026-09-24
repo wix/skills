@@ -137,14 +137,8 @@ Uses Calendar Events API to create WORKING_HOURS events on the business schedule
 ### [CMS Data Items CRUD](references/cms/cms-data-items-crud.md)
 "Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
 
-### [CMS Data Operations Extended](references/cms/cms-data-operations-extended.md)
-Additional CMS data operations including count, upsert (bulk save), and update by filter patterns.
-
 ### [CMS eCommerce Catalog Integration](references/cms/cms-ecommerce-catalog-integration.md)
 The recommended way to sell existing CMS collection items (tickets, bookings, memberships) through Wix checkout. Add the CATALOG plugin to convert any CMS collection into purchasable products with cart and payment integration.
-
-### [CMS References And Relationships](references/cms/cms-references-and-relationships.md)
-"Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references."
 
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
 Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.

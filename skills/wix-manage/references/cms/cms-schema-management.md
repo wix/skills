@@ -86,6 +86,53 @@ curl -X GET \
 }
 ```
 
+### Add a Reference Field
+
+| Type | Field Type | Relationship | Example |
+|------|------------|--------------|---------|
+| Single Reference | `REFERENCE` | One-to-one, Many-to-one | Product → Category |
+| Multi-Reference | `MULTI_REFERENCE` | One-to-many, Many-to-many | Product → Tags |
+
+**Single reference** — `typeMetadata.reference` names the referenced collection:
+
+```json
+{
+  "dataCollectionId": "Products",
+  "field": {
+    "key": "category",
+    "displayName": "Category",
+    "type": "REFERENCE",
+    "typeMetadata": {
+      "reference": {
+        "referencedCollectionId": "Categories"
+      }
+    }
+  }
+}
+```
+
+**Multi-reference** — `typeMetadata.multiReference` also names the field created on the other collection:
+
+```json
+{
+  "dataCollectionId": "Products",
+  "field": {
+    "key": "tags",
+    "displayName": "Tags",
+    "type": "MULTI_REFERENCE",
+    "typeMetadata": {
+      "multiReference": {
+        "referencedCollectionId": "Tags",
+        "referencingFieldKey": "products",
+        "referencingDisplayName": "Products"
+      }
+    }
+  }
+}
+```
+
+To link items through these fields, see [Reference Fields](cms-data-items-crud.md#reference-fields) in the CMS Data Items CRUD recipe.
+
 ## Delete a Field from Collection
 
 > **Warning**: This permanently deletes all data stored in this field across all items.
