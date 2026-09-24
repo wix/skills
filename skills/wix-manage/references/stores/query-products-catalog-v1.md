@@ -58,6 +58,29 @@ curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
 
 ---
 
+## STEP 3: Paging past the 10,000-item offset cap
+
+**⚠️ Catalog V1 only supports `offset` paging, and `offset + limit` is capped at 10,000.** Once you hit that cap, you cannot page further by offset — there is no cursor-based alternative in V1. Do not report the capped result count as the exact product count; a search-backed total commonly stops at 10,000 even when the real catalog is larger.
+
+For a catalog larger than ~10k products, the workaround is **seek paging**: sort by a stable, unique field, keep `offset: 0`, and filter for values greater than the last one you received on each subsequent call:
+
+```bash
+curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+  "query": {
+    "sort": "[{\"fieldName\":\"<STABLE_SORT_FIELD>\",\"order\":\"ASC\"}]",
+    "filter": "{\"<STABLE_SORT_FIELD>\":{\"$gt\":\"<lastValueFromPreviousPage>\"}}",
+    "paging": { "limit": 100, "offset": 0 }
+  }
+}'
+```
+
+**⚠️ `<STABLE_SORT_FIELD>` is not yet confirmed.** This skill has not verified which V1 field is safe to both filter and sort on for seek paging — do not assume `numericId` (or any other field) works until it's been confirmed against the live API or by the Stores team. Before relying on this pattern, verify the candidate field is unique, monotonic, and supported by both `$gt` and `sort` on this endpoint.
+
+---
+
 ## Key Differences from V3
 
 | Feature | Catalog V1 | Catalog V3 |
