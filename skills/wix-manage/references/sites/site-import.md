@@ -216,11 +216,19 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
    against the site-scoped import. `destinationSiteId` in the
    response echoes this (empty = new site, set = that existing site), returned
    as soon as Start succeeds, even before a source is confirmed.
-   **One import per store at a time, keyed on `source_url`** (or the file set
-   when there's no `source_url`): re-starting with the same identity continues
-   the SAME migration (server returns the existing `importId`, no new import
-   created). A different identity always starts an independent migration, even
-   for the same user. If a different user on the account already owns an
+   **One import per store at a time, keyed on `source_url` (or the file set
+   when there's no `source_url`) together with call scope** — account-level
+   and a given `wix-site-id` are different keys even for the identical
+   `source_url`/file set: re-starting with the same identity (same source
+   AND same scope) continues the SAME migration (server returns the
+   existing `importId`, no new import created). A different identity —
+   a different source, a different file set, or the same source at a
+   *different* call scope — always starts an independent migration, even
+   for the same user. This is why getting the scope wrong at Start matters
+   (see above): re-calling Start with the corrected scope does not fix the
+   original import, it starts a second, independent one. To redo a
+   mis-scoped import, **Cancel it first**, then Start again with the
+   correct scope. If a different user on the account already owns an
    import for that identity, Start returns
    `409 { "code": "IMPORT_IN_PROGRESS" }` — tell the user and stop.
 
@@ -319,8 +327,8 @@ the user has no way to open a file.
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
-  **A `403` on a site-scoped call *without* `"code": "NOT_ENABLED"` is
-  different** — it means the caller isn't authorized for that `siteId`
+  **A `404` or `403` on a site-scoped call *without* `"code": "NOT_ENABLED"`
+  is different** — it means the caller isn't authorized for that `siteId`
   (wrong id, wrong account, no access), not a beta-enrollment issue. Tell
   the user the destination site isn't accessible with their current
   connection and stop; don't send them to the beta form for this.
