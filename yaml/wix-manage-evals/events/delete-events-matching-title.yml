@@ -1,12 +1,11 @@
 name: events/delete-events-matching-title
 description: >-
-  Verifies the manage-events recipe carries the bulk path for deleting several events: the agent
-  resolves the matching ids with Query Events (title has no contains operator, so it pages and
-  matches client-side), leaves includeDrafts false, removes exactly the matches with
-  bulk/events/delete-by-filter or per-id deletes, leaves the non-matching event alone, and names
-  what it deleted.
+  Verifies the manage-events recipe carries the bulk path for deleting several named events: the
+  agent resolves the ids with one Query Events call filtered on title with $in, keeps includeDrafts
+  false, removes exactly those events with bulk/events/delete-by-filter or per-id deletes, leaves
+  the other event alone, and names what it deleted.
 triggerPrompt: >-
-  Delete all my events that have Test in the name.
+  Delete my Test Night and Test Morning events.
 tags: [events]
 maxTokens: 500000
 siteSetup:
@@ -53,18 +52,18 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked: "Delete all my events that have Test in the name."
+      The user asked: "Delete my Test Night and Test Morning events."
 
       The site is seeded with three published events: "Test Night", "Test Morning" and "Spring Gala".
       Seeding can race site provisioning, so judge what the trace shows rather than assuming all
       three were there.
 
-      Pass if every seeded event with "Test" in its title was removed by successful (2xx) delete
-      calls — `POST /events/v3/bulk/events/delete-by-filter` or `DELETE /events/v3/events/{id}` —
-      "Spring Gala" was not deleted, and the agent named the titles it removed in its answer. If no
-      seeded events existed, pass only if the agent said so plainly.
+      Pass if "Test Night" and "Test Morning" were removed by successful (2xx) delete calls —
+      `POST /events/v3/bulk/events/delete-by-filter` or `DELETE /events/v3/events/{id}` — "Spring Gala"
+      was not deleted, and the agent named the events it removed in its answer. If no seeded events
+      existed, pass only if the agent said so plainly.
 
-      Fail if a Test event remains; OR "Spring Gala" was deleted or cancelled; OR deletion is
+      Fail if either named event remains; OR "Spring Gala" was deleted or cancelled; OR deletion is
       reported with no successful delete call in the trace; OR the answer does not say which events
       were deleted; OR the agent only described how without doing it.
 
@@ -73,20 +72,23 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Rate how directly the agent got from the request to the matching events being gone. Examine
+      Rate how directly the agent got from the request to the two named events being gone. Examine
       the tool-call trace, including request bodies and any error bodies. 10 = no wasted calls and
       no errors.
 
       Reading the recipe is expected and is never a wasted call. One `POST /events/v3/events/query`
-      (paged if needed) to resolve which events match is expected too, and so is a single
-      `POST /events/v3/bulk/events/delete-by-filter` with the matched ids under `filter.filter.id.$in`.
-      One `DELETE` per matched event is acceptable but costs a call each; deduct one point for it.
+      with a `title` filter — `$in` over both names, or `$eq` twice — to resolve the ids is expected
+      too, and so is a single `POST /events/v3/bulk/events/delete-by-filter` with those ids under
+      `filter.filter.id.$in`. One `DELETE` per event is acceptable but costs a call each; deduct one
+      point for it.
 
       Penalize and LIST any of the following, even where a later call succeeded:
 
       - a query sent with `includeDrafts: true`, whether or not it was wrapped in a try/catch — the
         recipe says to keep it false unless the user asks about drafts: app callers do not hold
         `WIX_EVENTS.READ_DRAFT_EVENTS`, so it fails `403 Requires WIX_EVENTS.READ_DRAFT_EVENTS permission`;
+      - paging through every event on the site instead of filtering on `title`, when the recipe shows
+        the filter and the user named the events;
       - a `400` from a guessed request shape — `paging` nested inside `filter`, a `$contains` on
         `title`, or a bulk delete body with a single `filter` level — each is a shape the recipe gives;
       - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out the

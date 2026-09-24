@@ -31,7 +31,8 @@ curl -X POST 'https://www.wixapis.com/apps-installer-service/v1/app-instance/ins
 ## Find an event
 
 Every action below takes an `eventId`. When the user names the event instead, look it up with
-`POST /events/v3/events/query` — `title` supports `$eq` and `$in`, not a contains match:
+`POST /events/v3/events/query` — `title` supports `$eq` and, for several names at once, `$in`; there is
+no contains match:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/events/v3/events/query' \
@@ -49,11 +50,6 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/query' \
 
 `filter` and `paging` are siblings under `query`; `paging` nested inside `filter` fails `400`. Matches
 come back in `events[]` with the id at `events[].id`, and `pagingMetadata.total` is the count.
-
-For "every event with *Test* in the name", query without a `title` filter (page with `paging.offset`
-until `pagingMetadata.total` is reached) and match the titles yourself. A contains match is broader
-than it looks — *Testimonial Night* also contains *Test* — so name the titles you matched when you
-report what you did.
 
 > **Keep `includeDrafts: false` unless the user is asking about draft events.** Setting it to `true`
 > needs `WIX_EVENTS.READ_DRAFT_EVENTS`, and a caller without it gets
