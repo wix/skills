@@ -25,8 +25,8 @@ components, plus your home page.
 | `hooks/storefront/useShop.ts` | listing: category scope, sort, filters, option facets, result count, paging — contract below |
 | `hooks/storefront/useProductDetail.ts` | option selection → variant resolution → add-to-cart — contract below |
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
-| `components/storefront/FilterPanel.tsx` | the gallery's filters — result count, sort, price bounds, in-stock, the catalog's option facets (swatches/pills), active chips, a bottom sheet under `md` — **wire as-is** in your `ShopView` (`<FilterPanel shop={shop} />`) |
-| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, an anchored picker (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** inside every tile (`<QuickAdd product={p} />`) |
+| `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per option facet with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
+| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
 | `components/storefront/ShopView.tsx` · `ProductDetailView.tsx` | **don't ship — YOU create them** (skeletons below): the client islands your shop, category, and PDP pages mount |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — same token family as the official Wix templates). Everything, shipped and yours, styles from these tokens |
 
@@ -76,8 +76,9 @@ of its category. Then, by default:
   category tile or link on the home page goes to that category's page (`/category/<slug>`) —
   never to an anchor on the shop page that every tile shares.
 - **Shop:** a real product card — image, name, price, link — in the first screen; the shipped
-  `FilterPanel` (sort, price, stock, and the option facets this catalog has) — a store with any
-  filterable catalog ships it, not "when it fits"; the shipped `QuickAdd` in every tile; each
+  `FilterPanel` around the grid (toolbar, then a filter sidebar beside the results on desktop and
+  a sheet on phones) — a store with any filterable catalog ships it, not "when it fits"; the
+  shipped `QuickAdd` as the last row of every tile; each
   category reachable by a real link (`/category/<slug>`) — from the nav, the home page, or the
   shop's category row; loading, empty, no-results, and error states that look different.
 - **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
@@ -118,8 +119,9 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 //   facets: Facet[], selectedChoiceIds, toggleChoice(choiceId), clearFilters(), hasActiveFilters,
 //   loading, error, retry(), hasMore, loadMore(), loadingMore }
 // Category = { id, slug, name, description }. Facet = { name, isColor, choices: [{ id, name, colorCode|null }] }.
-// The shipped <FilterPanel shop={useShop(...)} /> renders total/sort/filters/facets/chips — hand it
-// the whole hook result. Categories are LINKS (`/category/${c.slug}`) — a category page is a URL
+// The shipped <FilterPanel shop={shop}>{…your grid…}</FilterPanel> renders total/sort/chips, the
+// filter sidebar (md+) or sheet, and lays your results out beside it — hand it the whole hook result
+// and put your grid + states inside it; don't build a second filter UI or a second sort control. Categories are LINKS (`/category/${c.slug}`) — a category page is a URL
 // a shopper can share and a search engine can index; setActiveCategoryId is for a live scope
 // switch on /shop, not a substitute for the links.
 // Sort/filter/facets/search/paging run on Wix across the WHOLE catalog (a change restarts the list).
@@ -319,9 +321,11 @@ export default function ShopView(props: {
   //   • a category row when categories.length > 1: LINKS to `/category/${c.slug}` (plus "All" →
   //     /shop), the active one marked by activeCategoryId — real URLs, not only pills that
   //     swap state (setActiveCategoryId is fine for an additional live switch on /shop)
-  //   • <FilterPanel shop={shop} /> above the grid — shipped: result count, sort, price, stock,
-  //     the option facets, active chips; inline on wide screens, a sheet under md. Always
-  //     mounted; it renders only the facets this catalog actually has.
+  //   • <FilterPanel shop={shop}> … </FilterPanel> WRAPS your results — shipped: the toolbar
+  //     (result count, sort), active chips, a filter sidebar on md+ (price slider, availability,
+  //     the option facets, collapsible) beside your grid, a sheet under md. Your loading / empty /
+  //     error states and your grid go inside it as children. Always mounted; it shows only the
+  //     facets this catalog actually has. No sort control or filter UI of your own.
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
   //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
@@ -329,10 +333,12 @@ export default function ShopView(props: {
   //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
   //     swatches as small color dots when present (else optionsSummary as text); tile links to
-  //     `/products/${p.slug}`; and in every tile
-  //     <QuickAdd product={p} /> — the shipped buy control (direct add / anchored option
-  //     picker / product page, decided from the product). Give the tile `relative` so the
-  //     picker anchors to it on wide screens.
+  //     `/products/${p.slug}`; and <QuickAdd product={p} /> as the LAST ROW of the tile's text
+  //     block, under name and price, full width — the shipped buy control (direct add / option
+  //     picker / product page, decided from the product). It is a direct child of the tile root,
+  //     which carries `relative`: the picker anchors to that root and takes the tile's width.
+  //     Never overlay the control on the image or float it between image and text, and never
+  //     wrap it in a smaller positioned box (the picker would inherit that box's width).
   //   • badges come ONLY from p.ribbons. Do NOT render a "Sale" badge because compareAtPrice
   //     is set — the struck price already says it, and a product the merchant ribboned "Sale"
   //     would show the badge twice.
@@ -454,16 +460,17 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
 ## Verify (before declaring done)
 
 - [ ] `/shop` renders live products SSR (view-source shows product names) through **your**
-      grid/card; the `FilterPanel` shows the result count and this catalog's facets (a Color
-      option → swatches); category links lead to `/category/<slug>`, which renders scoped and
+      grid/card; the `FilterPanel` shows the result count, and on desktop a sidebar beside the
+      grid with the price slider and this catalog's facets (a Color option → swatches); category links lead to `/category/<slug>`, which renders scoped and
       carries the SEO tags in view-source; an unknown slug is a 404; empty catalog shows your
       honest empty state.
 - [ ] Shop first screen: at 1280×720 and at 390px wide, at least one full tile — image, name,
       price — is visible without scrolling; the tile with the longest product name and a price
       range shows the whole price at 390px, nothing clipped.
-- [ ] Tiles: a product with no options adds to the cart in one click; a product with options
-      opens the picker anchored to its tile (a bottom sheet at 390px wide) and adds the chosen
-      variant; the drawer opens after either.
+- [ ] Tiles: the buy control sits under name and price (not over the image); a product with no
+      options adds to the cart in one click; a product with options opens the picker across the
+      full tile width (a bottom sheet at 390px wide) and adds the chosen variant; the drawer
+      opens after either.
 - [ ] Your PDP at 390px wide: image, name, price, the first option, and the buy button are all
       visible before scrolling. Color options render as swatches, the button shows
       `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
