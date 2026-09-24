@@ -150,6 +150,8 @@ if (categoryId) conditions.push({ 'allCategoriesInfo.categories': { $matchItems:
 if (minPrice != null) conditions.push({ 'actualPriceRange.minValue.amount': { $gte: String(minPrice) } });
 if (maxPrice != null) conditions.push({ 'actualPriceRange.minValue.amount': { $lte: String(maxPrice) } });
 if (inStockOnly)      conditions.push({ 'inventory.availabilityStatus': { $eq: 'IN_STOCK' } });
+// Option facets (Color, Size…) — selected choice IDs; matches products carrying ANY of them:
+if (choiceIds.length) conditions.push({ 'options.choicesSettings.choices.choiceId': { $hasSome: choiceIds } });
 const filter = { $and: conditions };
 
 const SORTS = {
@@ -175,6 +177,7 @@ const { count } = await productsV3.countProducts({ filter });   // the "N produc
 ```
 
 - **Any change to category, sort, filters, or search starts over without a cursor.** Reset paging; ignore responses from a superseded query (version or abort in-flight requests so a late older response can't roll back a newer selection).
+- **The filter panel is part of the gallery, not an option** — whenever the catalog has anything to filter (more than a handful of products, prices that differ, an option like Color or Size), the gallery ships sort, price bounds, in-stock, and the option facets, plus the result `count`, active-filter chips, and a clear-all. Build the facets from the scope's own products (one 100-product `searchProducts` with the same category condition; collect each `options[].name` with its visible `choicesSettings.choices[]` — `choiceId`, `name`, `colorCode`; keep facets with more than one choice) so the panel never offers a filter nothing matches; a `SWATCH_CHOICES`/`COLOR_CHOICES` facet renders as swatches. Filters that stay visible beside the results commit immediately; filters in a sheet (small screens) stage changes until Apply.
 - Keep filter/sort state in the URL so back/forward and refresh preserve it — but translate back to the IDs Wix expects before querying.
 - Page size **24**. Offer "load more" or prev/next from the cursor; never raise the limit to avoid paging.
 - Docs: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/supported-filters-and-sorting.md?apiView=SDK>
@@ -194,7 +197,10 @@ const { count } = await productsV3.countProducts({ filter });   // the "N produc
 import { categories } from '@wix/categories';
 const res = await categories.queryCategories({
   treeReference: { appNamespace: '@wix/stores' },
-}).exists('name', true).find();   // items: { _id, name, slug, visible, parentCategory? }; link each to /category/<slug>
+}).exists('name', true).find();   // items: { _id, name, slug, visible, parentCategory? }
+// Every category is a PAGE at /category/<slug> — link each one from the nav (or a menu/footer when
+// the tree is large). A category that exists only as a filter toggle on the shop page has no URL a
+// shopper can share or a search engine can index.
 ```
 
 **⚠️ The query MUST carry a filter condition — chain `.exists('name', true)` (as above), do NOT call a bare `.find()`.** A `.find()` with no chained filter serializes an empty `"filter": {}`, which `categories/v1/categories/query` rejects with `400 INVALID_FILTER` — **fatal on the visitor/manual-client (non-Astro) path** (managed-Astro's server-side transport happens to tolerate it, so a bare `.find()` *looks* fine there and breaks the moment the same code runs client-side). `.exists('name', true)` is a tautology, so it matches **all** categories and is accepted on **both** paths. **Do NOT filter on `visible`** (`.eq('visible', true)`) — `visible` is **not declared filterable** on `queryCategories`, so it triggers a silently-swallowed `400` and the nav renders blank; filter `visible === false` out of the returned array **client-side**. Skip the auto-created `all-products` system category. Page through when the store has more than one page. Index by `_id`, rebuild parent/child from `parentCategory`, and **keep the `_id` for product queries — the slug is only for URLs and route matching.** This is a **distinct API from bookings' `categoriesV2`** — don't copy that module's query shape here: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/introduction.md?apiView=SDK>.
@@ -223,10 +229,12 @@ Render the description as HTML (see *Rendering product descriptions*), the info 
 const { product } = await productsV3.getProductBySlug(slug, { fields: DETAIL_FIELDS });
 if (!product) return new Response(null, { status: 404 });
 ---
+<!-- Two columns only from md; on a phone the gallery is a bounded band (e.g. max-h-[45vh]) so the
+     name, price, first option, and the action are still in the first screen at 390px wide. -->
 <ProductPurchase client:load product={product} />   <!-- the island owns price, options, quantity, action -->
 ```
 
-The purchase island takes the **server-fetched product as a prop** and mounts **`client:load`**, so the price, the option controls, and the buy action are in the initial HTML and hydrate in place. `client:only` is for widgets whose state exists only in the browser (the cart badge, the drawer — `astro.md` A4), not for the purchase area. **Render the price once**, inside the island, where it can follow the selected variant; the page doesn't print its own copy above it.
+The purchase island takes the **server-fetched product as a prop** and mounts **`client:load`**, so the price, the option controls, and the buy action are in the initial HTML and hydrate in place. `client:only` is for widgets whose state exists only in the browser (the cart badge, the drawer — `astro.md` A4), not for the purchase area. **Render the price once**, inside the island, where it can follow the selected variant; the page doesn't print its own copy above it. Description and info sections come **after** the buy action, never between the price and the button.
 
 ### Prices — which one the buyer actually pays
 
@@ -354,11 +362,29 @@ After either, refresh the estimate (below). **Never swallow the error**: an `awa
 
 ### Three ways to buy from the gallery
 
-Route each card by what the product needs from the buyer:
+**Every card carries a buy path** — a gallery whose only action is "view" is incomplete. Route each card by what the product needs from the buyer; one function, used by every card:
 
-1. **Direct Add** — no options, no modifiers, no subscriptions: add `variantSummary.minPriceVariant._id` with quantity 1, through the same serializer.
-2. **Quick Add** — the product has options or choice modifiers: fetch the full product lazily when the picker opens (`productsV3.getProduct(product._id, { fields: DETAIL_FIELDS })`), require a resolved variant and mandatory modifiers, fix quantity at 1. Anchor the picker **to its card** (an inline or attached panel; a bottom sheet on mobile) — a centered dialog is the exception for a demonstrably large configuration, not the default. Its first view shows identity, price, the first required choice, and the action.
-3. **Go to the product page** — the product has a free-text modifier or subscriptions: the gallery can't collect those inputs.
+```js
+// From LIST_FIELDS data alone — no per-card detail fetch.
+function purchasePath(p) {
+  const mods = p.modifiers ?? [];
+  if (mods.some((m) => m.modifierRenderType === 'FREE_TEXT') || p.subscriptionPricesInfo) return 'pdp';
+  if ((p.options?.length ?? 0) > 0 || mods.some((m) => m.mandatory)) return 'quickAdd';
+  if (p.inventory?.availabilityStatus === 'OUT_OF_STOCK' && p.inventory?.preorderStatus !== 'ENABLED') return 'soldOut';
+  return 'directAdd';
+}
+```
+
+1. **`directAdd`** — no options, no mandatory modifiers, no subscriptions: one click adds `variantSummary.minPriceVariant._id` with quantity 1, through the same serializer.
+2. **`quickAdd`** — the product has options or a mandatory choice modifier: fetch the full product **only when the picker opens**, then resolve exactly as the PDP does:
+   ```js
+   const { product: full } = await productsV3.getProduct(p._id, { fields: DETAIL_FIELDS });
+   // → the same option controls, variantByKey resolution, and catalogItem() serializer as the PDP;
+   //   selections start empty; quantity fixed at 1; the action disabled with its neutral reason until
+   //   a variant resolves and every mandatory modifier has a value.
+   ```
+   Anchor the picker **to its card** (an inline or attached panel; a bottom sheet on small screens) — a centered dialog is the exception for a demonstrably large configuration, not the default. Its first view shows identity, price, the first required choice, and the action; it follows the overlay contract (`experience-store.md` §3).
+3. **`pdp`** — a free-text modifier or subscriptions: link to the product page; the gallery can't collect those inputs.
 
 ### Cart totals — from Wix, never computed in the client
 
@@ -497,7 +523,34 @@ if (!product) return new Response(null, { status: 404 });
 </Layout>
 ```
 
-A dedicated category route uses `categoryPageMetadata` + `seoTags.ItemType.STORES_CATEGORY` with the same imports. (A category rendered only as a query-string *filter* on the shop page is a main page — automatic SEO, no `wixMetadata`.) Guide: <https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md>.
+The **category page** is the same block with the category identifiers — same imports, same `pageUrl`, same guard:
+
+```astro
+---
+// src/pages/category/[slug].astro
+export const wixMetadata = {
+  appDefId: WIX_APPS.checkoutAndOrders.id,
+  pageIdentifier: WIX_APPS.checkoutAndOrders.categoryPageMetadata.pageIdentifier,
+  identifiers: { slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.handle },
+};
+const slug = Astro.params.slug!;
+let category = null, seoTagsServiceConfig = null;
+try {
+  [category, seoTagsServiceConfig] = await Promise.all([
+    categories.getCategoryBySlug(slug, { appNamespace: "@wix/stores" }).then((r) => r.category ?? null),
+    loadSEOTagsServiceConfig({ pageUrl, itemType: seoTags.ItemType.STORES_CATEGORY, itemData: { slug } }),
+  ]);
+} catch {}
+if (!category || category.visible === false) return new Response(null, { status: 404 });
+// category._id → the gallery query's categoryId; category.name / description head the page
+---
+<Layout title={category.name}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+  …
+</Layout>
+```
+
+(A category rendered only as a query-string *filter* on the shop page is a main page — automatic SEO, no `wixMetadata` — but it is not a substitute for the category pages above.) Guide: <https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md>.
 
 **Non-Astro (you render the head yourself):** map `product.seoData` / `category.seoData` tags into the head and fill only what's missing from truthful entity data. Rules that hold on both paths: **one** document title and **one** canonical per page (a merchant override wins over a generated fallback; a tag the merchant disabled stays absent); a missing entity returns a **real 404**, never a rendered shell with another product's tags; clear route tags on client navigation so a product's metadata can't leak into the next page; a `Product` JSON-LD block only from real data — never fabricated reviews, ratings, or availability.
 
@@ -510,7 +563,7 @@ Read the catalog first; then, **only when the data is present**:
 - **Product groups** (`extendedFields.namespaces['@stores/product-groups'].productGroupId` is a string): the group's members are **navigation between products** (the "same shirt in linen" case), not variants — query the group via the Product Groups API and render members as choices that navigate to the member's slug.
 - **Positioned promotions**: `promotionsV3.resolvePromotions(categoryId)` returns category-gallery banners with a **one-based** `position` — insert at `position - 1` only once that many products have loaded. They are editorial media, not evidence of a discount, and they belong to that category's gallery, not the homepage. Docs: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3.md>
 - **Back-in-stock ("Notify me")**: only when the store's back-in-stock settings allow it, the selected variant is out of stock, and you have an implemented, session-safe notification endpoint — a form whose submit goes nowhere is not a graceful placeholder.
-- **Filter facets** beyond price/stock (color, size): the option choice fields (`options.choicesSettings.choices.choiceId` with `$hasSome`) discover *products*; Quick Add or the PDP still resolves the actual variant.
+- **Filter facets** beyond price/stock (color, size) are in the gallery query above, not conditional: the option choice fields (`options.choicesSettings.choices.choiceId` with `$hasSome`) discover *products*; Quick Add or the PDP still resolves the actual variant.
 
 For the exact shapes of the group, notification, and inventory APIs, find the method pages via `DOC_DISCOVERY.md` (`document_type: SDK`); they aren't pinned here because most catalogs don't use them.
 
@@ -528,6 +581,7 @@ A correct Catalog V3 storefront frontend:
 - requests **`LIST_FIELDS` / `DETAIL_FIELDS`** on every read, and uses **`product._id`** (never `product.id`) as the cart's `catalogItemId`;
 - reads the product page with **`getProductBySlug` + `VARIANT_OPTION_CHOICE_NAMES`** and resolves the variant by **sorted choice IDs** — selections start empty, the mandatory **`variantId`** goes in `options.variantId` (not `options.options`);
 - prices with **`priceAfterDiscount` → `actualPrice` → `compareAtPrice`** precedence and renders **every ribbon**, never inferring one from the other;
-- sorts, filters, and pages **on Wix** (`searchProducts` + `$matchItems: [{ id: categoryId }]` on `allCategoriesInfo.categories`, cursor paging at 24) — never a frozen seed-time list, never `queryProducts` for categories, never `$hasSome`, never V1 `collectionIds`;
+- sorts, filters, and pages **on Wix** (`searchProducts` + `$matchItems: [{ id: categoryId }]` on `allCategoriesInfo.categories`, option facets via `$hasSome` on choice IDs, cursor paging at 24) — never a frozen seed-time list, never `queryProducts` for categories, never V1 `collectionIds`;
+- ships the gallery's filter panel and gives every card its buy path (`purchasePath`: direct add / quick add / product page), and gives every category a page at `/category/<slug>` linked from the chrome;
 - shows cart totals from **`estimateCurrentCart`**, changes quantity with **`{ lineItems: [{ lineItemId, quantity: { newQuantity } }] }`**, checks out through the **redirect session** with an `https://` origin, and keeps Buy Now on a standalone cart;
 - builds the homepage, gallery, product page, and side cart to the bar in `experience-store.md` — the store is the surfaces, not the calls.
