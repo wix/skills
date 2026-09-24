@@ -10,6 +10,7 @@ import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
 import type {
   Category,
+  Facet,
   ProductDetail,
   ProductOption,
   ProductModifier,
@@ -221,6 +222,8 @@ export interface CatalogSearchOptions {
   inStockOnly?: boolean;
   /** Name search, max 100 chars. */
   search?: string;
+  /** Option-choice facets: products carrying ANY of these choice ids (see fetchFacets). */
+  choiceIds?: string[];
 }
 
 /**
@@ -237,7 +240,8 @@ export async function searchCatalog({
   maxPrice,
   inStockOnly = false,
   search = "",
-}: CatalogSearchOptions = {}): Promise<{ products: ProductSummary[]; nextCursor: string | null }> {
+  choiceIds = [],
+}: CatalogSearchOptions = {}): Promise<{ products: ProductSummary[]; nextCursor: string | null; total: number | null }> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100)
     throw new Error("limit must be between 1 and 100.");
   let query: RawProduct = { cursorPaging: { limit, ...(cursor ? { cursor } : {}) } };
@@ -257,6 +261,8 @@ export async function searchCatalog({
     if (max !== undefined)
       conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
     if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
+    // Facets discover PRODUCTS that carry a choice; the PDP / QuickAdd still resolves the variant.
+    if (choiceIds.length) conditions.push({ "options.choicesSettings.choices.choiceId": { $hasSome: choiceIds } });
     query = {
       ...query,
       filter: { $and: conditions },
@@ -265,10 +271,55 @@ export async function searchCatalog({
     };
   }
   const res: RawProduct = await products.searchProducts(query, { fields: LIST_FIELDS as any });
+  // The result count for the "N products" line — same filter, issued alongside the first page.
+  let total: number | null = null;
+  if (!cursor && query.filter) {
+    try {
+      const count: RawProduct = await products.countProducts({ filter: query.filter });
+      total = typeof count?.count === "number" ? count.count : null;
+    } catch {
+      /* the count is a nicety — the page is still valid */
+    }
+  }
   return {
     products: (res.products ?? []).map((p: RawProduct) => toSummary(p)),
     nextCursor: res.pagingMetadata?.cursors?.next ?? null,
+    total,
   };
+}
+
+/**
+ * The filterable options of the catalog (or of one category): every option name with its
+ * choices, aggregated from the products themselves — so the panel only offers facets that
+ * exist. Color options carry a colorCode for swatches. Non-fatal: [] when the read fails.
+ */
+export async function fetchFacets({ categoryId }: { categoryId?: string | null } = {}): Promise<Facet[]> {
+  try {
+    const conditions: RawProduct[] = [{ visible: true }];
+    if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
+    const res: RawProduct = await products.searchProducts(
+      { filter: { $and: conditions }, cursorPaging: { limit: 100 } },
+      { fields: [] as any },
+    );
+    const byName = new Map<string, Facet>();
+    for (const p of (res.products ?? []) as RawProduct[]) {
+      for (const o of (p.options ?? []) as RawProduct[]) {
+        const name = o.name ?? "";
+        if (!name) continue;
+        const isColor = o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES";
+        const facet: Facet = byName.get(name) ?? { name, isColor, choices: [] };
+        for (const ch of (o.choicesSettings?.choices ?? []) as RawProduct[]) {
+          if (ch.visible === false || !ch.choiceId) continue;
+          if (!facet.choices.some((x) => x.id === ch.choiceId))
+            facet.choices.push({ id: ch.choiceId, name: ch.name ?? "", colorCode: ch.colorCode ?? null });
+        }
+        byName.set(name, facet);
+      }
+    }
+    return [...byName.values()].filter((f) => f.choices.length > 1);
+  } catch {
+    return [];
+  }
 }
 
 /** First page of visible products in the default order — a thin wrap of searchCatalog. */
@@ -307,14 +358,35 @@ export async function fetchCategories(): Promise<Category[]> {
       .exists("name", true)
       .find();
     return (res.items ?? [])
-      .map((c) => ({
-        id: (c as RawProduct)._id ?? "",
-        slug: (c as RawProduct).slug ?? "",
-        name: (c as RawProduct).name ?? "",
-      }))
+      .map((c) => toCategory(c as RawProduct))
       .filter((c) => c.slug !== "all-products");
   } catch {
     return [];
+  }
+}
+
+function toCategory(raw: RawProduct): Category {
+  return {
+    id: raw._id ?? raw.id ?? "",
+    slug: raw.slug ?? "",
+    name: raw.name ?? "",
+    description: raw.description ?? "",
+  };
+}
+
+/**
+ * One category by its URL slug — the data a /category/[slug] page needs (its id feeds
+ * searchCatalog / useShop, its name and description head the page). Null when not found or
+ * hidden, which the page turns into a real 404 — never a fallback to all products.
+ */
+export async function fetchCategoryBySlug(slug: string): Promise<Category | null> {
+  try {
+    const res: RawProduct = await categories.getCategoryBySlug(slug, { appNamespace: "@wix/stores" } as any);
+    const raw: RawProduct | undefined = res?.category;
+    if (!raw || raw.visible === false) return null;
+    return toCategory(raw);
+  } catch {
+    return null;
   }
 }
 

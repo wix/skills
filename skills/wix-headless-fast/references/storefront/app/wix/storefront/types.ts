@@ -96,6 +96,23 @@ export interface Category {
   id: string;
   slug: string;
   name: string;
+  /** Plain-text description when the merchant wrote one; "" otherwise. */
+  description: string;
+}
+
+export interface FacetChoice {
+  /** The option choice id — what searchCatalog({ choiceIds }) filters on. */
+  id: string;
+  name: string;
+  /** Hex color for a swatch facet; null for a text facet. */
+  colorCode: string | null;
+}
+
+/** One filterable option across the catalog (or a category): "Color" with its choices. */
+export interface Facet {
+  name: string;
+  isColor: boolean;
+  choices: FacetChoice[];
 }
 
 export interface CartLine {

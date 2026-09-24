@@ -75,7 +75,11 @@ the shipped UI**: give at least one product a color option and put one product o
 truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
-"sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
+"sample" data, no resets. If a cleanup genuinely seems needed, ask the user first. The one
+exception is built in: the fast path passes `--fresh-site` because it created the site seconds
+earlier, and the seed then deletes the Stores install's sample products before creating yours
+(`samplesDeleted` in the result). Never pass that flag by hand against a site that existed before.
+Categories are idempotent by name too — a re-run reuses "Donuts" instead of creating a second one.
 
 **A bulk create can partially succeed.** The result carries `failures: [{ name, error }]` next
 to `products` — read it. A non-empty `failures` means those products are genuinely absent, not
