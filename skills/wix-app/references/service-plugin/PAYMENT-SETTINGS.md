@@ -45,7 +45,6 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 
@@ -84,7 +83,6 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 
