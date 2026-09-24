@@ -118,12 +118,17 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: >
-      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
-      Score 0-10 (10 = direct: query the three items, write the two links, read back, answer).
-      Penalize and LIST any of: a non-2xx error even if recovered; a guessed request shape corrected
-      afterwards (e.g. `dataItems` where `dataItemReferences` or `patches` was needed); writing the IDs
-      into the field via insert/update first and only then switching to the reference endpoints;
-      redundant or probing schema reads beyond one collection/schema read; invented endpoints.
-      Necessary reads (schema, item lookups by name, one read-back) are not penalized.
-      For each friction name the likely MCP/docs gap.
-      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx error even
+      if recovered; a guessed request shape corrected afterwards (for example `dataItems` where
+      `dataItemReferences` or `patches` was needed); an invented endpoint; writing the member IDs
+      into the `team` field through insert, bulk insert or PUT and reporting success without a
+      read-back; a wrong or missing final read-back with includeReferencedItems.
+      Subtract 1 for each of these inefficiencies, up to 3 points in total: a second read of the
+      same collection schema; a docs or search call beyond the first skill read; an extra
+      verification or lookup query beyond one read-back; listing a whole collection where a filter
+      by name would do.
+      Reading the skill once, reading each collection's schema once, one lookup query per named
+      item, the write calls, and one read-back are the expected path and cost nothing.
+      LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.

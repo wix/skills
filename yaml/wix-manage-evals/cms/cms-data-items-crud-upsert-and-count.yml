@@ -88,15 +88,17 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: >
-      Rate the tool-call path 0-10. A clean run reads the skill document once, reads the collection
-      schema once, looks up the existing items by sku with one filtered query, writes with one or two
-      calls, then answers the count with a count call or one filtered query. Treat that as a 10; reading
-      the skill, the schema, or a docs page once each is expected and costs nothing. Score 7-8 when
-      the run adds a couple of extra reads or verification queries but every write has the right shape
-      the first time. Score below 7 only for mistakes the skill exists to prevent, and LIST them: a
-      non-2xx error even if recovered; `_id` used where `id` was required (or the reverse) and then
-      corrected; `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a
-      full-item replace that dropped fields and had to be repaired; paging through the whole
-      collection to count instead of a count call or a filtered query; an invented endpoint.
-      For each friction name the likely docs gap.
-      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx error even
+      if recovered; `_id` used where `id` was required (or the reverse) and then corrected;
+      `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a full-item
+      replace that dropped fields and had to be repaired; an invented endpoint; a final count that
+      is not backed by a count call or a filtered query made after the writes.
+      Subtract 1 for each of these inefficiencies, up to 3 points in total: a second read of the
+      collection schema; a docs or search call beyond the first skill read; listing the whole
+      collection to find the SKUs instead of one filtered query; an extra verification query beyond
+      one.
+      Reading the skill once, reading the schema once, one lookup query, the write calls, and one
+      count or filtered query are the expected path and cost nothing.
+      LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.
