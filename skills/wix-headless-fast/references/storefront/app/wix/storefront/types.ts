@@ -120,6 +120,19 @@ export interface Facet {
   choices: FacetChoice[];
 }
 
+/** The catalog's (or category's) lowest and highest product price, as numbers in site currency — the slider's bounds. */
+export interface PriceRange {
+  min: number;
+  max: number;
+  currency: string;
+}
+
+/** What the filter panel needs beyond the product page: the facets and the price bounds of the scope. */
+export interface FacetData {
+  facets: Facet[];
+  priceRange: PriceRange | null;
+}
+
 export interface CartLine {
   /** The cart line id — what update/remove take (NOT the product id). */
   lineItemId: string;

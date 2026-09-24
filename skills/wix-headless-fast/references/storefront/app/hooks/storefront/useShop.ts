@@ -14,11 +14,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CATALOG_SORTS,
   fetchCategories,
-  fetchFacets,
+  fetchFacetData,
   searchCatalog,
   type CatalogSort,
 } from "../../wix/storefront/catalog";
-import type { Category, Facet, ProductSummary } from "../../wix/storefront/types";
+import type { Category, Facet, PriceRange, ProductSummary } from "../../wix/storefront/types";
 
 export const SORTS = CATALOG_SORTS;
 
@@ -53,6 +53,8 @@ export interface UseShop {
   setFilters: (filters: ShopFilters) => void;
   /** The filterable options of the current scope (Color, Size…), from the catalog itself. */
   facets: Facet[];
+  /** Lowest and highest product price in the scope — the price slider's bounds; null until known or when all prices are equal. */
+  priceRange: PriceRange | null;
   /** Selected facet choice ids — products carrying ANY of them match. */
   selectedChoiceIds: string[];
   toggleChoice: (choiceId: string) => void;
@@ -108,6 +110,7 @@ export function useShop({
   const [filters, setFilters] = useState<ShopFilters>({});
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
   const [facets, setFacets] = useState<Facet[]>([]);
+  const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState<PageState>({
     key: null,
@@ -182,7 +185,11 @@ export function useShop({
   // Facets follow the category scope (a Size facet in "Donuts" is meaningless).
   useEffect(() => {
     let alive = true;
-    fetchFacets({ categoryId: activeCategoryId }).then((f) => alive && setFacets(f));
+    fetchFacetData({ categoryId: activeCategoryId }).then((d) => {
+      if (!alive) return;
+      setFacets(d.facets);
+      setPriceRange(d.priceRange);
+    });
     return () => {
       alive = false;
     };
@@ -286,6 +293,7 @@ export function useShop({
     filters,
     setFilters,
     facets,
+    priceRange,
     selectedChoiceIds,
     toggleChoice,
     clearFilters,

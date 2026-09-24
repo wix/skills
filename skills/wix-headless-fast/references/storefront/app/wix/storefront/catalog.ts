@@ -11,6 +11,7 @@ import { imgSrc } from "../media";
 import type {
   Category,
   Facet,
+  FacetData,
   ProductDetail,
   ProductOption,
   ProductModifier,
@@ -319,7 +320,16 @@ export async function searchCatalog({
  * choices, aggregated from the products themselves — so the panel only offers facets that
  * exist. Color options carry a colorCode for swatches. Non-fatal: [] when the read fails.
  */
-export async function fetchFacets({ categoryId }: { categoryId?: string | null } = {}): Promise<Facet[]> {
+export async function fetchFacets(scope: { categoryId?: string | null } = {}): Promise<Facet[]> {
+  return (await fetchFacetData(scope)).facets;
+}
+
+/**
+ * Facets plus the scope's price bounds (lowest minimum, highest maximum across its products) — the
+ * filter panel's slider needs both, from one 100-product read. Non-fatal: empty facets and a null
+ * range when the read fails.
+ */
+export async function fetchFacetData({ categoryId }: { categoryId?: string | null } = {}): Promise<FacetData> {
   try {
     const conditions: RawProduct[] = [{ visible: true }];
     if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
@@ -328,7 +338,15 @@ export async function fetchFacets({ categoryId }: { categoryId?: string | null }
       { fields: [] as any },
     );
     const byName = new Map<string, Facet>();
+    let lo = Infinity;
+    let hi = -Infinity;
+    let currency = "";
     for (const p of (res.products ?? []) as RawProduct[]) {
+      const min = Number(p.actualPriceRange?.minValue?.amount);
+      const max = Number(p.actualPriceRange?.maxValue?.amount);
+      if (Number.isFinite(min)) lo = Math.min(lo, min);
+      if (Number.isFinite(max)) hi = Math.max(hi, max);
+      currency = currency || p.currency || "";
       for (const o of (p.options ?? []) as RawProduct[]) {
         const name = o.name ?? "";
         if (!name) continue;
@@ -342,9 +360,12 @@ export async function fetchFacets({ categoryId }: { categoryId?: string | null }
         byName.set(name, facet);
       }
     }
-    return [...byName.values()].filter((f) => f.choices.length > 1);
+    return {
+      facets: [...byName.values()].filter((f) => f.choices.length > 1),
+      priceRange: Number.isFinite(lo) && Number.isFinite(hi) && hi > lo ? { min: Math.floor(lo), max: Math.ceil(hi), currency } : null,
+    };
   } catch {
-    return [];
+    return { facets: [], priceRange: null };
   }
 }
 
