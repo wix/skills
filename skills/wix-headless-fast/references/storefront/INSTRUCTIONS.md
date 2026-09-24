@@ -17,7 +17,7 @@ components, plus your home page.
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet` + `sizes` for responsive tiles |
+| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet(p.imageUrl)` + `sizes` for responsive tiles (it takes the DTO's resolved URLs) — always alongside `src={p.imageUrl}` |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
 | `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
@@ -329,17 +329,25 @@ export default function ShopView(props: {
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
   //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
-  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image (hoverImageUrl on
-  //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
+  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image — ALWAYS
+  //     src={p.imageUrl}, plus srcSet={imgSrcSet(p.imageUrl)} and sizes for responsive delivery
+  //     (never srcSet alone: an <img> with no src has nothing to fall back to); hoverImageUrl
+  //     on hover — name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
   //     swatches as small color dots when present (else optionsSummary as text); tile links to
   //     `/products/${p.slug}`; and <QuickAdd product={p} /> as the LAST ROW of the tile's text
   //     block, under name and price, full width — the shipped buy control (direct add / option
   //     picker / product page, decided from the product). It is a direct child of the tile root,
   //     which carries `relative`: the picker anchors to that root and takes the tile's width.
-  //     THE TILE ROOT IS A <div>, NOT THE LINK: the <a> wraps the image and the name/price, and
-  //     <QuickAdd> sits beside it — a button inside an <a> is invalid HTML and its click navigates
-  //     to the product page instead of adding. Never overlay the control on the image or float it
+  //     THE TILE ROOT IS A <div className="relative flex flex-col">, NOT THE LINK: the <a> wraps
+  //     the image and the name/price, and <QuickAdd> sits beside it as the flex column's last child
+  //     (it pins itself to the bottom with mt-auto). A button inside an <a> is invalid HTML and its
+  //     click navigates to the product page instead of adding.
+  //   • ROW RHYTHM: the grid stretches every tile in a row to the tallest; with the tile a flex
+  //     column and the control pinned to the bottom, the buy buttons share one baseline across the
+  //     row even when one tile has swatches, a struck price, or a two-line name and its neighbours
+  //     don't. Put the swatches between price and control; never let them push only that tile's
+  //     button down. Never overlay the control on the image or float it
   //     between image and text, and never wrap it in a smaller positioned box (the picker would
   //     inherit that box's width).
   //   • the name WRAPS (`min-w-0`, `break-words`) — no `truncate` / `line-clamp-1`: a shopper reads
@@ -474,7 +482,8 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
       range shows the whole price at 390px, nothing clipped.
 - [ ] Tiles: the buy control sits under name and price (not over the image) and OUTSIDE the tile's
       link — clicking "Add to cart" stays on the shop page and opens the drawer, it does not
-      navigate to the product; full product names are readable (no truncation); a product with no
+      navigate to the product; full product names are readable (no truncation); in a row that
+      mixes an optioned product (swatches) with plain ones, the buy buttons share one baseline; a product with no
       options adds to the cart in one click; a product with options opens the picker across the
       full tile width (a bottom sheet at 390px wide) and adds the chosen variant; the drawer
       opens after either.
@@ -483,8 +492,9 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
       `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
       price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
       a pre-orderable one reads "Pre-order".
-- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price; a
-      product with a color option shows its swatches.
+- [ ] Cards: every product image renders (not its alt text) on the shop, the category page, and
+      the home page; every ribbon renders; a multi-price product shows a range with no struck
+      price; a product with a color option shows its swatches.
 - [ ] PDP gallery: one thumbnail per distinct photo — never two selectors leading to the same image.
 - [ ] Cart: a subscription line shows its plan terms under the product name.
 - [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
