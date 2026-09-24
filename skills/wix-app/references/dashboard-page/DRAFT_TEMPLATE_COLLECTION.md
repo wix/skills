@@ -5,7 +5,10 @@
 
 > **This is the hand-wired path — you write `fetchData`, the filters and the columns.** If the rows
 > are a CMS collection, its schema already knows all three: use
-> [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) instead.
+> [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) instead — *unless* the prompt
+> names an exact column subset, which that path cannot express
+> ([DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path)). Then it is this file, over
+> `@wix/data`.
 
 ## Two rules this skeleton encodes, so read them before editing it
 
