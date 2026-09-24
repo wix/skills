@@ -50,25 +50,10 @@ function slugify(displayName: string): string {
   return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
 
-/**
- * The slug the docs pipeline actually publishes a skill under.
- *
- * md-resolver (wix-private/docs, serverless/md-resolver/src/utils/docs/docs-utils.ts) sets a
- * doc's menu display name to `title.split('/').pop()` — a slash in a documentation.yaml title
- * is the API-repo convention for "ServiceName/Doc Title" — and the page slug is derived from
- * that display name. So "CMS Publishing Flow & Visible/Hidden" was served at `/skills/hidden`
- * while a plain slugify of the whole title said `cms-publishing-flow-visible-hidden`, and the
- * covering scenario could never match. Mirror the pipeline here; `slashedTitles` flags the
- * titles so nobody relies on it.
- */
-export function publishedSlug(title: string): string {
-  return slugify(title.split('/').pop() ?? '');
-}
-
 export function canonicalDocUrl(filePath: string, workspace: string): string | null {
   const info = buildDocIndex(workspace).get(resolvePath(workspace, filePath));
   if (!info) return null;
-  const slug = publishedSlug(info.title);
+  const slug = slugify(info.title);
   if (!slug) return null;
   return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
 }

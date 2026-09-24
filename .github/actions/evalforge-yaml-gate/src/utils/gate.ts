@@ -131,7 +131,7 @@ export async function runGate(): Promise<void> {
     }
   }
 
-  // A slash in a title publishes the page under the last segment (see publishedSlug); a
+  // A slash in a title publishes the page under the last segment (see slashedTitles); a
   // pre-existing offender only warns, so it does not block PRs elsewhere in the repo.
   const slashed = slashedTitles(workspace, baseWorkspace);
   for (const e of slashed.existing) {

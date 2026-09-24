@@ -188,8 +188,11 @@ export type SlashedTitles = {
 
 /**
  * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
- * text after the last slash (see `publishedSlug` in doc-url.ts). For a skill that is never
- * wanted: the recipe loses its name and every URL derived from the full title misses.
+ * text after the last slash: md-resolver (wix-private/docs) sets the menu display name to
+ * `title.split('/').pop()`, the API-repo convention for "ServiceName/Doc Title", and derives
+ * the slug from it. For a skill that is never wanted — the recipe loses its name, and the
+ * gate's URL (a slugify of the whole title) no longer matches what is served. "CMS Publishing
+ * Flow & Visible/Hidden" was served at /skills/hidden for two months this way.
  */
 export function slashedTitles(workspace: string, baseWorkspace: string): SlashedTitles {
   const headIndex = loadDocsEntryIndex(workspace);

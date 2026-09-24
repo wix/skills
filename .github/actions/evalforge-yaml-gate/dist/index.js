@@ -67085,7 +67085,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.publishedSlug = publishedSlug;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
@@ -67129,25 +67128,11 @@ function slugify(displayName) {
     }
     return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
-/**
- * The slug the docs pipeline actually publishes a skill under.
- *
- * md-resolver (wix-private/docs, serverless/md-resolver/src/utils/docs/docs-utils.ts) sets a
- * doc's menu display name to `title.split('/').pop()` — a slash in a documentation.yaml title
- * is the API-repo convention for "ServiceName/Doc Title" — and the page slug is derived from
- * that display name. So "CMS Publishing Flow & Visible/Hidden" was served at `/skills/hidden`
- * while a plain slugify of the whole title said `cms-publishing-flow-visible-hidden`, and the
- * covering scenario could never match. Mirror the pipeline here; `slashedTitles` flags the
- * titles so nobody relies on it.
- */
-function publishedSlug(title) {
-    return slugify(title.split('/').pop() ?? '');
-}
 function canonicalDocUrl(filePath, workspace) {
     const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
     if (!info)
         return null;
-    const slug = publishedSlug(info.title);
+    const slug = slugify(info.title);
     if (!slug)
         return null;
     return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
@@ -67331,8 +67316,11 @@ async function validateDocsEntries(targets) {
 }
 /**
  * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
- * text after the last slash (see `publishedSlug` in doc-url.ts). For a skill that is never
- * wanted: the recipe loses its name and every URL derived from the full title misses.
+ * text after the last slash: md-resolver (wix-private/docs) sets the menu display name to
+ * `title.split('/').pop()`, the API-repo convention for "ServiceName/Doc Title", and derives
+ * the slug from it. For a skill that is never wanted — the recipe loses its name, and the
+ * gate's URL (a slugify of the whole title) no longer matches what is served. "CMS Publishing
+ * Flow & Visible/Hidden" was served at /skills/hidden for two months this way.
  */
 function slashedTitles(workspace, baseWorkspace) {
     const headIndex = loadDocsEntryIndex(workspace);
@@ -67666,7 +67654,7 @@ async function runGate() {
             return;
         }
     }
-    // A slash in a title publishes the page under the last segment (see publishedSlug); a
+    // A slash in a title publishes the page under the last segment (see slashedTitles); a
     // pre-existing offender only warns, so it does not block PRs elsewhere in the repo.
     const slashed = (0, docs_entry_check_1.slashedTitles)(workspace, baseWorkspace);
     for (const e of slashed.existing) {
