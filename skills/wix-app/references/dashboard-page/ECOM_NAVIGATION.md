@@ -141,6 +141,23 @@ dashboard.navigate(
 );
 ```
 
+## taxSettings()
+
+Ecom Extensions Dashboard Pages 'taxSettings()' destination builder for navigating to the Tax Settings dashboard page.
+
+**Request:**
+This method does not take any parameters.
+
+**Example:**
+```typescript
+import { dashboard } from "@wix/dashboard";
+import { pages } from "@wix/ecom/dashboard";
+
+dashboard.navigate(
+  pages.taxSettings(),
+);
+```
+
 ## orderRefund()
 
 Ecom Extensions Dashboard Pages 'orderRefund()' destination builder for navigating to the Order Refund dashboard page.

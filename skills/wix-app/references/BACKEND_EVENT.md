@@ -44,7 +44,8 @@ export default contacts.onContactCreated(async (event) => {
 ## Key Constraints
 
 - **One handler per event** – You cannot have two event extensions for the same event in the app (local or dashboard).
-- **Permissions** – Each event may require specific permission scopes; configure them in the app dashboard (Permissions page).
+- **Permissions** – Each event may require specific permission scopes; `wix generate` does **not** add these to the app automatically. Add the scope yourself on the app's Permissions page (Dev Center → your app → Permissions → Add Permissions) — see the **Permission** column in [COMMON-EVENTS.md](backend-event/COMMON-EVENTS.md) for the exact scope. If the app is already installed on a site, that site's owner (or you, on your own dev site) must also re-approve the app through the install/update flow before the new scope takes effect there — revisit the app-installer link (the `dev.wix.com/apps/<appId>/home` "Test App" flow, or the release output's install links) and accept "Agree & Update".
+- **Adding the first event to an app forces a major release** – The very first event extension in an app requests a brand-new permission scope, so `wix release --version-type minor` fails with `Minor version release is not allowed` / `Release major version.`; use `--version-type major` for that release. Once the required scope already exists on the app, later changes to event handler code can release as `minor`.
 - **Testing** – Release a version with your changes, then perform the action that triggers the event. Some events are not fully testable in local dev.
 - **Backend limits** – Event handlers run under backend extension limits (e.g. 1000 CPU ms per request, 20 sub-requests). See [About Backend Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/backend-extensions/about-backend-extensions).
 
@@ -57,5 +58,5 @@ export default contacts.onContactCreated(async (event) => {
 
 ## Testing Event Extensions
 
-1. **Release** a version with your changes.
-2. **Trigger** the event by taking an action.
+1. **Release** a version with your changes (see the major-vs-minor note above — the first event extension needs `--version-type major`).
+2. **Trigger** the event by taking the real action on the site (e.g., create a Contact via the dashboard or REST API). Verify the app's Webhooks page (Dev Center → your app → Webhooks → Subscriptions) shows the subscription, then check the **Logs** tab there after triggering — a `SUCCESS` row with the expected `entityId`/payload confirms the event was delivered to your handler's deployed endpoint.

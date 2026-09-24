@@ -303,7 +303,7 @@ Site plugins are sandboxed when rendered in the editor. This means they're treat
 
 **How to handle sandboxing:**
 
-Use the `viewMode()` function from `@wix/site-window` to check the current mode before accessing restricted APIs:
+Use the `viewMode()` function from `@wix/site-window` to check the current mode before accessing restricted APIs. `@wix/site-window` is not part of the CLI's default scaffolded `package.json` — install it first (`npm install @wix/site-window`), or the build fails with `Rollup failed to resolve import "@wix/site-window"`:
 
 ```typescript
 import { window as wixWindow } from '@wix/site-window';

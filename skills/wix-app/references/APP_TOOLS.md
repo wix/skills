@@ -51,6 +51,7 @@ export default extensions.appTools({
   tools: [
     {
       methodName: 'get-order-status',
+      displayName: 'Get Order Status',
       description: 'Returns the current fulfillment status, shipping carrier, and tracking number for a customer order. Use this tool when a collaborator or customer asks where their order is, whether it has shipped, when it will arrive, or needs a tracking number. Requires a valid orderId.',
       requestSchema: {
         type: 'object',
@@ -120,7 +121,7 @@ when it will arrive, or needs a tracking number. Requires a valid orderId.'
 ## Checklist
 
 - [ ] Tool declarations filled in the generated `.extension.ts` (replace the stub `myMethod`)
-- [ ] Set `activated: true` on every tool you want the AI assistant to invoke (`activated: false` tools are declared but never called)
+- [ ] Set `activated: true` on every tool you want the AI assistant to invoke (`activated` is optional and **defaults to `false`** if omitted — an omitted or `false` tool is declared but never called, with no build error to warn you)
 - [ ] `runTool` handler covers every `methodName` that has `activated: true`
 - [ ] Inputs validated defensively (schemas are advisory, not enforced by Wix)
 - [ ] Wix API calls wrapped with `auth.elevate` from `@wix/essentials`
