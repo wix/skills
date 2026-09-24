@@ -1,7 +1,7 @@
 
 # Wix Service Plugin (SPI) Builder
 
-Service plugins are a set of APIs defined by Wix that let you inject custom logic into the existing backend flows of Wix business solutions or introduce entirely new flows. When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations) and Bookings customization (staff sorting).
+Service plugins are a set of APIs defined by Wix that let you inject custom logic into the existing backend flows of Wix business solutions or introduce entirely new flows. When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations), Bookings customization (staff sorting, booking validation, policies, pricing, availability), Realtime channel permissions, and exposing tools to the Wix AI assistant.
 
 ## Scaffold
 
@@ -16,11 +16,18 @@ Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` i
 | `ECOM_PAYMENT_SETTINGS` | Payment Settings | No |
 | `GIFT_CARDS_PROVIDER` | Gift Cards Provider | **Yes** |
 | `STAFF_SORTING_PROVIDER` | Bookings Staff Sorting | No |
+| `BOOKINGS_VALIDATION_PROVIDER` | Bookings Validation | No |
+| `BOOKING_POLICY_PROVIDER` | Booking Policy | No |
+| `BOOKINGS_PRICING_PROVIDER` | Bookings Pricing Provider | No |
+| `AVAILABILITY_TIME_SLOTS_CONFIGURATION_PROVIDER` | Availability Time Slots Configuration | No |
 | `REALTIME_PERMISSIONS_PROVIDER` | Realtime Permissions Provider | No |
+| `TOOLS_PROVIDER_CONFIG` | Tools Provider | No |
 
 > **Singular types** — `ECOM_SHIPPING_RATES`, `ECOM_DISCOUNTS_TRIGGER`, and `GIFT_CARDS_PROVIDER` are **singular**: only one component of each type is allowed per app. Never scaffold or include two components of the same singular type in the same app payload.
 
 `name` must be lowercase alphanumeric + hyphens, max 19 characters. The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type. Some SPI types (e.g., `ECOM_SHIPPING_RATES`) get a `description` placeholder field in the generated builder — replace it with your real copy.
+
+> **Missing dependency after scaffolding:** `wix generate` adds the SPI's SDK package (e.g. `@wix/bookings`, `@wix/realtime`) to `package.json`, but does not always install it into `node_modules`. If `tsc`/`wix build` reports the import as unresolved right after scaffolding, run `npm install <package>` for just that package (no need for a full reinstall) before debugging further.
 
 ## References
 
@@ -35,6 +42,12 @@ Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` i
 | Shipping Rates | [SHIPPING-RATES.md](service-plugin/SHIPPING-RATES.md) |
 | Validations | [VALIDATIONS.md](service-plugin/VALIDATIONS.md) |
 | Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](service-plugin/BOOKINGS-STAFF-SORTING.md) |
+| Bookings Validation | [BOOKINGS-VALIDATION.md](service-plugin/BOOKINGS-VALIDATION.md) |
+| Booking Policy | [BOOKING-POLICY.md](service-plugin/BOOKING-POLICY.md) |
+| Bookings Pricing Provider | [BOOKINGS-PRICING.md](service-plugin/BOOKINGS-PRICING.md) |
+| Availability Time Slots Configuration | [AVAILABILITY-TIME-SLOTS-CONFIGURATION.md](service-plugin/AVAILABILITY-TIME-SLOTS-CONFIGURATION.md) |
+| Realtime Permissions Provider | [REALTIME-PERMISSIONS.md](service-plugin/REALTIME-PERMISSIONS.md) |
+| Tools Provider | [TOOLS_PROVIDER.md](service-plugin/TOOLS_PROVIDER.md) |
 
 ## Implementation Pattern
 
