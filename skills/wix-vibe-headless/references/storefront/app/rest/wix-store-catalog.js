@@ -101,38 +101,29 @@ function priceBound(value, name) {
   return Number(value);
 }
 
-// The filter every catalog read shares (the page, its count, the facets) — one place, so they
-// can't drift apart.
-function catalogFilter({ categoryId, minPrice, maxPrice, inStockOnly = false, choiceIds = [] } = {}) {
-  const min = priceBound(minPrice, "minPrice"), max = priceBound(maxPrice, "maxPrice");
-  if (min !== undefined && max !== undefined && min > max) throw new Error("minPrice must not exceed maxPrice.");
-  const conditions = [{ visible: true }];
-  if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
-  // Search rejects two operators in the same field object. Join separate bounds with $and.
-  if (min !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $gte: String(min) } });
-  if (max !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
-  if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
-  // Facets discover PRODUCTS carrying a choice; the PDP / quick add still resolves the variant.
-  if (choiceIds.length) conditions.push({ "options.choicesSettings.choices.choiceId": { $hasSome: choiceIds } });
-  return { $and: conditions };
-}
-
 /**
  * Search visible catalog products, sorted/filtered across the whole catalog.
  * Price bounds and ordering use the product's minimum actual variant price in site currency.
  * A cursor continues the original query; start without one when any selection changes.
  * @param {{ limit?: number, cursor?: string, categoryId?: string, sort?: string,
- *   minPrice?: number|string, maxPrice?: number|string, inStockOnly?: boolean, search?: string,
- *   choiceIds?: string[] }} [options] — choiceIds: option choice ids from fetchFacets(); ANY match
+ *   minPrice?: number|string, maxPrice?: number|string, inStockOnly?: boolean, search?: string }} [options]
  * @returns {Promise<{ products: object[], nextCursor: string|null }>}
  */
-export async function searchProducts({ limit = 100, cursor, categoryId, sort = "featured", minPrice, maxPrice, inStockOnly = false, search = "", choiceIds = [] } = {}) {
+export async function searchProducts({ limit = 100, cursor, categoryId, sort = "featured", minPrice, maxPrice, inStockOnly = false, search = "" } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("limit must be between 1 and 100.");
   let query = { cursorPaging: { limit, ...(cursor ? { cursor } : {}) } };
   if (!cursor) {
     if (!Object.hasOwn(CATALOG_SORTS, sort)) throw new Error("Unsupported catalog sort.");
+    const min = priceBound(minPrice, "minPrice"), max = priceBound(maxPrice, "maxPrice");
+    if (min !== undefined && max !== undefined && min > max) throw new Error("minPrice must not exceed maxPrice.");
     if (typeof search !== "string" || search.trim().length > 100) throw new Error("Search must be at most 100 characters.");
-    query = { ...query, filter: catalogFilter({ categoryId, minPrice, maxPrice, inStockOnly, choiceIds }),
+    const conditions = [{ visible: true }];
+    if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
+    // Search rejects two operators in the same field object. Join separate bounds with $and.
+    if (min !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $gte: String(min) } });
+    if (max !== undefined) conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
+    if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
+    query = { ...query, filter: { $and: conditions },
       ...(SORT_FIELDS[sort] ? { sort: SORT_FIELDS[sort] } : {}),
       ...(search.trim() ? { search: { expression: search.trim(), fields: ["name"] } } : {}),
     };
@@ -183,50 +174,15 @@ export function queryProductsByCategory(categoryId, options = {}) {
 }
 
 /**
- * Number of visible products matching a selection — the gallery's "N products" line (same filter
- * options as searchProducts, minus sort/search). With no options: the whole catalog (0 → empty state).
- * @param {{ categoryId?: string, minPrice?: number|string, maxPrice?: number|string,
- *   inStockOnly?: boolean, choiceIds?: string[] }} [options]
+ * Total number of visible products. Used for empty-state logic (0 → prompt user to add products).
  * @returns {Promise<number>}
  */
-export async function countProducts(options = {}) {
+export async function countProducts() {
   const res = await wixApiRequest("/stores/v3/products/count", {
     method: "POST",
-    body: { filter: catalogFilter(options) },
+    body: { filter: { visible: true } },
   });
   return res?.count ?? 0;
-}
-
-/**
- * The filterable options of the catalog (or of one category), aggregated from the products
- * themselves so the panel only offers facets that exist: [{ name, isColor, choices: [{ id, name,
- * colorCode }] }], facets with more than one choice only. [] on failure — never fatal.
- * @param {{ categoryId?: string }} [options]
- * @returns {Promise<Array<{ name: string, isColor: boolean, choices: Array<{ id: string, name: string, colorCode: string|null }> }>>}
- */
-export async function fetchFacets({ categoryId } = {}) {
-  try {
-    const res = await wixApiRequest("/stores/v3/products/search", {
-      method: "POST",
-      body: { fields: [], search: { filter: catalogFilter({ categoryId }), cursorPaging: { limit: 100 } } },
-    });
-    const byName = new Map();
-    for (const p of res?.products ?? []) {
-      for (const o of p.options ?? []) {
-        if (!o.name) continue;
-        const isColor = o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES";
-        const facet = byName.get(o.name) ?? { name: o.name, isColor, choices: [] };
-        for (const c of o.choicesSettings?.choices ?? []) {
-          if (c.visible === false || !c.choiceId) continue;
-          if (!facet.choices.some((x) => x.id === c.choiceId)) facet.choices.push({ id: c.choiceId, name: c.name ?? "", colorCode: c.colorCode ?? null });
-        }
-        byName.set(o.name, facet);
-      }
-    }
-    return [...byName.values()].filter((f) => f.choices.length > 1);
-  } catch {
-    return [];
-  }
 }
 
 /**
