@@ -67,7 +67,23 @@ Building the body by hand instead of piping? Copy the `campaign` object out of t
 
 **An array sent partially loses the items left out of it** — or is rejected, where an item is required. To add a keyword theme, send the existing themes *plus* the new one. To reword one headline, send the asset group with every other headline, description, image and signal unchanged. To add a city, send the existing `locations` plus the new entry.
 
-Both worked updates below start from the same `campaign.json` the read in step 1 produced, and append to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry loses everything already in it.
+Each worked update below starts from the same `campaign.json` the read in step 1 produced, and appends to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry loses everything already in it.
+
+**Add a geo target.** Resolve it first — never invent or hardcode a `geoTargetConstant`:
+
+```bash
+curl -s 'https://www.wixapis.com/_serverless/pa-google/v1/geo-options?queryLocation=Brooklyn&languageCode=en&countryCode=US' \
+  -H 'Authorization: <AUTH>'
+# → { "googleSuggestion": { "geoTargetsSuggestions": { "geoTargets": [
+#       { "id": "geoTargetConstants/1022762", "displayName": "Brooklyn,New York,United States", "countryCode": "US" }, … ] } } }
+
+jq '{ campaign: (.campaign | .locations += [
+       { "location": { "geoTargetConstant": "geoTargetConstants/1022762" },
+         "displayName": "Brooklyn,New York,United States" }
+     ]) }' campaign.json > update.json
+```
+
+The `id` already carries the `geoTargetConstants/` prefix — use it verbatim, don't wrap it again. Matching is loose and near-namesakes come back first (`Brooklyn Park,Minnesota`, `Brooklyn,Ohio`), so pick on `displayName` and put the choice to the user when more than one is plausible. A `locations` entry is exactly the shape the read returns for the targets already there; its `resourceName` is read-only and belongs to a stored target, so never invent one for an entry you are adding. Proximity targeting and restricted locations: [Get Campaign Suggestions](get-campaign-suggestions.md) § Geo targets.
 
 **Smart campaign — exclude a search term.** Traffic-quality tuning; this is the only way to set `excludedSearchTerms`.
 
@@ -95,19 +111,6 @@ The entire asset group rides along — every headline, description, image and ex
 | Rename the campaign | `budget`, `locations`, `adSchedule`, and the whole campaign-type block |
 | Add or remove one geo target | The complete new `locations` array — plus everything above |
 | Edit one asset or keyword theme | The complete asset group / theme list — plus everything above |
-
-**A new geo target needs a `geoTargetConstant`, which you have to resolve first — never invent or hardcode one.**
-
-```bash
-curl -s 'https://www.wixapis.com/_serverless/pa-google/v1/geo-options?queryLocation=Brooklyn&languageCode=en&countryCode=US' \
-  -H 'Authorization: <AUTH>'
-```
-
-→ `{ "googleSuggestion": { "geoTargetsSuggestions": { "geoTargets": [ { "id": "geoTargetConstants/1022762", "displayName": "Brooklyn,New York,United States", "countryCode": "US" }, … ] } } }`
-
-The `id` already carries the `geoTargetConstants/` prefix — use it verbatim, don't wrap it again. A query matches loosely and returns near-namesakes first (`Brooklyn Park,Minnesota`, `Brooklyn,Ohio`), so pick the entry by its `displayName`, and put the choice to the user when more than one is plausible.
-
-Each entry in `locations` is `{ "location": { "geoTargetConstant": "geoTargetConstants/1022762" }, "displayName": "Brooklyn,New York,United States" }` — the same shape the read returns for the targets already there, so append to that array rather than building a new one. (`resourceName` also comes back on each entry; it is read-only and belongs to the target already stored, so never invent one for an entry you are adding.) Full contract, including proximity targeting and restricted locations: [Get Campaign Suggestions](get-campaign-suggestions.md) § Geo targets.
 
 Budget is in **micros** (`30000000` = $30.00/day). Over the account max → `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` (check `GET /v1/campaign/daily-budget-boundaries`, returns min/max in micros).
 
