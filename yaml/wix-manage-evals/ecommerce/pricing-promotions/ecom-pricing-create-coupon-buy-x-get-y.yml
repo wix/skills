@@ -1,0 +1,49 @@
+name: ecommerce/pricing-promotions/create-coupon-buy-x-get-y
+description: Create a store-wide Buy X Get Y coupon via the Coupons API, verifying the site-wide scope shape holds for a coupon type other than percent/money/fixed-price off.
+triggerPrompt: |
+  For my Wix store, create a coupon so that customers who buy 2 of anything get 1 more for free — across ALL products in the store, not just one item. Use the code BUY2GET1.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The agent was asked to create a store-wide "buy 2, get 1 free" coupon (code BUY2GET1)
+      that applies across all products, not a single item.
+
+      Pass if ALL of these are true:
+        1. The create payload uses the `buyXGetY` coupon type, mapping "buy 2 get 1" to
+           `{ "x": 2, "y": 1 }` (or an equivalent x/y pair expressing the same offer).
+        2. It applied the all-products scope as `{ "namespace": "stores" }` with the `group`
+           field omitted entirely — the same site-wide shape used for percent/money-off coupons,
+           NOT `group: { "name": "product" }` or `group: {}`.
+        3. The coupon-create call actually succeeded (2xx) and the final response confirms a
+           coupon was created — not merely attempted.
+
+      Fail if ANY of these are true:
+        - The create call was sent with a `group` field (populated or `group: {}`) for the SITE
+          scope and rejected with a 400 "invalid combination of scope and coupon type" error.
+        - The agent reported it could not create the coupon due to a scope/coupon-type error.
+        - The agent used a different coupon type (e.g. `percentOffRate`) instead of `buyXGetY`.
+        - The agent scoped the coupon to a single product/collection instead of all products.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
+      Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST any of:
+        - A non-2xx error from `POST /stores/v2/coupons`, even if the agent recovered by retrying
+          with a different body (e.g. first sending `group: { "name": "product" }` or `group: {}`
+          for a SITE-scope BuyXGetY coupon, then retrying after removing `group`).
+        - Any other probing or corrective retry against the Coupons API.
+        - The agent giving up and reporting failure instead of retrying.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.
