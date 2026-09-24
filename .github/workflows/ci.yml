@@ -107,10 +107,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      # Node 22, not 24, for wix-app only: Node 24.21.0's HTTP/2 client crashes Yarn
+      # 4.12.0's fetch step ("onCancel handler was attached after the promise settled")
+      # when installing a large, uncached dependency set — reproduced repeatedly in CI
+      # on this step. Scoped to wix_app so evalforge below still gets Node 24 via its
+      # own setup-node call.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' || needs.detect.outputs.wix_app_refs != '' }}
+        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.wix_app_refs != '' }}
         with:
-          node-version: '24'
+          node-version: '22'
 
       # ── wix-app: typecheck the TypeScript embedded in the reference docs ────────────
       # Absorbed from the former wix-app-typecheck.yml, which owned the `typecheck`
@@ -155,6 +160,13 @@ jobs:
       # Building evalforge-core is setup, not a second check: both actions consume it via
       # `portal:` and its `main`/`types` point at `dist/`, so its declarations must exist
       # before they can be typechecked. `tsc` emitting is itself a typecheck of the package.
+      #
+      # Own setup-node call: restores Node 24 here regardless of the Node 22 override
+      # above, so the wix-app workaround doesn't change evalforge's Node version.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        with:
+          node-version: '24'
 
       - name: evalforge-core — install and build
         if: ${{ needs.detect.outputs.evalforge == 'true' }}
