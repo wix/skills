@@ -232,7 +232,7 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 #### Shipping leaves (loaded by the Shipping dispatcher)
 - [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
 - [Set Up Regions](references/ecommerce/shipping/ecom-shipping-setup-regions.md)
-- [Set Up Pickup and Local Delivery](references/ecommerce/shipping/ecom-shipping-setup-pickup.md)
+- [Set Up Pickup / Local Delivery](references/ecommerce/shipping/ecom-shipping-setup-pickup.md)
 - [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-free-shipping.md)
 - [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)

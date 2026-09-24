@@ -111,7 +111,7 @@ apiDoc:
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-pickup.md
-      title: "Shipping: Set Up Pickup and Local Delivery"
+      title: "Shipping: Set Up Pickup / Local Delivery"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
