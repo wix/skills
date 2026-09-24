@@ -24,10 +24,42 @@ const categories = wixModule(categoriesModule);
 // Requested on every product read. CURRENCY populates formattedAmount (without it, prices render
 // as bare unlocalized numbers); MEDIA_ITEMS_INFO populates the gallery; the detail read adds
 // PLAIN_DESCRIPTION and VARIANT_OPTION_CHOICE_NAMES (which populates variantsInfo.variants).
-const LIST_FIELDS = ["CURRENCY", "MEDIA_ITEMS_INFO"];
-const DETAIL_FIELDS = [...LIST_FIELDS, "PLAIN_DESCRIPTION", "VARIANT_OPTION_CHOICE_NAMES"];
+// MIN_PRICE_VARIANT + DISCOUNT_INFO → variantSummary.minPriceVariant with its discounted price:
+// a card's real price and the direct-add variant id, without a per-product fetch.
+const LIST_FIELDS = ["CURRENCY", "MEDIA_ITEMS_INFO", "MIN_PRICE_VARIANT", "DISCOUNT_INFO"];
+// INFO_SECTION + INFO_SECTION_PLAIN_DESCRIPTION → infoSections[] with HTML bodies.
+const DETAIL_FIELDS = [
+  ...LIST_FIELDS,
+  "PLAIN_DESCRIPTION",
+  "VARIANT_OPTION_CHOICE_NAMES",
+  "INFO_SECTION",
+  "INFO_SECTION_PLAIN_DESCRIPTION",
+];
 
 type RawProduct = Record<string, any>;
+
+/**
+ * The price the buyer pays, and the price to strike — exact precedence, shared by cards and
+ * variants. An automatic discount (priceAfterDiscount, present when DISCOUNT_INFO is requested)
+ * wins and strikes the regular actualPrice; otherwise actualPrice with the merchant's
+ * compareAtPrice as the "was". `!== undefined` on purpose: a discounted price of 0 is a real price.
+ */
+export function sellingPrice(price: RawProduct | undefined): { current?: RawProduct; original?: RawProduct } {
+  if (price?.priceAfterDiscount !== undefined) return { current: price.priceAfterDiscount, original: price.actualPrice };
+  return { current: price?.actualPrice, original: price?.compareAtPrice };
+}
+
+/** The struck price only when it is real and higher than what the buyer pays. */
+function strike(original: RawProduct | undefined, current: RawProduct | undefined): string | null {
+  const o = Number(original?.amount), c = Number(current?.amount);
+  return original?.formattedAmount && Number.isFinite(o) && Number.isFinite(c) && o > c ? original.formattedAmount : null;
+}
+
+/** Every merchant ribbon label, primary first — a ribbon is a label, never proof of a price. */
+function ribbonsOf(raw: RawProduct): string[] {
+  return [raw.ribbon?.name, ...((raw.additionalRibbons ?? []) as RawProduct[]).map((r) => r?.name)]
+    .filter((n, i, all): n is string => typeof n === "string" && n.length > 0 && all.indexOf(n) === i);
+}
 
 function toAvailability(raw: RawProduct): Availability {
   const status = raw.inventory?.availabilityStatus;
@@ -51,14 +83,24 @@ function toSummary(raw: RawProduct): ProductSummary {
       return `${visible.length} ${String(o.name ?? "").toLowerCase()}${visible.length === 1 ? "" : "s"}`;
     })
     .join(" · ");
+  // Price: the cheapest variant's selling price (discount applied) via MIN_PRICE_VARIANT; the
+  // product range when variants are priced differently. A struck "was" only for a single price.
+  const min = raw.actualPriceRange?.minValue;
+  const max = raw.actualPriceRange?.maxValue;
+  const isRange = !!(min?.amount && max?.amount && min.amount !== max.amount);
+  const minVariant: RawProduct | undefined = raw.variantSummary?.minPriceVariant;
+  const { current, original } = sellingPrice(minVariant?.price);
+  const ribbons = ribbonsOf(raw);
   return {
     id: raw._id ?? "",
     slug: raw.slug ?? "",
     name: raw.name ?? "",
-    price: raw.actualPriceRange?.minValue?.formattedAmount ?? "",
-    maxPrice: raw.actualPriceRange?.maxValue?.formattedAmount ?? "",
-    compareAtPrice: raw.compareAtPriceRange?.minValue?.formattedAmount ?? null,
-    ribbon: raw.ribbon?.name ?? null,
+    price: current?.formattedAmount ?? min?.formattedAmount ?? "",
+    maxPrice: max?.formattedAmount ?? "",
+    compareAtPrice: isRange ? null : strike(original ?? raw.compareAtPriceRange?.minValue, current ?? min),
+    ribbon: ribbons[0] ?? null,
+    ribbons,
+    minPriceVariantId: minVariant?._id ?? minVariant?.variantId ?? null,
     availability,
     preorder,
     imageUrl: mainUrl,
@@ -107,12 +149,14 @@ function toVariants(raw: RawProduct): ProductVariant[] {
       const names = c.optionChoiceNames;
       if (names?.optionName) choices[names.optionName] = names.choiceName ?? "";
     }
+    const { current, original } = sellingPrice(v.price);
     return {
       variantId: v._id ?? v.variantId ?? "",
       choices,
-      price: v.price?.actualPrice?.formattedAmount ?? "",
-      compareAtPrice: v.price?.compareAtPrice?.formattedAmount ?? null,
+      price: current?.formattedAmount ?? "",
+      compareAtPrice: strike(original, current),
       inStock: v.inventoryStatus?.inStock !== false,
+      preorderEnabled: v.inventoryStatus?.preorderEnabled === true,
     };
   });
 }
@@ -125,7 +169,10 @@ function toDetail(raw: RawProduct): ProductDetail {
   ].filter((u, i, arr) => u && arr.indexOf(u) === i);
   return {
     ...summary,
-    descriptionHtml: raw.plainDescription ?? "",
+    descriptionHtml: raw.plainDescription ?? "",   // plainDescription IS an HTML string despite the name
+    infoSections: ((raw.infoSections ?? []) as RawProduct[])
+      .map((s) => ({ title: s.title ?? "", html: s.plainDescription ?? "" }))
+      .filter((s) => s.title || s.html),
     gallery,
     options: toOptions(raw),
     modifiers: toModifiers(raw),

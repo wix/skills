@@ -257,12 +257,13 @@ describe('reading the answer', () => {
     const args = testables.buildArgs(invocation);
     const schema = JSON.parse(args[args.indexOf('--json-schema') + 1]);
     const finding = schema.properties.findings.items;
-    expect(finding.properties.severity.enum).toEqual(['blocking', 'fix-before-merge']);
+    expect(finding.properties.severity.enum).toEqual(['blocking', 'advisory']);
     expect(finding.required).toContain('consequence');
     expect(finding.additionalProperties).toBe(false);
     // Numerical constraints are not supported by structured outputs, and the CLI is not the SDK
     // that strips them client-side.
-    expect(finding.properties.line).toEqual({ type: 'integer' });
+    expect(finding.properties.line.type).toBe('integer');
+    expect(finding.required).toContain('suggestion');
   });
 
   it('reports a non-zero exit without echoing stderr onto the PR', async () => {

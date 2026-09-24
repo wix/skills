@@ -30,11 +30,22 @@ export interface UseProductDetail {
   setModifier: (key: string, value: string) => void;
   /** The resolved variant; null while the selection is incomplete. */
   variant: ProductVariant | null;
-  /** Price to display right now (variant price once resolved, else the product range). */
+  /**
+   * Price to display right now: the product RANGE ("€24.99 – €34.99", one value when equal) until
+   * every option is picked, then the selected variant's price (an automatic discount applied).
+   */
   price: string;
+  /** Struck "was" price — only once a variant is resolved (or for a single-price product), never beside a range. */
   compareAtPrice: string | null;
-  /** False until every option is selected (and the resolved variant is in stock). */
+  /** The resolved variant is out of stock but pre-orderable — label the action "Pre-order". */
+  isPreorder: boolean;
+  /** False until every option is selected and the resolved variant is in stock or pre-orderable. */
   canAdd: boolean;
+  /**
+   * Why the action is disabled — neutral guidance to render beside it ("Choose Size"), not an
+   * error; null when the buyer can add. Promote to error styling only after they try to buy.
+   */
+  blockedReason: string | null;
   quantity: number;
   setQuantity: (n: number) => void;
   /** Adds the resolved variant to the cart (opens the drawer). Throws on refusal. */
@@ -83,16 +94,33 @@ export function useProductDetail({ initial, slug }: UseProductDetailOptions): Us
     [product, selections],
   );
 
-  const mandatoryModifiersFilled = (product?.modifiers ?? [])
-    .filter((m) => m.mandatory)
-    .every((m) => (modifierValues[m.key] ?? "").length > 0);
+  const missingModifier = (product?.modifiers ?? []).find(
+    (m) => m.mandatory && (modifierValues[m.key] ?? "").length === 0,
+  );
+  const missingOptions = (product?.options ?? []).filter((o) => !selections[o.name]).map((o) => o.name);
+  const selectionComplete = missingOptions.length === 0;
 
-  const canAdd =
-    !!product &&
-    product.availability !== "OUT_OF_STOCK" &&
-    variant !== null &&
-    variant.inStock &&
-    mandatoryModifiersFilled;
+  // In stock OR pre-orderable counts as buyable; a preorder add carries preOrderRequested.
+  const isPreorder = !!variant && !variant.inStock && variant.preorderEnabled;
+  const available = !!variant && (variant.inStock || variant.preorderEnabled);
+
+  const canAdd = !!product && available && !missingModifier;
+
+  const blockedReason: string | null = !product
+    ? null
+    : !selectionComplete
+      ? `Choose ${missingOptions.join(" and ")}`
+      : !variant
+        ? "This combination isn't available"
+        : !available
+          ? "Out of stock"
+          : missingModifier
+            ? `Add ${missingModifier.name}`
+            : null;
+
+  // Before every option is picked, the range — never an empty price, never a lone struck minimum.
+  const isRange = !!product && product.price !== product.maxPrice && !!product.maxPrice;
+  const rangeDisplay = product ? (isRange ? `${product.price} – ${product.maxPrice}` : product.price) : "";
 
   async function add(): Promise<void> {
     if (!product || !variant) return;
@@ -110,6 +138,7 @@ export function useProductDetail({ initial, slug }: UseProductDetailOptions): Us
       await addToCart(product.id, variant.variantId, quantity, {
         modifierChoices: choiceModifiers,
         customTextFields: textModifiers,
+        preorder: isPreorder,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -123,14 +152,18 @@ export function useProductDetail({ initial, slug }: UseProductDetailOptions): Us
     product,
     notFound,
     optionGroups,
-    selectOption: (optionName, choiceName) =>
-      setSelections((s) => ({ ...s, [optionName]: choiceName })),
+    selectOption: (optionName, choiceName) => {
+      setSelections((s) => ({ ...s, [optionName]: choiceName }));
+      setQuantity(1); // the ceiling belongs to the newly resolved variant
+    },
     modifierValues,
     setModifier: (key, value) => setModifierValues((v) => ({ ...v, [key]: value })),
     variant,
-    price: variant?.price || product?.price || "",
-    compareAtPrice: variant ? variant.compareAtPrice : (product?.compareAtPrice ?? null),
+    price: variant?.price || rangeDisplay,
+    compareAtPrice: variant ? variant.compareAtPrice : isRange ? null : (product?.compareAtPrice ?? null),
+    isPreorder,
     canAdd,
+    blockedReason,
     quantity,
     setQuantity,
     add,

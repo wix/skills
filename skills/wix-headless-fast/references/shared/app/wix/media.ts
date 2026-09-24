@@ -25,3 +25,16 @@ export function imgSrc(value: MediaLike, width = 600, height = 600): string {
   }
   return typeof v === "string" ? v : "";
 }
+
+/**
+ * Responsive candidates for `srcset`: the same image at several widths through Wix's scaler, so a
+ * card never downloads a hero-sized file. Pair with `sizes`:
+ *   <img src={imgSrc(m, 640, 640)} srcSet={imgSrcSet(m)} sizes="(min-width: 1024px) 25vw, 50vw"
+ *        width={640} height={640} loading="lazy" alt={…} />
+ * `ratio` is height/width (1 = square). Returns "" for an absolute URL that isn't Wix media.
+ */
+export function imgSrcSet(value: MediaLike, widths: number[] = [320, 480, 640, 960], ratio = 1): string {
+  const raw = typeof value === "object" && value !== null ? (value.image ?? value.url ?? "") : (value ?? "");
+  if (typeof raw !== "string" || !raw.startsWith("wix:image://")) return "";
+  return widths.map((w) => `${imgSrc(value, w, Math.round(w * ratio))} ${w}w`).join(", ");
+}

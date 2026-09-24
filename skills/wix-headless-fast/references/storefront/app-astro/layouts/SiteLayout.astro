@@ -1,7 +1,8 @@
 ---
 // The site chrome for every storefront page — THIS file (header/footer/nav) plus the @theme
 // token block in src/styles/global.css are what you brand. Keep:
-//   - the <slot name="seo-tags" /> in <head> (the product page's owner-editable SEO lands there)
+//   - the <slot name="seo-tags" /> in <head> (the product page's owner-editable SEO lands there,
+//     including the <title> — which is why ours is printed only when the slot is empty)
 //   - the global.css import (Tailwind + the design tokens every shipped component reads)
 //   - one <CartButton> in the header and one <CartDrawer> per page (both client:only —
 //     they read browser cart state and must not server-render)
@@ -21,7 +22,8 @@ const { title, description } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+    {/* The product page's <SEO.Tags> renders the <title>; print ours only when no page filled the slot — two titles otherwise. */}
+    {!Astro.slots.has("seo-tags") && <title>{title}</title>}
     {description && <meta name="description" content={description} />}
     <slot name="seo-tags" />
   </head>

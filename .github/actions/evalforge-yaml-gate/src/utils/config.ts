@@ -173,6 +173,7 @@ export type ReviewConfig = {
   isBlocking: boolean;
   /** Where the PR's head branch lives; `null` if that repository is gone. */
   headRepoFullName: string | null;
+  triggeredBy: string;
 };
 
 export function getReviewConfig(): ReviewConfig {
@@ -199,6 +200,7 @@ export function getReviewConfig(): ReviewConfig {
     timeoutSeconds: getClampedReviewTimeout(),
     isBlocking: core.getInput('blocking') === 'true',
     headRepoFullName: readHeadRepoFullName(github.context.payload),
+    triggeredBy: core.getInput('triggered-by'),
   };
 }
 
