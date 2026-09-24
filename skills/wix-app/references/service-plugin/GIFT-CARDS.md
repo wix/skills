@@ -67,6 +67,10 @@ giftVouchersProvider.provideHandlers({
 });
 ```
 
+## Manual Setup Required
+
+No dashboard configuration beyond installing the app. But there's nothing to `redeem`/`getBalance` against until a real gift card exists — a customer (or you, via the Wix Gift Cards app's own purchase/issuance flow) must actually buy or be issued a gift card first. You can't shortcut this by calling `redeem` with a made-up code; the code has to correspond to a gift card your provider recognizes as real. Test by issuing a real gift card through the site's own gift-card purchase flow, then redeeming it at checkout.
+
 ## Singular Constraint
 
 `GIFT_CARDS_PROVIDER` is **singular** — only one component of this type is allowed per app. Do not scaffold or include two Gift Cards service plugins in the same app.
