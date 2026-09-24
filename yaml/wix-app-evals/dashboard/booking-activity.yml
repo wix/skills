@@ -1,0 +1,60 @@
+name: dashboard/booking-activity
+description: V1 read-only booking review — a @wix/patterns table over the Bookings SDK with working filters, service names resolved correctly, summary metrics and drill-in to a booking. No CMS collection, no create/edit flow.
+triggerPrompt: |-
+  create a dashboard to review booking activity by service, client, staff, status, and date.
+  APP_NAMESPACE: "@evalforge/bookingactivity-k29rtv", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "EvalforgeBookingactivityK29rtv" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'EvalforgeBookingactivityK29rtv"ComponentName').
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
+tags: [dashboard-page, wix-patterns-docs, data-collection]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/WIX_PATTERNS_DOCS.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built a booking-activity workspace that would actually function against real data. Check:
+      (1) Bookings data is read through the Wix SDK — `@wix/bookings` services and the Bookings Reader (queryBookings or equivalent) — from backend or dashboard code. No CMS data collection was created for bookings, services or clients; creating one is an automatic fail (score 0-2).
+      (2) The table shows service, client, staff, status and date.
+      (3) **The service column resolves to the actual service name.** A booking record references its service by id, so the code must look the service up (fetch/services map/join) and render the name. Rendering a raw id, a placeholder, or a different field in the service column is a specific known defect — cap the score at 4 if present.
+      (4) Filters exist for service, client, staff, status and date range, and are **wired to the query** — the filter state feeds the data fetch or the collection's filter API. Filter UI that renders but never narrows the results is a specific known defect — cap the score at 4 if present.
+      (5) Booking volume and status are surfaced as summary metrics, not only as table rows.
+      (6) A user can drill from a booking row into its client and service detail.
+      Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the component selection and the read-only shape of the result. Check:
+      (1) The page shell is a `@wix/patterns` `CollectionPage` and the table is a `@wix/patterns` `Table` (or `Grid`) driven by a collection state hook — not a hand-written `<table>` and not a manually assembled Wix Design System table.
+      (2) Search, filters and sorting come from the patterns collection APIs (`CollectionSearch`, `DateRangeFilter`, the other `Features/Filter` components, `useFilterCollection`, sortable columns) — not a hand-built filter bar.
+      (3) Summary metrics use the patterns `SummaryBar` rather than hand-rolled cards.
+      (4) Drill-in is a side panel or an `EntityPage`, not a WDS `<Modal />` — a Dashboard Page cannot use `<Modal />`.
+      (5) `@wix/design-system` supplies only leaf UI inside those shells (text, badges, inputs, layout).
+      (6) **This is a review dashboard: it must be read-only.** No create, edit or delete flow for bookings was invented, and no Dashboard Modal was added for editing one. The request asks only to review activity.
+      (7) The `@wix/patterns` provider lives in a parent component, in a separate file from the one calling the collection hook. No `@wix/auto-patterns` import and no `patterns.json`.
+      Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Rate how cleanly the agent got there. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any of: writing JSX before enumerating the available components through the skill's bundled helper (`node <skill-dir>/scripts/patterns.cjs list`); reading or listing `node_modules` directly — with `cat`, `ls`, `find`, or a self-written script — instead of that helper, which the skill forbids and codegen's guard blocks; guessing a `@wix/patterns` or Wix Design System component or prop name from memory and correcting it after an error; guessing a Bookings SDK method instead of looking it up; building the shell or filter bar from WDS first and reworking it into patterns; a failed build or typecheck; redundant probing reads. For each, name the likely skill or docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
+  - type: time_limit
+    maxDurationMs: 420000
+  - type: cost
+    maxCostUsd: 2.5
