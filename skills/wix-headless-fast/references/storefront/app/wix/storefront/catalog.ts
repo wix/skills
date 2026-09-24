@@ -69,13 +69,39 @@ function toAvailability(raw: RawProduct): Availability {
     : "IN_STOCK";
 }
 
+// The identity of a media entry BEFORE scaling — two scaled URLs of one photo differ in their
+// size parameters, so de-duplicating on resolved URLs shows the same image twice.
+function mediaKey(m: RawProduct | undefined): string {
+  const v = m?.image ?? m?.url ?? m;
+  if (!v) return "";
+  if (typeof v === "string") return v.split("#")[0];
+  return v.id ?? v.url ?? "";
+}
+
+// Every distinct media entry, main first, keyed on identity — shared by the tile (hover image)
+// and the PDP (gallery) so both see the same photos in the same order.
+function mediaEntries(raw: RawProduct): RawProduct[] {
+  const out: RawProduct[] = [];
+  const seen = new Set<string>();
+  for (const m of [raw.media?.main, ...((raw.media?.itemsInfo?.items ?? []) as RawProduct[])]) {
+    const k = mediaKey(m);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(m);
+  }
+  return out;
+}
+
 function toSummary(raw: RawProduct): ProductSummary {
   const options: RawProduct[] = raw.options ?? [];
-  const galleryItems: RawProduct[] = raw.media?.itemsInfo?.items ?? [];
-  const mainUrl = imgSrc(raw.media?.main, 800, 800);
-  const hover = galleryItems
-    .map((m) => imgSrc(m.image ?? m, 800, 800))
-    .filter((u) => u && u !== mainUrl);
+  const media = mediaEntries(raw);
+  const mainUrl = imgSrc(media[0], 800, 800);
+  const hover = media.slice(1).map((m) => imgSrc(m, 800, 800)).filter(Boolean);
+  const swatches = options
+    .filter((o) => o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES")
+    .flatMap((o) => (o.choicesSettings?.choices ?? []) as RawProduct[])
+    .filter((c) => c.visible !== false && c.colorCode)
+    .map((c) => String(c.colorCode));
   const availability = toAvailability(raw);
   const preorder = raw.inventory?.preorderStatus === "ENABLED" && availability === "OUT_OF_STOCK";
   const optionsSummary = options
@@ -107,6 +133,7 @@ function toSummary(raw: RawProduct): ProductSummary {
     imageUrl: mainUrl,
     hoverImageUrl: hover[0] ?? "",
     optionsSummary,
+    swatches,
     quickAddable: options.length === 0 && availability === "IN_STOCK",
   };
 }
@@ -164,10 +191,9 @@ function toVariants(raw: RawProduct): ProductVariant[] {
 
 function toDetail(raw: RawProduct): ProductDetail {
   const summary = toSummary(raw);
-  const gallery = [
-    summary.imageUrl,
-    ...(raw.media?.itemsInfo?.items ?? []).map((m: RawProduct) => imgSrc(m.image ?? m, 1200, 1200)),
-  ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+  // De-duplicated on media identity (mediaEntries), then resolved once at one size — never
+  // "main at 800 + items at 1200", which yields two thumbnails of the same photo.
+  const gallery = mediaEntries(raw).map((m) => imgSrc(m, 1200, 1200)).filter(Boolean);
   return {
     ...summary,
     descriptionHtml: raw.plainDescription ?? "",   // plainDescription IS an HTML string despite the name

@@ -2,6 +2,10 @@
 // option facets, and cursor paging — all applied by Wix across the whole catalog (searchCatalog),
 // never to a page already in hand. A changed selection starts a fresh cursor chain.
 //
+// URL state: sort, filters, facet choices (and a live category switch on /shop) are read from the
+// query string on mount and written back with replaceState — a filtered gallery is a link a
+// shopper can share, reload, and step back to. Paging stays out of the URL.
+//
 // SSR-friendly: pass `initialProducts`/`initialCategories` (Astro frontmatter) and they render
 // immediately — the hook still revalidates the first page once on mount to open the cursor
 // chain, replacing the seed without a skeleton flash. A /category/[slug] page passes
@@ -64,6 +68,25 @@ export interface UseShop {
   loadingMore: boolean;
 }
 
+const URL_KEYS = { sort: "sort", min: "min", max: "max", stock: "stock", q: "q", choice: "choice", category: "category" } as const;
+
+function readUrlState(): { sort?: CatalogSort; filters: ShopFilters; choiceIds: string[]; categoryId?: string | null } | null {
+  if (typeof window === "undefined") return null;
+  const p = new URLSearchParams(window.location.search);
+  const sort = p.get(URL_KEYS.sort);
+  const filters: ShopFilters = {};
+  if (p.get(URL_KEYS.min)) filters.minPrice = p.get(URL_KEYS.min)!;
+  if (p.get(URL_KEYS.max)) filters.maxPrice = p.get(URL_KEYS.max)!;
+  if (p.get(URL_KEYS.stock) === "1") filters.inStockOnly = true;
+  if (p.get(URL_KEYS.q)) filters.search = p.get(URL_KEYS.q)!;
+  return {
+    sort: sort && sort in CATALOG_SORTS ? (sort as CatalogSort) : undefined,
+    filters,
+    choiceIds: p.getAll(URL_KEYS.choice),
+    categoryId: p.has(URL_KEYS.category) ? p.get(URL_KEYS.category) : undefined,
+  };
+}
+
 interface PageState {
   key: string | null;
   products: ProductSummary[] | null;
@@ -96,6 +119,18 @@ export function useShop({
   });
   const generation = useRef(0);
   const pendingMore = useRef<object | null>(null);
+  const firstWrite = useRef(true);
+
+  // Adopt the URL's selection once, after hydration (the server rendered the defaults).
+  useEffect(() => {
+    const u = readUrlState();
+    if (!u) return;
+    if (u.sort) setSort(u.sort);
+    if (Object.keys(u.filters).length) setFilters(u.filters);
+    if (u.choiceIds.length) setSelectedChoiceIds(u.choiceIds);
+    if (u.categoryId !== undefined && u.categoryId !== initialCategoryId) setActiveCategoryId(u.categoryId || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const key = JSON.stringify([
     pageSize,
@@ -110,6 +145,29 @@ export function useShop({
   ]);
   const currentKey = useRef(key);
   currentKey.current = key;
+
+  // Mirror the selection into the query string (defaults are omitted; nothing else in the URL is touched).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // The mount run still holds the defaults (the adopted URL state lands on the next render) —
+    // writing now would erase the very params being adopted.
+    if (firstWrite.current) {
+      firstWrite.current = false;
+      return;
+    }
+    const p = new URLSearchParams(window.location.search);
+    for (const k of Object.values(URL_KEYS)) p.delete(k);
+    if (sort !== "featured") p.set(URL_KEYS.sort, sort);
+    if (filters.minPrice != null && filters.minPrice !== "") p.set(URL_KEYS.min, String(filters.minPrice));
+    if (filters.maxPrice != null && filters.maxPrice !== "") p.set(URL_KEYS.max, String(filters.maxPrice));
+    if (filters.inStockOnly) p.set(URL_KEYS.stock, "1");
+    if (filters.search?.trim()) p.set(URL_KEYS.q, filters.search.trim());
+    for (const id of selectedChoiceIds) p.append(URL_KEYS.choice, id);
+    if (activeCategoryId !== initialCategoryId) p.set(URL_KEYS.category, activeCategoryId ?? "");
+    const qs = p.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, "", next);
+  }, [key, sort, filters, selectedChoiceIds, activeCategoryId, initialCategoryId]);
 
   useEffect(() => {
     if (initialCategories) return;
