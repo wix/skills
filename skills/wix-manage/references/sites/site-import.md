@@ -317,11 +317,14 @@ the user has no way to open a file.
   plain `403` (`{"message": "The caller is not permitted to perform this
   action."}`, no code) as well as a plain `404` — treat either shape there
   as the beta-lockout case too. Don't probe other endpoints to diagnose it,
-  don't retry, and don't fall back to another site-creation tool. Tell the
-  user plainly and warmly that Site Import is currently in a closed beta,
-  that you'd be happy to help once they're in, and that they can request
-  access by filling out this short form:
-  https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up. Then stop.
+  don't retry, and **don't call `WixSiteBuilder`, `CreateSiteFromTemplate`,
+  or any other site-creation tool to compensate — creating a site through
+  a different path is not a workaround here, it's the specific mistake
+  this rule exists to prevent.** Tell the user plainly and warmly that Site
+  Import is currently in a closed beta, that you'd be happy to help once
+  they're in, and that they can request access by filling out this short
+  form: https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up.
+  Then stop, having created nothing.
   **Do not tell them to "contact Wix support"**: this API is unlisted and
   ALPHA, Wix Support has no visibility into it or way to grant access, and the
   public "importing a site created outside of Wix" help-center article is an
