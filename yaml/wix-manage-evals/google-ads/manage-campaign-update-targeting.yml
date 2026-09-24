@@ -39,6 +39,8 @@ assertions:
       Fail if the response:
       - sends locations containing only the new entry, or otherwise implies the
         API merges arrays; OR
+      - puts the targeting in performanceMaxCampaign.locationGroups instead of
+        the campaign's top-level locations; OR
       - sends a payload built only from the requested change; OR
       - skips the campaign read; OR
       - asks the user which campaign to update when the site has only one; OR

@@ -65,7 +65,7 @@ campaign {
                   languageCode, businessName, phone, businessProfileLocationId,
                   rejectionInfo },
   performanceMaxCampaign { url, assetGroups[], languages[], conversionGoals[],
-                           excludedKeywords[], locationGroups[], biddingStrategy,
+                           excludedKeywords[], locationGroups[]!, biddingStrategy!,
                            feedLabel, endDate, phone, assetAutomationSettings,
                            daysInLearning, rejectionInfo }
 }
@@ -75,6 +75,7 @@ assetGroups[] { resourceName*, assetGroupAssets { assets[] },
                 assetGroupListingGroupFilters[], status* }
 
 * = read-only: echo it back as read, never compose it yourself.
+! = do not set: pass through whatever the read returned.
 ```
 
 ```bash
@@ -99,7 +100,7 @@ Building the body by hand instead of piping? Copy the `campaign` object out of t
 
 Each worked update below starts from the same `campaign.json` the read in step 1 produced, and appends to the array *that read returned* — the `+=` is the whole point. Building a fresh array with only the new entry loses everything already in it.
 
-**Add a geo target.** Resolve it first — never invent or hardcode a `geoTargetConstant`:
+**Add a geo target.** Geographic targeting lives in the campaign's top-level `locations`, always — not in `performanceMaxCampaign.locationGroups`, which restricts a feed's geographic scope and is not how a campaign is targeted. Resolve the target first — never invent or hardcode a `geoTargetConstant`:
 
 ```bash
 curl -s 'https://www.wixapis.com/_serverless/pa-google/v1/geo-options?queryLocation=Brooklyn&languageCode=en&countryCode=US' \
