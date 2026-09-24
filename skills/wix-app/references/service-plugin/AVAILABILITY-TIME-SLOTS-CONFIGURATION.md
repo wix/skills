@@ -64,7 +64,9 @@ const STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
 availabilityTimeSlotsConfiguration.provideHandlers({
   listAvailabilityTimeSlotConfigurations: async (payload) => {
     const { request } = payload;
-    const { services: requestedServices } = request;
+    // services is optional on the request type — default it, or the .map()
+    // calls below fail `tsc` with "possibly undefined."
+    const { services: requestedServices = [] } = request;
 
     // scheduleId is required in the response but isn't in the request — fetch it per service.
     const elevatedGetService = auth.elevate(services.getService);
@@ -113,3 +115,4 @@ availabilityTimeSlotsConfiguration.provideHandlers({
 3. **`splitIntervalInMinutes` vs `duration`** — when the split interval matches the service duration, `splitIntervalInMinutes` is `duration.defaultInMinutes + bufferTimeInMinutes`.
 4. **Duration ranges** — use `durationUnit` for services where the customer picks the length of the booking; leave `duration` empty for `DAY`-unit ranges.
 5. **Called on the hot path** — this handler runs on every availability query, so keep it fast.
+6. **`services` is optional on the request type** — default it to `[]` when destructuring, or the `.map()` calls fail `tsc` with "possibly undefined."

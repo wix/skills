@@ -45,7 +45,6 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 
@@ -84,9 +83,12 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
+
+## ⚠️ `provideHandlers` only accepts `getPaymentSettings`
+
+`getPaymentSettingsForCheckout` is not a real handler on this SPI — `tsc` rejects it as an unknown property. There is only one handler; don't add it even if you see it elsewhere.
 
 ## Manual Setup Required
 

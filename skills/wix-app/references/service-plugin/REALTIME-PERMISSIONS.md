@@ -26,11 +26,11 @@ realtimePermissionsProvider.provideHandlers({
     const { request } = payload;
     const { subscriber, channel } = request;
 
-    if (channel.name === "public-updates") {
+    if (channel?.name === "public-updates") {
       return { read: true };
     }
 
-    return { read: subscriber.type !== "VISITOR" };
+    return { read: subscriber?.type !== "VISITOR" };
   },
 });
 ```
@@ -38,7 +38,8 @@ realtimePermissionsProvider.provideHandlers({
 ## Key Implementation Notes
 
 1. **The generated stub may include a `write` field — remove it.** `wix generate` for this `pluginType` has been observed scaffolding a response of `{ read: true, write: false }`, but `CheckSubscriberPermissionsResponse` only has `read?: boolean`. Confirm against the installed `@wix/auto_sdk_duplexer_realtime-permissions-provider` types if `tsc` doesn't catch it for you.
-2. **Deny with data, not errors** — return `{ read: false }` for normal policy denials. Only throw `InvalidArgumentError` when the request itself is invalid or missing data; any other thrown error, timeout, or unreachable service makes Wix deny the subscription with a 503.
-3. **Respond quickly** — the call is synchronous and blocks the subscription attempt; a slow handler delays it, and a non-responsive one causes a 503 denial.
-4. **Be consistent** — the same channel, subscriber, and context should always yield the same decision.
-5. **No provider means no cross-app access** — until you implement this SPI, all cross-app subscription attempts to your channels are denied by default.
+2. **`channel` and `subscriber` are both optional on the request** — `channel?: Channel`, `subscriber?: Subscriber`. Accessing `.name`/`.type` without the `?.` above fails `tsc` with "possibly undefined."
+3. **Deny with data, not errors** — return `{ read: false }` for normal policy denials. Only throw `InvalidArgumentError` when the request itself is invalid or missing data; any other thrown error, timeout, or unreachable service makes Wix deny the subscription with a 503.
+4. **Respond quickly** — the call is synchronous and blocks the subscription attempt; a slow handler delays it, and a non-responsive one causes a 503 denial.
+5. **Be consistent** — the same channel, subscriber, and context should always yield the same decision.
+6. **No provider means no cross-app access** — until you implement this SPI, all cross-app subscription attempts to your channels are denied by default.

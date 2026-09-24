@@ -4,7 +4,7 @@
 
 The Bookings Validation SPI lets you implement custom validation logic for booking operations. When a customer creates, cancels, or reschedules a booking (single-service or multi-service), Wix calls the handler matching that operation before it executes. Return `valid: true` to allow the operation or `valid: false` to block it with a customer-facing message.
 
-Implement only the handlers for the validation targets you actually support — you don't need all six.
+`bookingsValidation.provideHandlers` requires all six handlers in the object literal — TypeScript rejects a partial object even though you may only care about one or two targets. For the ones you don't have real logic for, provide a no-op that returns an empty `results`/`singleServiceBookingResults` array (an empty array is a no-op: "Omitting an item's result treats it as valid," and an empty results array omits every item's result). Confirmed live: `wix generate` itself scaffolds all six handlers by default — that's not incidental boilerplate you can trim.
 
 ## Handlers
 
@@ -53,15 +53,18 @@ bookingsValidation.provideHandlers({
     const { request } = payload;
 
     const results = await Promise.all(
-      request.items.map(async (item) => {
+      (request.items ?? []).map(async (item) => {
         const memberId = item.booking?.contactDetails?.contactId;
         if (!memberId) {
           return { itemIndex: item.itemIndex, result: { valid: true } };
         }
 
-        const elevatedListOrders = auth.elevate(orders.listOrders);
+        // Not orders.listOrders — that method doesn't exist on @wix/pricing-plans.
+        // managementListOrders takes flat buyerIds/orderStatuses, not a nested filter.
+        const elevatedListOrders = auth.elevate(orders.managementListOrders);
         const { orders: activeOrders } = await elevatedListOrders({
-          filter: { buyerId: memberId, status: ["ACTIVE"] },
+          buyerIds: [memberId],
+          orderStatuses: ["ACTIVE"],
         });
 
         if ((activeOrders ?? []).length === 0) {
@@ -90,8 +93,8 @@ bookingsValidation.provideHandlers({
     const { request } = payload;
 
     // Cancel items carry no itemIndex — correlate results by the booking's own _id.
-    const results = request.items.map((item) => {
-      const bookingId = item.booking?._id;
+    const results = (request.items ?? []).map((item) => {
+      const bookingId = item.booking?._id ?? undefined;
       const startDate = item.booking?.bookedEntity?.slot?.startDate;
       const hoursUntilStart = startDate
         ? (new Date(startDate).getTime() - Date.now()) / (1000 * 60 * 60)
@@ -112,6 +115,12 @@ bookingsValidation.provideHandlers({
 
     return { results };
   },
+
+  // Unimplemented targets still need a handler — see the note above the example.
+  validateBeforeReschedule: async () => ({ results: [] }),
+  validateBeforeCreateMultiService: async () => ({ singleServiceBookingResults: [] }),
+  validateBeforeCancelMultiService: async () => ({ singleServiceBookingResults: [] }),
+  validateBeforeRescheduleMultiService: async () => ({ singleServiceBookingResults: [] }),
 });
 ```
 

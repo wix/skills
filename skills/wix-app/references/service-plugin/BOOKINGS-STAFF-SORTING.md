@@ -36,7 +36,9 @@ import { extendedBookings } from "@wix/bookings";
 staffSorting.provideHandlers({
   sortStaffMembers: async (payload) => {
     const { request } = payload;
-    const { availableResourceIds, slot } = request;
+    // availableResourceIds is optional on the request type — default it, or
+    // spreading/iterating it below fails `tsc` with "possibly undefined."
+    const { availableResourceIds = [], slot } = request;
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const elevatedQuery = auth.elevate(extendedBookings.queryExtendedBookings);
@@ -84,4 +86,5 @@ None. Confirmed live with a service that has 2 assigned staff — the dashboard'
 3. **Elevate permissions** - Use `auth.elevate` when querying Wix APIs from the handler
 4. **Deterministic sorting** - Use a tiebreaker (e.g., resource ID) when priorities are equal
 5. **Use `queryExtendedBookings`, not `query`** — `extendedBookings.query` is deprecated. `queryExtendedBookings` takes the same `filter`/`cursorPaging` shape, so it's a drop-in replacement; confirmed live after switching.
-5. **Graceful degradation** - If your external data source is unavailable, return the original order rather than failing
+6. **`availableResourceIds` is optional on the request type** — default it to `[]` when destructuring, or spreading/iterating it fails `tsc` with "possibly undefined."
+7. **Graceful degradation** - If your external data source is unavailable, return the original order rather than failing
