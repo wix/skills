@@ -2,7 +2,12 @@ name: sites/site-import-not-enabled
 description: >-
   Verifies the agent handles a Start failure that means the account isn't part of the Site Import
   closed beta: no probing other endpoints, no falling back to another site-creation tool, no
-  "contact Wix support", and a warm message pointing the user to the beta request form.
+  "contact Wix support", and a warm message pointing the user to the beta request form. Depends on
+  the shared eval account genuinely not being enrolled in the Site Import closed beta — nothing in
+  this file pins that precondition, so an unrelated enrollment change to the shared account (e.g.
+  to support other Site Import scenarios that need Start to succeed) will make Start succeed
+  instead of fail, and this scenario will fail for a reason unrelated to the skill's closed-beta
+  handling.
 triggerPrompt: >-
   I want to migrate my existing online store at https://harborview-outfitters.example.com into a
   brand-new Wix site — I don't have a Wix site yet, and this isn't a design file, it's a live

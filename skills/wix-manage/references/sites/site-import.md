@@ -109,11 +109,10 @@ API. Never fall back to other site-building tools (site-builder/template/AI
 site-generation tools) to "compensate" — not when the import is slow, and
 especially not when it FAILS.
 
-**Status comes ONLY from this API's Poll endpoint.** Never call
-`WixSiteBuilder`, `CreateSiteFromTemplate`, `pullSiteCreationJob`, or any
-other connector tool to "check on the build" — `WixSiteBuilder` in particular
-STARTS a new site build on every call, even when the prompt asks for status.
-A failed import ends with a clear failure report and a full stop; the user
+**Status comes ONLY from this API's Poll endpoint.** Never call another
+site-building or site-creation capability to "check on the build" — some
+such tools start a new site build on every call, even when asked only for
+status. A failed import ends with a clear failure report and a full stop; the user
 must never discover a different site in their account that they didn't ask
 for. If an alternative makes sense, propose it AFTER reporting the failure
 and act only on the user's explicit yes.

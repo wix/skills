@@ -14,6 +14,9 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - tool: ExecuteWixAPI
+    params:
+      code: wix-site-id
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -28,8 +31,8 @@ assertions:
 
       Pass if the response:
       - resolves the user's existing site (from context or by asking which one, if more than one
-        candidate exists) and calls (or clearly describes calling) Start scoped to it with a
-        `wix-site-id` header — not an account-level call, AND
+        candidate exists) and calls Start scoped to it with a `wix-site-id` header — not an
+        account-level call, AND
       - does not claim a `destinationSiteId`/similar body field controls this, AND
       - does not create, or offer to create, a second/new site for this request.
 
