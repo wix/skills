@@ -37,6 +37,11 @@ export interface ProductSummary {
   hoverImageUrl: string;
   /** e.g. "2 colors · 3 sizes"; "" for a single-variant product. */
   optionsSummary: string;
+  /**
+   * Hex colors of a color option's visible choices, catalog order — render as small dots on the
+   * tile (a preview, not a picker: selection happens in QuickAdd or on the PDP). [] when none.
+   */
+  swatches: string[];
   /** True when the product can be added to the cart with no choices (single variant, in stock). */
   quickAddable: boolean;
 }
@@ -130,6 +135,11 @@ export interface CartLine {
   descriptionLines: string[];
   /** Not IN_STOCK → the line can't be checked out as-is. */
   status: string;
+  /**
+   * The recurring plan's terms for a subscription line — "Monthly plan · every month · 12 payments";
+   * "" for a one-time purchase. A subscription line must read as one in the cart.
+   */
+  subscription: string;
 }
 
 export interface Cart {

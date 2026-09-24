@@ -72,7 +72,9 @@ assortment size, media, options, sales, ribbons) and design for this store, not 
 of its category. Then, by default:
 
 - **Home:** what the store sells and one shopping action in the first screen; real products under
-  truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page.
+  truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page. A
+  category tile or link on the home page goes to that category's page (`/category/<slug>`) —
+  never to an anchor on the shop page that every tile shares.
 - **Shop:** a real product card — image, name, price, link — in the first screen; the shipped
   `FilterPanel` (sort, price, stock, and the option facets this catalog has) — a store with any
   filterable catalog ships it, not "when it fits"; the shipped `QuickAdd` in every tile; each
@@ -99,6 +101,7 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 // { id, slug, name, price, maxPrice, compareAtPrice|null, ribbon|null, ribbons: string[],
 //   minPriceVariantId|null, availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
 //   preorder: boolean, imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */,
+//   swatches: string[] /* hex colors of a color option's choices — dots on the tile, not a picker */,
 //   quickAddable: boolean }
 // price !== maxPrice → the product is a RANGE: render "price – maxPrice" (compareAtPrice is null
 // then — never a struck price beside a range). Otherwise price is what the buyer pays (a discount
@@ -120,6 +123,8 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 // a shopper can share and a search engine can index; setActiveCategoryId is for a live scope
 // switch on /shop, not a substitute for the links.
 // Sort/filter/facets/search/paging run on Wix across the WHOLE catalog (a change restarts the list).
+// The selection is mirrored into the query string (?sort=&min=&max=&stock=1&q=&choice=…) and read
+// back on load — a filtered gallery is a shareable link; nothing for you to wire.
 // SORTS (exported next to useShop) is Record<sortKey, { label: string }> — the value is an
 // OBJECT, so render entry.label, never the entry itself:
 //   Object.entries(SORTS).map(([key, { label }]) => <option value={key}>{label}</option>)
@@ -142,6 +147,8 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 
 // useCart() →
 // { cart: { lines, itemCount, subtotal, discount /* "" when none */, currency }|null, busy, error, open,
+//   // a line: { lineItemId, productName, quantity, unitPrice, linePrice, imageUrl, descriptionLines,
+//   //           status, subscription /* "Monthly plan · every month · 12 payments" or "" */ }
 //   addToCart(productId, variantId?, qty?, extras?), updateQuantity(lineItemId, qty),
 //   removeLine(lineItemId), checkout(), openCart(), closeCart(), refresh() }
 // addToCart rejects on refusal (out of stock, digital product with no file) AND records
@@ -321,13 +328,18 @@ export default function ShopView(props: {
   //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image (hoverImageUrl on
   //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
-  //     optionsSummary; tile links to `/products/${p.slug}`; and in every tile
+  //     swatches as small color dots when present (else optionsSummary as text); tile links to
+  //     `/products/${p.slug}`; and in every tile
   //     <QuickAdd product={p} /> — the shipped buy control (direct add / anchored option
   //     picker / product page, decided from the product). Give the tile `relative` so the
   //     picker anchors to it on wide screens.
   //   • badges come ONLY from p.ribbons. Do NOT render a "Sale" badge because compareAtPrice
   //     is set — the struck price already says it, and a product the merchant ribboned "Sale"
   //     would show the badge twice.
+  //   • name and price on SEPARATE lines (`min-w-0`, the name may wrap) — never one flex row
+  //     where a long name and a price range fight for width and the price gets clipped at 390px.
+  //     Keep the page intro short enough that a full tile (image, name, price) is in the first
+  //     screen, also on a short desktop window.
   //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
@@ -446,6 +458,9 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
       option → swatches); category links lead to `/category/<slug>`, which renders scoped and
       carries the SEO tags in view-source; an unknown slug is a 404; empty catalog shows your
       honest empty state.
+- [ ] Shop first screen: at 1280×720 and at 390px wide, at least one full tile — image, name,
+      price — is visible without scrolling; the tile with the longest product name and a price
+      range shows the whole price at 390px, nothing clipped.
 - [ ] Tiles: a product with no options adds to the cart in one click; a product with options
       opens the picker anchored to its tile (a bottom sheet at 390px wide) and adds the chosen
       variant; the drawer opens after either.
@@ -454,7 +469,10 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
       `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
       price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
       a pre-orderable one reads "Pre-order".
-- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price.
+- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price; a
+      product with a color option shows its swatches.
+- [ ] PDP gallery: one thumbnail per distinct photo — never two selectors leading to the same image.
+- [ ] Cart: a subscription line shows its plan terms under the product name.
 - [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
       a reload (same visitor token).
 - [ ] Checkout button redirects to Wix-hosted checkout.

@@ -107,7 +107,8 @@ variant = {
 }
 
 // currentCartV2.getCurrentCart()  →  { cart: { _id, lineItems: [...] } }   // NOTE: returns { cart } — destructure it
-lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity, availableQuantity }, pricing: { unitPrice: { amount, convertedAmount }, totalPrice: {...} }, attributes: { image, descriptionLines }, status }
+lineItem = { _id, name: { original }, quantityInfo: { confirmedQuantity, availableQuantity }, pricing: { unitPrice: { amount, convertedAmount }, totalPrice: {...} }, attributes: { image, descriptionLines }, status,
+             subscriptionInfo: { title: { original }, subscriptionSettings: { frequency /* DAY|WEEK|MONTH|YEAR */, interval, billingCycles, autoRenewal } } }   // present on a subscription line only
 // price → pricing.unitPrice (ConvertedMoney, NO formatted string in V2 — format it yourself); qty → quantityInfo.confirmedQuantity; image → attributes.image (wix:image:// → resolve)
 
 // the cart's _id is the checkout id → pass to the redirect session:
@@ -219,7 +220,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **⚠️ `variantsInfo` is `null` unless `VARIANT_OPTION_CHOICE_NAMES` is in `fields`** — the docs say variants "aren't returned" and that's true of a bare read; with the field, `product.variantsInfo.variants` carries every variant with its `optionChoiceIds`, `price`, and `inventoryStatus`. There is no second call to make. (`readOnlyVariantsV3` still exists for bulk variant queries; the product page doesn't need it.)
 
-Render the description as HTML (see *Rendering product descriptions*), the info sections as sections/accordions matching their length, breadcrumbs from `breadcrumbsInfo`, and **every** image in `media.itemsInfo.items` as a browsable gallery (main first, de-duplicated) — not just `media.main`.
+Render the description as HTML (see *Rendering product descriptions*), the info sections as sections/accordions matching their length, breadcrumbs from `breadcrumbsInfo`, and **every** image in `media.itemsInfo.items` as a browsable gallery (main first, de-duplicated) — not just `media.main`. **De-duplicate on the media identity** (the item's `_id`, or the raw `wix:image://` id before its `#` suffix), never on a resolved URL: `media.main` and its copy in `itemsInfo.items` scaled to two sizes are two URLs of one photo, and the gallery then shows two thumbnails that open the same image.
 
 **How the page is split — one price, on the page in the HTML:**
 
@@ -275,6 +276,8 @@ const ribbons = (p) => [p.ribbon?.name, ...(p.additionalRibbons ?? []).map((r) =
 ```
 
 A card that reads only `product.ribbon.name` drops "Sale" on a product ribboned "New" + "Sale" — the merchant set both.
+
+**Cards may preview a color option's choices as swatches** — the list read already carries `options[].choicesSettings.choices[].colorCode` for a `SWATCH_CHOICES`/`COLOR_CHOICES` option, so "3 colors" as text is the weaker choice when the tile has room for three dots. A swatch on a card is a preview, not a picker: selection still happens in Quick Add or on the product page. Keep the tile's hierarchy stable under a long name and a ranged price — name and price on separate lines, the name allowed to wrap, the price never clipped.
 
 ### Variants — resolve by choice IDs, from the product itself
 
@@ -558,7 +561,7 @@ if (!category || category.visible === false) return new Response(null, { status:
 
 Read the catalog first; then, **only when the data is present**:
 
-- **Subscriptions** (`subscriptionPricesInfo` present): show each plan's price and billing interval as comparable terms; require an **explicit** plan choice (never pre-select the first); offer one-time purchase only when `allowOneTimePurchases` is true; serialize a recurring plan as `subscriptionOptionId`, omit it for one-time. Don't apply the one-time automatic-discount price to a subscription quote.
+- **Subscriptions** (`subscriptionPricesInfo` present): show each plan's price and billing interval as comparable terms; require an **explicit** plan choice (never pre-select the first); offer one-time purchase only when `allowOneTimePurchases` is true; serialize a recurring plan as `subscriptionOptionId`, omit it for one-time. Don't apply the one-time automatic-discount price to a subscription quote. **In the cart, a subscription line says so**: render `lineItem.subscriptionInfo` — the plan's `title.original` and its billing terms from `subscriptionSettings` (every `interval` `frequency`, `billingCycles` unless `autoRenewal`) — under the line, from the supplied fields only, never a generic "recurring".
 - **Preorder** (`inventory.preorderStatus === 'ENABLED'` / `variant.inventoryStatus.preorderEnabled`): label "Pre-order", include `preOrderRequested: true`. Preorder and a subscription plan may coexist.
 - **Product groups** (`extendedFields.namespaces['@stores/product-groups'].productGroupId` is a string): the group's members are **navigation between products** (the "same shirt in linen" case), not variants — query the group via the Product Groups API and render members as choices that navigate to the member's slug.
 - **Positioned promotions**: `promotionsV3.resolvePromotions(categoryId)` returns category-gallery banners with a **one-based** `position` — insert at `position - 1` only once that many products have loaded. They are editorial media, not evidence of a discount, and they belong to that category's gallery, not the homepage. Docs: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/promotions-v3.md>

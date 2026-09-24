@@ -65,6 +65,21 @@ function cartCurrency(raw: RawCart | null): string {
   return raw?.customerInfo?.currencyCode ?? raw?.businessInfo?.currencyCode ?? "";
 }
 
+// "Monthly plan · every 2 months · 6 payments" from the line's subscriptionInfo (Cart V2 carries the
+// plan on the line); "" for a one-time purchase. Never invented — every word comes from the plan.
+function subscriptionTerms(info: RawCart | undefined): string {
+  if (!info) return "";
+  const s: RawCart = info.subscriptionSettings ?? {};
+  const unit: Record<string, string> = { DAY: "day", WEEK: "week", MONTH: "month", YEAR: "year" };
+  const parts: string[] = [];
+  const title = info.title?.original ?? info.title?.translated ?? "";
+  if (title) parts.push(title);
+  const u = unit[String(s.frequency ?? "")];
+  if (u) parts.push(`every ${s.interval && s.interval > 1 ? `${s.interval} ${u}s` : u}`);
+  if (!s.autoRenewal && s.billingCycles) parts.push(`${s.billingCycles} payments`);
+  return parts.join(" · ");
+}
+
 function toLine(raw: RawCart, currency: string): CartLine {
   const descriptionLines: string[] = (raw.attributes?.descriptionLines ?? [])
     .map((d: RawCart) => {
@@ -82,6 +97,7 @@ function toLine(raw: RawCart, currency: string): CartLine {
     imageUrl: imgSrc(raw.attributes?.image, 300, 300),
     descriptionLines,
     status: raw.status ?? "IN_STOCK",
+    subscription: subscriptionTerms(raw.subscriptionInfo),
   };
 }
 
