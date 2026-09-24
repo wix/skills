@@ -1,7 +1,7 @@
 // Category + tag chips for a post. Resolves the post's categoryIds/tagIds against the SHARED
 // taxonomy maps (fetched once by TaxonomyProvider — never re-query here), displays each by .label
 // (NOT .name), and routes by .slug. Styled with base44 design tokens (shadcn Tailwind classes).
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 import { useTaxonomy } from "@/context/TaxonomyContext";
 
 const chip = "inline-flex items-center py-1 px-2.5 text-[12px] no-underline text-foreground bg-card border border-border rounded-full";

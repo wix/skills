@@ -353,6 +353,17 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider
+
+> **The template decides this step, and `src/routes/__root.jsx` is the question to ask first.**
+> Present → TanStack Start, which mounts these pages as route files at the end of this step; absent
+> → React Router, which the wiring below is written for. Ask in that order: an `src/App.jsx` can
+> exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
+> The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
+> [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
+
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
@@ -438,6 +449,31 @@ function Layout() {
   </>);
 }
 ```
+
+
+### TanStack Start template — the same pages, mounted as files
+
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
+
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/shop` | `src/routes/shop.jsx` | `Shop` |
+| `/product/:slug` | `src/routes/product.$slug.jsx` | `ProductDetail` |
+
+```jsx
+// src/routes/shop.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Shop from "@/pages/Shop";
+
+export const Route = createFileRoute("/shop")({ component: Shop });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
 
 ## What a complete storefront shows
 

@@ -17,6 +17,12 @@ Everything is under `.agents/skills/wix-vibe-headless/references/`.
 | `wix-client.js` | The transport: exchanges `WIX_CLIENT_ID` for an anonymous **visitor token**, persists + refreshes it (that token *is* the cart/session identity), and exposes `wixApiRequest(path, {method, body, query})` — plus the member-session swap (`setSessionTokens` / `clearSession` / `isMember`). Plain `fetch`; SSR-guards `window`/`localStorage`; maps 402 + error bodies. |
 | `wix-config.js` | Holds `WIX_CLIENT_ID` + `WIX_METASITE_ID` — the only values to fill in. |
 
+**Plus `shared/app/lib/nav.js`.** The reference UI imports `Link`, `useParams`, `useNavigate`,
+`useLocation` and `Navigate` from `@/lib/nav` rather than from a router, so one set of sources runs
+on any of them. Point that path at your own router's equivalents — the shipped file re-exports
+react-router's, and `_shared/nav/nav.tanstack.js` shows the kind of wrapping another router needs
+(params scoped to the current match, a `navigate` you call with a path).
+
 **Every `references/<vertical>/` holds the same four things:**
 
 - `app/rest/wix-*.js` — the vertical's **data layer**: named calls carrying the exact request/response

@@ -1,7 +1,7 @@
 // Feed tile. Styled with base44 design tokens (shadcn Tailwind classes) — re-skin via those tokens, not this
 // JSX. The cover-image path (post.media.wixMedia.image.url) and the text-only fallback are
 // load-bearing: never substitute a stock/placeholder image. Routes to the detail page by slug.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 
 function coverImage(post) {
   const url = post?.media?.wixMedia?.image?.url;         // ready-to-use https url; //-fix is defensive

@@ -2,7 +2,7 @@
 // price/billing summary, perks, terms & conditions if present, and a Subscribe button (only when
 // plan.buyable). Not-found state on a bad slug — never invent a plan. Styled with base44 design
 // tokens (shadcn Tailwind classes). termsAndConditions is plain text; render as-is.
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { usePlanDetail } from "@/hooks/usePlanDetail";
 import PlanPrice from "@/components/PlanPrice";
 
