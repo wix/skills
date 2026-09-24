@@ -336,6 +336,45 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 >
 > Error `WDE0303` occurs when attempting to set multi-reference fields via data operations.
 
+## Assign N Distinct Images to N CMS Items (by Key)
+
+Common pattern: fixing bad or missing images across many items in a collection (e.g. every item needs its own representative photo, one image field per item). Don't zip image upload results to items by array position — CMS query order and bulk-import result order are not guaranteed to line up, especially with partial import failures. Match by a stable key instead (e.g. the item's `title`/`name` field):
+
+1. **Query the items you need to fix**, keeping the key field (e.g. `name`) alongside each `_id`:
+   ```json
+   { "dataCollectionId": "Destinos", "query": { "filter": { "mainImage": { "$eq": "<placeholder-or-duplicated-asset-url>" } } } }
+   ```
+2. **Bulk-import one image per item** — see [Bulk Import Files](../media/upload-media-to-wix.md#method-bulk-import-files-from-external-urls-multiple-files). Set each `displayName` to that item's key value (e.g. `"Bogotá.jpg"`) so the import result stays traceable even if you don't correlate by index.
+3. **Correlate results to items** using `results[].itemMetadata.originalIndex` back to the request you built in step 2 (which you built in the same order as the items from step 1) — don't assume `results` preserves array position on partial failure.
+4. **Bulk-patch each item's image field** with the imported file's Wix Media URI, using the item's own `_id`, not any other item's:
+   ```json
+   {
+     "dataCollectionId": "Destinos",
+     "patches": [
+       {
+         "dataItemId": "<item-1-id>",
+         "fieldModifications": [
+           {
+             "fieldPath": "mainImage",
+             "action": "SET_FIELD",
+             "setFieldOptions": { "value": "wix:image://v1/<mediaId-1>/Bogotá.jpg" }
+           }
+         ]
+       },
+       {
+         "dataItemId": "<item-2-id>",
+         "fieldModifications": [
+           {
+             "fieldPath": "mainImage",
+             "action": "SET_FIELD",
+             "setFieldOptions": { "value": "wix:image://v1/<mediaId-2>/Medellín.jpg" }
+           }
+         ]
+       }
+     ]
+   }
+   ```
+
 ## Delete Data Item
 
 **Endpoint**: `DELETE /wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
