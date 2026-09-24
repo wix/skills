@@ -75,7 +75,10 @@ the shipped UI**: give at least one product a color option and put one product o
 truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
-"sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
+"sample" data, no resets — not even on a site created a minute ago. The Stores install adds its
+own sample products to a new catalog; they stay, and the owner removes them in the dashboard
+(the Manage products link is in your summary). If a cleanup genuinely seems needed, ask the user
+first. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
 
 **A bulk create can partially succeed.** The result carries `failures: [{ name, error }]` next
 to `products` — read it. A non-empty `failures` means those products are genuinely absent, not

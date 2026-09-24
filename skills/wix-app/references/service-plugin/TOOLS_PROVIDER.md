@@ -45,6 +45,10 @@ toolsProvider.provideHandlers({
 });
 ```
 
+## Manual Setup Required
+
+This handler is only invoked by the real Wix AI assistant deciding a tool is relevant — there's no direct API to force-invoke a specific tool for testing. Two things must both be true before it can fire at all: (1) a paired `APP_TOOLS` extension declares the tool with `activated: true` (see [APP_TOOLS.md](../APP_TOOLS.md)), and (2) a user actually asks the AI assistant something the tool's `description` matches. Verify by asking the assistant a matching question on the live site, not by calling this handler directly.
+
 ## Key Implementation Notes
 
 1. **Route on `methodName`** — use a `switch` or map to dispatch to the right handler logic

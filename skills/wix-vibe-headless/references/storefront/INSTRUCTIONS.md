@@ -103,18 +103,23 @@ export default function ProductCard({ product }) {
   const {
     isSoldOut, isPreorder, isPartiallyOutOfStock, // booleans
     leftBadges,       // [{ type: 'pre-order'|'sold-out'|'limited-stock', label }]
-    promoBadge,       // { type: 'discount'|'ribbon', label } | null
-    priceDisplay,     // formatted price or min–max range; may be undefined if absent
-    compareAtDisplay, // formatted compare-at price | null
+    ribbons,          // every merchant ribbon label, primary first — render ALL of them, one shared style
+    promoBadge,       // { type: 'ribbon', label } | null — the primary ribbon, for a single-badge slot
+    priceDisplay,     // the price the buyer pays (discounted when an automatic discount applies), or a min–max range
+    compareAtDisplay, // struck "was" price | null — never beside a range (the PDP shows the real comparison)
+    teaser,           // plain-text description for the tile — plainDescription is HTML; never render it raw on a card
     colors,           // hex colour strings
     optionLabel,      // e.g. "3 sizes · 2 materials", or ""
     isQuickAddable,   // no product options and not sold out; does NOT check modifiers
+    directAddVariantId, // the variant a quick-add sends; null when not quick-addable
     image, hoverImage,// normalised primary / second gallery URL | null
   } = useProductCard(product);
   // Render your card.
 }
 ```
-For quick-add, call `addToCart(product.id)` only when `isQuickAddable` and no mandatory
+A ribbon is a label, never proof of a price: don't render a "Sale" badge from `compareAtDisplay`,
+and don't compute a percent-off — the hook deliberately doesn't. For quick-add, call
+`addToCart(product.id, directAddVariantId)` only when `isQuickAddable` and no mandatory
 modifier needs input (`product.modifiers` entries have a `mandatory` boolean). Otherwise link to `/product/${product.slug}` for selection, including
 pre-orders. Listing results have no full variants; the PDP hook loads and resolves them.
 Use cart-context `loading` to disable repeated adds. Failures open the shipped drawer with
@@ -198,15 +203,19 @@ export default function ProductDetail() {
   // d contains:
   // product: Wix product | null; .name, .slug, .plainDescription (HTML)
   // notFound: boolean; error: string | null (load error); retry: () => void
-  // price, compareAtPrice: formatted strings ("" if absent), follow the selected variant
+  // price: formatted — the product's min–max range until every option is picked, then the selected
+  //   variant's price (an automatic discount beats the regular price); compareAtPrice: the struck
+  //   "was" price, "" when none. discountNames: automatic-discount names, product level.
   // options, modifiers: arrays consumed by useVariantOptions above
-  // selectedOptions: { [optionId]: choiceId }; selectOption(optionId, choiceId)
+  // selectedOptions: { [optionId]: choiceId } — starts EMPTY (no pre-picked choice); selectOption(optionId, choiceId)
   // modifierValues: { [key]: value }; setModifier(key, value)
   // variant: resolved variant | null; null if required choices are missing or no match exists
   // focusMediaUrl: selected choice image, then variant image, or null
-  // quantity, setQuantity(n): number (may be "" mid-edit)
-  // inStock, canAdd, adding: booleans
-  // submit: async () => adds product + resolved variant + quantity + modifiers
+  // quantity, setQuantity(n): number (may be "" mid-edit); resets to 1 when an option changes
+  // inStock, isPreorder, canAdd, adding: booleans — a pre-order variant IS addable
+  // blockedReason: string | null — why the buy button is disabled ("Choose Size", "Out of stock");
+  //   render it next to the action as neutral guidance, not an error, until the buyer tries to buy
+  // submit: async () => adds product + resolved variant + quantity + modifiers (+ preorder)
   // resolves undefined on success, null on failure (not a cart object or a boolean)
   // Replace these placeholders with your error, not-found, and loading UI.
   if (d.error) return null; // show d.error and offer d.retry()
@@ -220,24 +229,28 @@ export default function ProductDetail() {
 ```
 - Render `product.plainDescription` as HTML; strike `compareAtPrice` only when present and different from `price`.
 - Make the gallery follow `focusMediaUrl` when the selected option changes.
-- Render the option/modifier controls below; show a selection hint when `options.length && !variant`.
-- Keep quantity at least 1. Disable adding when `!canAdd || adding`; call `submit()` only with a loaded product and `canAdd`. `submit()` coerces quantity to at least 1 but does not itself enforce `canAdd`.
-- `canAdd` checks variant resolution, variant stock, and mandatory modifier values. `inStock` defaults to true without a resolved variant; use `canAdd` for the full gate.
+- Render the option/modifier controls below; mark choices whose `inStock` is false; show `d.blockedReason` beside the button while it's disabled.
+- Label the action by state: `isPreorder` → "Pre-order"; otherwise "Add to cart". Keep quantity at least 1. Disable adding when `!canAdd || adding`; call `submit()` only with a loaded product and `canAdd`. `submit()` coerces quantity to at least 1 but does not itself enforce `canAdd`.
+- `canAdd` checks variant resolution, availability (in stock or pre-orderable), and mandatory modifier values. `inStock` defaults to true without a resolved variant; use `canAdd` for the full gate.
+- Render the PDP gallery from `images` — every image reachable (thumbnails, arrows, or a swipeable rail), not just the first; a single-image product gets no empty strip.
 - `submit()` resets `adding` after completion and preserves the cart result: `undefined` on success, `null` on failure. Add failures live in `useCart().error`, not the PDP load `error`; the shipped drawer opens to display them.
 
-For an optional **Buy Now** button, check the add result before checkout:
+For an optional **add and check out** shortcut, check the add result before checkout:
 ```jsx
 // Inside ProductDetail, with the other hooks above any conditional returns:
 const { checkout, loading: cartLoading } = useCart(); // named import from @/context/CartContext
-async function buyNow() {
+async function addAndCheckout() {
   if (!d.product || !d.canAdd || d.adding || cartLoading) return;
   const result = await d.submit();
   if (result === null) return; // add failed; preserve its error and do not check out the old cart
   await checkout();
 }
-// <button disabled={!d.canAdd || d.adding || cartLoading} onClick={buyNow}>Buy now</button>
+// <button disabled={!d.canAdd || d.adding || cartLoading} onClick={addAndCheckout}>Add and check out</button>
 ```
-For direct `addToCart(...)` calls, use the same `result === null` check before checkout.
+This adds to the shopper's **current cart** and checks that cart out — so label it that way. A true
+**Buy Now** (skip the cart, buy just this item) needs a standalone cart handed to the redirect session;
+it is not shipped, and routing "Buy now" through the current cart is wrong (it would carry whatever the
+cart already holds). For direct `addToCart(...)` calls, use the same `result === null` check before checkout.
 A resolved promise alone does not mean success; a truthiness check also rejects successful `undefined`.
 
 ### Variant and modifier controls
@@ -253,7 +266,9 @@ The product-detail example above provides both groups:
 // Text modifier: d.setModifier(m.key, text)
 ```
 Retired option choices are filtered out. Respect each choice's `inStock` and modifier's
-`mandatory` flag; the hook supplies colour values and selection state without prescribing layout.
+`mandatory` flag. A choice with `isColorSwatch` renders as a **color swatch** filled with its
+`colorCode` and labelled by its name — not as a text pill; the hook supplies the values and selection
+state without prescribing the rest of the layout.
 
 ### Images
 `useProductCard` returns normalized `image`/`hoverImage`, and `useProductDetail` returns normalized
@@ -277,14 +292,17 @@ within `CartProvider` (the PDP hook calls it for you).
 
 ```js
 const { addToCart, isOpen, setIsOpen, loading, error, clearError } = useCart();
-// addToCart(productId, variantId?, qty = 1, { modifierChoices?, customTextFields? }?)
+// addToCart(productId, variantId?, qty = 1, { modifierChoices?, customTextFields?, subscriptionOptionId?, preorder? }?)
 // isOpen: boolean; setIsOpen(true): open the drawer; setIsOpen(false): close it
 // loading: mutation-in-progress boolean; disable repeated adds while true
 // error: string | null; clearError(): clears it
 ```
-`addToCart` uses `product.id` and the resolved `variant.id` when needed. Extras are string maps:
+`addToCart` uses `product.id` and the resolved `variant.id` when needed. Extras: string maps
 `modifierChoices: { [modifier.key]: choiceKey }` and
-`customTextFields: { [modifier.freeTextSettings.key]: userInput }`; include mandatory values.
+`customTextFields: { [modifier.freeTextSettings.key]: userInput }` (include mandatory values);
+`preorder: true` for a pre-order variant (the PDP hook sets it); `subscriptionOptionId` for a chosen
+recurring plan (omit for one-time). The shipped PDP hook doesn't render subscriptions — add that
+only when the catalog has `subscriptionPricesInfo`, requiring an explicit plan choice.
 
 The context's add/remove/update/checkout methods return promises resolving to `undefined` on
 success or `null` on failure, storing the failure in `error`. They clear the previous error and
@@ -298,8 +316,10 @@ Only use these additional contracts if you choose to render your own cart surfac
 from the same `useCart()` context; mutation results and error handling are described above.
 
 ```js
-const { cart, itemCount, removeItem, updateQuantity, checkout, refreshCart } = useCart();
+const { cart, summary, itemCount, removeItem, updateQuantity, checkout, refreshCart } = useCart();
 // cart: server cart | null; itemCount: sum of confirmed line quantities
+// summary: the estimate's { priceSummary: { subtotal, discount, total } } | null — refreshed with the cart;
+//   subtotal is after discounts, discount is the CART-level discount only; both ConvertedMoney
 // removeItem(lineItemId); updateQuantity(lineItemId, qty)
 // checkout(); refreshCart()
 ```
@@ -307,7 +327,8 @@ For custom cart presentation, `cart?.lineItems ?? []` is the list. Each line has
 `name.original`, and optional `attributes.image.url`. Option/modifier labels are in
 `attributes.descriptionLines`: `[{ name: { original }, plainText?: { original },
 colorInfo?: { original, code } }]`; use `plainText.original` or `colorInfo.original` for the value.
-Update/remove use the line's `id`, not a catalog product id.
+Update/remove use the line's `id`, not a catalog product id. Show each line's `attributes.descriptionLines`
+(the chosen options and text) — a shopper verifies the configuration in the cart, not the checkout.
 
 Normalize custom cart images with `storeImage(line.attributes?.image?.url)` (see **Images**).
 
@@ -320,16 +341,29 @@ Cart money is `{ amount, convertedAmount }`, with no formatted string. `amount` 
 currency; `convertedAmount` is in display currency. Format
 `money.convertedAmount ?? money.amount` with `Intl.NumberFormat` and
 `cart.customerInfo?.currencyCode ?? cart.businessInfo?.currencyCode` (the shipped drawer falls
-back to `USD`). Use server `cart.subtotal` and line `pricing.totalPrice`; never sum lines yourself.
-The cart has no `subtotalAfterDiscounts`, `discount`, or `appliedDiscounts`; discounted summary
-totals require a currentCartV2 estimate/calculate `summary.priceSummary`, which these helpers do
-not fetch. Tax and shipping resolve at checkout.
+back to `USD`). Use `summary.priceSummary.subtotal` (after discounts) with `cart.subtotal` as the
+fallback while `summary` is null, a Discount row only when `priceSummary.discount` is above zero, and
+line `pricing.totalPrice`; never sum lines yourself. Shipping and tax resolve at checkout — say
+"calculated at checkout", never a hardcoded charge, threshold, or a made-up zero. The estimate's
+`priceSummary.delivery`, `tax`, and `additionalFees` read `"0"` when nothing was calculated (verified
+live), so a zero there is not "Free shipping" or "No tax" — don't render those rows from the estimate.
 
 Line `quantityInfo.confirmedQuantity` is the current quantity; `availableQuantity` caps increases
 when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, or
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider
+
+> **The template decides this step, and `src/routes/__root.jsx` is the question to ask first.**
+> Present → TanStack Start, which mounts these pages as route files at the end of this step; absent
+> → React Router, which the wiring below is written for. Ask in that order: an `src/App.jsx` can
+> exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
+> The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
+> [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
+
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
@@ -416,6 +450,53 @@ function Layout() {
 }
 ```
 
+
+### TanStack Start template — the same pages, mounted as files
+
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
+
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/shop` | `src/routes/shop.jsx` | `Shop` |
+| `/product/:slug` | `src/routes/product.$slug.jsx` | `ProductDetail` |
+
+```jsx
+// src/routes/shop.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Shop from "@/pages/Shop";
+
+export const Route = createFileRoute("/shop")({ component: Shop });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
+
+## What a complete storefront shows
+
+The wiring above is necessary, not sufficient. These are defaults for when the brief doesn't say
+otherwise — whatever the user asked for in their prompt wins over any line here. Look at the
+catalog before designing — categories, assortment size, media, options, sales — and design for this
+store, not for a stereotype of its category. Then:
+
+- **Home:** what the store sells and one shopping action in the first screen; real products from
+  the catalog under truthful headings; not a repeat of the shop page.
+- **Shop:** a real product card — image, name, price, link — in the first screen; sort and the
+  filters the catalog supports; loading, empty, no-results, and error states that look different.
+- **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
+  in the first screen; every ribbon; every image reachable in the gallery.
+- **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
+- **Overlays you build** (quick-add, mobile nav, filters): mount at the document root, lock
+  background scroll, close on Escape, return focus on close — as the shipped `CartDrawer` does.
+- **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
+  promises; no Wix IDs or technical words in visible text.
+
+Pre-order ships (`isPreorder`). Subscriptions, product groups, promotions, and notify-me are built
+only when the catalog has them — never fabricated; consult the documentation skill for their endpoints.
+
 ## Missing capabilities
 For anything these interfaces do not cover, consult the official Wix API documentation using
 the documentation skill available in your environment.
@@ -425,4 +506,6 @@ shipped file; catalog and cart helpers link their API references inline.
 ## Hard rules
 - Header/footer live in a `Layout` around `<Outlet/>` (see **Routes and provider**) — keep shared chrome out of individual pages.
 - Checkout goes through the shipped cart (redirect-session) — never a hand-built `/checkout` URL.
-- Render live Wix data or your empty state — never mock products.
+- Render live Wix data or your empty state — never mock products, reviews, ratings, or counts.
+- Prices and ribbons come from the hooks as-is: no computed percent-off, no "Sale" badge inferred from a compare-at price, no struck price beside a range.
+- Cart totals come from `summary`/`cart` — never summed or hardcoded in the client; shipping and tax say "calculated at checkout".

@@ -3,7 +3,7 @@
 // (src/index.css :root/.dark), not this JSX. Load-bearing: the image goes through mediaUrl() (Wix
 // media can be a bare handle), the link uses `service.id`, and every price/duration/capacity label
 // comes from lib/serviceFacts.js so the card and the detail page can't disagree.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 import { mediaUrl } from "@/rest/wix-bookings-services";
 import { serviceCapacityLabel, serviceDuration, servicePriceLabel } from "@/lib/serviceFacts";
 

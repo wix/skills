@@ -87,6 +87,10 @@ additionalFees.provideHandlers({
 });
 ```
 
+## Manual Setup Required
+
+None — confirmed live. Once the app is installed and released, Wix calls this plugin automatically on every cart/checkout calculation; no dashboard configuration or extra API call is needed to "turn it on."
+
 ## Key Implementation Notes
 
 1. **Elevate permissions for API calls** - Use `auth.elevate` from `@wix/essentials` when calling Wix APIs from service plugins

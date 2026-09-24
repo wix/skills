@@ -1,12 +1,18 @@
 ---
 // The site chrome for every storefront page — THIS file (header/footer/nav) plus the @theme
 // token block in src/styles/global.css are what you brand. Keep:
-//   - the <slot name="seo-tags" /> in <head> (the product page's owner-editable SEO lands there)
+//   - the <slot name="seo-tags" /> in <head> (the product page's owner-editable SEO lands there,
+//     including the <title> — which is why ours is printed only when the slot is empty)
 //   - the global.css import (Tailwind + the design tokens every shipped component reads)
 //   - one <CartButton> in the header and one <CartDrawer> per page (both client:only —
 //     they read browser cart state and must not server-render)
+//   - category links in the nav (or your own menu/footer) — every category page reachable by
+//     a real link (`/category/<slug>`), from the live tree, so a category the owner adds later
+//     shows up with no code change
 import CartButton from "../components/storefront/CartButton";
 import CartDrawer from "../components/storefront/CartDrawer";
+import { fetchCategories } from "../wix/storefront/catalog";
+import type { Category } from "../wix/storefront/types";
 import "../styles/global.css";
 
 interface Props {
@@ -14,6 +20,15 @@ interface Props {
   description?: string;
 }
 const { title, description } = Astro.props;
+
+// Non-fatal: the chrome renders without the links if the read fails. Six in the header keeps a
+// large tree from crowding it — put the rest in a menu or the footer, but keep them linked.
+let navCategories: Category[] = [];
+try {
+  navCategories = (await fetchCategories()).slice(0, 6);
+} catch {
+  /* the shop link still reaches everything */
+}
 ---
 
 <!doctype html>
@@ -21,7 +36,8 @@ const { title, description } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+    {/* The product page's <SEO.Tags> renders the <title>; print ours only when no page filled the slot — two titles otherwise. */}
+    {!Astro.slots.has("seo-tags") && <title>{title}</title>}
     {description && <meta name="description" content={description} />}
     <slot name="seo-tags" />
   </head>
@@ -31,6 +47,9 @@ const { title, description } = Astro.props;
         <a href="/" class="text-base font-bold tracking-tight text-foreground no-underline">Brand Name</a>
         <nav class="flex items-center gap-6 text-sm">
           <a href="/shop" class="text-foreground no-underline transition-colors hover:text-muted-foreground">Shop</a>
+          {navCategories.map((c) => (
+            <a href={`/category/${c.slug}`} class="hidden text-foreground no-underline transition-colors hover:text-muted-foreground md:inline">{c.name}</a>
+          ))}
           <CartButton client:only="react" />
         </nav>
       </div>

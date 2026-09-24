@@ -48,6 +48,9 @@ Generate an SEO content plan and read its blog post topics, or troubleshoot an e
 ### [Manage Google Search Console for a Wix Site](references/seo/manage-google-search-console.md)
 "Connect a Wix site to Google Search Console and drive its setup through the public GSC Connection and Site Readiness APIs: check connection and readiness, start the Google authorization, verify ownership, add the property, submit the sitemap, request indexing, read search performance, run URL inspection, recover a stale connection, or disconnect. The site owner authorizes in their own browser via a single-use connect URL."
 
+### [Generate AI SEO Suggestions for a Wix Site](references/seo/manage-seo-suggestions.md)
+"Generate AI-written SEO text for a Wix site through the public Tag Suggestions and Page Optimization APIs: title tag and meta description options for a page, alt text for the images of a page, store product, or blog post (one image or up to 20 per call), corrected heading levels for a page's headings, and a whole-page rewrite of title, description, headings, and body text aimed at the page's focus keyword, returned as before/after pairs. Use it when the user wants to improve, optimize, audit, or write the SEO text of a page or the homepage. Suggestions are returned for review; applying one is a separate SEO tags write."
+
 ---
 
 ## Accessibility
@@ -251,7 +254,7 @@ Buy a domain through Wix or connect one the user already owns — intent, availa
 "Creates an event with the Wix Events V3 API — the required request body, ISO-8601 date and time settings, venue/online/TBD location, RSVP vs ticketed registration, guest capacity, short vs rich-text descriptions, ticket tiers and pricing, and recurring series. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create an event, set its date, location, description, guest limit or ticket prices, or set up a repeating event."
 
 ### [Manage Wix Events — Publishing, Cancelling, Cloning and Counting](references/events/manage-wix-events.md)
-"Operates on events that already exist with the Wix Events V3 API — publishing a draft, cancelling, deleting, cloning, updating an event's date or details, and counting events. Use when the user wants to publish or cancel an event, duplicate one, move an event's date, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
+"Operates on events that already exist with the Wix Events V3 API — finding an event by title, publishing a draft, cancelling, deleting (one or by filter), cloning, updating an event's date or details, and counting events. Use when the user wants to find, publish or cancel an event, duplicate one, move an event's date, delete events in bulk, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
 
 ---
 

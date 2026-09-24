@@ -1,18 +1,24 @@
-// Catalog listing for a shop surface: category filter, sort, price/stock/search filters, and
-// cursor paging — all applied by Wix across the whole catalog (searchCatalog), never to a page
-// already in hand. A changed selection starts a fresh cursor chain.
+// Catalog listing for a shop or category surface: category, sort, price/stock/search filters,
+// option facets, and cursor paging — all applied by Wix across the whole catalog (searchCatalog),
+// never to a page already in hand. A changed selection starts a fresh cursor chain.
+//
+// URL state: sort, filters, facet choices (and a live category switch on /shop) are read from the
+// query string on mount and written back with replaceState — a filtered gallery is a link a
+// shopper can share, reload, and step back to. Paging stays out of the URL.
 //
 // SSR-friendly: pass `initialProducts`/`initialCategories` (Astro frontmatter) and they render
 // immediately — the hook still revalidates the first page once on mount to open the cursor
-// chain, replacing the seed without a skeleton flash.
+// chain, replacing the seed without a skeleton flash. A /category/[slug] page passes
+// `initialCategoryId` so the first query is already scoped.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CATALOG_SORTS,
   fetchCategories,
+  fetchFacetData,
   searchCatalog,
   type CatalogSort,
 } from "../../wix/storefront/catalog";
-import type { Category, ProductSummary } from "../../wix/storefront/types";
+import type { Category, Facet, PriceRange, ProductSummary } from "../../wix/storefront/types";
 
 export const SORTS = CATALOG_SORTS;
 
@@ -27,12 +33,16 @@ export interface ShopFilters {
 export interface UseShopOptions {
   initialProducts?: ProductSummary[];
   initialCategories?: Category[];
+  /** Scope the listing to one category from the first render (a /category/[slug] page). */
+  initialCategoryId?: string | null;
   pageSize?: number;
 }
 
 export interface UseShop {
   /** null while the first load is in flight — render skeletons, not an empty state. */
   products: ProductSummary[] | null;
+  /** Matching products across the whole catalog for the current selection; null until known. */
+  total: number | null;
   categories: Category[];
   /** null = "all products". */
   activeCategoryId: string | null;
@@ -41,6 +51,17 @@ export interface UseShop {
   setSort: (sort: CatalogSort) => void;
   filters: ShopFilters;
   setFilters: (filters: ShopFilters) => void;
+  /** The filterable options of the current scope (Color, Size…), from the catalog itself. */
+  facets: Facet[];
+  /** Lowest and highest product price in the scope — the price slider's bounds; null until known or when all prices are equal. */
+  priceRange: PriceRange | null;
+  /** Selected facet choice ids — products carrying ANY of them match. */
+  selectedChoiceIds: string[];
+  toggleChoice: (choiceId: string) => void;
+  /** Clears price/stock/search filters and facet selections (keeps category and sort). */
+  clearFilters: () => void;
+  /** True when any filter or facet is active. */
+  hasActiveFilters: boolean;
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -49,9 +70,29 @@ export interface UseShop {
   loadingMore: boolean;
 }
 
+const URL_KEYS = { sort: "sort", min: "min", max: "max", stock: "stock", q: "q", choice: "choice", category: "category" } as const;
+
+function readUrlState(): { sort?: CatalogSort; filters: ShopFilters; choiceIds: string[]; categoryId?: string | null } | null {
+  if (typeof window === "undefined") return null;
+  const p = new URLSearchParams(window.location.search);
+  const sort = p.get(URL_KEYS.sort);
+  const filters: ShopFilters = {};
+  if (p.get(URL_KEYS.min)) filters.minPrice = p.get(URL_KEYS.min)!;
+  if (p.get(URL_KEYS.max)) filters.maxPrice = p.get(URL_KEYS.max)!;
+  if (p.get(URL_KEYS.stock) === "1") filters.inStockOnly = true;
+  if (p.get(URL_KEYS.q)) filters.search = p.get(URL_KEYS.q)!;
+  return {
+    sort: sort && sort in CATALOG_SORTS ? (sort as CatalogSort) : undefined,
+    filters,
+    choiceIds: p.getAll(URL_KEYS.choice),
+    categoryId: p.has(URL_KEYS.category) ? p.get(URL_KEYS.category) : undefined,
+  };
+}
+
 interface PageState {
   key: string | null;
   products: ProductSummary[] | null;
+  total: number | null;
   cursor: string | null;
   error: string | null;
   loadingMore: boolean;
@@ -60,22 +101,39 @@ interface PageState {
 export function useShop({
   initialProducts,
   initialCategories,
+  initialCategoryId = null,
   pageSize = 24,
 }: UseShopOptions = {}): UseShop {
   const [categories, setCategories] = useState<Category[]>(initialCategories ?? []);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(initialCategoryId);
   const [sort, setSort] = useState<CatalogSort>("featured");
   const [filters, setFilters] = useState<ShopFilters>({});
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
+  const [facets, setFacets] = useState<Facet[]>([]);
+  const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState<PageState>({
     key: null,
     products: initialProducts ?? null,
+    total: null,
     cursor: null,
     error: null,
     loadingMore: false,
   });
   const generation = useRef(0);
   const pendingMore = useRef<object | null>(null);
+  const firstWrite = useRef(true);
+
+  // Adopt the URL's selection once, after hydration (the server rendered the defaults).
+  useEffect(() => {
+    const u = readUrlState();
+    if (!u) return;
+    if (u.sort) setSort(u.sort);
+    if (Object.keys(u.filters).length) setFilters(u.filters);
+    if (u.choiceIds.length) setSelectedChoiceIds(u.choiceIds);
+    if (u.categoryId !== undefined && u.categoryId !== initialCategoryId) setActiveCategoryId(u.categoryId || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const key = JSON.stringify([
     pageSize,
@@ -85,10 +143,34 @@ export function useShop({
     filters.maxPrice ?? null,
     !!filters.inStockOnly,
     filters.search ?? "",
+    [...selectedChoiceIds].sort(),
     attempt,
   ]);
   const currentKey = useRef(key);
   currentKey.current = key;
+
+  // Mirror the selection into the query string (defaults are omitted; nothing else in the URL is touched).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // The mount run still holds the defaults (the adopted URL state lands on the next render) —
+    // writing now would erase the very params being adopted.
+    if (firstWrite.current) {
+      firstWrite.current = false;
+      return;
+    }
+    const p = new URLSearchParams(window.location.search);
+    for (const k of Object.values(URL_KEYS)) p.delete(k);
+    if (sort !== "featured") p.set(URL_KEYS.sort, sort);
+    if (filters.minPrice != null && filters.minPrice !== "") p.set(URL_KEYS.min, String(filters.minPrice));
+    if (filters.maxPrice != null && filters.maxPrice !== "") p.set(URL_KEYS.max, String(filters.maxPrice));
+    if (filters.inStockOnly) p.set(URL_KEYS.stock, "1");
+    if (filters.search?.trim()) p.set(URL_KEYS.q, filters.search.trim());
+    for (const id of selectedChoiceIds) p.append(URL_KEYS.choice, id);
+    if (activeCategoryId !== initialCategoryId) p.set(URL_KEYS.category, activeCategoryId ?? "");
+    const qs = p.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, "", next);
+  }, [key, sort, filters, selectedChoiceIds, activeCategoryId, initialCategoryId]);
 
   useEffect(() => {
     if (initialCategories) return;
@@ -100,18 +182,31 @@ export function useShop({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Facets follow the category scope (a Size facet in "Donuts" is meaningless).
+  useEffect(() => {
+    let alive = true;
+    fetchFacetData({ categoryId: activeCategoryId }).then((d) => {
+      if (!alive) return;
+      setFacets(d.facets);
+      setPriceRange(d.priceRange);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [activeCategoryId]);
+
   useEffect(() => {
     const id = ++generation.current;
     let alive = true;
     pendingMore.current = null;
     // Keep the SSR seed (or the previous page) on screen while the fresh query runs;
     // only a selection change with no seed shows skeletons.
-    setPage((p) => ({ key, products: p.key === null ? p.products : null, cursor: null, error: null, loadingMore: false }));
-    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search] = JSON.parse(key);
-    searchCatalog({ limit, categoryId, sort: selectedSort, minPrice, maxPrice, inStockOnly, search })
+    setPage((p) => ({ key, products: p.key === null ? p.products : null, total: null, cursor: null, error: null, loadingMore: false }));
+    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search, choiceIds] = JSON.parse(key);
+    searchCatalog({ limit, categoryId, sort: selectedSort, minPrice, maxPrice, inStockOnly, search, choiceIds })
       .then((res) => {
         if (alive && generation.current === id && currentKey.current === key) {
-          setPage({ key, products: res.products, cursor: res.nextCursor, error: null, loadingMore: false });
+          setPage({ key, products: res.products, total: res.total, cursor: res.nextCursor, error: null, loadingMore: false });
         }
       })
       .catch((e) => {
@@ -119,6 +214,7 @@ export function useShop({
           setPage({
             key,
             products: [],
+            total: null,
             cursor: null,
             error: e instanceof Error ? e.message : "Couldn't load products.",
             loadingMore: false,
@@ -166,12 +262,29 @@ export function useShop({
   }, [key, page.key, page.cursor, pageSize]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const toggleChoice = useCallback(
+    (choiceId: string) =>
+      setSelectedChoiceIds((ids) => (ids.includes(choiceId) ? ids.filter((x) => x !== choiceId) : [...ids, choiceId])),
+    [],
+  );
+  const clearFilters = useCallback(() => {
+    setFilters({});
+    setSelectedChoiceIds([]);
+  }, []);
 
   const current = page.key === key;
   const seeded = page.key === null && page.products !== null; // SSR seed, first query in flight
   // Seeded content on screen is not "loading" — skeletons are only for a genuinely empty wait.
   const loading = (!current && !seeded) || (current && page.products === null);
+  const hasActiveFilters =
+    selectedChoiceIds.length > 0 ||
+    !!filters.inStockOnly ||
+    filters.minPrice != null && filters.minPrice !== "" ||
+    filters.maxPrice != null && filters.maxPrice !== "" ||
+    !!(filters.search && filters.search.trim());
   return {
+    products: current || seeded ? page.products : null,
+    total: current ? page.total : null,
     categories,
     activeCategoryId,
     setActiveCategoryId,
@@ -179,7 +292,12 @@ export function useShop({
     setSort,
     filters,
     setFilters,
-    products: current || seeded ? page.products : null,
+    facets,
+    priceRange,
+    selectedChoiceIds,
+    toggleChoice,
+    clearFilters,
+    hasActiveFilters,
     loading,
     error: current ? page.error : null,
     retry,

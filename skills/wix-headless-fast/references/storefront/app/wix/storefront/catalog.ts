@@ -10,6 +10,8 @@ import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
 import type {
   Category,
+  Facet,
+  FacetData,
   ProductDetail,
   ProductOption,
   ProductModifier,
@@ -24,10 +26,42 @@ const categories = wixModule(categoriesModule);
 // Requested on every product read. CURRENCY populates formattedAmount (without it, prices render
 // as bare unlocalized numbers); MEDIA_ITEMS_INFO populates the gallery; the detail read adds
 // PLAIN_DESCRIPTION and VARIANT_OPTION_CHOICE_NAMES (which populates variantsInfo.variants).
-const LIST_FIELDS = ["CURRENCY", "MEDIA_ITEMS_INFO"];
-const DETAIL_FIELDS = [...LIST_FIELDS, "PLAIN_DESCRIPTION", "VARIANT_OPTION_CHOICE_NAMES"];
+// MIN_PRICE_VARIANT + DISCOUNT_INFO → variantSummary.minPriceVariant with its discounted price:
+// a card's real price and the direct-add variant id, without a per-product fetch.
+const LIST_FIELDS = ["CURRENCY", "MEDIA_ITEMS_INFO", "MIN_PRICE_VARIANT", "DISCOUNT_INFO"];
+// INFO_SECTION + INFO_SECTION_PLAIN_DESCRIPTION → infoSections[] with HTML bodies.
+const DETAIL_FIELDS = [
+  ...LIST_FIELDS,
+  "PLAIN_DESCRIPTION",
+  "VARIANT_OPTION_CHOICE_NAMES",
+  "INFO_SECTION",
+  "INFO_SECTION_PLAIN_DESCRIPTION",
+];
 
 type RawProduct = Record<string, any>;
+
+/**
+ * The price the buyer pays, and the price to strike — exact precedence, shared by cards and
+ * variants. An automatic discount (priceAfterDiscount, present when DISCOUNT_INFO is requested)
+ * wins and strikes the regular actualPrice; otherwise actualPrice with the merchant's
+ * compareAtPrice as the "was". `!== undefined` on purpose: a discounted price of 0 is a real price.
+ */
+export function sellingPrice(price: RawProduct | undefined): { current?: RawProduct; original?: RawProduct } {
+  if (price?.priceAfterDiscount !== undefined) return { current: price.priceAfterDiscount, original: price.actualPrice };
+  return { current: price?.actualPrice, original: price?.compareAtPrice };
+}
+
+/** The struck price only when it is real and higher than what the buyer pays. */
+function strike(original: RawProduct | undefined, current: RawProduct | undefined): string | null {
+  const o = Number(original?.amount), c = Number(current?.amount);
+  return original?.formattedAmount && Number.isFinite(o) && Number.isFinite(c) && o > c ? original.formattedAmount : null;
+}
+
+/** Every merchant ribbon label, primary first — a ribbon is a label, never proof of a price. */
+function ribbonsOf(raw: RawProduct): string[] {
+  return [raw.ribbon?.name, ...((raw.additionalRibbons ?? []) as RawProduct[]).map((r) => r?.name)]
+    .filter((n, i, all): n is string => typeof n === "string" && n.length > 0 && all.indexOf(n) === i);
+}
 
 function toAvailability(raw: RawProduct): Availability {
   const status = raw.inventory?.availabilityStatus;
@@ -36,13 +70,39 @@ function toAvailability(raw: RawProduct): Availability {
     : "IN_STOCK";
 }
 
+// The identity of a media entry BEFORE scaling — two scaled URLs of one photo differ in their
+// size parameters, so de-duplicating on resolved URLs shows the same image twice.
+function mediaKey(m: RawProduct | undefined): string {
+  const v = m?.image ?? m?.url ?? m;
+  if (!v) return "";
+  if (typeof v === "string") return v.split("#")[0];
+  return v.id ?? v.url ?? "";
+}
+
+// Every distinct media entry, main first, keyed on identity — shared by the tile (hover image)
+// and the PDP (gallery) so both see the same photos in the same order.
+function mediaEntries(raw: RawProduct): RawProduct[] {
+  const out: RawProduct[] = [];
+  const seen = new Set<string>();
+  for (const m of [raw.media?.main, ...((raw.media?.itemsInfo?.items ?? []) as RawProduct[])]) {
+    const k = mediaKey(m);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(m);
+  }
+  return out;
+}
+
 function toSummary(raw: RawProduct): ProductSummary {
   const options: RawProduct[] = raw.options ?? [];
-  const galleryItems: RawProduct[] = raw.media?.itemsInfo?.items ?? [];
-  const mainUrl = imgSrc(raw.media?.main, 800, 800);
-  const hover = galleryItems
-    .map((m) => imgSrc(m.image ?? m, 800, 800))
-    .filter((u) => u && u !== mainUrl);
+  const media = mediaEntries(raw);
+  const mainUrl = imgSrc(media[0], 800, 800);
+  const hover = media.slice(1).map((m) => imgSrc(m, 800, 800)).filter(Boolean);
+  const swatches = options
+    .filter((o) => o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES")
+    .flatMap((o) => (o.choicesSettings?.choices ?? []) as RawProduct[])
+    .filter((c) => c.visible !== false && c.colorCode)
+    .map((c) => String(c.colorCode));
   const availability = toAvailability(raw);
   const preorder = raw.inventory?.preorderStatus === "ENABLED" && availability === "OUT_OF_STOCK";
   const optionsSummary = options
@@ -51,19 +111,30 @@ function toSummary(raw: RawProduct): ProductSummary {
       return `${visible.length} ${String(o.name ?? "").toLowerCase()}${visible.length === 1 ? "" : "s"}`;
     })
     .join(" · ");
+  // Price: the cheapest variant's selling price (discount applied) via MIN_PRICE_VARIANT; the
+  // product range when variants are priced differently. A struck "was" only for a single price.
+  const min = raw.actualPriceRange?.minValue;
+  const max = raw.actualPriceRange?.maxValue;
+  const isRange = !!(min?.amount && max?.amount && min.amount !== max.amount);
+  const minVariant: RawProduct | undefined = raw.variantSummary?.minPriceVariant;
+  const { current, original } = sellingPrice(minVariant?.price);
+  const ribbons = ribbonsOf(raw);
   return {
     id: raw._id ?? "",
     slug: raw.slug ?? "",
     name: raw.name ?? "",
-    price: raw.actualPriceRange?.minValue?.formattedAmount ?? "",
-    maxPrice: raw.actualPriceRange?.maxValue?.formattedAmount ?? "",
-    compareAtPrice: raw.compareAtPriceRange?.minValue?.formattedAmount ?? null,
-    ribbon: raw.ribbon?.name ?? null,
+    price: current?.formattedAmount ?? min?.formattedAmount ?? "",
+    maxPrice: max?.formattedAmount ?? "",
+    compareAtPrice: isRange ? null : strike(original ?? raw.compareAtPriceRange?.minValue, current ?? min),
+    ribbon: ribbons[0] ?? null,
+    ribbons,
+    minPriceVariantId: minVariant?._id ?? minVariant?.variantId ?? null,
     availability,
     preorder,
     imageUrl: mainUrl,
     hoverImageUrl: hover[0] ?? "",
     optionsSummary,
+    swatches,
     quickAddable: options.length === 0 && availability === "IN_STOCK",
   };
 }
@@ -107,25 +178,29 @@ function toVariants(raw: RawProduct): ProductVariant[] {
       const names = c.optionChoiceNames;
       if (names?.optionName) choices[names.optionName] = names.choiceName ?? "";
     }
+    const { current, original } = sellingPrice(v.price);
     return {
       variantId: v._id ?? v.variantId ?? "",
       choices,
-      price: v.price?.actualPrice?.formattedAmount ?? "",
-      compareAtPrice: v.price?.compareAtPrice?.formattedAmount ?? null,
+      price: current?.formattedAmount ?? "",
+      compareAtPrice: strike(original, current),
       inStock: v.inventoryStatus?.inStock !== false,
+      preorderEnabled: v.inventoryStatus?.preorderEnabled === true,
     };
   });
 }
 
 function toDetail(raw: RawProduct): ProductDetail {
   const summary = toSummary(raw);
-  const gallery = [
-    summary.imageUrl,
-    ...(raw.media?.itemsInfo?.items ?? []).map((m: RawProduct) => imgSrc(m.image ?? m, 1200, 1200)),
-  ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+  // De-duplicated on media identity (mediaEntries), then resolved once at one size — never
+  // "main at 800 + items at 1200", which yields two thumbnails of the same photo.
+  const gallery = mediaEntries(raw).map((m) => imgSrc(m, 1200, 1200)).filter(Boolean);
   return {
     ...summary,
-    descriptionHtml: raw.plainDescription ?? "",
+    descriptionHtml: raw.plainDescription ?? "",   // plainDescription IS an HTML string despite the name
+    infoSections: ((raw.infoSections ?? []) as RawProduct[])
+      .map((s) => ({ title: s.title ?? "", html: s.plainDescription ?? "" }))
+      .filter((s) => s.title || s.html),
     gallery,
     options: toOptions(raw),
     modifiers: toModifiers(raw),
@@ -174,6 +249,8 @@ export interface CatalogSearchOptions {
   inStockOnly?: boolean;
   /** Name search, max 100 chars. */
   search?: string;
+  /** Option-choice facets: products carrying ANY of these choice ids (see fetchFacets). */
+  choiceIds?: string[];
 }
 
 /**
@@ -190,7 +267,8 @@ export async function searchCatalog({
   maxPrice,
   inStockOnly = false,
   search = "",
-}: CatalogSearchOptions = {}): Promise<{ products: ProductSummary[]; nextCursor: string | null }> {
+  choiceIds = [],
+}: CatalogSearchOptions = {}): Promise<{ products: ProductSummary[]; nextCursor: string | null; total: number | null }> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100)
     throw new Error("limit must be between 1 and 100.");
   let query: RawProduct = { cursorPaging: { limit, ...(cursor ? { cursor } : {}) } };
@@ -210,6 +288,8 @@ export async function searchCatalog({
     if (max !== undefined)
       conditions.push({ "actualPriceRange.minValue.amount": { $lte: String(max) } });
     if (inStockOnly) conditions.push({ "inventory.availabilityStatus": { $eq: "IN_STOCK" } });
+    // Facets discover PRODUCTS that carry a choice; the PDP / QuickAdd still resolves the variant.
+    if (choiceIds.length) conditions.push({ "options.choicesSettings.choices.choiceId": { $hasSome: choiceIds } });
     query = {
       ...query,
       filter: { $and: conditions },
@@ -218,10 +298,75 @@ export async function searchCatalog({
     };
   }
   const res: RawProduct = await products.searchProducts(query, { fields: LIST_FIELDS as any });
+  // The result count for the "N products" line — same filter, issued alongside the first page.
+  let total: number | null = null;
+  if (!cursor && query.filter) {
+    try {
+      const count: RawProduct = await products.countProducts({ filter: query.filter });
+      total = typeof count?.count === "number" ? count.count : null;
+    } catch {
+      /* the count is a nicety — the page is still valid */
+    }
+  }
   return {
     products: (res.products ?? []).map((p: RawProduct) => toSummary(p)),
     nextCursor: res.pagingMetadata?.cursors?.next ?? null,
+    total,
   };
+}
+
+/**
+ * The filterable options of the catalog (or of one category): every option name with its
+ * choices, aggregated from the products themselves — so the panel only offers facets that
+ * exist. Color options carry a colorCode for swatches. Non-fatal: [] when the read fails.
+ */
+export async function fetchFacets(scope: { categoryId?: string | null } = {}): Promise<Facet[]> {
+  return (await fetchFacetData(scope)).facets;
+}
+
+/**
+ * Facets plus the scope's price bounds (lowest minimum, highest maximum across its products) — the
+ * filter panel's slider needs both, from one 100-product read. Non-fatal: empty facets and a null
+ * range when the read fails.
+ */
+export async function fetchFacetData({ categoryId }: { categoryId?: string | null } = {}): Promise<FacetData> {
+  try {
+    const conditions: RawProduct[] = [{ visible: true }];
+    if (categoryId) conditions.push({ "allCategoriesInfo.categories": { $matchItems: [{ id: categoryId }] } });
+    const res: RawProduct = await products.searchProducts(
+      { filter: { $and: conditions }, cursorPaging: { limit: 100 } },
+      { fields: [] as any },
+    );
+    const byName = new Map<string, Facet>();
+    let lo = Infinity;
+    let hi = -Infinity;
+    let currency = "";
+    for (const p of (res.products ?? []) as RawProduct[]) {
+      const min = Number(p.actualPriceRange?.minValue?.amount);
+      const max = Number(p.actualPriceRange?.maxValue?.amount);
+      if (Number.isFinite(min)) lo = Math.min(lo, min);
+      if (Number.isFinite(max)) hi = Math.max(hi, max);
+      currency = currency || p.currency || "";
+      for (const o of (p.options ?? []) as RawProduct[]) {
+        const name = o.name ?? "";
+        if (!name) continue;
+        const isColor = o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES";
+        const facet: Facet = byName.get(name) ?? { name, isColor, choices: [] };
+        for (const ch of (o.choicesSettings?.choices ?? []) as RawProduct[]) {
+          if (ch.visible === false || !ch.choiceId) continue;
+          if (!facet.choices.some((x) => x.id === ch.choiceId))
+            facet.choices.push({ id: ch.choiceId, name: ch.name ?? "", colorCode: ch.colorCode ?? null });
+        }
+        byName.set(name, facet);
+      }
+    }
+    return {
+      facets: [...byName.values()].filter((f) => f.choices.length > 1),
+      priceRange: Number.isFinite(lo) && Number.isFinite(hi) && hi > lo ? { min: Math.floor(lo), max: Math.ceil(hi), currency } : null,
+    };
+  } catch {
+    return { facets: [], priceRange: null };
+  }
 }
 
 /** First page of visible products in the default order — a thin wrap of searchCatalog. */
@@ -260,14 +405,35 @@ export async function fetchCategories(): Promise<Category[]> {
       .exists("name", true)
       .find();
     return (res.items ?? [])
-      .map((c) => ({
-        id: (c as RawProduct)._id ?? "",
-        slug: (c as RawProduct).slug ?? "",
-        name: (c as RawProduct).name ?? "",
-      }))
+      .map((c) => toCategory(c as RawProduct))
       .filter((c) => c.slug !== "all-products");
   } catch {
     return [];
+  }
+}
+
+function toCategory(raw: RawProduct): Category {
+  return {
+    id: raw._id ?? raw.id ?? "",
+    slug: raw.slug ?? "",
+    name: raw.name ?? "",
+    description: raw.description ?? "",
+  };
+}
+
+/**
+ * One category by its URL slug — the data a /category/[slug] page needs (its id feeds
+ * searchCatalog / useShop, its name and description head the page). Null when not found or
+ * hidden, which the page turns into a real 404 — never a fallback to all products.
+ */
+export async function fetchCategoryBySlug(slug: string): Promise<Category | null> {
+  try {
+    const res: RawProduct = await categories.getCategoryBySlug(slug, { appNamespace: "@wix/stores" } as any);
+    const raw: RawProduct | undefined = res?.category;
+    if (!raw || raw.visible === false) return null;
+    return toCategory(raw);
+  } catch {
+    return null;
   }
 }
 

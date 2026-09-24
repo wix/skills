@@ -331,11 +331,34 @@ async function stockOptionlessProducts(ctx, created) {
   }
 }
 
+// Existing categories by name (for idempotent reruns) — a re-run of the seed must reuse
+// "Donuts", not create a second one. Empty map on any failure (falls back to create).
+export async function queryCategoriesByNames(ctx, names) {
+  const out = new Map();
+  if (!names.length) return out;
+  try {
+    const r = await req(ctx, "/categories/v1/categories/query", {
+      body: { treeReference: { appNamespace: "@wix/stores", treeKey: null }, query: { cursorPaging: { limit: 100 } } },
+    });
+    const wanted = new Set(names);
+    for (const c of r.categories ?? []) if (wanted.has(c.name) && !out.has(c.name)) out.set(c.name, c.id);
+  } catch (e) {
+    console.error(`category name pre-check failed (creating everything): ${String(e.message).slice(0, 120)}`);
+  }
+  return out;
+}
+
 // Categories share the @wix/stores tree revision — concurrent creates 409, so: sequential.
+// Idempotent by name: a name that already exists is reused, never duplicated.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
 export async function createCategories(ctx, names) {
+  const existing = await queryCategoriesByNames(ctx, names);
   const out = [];
   for (const name of names) {
+    if (existing.has(name)) {
+      out.push({ id: existing.get(name), name });
+      continue;
+    }
     const r = await req(ctx, "/categories/v1/categories", {
       body: { category: { name, visible: true }, treeReference: { appNamespace: "@wix/stores", treeKey: null } },
     });
@@ -343,6 +366,7 @@ export async function createCategories(ctx, names) {
   }
   return out;
 }
+
 
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md
 export async function addProductsToCategories(ctx, mapping) {

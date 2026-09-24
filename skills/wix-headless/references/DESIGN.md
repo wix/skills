@@ -8,9 +8,7 @@ This is the **agent's own design-tokens contract** — it's the thing `IMAGE_GEN
 
 ## 1 · Decide the design tokens once, before any component
 
-**Design from the content, not from the category.** Before choosing anything, look at what the site actually has — for a store the products, their photography, the categories, price points, and options; for a blog the posts and covers; for bookings the services. Then write the direction as a few lines, held with the tokens: a **one-sentence thesis** (the offer, the visitor, the character); **three traits**; an **avoid-list** of the stereotypes this business would fall into by default ("premium" does not mean dark, serif, minimal; "kids" does not mean primary colors; a bakery is not automatically cream and script); one **signature decision** that makes the site recognizable without its logo, backed by real content — a product form, a material, a category structure, a typographic move. Every page then draws from that one decision.
-
-A short, explicit decision — a few lines, not a document — derived from that look at the content plus `brand.description`/`brand.vibe` (`DISCOVERY.md` §2):
+A short, explicit decision — a few lines, not a document — derived from `brand.description`/`brand.vibe` (`DISCOVERY.md` §2):
 
 - **Theme polarity** — light, dark, or vivid/tinted. Argue it from the business, never default to dark for "premium" (a light, high-key theme can be just as strong — e.g. healthcare/wellness usually reads better light).
 - **Palette** — 2–4 hex colors, one dominant + accents drawn from **analogous hues** (adjacent on the color wheel, ~30° arc) — not complementary jumps. Functional colors (error/success/warning) sit outside this count.
@@ -50,7 +48,6 @@ Hold these as the run's design tokens. Reuse them literally in the themed-block 
 
 - **No emojis** in UI copy, headings, or empty states.
 - **No stock-photo clichés** — generic handshake/lightbulb/laptop-on-desk imagery reads as filler, not a real page.
-- **Audit the media before giving it a role.** Check count, dimensions, orientation, and background consistency first. Never stretch an image, enlarge a thumbnail into a hero, or crop the subject away; give every image a stable aspect ratio and `object-fit` so layouts don't jump. When hero-scale media is absent, compose the hero from typography, a product tile, or a collage of what exists — not from a blown-up thumbnail.
 - Generated imagery already carries its own purity rule (no text/logos/watermarks/UI-mockups — `IMAGE_GENERATION.md` § Prompts, "no text, no watermarks"); nothing additional to do here beyond following that section as written.
 
 ## What this doesn't cover
