@@ -67315,25 +67315,14 @@ async function validateDocsEntries(targets) {
     return { problems };
 }
 /**
- * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
- * text after the last slash: md-resolver (wix-private/docs) sets the menu display name to
- * `title.split('/').pop()`, the API-repo convention for "ServiceName/Doc Title", and derives
- * the slug from it. For a skill that is never wanted — the recipe loses its name, and the
- * gate's URL (a slugify of the whole title) no longer matches what is served. "CMS Publishing
- * Flow & Visible/Hidden" was served at /skills/hidden for two months this way.
+ * Titles containing a slash. The docs pipeline (md-resolver in wix-private/docs) sets a doc's
+ * menu display name to `title.split('/').pop()` — the API-repo convention for
+ * "ServiceName/Doc Title" — and derives the page slug from it, so a skill titled
+ * "CMS Publishing Flow & Visible/Hidden" was served at /skills/hidden while the gate's URL
+ * (a slugify of the whole title) said otherwise. For a skill a slash is never wanted.
  */
-function slashedTitles(workspace, baseWorkspace) {
-    const headIndex = loadDocsEntryIndex(workspace);
-    const baseIndex = loadDocsEntryIndex(baseWorkspace);
-    const changed = [];
-    const existing = [];
-    for (const target of headIndex.values()) {
-        if (!target.title.includes('/'))
-            continue;
-        const base = baseIndex.get(target.file);
-        (base && base.title === target.title ? existing : changed).push(target);
-    }
-    return { changed, existing };
+function slashedTitles(workspace) {
+    return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
 }
 
 
@@ -67654,15 +67643,11 @@ async function runGate() {
             return;
         }
     }
-    // A slash in a title publishes the page under the last segment (see slashedTitles); a
-    // pre-existing offender only warns, so it does not block PRs elsewhere in the repo.
-    const slashed = (0, docs_entry_check_1.slashedTitles)(workspace, baseWorkspace);
-    for (const e of slashed.existing) {
-        core.warning(`documentation.yaml title contains a slash and publishes as "${e.title.split('/').pop()}": ${e.yamlPath} → "${e.title}"`);
-    }
-    if (slashed.changed.length > 0) {
-        await comment((0, comment_1.formatSlashedTitles)(slashed.changed));
-        (0, github_1.fail)(`${slashed.changed.length} documentation.yaml title(s) contain a slash`, config.blocking);
+    // A slash in a title publishes the page under the last segment (see slashedTitles).
+    const slashed = (0, docs_entry_check_1.slashedTitles)(workspace);
+    if (slashed.length > 0) {
+        await comment((0, comment_1.formatSlashedTitles)(slashed));
+        (0, github_1.fail)(`${slashed.length} documentation.yaml title(s) contain a slash`, config.blocking);
         return;
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);

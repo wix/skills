@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { slashedTitles } from '../src/utils/docs-entry-check';
 import { writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,23 +29,17 @@ function workspaceWith(cmsTitle: string, ecomTitle: string): string {
   return ws;
 }
 
-let base: string;
-beforeAll(() => {
-  base = workspaceWith('CMS Draft & Publish Workflow', 'Shipping: Set Up Pickup / Local Delivery');
-});
-
 describe('slashedTitles', () => {
-  it('blocks a title this PR adds or changes to contain a slash, warns on a pre-existing one', () => {
-    const head = workspaceWith('CMS Publishing Flow & Visible/Hidden', 'Shipping: Set Up Pickup / Local Delivery');
-    const result = slashedTitles(head, base);
-    expect(result.changed.map((e) => e.title)).toEqual(['CMS Publishing Flow & Visible/Hidden']);
-    expect(result.existing.map((e) => e.title)).toEqual(['Shipping: Set Up Pickup / Local Delivery']);
+  it('lists every documentation.yaml title that contains a slash', () => {
+    const ws = workspaceWith('CMS Publishing Flow & Visible/Hidden', 'Shipping: Set Up Pickup / Local Delivery');
+    expect(slashedTitles(ws).map((e) => e.title).sort()).toEqual([
+      'CMS Publishing Flow & Visible/Hidden',
+      'Shipping: Set Up Pickup / Local Delivery',
+    ]);
   });
 
-  it('reports nothing when no title contains a slash', () => {
-    const head = workspaceWith('CMS Draft & Publish Workflow', 'Shipping: Set Up Pickup and Local Delivery');
-    const result = slashedTitles(head, base);
-    expect(result.changed).toEqual([]);
-    expect(result.existing).toEqual([]);
+  it('is empty when no title contains a slash', () => {
+    const ws = workspaceWith('CMS Draft & Publish Workflow', 'Shipping: Set Up Pickup and Local Delivery');
+    expect(slashedTitles(ws)).toEqual([]);
   });
 });

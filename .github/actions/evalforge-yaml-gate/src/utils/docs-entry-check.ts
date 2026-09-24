@@ -179,30 +179,13 @@ export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<D
   return { problems };
 }
 
-export type SlashedTitles = {
-  /** Entries this PR adds or retitles whose title contains a slash — block */
-  changed: DocsEntryTarget[];
-  /** Entries already on the base branch with a slash — warn only, so unrelated PRs are not blocked */
-  existing: DocsEntryTarget[];
-};
-
 /**
- * A slash in a documentation.yaml title makes the docs pipeline publish the page under the
- * text after the last slash: md-resolver (wix-private/docs) sets the menu display name to
- * `title.split('/').pop()`, the API-repo convention for "ServiceName/Doc Title", and derives
- * the slug from it. For a skill that is never wanted — the recipe loses its name, and the
- * gate's URL (a slugify of the whole title) no longer matches what is served. "CMS Publishing
- * Flow & Visible/Hidden" was served at /skills/hidden for two months this way.
+ * Titles containing a slash. The docs pipeline (md-resolver in wix-private/docs) sets a doc's
+ * menu display name to `title.split('/').pop()` — the API-repo convention for
+ * "ServiceName/Doc Title" — and derives the page slug from it, so a skill titled
+ * "CMS Publishing Flow & Visible/Hidden" was served at /skills/hidden while the gate's URL
+ * (a slugify of the whole title) said otherwise. For a skill a slash is never wanted.
  */
-export function slashedTitles(workspace: string, baseWorkspace: string): SlashedTitles {
-  const headIndex = loadDocsEntryIndex(workspace);
-  const baseIndex = loadDocsEntryIndex(baseWorkspace);
-  const changed: DocsEntryTarget[] = [];
-  const existing: DocsEntryTarget[] = [];
-  for (const target of headIndex.values()) {
-    if (!target.title.includes('/')) continue;
-    const base = baseIndex.get(target.file);
-    (base && base.title === target.title ? existing : changed).push(target);
-  }
-  return { changed, existing };
+export function slashedTitles(workspace: string): DocsEntryTarget[] {
+  return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
 }
