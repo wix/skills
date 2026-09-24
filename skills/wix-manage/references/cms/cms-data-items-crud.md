@@ -1,6 +1,6 @@
 ---
 name: "CMS Data Items CRUD"
-description: "Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
+description: Add, query, update, and delete items in CMS collections identified by ID or display name. Covers single and bulk data operations, filtered queries, and collection field types.
 ---
 # CMS Data Items CRUD
 
@@ -22,13 +22,30 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 
 ## Know the Schema First
 
-Before inserting or updating items, you need to know the collection's field names and types. If you don't already know the schema:
+Resolve the collection before querying or changing its items. A collection's `id` and
+`displayName` can differ: `OrdersArchive` may be displayed as `Archived Orders`.
 
-1. **Query existing items** - Fetch a few items to infer field names from the data
-2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions, **including `plugins`** — don't omit the `plugins` field when fetching or listing schemas
-3. **List collections** - Use `GET /collections?fields=displayName,plugins` to see what collections exist (see [Schema Management](cms-schema-management.md))
+1. If the user supplies a collection ID, retrieve `GET /wix-data/v2/collections/{dataCollectionId}`.
+   Read `collection.id`, `collection.fields`, and `collection.plugins` from the response.
+   A successful ID lookup resolves the target even when its display name differs.
+2. If the user supplies a display name, or the ID lookup specifically reports that the
+   collection does not exist, list collections with
+   `GET /wix-data/v2/collections?fields=id&fields=displayName&fields=plugins&fields=fields&paging.limit=100&paging.offset=0`.
+   In `collections`, prefer an exact `id` match to the supplied text; only if none exists,
+   use a unique exact `displayName` match. Advance `paging.offset` by the number returned
+   until the listing is complete before deciding a display name is unique.
+3. For zero or multiple exact matches, ask the user to identify the collection and show
+   candidate IDs with display names. Do not remove spaces, change case, or use fuzzy
+   matching to choose a mutation target. Authentication, permission, and transient errors
+   are not evidence that the collection is missing; resolve those errors instead.
+4. Use the resolved `collection.id` as `dataCollectionId` in every subsequent item call.
+   Inspect its actual field keys/types before constructing filters or updates; reuse the
+   schema returned by the lookup instead of querying items to infer it.
 
-It may be, that user refers to schema by its `displayName` rather than `id`, if collection is not found list all collections to find the right `id` (`dataCollectionId`) to use.
+See [Get Data Collection](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection)
+and [List Data Collections](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/list-data-collections)
+for the full lookup contracts. If the collection and schema are already resolved in this
+conversation, reuse them. The examples below use `Products` as a collection **ID**.
 
 **Check for the Draft Items plugin.** If the collection's `plugins` include the Draft Items plugin, this collection gates items behind a draft/publish workflow. **Stop and load [CMS Draft & Publish Workflow](cms-publishing-flow.md)** before making any data changes, and follow its instructions instead of the plain CRUD flow below for that collection.
 

@@ -1,6 +1,6 @@
 ---
 name: "CMS Schema Management"
-description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+description: Create and modify CMS collection structures identified by ID or display name. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
 ---
 # CMS Schema Management
 
@@ -17,14 +17,39 @@ This recipe covers managing the structure (schema) of Wix CMS collections using 
 
 - **Collections API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)
 
+## Resolve an Existing Collection
+
+For schema changes or collection deletion, resolve the target before any mutation:
+
+1. For a supplied collection ID, use the Get Collection Schema call below. Read
+   `collection.id` from the response; a different `collection.displayName` is not a mismatch.
+2. For a supplied display name, or an ID lookup that specifically reports a missing collection,
+   list collections. Compare the supplied text to `id` first. Only when no exact ID matches,
+   accept a unique exact `displayName` match across the complete listing.
+3. For zero or multiple exact matches, show candidate IDs and names and ask which collection
+   the user means. Do not normalize spaces/case or fuzzy-match a target for a write or delete.
+   Resolve permission, authentication, or transient failures instead of treating them as absence.
+4. Carry the resolved ID into every `dataCollectionId` or collection path below. Reuse the
+   returned schema when present; otherwise retrieve it by ID before modifying fields/settings.
+   Show the resolved ID and display name when requesting any required mutation confirmation.
+
+For example, `{ "id": "OrdersArchive", "displayName": "Archived Orders" }` resolves a request
+for `OrdersArchive` immediately by ID. It also resolves `Archived Orders` by display name
+only if no ID matches that text and exactly one collection has that display name.
+
 ## List All Collections
 
-**Lightweight listing (recommended for existence checks)**:
+**Lightweight listing (for display-name lookup or browsing)**:
 ```bash
 curl -X GET \
-'https://www.wixapis.com/wix-data/v2/collections?fields=displayName' \
+'https://www.wixapis.com/wix-data/v2/collections?fields=id&fields=displayName&paging.limit=100&paging.offset=0' \
 -H 'Authorization: <AUTH>'
 ```
+
+Read `collections[].id` and `collections[].displayName`. Advance `paging.offset` by the
+number of collections returned until the listing is complete (using `pagingMetadata`);
+do not infer a unique display-name match from one page. An exact ID match can resolve immediately.
+See [List Data Collections](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/list-data-collections).
 
 **Full listing (includes all field schemas)**:
 ```bash
@@ -44,6 +69,10 @@ curl -X GET \
 'https://www.wixapis.com/wix-data/v2/collections/Products' \
 -H 'Authorization: <AUTH>'
 ```
+
+The response's `collection` contains `id`, `displayName`, `fields`, `plugins`, and `revision`.
+Keep the fields/plugins needed by the next operation. See
+[Get Data Collection](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection).
 
 ## Create a New Collection
 
