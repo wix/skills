@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import * as core from '@actions/core';
@@ -44,8 +46,7 @@ function envelope(output: unknown): string {
 const GATEWAY = 'https://www.wixapis.com/anthropic';
 
 const invocation = {
-  cwd: '/workspace',
-  promptPath: '/workspace/.github/prompts/skill-review.md',
+  cwd: join(process.cwd(), '../../..'),
   task: 'the task',
   apiKey: 'wix-sk-secret',
   baseUrl: GATEWAY,
@@ -147,6 +148,23 @@ describe('the command line', () => {
     expect(after('--effort')).toBe('medium');
   });
 
+  it('runs as the reviewer defined in .claude/agents', async () => {
+    const { testables, REVIEW_AGENT, agentPath } = await import('../src/utils/review-agent');
+    const args = testables.buildArgs(invocation);
+
+    expect(args[args.indexOf('--agent') + 1]).toBe(REVIEW_AGENT);
+    const agents = JSON.parse(args[args.indexOf('--agents') + 1]);
+    expect(Object.keys(agents)).toEqual([REVIEW_AGENT]);
+
+    expect(agents[REVIEW_AGENT].tools).toContain('StructuredOutput');
+
+    const file = readFileSync(agentPath(invocation.cwd), 'utf8');
+    expect(agents[REVIEW_AGENT].prompt).toBe(file.split('---\n')[2].trim());
+    expect(agents[REVIEW_AGENT].prompt).toContain('# Skill review');
+
+    expect(args, 'the agent definition is the system prompt').not.toContain('--append-system-prompt-file');
+  });
+
   it('keeps the task off argv, where it would be readable and length-capped', async () => {
     await runWith(envelope({ findings: [] }));
     expect(spawn.mock.calls[0][1]).not.toContain('the task');
@@ -158,7 +176,7 @@ describe('the command line', () => {
     const options = spawn.mock.calls[0][2];
     expect(options.detached).toBe(true);
     expect(options.shell).toBe(false);
-    expect(options.cwd).toBe('/workspace');
+    expect(options.cwd).toBe(invocation.cwd);
   });
 });
 
