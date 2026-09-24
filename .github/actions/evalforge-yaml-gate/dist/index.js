@@ -66743,7 +66743,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_EFFORT = exports.DEFAULT_REVIEW_MODEL = exports.DEFAULT_ANTHROPIC_BASE_URL = exports.DEFAULT_REVIEW_PROMPT_PATH = void 0;
+exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_EFFORT = exports.DEFAULT_REVIEW_MODEL = exports.DEFAULT_ANTHROPIC_BASE_URL = void 0;
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
 exports.getMergeSweepConfig = getMergeSweepConfig;
@@ -66821,11 +66821,6 @@ function getEvalConfig() {
     };
 }
 /**
- * The prompt as the PR has it, not the base copy, so a prompt change is testable in the PR that
- * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
- */
-exports.DEFAULT_REVIEW_PROMPT_PATH = '.github/prompts/skill-review.md';
-/**
  * The Wix AI Gateway, which is Anthropic-API-compatible. Not optional in practice: direct
  * api.anthropic.com egress is IP-allowlisted at the Wix org level, so a native key from a
  * GitHub-hosted runner gets a 403 whatever its value.
@@ -66861,7 +66856,6 @@ function getReviewConfig() {
         baseSha,
         anthropicApiKey: (0, evalforge_core_1.safeGetSecret)(core, 'anthropic-api-key'),
         anthropicBaseUrl: core.getInput('anthropic-base-url') || exports.DEFAULT_ANTHROPIC_BASE_URL,
-        promptPath: core.getInput('prompt-path') || exports.DEFAULT_REVIEW_PROMPT_PATH,
         model: core.getInput('review-model') || exports.DEFAULT_REVIEW_MODEL,
         effort: core.getInput('review-effort') || exports.DEFAULT_REVIEW_EFFORT,
         // Clamped rather than thrown: config loads before `isBlocking` is known, so a typo'd repo
@@ -68482,11 +68476,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.testables = void 0;
+exports.testables = exports.REVIEW_AGENT = void 0;
 exports.buildAgentEnv = buildAgentEnv;
+exports.agentPath = agentPath;
 exports.runReviewAgent = runReviewAgent;
 const node_child_process_1 = __nccwpck_require__(1421);
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
+const jsYaml = __importStar(__nccwpck_require__(4281));
 const review_comment_1 = __nccwpck_require__(8333);
 /**
  * `--tools` is the closed set. Bash is wider than the grant below, though: `ls`, `cat`, `grep` and
@@ -68558,12 +68556,42 @@ function buildAgentEnv(apiKey, baseUrl) {
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     };
 }
+exports.REVIEW_AGENT = 'skill-review';
+const AGENT_DIR = '.claude/agents';
+function agentPath(workspace) {
+    return (0, node_path_1.join)(workspace, AGENT_DIR, `${exports.REVIEW_AGENT}.md`);
+}
+function buildAgents(workspace) {
+    const raw = (0, node_fs_1.readFileSync)(agentPath(workspace), 'utf8');
+    const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(raw);
+    if (match === null)
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no frontmatter`);
+    const front = (jsYaml.load(match[1]) ?? {});
+    if (front.name !== exports.REVIEW_AGENT) {
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md declares name "${front.name}", which must match its filename`);
+    }
+    if (front.description === undefined || front.description.trim() === '') {
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no description`);
+    }
+    const prompt = match[2].trim();
+    if (prompt === '')
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no prompt body`);
+    const tools = (front.tools ?? '').split(',').map(entry => entry.trim()).filter(entry => entry !== '');
+    return JSON.stringify({
+        [exports.REVIEW_AGENT]: {
+            description: front.description.trim(),
+            prompt,
+            ...(tools.length > 0 ? { tools } : {}),
+        },
+    });
+}
 function buildArgs(invocation) {
     return [
         '-p',
         ...SANDBOX_ARGS,
         '--tools', TOOLS,
-        '--append-system-prompt-file', invocation.promptPath,
+        '--agents', buildAgents(invocation.cwd),
+        '--agent', exports.REVIEW_AGENT,
         '--allowedTools', ALLOWED_TOOLS,
         '--json-schema', OUTPUT_SCHEMA,
         '--output-format', 'json',
@@ -68930,7 +68958,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runReview = runReview;
 const node_fs_1 = __nccwpck_require__(3024);
-const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -68963,7 +68990,8 @@ function buildTask(config, files) {
     return [
         `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
         `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
-        'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
+        'The repository is checked out at GitHub\'s merge commit — the tree as it will be once this PR',
+        'lands — so its first parent is the base and `git diff HEAD^1 HEAD -- <path>` is this PR\'s diff.',
         '',
         'Changed files in review scope:',
         ...files.map(file => `- ${file.filename} (${file.status})`),
@@ -69010,15 +69038,13 @@ async function runReview() {
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
-    const promptPath = (0, node_path_1.join)(workspace, config.promptPath);
-    if (!(0, node_fs_1.existsSync)(promptPath)) {
-        await reportUnavailable(`the review prompt was not found at \`${config.promptPath}\``, pending, config.isBlocking);
+    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(workspace))) {
+        await reportUnavailable(`the reviewer definition \`.claude/agents/${review_agent_1.REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
         return;
     }
     core.info(`Reviewing ${files.length} file(s) at ${config.headSha.slice(0, 7)} with ${config.model} at ${config.effort} effort.`);
     const outcome = await (0, review_agent_1.runReviewAgent)({
         cwd: workspace,
-        promptPath,
         task: buildTask(config, files),
         apiKey: config.anthropicApiKey,
         baseUrl: config.anthropicBaseUrl,
