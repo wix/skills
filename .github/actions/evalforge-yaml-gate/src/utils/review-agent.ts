@@ -101,10 +101,6 @@ export function buildAgentEnv(apiKey: string, baseUrl: string): NodeJS.ProcessEn
   };
 }
 
-/**
- * The reviewer as the PR has it, not the base copy, so a change to it is testable in the PR that
- * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
- */
 export const REVIEW_AGENT = 'skill-review';
 
 const AGENT_DIR = '.claude/agents';
