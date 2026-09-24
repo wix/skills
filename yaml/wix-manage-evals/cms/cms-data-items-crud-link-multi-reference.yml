@@ -1,0 +1,130 @@
+name: cms/cms-data-items-crud-link-multi-reference
+description: >-
+  Verifies the agent links items through a MULTI_REFERENCE field using the reference endpoints
+  (or a patch that creates the link) and verifies the links, instead of writing IDs into the field
+  on insert or update where the API silently drops them.
+triggerPrompt: >-
+  In my Projects CMS collection, assign Alice and Bob from the Team collection to the
+  "Website Redesign" project. Go ahead and make the change, then confirm who is on the project.
+tags: [cms]
+maxTokens: 400000
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Team
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Team
+            displayName: Team
+            fields:
+              - key: name
+                displayName: Name
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Create Projects
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Projects
+            displayName: Projects
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Add multi-reference field Projects.team -> Team
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections/create-field
+        body:
+          dataCollectionId: Projects
+          field:
+            key: team
+            displayName: Team
+            type: MULTI_REFERENCE
+            typeMetadata:
+              multiReference:
+                referencedCollectionId: Team
+                referencingFieldKey: projects
+                referencingDisplayName: Projects
+      - label: Seed team members
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/bulk/items/insert
+        body:
+          dataCollectionId: Team
+          dataItems:
+            - data: { name: Alice }
+            - data: { name: Bob }
+            - data: { name: Carol }
+      - label: Seed project
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Projects
+          dataItem:
+            data:
+              title: Website Redesign
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to assign Alice and Bob (items in the Team collection) to the "Website Redesign"
+      item in the Projects collection, whose `team` field is a MULTI_REFERENCE to Team, and to confirm
+      who is on the project. Evaluate the tool calls and the final response.
+
+      Pass only if all of the following hold:
+      - The agent resolved the item IDs of Alice, Bob and Website Redesign by querying the collections
+        (it did not guess IDs).
+      - It created the two links with a call that actually writes multi-reference links: the
+        insert-references or replace-references endpoint, or a PATCH / bulk PATCH SET_FIELD on the
+        `team` field. Either path is acceptable.
+      - It verified the result by reading the project back with `includeReferencedItems` (or an
+        equivalent read that returns the linked Team items) and reported Alice and Bob — and not Carol —
+        as the project's team.
+      - It did not mutate anything else (no new Team or Projects items, no field changes).
+
+      Fail if the agent:
+      - wrote the member IDs into `team` through a plain insert, PUT update, or bulk insert/update and
+        reported success without a read-back showing the links exist (the API returns 200 and drops
+        those values), OR
+      - reported success with no evidence from a tool call that the links exist, OR
+      - only explained how to do it without making the change, OR
+      - linked the wrong people or left one of the two out.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
+      Score 0-10 (10 = direct: query the three items, write the two links, read back, answer).
+      Penalize and LIST any of: a non-2xx error even if recovered; a guessed request shape corrected
+      afterwards (e.g. `dataItems` where `dataItemReferences` or `patches` was needed); writing the IDs
+      into the field via insert/update first and only then switching to the reference endpoints;
+      redundant or probing schema reads beyond one collection/schema read; invented endpoints.
+      Necessary reads (schema, item lookups by name, one read-back) are not penalized.
+      For each friction name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

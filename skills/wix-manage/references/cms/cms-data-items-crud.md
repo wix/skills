@@ -1,6 +1,6 @@
 ---
 name: "CMS Data Items CRUD"
-description: "Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
+description: "Add, query, update, and delete items in CMS collections, one at a time or in bulk. Also covers counting items, upserting with bulk save, truncating a collection, aggregating data with a pipeline, linking items through single- and multi-reference fields, and reading items with their referenced items expanded."
 ---
 # CMS Data Items CRUD
 
@@ -231,6 +231,8 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 
 **Endpoint**: `POST /wix-data/v2/bulk/items/update`
 
+> There is no update-by-filter endpoint. To update the items matching a filter, query them first (see [Query Data Items](#query-data-items)), then send their ids to bulk update or bulk patch.
+
 > **Important**: Use `id` (not `_id`) at the element level. The `data` object should NOT contain `_id`.
 
 ```json
@@ -256,8 +258,6 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 ```
 
 > **Note**: This replaces the entire item. Include all fields you want to keep, not just the ones you're changing.
-
-> There is no update-by-filter endpoint. To update the items matching a filter, query them first (see [Query Data Items](#query-data-items)), then send their ids to bulk update or bulk patch.
 
 ## Bulk Patch Items (Partial Update)
 
