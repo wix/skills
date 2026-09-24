@@ -8,6 +8,12 @@
 //   --stack react  — copies only the core (app/) into src/, and writes the public OAuth
 //                  client id into src/wix/config.ts (pass --client-id, or it's read from
 //                  wix.config.json's appId when present).
+//   --stack static — a site with NO bundler (plain HTML/CSS/JS): composes the REST layer flat into
+//                  js/wix/ — shared/rest/ (client, media, config) + each vertical's rest/ + the
+//                  vertical's transport-agnostic core files (types, *-core) from its app/ — writes
+//                  the client id, and strips it to browser-ready ESM with tsc (comments kept, the
+//                  .ts sources kept beside the .js). No package.json is touched. Storefront only
+//                  until other verticals ship a rest/.
 //
 // TWO mechanisms, driven by the same vertical arguments:
 // 1. Recursive file copy with force:false — only files that AREN'T there yet are written, so
@@ -165,10 +171,10 @@ const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
 
 const result = { stack, verticals: [], skillRoot: SKILL_ROOT };
 
-if (!["astro", "react"].includes(stack)) {
+if (!["astro", "react", "static"].includes(stack)) {
   console.log(
     JSON.stringify({
-      error: `unknown --stack "${stack}" — expected astro|react`,
+      error: `unknown --stack "${stack}" — expected astro|react|static`,
     }),
   );
   process.exit(1);
@@ -193,6 +199,62 @@ if (!Array.isArray(uploadPolicies)) {
   console.log(JSON.stringify({ error: "plan.capabilities.mediaUpload.policies must be an array" }));
   process.exit(1);
 }
+// ---- static stack: the REST layer, composed flat and stripped ------------------------------------
+if (stack === "static") {
+  const { spawnSync } = await import("node:child_process");
+  const { rmSync } = await import("node:fs");
+  const JS = join(PROJECT, "js", "wix");
+  let clientId = clientIdFlag;
+  if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
+    clientId = JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ?? null;
+  }
+  if (!clientId) {
+    console.log(JSON.stringify({ error: "static stack needs the public OAuth client id — run `npm create @wix/new@latest init` here first, or pass --client-id" }));
+    process.exit(1);
+  }
+  const missing = requested.filter((v) => !existsSync(join(REF, v, "rest")));
+  if (missing.length) {
+    console.log(JSON.stringify({ error: `no rest/ layer yet for ${missing.map((v) => `"${v}"`).join(", ")} — the static stack ships: ${VERTICALS.filter((v) => existsSync(join(REF, v, "rest"))).join(", ")}` }));
+    process.exit(1);
+  }
+  // Only files that aren't there yet — a re-run restores, never clobbers (same as the copy below).
+  cpSync(join(REF, "shared", "rest"), JS, COPY);
+  for (const vertical of requested) {
+    cpSync(join(REF, vertical, "rest"), JS, COPY);
+    // The vertical's transport-agnostic core: types + every *-core.ts under its app/wix/<vertical>/.
+    const appWix = join(REF, vertical, "app", "wix", vertical);
+    for (const f of readdirSync(appWix)) {
+      if (f === "types.ts" || f.endsWith("-core.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+    }
+    result.verticals.push(vertical);
+  }
+  const cfg = join(JS, "config.ts");
+  const current = readFileSync(cfg, "utf8");
+  if (/WIX_CLIENT_ID: string = ""/.test(current)) {
+    writeFileSync(cfg, current.replace(/WIX_CLIENT_ID: string = ""/, `WIX_CLIENT_ID: string = "${clientId}"`));
+    result.clientId = "written";
+  } else {
+    result.clientId = "already_set";
+  }
+  // Strip to ESM with tsc — comments are the spec for whoever reads js/wix/, so they stay.
+  const sources = readdirSync(JS).filter((f) => f.endsWith(".ts")).map((f) => join(JS, f));
+  const tsc = spawnSync(
+    "npx",
+    ["-y", "-p", "typescript@5", "tsc", ...sources, "--outDir", JS, "--module", "esnext", "--target", "es2022",
+     "--moduleResolution", "bundler", "--lib", "es2022,dom", "--strict", "--skipLibCheck", "--removeComments", "false"],
+    { encoding: "utf8", timeout: 180_000 },
+  );
+  if (tsc.status !== 0) {
+    console.log(JSON.stringify({ ...result, error: `tsc strip failed: ${(tsc.stdout || tsc.stderr || "").slice(-800)}` }));
+    process.exit(1);
+  }
+  rmSync(join(JS, "tsconfig.json"), { force: true });
+  result.js = "js/wix/*.js";
+  result.note = "import from ./js/wix/catalog.js and ./js/wix/cart.js in a <script type=\"module\">; the .ts beside them are the same files with types, for reading";
+  console.log(JSON.stringify(result));
+  process.exit(0);
+}
+
 if (uploadPolicies.length && stack !== "astro") {
   console.log(JSON.stringify({ error: "mediaUpload currently requires --stack astro because it ships a validated server endpoint" }));
   process.exit(1);

@@ -21,7 +21,7 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 | Skill                        | Use when                                                                                                               |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | **wix-headless-fast** (this) | A supported vertical fits the request and the frontend is Astro or React — the fast path.                              |
-| `wix-headless`               | A vertical this skill doesn't ship yet, a non-React frontend, backend-only runs, or stripe/self-managed project types. |
+| `wix-headless`               | A vertical this skill doesn't ship yet, backend-only runs, or stripe/self-managed project types.                       |
 | `wix-vibe-headless`          | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI.                         |
 
 ## The model
@@ -61,8 +61,11 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 ## The run
 
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
-   different React framework or the directory already holds a non-Astro React project. A
-   non-React frontend is out of scope → `wix-headless`.
+   different React framework or the directory already holds a non-Astro React project (`--stack
+   react`: the shipped TypeScript runs there too; the agent's own files may be JS). A stack that
+   **cannot run the shipped code** — a static site with no bundler (plain HTML/CSS/JS), or a server
+   language (Python, PHP, Go, …) — is **reference mode** (below): nothing from `app/` deploys; the
+   REST layer is what deploys (static) or what gets ported (server language).
 2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
    the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
@@ -135,6 +138,39 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
 comes from the shipped code, and real errors surface at build/release.
 
+## Reference mode — a static site, or another language
+
+The commerce logic ships a second time as a **REST layer**: `references/shared/rest/` (the auth
+seam `client.ts`, `media.ts`, `config.ts`) and `references/<vertical>/rest/` (the same exports as
+the vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against the same `types.ts`
+and importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules,
+two transports. Storefront ships it today; other verticals follow the same layout.
+
+- **Static site (no bundler).** `npm create @wix/new@latest init` in the folder (site, OAuth app,
+  `wix.config.json`); set `site.outputDirectory` in that config to the folder itself; then
+  `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static` composes the REST layer flat into
+  `js/wix/` and strips it to browser ESM (comments kept, the `.ts` kept beside the `.js` to read).
+  Pages import `./js/wix/catalog.js` and `./js/wix/cart.js` from a `<script type="module">`. The
+  visitor token lives in `localStorage` (the cart is the token's — never mint one per page). A
+  route is a page plus a query-string slug (`product.html?slug=…`). Seed per the vertical's
+  `SEED.md` (Node + the CLI token, no project dependencies). Release with `npx @wix/cli@latest
+  release` — it uploads the directory, no build. Item-page tags come from the entity's `seoData`.
+- **Another language (Python, PHP, Go, …).** Nothing deploys. `init` still runs in the project
+  folder for the site, OAuth app, and config. Read `rest/` as the specification and port it: each
+  function is one `fetch` with a literal URL and JSON body, and the `*-core.ts` beside it carries
+  the rules (price precedence, ribbons, ranges, media de-dupe, variant resolution, cart shapes).
+  The one non-mechanical point is in `client.ts`'s header: on a server the token set lives in the
+  **shopper's session**, one per shopper, never one process-wide token (that is one cart for
+  everyone). Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
+  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Hosting is theirs; close
+  with run instructions, the dashboard link, and the allowed-domain step (add the public https
+  origin to the OAuth app before checkout can return).
+- Both: the calls in `rest/` are the ones a **visitor token** may make from a page — catalog
+  reads, the current cart, the checkout redirect. Anything elevated (writes, orders, other
+  people's data) runs server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI
+  token never belongs in a page. A static site or a port has no SSR and no owner-editable
+  item-page SEO — say so in the closing message; Astro stays the recommendation for a public store.
+
 ## Verticals
 
 | The user wants…                                                                              | Vertical          | Playbook                                   |
@@ -176,9 +212,14 @@ references/<vertical>/
                        #   (storefront ships no pages — its INSTRUCTIONS carries their skeletons)
     layouts/…          #   (reuse SiteLayout when it fits)
   seed/                # seed-<vertical>.mjs (REST, mints its own CLI token) + SEED.md
+  rest/                # the REST twin of app/wix/<vertical>/: same exports over fetch, importing
+                       #   the same *-core.ts (rules + DTO mappers, type-only imports) and types.ts;
+                       #   flat ./x.js imports — deploy --stack static composes and strips it
 ```
 
-Core rules the structure encodes: raw API entities never leave the data layer (DTOs only);
+Core rules the structure encodes: a rule or mapper lives once, in `app/wix/<vertical>/*-core.ts`,
+imported by both transports (a call added to `app/` gets its `rest/` twin in the same PR; `tsc`
+over both is the parity check); raw API entities never leave the data layer (DTOs only);
 client-shared state uses a module-scope store (never React context — it can't span Astro
 islands); every image URL is resolved through `src/wix/media.ts`; every money value is a
 formatted string by the time a component sees it.
