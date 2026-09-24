@@ -2,7 +2,10 @@
 //   • no options            → Direct Add: one click, the cheapest variant, quantity 1
 //   • options / choice mods → Quick Add: a picker on the card (bottom sheet on small screens)
 //   • free-text modifier    → the product page (the gallery can't collect the text)
-// Mount inside a `relative` tile:  <QuickAdd product={p} />   Wire as-is; style via the tokens.
+// Mount as the LAST ROW of the tile's text block (under name and price), as a direct child of the
+// tile root that carries `relative` — the picker anchors to that root and takes its width. Never
+// overlay it on the image, never wrap it in a narrower positioned box.
+//   <QuickAdd product={p} />   Wire as-is; style via the tokens.
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/storefront/useCart";
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
@@ -81,7 +84,9 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
         role="dialog"
         aria-modal="true"
         aria-label={`Choose options for ${product.name}`}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-background p-5 text-foreground shadow-2xl outline-none md:absolute md:inset-x-0 md:bottom-0 md:max-h-none md:rounded-lg md:p-4"
+        // md+: anchored to the tile (its nearest `relative` ancestor), the tile's full width — and never
+        // narrower than 18rem even when mounted inside a small wrapper.
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-background p-5 text-foreground shadow-2xl outline-none md:absolute md:inset-x-auto md:bottom-0 md:right-0 md:w-[max(100%,18rem)] md:max-h-none md:rounded-lg md:p-4"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
