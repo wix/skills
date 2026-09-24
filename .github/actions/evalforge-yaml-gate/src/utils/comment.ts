@@ -1,6 +1,6 @@
 import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
-import type { DocsEntryProblem } from './docs-entry-check';
+import type { DocsEntryProblem, DocsEntryTarget } from './docs-entry-check';
 import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
@@ -81,6 +81,18 @@ export function formatDocsEntryProblems(problems: DocsEntryProblem[]): string {
   });
   return render('❌', 'Invalid docsEntry', [
     '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+    '',
+    ...lines,
+  ]);
+}
+
+export function formatSlashedTitles(entries: DocsEntryTarget[]): string {
+  const lines = entries.map((e) => {
+    const served = e.title.split('/').pop()?.trim() || '';
+    return `- \`${e.yamlPath}\` → "${e.title}" would be published as **"${served}"**`;
+  });
+  return render('❌', 'Slash in a documentation.yaml title', [
+    'The docs pipeline treats a `/` in a `title` as a section separator and publishes the page under the text after the last slash — the recipe loses its name and its doc URL. Remove the slash (the frontmatter `name` is a good title).',
     '',
     ...lines,
   ]);
