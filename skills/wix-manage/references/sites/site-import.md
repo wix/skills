@@ -317,22 +317,26 @@ the user has no way to open a file.
   plain `403` (`{"message": "The caller is not permitted to perform this
   action."}`, no code) as well as a plain `404` — treat either shape there
   as the beta-lockout case too. Don't probe other endpoints to diagnose it,
-  don't retry, and **don't call `WixSiteBuilder`, `CreateSiteFromTemplate`,
-  or any other site-creation tool to compensate — creating a site through
-  a different path is not a workaround here, it's the specific mistake
-  this rule exists to prevent.** Tell the user plainly and warmly that Site
-  Import is currently in a closed beta, that you'd be happy to help once
-  they're in, and that they can request access by filling out this short
-  form: https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up.
-  Then stop, having created nothing.
+  don't retry, and **don't create a site through any other site-building
+  capability to compensate — creating a site through a different path is
+  not a workaround here, it's the specific mistake this rule exists to
+  prevent.** Tell the user plainly and warmly that Site Import is
+  currently in a closed beta, that you'd be happy to help once they're
+  in, and that they can request access by filling out this short form:
+  https://forms.gle/RfZqVRtGCsPv7U7M6 — the team will follow up. Then
+  stop, having created nothing.
   **Do not tell them to "contact Wix support"**: this API is unlisted and
   ALPHA, Wix Support has no visibility into it or way to grant access, and the
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
   **A `404` or `403` on a site-scoped call *without* `"code": "NOT_ENABLED"`
-  is different** — it means the caller isn't authorized for that `siteId`
-  (wrong id, wrong account, no access), not a beta-enrollment issue. Tell
+  is treated as different** — as meaning the caller isn't authorized for
+  that `siteId` (wrong id, wrong account, no access) rather than a
+  beta-enrollment issue. This hasn't been confirmed against a real
+  site-scoped beta-lockout response the way the account-level shape has,
+  so if this turns out to be wrong for an enrolled account, treat it the
+  same as the account-level case instead. Absent evidence otherwise, tell
   the user the destination site isn't accessible with their current
   connection and stop; don't send them to the beta form for this.
 - For any other unrecognized error or exception on Start — a transient server
