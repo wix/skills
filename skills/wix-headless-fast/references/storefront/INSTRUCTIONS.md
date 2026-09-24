@@ -17,7 +17,7 @@ components, plus your home page.
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet` + `sizes` for responsive tiles |
+| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet(p.imageUrl)` + `sizes` for responsive tiles (it takes the DTO's resolved URLs) — always alongside `src={p.imageUrl}` |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
 | `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
@@ -329,8 +329,10 @@ export default function ShopView(props: {
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
   //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
-  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image (hoverImageUrl on
-  //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
+  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image — ALWAYS
+  //     src={p.imageUrl}, plus srcSet={imgSrcSet(p.imageUrl)} and sizes for responsive delivery
+  //     (never srcSet alone: an <img> with no src has nothing to fall back to); hoverImageUrl
+  //     on hover — name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
   //     swatches as small color dots when present (else optionsSummary as text); tile links to
   //     `/products/${p.slug}`; and <QuickAdd product={p} /> as the LAST ROW of the tile's text
@@ -483,8 +485,9 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
       `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
       price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
       a pre-orderable one reads "Pre-order".
-- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price; a
-      product with a color option shows its swatches.
+- [ ] Cards: every product image renders (not its alt text) on the shop, the category page, and
+      the home page; every ribbon renders; a multi-price product shows a range with no struck
+      price; a product with a color option shows its swatches.
 - [ ] PDP gallery: one thumbnail per distinct photo — never two selectors leading to the same image.
 - [ ] Cart: a subscription line shows its plan terms under the product name.
 - [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
