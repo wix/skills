@@ -4,9 +4,9 @@ description: >-
   closed beta: no probing other endpoints, no falling back to another site-creation tool, no
   "contact Wix support", and a warm message pointing the user to the beta request form.
 triggerPrompt: >-
-  Use the Wix Site Import skill to migrate my existing online store at
-  https://harborview-outfitters.example.com into a brand-new Wix site — I don't have a Wix site
-  yet, and this isn't a design file to import, it's a live store I want moved over.
+  I want to migrate my existing online store at https://harborview-outfitters.example.com into a
+  brand-new Wix site — I don't have a Wix site yet, and this isn't a design file, it's a live
+  store I want moved over.
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle

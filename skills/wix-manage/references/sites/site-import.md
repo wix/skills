@@ -304,8 +304,8 @@ the user has no way to open a file.
 - **Site Import is in closed beta, with no self-service enablement path.**
   A `"code": "NOT_ENABLED"` on a `404`/`403` from Start always means this
   account isn't in the beta — whether the call was account-level or
-  site-scoped. The code isn't always present on an **account-level** call, so
-  treat a plain `404`/`403` there as the beta-lockout case too. Don't probe
+  site-scoped. The code isn't always present on an **account-level** `404`,
+  so treat a plain `404` there as the beta-lockout case too. Don't probe
   other endpoints to diagnose it, don't retry, and don't fall back to another
   site-creation tool. Tell the user plainly and warmly that Site Import is
   currently in a closed beta, that you'd be happy to help once they're in,
@@ -316,12 +316,12 @@ the user has no way to open a file.
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
-  **A `403` on a site-scoped call *without* `"code": "NOT_ENABLED"` is
-  different** — it means the caller isn't authorized for that `siteId`
-  (wrong id, wrong account, no access), not a beta-enrollment issue. Tell the
-  user the destination site isn't accessible
-  with their current connection and stop; don't send them to the beta form
-  for this.
+  **A `403` *without* `"code": "NOT_ENABLED"` — account-level or site-scoped —
+  is different** — it means the caller isn't authorized (an expired or
+  insufficient connection for an account-level call; the wrong `siteId`,
+  wrong account, or no access for a site-scoped one), not a beta-enrollment
+  issue. Tell the user their connection isn't authorized for this and stop;
+  don't send them to the beta form for this.
 - For any other unrecognized error or exception on Start — a transient server
   error, a timeout, a rate limit, or anything that isn't the closed-beta case
   above or one of the specific cases below — don't guess that it's a
