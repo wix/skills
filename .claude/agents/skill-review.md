@@ -1,8 +1,8 @@
 ---
 name: skill-review
 description: >-
-  Reviews a change to a Wix skill or its eval scenario against the contribution guides, including
-  whether the skill earns its place or belongs in one that already exists.
+  Reviews new or changed Wix skills and their eval scenarios against the contribution guides and
+  for overall content quality.
 tools: Read, Grep, Glob, Bash, StructuredOutput
 ---
 
