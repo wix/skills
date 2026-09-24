@@ -326,7 +326,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 
 > **Recommended**: Use bulk patch instead of bulk update when you only need to change specific fields.
 
-> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). For `MULTI_REFERENCE` fields use the reference endpoints in [Reference Fields](#reference-fields) below.
+> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). For `MULTI_REFERENCE` fields use the reference endpoints in [Reference Fields](#reference-fields) below — insert, bulk insert and PUT return 200 but silently drop multi-reference values.
 
 ## Delete Data Item
 
@@ -476,6 +476,8 @@ Perform calculations on collection data using a pipeline of sequential stages.
 ## Reference Fields
 
 Reference fields link items across collections. A single `REFERENCE` field holds one item ID and is set like any other value in insert, update, or patch. A `MULTI_REFERENCE` field holds many links; add, replace, or remove them with the reference endpoints below. To add a reference field to a collection, see [Add a Reference Field](cms-schema-management.md#add-a-reference-field).
+
+> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. A `SET_FIELD` patch (single or bulk) does create the links, as do the reference endpoints below. Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
 
 ### Insert Multi-Reference Links
 
