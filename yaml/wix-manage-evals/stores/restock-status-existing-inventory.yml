@@ -1,0 +1,47 @@
+name: stores/restock-status-existing-inventory
+description: The agent must update the existing Restock Canvas Bag inventory to inStock true without creating
+  another product or inventory record.
+triggerPrompt: My Restock Canvas Bag is back in stock. Please mark it available again.
+tags:
+- stores
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+    - label: seed Restock Canvas Bag
+      method: post
+      url: https://www.wixapis.com/stores/v3/products-with-inventory
+      body:
+        product:
+          name: Restock Canvas Bag
+          productType: PHYSICAL
+          physicalProperties: {}
+          variantsInfo:
+            variants:
+            - price:
+                actualPrice:
+                  amount: '20.00'
+              sku: RESTOCK-CANVAS-BAG
+              physicalProperties: {}
+              visible: true
+              inventoryItem:
+                inStock: false
+assertions:
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-inventory-catalog-v3
+- type: llm_judge
+  minScore: 7
+  prompt: The agent must update the existing Restock Canvas Bag inventory to inStock true without creating
+    another product or inventory record. Require a successful item result and response-backed stock confirmation;
+    fail if only HTTP success is checked, a quantity is invented, or prices, SKU, variants, or other products
+    change. Return ONLY {"score":<0-10>,"reason":"<evidence>"}.
+- type: llm_judge
+  minScore: 7
+  prompt: Score the tool-call path 0-10, where 10 is direct and error-free. Prefer a targeted inventory
+    query followed by a revision-aware inventory update. Penalize product PATCH calls or bulk inventory
+    creation for the existing record, and resending writes after a successful response. Penalize guessed
+    request shapes, recovered errors, redundant documentation probes, and unnecessary verification reads.
+    Required identity, pagination, and revision reads are appropriate. Return ONLY {"score":<0-10>,"reason":"<frictions
+    and likely docs gap, or clean path>"}.

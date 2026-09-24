@@ -4,7 +4,7 @@ description: Modifies existing products and variants using Catalog V3 Products A
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
-Use this recipe to update an existing Catalog V3 product: storefront visibility, description, media, options, variants, prices, or stock-related inventory records.
+Use this recipe to update an existing Catalog V3 product: storefront visibility, description, media, options, variants, or prices. For stock-only changes, use [Update Inventory (Catalog V3)](update-inventory-catalog-v3.md) directly; after changing variants here, use it to query existing records before choosing inventory create or update.
 
 ## Before Any Product Update
 
@@ -255,7 +255,9 @@ After the product update returns the new variant IDs, use those IDs to set inven
 
 ### Set Stock for New Variants
 
-Inventory is handled separately from product updates. After the product update returns variant IDs, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`.
+Inventory is handled separately from product updates. Query inventory for the returned variant IDs before creating records: follow [Update Inventory (Catalog V3)](update-inventory-catalog-v3.md) to update existing records by inventory ID and revision, or create only missing variant/location pairs. For stock-only requests, use that recipe without changing product options or variants.
+
+For records confirmed missing, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`.
 
 If the store has multiple inventory locations, include `locationId`; otherwise the store's default location is used.
 After bulk inventory create, check `bulkActionMetadata.totalSuccesses` and `results[].itemMetadata.success`. Returned inventory entities are under `results[].item`, not a top-level `inventoryItems` field; confirm stock from `results[].item.quantity`.
