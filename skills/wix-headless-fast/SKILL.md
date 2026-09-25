@@ -55,13 +55,17 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The run
 
-1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
-   different React framework or the directory already holds a non-Astro React project (`--stack
-   react`: the shipped TypeScript runs there too; the agent's own files may be JS). A stack that
-   **cannot run the shipped code** — a static site with no bundler (plain HTML/CSS/JS), or a
-   server-rendered app in another language or runtime (Flask, Laravel, Rails, Express without
-   React, …) — is **reference mode** (below): nothing from `app/` deploys; the REST layer is what
-   deploys for the browser side, and what the server side ports for its reads.
+1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names
+   another framework or the directory already holds one. Then, by what the shipped code can run
+   there:
+   - **React** (Vite, Next, …) runs everything shipped — data layer, hooks, components:
+     `--stack react`. The agent's own files may be JS.
+   - **Another bundled JS framework** (Vue, Svelte, Solid, plain Vite): the data layer runs
+     (`src/wix/` has no React in it), the hooks and components don't apply: `--stack lib`. The
+     agent writes its framework's stores/composables and components against the same contracts.
+   - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
+     app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
+     REST layer deploys for the browser side, and the server side ports it for its reads.
 2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
    the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never

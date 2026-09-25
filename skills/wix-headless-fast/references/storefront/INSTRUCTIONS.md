@@ -411,6 +411,31 @@ export default function ProductDetailView(props: {
    SSR props; browser-state widgets (cart) are `client:only="react"`.
 3. Write `pages/index.astro` (home) on `SiteLayout`.
 
+### Wiring — another JS framework (`--stack lib`: Vue, Svelte, Solid, plain Vite)
+
+`deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
+(the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
+`wix/storefront/` — `catalog.ts`, `cart.ts`, `cart-store.ts`, `types.ts`, the `*-core.ts` rules.
+None of it is React. The hooks and components don't ship on this stack; you write their
+equivalents in your framework to the contracts on this page:
+
+- a shop store/composable mirroring `useShop`: selection (category, sort, filters, facet
+  choices) → `searchCatalog` across the whole catalog, a fresh cursor chain on every change, a
+  stale-response guard, `fetchFacetData` per category scope, `loadMore` by cursor;
+- a product-detail store mirroring `useProductDetail`: selections start empty, `resolveVariant`
+  from `catalog.ts`, `canAdd` and a neutral `blockedReason`, quantity reset on an option change,
+  `add` → `addToCart(product.id, variant.variantId, quantity, extras)`;
+- the cart on `cart-store.ts` as-is (framework-free: subscribe/get, add/update/remove/checkout,
+  open state) — bind it with your framework's external-store primitive;
+- your filter panel, quick add, and cart drawer to the contracts in "What a complete storefront
+  shows" — the shipped `FilterPanel.tsx`, `QuickAdd.tsx`, `CartDrawer.tsx` are readable as
+  behaviour specs (the overlay contract, the three purchase paths, the sidebar/sheet split).
+
+Routes `/shop`, `/category/:slug` (via `fetchCategoryBySlug`, null → your 404), `/products/:slug`;
+dev server on 4321; a static build goes through `npx @wix/cli@latest release` with
+`site.outputDirectory` pointing at the build folder, an SSR build is hosted by you. Item-page tags
+from the entity's `seoData`.
+
 ### Wiring — static site (`--stack static`, no bundler)
 
 `deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser

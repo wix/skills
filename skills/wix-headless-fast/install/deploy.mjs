@@ -8,6 +8,12 @@
 //   --stack react  — copies only the core (app/) into src/, and writes the public OAuth
 //                  client id into src/wix/config.ts (pass --client-id, or it's read from
 //                  wix.config.json's appId when present).
+//   --stack lib    — a bundled JS project that isn't React (Vue, Svelte, Solid, plain Vite): copies
+//                  ONLY the data layer — shared app/wix/ (sdk, media, money, config) and each
+//                  vertical's app/wix/<vertical>/ (data layer, cart store, types, *-core rules) —
+//                  none of which imports React; writes the client id like react. No hooks, no
+//                  components, no global.css, no Tailwind deps. The agent writes its framework's
+//                  stores and components against the same DTO contracts.
 //   --stack static — a site with NO bundler (plain HTML/CSS/JS): composes the REST layer flat into
 //                  <out>/js/wix/ — shared/rest/ (client, media, config) + each vertical's rest/ + the
 //                  vertical's transport-agnostic core files (types, *-core) from its app/ — writes
@@ -175,10 +181,10 @@ const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
 
 const result = { stack, verticals: [], skillRoot: SKILL_ROOT };
 
-if (!["astro", "react", "static"].includes(stack)) {
+if (!["astro", "react", "lib", "static"].includes(stack)) {
   console.log(
     JSON.stringify({
-      error: `unknown --stack "${stack}" — expected astro|react|static`,
+      error: `unknown --stack "${stack}" — expected astro|react|lib|static`,
     }),
   );
   process.exit(1);
@@ -280,8 +286,9 @@ for (const policy of uploadPolicies) {
 }
 
 // ---- copy ---------------------------------------------------------------------------------------
-// Shared core — always.
-cpSync(join(REF, "shared", "app"), SRC, COPY);
+// Shared core — always. The lib stack takes only the framework-free wix/ part (no styles).
+if (stack === "lib") cpSync(join(REF, "shared", "app", "wix"), join(SRC, "wix"), COPY);
+else cpSync(join(REF, "shared", "app"), SRC, COPY);
 
 if (uploadPolicies.length) {
   cpSync(join(REF, "shared", "capabilities", "media-upload", "app"), SRC, COPY);
@@ -289,10 +296,12 @@ if (uploadPolicies.length) {
 }
 
 const unknown = requested.filter((v) => !VERTICALS.includes(v));
-const wantedDeps = { ...SHARED_DEPS };
+// lib: only @wix/sdk from the shared deps — the Tailwind pair serves the components, which don't ship there.
+const wantedDeps = stack === "lib" ? { "@wix/sdk": SHARED_DEPS["@wix/sdk"] } : { ...SHARED_DEPS };
 if (uploadPolicies.length) Object.assign(wantedDeps, CAPABILITY_DEPS["media-upload"]);
 for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
-  cpSync(join(REF, vertical, "app"), SRC, COPY);
+  if (stack === "lib") cpSync(join(REF, vertical, "app", "wix"), join(SRC, "wix"), COPY);
+  else cpSync(join(REF, vertical, "app"), SRC, COPY);
   if (stack === "astro" && existsSync(join(REF, vertical, "app-astro"))) {
     cpSync(join(REF, vertical, "app-astro"), SRC, COPY);
   }
@@ -454,7 +463,7 @@ if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
     JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ??
     null;
 }
-if (stack === "react") {
+if (stack === "react" || stack === "lib") {
   if (clientId) {
     const current = readFileSync(CONFIG_TS, "utf8");
     // A non-null id already set wins; only fill the shipped null placeholder.
@@ -472,7 +481,7 @@ if (stack === "react") {
     }
   } else {
     result.clientId =
-      "missing — pass --client-id (react stack needs the public OAuth client id)";
+      `missing — pass --client-id (the ${stack} stack needs the public OAuth client id)`;
   }
 }
 if (requested.includes("members")) {
