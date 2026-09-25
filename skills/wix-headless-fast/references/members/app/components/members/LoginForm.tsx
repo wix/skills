@@ -1,6 +1,6 @@
 // Shipped custom login form. The member stays on this site: credential calls exchange
 // directly into member tokens; only logout leaves the app.
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useMember } from "../../hooks/members/useMember";
 
 export interface LoginFormProps {

@@ -26,6 +26,8 @@ export interface Tokens {
   refreshToken: string;
   /** Epoch ms. */
   expiresAt: number;
+  /** Whose tokens: absent or "visitor" for an anonymous visitor, "member" after a login (a vertical's rest/auth.ts). */
+  role?: "visitor" | "member";
 }
 
 /** Swap this for a server-session-backed store in a port; the browser default is localStorage. */
@@ -64,8 +66,9 @@ export function useTokenStore(s: TokenStore): void {
 }
 
 // POST /oauth2/token — grantType "anonymous" mints a visitor; "refresh_token" renews and KEEPS the
-// identity (a member refresh token yields member tokens).
-async function mint(body: Record<string, string>): Promise<Tokens> {
+// identity (a member refresh token yields member tokens); "authorization_code" + codeVerifier turns
+// a login's authorization code into MEMBER tokens (a vertical's rest/auth.ts). `role` records which.
+export async function mintTokens(body: Record<string, string>, role: Tokens["role"] = "visitor"): Promise<Tokens> {
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -73,7 +76,22 @@ async function mint(body: Record<string, string>): Promise<Tokens> {
   });
   if (!res.ok) throw new Error(`Wix auth failed (${res.status}).`);
   const data = await res.json();
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: Date.now() + data.expires_in * 1000, role };
+}
+
+/** The persisted token set as it is (possibly expired), or null before the first mint. */
+export function loadTokens(): Tokens | null {
+  return store.load();
+}
+
+/** Adopt a token set — a member's after login. Every call from here on runs as that identity. */
+export function setTokens(tokens: Tokens): void {
+  store.save(tokens);
+}
+
+/** Drop the current identity (logout): the next call mints a fresh anonymous visitor. */
+export function clearTokens(): void {
+  store.save({ accessToken: "", refreshToken: "", expiresAt: 0 });
 }
 
 /** A valid access token: cached, refreshed when expired, minted on first use. */
@@ -83,19 +101,22 @@ export async function accessToken(): Promise<string> {
   let fresh: Tokens | undefined;
   if (t?.refreshToken) {
     try {
-      fresh = await mint({ grantType: "refresh_token", refreshToken: t.refreshToken });
+      fresh = await mintTokens({ grantType: "refresh_token", refreshToken: t.refreshToken }, t.role ?? "visitor");
     } catch {
       /* fall through to a new visitor */
     }
   }
-  fresh ??= await mint({ grantType: "anonymous" });
+  fresh ??= await mintTokens({ grantType: "anonymous" });
   store.save(fresh);
   return fresh.accessToken;
 }
 
 export class WixApiError extends Error {
-  constructor(message: string, public status: number, public code?: string) {
+  /** The response's `details` as Wix sent it (applicationError, validationError) — for callers that map codes. */
+  public details?: Record<string, any>;
+  constructor(message: string, public status: number, public code?: string, details?: Record<string, any>) {
     super(message);
+    this.details = details;
   }
 }
 
@@ -119,15 +140,16 @@ export async function wixRequest<T = any>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
-    let message = "", code: string | undefined;
+    let message = "", code: string | undefined, details: Record<string, any> | undefined;
     try {
       const j = await res.json();
       message = j?.message ?? "";
       code = j?.details?.applicationError?.code;
+      details = j?.details;
     } catch {
       /* no JSON body */
     }
-    throw new WixApiError(message || `${method} ${url.pathname} failed (${res.status}).`, res.status, code);
+    throw new WixApiError(message || `${method} ${url.pathname} failed (${res.status}).`, res.status, code, details);
   }
   return (res.status === 204 ? null : await res.json()) as T;
 }
