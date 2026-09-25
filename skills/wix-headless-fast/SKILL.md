@@ -44,6 +44,10 @@ doesn't express — or once the site exists and the work turns to managing or ex
   INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
   with a skeleton carrying each surface's contract (for storefront: the shop and PDP pages
   with their islands, and home).
+- **Nothing from memory.** Every request shape, field name, filter key, and operation you write
+  is grounded in this skill's code or in `wix-docs` — never reconstructed from what a Wix call
+  usually looks like. The shipped code is tested against live sites; a body that looks similar is
+  the one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -160,9 +164,11 @@ them; this section is the mechanics, the same for every vertical.
   kept, the `.ts` kept beside the `.js` to read). Pages import the vertical's modules from
   `./js/wix/` in a `<script type="module">`. The visitor token lives in `localStorage` and is the
   visitor's identity across Wix — never mint one per page. A route is a page plus a query-string
-  slug (`item.html?slug=…`). Seed per the vertical's `SEED.md` (Node + the CLI token, no project
-  dependencies). Release with `npx @wix/cli@latest release` — no build. Item-page tags come from
-  the entity's `seoData`, set after the fetch (`document.title`, the meta description).
+  slug (`item.html?slug=…`). Wix static hosting serves files, not directories: `/shop` does not
+  resolve to `shop/index.html`, and there is no routes configuration — name the file and link
+  to it. Seed per the vertical's `SEED.md` (Node + the CLI token, no project dependencies).
+  Release with `npx @wix/cli@latest release` — no build. Item-page tags come from the entity's
+  `seoData`, set after the fetch (`document.title`, the meta description).
 - **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
   Astro — pages rendered on the server, the interactive surfaces in the browser — with hosting and
   SEO plumbing theirs. `init` still runs in the project folder; run `deploy.mjs <vertical> --stack
@@ -170,8 +176,13 @@ them; this section is the mechanics, the same for every vertical.
   runs:
   - **Reads render on the server.** Port the vertical's `rest/` read module and its `*-core.ts` to
     the server language: each function is one HTTP call with a literal URL and JSON body, and the
-    core carries the rules. Public reads need no visitor identity — one anonymous visitor token per
-    server process, refreshed per `client.ts`, is enough for them.
+    core carries the rules. That code is tested and proven against live sites — carry its bodies
+    over as they are, `fields` arrays and filter keys included (they are not guessable, and a
+    near-miss returns empty or unformatted data with no error), and render what Wix returns
+    (`formattedAmount`, never a number you format yourself). The shipped JS runs: when in doubt,
+    run the module with Node against the same site and compare one entity with your port. Public
+    reads need no visitor identity — one anonymous visitor token per server process, refreshed per
+    `client.ts`, is enough for them.
   - **Visitor-specific state runs in the browser.** Whatever the vertical does on the visitor's
     behalf (a store's cart and checkout, a booking, an RSVP, a form submit) loads the vertical's
     `js/wix/` module in the templates and talks to Wix from the page, exactly as a static site
@@ -179,15 +190,19 @@ them; this section is the mechanics, the same for every vertical.
     per-visitor tokens. If that state must run server-side anyway, `client.ts`'s header applies:
     one token set per visitor in the visitor's session, never one process-wide token (that is one
     identity shared by everyone).
-  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Jigsaw,
-    Pelican, Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
+  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
+    Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
     <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
     copy it there after each build), make the generator emit a page for **every** entity slug the
     vertical's list read returns (walk it by cursor, never only the first page), point
     `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
-    anonymous visitor token for the duration of the build. Generated pages sit at different
-    depths, so reference `js/wix/` through one base path (a template variable, or root-relative
-    `/js/wix/…`), never `./js/wix/` — a relative path breaks one level down. **The generated page
+    anonymous visitor token for the duration of the build. What Wix hosts is exactly the contents
+    of that folder after your last build, served as files: every asset a page references must be
+    in there and current — if the pipeline has more than one build step (templates, then a CSS or
+    asset bundle), they all run, in order, on every rebuild, or the release carries a stale piece.
+    `/shop` does not resolve to `shop/index.html`; name the file and link to it. Generated pages
+    sit at different depths, so reference `js/wix/` through one base path (a template variable,
+    or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level down. **The generated page
     is the first paint, not the whole surface**: the vertical's interactive behaviour (a store's
     sort, filters, and cart; a blog's search; a booking flow) still runs client-side on top of it
     from the same `js/wix/` modules, so the vertical's surface contracts in `INSTRUCTIONS.md`
@@ -195,7 +210,9 @@ them; this section is the mechanics, the same for every vertical.
     edits made in the dashboard reach the site when that command runs; the browser-side flows are
     live regardless. A running server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
-  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run (or
+  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Before you release,
+  look at the site the way a visitor will, not the way a script does: a 200 and the right text in
+  the HTML prove the build ran, not that the page looks or behaves as intended. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
   hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
   before a Wix-hosted flow such as checkout can return).
