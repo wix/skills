@@ -78,32 +78,16 @@ full inventory; the owner adds the rest in the dashboard. **Make those 3 exercis
 UI**: give at least one product a color option and put one product on sale — truthfully to the
 business (a ceramics studio has glaze colors; a bakery doesn't).
 
-## A supplied catalog
+## Supplied content
 
-When the user hands over their products in any form — a CSV, JSON or spreadsheet, a list typed in
-the prompt, a PDF or image of a price list, a folder of product photos with a text file beside it,
-a link to a page that lists them — that source is the plan and the 3-product default does not
-apply: every product in it becomes a product. Read it however it needs to be read (parse the file,
-open the PDF, fetch the page, look at the images), then map, don't author:
-
-- Names, descriptions and prices verbatim; never rename, reprice, reword or add products.
-- Column names vary; map by meaning: `price` → `price`; a was/compare/regular/list price →
-  `compareAtPrice` (only when higher than `price`); stock/quantity/inventory → `quantity`, or
-  `"inStock": true` when the file says unlimited or made to order; sku and anything the plan
-  has no field for is dropped — say which columns you dropped.
-- A category/collection/type column → `categories` (name → the products carrying it).
-- A choices column ("Small|Large", "S, M, L", "6 inch / 8 inch") → one `options` entry of
-  `type: "text"` named after the column (Size, Flavor…); `type: "color"` only when the file
-  gives color codes. One row per variant with its own price is beyond the plan: seed the product
-  once at the lowest price and tell the user variant prices are set in the dashboard.
-- Their image column → `imageUrl`, verified with `curl -sI` → 200; a local path → `imagePath`.
-  A row with no image is seeded text-only and listed in your summary. **Never `imagePrompt`
-  beside a supplied catalog** — these are their products, not a mood board.
-- `currency` only when the file or the brief states it.
-
-Read the file before writing `plan.json` (`head`, or parse it — a quoted comma inside a
-description is common), keep the mapping in one place, and show the user the row count you
-seeded next to the row count you read.
+The rules for a catalog the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a
+store, an entry is a product; the usual columns land as: price → `price`; a was/compare/regular/list
+price → `compareAtPrice` (only when higher); stock/quantity/inventory → `quantity`, or `"inStock":
+true` for unlimited or made-to-order; a category/collection/type column → `categories` (name → the
+products carrying it); a choices column ("Small|Large", "S, M, L") → one `options` entry of
+`type: "text"` named after the column, `type: "color"` only when the source gives color codes; their
+image column → `imageUrl`. One row per variant with its own price is beyond the plan: seed the product
+once at the lowest price and tell the user variant prices are set in the dashboard.
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets — not even on a site created a minute ago. The Stores install adds its

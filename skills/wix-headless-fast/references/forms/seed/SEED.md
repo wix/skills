@@ -106,3 +106,8 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
 - **`target` is immutable** and must be unique within the form: letters, digits and single
   underscores, starting with a letter.
 - **Use `formFields`, never `fields`** — the latter is the legacy API.
+
+## Supplied content
+
+The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For forms, the supplied content is the form itself: a list of questions, a PDF or a screenshot of an existing form. Each question becomes a field with the `kind` its answer type implies (email → `email`, a fixed set of answers → `select`/`radio`/`multi`, a long answer → `textarea`); required marks → `required`; the button label → `submitText`. Field wording verbatim.
+

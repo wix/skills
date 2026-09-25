@@ -62,6 +62,10 @@ feed without covers looks broken.
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup
 seems needed.
 
+## Supplied content
+
+The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a blog, an entry is a post: title → `title`; body text → `content` blocks (paragraphs as `paragraph`, headings as `heading`, lists as `bulleted`/`ordered`); a category column → `category` (and the `categories` list); tags → `tags`; their cover image → `coverImageUrl`. A body supplied as HTML or Markdown is split into blocks, not pasted as one paragraph.
+
 ## Escape hatch — individual functions
 `setupBlog` composes exported steps — `installBlogApp`, `getAuthorMemberId`, `createPosts`,
 `createCategories`, `createTags`, `importImage`, `attachPostCovers`, plus `makeCtx()` —

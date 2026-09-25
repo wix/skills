@@ -67,6 +67,10 @@ rows (Role, Year, Client…).
   is additive — never delete or overwrite existing content**; if removing the samples seems
   wanted, ask the owner first.
 
+## Supplied content
+
+The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a portfolio, an entry is a project: title → `title`; a category or series → `collection` (and the `collections` list); client, role, year and similar → `details`; their cover image → `coverImageUrl`; a folder or list of project images → `items` in the order given. Photos with no captions get the file name as `title`.
+
 ## Escape hatch — individual functions
 `setupPortfolio` composes exported steps — `installPortfolioApp`, `createCollections`,
 `createProjects`, `importImage`, `attachProjectCovers`, `attachCollectionCovers`,

@@ -87,6 +87,10 @@ every content item an image on an IMAGE field (a content site without images loo
 **Seeding is additive — never delete or overwrite existing content** (an existing collection
 is left as-is; its items are appended); ask first if a cleanup seems needed.
 
+## Supplied content
+
+The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For the CMS the source's shape IS the schema: each distinct file or sheet becomes a collection, its columns become `fields` with types read from the values (`TEXT`, `NUMBER`, `DATE`, `IMAGE` for image URLs, `RICH_TEXT` for HTML), and its rows become `items`. A column that points at another file's rows becomes a `MULTI_REFERENCE`. Keep the user's column names as field keys.
+
 ## Escape hatch — individual functions
 `setupCms` composes exported steps — `installDataApp`, `createCollection`, `importImage`,
 `bulkInsertItems`, `insertReferences`, `verifyItems`, plus `makeCtx()` — import them only

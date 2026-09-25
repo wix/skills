@@ -51,6 +51,10 @@ image leaves that service text-only.
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup
 seems needed.
 
+## Supplied content
+
+The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For bookings, an entry is a service: name → `name`; a duration in minutes → `duration`; price → `price` or `"free": true`; a group or class with a capacity or a schedule → `type: "CLASS"` with `capacity` and `sessions`, otherwise `APPOINTMENT`; a category column → `category`; their image → `imageUrl`. Staff names and opening hours are not seeded — say so.
+
 ## Escape hatch — individual functions
 `setupBookings` composes exported steps — `installBookingsApp`, `queryStaffWithRetry`,
 `createCategories`, `createServices`, `scheduleClassSessions`, `importImage`,
