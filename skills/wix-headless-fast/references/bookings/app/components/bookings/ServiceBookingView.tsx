@@ -105,7 +105,7 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
       <div className="mt-6 grid max-w-md gap-3">
         {formFields.map((f) => (
           <label key={f.target} className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{f.label}</span>
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{f.label}{f.required ? " *" : ""}</span>
             {f.options?.length ? (
               <select
                 value={values[f.target] ?? ""}
@@ -121,6 +121,7 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
               <input
                 type={f.type === "EMAIL" ? "email" : f.type === "PHONE" ? "tel" : f.type === "NUMBER" ? "number" : f.type === "URL" ? "url" : "text"}
                 value={values[f.target] ?? ""}
+                required={f.required}
                 onChange={(e) => setValue(f.target, e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:ring-2 focus:ring-primary"
               />

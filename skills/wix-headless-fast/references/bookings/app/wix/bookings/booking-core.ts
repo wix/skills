@@ -116,18 +116,23 @@ export function groupSlotsByDay(slots: Slot[]): BookingDay[] {
 // ---- the booking form -------------------------------------------------------------------------------
 
 export const FALLBACK_FIELDS: BookingFormField[] = [
-  { target: "first_name", label: "First Name", type: "STRING" },
-  { target: "last_name", label: "Last Name", type: "STRING" },
-  { target: "email", label: "Email", type: "EMAIL" },
+  { target: "first_name", label: "First Name", type: "STRING", required: true },
+  { target: "last_name", label: "Last Name", type: "STRING", required: true },
+  { target: "email", label: "Email", type: "EMAIL", required: true },
 ];
 
 const FIELD_TYPES = ["STRING", "EMAIL", "PHONE", "NUMBER", "URL"];
 
 /**
  * Flat, render-ready fields from a form summary — deleted fields and non-text types dropped, values
- * keyed by `target`. ALWAYS non-empty: contact basics when the schema is missing or unusable.
+ * keyed by `target`. `required` comes from the full form schema (`fields[].validation.required`,
+ * keyed by target); the summary doesn't carry it. Without the schema every field counts as required.
+ * ALWAYS non-empty: contact basics when the schema is missing or unusable.
  */
-export function toFormFields(summary: Raw | null | undefined): BookingFormField[] {
+export function toFormFields(summary: Raw | null | undefined, form?: Raw | null): BookingFormField[] {
+  const requiredByTarget = new Map<string, boolean>(
+    ((form?.fields ?? []) as Raw[]).filter((f) => f.target).map((f) => [f.target as string, f.validation?.required === true]),
+  );
   const fields = ((summary?.fields ?? []) as Raw[])
     .filter((f) => !f.deleted)
     .filter((f) => f.type && FIELD_TYPES.includes(f.type))
@@ -136,6 +141,7 @@ export function toFormFields(summary: Raw | null | undefined): BookingFormField[
       label: f.label ?? f.target ?? "",
       type: f.type as BookingFormField["type"],
       ...(Array.isArray(f.options) && f.options.length ? { options: f.options as string[] } : {}),
+      required: requiredByTarget.get(f.target ?? "") ?? true,
     }))
     .filter((f) => f.target);
   return fields.length ? fields : FALLBACK_FIELDS;

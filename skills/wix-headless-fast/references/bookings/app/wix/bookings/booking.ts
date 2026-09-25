@@ -66,8 +66,12 @@ export async function fetchSlots(service: Pick<ServiceDetail, "id" | "type">, wi
 export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
-    const res: Raw = await forms.getFormSummary(formId);
-    return toFormFields(res.formSummary);
+    // The summary has labels and types; only the full schema says which fields are required.
+    const [res, form] = await Promise.all([
+      forms.getFormSummary(formId) as Promise<Raw>,
+      (forms.getForm(formId) as Promise<Raw>).catch(() => null),
+    ]);
+    return toFormFields(res.formSummary, form);
   } catch {
     return FALLBACK_FIELDS;
   }

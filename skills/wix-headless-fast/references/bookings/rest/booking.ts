@@ -51,13 +51,18 @@ export async function fetchSlots(service: Pick<ServiceDetail, "id" | "type">, wi
 /**
  * The service's booking-form fields, flat and render-ready (values keyed by `target`). ALWAYS a
  * non-empty list — contact basics when the schema is missing/unusable — so the form renders
- * unconditionally.  GET /form-schema-service/v4/forms/{formId}/summary
+ * unconditionally.  GET /form-schema-service/v4/forms/{formId}/summary (labels, types) and
+ * GET /form-schema-service/v4/forms/{formId} (which fields are required — the summary doesn't say).
  */
 export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
-    const res = await wixRequest<Raw>(`/form-schema-service/v4/forms/${encodeURIComponent(formId)}/summary`, { method: "GET" });
-    return toFormFields(res?.formSummary);
+    const id = encodeURIComponent(formId);
+    const [res, form] = await Promise.all([
+      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}/summary`, { method: "GET" }),
+      wixRequest<Raw>(`/form-schema-service/v4/forms/${id}`, { method: "GET" }).catch(() => null),
+    ]);
+    return toFormFields(res?.formSummary, form?.form);
   } catch {
     return FALLBACK_FIELDS;
   }

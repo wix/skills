@@ -96,7 +96,7 @@ Everything you need to build on the shipped code; read the source only when some
 //   windowStart, nextWeek(), prevWeek(),                  // 7-day paging (prev clamps to today)
 //   staffId, setStaffId(id|undefined),                    // show a picker only when service.staff.length > 1
 //   selectedSlot, setSelectedSlot(slot|null),             // Slot = { startLocal, endLocal, dayKey, label, scheduleId|null, eventId|null, staff }
-//   formFields: [{ target, label, type, options? }],      // never empty (contact-basics fallback)
+//   formFields: [{ target, label, type, options?, required }], // never empty (contact-basics fallback); only required ones gate canBook
 //   values, setValue(target, value),                      // inputs write here, keyed by target
 //   canBook,                                              // gate the CTA on this
 //   book(): Promise<BookingResult>,                       // paid → the browser navigates to the Wix checkout;

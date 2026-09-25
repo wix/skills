@@ -77,7 +77,7 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
       selectedSlot,
       formFields,
       values,
-      canBook: !!selectedSlot && formFields.every((f) => (values[f.target] ?? "").trim().length > 0),
+      canBook: !!selectedSlot && formFields.every((f) => !f.required || (values[f.target] ?? "").trim().length > 0),
       booking,
       confirmed,
       error,
