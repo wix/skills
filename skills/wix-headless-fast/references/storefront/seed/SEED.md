@@ -15,6 +15,10 @@ not a store product.
 node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 ```
 
+Run this way, the result is the process itself: exit code `0` and the JSON on stdout (redirect it
+to a file if you want it later). `.seed-exit` and `seed-result.json` are written by
+`install/fast-path.mjs` when IT starts the seed — don't wait for them after a manual run.
+
 `plan.json` is plain data — write it from the brief:
 
 ```json
