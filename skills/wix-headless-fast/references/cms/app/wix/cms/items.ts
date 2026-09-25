@@ -1,52 +1,24 @@
-// Wix Data reads/writes (@wix/data `items`) — the only file that touches raw data items.
-// CMS is schema-generic: every function takes the collection id from the seed plan
-// (seed/SEED.md) and returns plain CmsItem DTOs from ./types. Copy as-is; extend by adding
-// functions, not by editing these.
+// Wix Data reads/writes (@wix/data `items`) over the SDK — the only file that touches raw data
+// items on this transport. CMS is schema-generic: every function takes the collection id from the
+// seed plan (seed/SEED.md) and returns plain CmsItem DTOs from ./types. The rules and mappers live
+// in ./items-core (shared with the REST twin in references/cms/rest/); this file is the transport
+// only. Copy as-is; extend by adding functions, not by editing these.
 // docs: https://dev.wix.com/docs/sdk/business-solutions/data/items/query.md
 // docs: https://dev.wix.com/docs/sdk/business-solutions/data/items/update.md
 import { items as itemsModule } from "@wix/data";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
+import { DEFAULT_LIMIT, assertFilterValue, toItem, type Raw } from "./items-core";
 import type { CmsFilter, CmsItem, CmsPage, CmsQuery } from "./types";
 
 const items = wixModule(itemsModule);
-
-type Raw = Record<string, any>;
-
-// SDK → DTO: the SDK decodes date fields into Date objects (not serializable as island
-// props) and IMAGE fields arrive as wix:image:// identifiers a browser can't load
-// (ERR_UNKNOWN_URL_SCHEME). Normalize recursively — included reference items too.
-function toValue(v: unknown): unknown {
-  if (v instanceof Date) return v.toISOString();
-  if (typeof v === "string" && v.startsWith("wix:image://")) return imgSrc(v, 1200, 900);
-  if (Array.isArray(v)) return v.map(toValue);
-  if (v && typeof v === "object") {
-    const out: Raw = {};
-    for (const [k, val] of Object.entries(v as Raw)) out[k] = toValue(val);
-    return out;
-  }
-  return v;
-}
-
-const toItem = (raw: Raw): CmsItem => toValue(raw) as CmsItem;
-
-// An undefined comparand silently changes what a query matches (every row, or none) with no
-// server error — the classic "my items shows everyone's items" bug. Throw at the call site;
-// omit the filter entirely when you don't hold a value yet.
-function assertFilterValue(f: CmsFilter): void {
-  if (f.op !== "isEmpty" && f.op !== "isNotEmpty" && f.value === undefined) {
-    throw new Error(
-      `cms: filter on "${f.field}" (${f.op}) has an undefined value — pass a real value or omit the filter.`,
-    );
-  }
-}
 
 /**
  * Query one page of a collection. An empty result on a PUBLIC collection is a seed
  * permissions bug (read must be "ANYONE"), not a query bug — never reach for auth.elevate.
  */
 export async function queryItems(collectionId: string, query: CmsQuery = {}): Promise<CmsPage> {
-  const { filters = [], sort = [], limit = 20, skip = 0, include = [], withTotal = false } = query;
+  const { filters = [], sort = [], limit = DEFAULT_LIMIT, skip = 0, include = [], withTotal = false } = query;
   let q = items.query(collectionId);
   for (const f of filters) {
     assertFilterValue(f);
@@ -70,7 +42,7 @@ export async function queryItems(collectionId: string, query: CmsQuery = {}): Pr
   if (include.length) q = q.include(...include);
   const res = await q.limit(limit).skip(skip).find(withTotal ? { returnTotalCount: true } : undefined);
   return {
-    items: (res.items ?? []).map((r: Raw) => toItem(r)),
+    items: (res.items ?? []).map((r: Raw) => toItem(r, imgSrc)),
     hasNext: res.hasNext(),
     total: res.totalCount ?? null,
   };
@@ -85,7 +57,7 @@ export async function getItemById(
   const raw = await items.get(collectionId, itemId, {
     ...(include.length ? { includeReferences: include.map((field) => ({ field })) } : {}),
   });
-  return raw ? toItem(raw as Raw) : null;
+  return raw ? toItem(raw as Raw, imgSrc) : null;
 }
 
 /**
@@ -116,7 +88,7 @@ export async function countItems(collectionId: string, filters: CmsFilter[] = []
  */
 export async function insertItem(collectionId: string, data: Record<string, unknown>): Promise<CmsItem> {
   const created = await items.insert(collectionId, data as Raw);
-  return toItem(created as Raw);
+  return toItem(created as Raw, imgSrc);
 }
 
 /**
@@ -127,7 +99,7 @@ export async function insertItem(collectionId: string, data: Record<string, unkn
  */
 export async function updateItem(collectionId: string, item: CmsItem): Promise<CmsItem> {
   const updated = await items.update(collectionId, item as Raw & { _id: string });
-  return toItem(updated as Raw);
+  return toItem(updated as Raw, imgSrc);
 }
 
 /** Patch only the named fields — the safe partial change (no replace-wipes-fields footgun). */
@@ -141,11 +113,11 @@ export async function patchItemFields(
   let p = items.patch(collectionId, itemId);
   for (const [k, v] of entries) p = p.setField(k, v);
   const patched = await p.run();
-  return toItem(patched as Raw);
+  return toItem(patched as Raw, imgSrc);
 }
 
 /** Remove an item by `_id`. Irreversible. Returns the removed item (null if it didn't exist). */
 export async function removeItem(collectionId: string, itemId: string): Promise<CmsItem | null> {
   const removed = await items.remove(collectionId, itemId);
-  return removed ? toItem(removed as Raw) : null;
+  return removed ? toItem(removed as Raw, imgSrc) : null;
 }

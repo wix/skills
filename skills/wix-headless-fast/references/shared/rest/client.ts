@@ -128,7 +128,7 @@ export class WixApiError extends Error {
  */
 export async function wixRequest<T = any>(
   path: string,
-  { method = "POST", body, query }: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; query?: Record<string, string | readonly string[]> } = {},
+  { method = "POST", body, query }: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown; query?: Record<string, string | readonly string[]> } = {},
 ): Promise<T> {
   const url = new URL(path, WIX_API_BASE);
   for (const [k, v] of Object.entries(query ?? {})) {
