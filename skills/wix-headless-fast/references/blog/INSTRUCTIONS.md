@@ -280,9 +280,19 @@ nothing else to configure.
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard link plus the Blog pages — the deploy step's JSON printed
-`dashboardUrl`; append `/blog/posts` for writing/editing posts and `/blog/categories` for
-the category menu. Only published posts appear on the site.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`).
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Posts (published and drafts) | `blog/posts` |
+| Categories | `blog/categories` |
+| Tags | `blog/tags` |
+| Writers | `blog/writers` |
+| Comments | `blog/comments` |
+| Blog settings | `blog/settings` |
+
+Only published posts appear on the site.
 
 ## Seeding
 

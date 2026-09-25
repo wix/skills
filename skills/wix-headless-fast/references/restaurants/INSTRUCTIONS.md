@@ -335,11 +335,21 @@ order button in the header and your drawer once. Deploy wrote the public client 
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard link (`https://manage.wix.com/dashboard/<siteId>`) plus:
-`…/wix-restaurants-menus-new` (edit the menu), `…/wix-restaurants-orders-new/settings`
-(fulfillment: pickup/delivery hours, fees), `…/wix-table-reservations/table-reservations`
-(tables, availability). Real paid orders need a premium plan + a connected payment method,
-and holding or completing an online reservation is premium-gated — mention both.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`); a menu id fills the placeholder from the seed result.
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Menus | `wix-restaurants-menus-new` |
+| Edit a menu | `wix-restaurants-menus-new/menu/{menuId}` |
+| Items | `wix-restaurants-menus-new/items` |
+| Online orders board | `wix-restaurants-orders-new` |
+| Ordering settings (pickup/delivery hours, fees) | `wix-restaurants-orders-new/settings` |
+| Reservations | `wix-table-reservations/table-reservations` |
+| Floor plan | `wix-table-reservations/floor-plan` |
+
+Real paid orders need a premium plan + a connected payment method, and holding or completing an online
+reservation is premium-gated — mention both.
 
 ## Seeding
 

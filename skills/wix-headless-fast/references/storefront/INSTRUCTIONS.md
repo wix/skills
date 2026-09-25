@@ -586,10 +586,20 @@ client id into `wix/config.ts`; nothing else to configure.
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard, products, and categories links — **the deploy step's JSON
-output already printed them ready-made** (`dashboardUrl`, `productsUrl`, `categoriesUrl`);
-copy, don't re-derive. Real payments additionally need a premium plan + a connected payment
-method (dashboard) — mention it, don't treat it as a code failure.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON also prints
+`dashboardUrl`, `productsUrl`, `categoriesUrl`); an entity id fills the placeholder from the seed result.
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Products | `wix-stores/products` |
+| Edit a product | `wix-stores/products/product/{productId}` |
+| Categories | `wix-stores/categories/list` |
+| Inventory | `wix-stores/inventory` |
+| Orders | `ecom-platform/orders-list` |
+| Store settings | `wix-stores/settings` |
+
+Real payments additionally need a premium plan + a connected payment method (Settings → Accept
+payments) — mention it, don't treat it as a code failure.
 
 ## Seeding
 
