@@ -271,7 +271,10 @@ if (stack === "static") {
   }
   rmSync(join(JS, "tsconfig.json"), { force: true });
   result.js = `${outDir ? outDir.replace(/\/$/, "") + "/" : ""}js/wix/*.js`;
-  result.note = `import the data layer (./js/wix/catalog.js, ./js/wix/cart.js) and the stores (./js/wix/shop-store.js, ./js/wix/product-detail-store.js, ./js/wix/cart-store.js) relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at ${outDir ? `"./${outDir.replace(/\/$/, "")}"` : "this folder"}`;
+  // The note lists what actually landed, so it holds for every vertical (and several at once).
+  const stores = readdirSync(JS).filter((f) => f.endsWith("-store.js")).map((f) => `./js/wix/${f}`);
+  const dataFiles = readdirSync(JS).filter((f) => f.endsWith(".js") && !f.endsWith("-store.js") && !f.endsWith("-core.js") && !["client.js", "config.js", "media.js", "types.js"].includes(f)).map((f) => `./js/wix/${f}`);
+  result.note = `import the data layer (${dataFiles.join(", ")})${stores.length ? ` and the stores (${stores.join(", ")})` : ""} relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at "./${outDir ?? "."}"`;
   console.log(JSON.stringify(result));
   process.exit(0);
 }
