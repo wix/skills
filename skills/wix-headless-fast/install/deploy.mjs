@@ -238,7 +238,18 @@ if (stack === "static") {
     // names the REST twin exports, so they run against it unchanged.
     const appWix = join(REF, vertical, "app", "wix", vertical);
     for (const f of readdirSync(appWix)) {
-      if (f === "types.ts" || f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+      // Every vertical has a types.ts; flat in one folder they would collide, so each lands as
+      // <vertical>-types.ts and the vertical's own files are pointed at it below.
+      if (f === "types.ts") cpSync(join(appWix, f), join(JS, `${vertical}-types.ts`), COPY);
+      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+    }
+    const own = new Set([...readdirSync(join(REF, vertical, "rest")), ...readdirSync(appWix)].filter((f) => f.endsWith(".ts") && f !== "types.ts"));
+    for (const f of own) {
+      const fp = join(JS, f);
+      if (!existsSync(fp)) continue;
+      const src = readFileSync(fp, "utf8");
+      const fixed = src.replace(/from\s+"\.\/types(?:\.js)?"/g, `from "./${vertical}-types.js"`);
+      if (fixed !== src) writeFileSync(fp, fixed);
     }
     result.verticals.push(vertical);
   }
@@ -273,7 +284,7 @@ if (stack === "static") {
   result.js = `${outDir ? outDir.replace(/\/$/, "") + "/" : ""}js/wix/*.js`;
   // The note lists what actually landed, so it holds for every vertical (and several at once).
   const stores = readdirSync(JS).filter((f) => f.endsWith("-store.js")).map((f) => `./js/wix/${f}`);
-  const dataFiles = readdirSync(JS).filter((f) => f.endsWith(".js") && !f.endsWith("-store.js") && !f.endsWith("-core.js") && !["client.js", "config.js", "media.js", "types.js"].includes(f)).map((f) => `./js/wix/${f}`);
+  const dataFiles = readdirSync(JS).filter((f) => f.endsWith(".js") && !f.endsWith("-store.js") && !f.endsWith("-core.js") && !f.endsWith("-types.js") && !["client.js", "config.js", "media.js"].includes(f)).map((f) => `./js/wix/${f}`);
   result.note = `import the data layer (${dataFiles.join(", ")})${stores.length ? ` and the stores (${stores.join(", ")})` : ""} relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at "./${outDir ?? "."}"`;
   console.log(JSON.stringify(result));
   process.exit(0);
