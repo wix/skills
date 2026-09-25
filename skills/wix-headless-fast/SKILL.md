@@ -152,10 +152,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
    `Authorization` header (the account token from the call above does not scope to a site).
    **The rule above applies in full: not one of these calls comes from memory.** Open the
    source first, then call. The vertical's shipped `rest/` module already makes the reads its
-   pages need, as literal requests; a `wix-manage` recipe (`.agents/skills/wix-manage/`, indexed
-   by its SKILL.md per business solution) or a `wix-docs` page (`.agents/skills/wix-docs/`)
-   covers what it does not. If the source you opened does not have the call, look further; do
-   not try a variant.
+   pages need, as literal requests. Beyond it, two skills the entry installed beside this one:
+   `wix-manage` (`.agents/skills/wix-manage/`) holds REST recipes for managing a site's business
+   solutions — exact endpoint, method and payload per operation, indexed by solution in its
+   SKILL.md; `wix-docs` (`.agents/skills/wix-docs/`) is the Wix API reference — how to find and
+   read the doc page for any endpoint. If the source you opened does not have the call, look
+   further; do not try a variant.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
