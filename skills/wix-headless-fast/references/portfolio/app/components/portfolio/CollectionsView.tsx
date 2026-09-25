@@ -2,6 +2,7 @@
 // Correct and complete; per the skill's model you design and build your own on useCollections.
 import type { ComponentType, ReactNode } from "react";
 import { useCollections } from "../../hooks/portfolio/useCollections";
+import { imgAttrs } from "../../wix/media";
 import type { CollectionSummary } from "../../wix/portfolio/types";
 
 export interface LinkLikeProps {
@@ -32,9 +33,8 @@ export function CollectionCard({
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-secondary">
         {collection.imageUrl && (
           <img
-            src={collection.imageUrl}
+            {...imgAttrs(collection.imageUrl, "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw", 0.75)}
             alt={collection.title}
-            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         )}

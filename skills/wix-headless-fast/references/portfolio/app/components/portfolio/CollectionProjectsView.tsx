@@ -3,6 +3,7 @@
 // useCollectionProjects (ProjectCard is reusable for an all-work grid or a home strip).
 import type { ComponentType, ReactNode } from "react";
 import { useCollectionProjects } from "../../hooks/portfolio/useCollectionProjects";
+import { imgAttrs } from "../../wix/media";
 import type { CollectionSummary, ProjectSummary } from "../../wix/portfolio/types";
 
 export interface LinkLikeProps {
@@ -33,9 +34,8 @@ export function ProjectCard({
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-secondary">
         {project.imageUrl && (
           <img
-            src={project.imageUrl}
+            {...imgAttrs(project.imageUrl, "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw", 0.75)}
             alt={project.title}
-            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         )}
