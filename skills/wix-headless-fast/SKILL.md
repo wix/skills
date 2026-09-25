@@ -71,8 +71,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
    - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
      app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
      REST layer deploys for the browser side, and the server side ports it for its reads.
-2. **The seed plan.** When the brief supplies the content — a CSV, JSON or spreadsheet, a list in
-   the prompt, files in the folder — that IS the plan: map it into `plan.json` per the vertical's
+2. **The seed plan.** When the brief supplies the content in any form — a CSV, JSON or
+   spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a
+   link to their current catalog, anything else that names the products — that IS the plan: map it into `plan.json` per the vertical's
    `SEED.md` ("A supplied catalog"), every row, names and prices verbatim, their images and no
    others. Draft a plan from the brief only when nothing was supplied (read only the vertical's
    `SEED.md` for this — it depends only on the brief; save the vertical's `INSTRUCTIONS.md` for

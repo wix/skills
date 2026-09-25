@@ -80,9 +80,11 @@ business (a ceramics studio has glaze colors; a bakery doesn't).
 
 ## A supplied catalog
 
-When the user hands over their products — a CSV, JSON or spreadsheet, a list in the prompt — the
-file is the plan and the 3-product default does not apply: every row becomes a product. Map, don't
-author:
+When the user hands over their products in any form — a CSV, JSON or spreadsheet, a list typed in
+the prompt, a PDF or image of a price list, a folder of product photos with a text file beside it,
+a link to a page that lists them — that source is the plan and the 3-product default does not
+apply: every product in it becomes a product. Read it however it needs to be read (parse the file,
+open the PDF, fetch the page, look at the images), then map, don't author:
 
 - Names, descriptions and prices verbatim; never rename, reprice, reword or add products.
 - Column names vary; map by meaning: `price` → `price`; a was/compare/regular/list price →
