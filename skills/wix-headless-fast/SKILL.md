@@ -151,11 +151,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
    **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site).
    **The rule above applies in full: not one of these calls comes from memory.** Open the
-   source first, then call. For storefront the source is
-   `.agents/skills/wix-manage/references/stores/find-products-query-and-search-catalog-v3.md`
-   (products) and this skill's `references/storefront/rest/catalog.ts` (the category tree,
-   `treeReference`); for the other verticals, the vertical's `rest/` module in this skill, then
-   `wix-docs`. If the source you opened does not have the call, look further; do not try a
+   source first, then call. The vertical's shipped `rest/` module already makes the reads its
+   pages need, as literal requests; a `wix-manage` recipe or a `wix-docs` page covers what it
+   does not. If the source you opened does not have the call, look further; do not try a
    variant.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
