@@ -8,11 +8,13 @@ be exact. You never write commerce code; you never skip designing the store.
 
 ## The file map (deployed into `src/`)
 
-**Don't read the shipped files** (on Astro and React, where they deploy) — this table and the
-contracts below are everything you need. Open a shipped file's source **only** on a real
-fallback: a runtime error, or a field this playbook doesn't cover. On `lib`, `static`, and a port
-the opposite holds: the components don't deploy, and each wiring section below opens with the
-files to read before writing their equivalents. Files you edit: `SiteLayout.astro` and `styles/global.css`.
+**On Astro and React the shipped files are tested and work as they are** — this table and the
+contracts below are everything you need to use them, so don't spend the run reading their source;
+wire them and build your surfaces. Reading them is the right move when something is off (a runtime
+error, a field this playbook doesn't cover) or when the brief wants a behaviour they don't offer —
+then read the file that owns it and change or extend it. On `lib`, `static`, and a port the
+components don't deploy at all, and each wiring section below opens with the files to read before
+writing their equivalents. Files you edit: `SiteLayout.astro` and `styles/global.css`.
 Files you **create** (skeletons below): the shop, category, and PDP pages with their island
 components, plus your home page.
 
