@@ -580,5 +580,4 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
 - [ ] PDP view-source carries the SEO tags (Astro).
 - [ ] Shop/PDP/home are YOUR designs on the tokens; the data-layer/hook/cart files are
       unedited.
-- [ ] You have seen the released pages as a visitor sees them — not only their HTML.
 - [ ] Dashboard links handed to the owner.

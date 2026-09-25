@@ -143,9 +143,6 @@ doesn't express — or once the site exists and the work turns to managing or ex
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404).
 
-Don't smoke-test with a dev server unless the user explicitly asks to verify — correctness
-comes from the shipped code, and real errors surface at build/release.
-
 ## Reference mode — a static site, or a server-rendered app in another language
 
 The data layer ships a second time as a **REST layer**: `references/shared/rest/` (the auth seam
@@ -215,10 +212,7 @@ them; this section is the mechanics, the same for every vertical.
   skeletons and the components are one spelling of layout and behaviour rules that hold everywhere
   (a bounded image band on phones, name and price on separate lines, the buy control pinned to the
   tile's bottom, an overlay that locks scroll and returns focus). Take the rules; write them in the
-  CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Before you
-  release,
-  look at the site the way a visitor will, not the way a script does: a 200 and the right text in
-  the HTML prove the build ran, not that the page looks or behaves as intended. Close with run (or
+  CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
   hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
   before a Wix-hosted flow such as checkout can return).
