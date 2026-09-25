@@ -2,6 +2,7 @@
 // Correct and complete; per the skill's model you design and build your own on useEvents.
 import type { ComponentType, ReactNode } from "react";
 import { useEvents } from "../../hooks/events/useEvents";
+import { imgAttrs } from "../../wix/media";
 import type { EventSummary } from "../../wix/events/types";
 
 export interface LinkLikeProps {
@@ -32,9 +33,8 @@ export function EventCard({
       <div className="relative aspect-[3/2] overflow-hidden rounded-lg bg-secondary">
         {event.imageUrl && (
           <img
-            src={event.imageUrl}
+            {...imgAttrs(event.imageUrl, "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw", 2 / 3)}
             alt={event.title}
-            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         )}
