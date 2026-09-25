@@ -411,11 +411,38 @@ export default function ProductDetailView(props: {
    SSR props; browser-state widgets (cart) are `client:only="react"`.
 3. Write `pages/index.astro` (home) on `SiteLayout`.
 
+### Wiring — another JS framework (`--stack lib`: Vue, Svelte, Solid, plain Vite)
+
+`deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
+(the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
+`wix/storefront/` — `catalog.ts`, `cart.ts`, `cart-store.ts`, `types.ts`, the `*-core.ts` rules.
+None of it is React. The hooks and components don't ship on this stack; you write their
+equivalents in your framework to the contracts on this page:
+
+- a shop store/composable mirroring `useShop`: selection (category, sort, filters, facet
+  choices) → `searchCatalog` across the whole catalog, a fresh cursor chain on every change, a
+  stale-response guard, `fetchFacetData` per category scope, `loadMore` by cursor;
+- a product-detail store mirroring `useProductDetail`: selections start empty, `resolveVariant`
+  from `catalog.ts`, `canAdd` and a neutral `blockedReason`, quantity reset on an option change,
+  `add` → `addToCart(product.id, variant.variantId, quantity, extras)`;
+- the cart on `cart-store.ts` as-is (framework-free: subscribe/get, add/update/remove/checkout,
+  open state) — bind it with your framework's external-store primitive;
+- your filter panel, quick add, and cart drawer to the contracts in "What a complete storefront
+  shows" — the shipped `FilterPanel.tsx`, `QuickAdd.tsx`, `CartDrawer.tsx` are readable as
+  behaviour specs (the overlay contract, the three purchase paths, the sidebar/sheet split).
+
+Routes `/shop`, `/category/:slug` (via `fetchCategoryBySlug`, null → your 404), `/products/:slug`;
+dev server on 4321; a static build goes through `npx @wix/cli@latest release` with
+`site.outputDirectory` pointing at the build folder, an SSR build is hosted by you. Item-page tags
+from the entity's `seoData`.
+
 ### Wiring — static site (`--stack static`, no bundler)
 
-`deploy.mjs storefront --stack static` put the REST layer in `js/wix/` (browser ESM, the `.ts`
-beside each `.js` for reading). Same function names and DTOs as the table above, so the contracts
-on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
+`deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser
+ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
+pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
+root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+above, so the contracts on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
 `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` from `./js/wix/catalog.js`;
 `fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `checkoutUrl` from `./js/wix/cart.js`.
 No hooks and no components ship here — you write the shop, category, PDP, cart drawer, filter
@@ -423,9 +450,9 @@ panel, and quick add in plain JS against those DTOs, to the same contracts: sele
 empty and go through `resolveVariant`; `addToCart` needs the resolved `variantId` for an optioned
 product; the drawer opens after every add; overlays follow the CartDrawer contract (root-level,
 scroll lock, Escape, focus back). Pages are `shop.html`, `category.html?slug=…`,
-`product.html?slug=…`. The visitor token persists in `localStorage` on its own; never mint per
-page. `npx @wix/cli@latest release` uploads the folder (`site.outputDirectory` in
-`wix.config.json` points at it).
+`product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
+once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
+its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
@@ -440,6 +467,14 @@ drawer, add, quantity, remove, and `checkoutUrl()` from the page, exactly as the
 above — the browser owns the shopper's visitor token, so the server never handles per-shopper
 tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
 to the OAuth app's allowed domains before checkout can return.
+
+**Pre-rendered (Frozen-Flask, Pelican, any static-site generator) → Wix-hosted.** Same port for
+the reads, run at build time with one anonymous token; the generator must emit every product and
+category page (a URL generator over `fetchCategories()` plus a full `searchCatalog` walk by
+cursor — never only the first page). Run `deploy.mjs storefront --stack static --out <build dir>`
+so `js/wix/` is inside the output the pages import from, point `site.outputDirectory` at that
+folder, `wix release`. The catalog pages are a snapshot until the next build; the cart is live.
+Close with the live URL, the rebuild + release command, and that caveat.
 
 ### Wiring — React SPA (Vite etc.)
 

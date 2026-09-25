@@ -5,24 +5,19 @@ description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sd
 
 # Wix Headless Fast
 
-Build a Wix Headless site by **deploying shipped code, not authoring it**. Where `wix-headless`
-hands the agent recipes to code from, this skill ships the integration itself — a typed data
-layer, hooks, components, pages, and a seed script that are already correct — and the agent's
-job narrows to brand, layout, copy, and wiring. The decisions live in the code; don't
+Build a Wix Headless site on **shipped, verified code instead of authoring the integration**.
+Each vertical ships the integration itself — a typed data layer, hooks, components, pages, and a
+seed script that are already correct. On a stack that runs it (Wix-managed Astro, any React
+project) the code is **deployed** and the agent's job narrows to brand, layout, copy, and wiring.
+On a stack that can't run it (a static site with no bundler, a server-rendered app in another
+language) the same code is the **reference**: its REST twin deploys for the browser side, and the
+rules it encodes are what the agent ports. Either way the decisions live in the code; don't
 re-litigate them.
 
-**Scope.** This is the bootstrap, tuned for Wix-managed Astro, and each vertical ships *one*
-shape of its solution. Deploy it as-is when the brief doesn't contradict it. When the brief
-asks for something that shape doesn't express — or once the site exists and the work turns to
-managing or extending it — that's `wix-docs` and `wix-manage`, not a workaround here.
-
-## Relationship to sibling skills
-
-| Skill                        | Use when                                                                                                               |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **wix-headless-fast** (this) | A supported vertical fits the request and the frontend is Astro or React — the fast path.                              |
-| `wix-headless`               | A vertical this skill doesn't ship yet, backend-only runs, or stripe/self-managed project types.                       |
-| `wix-vibe-headless`          | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI.                         |
+**Scope.** Tuned for Wix-managed Astro, and each vertical ships *one* shape of its solution. Use
+it as-is when the brief doesn't contradict it. When the brief asks for something that shape
+doesn't express — or once the site exists and the work turns to managing or extending it — that's
+`wix-docs` and `wix-manage`, not a workaround here.
 
 ## The model
 
@@ -60,13 +55,17 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 
 ## The run
 
-1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names a
-   different React framework or the directory already holds a non-Astro React project (`--stack
-   react`: the shipped TypeScript runs there too; the agent's own files may be JS). A stack that
-   **cannot run the shipped code** — a static site with no bundler (plain HTML/CSS/JS), or a
-   server-rendered app in another language or runtime (Flask, Laravel, Rails, Express without
-   React, …) — is **reference mode** (below): nothing from `app/` deploys; the REST layer is what
-   deploys for the browser side, and what the server side ports for its reads.
+1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names
+   another framework or the directory already holds one. Then, by what the shipped code can run
+   there:
+   - **React** (Vite, Next, …) runs everything shipped — data layer, hooks, components:
+     `--stack react`. The agent's own files may be JS.
+   - **Another bundled JS framework** (Vue, Svelte, Solid, plain Vite): the data layer runs
+     (`src/wix/` has no React in it), the hooks and components don't apply: `--stack lib`. The
+     agent writes its framework's stores/composables and components against the same contracts.
+   - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
+     app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
+     REST layer deploys for the browser side, and the server side ports it for its reads.
 2. **Draft the seed plan** (read only the vertical's `SEED.md` for this — it depends only on
    the brief; save the vertical's `INSTRUCTIONS.md` for step 4, where it's needed). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
@@ -151,15 +150,18 @@ the vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against th
 and importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules,
 two transports. Storefront ships it today; other verticals follow the same layout.
 
-- **Static site (no bundler).** `npm create @wix/new@latest init` in the folder (site, OAuth app,
-  `wix.config.json`); set `site.outputDirectory` in that config to the folder itself; then
-  `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static` composes the REST layer flat into
-  `js/wix/` and strips it to browser ESM (comments kept, the `.ts` kept beside the `.js` to read).
-  Pages import `./js/wix/catalog.js` and `./js/wix/cart.js` from a `<script type="module">`. The
-  visitor token lives in `localStorage` (the cart is the token's — never mint one per page). A
-  route is a page plus a query-string slug (`product.html?slug=…`). Seed per the vertical's
-  `SEED.md` (Node + the CLI token, no project dependencies). Release with `npx @wix/cli@latest
-  release` — it uploads the directory, no build. Item-page tags come from the entity's `seoData`.
+- **Static site (no bundler).** `npm create @wix/new@latest init` in the project folder (site,
+  OAuth app, `wix.config.json`). The site lives in a **subfolder** — `site/` — holding only the
+  pages, styles, and `js/`; set `site.outputDirectory` in the config to `"./site"`. `wix release`
+  uploads that directory whole, so the project root (config, `plan.json`, seed output, anything
+  else) must not be it. Then `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static --out
+  site` composes the REST layer flat into `site/js/wix/` and strips it to browser ESM (comments
+  kept, the `.ts` kept beside the `.js` to read). Pages import `./js/wix/catalog.js` and
+  `./js/wix/cart.js` from a `<script type="module">`. The visitor token lives in `localStorage`
+  (the cart is the token's — never mint one per page). A route is a page plus a query-string slug
+  (`product.html?slug=…`). Seed per the vertical's `SEED.md` (Node + the CLI token, no project
+  dependencies). Release with `npx @wix/cli@latest release` — no build. Item-page tags come from
+  the entity's `seoData`, set after the fetch (`document.title`, the meta description).
 - **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
   Astro — pages rendered on the server, a browser cart — with hosting and SEO plumbing theirs.
   `init` still runs in the project folder; run `deploy.mjs <vertical> --stack static` there too: it
@@ -175,10 +177,21 @@ two transports. Storefront ships it today; other verticals follow the same layou
     server. If the cart must run server-side anyway, `client.ts`'s header applies: one token set
     per shopper in the shopper's session, never one process-wide token (that is one cart for
     everyone).
+  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
+    Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
+    <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
+    copy it there after each build), make the generator emit a page for **every** product and
+    category slug (a URL generator over `fetchCategories()` and a full `searchCatalog` walk),
+    point `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
+    anonymous visitor token for the duration of the build. **The catalog pages are a snapshot**:
+    a price change or a new product needs a rebuild and re-release; the cart, stock at add time,
+    and checkout stay live through the browser. Say so in the closing message, with the rebuild
+    command. A running server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
-  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run
-  instructions, the dashboard link, and the allowed-domain step (add the public https origin to
-  the OAuth app before checkout can return).
+  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run (or
+  rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
+  hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
+  before checkout can return).
 - Both: the calls in `rest/` are the ones a **visitor token** may make from a page — catalog
   reads, the current cart, the checkout redirect. Anything elevated (writes, orders, other
   people's data) runs server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI
