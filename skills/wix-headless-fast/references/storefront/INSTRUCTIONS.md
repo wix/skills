@@ -160,6 +160,10 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 
 ### The pages and islands you create — skeletons
 
+The class names in these skeletons are the Astro/React spelling of layout rules that hold on
+every stack, and each rule is also named in words beside its classes. On a stack where the shipped
+components don't deploy (`lib`, `static`, a port), keep the rule and write it in your own CSS.
+
 Nothing renders until you write these — the store IS your work. Each page is a thin SSR shell
 (fetch → DTO props → island); each island is a thin view over a hook. The pages' frontmatter
 is **machinery, not design** — reproduce it as the skeletons show, exactly. Hooks first,
@@ -506,8 +510,11 @@ client id into `wix/config.ts`; nothing else to configure.
 - **Categories are pages** — `/category/[slug]` with its SEO block, linked from the chrome; a
   category that exists only as a state toggle on `/shop` has no URL to share or index.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.
-- Theme via the `@theme` tokens; your markup uses Tailwind utilities on the same tokens. No
-  parallel theme files, no hardcoded palette values in components.
+- Where the shipped components deploy (Astro, React): theme via the `@theme` tokens, and your
+  markup uses Tailwind utilities on the same tokens — one design system across shipped and written
+  code. No parallel theme files, no hardcoded palette values in components. Where they don't
+  (`lib`, `static`, a port): style with whatever your stack does well, on one token set of your
+  own; the rule that survives is the token set, not Tailwind.
 - Checkout only through the shipped cart (`checkout()`) — never a hand-built checkout URL.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
 - **Prices and ribbons come from the DTOs as-is** — no computed percent-off, no "Sale" badge

@@ -210,7 +210,13 @@ them; this section is the mechanics, the same for every vertical.
     edits made in the dashboard reach the site when that command runs; the browser-side flows are
     live regardless. A running server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
-  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Before you release,
+  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Both were written for
+  the stacks that receive the code, so they speak that stack's dialect: the Tailwind classes in the
+  skeletons and the components are one spelling of layout and behaviour rules that hold everywhere
+  (a bounded image band on phones, name and price on separate lines, the buy control pinned to the
+  tile's bottom, an overlay that locks scroll and returns focus). Take the rules; write them in the
+  CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Before you
+  release,
   look at the site the way a visitor will, not the way a script does: a 200 and the right text in
   the HTML prove the build ran, not that the page looks or behaves as intended. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
