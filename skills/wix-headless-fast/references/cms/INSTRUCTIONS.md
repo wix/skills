@@ -337,9 +337,13 @@ client id into `wix/config.ts`; nothing else to configure.
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard link — the deploy step's JSON printed `dashboardUrl`; append
-`/wix-cms` for the collections area (items, fields, and More Actions → Permissions &
-Privacy live there).
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`); a collection id is its `_id` (the seed result lists them).
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Collections | `wix-cms` |
+| A collection's items (fields, and More Actions → Permissions & Privacy) | `wix-cms/data/{collectionId}` |
 
 ## Seeding
 

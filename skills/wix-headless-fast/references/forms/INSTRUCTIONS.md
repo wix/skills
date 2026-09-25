@@ -317,9 +317,17 @@ else to configure.
 
 ## Point the user to their dashboard
 
-The owner edits fields, sees submissions, and sets notifications at
-`https://manage.wix.com/dashboard/<siteId>/form/forms`. Say so when you hand the site over —
-the whole value of this vertical is that their edits land on the site with no code change.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`); `{formId}` is the id the seed result returned.
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Forms list | `wix-forms` |
+| Edit the form (fields, rules, submit settings, notifications) | `wix-forms/form/{formId}` |
+| Its submissions | `wix-forms/form/{formId}/submissions` |
+
+Say so when you hand the site over — the whole value of this vertical is that their edits land on the
+site with no code change. Submissions are per form; there is no site-wide submissions page.
 
 ## Seeding
 

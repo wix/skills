@@ -96,7 +96,7 @@ Everything you need to build on the shipped code; read the source only when some
 //   windowStart, nextWeek(), prevWeek(),                  // 7-day paging (prev clamps to today)
 //   staffId, setStaffId(id|undefined),                    // show a picker only when service.staff.length > 1
 //   selectedSlot, setSelectedSlot(slot|null),             // Slot = { startLocal, endLocal, dayKey, label, scheduleId|null, eventId|null, staff }
-//   formFields: [{ target, label, type, options? }],      // never empty (contact-basics fallback)
+//   formFields: [{ target, label, type, options?, required }], // never empty (contact-basics fallback); only required ones gate canBook
 //   values, setValue(target, value),                      // inputs write here, keyed by target
 //   canBook,                                              // gate the CTA on this
 //   book(): Promise<BookingResult>,                       // paid → the browser navigates to the Wix checkout;
@@ -249,9 +249,24 @@ to configure.
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard link plus the Bookings services/calendar pages — the deploy
-step's JSON printed `dashboardUrl`; append `/bookings/services` for service management.
-Taking real online payments needs a premium plan + a connected payment method — mention it.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`); a service id fills the placeholder from the seed result.
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Services | `bookings/services` |
+| Edit a service | `bookings/services/form/{serviceId}` |
+| Calendar | `bookings/calendar` |
+| Bookings list | `bookings/bookings/bookings-list` |
+| Staff | `bookings/staff` |
+| Availability | `bookings/availability` |
+| Booking form | `bookings/settings/booking-form-page` |
+| Policies | `bookings/settings/policies` |
+
+Completing a booking online — free services included — needs a payment method on the site (Settings →
+Accept payments; "manual payments" is enough for free and pay-in-person); taking real online payments
+also needs a premium plan. Until then `book()` surfaces "the site is not accepting payments" — mention
+it, don't treat it as a code failure.
 
 ## Seeding
 

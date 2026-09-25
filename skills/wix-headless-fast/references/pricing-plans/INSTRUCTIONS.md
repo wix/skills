@@ -274,10 +274,18 @@ Anything elevated (creating or editing plans) runs server-side per `references/s
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard link plus the Pricing Plans page — the deploy step's JSON
-printed `dashboardUrl`; append `/pricing-plans` for plan management (edit plans, connect
-plans to content, see orders). Taking real payments needs a premium plan + a connected
-payment method — mention it.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
+`dashboardUrl`).
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Plans (purchases are a tab of this page) | `pricing-plans` |
+| Create a plan | `pricing-plans/new` |
+| Record a manual order | `pricing-plans/new-order` |
+| Settings | `pricing-plans/settings` |
+
+Editing a plan is reached from the list (no id path). Taking real payments needs a premium plan + a
+connected payment method — mention it.
 
 ## Seeding
 
