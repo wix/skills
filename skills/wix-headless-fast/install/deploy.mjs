@@ -233,12 +233,21 @@ if (stack === "static") {
   cpSync(join(REF, "shared", "rest"), JS, COPY);
   for (const vertical of requested) {
     cpSync(join(REF, vertical, "rest"), JS, COPY);
-    // The vertical's transport-agnostic core: types + every *-core.ts under its app/wix/<vertical>/.
+    // The vertical's transport-agnostic core: types, every *-core.ts, and every *-store.ts under its
+    // app/wix/<vertical>/ — the stores are the hooks' logic without React, over the same function
+    // names the REST twin exports, so they run against it unchanged.
     const appWix = join(REF, vertical, "app", "wix", vertical);
     for (const f of readdirSync(appWix)) {
-      if (f === "types.ts" || f.endsWith("-core.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+      if (f === "types.ts" || f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
     }
     result.verticals.push(vertical);
+  }
+  // Browser ESM resolves nothing: every relative import needs its .js. The rest/ files are written
+  // that way; the files borrowed from app/wix/ are bundler-style and get the suffix here.
+  for (const f of readdirSync(JS).filter((f) => f.endsWith(".ts"))) {
+    const src = readFileSync(join(JS, f), "utf8");
+    const fixed = src.replace(/(from\s+"\.\/[^"]+?)(?<!\.js)"/g, '$1.js"');
+    if (fixed !== src) writeFileSync(join(JS, f), fixed);
   }
   const cfg = join(JS, "config.ts");
   const current = readFileSync(cfg, "utf8");
@@ -262,7 +271,7 @@ if (stack === "static") {
   }
   rmSync(join(JS, "tsconfig.json"), { force: true });
   result.js = `${outDir ? outDir.replace(/\/$/, "") + "/" : ""}js/wix/*.js`;
-  result.note = `import from ./js/wix/catalog.js and ./js/wix/cart.js (relative to ${outDir ?? "the project root"}) in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at ${outDir ? `"./${outDir.replace(/\/$/, "")}"` : "this folder"}`;
+  result.note = `import the data layer (./js/wix/catalog.js, ./js/wix/cart.js) and the stores (./js/wix/shop-store.js, ./js/wix/product-detail-store.js, ./js/wix/cart-store.js) relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at ${outDir ? `"./${outDir.replace(/\/$/, "")}"` : "this folder"}`;
   console.log(JSON.stringify(result));
   process.exit(0);
 }

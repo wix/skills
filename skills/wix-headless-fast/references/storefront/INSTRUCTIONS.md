@@ -25,9 +25,10 @@ components, plus your home page.
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
 | `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
+| `wix/storefront/shop-store.ts` · `product-detail-store.ts` | the listing and product-detail state machines, framework-free (`createShopStore()`, `createProductDetailStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/storefront/useCart.ts` | cart state + actions — contract below |
-| `hooks/storefront/useShop.ts` | listing: category scope, sort, filters, option facets, result count, paging — contract below |
-| `hooks/storefront/useProductDetail.ts` | option selection → variant resolution → add-to-cart — contract below |
+| `hooks/storefront/useShop.ts` | React binding of `shop-store.ts`: category scope, sort, filters, option facets, result count, paging — contract below |
+| `hooks/storefront/useProductDetail.ts` | React binding of `product-detail-store.ts`: option selection → variant resolution → add-to-cart — contract below |
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
 | `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per option facet with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
 | `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
@@ -420,25 +421,23 @@ export default function ProductDetailView(props: {
 
 ### The reference files for stacks where the components don't deploy
 
-On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives, and you write
-their equivalents. Read these first — they are tested code for exactly that behaviour, and
-rewriting them from the prose above is where the bugs come from:
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives. The state
+machines behind the hooks do arrive — `wix/storefront/shop-store.ts`, `product-detail-store.ts`,
+`cart-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
+`getState()`, call its actions. Their `*State` interfaces are the render contract; read those.
+What you write is the rendering — grid, product page, picker, filter panel, drawer — and for that
+read these first; they are tested code for exactly that behaviour, and rewriting them from the
+prose above is where the bugs come from:
 
-1. `hooks/storefront/useProductDetail.ts` — selections start empty → `resolveVariant` → `canAdd`
-   and a neutral `blockedReason` → quantity reset on an option change → `add()`. Your product-page
-   and picker state is this file in your language.
-2. `components/storefront/QuickAdd.tsx` — the three purchase paths decided from the summary DTO;
+1. `components/storefront/QuickAdd.tsx` — the three purchase paths decided from the summary DTO;
    the panel is positioned inside the tile (the tile is `relative`), a bottom sheet on small
    screens, never `fixed` with computed offsets; it closes on Escape, the close button, a
    successful add, or the scrim — there is NO outside-click handler (one that runs after a
    re-render sees the clicked swatch detached and closes on every pick).
-3. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
+2. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
    scrim, scroll lock, Escape, focus in and back.
-4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
+3. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
    the price pair commits only when valid.
-5. `hooks/storefront/useShop.ts` — the listing state machine: one selection object →
-   `searchCatalog`, a fresh cursor chain on every change, a stale-response guard, facets per
-   category scope, URL sync.
 
 All under `references/storefront/app/`.
 
@@ -456,18 +455,17 @@ Read the reference files listed above before writing any surface.
 
 `deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
 (the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
-`wix/storefront/` — `catalog.ts`, `cart.ts`, `cart-store.ts`, `types.ts`, the `*-core.ts` rules.
-None of it is React. The hooks and components don't ship on this stack; you write their
-equivalents in your framework to the contracts on this page:
+`wix/storefront/` — `catalog.ts`, `cart.ts`, `types.ts`, the `*-core.ts` rules, and the three
+stores `shop-store.ts`, `product-detail-store.ts`, `cart-store.ts`. None of it is React. The
+hooks and components don't ship on this stack; the stores replace the hooks, and you write the
+components in your framework to the contracts on this page:
 
-- a shop store/composable mirroring `useShop`: selection (category, sort, filters, facet
-  choices) → `searchCatalog` across the whole catalog, a fresh cursor chain on every change, a
-  stale-response guard, `fetchFacetData` per category scope, `loadMore` by cursor;
-- a product-detail store mirroring `useProductDetail`: selections start empty, `resolveVariant`
-  from `catalog.ts`, `canAdd` and a neutral `blockedReason`, quantity reset on an option change,
-  `add` → `addToCart(product.id, variant.variantId, quantity, extras)`;
-- the cart on `cart-store.ts` as-is (framework-free: subscribe/get, add/update/remove/checkout,
-  open state) — bind it with your framework's external-store primitive;
+- bind the stores with your framework's external-store primitive (Vue: `shallowRef` updated in
+  `subscribe`; Svelte: `readable(store.getState(), (set) => store.subscribe(() => set(store.getState())))`;
+  Solid: a signal set in `subscribe`). `createShopStore(options)` per listing (`start()` when
+  mounted, `stop()` when unmounted), `createProductDetailStore({ initial | slug })` per product
+  surface, the cart store as-is (module-level). State in, actions out — exactly the hooks'
+  contracts above;
 - your filter panel, quick add, and cart drawer to the contracts in "What a complete storefront
   shows" — the shipped `FilterPanel.tsx`, `QuickAdd.tsx`, `CartDrawer.tsx` are readable as
   behaviour specs (the overlay contract, the three purchase paths, the sidebar/sheet split).
@@ -488,11 +486,16 @@ root (config, plan, seed output) is never the upload. Same function names and DT
 above, so the contracts on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
 `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` from `./js/wix/catalog.js`;
 `fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `checkoutUrl` from `./js/wix/cart.js`.
-No hooks and no components ship here — you write the shop, category, PDP, cart drawer, filter
-panel, and quick add in plain JS against those DTOs, to the same contracts: selections start
-empty and go through `resolveVariant`; `addToCart` needs the resolved `variantId` for an optioned
-product; the drawer opens after every add; overlays follow the CartDrawer contract (root-level,
-scroll lock, Escape, focus back). Pages are `shop.html`, `category.html?slug=…`,
+The state machines ship too: `createShopStore` from `./js/wix/shop-store.js` (the listing —
+selection, facets, URL sync, cursor paging; `start()` once the page is up), `createProductDetailStore`
+from `./js/wix/product-detail-store.js` (the PDP and every quick-add picker — selections start
+empty, `resolveVariant`, `canAdd`/`blockedReason`, `add()`), and `./js/wix/cart-store.js` (the
+cart, `subscribeCart`/`getCartState`, `addLine`, `updateLineQuantity`, `removeCartLine`,
+`goToCheckout`, `setCartOpen`). No components ship — you write the rendering in plain JS: one
+render function per surface that reads `getState()`, called from `subscribe`, with the
+surface's controls calling the store's actions. The drawer opens after every add on its own;
+overlays follow the CartDrawer contract (root-level, scroll lock, Escape, focus back). Pages are
+`shop.html`, `category.html?slug=…`,
 `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
 once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
 its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
@@ -507,10 +510,11 @@ server:** port `js/wix/catalog.ts` and `catalog-core.ts` to your language — th
 returning the same DTO shapes as dicts, one anonymous visitor token per process for these public
 reads (mint and refresh per `client.ts`) — and render shop, category, and PDP in your templates to
 the contracts above, so product names and prices are in the HTML; item-page tags from the entity's
-`seoData`. **The cart in the browser:** load `./js/wix/cart.js` in the templates and drive the
-drawer, add, quantity, remove, and `checkoutUrl()` from the page, exactly as the static wiring
-above — the browser owns the shopper's visitor token, so the server never handles per-shopper
-tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
+`seoData`. **Buying in the browser:** the cart drawer on `./js/wix/cart-store.js`, the PDP's
+option picker and the tile's quick add on `./js/wix/product-detail-store.js` (pass the product's
+slug, or the rendered `ProductDetail` as `initial` in a JSON script tag), exactly as the static
+wiring above — the browser owns the shopper's visitor token, so the server never handles
+per-shopper tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
 to the OAuth app's allowed domains before checkout can return.
 
 **Pre-rendered (Frozen-Flask, Pelican, any static-site generator) → Wix-hosted.** Same port for
@@ -521,8 +525,9 @@ so `js/wix/` is inside the output the pages import from, point `site.outputDirec
 folder, `wix release`. Pages sit at different depths (`/`, `/category/…`, `/products/…`): give
 the templates one base path to `js/wix/` (a template variable, or root-relative `/js/wix/…`),
 never a relative `./js/wix/` — it breaks one level down. The frozen grid is the first paint; the
-shop's sort, filters, facets, search, and load-more still run client-side on it from
-`./js/wix/catalog.js`, exactly as on a static site, so the gallery contract above applies. Close
+shop's sort, filters, facets, search, and load-more still run client-side on it through
+`createShopStore()` from `./js/wix/shop-store.js`, exactly as on a static site, so the gallery
+contract above applies. Close
 with the live URL, the rebuild + release command, and one line for the owner: dashboard edits to
 the catalog reach the site when that command runs; cart and checkout are live regardless.
 
