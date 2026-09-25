@@ -1,39 +1,21 @@
-// Collections gallery. SSR-friendly: pass server-fetched data as `initialCollections`
-// (Astro frontmatter / server component) and no client fetch happens; a SPA passes nothing.
-import { useEffect, useState } from "react";
-import { fetchCollections } from "../../wix/portfolio/portfolio";
-import type { CollectionSummary } from "../../wix/portfolio/types";
+// React binding of the collections store (wix/portfolio/collections-store.ts) — the gallery's
+// load state lives there, framework-free; this hook subscribes to one instance per mounted
+// gallery. SSR-friendly: pass server-fetched data as `initialCollections` and no client fetch
+// happens; a SPA passes nothing. A static page, Vue, or Svelte uses the store directly.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createCollectionsStore, type CollectionsState, type CollectionsStore, type CollectionsStoreOptions } from "../../wix/portfolio/collections-store";
 
-export interface UseCollectionsOptions {
-  initialCollections?: CollectionSummary[];
-}
+export type UseCollectionsOptions = CollectionsStoreOptions;
 
-export interface UseCollections {
-  /** null while the first load is in flight — render skeletons, not an empty state. */
-  collections: CollectionSummary[] | null;
-  error: string | null;
-}
+export type UseCollections = CollectionsState;
 
-export function useCollections({ initialCollections }: UseCollectionsOptions = {}): UseCollections {
-  const [collections, setCollections] = useState<CollectionSummary[] | null>(initialCollections ?? null);
-  const [error, setError] = useState<string | null>(null);
-
+export function useCollections(options: UseCollectionsOptions = {}): UseCollections {
+  const ref = useRef<CollectionsStore | null>(null);
+  if (!ref.current) ref.current = createCollectionsStore(options);
+  const store = ref.current;
   useEffect(() => {
-    let alive = true;
-    if (!initialCollections) {
-      fetchCollections()
-        .then((c) => alive && setCollections(c))
-        .catch((e) => {
-          if (!alive) return;
-          setCollections([]);
-          setError(e instanceof Error ? e.message : String(e));
-        });
-    }
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { collections, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  return useSyncExternalStore(store.subscribe, store.getState, store.getState);
 }
