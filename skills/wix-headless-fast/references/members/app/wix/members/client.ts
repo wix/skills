@@ -4,7 +4,7 @@
 import { createClient, EMPTY_TOKENS, OAuthStrategy } from "@wix/sdk";
 import type { TokenStorage, Tokens } from "@wix/sdk";
 import { members } from "@wix/members";
-import { WIX_MEMBERS_CLIENT_ID } from "../../config";
+import { WIX_MEMBERS_CLIENT_ID } from "../config";
 
 // `@wix/astro` uses this cookie as the session source for both browser islands
 // and the next server render. Direct login must write the exact same contract,
