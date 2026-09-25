@@ -7,7 +7,7 @@
 // template below freely. The body island is client:only — the ricos viewer breaks under SSR.
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import RichContent from "../../components/blog/RichContent";
-import { fetchPostBySlug } from "../../wix/blog/posts";
+import { fetchPostBySlug, postMetaLine } from "../../wix/blog/posts";
 import { fetchBlogCategories, fetchBlogTags } from "../../wix/blog/taxonomy";
 import type { BlogCategory, BlogTag } from "../../wix/blog/types";
 import { WIX_APPS } from "@wix/essentials";
@@ -70,9 +70,7 @@ const postTags = allTags.filter((t) => post!.tagIds.includes(t.id));
     {postCategories.length > 0 && <p class="eyebrow">{postCategories.map((c) => c.label).join(" · ")}</p>}
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">{post.title}</h1>
     <p class="mt-3 text-sm text-muted-foreground">
-      {post.dateLabel && <time datetime={post.dateISO}>{post.dateLabel}</time>}
-      {post.dateLabel && post.minutesToRead > 0 ? " · " : ""}
-      {post.minutesToRead > 0 ? `${post.minutesToRead} min read` : ""}
+      <time datetime={post.dateISO}>{postMetaLine(post)}</time>
     </p>
     {
       post.coverUrl && (

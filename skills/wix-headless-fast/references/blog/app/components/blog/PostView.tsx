@@ -3,6 +3,7 @@
 // build your own on usePost. Chips display .label; the body renders ONLY via RichContent.
 import type { ComponentType } from "react";
 import { usePost } from "../../hooks/blog/usePost";
+import { postMetaLine } from "../../wix/blog/posts";
 import type { BlogCategory, BlogTag, PostDetail } from "../../wix/blog/types";
 import RichContent from "./RichContent";
 import type { LinkLikeProps } from "./BlogFeedView";
@@ -81,9 +82,7 @@ export default function PostView({
       )}
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">{post.title}</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        {post.dateLabel && <time dateTime={post.dateISO}>{post.dateLabel}</time>}
-        {post.dateLabel && post.minutesToRead > 0 ? " · " : ""}
-        {post.minutesToRead > 0 ? `${post.minutesToRead} min read` : ""}
+        <time dateTime={post.dateISO}>{postMetaLine(post)}</time>
       </p>
       {post.coverUrl && (
         <div className="mt-6 aspect-[16/9] overflow-hidden rounded-xl bg-secondary">
