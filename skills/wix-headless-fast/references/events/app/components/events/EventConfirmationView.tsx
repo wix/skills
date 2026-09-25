@@ -41,7 +41,7 @@ export default function EventConfirmationView({ eventsHref = "/events" }: { even
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
       <p className="eyebrow">Order {params.orderNumber}</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">You're going! 🎟️</h1>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">You're going!</h1>
       <p className="mt-3 text-sm text-muted-foreground">
         {event ? `${event.title}${event.dateLabel ? ` — ${event.dateLabel}` : ""}. ` : ""}
         Your tickets are on their way to your email.

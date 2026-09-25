@@ -1,59 +1,24 @@
-// Events listing + category filter. SSR-friendly: pass server-fetched data as `initialEvents`
-// (Astro frontmatter / server component) and no client fetch happens; a SPA passes nothing.
-// The category menu is DERIVED from the loaded events (the categories management API is
-// admin-scope — visitors can't query it); filtering is client-side.
-import { useEffect, useMemo, useState } from "react";
-import { fetchEvents } from "../../wix/events/events";
-import type { EventSummary } from "../../wix/events/types";
+// React binding of the events store (wix/events/events-store.ts) — the listing state machine
+// lives there, framework-free; this hook subscribes to one instance per mounted listing and
+// exposes its state and actions under one name. SSR-friendly: pass server-fetched data as
+// `initialEvents` (Astro frontmatter / server component) and no client fetch happens; a SPA
+// passes nothing. Astro islands and React SPAs use this; a static page, Vue, or Svelte uses the
+// store directly.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createEventsStore, type EventsState, type EventsStore, type EventsStoreOptions } from "../../wix/events/events-store";
 
-export interface UseEventsOptions {
-  initialEvents?: EventSummary[];
-}
+export type UseEventsOptions = EventsStoreOptions;
 
-export interface UseEvents {
-  /** null while the first load is in flight — render skeletons, not an empty state. */
-  events: EventSummary[] | null;
-  /** Unique assigned categories in listing order — render a filter bar only when > 1. */
-  categories: { id: string; name: string }[];
-  activeCategoryId: string | null;
-  setActiveCategoryId: (id: string | null) => void;
-  error: string | null;
-}
+export type UseEvents = EventsState & Pick<EventsStore, "setActiveCategoryId">;
 
-export function useEvents({ initialEvents }: UseEventsOptions = {}): UseEvents {
-  const [all, setAll] = useState<EventSummary[] | null>(initialEvents ?? null);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+export function useEvents(options: UseEventsOptions = {}): UseEvents {
+  const ref = useRef<EventsStore | null>(null);
+  if (!ref.current) ref.current = createEventsStore(options);
+  const store = ref.current;
   useEffect(() => {
-    let alive = true;
-    if (!initialEvents) {
-      fetchEvents()
-        .then((e) => alive && setAll(e))
-        .catch((e) => {
-          if (!alive) return;
-          setAll([]);
-          setError(e instanceof Error ? e.message : String(e));
-        });
-    }
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const categories = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const e of all ?? []) for (const c of e.categories) if (!seen.has(c.id)) seen.set(c.id, c.name);
-    return [...seen.entries()].map(([id, name]) => ({ id, name }));
-  }, [all]);
-
-  const events = useMemo(() => {
-    if (all === null) return null;
-    return activeCategoryId
-      ? all.filter((e) => e.categories.some((c) => c.id === activeCategoryId))
-      : all;
-  }, [all, activeCategoryId]);
-
-  return { events, categories, activeCategoryId, setActiveCategoryId, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
+  return { ...state, setActiveCategoryId: store.setActiveCategoryId };
 }
