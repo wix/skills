@@ -16,14 +16,6 @@ shape of its solution. Deploy it as-is when the brief doesn't contradict it. Whe
 asks for something that shape doesn't express — or once the site exists and the work turns to
 managing or extending it — that's `wix-docs` and `wix-manage`, not a workaround here.
 
-## Relationship to sibling skills
-
-| Skill                        | Use when                                                                                                               |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **wix-headless-fast** (this) | A supported vertical fits the request and the frontend is Astro or React — the fast path.                              |
-| `wix-headless`               | A vertical this skill doesn't ship yet, backend-only runs, or stripe/self-managed project types.                       |
-| `wix-vibe-headless`          | Client-only REST over a `WIX_CLIENT_ID` inside a vibe platform (Base44 etc.) — no SDK, no CLI.                         |
-
 ## The model
 
 - **Shipped code is the implementation.** Every vertical ships under `references/<vertical>/`:
