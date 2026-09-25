@@ -138,13 +138,15 @@ doesn't express — or once the site exists and the work turns to managing or ex
    `attached` says so (`hosting: "reused"`) with its URL — `wix release` from this project
    replaces that frontend; say so when you close.
 
-   **Look at what the site holds before you design.** A new site's content is the plan you
-   wrote; an existing site's content you have never seen. Read the entities the chosen
-   verticals will render — products and their categories, services and staff, posts, events,
-   plans, forms — how many there are, their names, images and prices, and whatever the brief
-   keys on. These are build-time reads with the **site's** token, `npx -y @wix/cli@latest token
-   --site <siteId>`, sent raw as the `Authorization` header (the account token from the call
-   above does not scope to a site). "Nothing from memory" holds for them: the request comes
+   **Get the measure of the site before you design.** Enough to know what you are building
+   for: what the chosen verticals will render, roughly how much of it, and what it is like — a
+   bakery with six products in three categories designs differently from six hundred. Go
+   deeper only where the brief points (a flash sale on cakes: is there a Cakes category, do the
+   cakes carry a sale price). Everything else the pages read live through the deployed data
+   layer; you are sizing the content, not collecting it. These are build-time reads with the
+   **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
+   `Authorization` header (the account token from the call above does not scope to a site).
+   "Nothing from memory" holds for them: the request comes
    from `wix-manage`'s recipe for the vertical's business solution (installed beside this skill
    by the entry; its SKILL.md indexes them), and from `wix-docs` when `wix-manage` has no read
    for what you need — opened **before the first call**, not after a failed one. A body that is
