@@ -1,3 +1,11 @@
+# FIXME(infra): this scenario runs against the shared eval account with no siteSetup/teardown.
+# If that account is ever enrolled in the Site Import closed beta, Start succeeds and creates a
+# real, live site with nothing to clean it up — this scenario has no way to prevent or reverse
+# that from within the YAML. Until this runs against an account/site verified to be permanently
+# excluded from the beta (or the harness gains a teardown step keyed on whatever `importId` Start
+# returns), treat any accidental site left behind under the harborview-outfitters.example.com
+# source as this scenario's fault and clean it up manually. This needs an infra-side fix, not a
+# skill-text one — flag to whoever owns the shared eval account's provisioning.
 name: sites/site-import-not-enabled
 description: >-
   Verifies the agent handles a Start failure that means the account isn't part of the Site Import
