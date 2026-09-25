@@ -14,8 +14,7 @@
 import { availabilityTimeSlots, eventTimeSlots, bookings as bookingsModule } from "@wix/bookings";
 import { createCart, calculateCart, placeOrder } from "@wix/auto_sdk_ecom_cart-v-2";
 import { redirects as redirectsModule } from "@wix/redirects";
-import { forms as formsModule } from "@wix/forms";
-import { wixModule } from "../sdk";
+import { wixFetch, wixModule } from "../sdk";
 import {
   FALLBACK_FIELDS,
   appointmentSlotsRequest,
@@ -44,7 +43,6 @@ const classSlots = wixModule(eventTimeSlots);
 const bookings = wixModule(bookingsModule);
 const cart = wixModule({ createCart, calculateCart, placeOrder });
 const redirects = wixModule(redirectsModule);
-const forms = wixModule(formsModule);
 
 /**
  * Bookable slots for a service in [from, from + days) — APPOINTMENT and CLASS use different APIs;
@@ -66,12 +64,20 @@ export async function fetchSlots(service: Pick<ServiceDetail, "id" | "type">, wi
 export async function fetchBookingForm(formId: string | null): Promise<BookingFormField[]> {
   if (!formId) return FALLBACK_FIELDS;
   try {
-    // The summary has labels and types; only the full schema says which fields are required.
+    // Over wixFetch, not the @wix/forms `forms` module: that generated module is 15 MB and would
+    // ride into the booking island's client chunk (11 MB per visitor). The summary has labels and
+    // types; only the full schema says which fields are required.
+    const id = encodeURIComponent(formId);
+    const json = async (path: string): Promise<Raw | null> => {
+      const r = await wixFetch(path);
+      return r.ok ? ((await r.json()) as Raw) : null;
+    };
     const [res, form] = await Promise.all([
-      forms.getFormSummary(formId) as Promise<Raw>,
-      (forms.getForm(formId) as Promise<Raw>).catch(() => null),
+      json(`/form-schema-service/v4/forms/${id}/summary`),
+      json(`/form-schema-service/v4/forms/${id}`).catch(() => null),
     ]);
-    return toFormFields(res.formSummary, form);
+    if (!res) return FALLBACK_FIELDS;
+    return toFormFields(res.formSummary, form?.form);
   } catch {
     return FALLBACK_FIELDS;
   }
