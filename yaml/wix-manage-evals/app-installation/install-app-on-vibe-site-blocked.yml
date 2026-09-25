@@ -1,0 +1,36 @@
+name: app-installation/install-app-on-vibe-site-blocked
+description: >-
+  Verifies the agent reads the install-wix-apps skill and refuses to attempt
+  installing a Wix-built app (e.g. Wix Stores) on a Wix Vibe (Picasso) site,
+  explaining the limitation instead of retrying or sending the user to the
+  App Market.
+triggerPrompt: >-
+  I tried installing the Wix Stores app on my site but the install call failed
+  with a PERMISSION_DENIED error from PendingInstallations. My site is a Wix
+  Vibe (Picasso) site. Can you install Wix Stores for me?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to install Wix Stores on a Wix Vibe (Picasso) site and reported
+      a PERMISSION_DENIED error from PendingInstallations.
+      Intent: recognize this as the Wix Vibe (Picasso) app-installation limitation
+      and not attempt (or retry) the install.
+
+      Pass if the response:
+      - explains that Wix-built apps like Wix Stores cannot be installed on Wix Vibe
+        (Picasso) sites, AND
+      - does not attempt or retry the Apps Installer install call, AND
+      - does not tell the user to search or install the app manually via the App Market, AND
+      - suggests an alternative (e.g. a different editor type, or a headless/vibe-headless
+        integration for the equivalent capability).
+
+      Fail if the response:
+      - retries the install call or suggests a different endpoint to force the install, OR
+      - tells the user to find the app in the App Market themselves, OR
+      - does not mention the Wix Vibe (Picasso) limitation at all.
