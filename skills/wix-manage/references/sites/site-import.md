@@ -1,6 +1,6 @@
 ---
 name: "Site Import"
-description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
+description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix — as a brand-new site or into the user's existing one — or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 ---
 
 # Site Import
@@ -129,6 +129,12 @@ calling **Start**, confirm:
   an existing site writes into it directly and can add or overwrite its
   current pages and content, so make sure they understand that before you
   proceed — it isn't a safe side-by-side preview.
+  **If they want their existing site but haven't given a `siteId`, resolve
+  it yourself first** — from the account/site context already available to
+  you, or by querying the account's sites (see the Query Sites skill) — and
+  ask the user to pick when more than one candidate matches what they
+  described. Never guess a `siteId` or silently default to an account-level
+  call just because none was supplied.
 
 Also confirm before calling **Cancel** — it's irreversible.
 
@@ -330,12 +336,8 @@ the user has no way to open a file.
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
   **A `404` or `403` on a site-scoped call *without* `"code": "NOT_ENABLED"`
-  is treated as different** — as meaning the caller isn't authorized for
-  that `siteId` (wrong id, wrong account, no access) rather than a
-  beta-enrollment issue. This hasn't been confirmed against a real
-  site-scoped beta-lockout response the way the account-level shape has,
-  so if this turns out to be wrong for an enrolled account, treat it the
-  same as the account-level case instead. Absent evidence otherwise, tell
+  is different** — it means the caller isn't authorized for that `siteId`
+  (wrong id, wrong account, no access), not a beta-enrollment issue. Tell
   the user the destination site isn't accessible with their current
   connection and stop; don't send them to the beta form for this.
 - For any other unrecognized error or exception on Start — a transient server
