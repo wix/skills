@@ -138,6 +138,18 @@ doesn't express — or once the site exists and the work turns to managing or ex
    `attached` says so (`hosting: "reused"`) with its URL — `wix release` from this project
    replaces that frontend; say so when you close.
 
+   **Look at what the site holds before you design.** A new site's content is the plan you
+   wrote; an existing site's content you have never seen. Read the entities the chosen
+   verticals will render — products and their categories, services and staff, posts, events,
+   plans, forms — how many there are, their names, images and prices, and whatever the brief
+   keys on. These are build-time reads with the **site's** token, `npx -y @wix/cli@latest token
+   --site <siteId>`, sent raw as the `Authorization` header (the account token from the call
+   above does not scope to a site). "Nothing from memory" holds for them: the request comes
+   from `wix-manage`'s recipe for the vertical's business solution (installed beside this skill
+   by the entry; its SKILL.md indexes them), and from `wix-docs` when `wix-manage` has no read
+   for what you need — opened **before the first call**, not after a failed one. A body that is
+   nearly right returns 400 or an empty page, and every guess is a round trip.
+
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
    `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react --plan plan.json` from the project root
