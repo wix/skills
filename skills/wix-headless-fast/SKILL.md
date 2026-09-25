@@ -151,13 +151,23 @@ doesn't express — or once the site exists and the work turns to managing or ex
    **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site).
    **The rule above applies in full: not one of these calls comes from memory.** Open the
-   source first, then call. The vertical's shipped `rest/` module already makes the reads its
-   pages need, as literal requests. Beyond it, two skills the entry installed beside this one:
-   `wix-manage` (`.agents/skills/wix-manage/`) holds REST recipes for managing a site's business
-   solutions — exact endpoint, method and payload per operation, indexed by solution in its
-   SKILL.md; `wix-docs` (`.agents/skills/wix-docs/`) is the Wix API reference — how to find and
-   read the doc page for any endpoint. If the source you opened does not have the call, look
-   further; do not try a variant.
+   source first, then call. Three sources, in this order:
+   - **The vertical's shipped `rest/` module**, at
+     `.agents/skills/wix-headless-fast/references/<vertical>/rest/` — the same reads the pages
+     make, written as literal `fetch` calls: URL, body, `fields`, filter keys. It is not in
+     `src/` (the Astro stack deploys the SDK layer, which hides the body behind a method), so
+     read it from the skill.
+   - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
+     business solutions: exact endpoint, method and payload per operation, curl included. Its
+     SKILL.md is the index, by solution; open the recipe for the vertical's solution.
+   - **`wix-docs`**, at `.agents/skills/wix-docs/` — the Wix API reference, reached by
+     **search, not by browsing files**: the skill folder holds the how-to, not the pages. Open
+     its SKILL.md; it gives one `curl` to semantic search (`POST
+     /mcp-docs-search/v1/docs/search/markdown`, natural-language `search_term`) that returns
+     condensed method docs — endpoint, request example, response shape — and the rule that any
+     `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
+     full page only when the hit lacks what you need.
+   If the source you opened does not have the call, go to the next one; do not try a variant.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
